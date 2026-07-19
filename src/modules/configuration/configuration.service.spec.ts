@@ -29,6 +29,7 @@ describe('ConfigurationService', () => {
         branch: {
           findUnique: jest.fn().mockResolvedValue({
             id: '00000000-0000-0000-0000-000000000002',
+            tenantId: '00000000-0000-0000-0000-000000000001',
             name: 'Main Branch',
             timezone: 'Africa/Nairobi',
             receiptWeekStartDay: 3,
@@ -57,5 +58,41 @@ describe('ConfigurationService', () => {
         redemptionApprovalThresholdKobo: 500000,
       },
     });
+  });
+
+  it('rejects mismatched public tenant and branch ownership', async () => {
+    const service = new ConfigurationService(
+      {
+        get: (key: string) => {
+          const values: Record<string, unknown> = {
+            DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
+            DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
+          };
+
+          return values[key];
+        },
+      } as never,
+      {
+        tenant: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: '00000000-0000-0000-0000-000000000001',
+            name: 'ShopCity',
+          }),
+        },
+        branch: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: '00000000-0000-0000-0000-000000000002',
+            tenantId: '00000000-0000-0000-0000-000000000099',
+            name: 'Main Branch',
+            timezone: 'Africa/Lagos',
+            receiptWeekStartDay: 1,
+          }),
+        },
+      } as never,
+    );
+
+    await expect(service.getPublicConfig()).rejects.toThrow(
+      'Public configuration bootstrap data is inconsistent',
+    );
   });
 });

@@ -26,6 +26,10 @@ export class ConfigurationService {
       throw new Error('Public configuration bootstrap data is missing');
     }
 
+    if (branch.tenantId !== tenant.id) {
+      throw new Error('Public configuration bootstrap data is inconsistent');
+    }
+
     return {
       tenant: {
         id: tenant.id,

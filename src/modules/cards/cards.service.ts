@@ -169,6 +169,10 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
 
+    if (card.status === CardStatus.REPLACED) {
+      throw new BadRequestException('Replaced cards cannot be updated');
+    }
+
     return this.prismaService.$transaction(async (prisma) => {
       if (status === 'ACTIVE') {
         const existingActiveCard = await prisma.card.findFirst({
