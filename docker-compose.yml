@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shopcity-postgres
+    environment:
+      POSTGRES_DB: shopcity
+      POSTGRES_USER: shopcity
+      POSTGRES_PASSWORD: shopcity
+    ports:
+      - '5432:5432'
+    volumes:
+      - shopcity-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopcity-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - shopcity-redis-data:/data
+
+volumes:
+  shopcity-postgres-data:
+  shopcity-redis-data:
