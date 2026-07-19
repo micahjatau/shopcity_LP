@@ -32,7 +32,7 @@ export async function createApp(
 ): Promise<NestFastifyApplication> {
   const app = await createNestApp(options);
 
-  if (options.enableDocs !== false) {
+  if (shouldEnableDocs(options)) {
     registerOpenApi(app);
   }
 
@@ -40,7 +40,7 @@ export async function createApp(
 }
 
 export function buildOpenApiDocument(app: INestApplication) {
-  return SwaggerModule.createDocument(
+  const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
       .setTitle('ShopCity Loyalty Platform')
@@ -48,10 +48,20 @@ export function buildOpenApiDocument(app: INestApplication) {
       .setVersion('1.0.0')
       .addTag('system')
       .addTag('health')
-      .addServer(`/${API_PREFIX}/${versionedPath(API_VERSION)}`)
+      .addTag('auth')
+      .addTag('users')
+      .addTag('branches')
+      .addTag('customers')
+      .addTag('cards')
+      .addTag('audit')
+      .addTag('configuration')
       .addBearerAuth()
       .build(),
   );
+
+  delete document.servers;
+
+  return document;
 }
 
 async function createNestApp(
@@ -115,6 +125,14 @@ function registerOpenApi(app: NestFastifyApplication): void {
   });
 }
 
-function versionedPath(version: string): string {
-  return `v${version}`;
+function shouldEnableDocs(options: CreateAppOptions): boolean {
+  if (options.enableDocs !== undefined) {
+    return options.enableDocs;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.SWAGGER_ENABLED === 'true';
+  }
+
+  return true;
 }

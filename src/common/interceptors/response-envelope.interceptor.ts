@@ -4,14 +4,18 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { map, Observable } from 'rxjs';
-import { FastifyRequest } from 'fastify';
 import { ApiSuccessResponse, isApiEnvelope } from '../types/api-contract';
+import { resolveRequestId, setRequestIdHeader } from '../request-context';
 
 @Injectable()
 export class ResponseEnvelopeInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const reply = context.switchToHttp().getResponse<FastifyReply>();
+    const requestId = resolveRequestId(request);
+    setRequestIdHeader(reply, requestId);
 
     return next.handle().pipe(
       map((data: unknown) => {
@@ -25,6 +29,7 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
           meta: {
             timestamp: new Date().toISOString(),
             path: request.url,
+            requestId,
           },
         };
 

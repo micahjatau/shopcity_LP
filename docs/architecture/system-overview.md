@@ -16,9 +16,19 @@ ShopCity is a backend-first modular monolith that provides a controlled store-cr
 - Keep financial history append-only.
 - Keep API contracts explicit and versioned.
 
+## Module Boundaries
+- Feature code lives in `src/modules/<feature>/`.
+- Shared policy and helpers live in `src/common/`.
+- Configuration lives in `src/config/`.
+- Persistence lives in `src/database/`.
+- Supabase integration lives in `src/supabase/`.
+- Background work lives in `src/jobs/`.
+- Feature modules may only import their own module plus approved cross-cutting modules such as audit/configuration, and they may import shared layers.
+- Shared layers must not import feature modules.
+
 ## Scalability View
 ```text
 HTTP/API -> feature module -> application logic -> Prisma/Supabase/queue
-                         \
+                          \
                           -> shared utilities only when truly generic
 ```

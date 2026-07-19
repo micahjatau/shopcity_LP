@@ -5,6 +5,12 @@ export const DEFAULT_CORS_ORIGIN_ALLOWLIST = [
   'http://127.0.0.1:3000',
 ];
 
+export const SESSION_COOKIE_NAME = 'shopcity_session';
+export const CSRF_COOKIE_NAME = 'shopcity_csrf';
+export const DEFAULT_PUBLIC_TENANT_NAME = 'ShopCity';
+export const DEFAULT_PUBLIC_BRANCH_NAME = 'Main Branch';
+export const DEFAULT_PUBLIC_BRANCH_ID = '00000000-0000-0000-0000-000000000001';
+
 export function parseCsvList(value: string | undefined): string[] {
   if (!value) {
     return [];

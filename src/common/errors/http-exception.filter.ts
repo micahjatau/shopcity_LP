@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiErrorResponse } from '../types/api-contract';
+import { isDomainErrorBody } from './domain.exception';
+import { resolveRequestId, setRequestIdHeader } from '../request-context';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -17,6 +19,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const context = host.switchToHttp();
     const response = context.getResponse<FastifyReply>();
     const request = context.getRequest<FastifyRequest>();
+    const requestId = resolveRequestId(request);
+    setRequestIdHeader(response, requestId);
 
     const status =
       exception instanceof HttpException
@@ -38,7 +42,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       success: false,
       error: {
         statusCode: status,
-        code: errorCodeFromStatus(status),
+        code: errorCodeFromBody(body) ?? errorCodeFromStatus(status),
         message: Array.isArray(message)
           ? message.join(', ')
           : (message ?? 'Internal server error'),
@@ -47,6 +51,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       meta: {
         timestamp: new Date().toISOString(),
         path: request.url,
+        requestId,
       },
     };
 
@@ -54,6 +59,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     void response.status(status).send(error);
   }
+}
+
+function errorCodeFromBody(body: unknown): string | undefined {
+  if (isDomainErrorBody(body)) {
+    return body.code;
+  }
+
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'code' in body &&
+    typeof (body as { code?: unknown }).code === 'string'
+  ) {
+    return (body as { code: string }).code;
+  }
+
+  return undefined;
 }
 
 function errorCodeFromStatus(status: number): string {
@@ -69,7 +91,9 @@ function errorCodeFromStatus(status: number): string {
     case 409:
       return 'CONFLICT';
     case 422:
-      return 'UNPROCESSABLE_ENTITY';
+      return 'POLICY_VIOLATION';
+    case 503:
+      return 'DEPENDENCY_UNAVAILABLE';
     default:
       return status >= 500 ? 'SYSTEM_ERROR' : `HTTP_${status}`;
   }

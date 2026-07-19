@@ -19,9 +19,25 @@ export const envValidationSchema = Joi.object({
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
+  MIN_REDEMPTION_KOBO: Joi.number().integer().min(0).default(500),
+  MAX_REDEMPTION_BASKET_PERCENT: Joi.number()
+    .integer()
+    .min(1)
+    .max(100)
+    .default(30),
+  PURCHASE_FLAG_THRESHOLD_KOBO: Joi.number().integer().min(0).default(100000),
+  PURCHASE_APPROVAL_THRESHOLD_KOBO: Joi.number()
+    .integer()
+    .min(0)
+    .default(200000),
+  REDEMPTION_APPROVAL_THRESHOLD_KOBO: Joi.number()
+    .integer()
+    .min(0)
+    .default(5000),
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),
+  SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   CORS_ORIGIN_ALLOWLIST: requiredString(
     'http://localhost:3000,http://127.0.0.1:3000',
   ),

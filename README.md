@@ -92,6 +92,17 @@ npm run start:dev
 - Financial values are stored as integer kobo only.
 - The backend owns ledger integrity, approvals, expiry, fraud handling, application sessions, RBAC, and SMS background work.
 
+## Module Boundary Rules
+
+- Feature code stays inside `src/modules/<feature>/`.
+- Shared helpers and policies stay in `src/common/`.
+- Configuration stays in `src/config/`.
+- Persistence stays in `src/database/`.
+- Supabase integration stays in `src/supabase/`.
+- Background work stays in `src/jobs/`.
+- Feature modules may import only their own module plus approved cross-cutting modules such as audit/configuration.
+- Shared layers must not import feature modules.
+
 ## Target Infrastructure
 
 - Supabase for staff identity/password verification and Postgres-backed data services.

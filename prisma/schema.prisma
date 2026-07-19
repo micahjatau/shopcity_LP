@@ -6,3 +6,209 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DeviceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserRole {
+  CASHIER
+  SUPERVISOR
+  ADMIN
+  SYSTEM
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+  SUSPENDED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum CardStatus {
+  ACTIVE
+  BLOCKED
+  REPLACED
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model Tenant {
+  id        String       @id @default(uuid())
+  name      String
+  status    TenantStatus  @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  branches  Branch[]
+  devices   Device[]
+  users     User[]
+  customers Customer[]
+  cards     Card[]
+  auditLogs AuditLog[]
+}
+
+model Branch {
+  id                  String       @id @default(uuid())
+  tenantId            String
+  name                String
+  timezone            String       @default("Africa/Lagos")
+  receiptWeekStartDay Int          @default(1)
+  status              BranchStatus @default(ACTIVE)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  devices             Device[]
+  users               User[]
+  customers           Customer[]
+  receipts            Receipt[]
+
+  @@index([tenantId])
+}
+
+model Device {
+  id              String       @id @default(uuid())
+  tenantId        String
+  branchId        String
+  name            String
+  fingerprintHash String       @unique
+  status          DeviceStatus @default(ACTIVE)
+  lastSeenAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch          Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, branchId])
+}
+
+model User {
+  id                 String     @id @default(uuid())
+  tenantId           String
+  branchId           String?
+  username           String
+  supabaseAuthId     String?    @unique
+  role               UserRole
+  status             UserStatus @default(ACTIVE)
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch             Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  sessions           Session[]
+  registeredCustomers Customer[] @relation("CustomerRegisteredBy")
+  cardsIssued        Card[]     @relation("CardIssuedBy")
+  auditLogs          AuditLog[]
+
+  @@unique([tenantId, username])
+  @@index([tenantId, role])
+}
+
+model Session {
+  id               String        @id @default(uuid())
+  userId           String
+  sessionTokenHash String        @unique
+  refreshTokenHash  String        @unique
+  csrfTokenHash     String
+  status           SessionStatus @default(ACTIVE)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model Customer {
+  id             String         @id @default(uuid())
+  tenantId       String
+  branchId       String
+  fullName       String
+  phoneE164      String
+  isStaff        Boolean        @default(false)
+  status         CustomerStatus @default(ACTIVE)
+  registeredBy   String?
+  blockedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  registeredByUser User?        @relation("CustomerRegisteredBy", fields: [registeredBy], references: [id], onDelete: SetNull)
+  cards          Card[]
+
+  @@unique([tenantId, phoneE164])
+  @@index([tenantId, status])
+}
+
+model Card {
+  id               String     @id @default(uuid())
+  tenantId         String
+  customerId       String
+  barcodeValue     String
+  status           CardStatus @default(ACTIVE)
+  issuedBy         String?
+  issuedAt         DateTime   @default(now())
+  blockedAt        DateTime?
+  replacedByCardId String?    @unique
+  replacedAt       DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer         Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  issuedByUser     User?      @relation("CardIssuedBy", fields: [issuedBy], references: [id], onDelete: SetNull)
+  replacedByCard   Card?      @relation("CardReplacement", fields: [replacedByCardId], references: [id], onDelete: SetNull)
+  replacedCards    Card[]     @relation("CardReplacement")
+
+  @@unique([tenantId, barcodeValue])
+  @@index([tenantId, customerId, status])
+}
+
+model Receipt {
+  id                 String   @id @default(uuid())
+  branchId           String
+  receiptNumber      String
+  receiptWeekStart   DateTime
+  purchaseAmountKobo BigInt
+  cashierId          String?
+  createdAt          DateTime @default(now())
+  branch             Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@unique([branchId, receiptNumber, receiptWeekStart])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  requestId  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([actorId, createdAt])
+}

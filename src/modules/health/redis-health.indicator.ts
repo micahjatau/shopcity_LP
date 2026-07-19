@@ -29,9 +29,25 @@ export class RedisHealthIndicator extends HealthIndicator {
       }, 2000);
 
       socket.once('connect', () => {
-        clearTimeout(timeout);
-        socket.end();
-        resolve();
+        const ping = Buffer.from('*1\r\n$4\r\nPING\r\n', 'utf8');
+        socket.write(ping);
+      });
+
+      let responseBuffer = Buffer.alloc(0);
+
+      socket.on('data', (chunk) => {
+        responseBuffer = Buffer.concat([responseBuffer, chunk]);
+        if (responseBuffer.includes(Buffer.from('PONG'))) {
+          clearTimeout(timeout);
+          socket.end();
+          resolve();
+        }
+
+        if (responseBuffer.includes(Buffer.from('-ERR'))) {
+          clearTimeout(timeout);
+          socket.destroy();
+          reject(new Error('Redis PING failed'));
+        }
       });
 
       socket.once('error', (error) => {

@@ -17,13 +17,15 @@ describe('AppController (e2e)', () => {
         const body = response.body as {
           success: boolean;
           data: string;
-          meta: { path: string; timestamp: string };
+          meta: { path: string; timestamp: string; requestId: string };
         };
 
         expect(body.success).toBe(true);
         expect(body.data).toBe('ShopCity backend foundation is ready');
         expect(body.meta.path).toBe('/api/v1');
         expect(typeof body.meta.timestamp).toBe('string');
+        expect(typeof body.meta.requestId).toBe('string');
+        expect(response.headers['x-request-id']).toBe(body.meta.requestId);
       });
   });
 

@@ -1,6 +1,7 @@
 export interface ApiMeta {
   timestamp: string;
   path: string;
+  requestId: string;
 }
 
 export interface ApiSuccessResponse<T> {

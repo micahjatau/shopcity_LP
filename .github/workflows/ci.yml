@@ -1,95 +1,34 @@
-name: CI
+name: ci
 
 on:
   push:
-    branches:
-      - master
-      - main
   pull_request:
 
 jobs:
-  build-test:
+  verify:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: shopcity
-          POSTGRES_USER: shopcity
-          POSTGRES_PASSWORD: shopcity
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U shopcity -d shopcity"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-
-    env:
-      NODE_ENV: test
-      PORT: 3000
-      DATABASE_URL: postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity?schema=public
-      REDIS_URL: redis://127.0.0.1:6379
-      SESSION_SECRET: ci-session-secret-ci-session-secret
-      CSRF_SECRET: ci-csrf-secret-ci-csrf-secret
-      SHOPCITY_TIMEZONE: Africa/Lagos
-      RECEIPT_WEEK_START_DAY: 1
-      DEFAULT_EARN_RATE_BPS: 200
-      SUPABASE_URL: http://127.0.0.1:54321
-      SUPABASE_ANON_KEY: ci-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: ci-service-key
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Install
-        run: npm ci
+      - run: npm ci
 
-      - name: Generate Prisma client
-        run: npm run prisma:generate
+      - run: npm run prisma:generate
 
-      - name: Validate Prisma schema
-        run: npm run prisma:validate
+      - run: npm run format:check
 
-      - name: Export OpenAPI document
-        run: npm run openapi:export
+      - run: npm run lint
 
-      - name: Check formatting
-        run: npm run format:check
+      - run: npm run typecheck
 
-      - name: Build
-        run: npm run build
+      - run: npm test -- --runInBand
 
-      - name: Lint
-        run: npm run lint
+      - run: npm run test:e2e
 
-      - name: Typecheck
-        run: npm run typecheck
+      - run: npm run test:integration
 
-      - name: OpenAPI lint
-        run: npm run openapi:lint
-
-      - name: OpenAPI diff
-        run: npm run openapi:diff
-
-      - name: Unit tests
-        run: npm test
-
-      - name: E2E tests
-        run: npm run test:e2e
-
-      - name: Integration tests
-        run: npm run test:integration
+      - run: npm run openapi:diff

@@ -7,6 +7,17 @@ import { envValidationSchema } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { BranchesModule } from './modules/branches/branches.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { CardsModule } from './modules/cards/cards.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { ConfigurationModule } from './modules/configuration/configuration.module';
+import { APP_GUARD } from '@nestjs/core';
+import { SessionGuard } from './common/auth/session.guard';
+import { CsrfGuard } from './common/auth/csrf.guard';
+import { RolesGuard } from './common/auth/roles.guard';
 
 @Module({
   imports: [
@@ -34,8 +45,29 @@ import { SupabaseModule } from './supabase/supabase.module';
     PrismaModule,
     HealthModule,
     SupabaseModule,
+    AuthModule,
+    UsersModule,
+    BranchesModule,
+    CustomersModule,
+    CardsModule,
+    AuditModule,
+    ConfigurationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: SessionGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}
