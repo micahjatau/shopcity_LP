@@ -1,13 +1,26 @@
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+  IsUUID,
+} from 'class-validator';
+import { DeviceStatus } from '@prisma/client';
 
 export class CreateBranchDto {
+  @ApiProperty()
   @IsString()
   name!: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   timezone?: string;
 
+  @ApiPropertyOptional({ minimum: 0, maximum: 6 })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -16,14 +29,17 @@ export class CreateBranchDto {
 }
 
 export class UpdateBranchDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   name?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   timezone?: string;
 
+  @ApiPropertyOptional({ minimum: 0, maximum: 6 })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -32,22 +48,28 @@ export class UpdateBranchDto {
 }
 
 export class CreateDeviceDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
   @IsString()
   branchId!: string;
 
+  @ApiProperty()
   @IsString()
   name!: string;
 
+  @ApiProperty()
   @IsString()
   fingerprintHash!: string;
 }
 
 export class UpdateDeviceDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   name?: string;
 
+  @ApiPropertyOptional({ enum: DeviceStatus })
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsEnum(DeviceStatus)
+  status?: DeviceStatus;
 }

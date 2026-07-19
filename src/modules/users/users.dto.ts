@@ -1,27 +1,42 @@
-import { IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsUUID,
+  IsEmail,
+  IsString,
+} from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class CreateUserDto {
+  @ApiProperty({ example: 'admin@shopcity.local' })
+  @IsEmail()
   @IsString()
   username!: string;
 
+  @ApiProperty({ minLength: 1 })
   @IsString()
   password!: string;
 
-  @IsString()
+  @ApiProperty({ enum: UserRole })
+  @IsEnum(UserRole)
   role!: UserRole;
 
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   branchId?: string;
 }
 
 export class UpdateUserRoleDto {
-  @IsString()
+  @ApiProperty({ enum: UserRole })
+  @IsEnum(UserRole)
   role!: UserRole;
 }
 
 export class UpdateUserStatusDto {
-  @IsString()
-  status!: string;
+  @ApiProperty({ enum: ['ACTIVE', 'DISABLED', 'SUSPENDED'] })
+  @IsIn(['ACTIVE', 'DISABLED', 'SUSPENDED'])
+  status!: 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
 }

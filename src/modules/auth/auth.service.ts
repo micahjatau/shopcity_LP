@@ -11,7 +11,6 @@ import { hashToken } from '../../common/auth/session.guard';
 interface IssuedSession {
   context: AuthContext;
   sessionToken: string;
-  refreshToken: string;
   csrfToken: string;
 }
 
@@ -100,40 +99,55 @@ export class AuthService {
       this.configService.get<string>('SESSION_SECRET') ?? '';
     const csrfSecret = this.configService.get<string>('CSRF_SECRET') ?? '';
 
-    const session = await this.prismaService.session.create({
-      data: {
-        userId,
-        sessionTokenHash: hashToken(sessionToken, sessionSecret),
-        refreshTokenHash: hashToken(refreshToken, sessionSecret),
-        csrfTokenHash: createHash('sha256')
-          .update(`${csrfSecret}:${csrfToken}`)
-          .digest('hex'),
-        expiresAt,
-        lastUsedAt: new Date(),
-      },
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const session = await prisma.session.create({
+        data: {
+          userId,
+          sessionTokenHash: hashToken(sessionToken, sessionSecret),
+          refreshTokenHash: hashToken(refreshToken, sessionSecret),
+          csrfTokenHash: createHash('sha256')
+            .update(`${csrfSecret}:${csrfToken}`)
+            .digest('hex'),
+          expiresAt,
+          lastUsedAt: new Date(),
+        },
+      });
 
-    const user = await this.prismaService.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
 
-    await this.auditService.record({
-      tenantId,
-      actorId: userId,
-      action,
-      entityType: 'session',
-      entityId: session.id,
-      metadata: { expiresAt },
-    });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: userId,
+        action,
+        entityType: 'session',
+        entityId: session.id,
+        metadata: { expiresAt },
+      });
 
+      return {
+        context: { session, user },
+        sessionToken,
+        csrfToken,
+      };
+    });
+  }
+
+  toResponse(context: AuthContext) {
     return {
-      context: { session, user },
-      sessionToken,
-      refreshToken,
-      csrfToken,
+      user: {
+        id: context.user.id,
+        username: context.user.username,
+        role: context.user.role,
+        branchId: context.user.branchId,
+      },
+      session: {
+        expiresAt: context.session.expiresAt.toISOString(),
+      },
     };
   }
 

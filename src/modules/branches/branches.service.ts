@@ -20,25 +20,27 @@ export class BranchesService {
     actor: AuthContext,
     data: { name: string; timezone?: string; receiptWeekStartDay?: number },
   ) {
-    const branch = await this.prismaService.branch.create({
-      data: {
+    return this.prismaService.$transaction(async (prisma) => {
+      const branch = await prisma.branch.create({
+        data: {
+          tenantId,
+          name: data.name,
+          timezone: data.timezone,
+          receiptWeekStartDay: data.receiptWeekStartDay,
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
         tenantId,
-        name: data.name,
-        timezone: data.timezone,
-        receiptWeekStartDay: data.receiptWeekStartDay,
-      },
-    });
+        actorId: actor.user.id,
+        action: 'branch.create',
+        entityType: 'branch',
+        entityId: branch.id,
+        metadata: branch,
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'branch.create',
-      entityType: 'branch',
-      entityId: branch.id,
-      metadata: branch,
+      return branch;
     });
-
-    return branch;
   }
 
   async updateBranch(
@@ -54,21 +56,23 @@ export class BranchesService {
       throw new NotFoundException('Branch not found');
     }
 
-    const updated = await this.prismaService.branch.update({
-      where: { id: branchId },
-      data,
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.branch.update({
+        where: { id: branchId },
+        data,
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'branch.update',
-      entityType: 'branch',
-      entityId: updated.id,
-      metadata: data,
-    });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'branch.update',
+        entityType: 'branch',
+        entityId: updated.id,
+        metadata: data,
+      });
 
-    return updated;
+      return updated;
+    });
   }
 
   listDevices(tenantId: string) {
@@ -87,25 +91,27 @@ export class BranchesService {
       throw new NotFoundException('Branch not found');
     }
 
-    const device = await this.prismaService.device.create({
-      data: {
+    return this.prismaService.$transaction(async (prisma) => {
+      const device = await prisma.device.create({
+        data: {
+          tenantId,
+          branchId: data.branchId,
+          name: data.name,
+          fingerprintHash: data.fingerprintHash,
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
         tenantId,
-        branchId: data.branchId,
-        name: data.name,
-        fingerprintHash: data.fingerprintHash,
-      },
-    });
+        actorId: actor.user.id,
+        action: 'device.create',
+        entityType: 'device',
+        entityId: device.id,
+        metadata: device,
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'device.create',
-      entityType: 'device',
-      entityId: device.id,
-      metadata: device,
+      return device;
     });
-
-    return device;
   }
 
   async updateDevice(
@@ -121,23 +127,25 @@ export class BranchesService {
       throw new NotFoundException('Device not found');
     }
 
-    const updated = await this.prismaService.device.update({
-      where: { id: deviceId },
-      data: {
-        ...(data.name ? { name: data.name } : {}),
-        ...(data.status ? { status: data.status as DeviceStatus } : {}),
-      },
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.device.update({
+        where: { id: deviceId },
+        data: {
+          ...(data.name ? { name: data.name } : {}),
+          ...(data.status ? { status: data.status as DeviceStatus } : {}),
+        },
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'device.update',
-      entityType: 'device',
-      entityId: updated.id,
-      metadata: data,
-    });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'device.update',
+        entityType: 'device',
+        entityId: updated.id,
+        metadata: data,
+      });
 
-    return updated;
+      return updated;
+    });
   }
 }

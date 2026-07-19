@@ -19,11 +19,19 @@ jobs:
 
       - run: npm run prisma:generate
 
+      - run: npm run prisma:validate
+
+      - run: npm run build
+
       - run: npm run format:check
 
       - run: npm run lint
 
+      - run: npm run architecture:check
+
       - run: npm run typecheck
+
+      - run: npm run openapi:lint
 
       - run: npm test -- --runInBand
 
@@ -32,3 +40,5 @@ jobs:
       - run: npm run test:integration
 
       - run: npm run openapi:diff
+
+      - run: git diff --exit-code -- docs/api/openapi.json

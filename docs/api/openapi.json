@@ -1435,7 +1435,58 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "required": [
+                        "user",
+                        "session"
+                      ],
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "username",
+                            "role",
+                            "branchId"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "username": {
+                              "type": "string",
+                              "example": "admin@shopcity.local"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "CASHIER",
+                                "SUPERVISOR",
+                                "ADMIN",
+                                "SYSTEM"
+                              ]
+                            },
+                            "branchId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            }
+                          }
+                        },
+                        "session": {
+                          "type": "object",
+                          "required": [
+                            "expiresAt"
+                          ],
+                          "properties": {
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -1901,7 +1952,58 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "required": [
+                        "user",
+                        "session"
+                      ],
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "username",
+                            "role",
+                            "branchId"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "username": {
+                              "type": "string",
+                              "example": "admin@shopcity.local"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "CASHIER",
+                                "SUPERVISOR",
+                                "ADMIN",
+                                "SYSTEM"
+                              ]
+                            },
+                            "branchId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            }
+                          }
+                        },
+                        "session": {
+                          "type": "object",
+                          "required": [
+                            "expiresAt"
+                          ],
+                          "properties": {
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -2833,7 +2935,58 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "required": [
+                        "user",
+                        "session"
+                      ],
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "username",
+                            "role",
+                            "branchId"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "username": {
+                              "type": "string",
+                              "example": "admin@shopcity.local"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "CASHIER",
+                                "SUPERVISOR",
+                                "ADMIN",
+                                "SYSTEM"
+                              ]
+                            },
+                            "branchId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            }
+                          }
+                        },
+                        "session": {
+                          "type": "object",
+                          "required": [
+                            "expiresAt"
+                          ],
+                          "properties": {
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -12947,7 +13100,85 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "required": [
+                        "tenant",
+                        "branch",
+                        "policies"
+                      ],
+                      "properties": {
+                        "tenant": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "branch": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "name",
+                            "timezone",
+                            "receiptWeekStartDay"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "timezone": {
+                              "type": "string"
+                            },
+                            "receiptWeekStartDay": {
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "policies": {
+                          "type": "object",
+                          "required": [
+                            "defaultEarnRateBps",
+                            "minRedemptionKobo",
+                            "maxRedemptionBasketPercent",
+                            "purchaseFlagThresholdKobo",
+                            "purchaseApprovalThresholdKobo",
+                            "redemptionApprovalThresholdKobo"
+                          ],
+                          "properties": {
+                            "defaultEarnRateBps": {
+                              "type": "integer"
+                            },
+                            "minRedemptionKobo": {
+                              "type": "integer"
+                            },
+                            "maxRedemptionBasketPercent": {
+                              "type": "integer"
+                            },
+                            "purchaseFlagThresholdKobo": {
+                              "type": "integer"
+                            },
+                            "purchaseApprovalThresholdKobo": {
+                              "type": "integer"
+                            },
+                            "redemptionApprovalThresholdKobo": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -13447,59 +13678,248 @@
     "schemas": {
       "LoginDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "admin@shopcity.local"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "example": "password"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
       },
       "CreateUserDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "admin@shopcity.local"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CASHIER",
+              "SUPERVISOR",
+              "ADMIN",
+              "SYSTEM"
+            ]
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "role"
+        ]
       },
       "UpdateUserRoleDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "CASHIER",
+              "SUPERVISOR",
+              "ADMIN",
+              "SYSTEM"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ]
       },
       "UpdateUserStatusDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED",
+              "SUSPENDED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "CreateBranchDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "receiptWeekStartDay": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "UpdateBranchDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "receiptWeekStartDay": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 6
+          }
+        }
       },
       "CreateDeviceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "branchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fingerprintHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "branchId",
+          "name",
+          "fingerprintHash"
+        ]
       },
       "UpdateDeviceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ]
+          }
+        }
       },
       "CreateCustomerDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "isStaff": {
+            "type": "boolean"
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "fullName",
+          "phone"
+        ]
       },
       "UpdateCustomerDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "isStaff": {
+            "type": "boolean"
+          }
+        }
       },
       "UpdateCustomerStatusDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "BLOCKED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "CreateCardDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "barcodeValue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "customerId",
+          "barcodeValue"
+        ]
       },
       "ReplaceCardDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "barcodeValue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "barcodeValue"
+        ]
       },
       "UpdateCardStatusDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "BLOCKED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       }
     }
   }

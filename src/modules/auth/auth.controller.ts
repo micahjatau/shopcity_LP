@@ -10,7 +10,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
-import { LoginDto } from './auth.dto';
+import { LoginDto, authResponseSchema } from './auth.dto';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
 import {
   CSRF_COOKIE_NAME,
@@ -38,7 +38,10 @@ export class AuthController {
   @PublicRoute()
   @Version('1')
   @HttpCode(200)
-  @apiSuccessEnvelopeResponse({ description: 'Authenticated session created' })
+  @apiSuccessEnvelopeResponse({
+    description: 'Authenticated session created',
+    dataSchema: authResponseSchema(),
+  })
   @ApiOperation({ summary: 'Create authenticated session' })
   async login(
     @Body() dto: LoginDto,
@@ -53,17 +56,30 @@ export class AuthController {
     );
 
     reply.header('Set-Cookie', [
-      buildCookie(SESSION_COOKIE_NAME, issued.sessionToken, maxAge),
-      buildCsrfCookie(CSRF_COOKIE_NAME, issued.csrfToken, maxAge),
+      buildCookie(
+        SESSION_COOKIE_NAME,
+        issued.sessionToken,
+        maxAge,
+        process.env.NODE_ENV === 'production',
+      ),
+      buildCsrfCookie(
+        CSRF_COOKIE_NAME,
+        issued.csrfToken,
+        maxAge,
+        process.env.NODE_ENV === 'production',
+      ),
     ]);
 
-    return issued.context;
+    return this.authService.toResponse(issued.context);
   }
 
   @Post('refresh')
   @Version('1')
   @HttpCode(200)
-  @apiSuccessEnvelopeResponse({ description: 'Session rotated' })
+  @apiSuccessEnvelopeResponse({
+    description: 'Session rotated',
+    dataSchema: authResponseSchema(),
+  })
   @ApiOperation({ summary: 'Rotate authenticated session' })
   async refresh(
     @CurrentSession() context: AuthContext,
@@ -78,11 +94,21 @@ export class AuthController {
     );
 
     reply.header('Set-Cookie', [
-      buildCookie(SESSION_COOKIE_NAME, issued.sessionToken, maxAge),
-      buildCsrfCookie(CSRF_COOKIE_NAME, issued.csrfToken, maxAge),
+      buildCookie(
+        SESSION_COOKIE_NAME,
+        issued.sessionToken,
+        maxAge,
+        process.env.NODE_ENV === 'production',
+      ),
+      buildCsrfCookie(
+        CSRF_COOKIE_NAME,
+        issued.csrfToken,
+        maxAge,
+        process.env.NODE_ENV === 'production',
+      ),
     ]);
 
-    return issued.context;
+    return this.authService.toResponse(issued.context);
   }
 
   @Post('logout')
@@ -96,17 +122,20 @@ export class AuthController {
   ) {
     await this.authService.logout(context.session.id);
     reply.header('Set-Cookie', [
-      clearCookie(SESSION_COOKIE_NAME),
-      clearCookie(CSRF_COOKIE_NAME),
+      clearCookie(SESSION_COOKIE_NAME, process.env.NODE_ENV === 'production'),
+      clearCookie(CSRF_COOKIE_NAME, process.env.NODE_ENV === 'production'),
     ]);
     return { status: 'ok' };
   }
 
   @Get('me')
   @Version('1')
-  @apiSuccessEnvelopeResponse({ description: 'Current user and session' })
+  @apiSuccessEnvelopeResponse({
+    description: 'Current user and session',
+    dataSchema: authResponseSchema(),
+  })
   @ApiOperation({ summary: 'Read current authenticated user' })
   me(@CurrentSession() context: AuthContext) {
-    return this.authService.me(context);
+    return this.authService.toResponse(context);
   }
 }

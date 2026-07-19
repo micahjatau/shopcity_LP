@@ -32,18 +32,25 @@ export class CsrfGuard implements CanActivate {
       );
     }
 
-    const providedToken =
+    const headerToken =
       (request.headers['x-csrf-token'] as string | undefined) ??
-      (request.headers['x-xsrf-token'] as string | undefined) ??
-      parseCsrfCookie(request.headers.cookie, CSRF_COOKIE_NAME);
+      (request.headers['x-xsrf-token'] as string | undefined);
+    const cookieToken = parseCsrfCookie(
+      request.headers.cookie,
+      CSRF_COOKIE_NAME,
+    );
 
-    if (!providedToken) {
+    if (!headerToken || !cookieToken) {
       throw new ForbiddenException('CSRF token missing');
+    }
+
+    if (headerToken !== cookieToken) {
+      throw new ForbiddenException('CSRF token mismatch');
     }
 
     const secret = process.env.CSRF_SECRET ?? '';
     const providedHash = createHash('sha256')
-      .update(`${secret}:${providedToken}`)
+      .update(`${secret}:${headerToken}`)
       .digest('hex');
 
     if (!timingSafeEquals(contextState.session.csrfTokenHash, providedHash)) {

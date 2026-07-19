@@ -20,6 +20,7 @@ ShopCity is a backend-first modular monolith that provides a controlled store-cr
 - Feature code lives in `src/modules/<feature>/`.
 - Shared policy and helpers live in `src/common/`.
 - Configuration lives in `src/config/`.
+- Public configuration should be sourced from validated config/env values and kept in sync with the seed data.
 - Persistence lives in `src/database/`.
 - Supabase integration lives in `src/supabase/`.
 - Background work lives in `src/jobs/`.

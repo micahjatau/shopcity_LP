@@ -10,7 +10,7 @@ Backend foundation for the ShopCity loyalty MVP.
 ## Current App
 
 - App entrypoint: `src/main.ts`
-- Default route: `GET /` in `src/app.controller.ts`
+- Default route: `GET /api/v1` in `src/app.controller.ts`
 - Supabase identity/DB wiring: `src/supabase/`
 - Tests: unit tests in `src/**/*.spec.ts`, e2e tests in `test/**/*.e2e-spec.ts`, integration tests in `test/**/*.int-spec.ts`
 
@@ -117,6 +117,13 @@ npm run start:dev
 - `REDIS_URL`
 - `SESSION_SECRET`
 - `CSRF_SECRET`
+- `MIN_REDEMPTION_KOBO`
+- `PURCHASE_FLAG_THRESHOLD_KOBO`
+- `PURCHASE_APPROVAL_THRESHOLD_KOBO`
+- `REDEMPTION_APPROVAL_THRESHOLD_KOBO`
+- `SWAGGER_ENABLED`
+- `DEFAULT_PUBLIC_TENANT_ID`
+- `DEFAULT_PUBLIC_BRANCH_ID`
 - `SHOPCITY_TIMEZONE`
 - `RECEIPT_WEEK_START_DAY`
 - `DEFAULT_EARN_RATE_BPS`

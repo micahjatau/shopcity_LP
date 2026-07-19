@@ -45,15 +45,32 @@ export class CustomersService {
   async createCustomer(
     tenantId: string,
     actor: AuthContext,
-    data: { fullName: string; phone: string; isStaff?: boolean },
+    data: {
+      fullName: string;
+      phone: string;
+      isStaff?: boolean;
+      branchId?: string;
+    },
   ) {
     const phoneE164 = normalizePhoneToE164(data.phone);
     if (!phoneE164.startsWith('+')) {
       throw new BadRequestException('Phone number is invalid');
     }
 
+    const branchId = data.branchId ?? actor.user.branchId ?? undefined;
+    if (!branchId) {
+      throw new BadRequestException('Branch is required for customer creation');
+    }
+
+    const branch = await this.prismaService.branch.findFirst({
+      where: { id: branchId, tenantId },
+    });
+    if (!branch) {
+      throw new BadRequestException('Branch not found for tenant');
+    }
+
     const existing = await this.prismaService.customer.findFirst({
-      where: { tenantId, phoneE164, status: CustomerStatus.ACTIVE },
+      where: { tenantId, phoneE164 },
     });
     if (existing) {
       throw new ConflictException(
@@ -61,33 +78,29 @@ export class CustomersService {
       );
     }
 
-    const customer = await this.prismaService.customer.create({
-      data: {
+    return this.prismaService.$transaction(async (prisma) => {
+      const customer = await prisma.customer.create({
+        data: {
+          tenantId,
+          branchId,
+          fullName: data.fullName,
+          phoneE164,
+          isStaff: data.isStaff ?? false,
+          registeredBy: actor.user.id,
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
         tenantId,
-        branchId:
-          actor.user.branchId ??
-          (
-            await this.prismaService.branch.findFirstOrThrow({
-              where: { tenantId },
-            })
-          ).id,
-        fullName: data.fullName,
-        phoneE164,
-        isStaff: data.isStaff ?? false,
-        registeredBy: actor.user.id,
-      },
-    });
+        actorId: actor.user.id,
+        action: 'customer.create',
+        entityType: 'customer',
+        entityId: customer.id,
+        metadata: customer,
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'customer.create',
-      entityType: 'customer',
-      entityId: customer.id,
-      metadata: customer,
+      return customer;
     });
-
-    return customer;
   }
 
   async updateCustomer(
@@ -106,7 +119,6 @@ export class CustomersService {
         where: {
           tenantId,
           phoneE164,
-          status: CustomerStatus.ACTIVE,
           NOT: { id },
         },
       });
@@ -117,25 +129,38 @@ export class CustomersService {
       }
     }
 
-    const updated = await this.prismaService.customer.update({
-      where: { id },
-      data: {
-        ...(data.fullName ? { fullName: data.fullName } : {}),
-        ...(data.phone ? { phoneE164 } : {}),
-        ...(typeof data.isStaff === 'boolean' ? { isStaff: data.isStaff } : {}),
-      },
-    });
+    if (data.phone || data.fullName) {
+      const branch = await this.prismaService.branch.findFirst({
+        where: { id: customer.branchId, tenantId },
+      });
+      if (!branch) {
+        throw new BadRequestException('Branch not found for tenant');
+      }
+    }
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'customer.update',
-      entityType: 'customer',
-      entityId: updated.id,
-      metadata: data,
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.customer.update({
+        where: { id },
+        data: {
+          ...(data.fullName ? { fullName: data.fullName } : {}),
+          ...(data.phone ? { phoneE164 } : {}),
+          ...(typeof data.isStaff === 'boolean'
+            ? { isStaff: data.isStaff }
+            : {}),
+        },
+      });
 
-    return updated;
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'customer.update',
+        entityType: 'customer',
+        entityId: updated.id,
+        metadata: data,
+      });
+
+      return updated;
+    });
   }
 
   async updateCustomerStatus(
@@ -155,23 +180,25 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
-    const updated = await this.prismaService.customer.update({
-      where: { id },
-      data: {
-        status: status as CustomerStatus,
-        blockedAt: status === 'BLOCKED' ? new Date() : null,
-      },
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.customer.update({
+        where: { id },
+        data: {
+          status: status as CustomerStatus,
+          blockedAt: status === 'BLOCKED' ? new Date() : null,
+        },
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'customer.status',
-      entityType: 'customer',
-      entityId: updated.id,
-      metadata: { status },
-    });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'customer.status',
+        entityType: 'customer',
+        entityId: updated.id,
+        metadata: { status },
+      });
 
-    return updated;
+      return updated;
+    });
   }
 }

@@ -22,6 +22,7 @@ export function buildCookie(
   name: string,
   value: string,
   maxAgeSeconds?: number,
+  secure = false,
 ): string {
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
@@ -29,6 +30,9 @@ export function buildCookie(
     'SameSite=Lax',
     'HttpOnly',
   ];
+  if (secure) {
+    parts.push('Secure');
+  }
   if (maxAgeSeconds !== undefined) {
     parts.push(`Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`);
   }
@@ -40,12 +44,16 @@ export function buildCsrfCookie(
   name: string,
   value: string,
   maxAgeSeconds?: number,
+  secure = false,
 ): string {
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
     'Path=/',
     'SameSite=Lax',
   ];
+  if (secure) {
+    parts.push('Secure');
+  }
   if (maxAgeSeconds !== undefined) {
     parts.push(`Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`);
   }
@@ -53,6 +61,6 @@ export function buildCsrfCookie(
   return parts.join('; ');
 }
 
-export function clearCookie(name: string): string {
-  return `${name}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly`;
+export function clearCookie(name: string, secure = false): string {
+  return `${name}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure ? '; Secure' : ''}`;
 }

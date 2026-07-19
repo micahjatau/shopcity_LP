@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CardStatus } from '@prisma/client';
+import { CardStatus, CustomerStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -20,7 +20,11 @@ export class CardsService {
       where: { tenantId, barcodeValue },
       include: { customer: true },
     });
-    if (!card || card.status !== CardStatus.ACTIVE) {
+    if (
+      !card ||
+      card.status !== CardStatus.ACTIVE ||
+      card.customer.status !== CustomerStatus.ACTIVE
+    ) {
       throw new NotFoundException('Card not found');
     }
 
@@ -35,29 +39,38 @@ export class CardsService {
     const customer = await this.prismaService.customer.findFirst({
       where: { id: data.customerId, tenantId },
     });
-    if (!customer) {
+    if (!customer || customer.status !== CustomerStatus.ACTIVE) {
       throw new NotFoundException('Customer not found');
     }
 
-    const card = await this.prismaService.card.create({
-      data: {
+    const existingActiveCard = await this.prismaService.card.findFirst({
+      where: { tenantId, customerId: customer.id, status: CardStatus.ACTIVE },
+    });
+    if (existingActiveCard) {
+      throw new BadRequestException('Customer already has an active card');
+    }
+
+    return this.prismaService.$transaction(async (prisma) => {
+      const card = await prisma.card.create({
+        data: {
+          tenantId,
+          customerId: customer.id,
+          barcodeValue: data.barcodeValue,
+          issuedBy: actor.user.id,
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
         tenantId,
-        customerId: customer.id,
-        barcodeValue: data.barcodeValue,
-        issuedBy: actor.user.id,
-      },
-    });
+        actorId: actor.user.id,
+        action: 'card.create',
+        entityType: 'card',
+        entityId: card.id,
+        metadata: card,
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'card.create',
-      entityType: 'card',
-      entityId: card.id,
-      metadata: card,
+      return card;
     });
-
-    return card;
   }
 
   async replaceCard(
@@ -73,41 +86,48 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
 
-    const replacement = await this.prismaService.$transaction(
-      async (prisma) => {
-        const newCard = await prisma.card.create({
-          data: {
-            tenantId,
-            customerId: current.customerId,
-            barcodeValue: data.barcodeValue,
-            issuedBy: actor.user.id,
-          },
-        });
+    if (current.status !== CardStatus.ACTIVE) {
+      throw new BadRequestException('Only active cards can be replaced');
+    }
 
-        await prisma.card.update({
-          where: { id: current.id },
-          data: {
-            status: CardStatus.REPLACED,
-            blockedAt: new Date(),
-            replacedByCardId: newCard.id,
-            replacedAt: new Date(),
-          },
-        });
-
-        return newCard;
-      },
-    );
-
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'card.replace',
-      entityType: 'card',
-      entityId: replacement.id,
-      metadata: { previousCardId: cardId, barcodeValue: data.barcodeValue },
+    const customer = await this.prismaService.customer.findFirst({
+      where: { id: current.customerId, tenantId },
     });
+    if (!customer || customer.status !== CustomerStatus.ACTIVE) {
+      throw new BadRequestException('Customer is not active');
+    }
 
-    return replacement;
+    return this.prismaService.$transaction(async (prisma) => {
+      const newCard = await prisma.card.create({
+        data: {
+          tenantId,
+          customerId: current.customerId,
+          barcodeValue: data.barcodeValue,
+          issuedBy: actor.user.id,
+        },
+      });
+
+      await prisma.card.update({
+        where: { id: current.id },
+        data: {
+          status: CardStatus.REPLACED,
+          blockedAt: new Date(),
+          replacedByCardId: newCard.id,
+          replacedAt: new Date(),
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'card.replace',
+        entityType: 'card',
+        entityId: newCard.id,
+        metadata: { previousCardId: cardId, barcodeValue: data.barcodeValue },
+      });
+
+      return newCard;
+    });
   }
 
   async updateStatus(
@@ -116,7 +136,7 @@ export class CardsService {
     cardId: string,
     status: string,
   ) {
-    if (!['ACTIVE', 'BLOCKED', 'REPLACED'].includes(status)) {
+    if (!['ACTIVE', 'BLOCKED'].includes(status)) {
       throw new BadRequestException('Invalid card status');
     }
 
@@ -127,23 +147,25 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
 
-    const updated = await this.prismaService.card.update({
-      where: { id: cardId },
-      data: {
-        status: status as CardStatus,
-        blockedAt: status === 'BLOCKED' ? new Date() : null,
-      },
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.card.update({
+        where: { id: cardId },
+        data: {
+          status: status as CardStatus,
+          blockedAt: status === 'BLOCKED' ? new Date() : null,
+        },
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'card.status',
-      entityType: 'card',
-      entityId: updated.id,
-      metadata: { status },
-    });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'card.status',
+        entityType: 'card',
+        entityId: updated.id,
+        metadata: { status },
+      });
 
-    return updated;
+      return updated;
+    });
   }
 }

@@ -37,6 +37,18 @@ export class UsersService {
       );
     }
 
+    const branchId = data.branchId ?? actor.user.branchId ?? undefined;
+    if (branchId) {
+      const branch = await this.prismaService.branch.findFirst({
+        where: { id: branchId, tenantId },
+      });
+      if (!branch) {
+        throw new BadRequestException('Branch not found for tenant');
+      }
+    } else {
+      throw new BadRequestException('Branch is required for user creation');
+    }
+
     const authResult =
       await this.supabaseService.serviceRoleClient.auth.admin.createUser({
         email: data.username,
@@ -50,27 +62,29 @@ export class UsersService {
       );
     }
 
-    const user = await this.prismaService.user.create({
-      data: {
+    return this.prismaService.$transaction(async (prisma) => {
+      const user = await prisma.user.create({
+        data: {
+          tenantId,
+          branchId,
+          username: data.username,
+          role: data.role,
+          status: UserStatus.ACTIVE,
+          supabaseAuthId: authResult.data.user.id,
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
         tenantId,
-        branchId: data.branchId ?? actor.user.branchId ?? undefined,
-        username: data.username,
-        role: data.role,
-        status: UserStatus.ACTIVE,
-        supabaseAuthId: authResult.data.user.id,
-      },
-    });
+        actorId: actor.user.id,
+        action: 'user.create',
+        entityType: 'user',
+        entityId: user.id,
+        metadata: user,
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'user.create',
-      entityType: 'user',
-      entityId: user.id,
-      metadata: user,
+      return user;
     });
-
-    return user;
   }
 
   async updateRole(
@@ -92,25 +106,27 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const updated = await this.prismaService.user.update({
-      where: { id: userId },
-      data: { role },
-    });
-    await this.prismaService.session.updateMany({
-      where: { userId },
-      data: { status: 'REVOKED', revokedAt: new Date() },
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { role },
+      });
+      await prisma.session.updateMany({
+        where: { userId },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      });
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'user.role',
-      entityType: 'user',
-      entityId: updated.id,
-      metadata: { role },
-    });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'user.role',
+        entityType: 'user',
+        entityId: updated.id,
+        metadata: { role },
+      });
 
-    return updated;
+      return updated;
+    });
   }
 
   async updateStatus(
@@ -130,26 +146,28 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const updated = await this.prismaService.user.update({
-      where: { id: userId },
-      data: { status: status as UserStatus },
-    });
-    if (updated.status !== UserStatus.ACTIVE) {
-      await this.prismaService.session.updateMany({
-        where: { userId },
-        data: { status: 'REVOKED', revokedAt: new Date() },
+    return this.prismaService.$transaction(async (prisma) => {
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { status: status as UserStatus },
       });
-    }
+      if (updated.status !== UserStatus.ACTIVE) {
+        await prisma.session.updateMany({
+          where: { userId },
+          data: { status: 'REVOKED', revokedAt: new Date() },
+        });
+      }
 
-    await this.auditService.record({
-      tenantId,
-      actorId: actor.user.id,
-      action: 'user.status',
-      entityType: 'user',
-      entityId: updated.id,
-      metadata: { status },
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'user.status',
+        entityType: 'user',
+        entityId: updated.id,
+        metadata: { status },
+      });
+
+      return updated;
     });
-
-    return updated;
   }
 }
