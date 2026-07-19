@@ -3,8 +3,8 @@
 The core domain is a loyalty ledger with controlled customer identity, card assignment, receipt-based earning, redemption, approvals, and audit history.
 
 ## Core Boundaries
-- `auth`: sessions, roles, and access control.
-- `users`: staff accounts and ownership.
+- `auth`: identity linkage, sessions, roles, and access control.
+- `users`: staff accounts, role assignment, suspension state, and ownership.
 - `branches`: branch rules and operational context.
 - `customers`: customer identity and status.
 - `cards`: card lifecycle and replacement.
@@ -21,3 +21,4 @@ The core domain is a loyalty ledger with controlled customer identity, card assi
 - Ledger history is append-only.
 - Offline redemption is prohibited.
 - Credit expires by policy, not client logic.
+- `system` is reserved for backend automation and is never assignable to human staff.

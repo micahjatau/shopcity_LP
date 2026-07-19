@@ -452,7 +452,7 @@ A simple SUM(credits) - SUM(debits) ledger is insufficient when each earn expire
 
 |**Module**|**Responsibility**|
 |---|---|
-|Auth|Login, logout, refresh/session rotation, password reset, MFA-ready<br>admin flow, CSRF/session guards.|
+|Auth|Supabase-backed identity, login/logout, refresh/session rotation,<br>password reset, MFA-ready admin flow, CSRF/session guards.|
 |Users|Create/disable users, roles, branch assignment, last-login and<br>audit.|
 |Branches & Devices|Branch policy configuration, receipt week rules, device registration<br>and status.|
 |Customers|Registration, search, staff exclusion, status changes and<br>normalized phone uniqueness.|
@@ -492,7 +492,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 |---|---|
 |Base path|/api/v1|
 |Format|JSON UTF-8; snake_case or camelCase must be chosen once.<br>This document uses camelCase.|
-|Authentication|Secure HttpOnly cookies for session/refresh tokens plus CSRF<br>protection for state-changing browser requests.|
+|Authentication|Supabase-backed identity with backend-owned Secure HttpOnly cookies<br>for session/refresh tokens plus CSRF protection for state-changing<br>browser requests.|
 |Versioning|URI major version. Non-breaking additions remain within v1;<br>breaking changes require v2 or migration window.|
 |IDs|UUID strings.|
 |Money|Integer kobo fields, e.g., purchaseAmountKobo: 1000000.|
@@ -792,7 +792,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 - Individual user accounts only. Shared cashier credentials are prohibited. 
 
-- Passwords hashed with Argon2id using reviewed parameters. 
+- Staff identity and password verification are handled by Supabase Auth; the backend never stores raw passwords.
 
 - Short-lived access/session token stored in Secure, HttpOnly, SameSite cookie; refresh token rotation and revocation stored server-side. 
 
@@ -803,6 +803,8 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 - Login attempts rate-limited by username, IP and device; failures are security events. 
 
 - Sessions expire on inactivity and are force-reviewed/ended at business close. 
+
+- Suspended accounts cannot create new sessions until reactivated by an admin.
 
 ### **14.2 RBAC Matrix** 
 
@@ -820,17 +822,20 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 |Manage users/policies|No|No|Yes|No|
 |Run expiry/SMS jobs|No|No|No|Yes|
 
+- `System` is reserved for backend automation and is not assignable to human staff.
 
 
 ### **14.3 Authorization Controls** 
 
 - Permissions are enforced by guards and application policies, never only by hidden UI controls. 
 
-- Every permission denial is logged with request ID, user, endpoint and reason. 
+- Every permission denial and auth event is logged with request ID, user, endpoint and reason.
 
 - Approval cannot be self-approved by the requesting cashier; requester and decision maker must differ for controlled actions. 
 
 - Role changes are admin-only, require reason and invalidate affected active sessions. 
+
+- Suspension and login denial events are audit logged with actor, target and reason.
 
 Radar Solutions | Confidential | Page 20 
 
@@ -1454,5 +1459,3 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 
 Radar Solutions | Confidential | Page 30 
-
-

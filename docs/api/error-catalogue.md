@@ -14,3 +14,4 @@
 - Errors must be stable enough for frontend mapping.
 - Do not expose internal stack traces to API consumers.
 - Use structured responses that preserve operational context.
+- `AUTH_*` covers invalid credentials, expired or revoked sessions, CSRF failures, suspension blocks, and login throttling.

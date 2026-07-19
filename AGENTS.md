@@ -11,7 +11,7 @@
 - Feature boundaries live under `src/modules/`; shared code lives under `src/common/`, `src/config/`, `src/database/`, and `src/jobs/`.
 - `src/main.ts` boots Nest with Fastify and listens on `process.env.PORT ?? 3000`.
 - The current root route is `GET /` in `src/app.controller.ts`.
-- Supabase integration lives under `src/supabase/` and is the entrypoint for DB/auth access.
+- Supabase integration lives under `src/supabase/` and is the entrypoint for DB plus identity/password verification; application sessions and RBAC live in the backend.
 - Prisma schema lives under `prisma/`; architecture notes belong in `docs/adr/`.
 - Docs are organized under `docs/architecture/`, `docs/api/`, `docs/adr/`, `docs/runbooks/`, `docs/development/`, and `docs/database/`.
 - The TRD target shape is a backend-first modular monolith with `apps/`, `packages/`, `prisma/`, and `docs/adr/`.
@@ -33,7 +33,7 @@
 - Prefer the repo-local binaries through `npm exec` or `npx`.
 - Installed CLIs here include `nest`, `supabase`, `prisma`, `spectral`, `orval`, `compodoc`, `oasdiff`, `bru`, `lint-staged`, and `commitlint`.
 - Regenerate contract, schema, client, auth, and docs artifacts with the matching CLI instead of hand-editing generated output.
-- Use `supabase` for local database/auth workflows and type generation, `prisma` for schema/migration work, `spectral` and `oasdiff` for OpenAPI checks, `orval` for client generation, `compodoc` for Nest docs, and `bru` for API collections.
+- Use `supabase` for local identity/password workflows and type generation, `prisma` for schema/migration work, `spectral` and `oasdiff` for OpenAPI checks, `orval` for client generation, `compodoc` for Nest docs, and `bru` for API collections.
 
 ## TRD Constraints
 
@@ -42,12 +42,12 @@
 - Preserve append-only financial history and auditability; do not delete or edit confirmed ledger entries.
 - Keep frontend-submitted balances, roles, and approvals out of trust boundaries.
 - Keep the repository modular: feature code belongs in `src/modules/`, shared code in `src/common/`, and infrastructure in `src/config/`, `src/database/`, `src/jobs/`, and `src/supabase/`.
-- The target stack in the TRD includes Supabase/Postgres for database and auth, Redis/BullMQ, Prisma, OpenAPI, and background SMS processing.
+- The target stack in the TRD includes Supabase/Postgres for database and identity verification, backend-owned sessions/RBAC, Redis/BullMQ, Prisma, OpenAPI, and background SMS processing.
 - Keep a local migration/backup tracker in `docs/database/migration-tracker.md`; update it for schema changes, backup/restore checks, and every applied migration.
 - Never edit a migration after it has been applied to a shared environment; use expand-and-contract changes and record destructive changes with a backup plan.
 
 ## Environment
 
 - TRD environment variables include `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`, `CSRF_SECRET`, `SHOPCITY_TIMEZONE`, `RECEIPT_WEEK_START_DAY`, and `DEFAULT_EARN_RATE_BPS`.
-- Supabase workflows will also need `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+- Supabase workflows will also need `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; backend auth/session logic stays in `src/modules/auth/`.
 - `dist/` is disposable because `nest-cli.json` sets `deleteOutDir: true`.

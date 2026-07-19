@@ -11,7 +11,7 @@ Backend foundation for the ShopCity loyalty MVP.
 
 - App entrypoint: `src/main.ts`
 - Default route: `GET /` in `src/app.controller.ts`
-- Supabase wiring: `src/supabase/`
+- Supabase identity/DB wiring: `src/supabase/`
 - Tests: unit tests in `src/**/*.spec.ts`, e2e tests in `test/**/*.e2e-spec.ts`, integration tests in `test/**/*.int-spec.ts`
 
 ## Foundation Layout
@@ -70,7 +70,7 @@ npm run start:dev
 - Use local binaries via `npm exec` or `npx`.
 - Available CLIs in this repo include `nest`, `supabase`, `prisma`, `spectral`, `orval`, `compodoc`, `oasdiff`, `bru`, `lint-staged`, and `commitlint`.
 - Generate schemas, auth config, OpenAPI checks, frontend clients, and docs with the CLI that owns them; do not hand-edit generated outputs.
-- Use `supabase` for database/auth workflows and generated types, `prisma` for schema and migrations, `spectral` and `oasdiff` for contract validation, `orval` for client generation, `compodoc` for NestJS docs, and `bru` for API collections.
+- Use `supabase` for identity/password workflows and generated types, `prisma` for schema and migrations, `spectral` and `oasdiff` for contract validation, `orval` for client generation, `compodoc` for NestJS docs, and `bru` for API collections.
 
 ## Foundation Stack
 
@@ -90,11 +90,11 @@ npm run start:dev
 - Modular monolith, not microservices.
 - REST/OpenAPI is the integration boundary; no GraphQL for MVP.
 - Financial values are stored as integer kobo only.
-- The backend owns ledger integrity, approvals, expiry, fraud handling, Supabase-authenticated access, and SMS background work.
+- The backend owns ledger integrity, approvals, expiry, fraud handling, application sessions, RBAC, and SMS background work.
 
 ## Target Infrastructure
 
-- Supabase as the database and auth platform, backed by Postgres.
+- Supabase for staff identity/password verification and Postgres-backed data services.
 - Redis + BullMQ for queues and background jobs.
 - Prisma for schema and migrations.
 - OpenAPI, Spectral, Prism, Orval, Bruno, and `@nestjs/swagger` for contract-driven development.
