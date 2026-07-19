@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches:
+      - master
       - main
   pull_request:
 
@@ -60,11 +61,29 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
 
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Export OpenAPI document
+        run: npm run openapi:export
+
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Build
         run: npm run build
 
       - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: OpenAPI lint
+        run: npm run openapi:lint
+
+      - name: OpenAPI diff
+        run: npm run openapi:diff
 
       - name: Unit tests
         run: npm test

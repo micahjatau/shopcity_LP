@@ -22,6 +22,9 @@ export const envValidationSchema = Joi.object({
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),
+  CORS_ORIGIN_ALLOWLIST: requiredString(
+    'http://localhost:3000,http://127.0.0.1:3000',
+  ),
   SUPABASE_URL: requiredString('http://127.0.0.1:54321'),
   SUPABASE_ANON_KEY: requiredString('test-anon-key'),
   SUPABASE_SERVICE_ROLE_KEY: requiredString('test-service-role-key'),

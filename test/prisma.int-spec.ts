@@ -1,9 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
+interface StartedPostgresContainer {
+  getConnectionUri(): string;
+  stop(): Promise<unknown>;
+}
+
 describe('Prisma + PostgreSQL', () => {
-  let container: PostgreSqlContainer;
+  let container: StartedPostgresContainer;
   let prisma: PrismaClient;
 
   beforeAll(async () => {
@@ -25,9 +29,9 @@ describe('Prisma + PostgreSQL', () => {
   }, 120000);
 
   it('executes a basic query', async () => {
-    const rows = await prisma.$queryRawUnsafe<Array<{ one: number }>>(
-      'SELECT 1::int AS one',
-    );
-    expect(Number(rows[0].one)).toBe(1);
+    const rows = await prisma.$queryRaw<
+      { one: number }[]
+    >`SELECT 1::int AS one`;
+    expect(rows[0].one).toBe(1);
   });
 });

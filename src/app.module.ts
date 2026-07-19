@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envValidationSchema } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
+import { HealthModule } from './modules/health/health.module';
 import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
@@ -31,6 +32,7 @@ import { SupabaseModule } from './supabase/supabase.module';
       },
     }),
     PrismaModule,
+    HealthModule,
     SupabaseModule,
   ],
   controllers: [AppController],
