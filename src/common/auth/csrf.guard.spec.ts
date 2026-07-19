@@ -3,13 +3,22 @@ import { createHash } from 'node:crypto';
 import { CsrfGuard } from './csrf.guard';
 
 describe('CsrfGuard', () => {
-  it('requires matching header and cookie tokens', () => {
+  it('requires matching header and cookie tokens', async () => {
     process.env.CSRF_SECRET = 'test-csrf-secret';
     const guard = new CsrfGuard({
       getAllAndOverride: () => false,
-    } as unknown as Reflector);
+    } as unknown as Reflector,
+    {
+      session: {
+        findUnique: jest.fn(),
+      },
+    } as never,
+    {
+      get: (key: string) =>
+        key === 'CSRF_SECRET' ? 'test-csrf-secret' : undefined,
+    } as never);
 
-    expect(
+    await expect(
       guard.canActivate({
         switchToHttp: () => ({
           getRequest: () => ({
@@ -30,15 +39,24 @@ describe('CsrfGuard', () => {
         getHandler: () => undefined,
         getClass: () => undefined,
       } as never),
-    ).toBe(true);
+    ).resolves.toBe(true);
   });
 
-  it('rejects when the header token is missing', () => {
+  it('rejects when the header token is missing', async () => {
     const guard = new CsrfGuard({
       getAllAndOverride: () => false,
-    } as unknown as Reflector);
+    } as unknown as Reflector,
+    {
+      session: {
+        findUnique: jest.fn(),
+      },
+    } as never,
+    {
+      get: (key: string) =>
+        key === 'CSRF_SECRET' ? 'test-csrf-secret' : undefined,
+    } as never);
 
-    expect(() =>
+    await expect(
       guard.canActivate({
         switchToHttp: () => ({
           getRequest: () => ({
@@ -52,6 +70,6 @@ describe('CsrfGuard', () => {
         getHandler: () => undefined,
         getClass: () => undefined,
       } as never),
-    ).toThrow('CSRF token missing');
+    ).rejects.toThrow('CSRF token missing');
   });
 });

@@ -4,17 +4,24 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
+import { PrismaService } from '../../database/prisma.service';
 import { createHash } from 'node:crypto';
 import { CSRF_COOKIE_NAME } from '../../config/app.constants';
 import { PUBLIC_ROUTE_KEY } from './auth.constants';
 import { AuthenticatedRequest } from './session.types';
+import { loadAuthContext } from './session.guard';
 
 @Injectable()
 export class CsrfGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly prismaService: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const isPublic = this.reflector.getAllAndOverride<boolean>(
       PUBLIC_ROUTE_KEY,
@@ -25,7 +32,13 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    const contextState = request.authContext;
+    const contextState =
+      request.authContext ??
+      (await loadAuthContext(
+        request,
+        this.prismaService,
+        this.configService,
+      ));
     if (!contextState) {
       throw new ForbiddenException(
         'CSRF verification requires an authenticated session',
@@ -48,7 +61,7 @@ export class CsrfGuard implements CanActivate {
       throw new ForbiddenException('CSRF token mismatch');
     }
 
-    const secret = process.env.CSRF_SECRET ?? '';
+    const secret = this.configService.get<string>('CSRF_SECRET') ?? '';
     const providedHash = createHash('sha256')
       .update(`${secret}:${headerToken}`)
       .digest('hex');

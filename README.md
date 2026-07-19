@@ -53,9 +53,13 @@ prisma/
 npm install
 npm run prisma:generate
 docker compose up -d
+npx prisma migrate deploy
+npm run prisma:seed
 npm run test:integration
 npm run start:dev
 ```
+
+The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
 ## Common Commands
 

@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UserStatus } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 import { randomUUID, createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
@@ -44,7 +44,9 @@ export class AuthService {
       throw new UnauthorizedException('User is not active');
     }
 
-    return this.issueSession(user.id, user.tenantId, 'auth.login');
+    return this.prismaService.$transaction((prisma) =>
+      this.issueSession(prisma, user.id, user.tenantId, 'auth.login'),
+    );
   }
 
   async refresh(sessionId: string): Promise<IssuedSession> {
@@ -56,21 +58,25 @@ export class AuthService {
     if (
       !session ||
       session.status !== 'ACTIVE' ||
-      session.expiresAt <= new Date()
+      session.expiresAt <= new Date() ||
+      session.user.status !== UserStatus.ACTIVE
     ) {
       throw new UnauthorizedException('Session expired or revoked');
     }
 
-    await this.prismaService.session.update({
-      where: { id: session.id },
-      data: { status: 'REVOKED', revokedAt: new Date() },
-    });
+    return this.prismaService.$transaction(async (prisma) => {
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { status: 'REVOKED', revokedAt: new Date() },
+      });
 
-    return this.issueSession(
-      session.userId,
-      session.user.tenantId,
-      'auth.refresh',
-    );
+      return this.issueSession(
+        prisma,
+        session.userId,
+        session.user.tenantId,
+        'auth.refresh',
+      );
+    });
   }
 
   async logout(sessionId: string): Promise<void> {
@@ -85,6 +91,7 @@ export class AuthService {
   }
 
   private async issueSession(
+    prisma: Prisma.TransactionClient,
     userId: string,
     tenantId: string,
     action: string,
@@ -99,42 +106,40 @@ export class AuthService {
       this.configService.get<string>('SESSION_SECRET') ?? '';
     const csrfSecret = this.configService.get<string>('CSRF_SECRET') ?? '';
 
-    return this.prismaService.$transaction(async (prisma) => {
-      const session = await prisma.session.create({
-        data: {
-          userId,
-          sessionTokenHash: hashToken(sessionToken, sessionSecret),
-          refreshTokenHash: hashToken(refreshToken, sessionSecret),
-          csrfTokenHash: createHash('sha256')
-            .update(`${csrfSecret}:${csrfToken}`)
-            .digest('hex'),
-          expiresAt,
-          lastUsedAt: new Date(),
-        },
-      });
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      });
-      if (!user) {
-        throw new UnauthorizedException('User not found');
-      }
-
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: userId,
-        action,
-        entityType: 'session',
-        entityId: session.id,
-        metadata: { expiresAt },
-      });
-
-      return {
-        context: { session, user },
-        sessionToken,
-        csrfToken,
-      };
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('User is not active');
+    }
+
+    const session = await prisma.session.create({
+      data: {
+        userId,
+        sessionTokenHash: hashToken(sessionToken, sessionSecret),
+        refreshTokenHash: hashToken(refreshToken, sessionSecret),
+        csrfTokenHash: createHash('sha256')
+          .update(`${csrfSecret}:${csrfToken}`)
+          .digest('hex'),
+        expiresAt,
+        lastUsedAt: new Date(),
+      },
+    });
+
+    await this.auditService.recordWithClient(prisma, {
+      tenantId,
+      actorId: userId,
+      action,
+      entityType: 'session',
+      entityId: session.id,
+      metadata: { expiresAt },
+    });
+
+    return {
+      context: { session, user },
+      sessionToken,
+      csrfToken,
+    };
   }
 
   toResponse(context: AuthContext) {
@@ -159,6 +164,10 @@ export class AuthService {
 
     if (!session || session.status !== 'ACTIVE') {
       throw new UnauthorizedException('Session expired or revoked');
+    }
+
+    if (session.user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('User is not active');
     }
 
     return { session, user: session.user };

@@ -50,4 +50,26 @@ describe('AuthService', () => {
       },
     });
   });
+
+  it('rejects inactive users when resolving the current session', async () => {
+    const service = new AuthService(
+      {
+        session: {
+          findUnique: jest.fn().mockResolvedValue({
+            status: 'ACTIVE',
+            user: {
+              status: UserStatus.SUSPENDED,
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      { get: () => 'secret' } as never,
+      {} as never,
+    );
+
+    await expect(service.resolveCurrentSession('session-id')).rejects.toThrow(
+      'User is not active',
+    );
+  });
 });
