@@ -1,14 +1,15 @@
 import { execSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import {
   PrismaClient,
+  BranchStatus,
+  TenantStatus,
   SessionStatus,
   UserRole,
-  UserStatus,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { createServer, type AddressInfo, type Server } from 'node:net';
 import request from 'supertest';
+import { seedFoundation } from '../prisma/seed';
 import { SupabaseService } from '../src/supabase/supabase.service';
 
 describe('auth and readiness flows (int)', () => {
@@ -56,7 +57,11 @@ describe('auth and readiness flows (int)', () => {
     });
     await prisma.$connect();
 
-    seedData = await seedFoundation(prisma);
+    const supabaseAuthId = 'seed-admin-supabase-user';
+    seedData = await seedFoundation(prisma, {
+      supabaseAdminClient: createSupabaseAdminStub(supabaseAuthId),
+      adminPassword: 'password',
+    });
 
     app = await createAppFn({ enableDocs: false });
     await app.getHttpAdapter().getInstance().ready();
@@ -80,7 +85,7 @@ describe('auth and readiness flows (int)', () => {
   it('logs in, rotates, rejects stale sessions, and logs out over HTTP', async () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .send({ username: seedData.user.username, password: 'password' })
+      .send({ username: seedData.user.username, password: seedData.adminPassword })
       .expect(200);
 
     const loginSessionCookie = cookieValue(
@@ -172,6 +177,63 @@ describe('auth and readiness flows (int)', () => {
       .expect(401);
   }, 120000);
 
+  it('rejects protected requests when the tenant or branch is inactive', async () => {
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ username: seedData.username, password: seedData.adminPassword })
+      .expect(200);
+
+    const sessionCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_session',
+    );
+
+    await prisma.tenant.update({
+      where: { id: seedData.tenant.id },
+      data: { status: TenantStatus.SUSPENDED },
+    });
+
+    await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set('Cookie', sessionCookie)
+      .expect(401);
+
+    await prisma.tenant.update({
+      where: { id: seedData.tenant.id },
+      data: { status: TenantStatus.ACTIVE },
+    });
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: { status: BranchStatus.INACTIVE },
+    });
+
+    await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set('Cookie', sessionCookie)
+      .expect(401);
+  }, 120000);
+
+  it('serves branch config from the database', async () => {
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: {
+        timezone: 'Africa/Nairobi',
+        receiptWeekStartDay: 3,
+      },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/config/public')
+      .expect(200);
+
+    expect(response.body.data.branch).toEqual({
+      id: seedData.branch.id,
+      name: 'Main Branch',
+      timezone: 'Africa/Nairobi',
+      receiptWeekStartDay: 3,
+    });
+  }, 120000);
+
   it('reports readiness from live postgres and redis dependencies', async () => {
     const response = await request(app.getHttpServer()).get('/health/ready');
     expect(response.status).toBe(200);
@@ -181,71 +243,6 @@ describe('auth and readiness flows (int)', () => {
     expect(response.body.data.info.redis.status).toBe('up');
   }, 120000);
 });
-
-async function seedFoundation(prisma: PrismaClient) {
-  const tenantId = randomUUID();
-  const branchId = randomUUID();
-  const userId = randomUUID();
-  const supabaseAuthId = randomUUID();
-  const username = `admin-${userId.slice(0, 8)}@shopcity.local`;
-
-  const tenant = await prisma.tenant.upsert({
-    where: { id: tenantId },
-    update: { name: 'ShopCity', status: 'ACTIVE' },
-    create: {
-      id: tenantId,
-      name: 'ShopCity',
-      status: 'ACTIVE',
-    },
-  });
-
-  const branch = await prisma.branch.upsert({
-    where: { id: branchId },
-    update: {
-      tenantId: tenant.id,
-      name: 'Main Branch',
-      timezone: 'Africa/Lagos',
-      receiptWeekStartDay: 1,
-      status: 'ACTIVE',
-    },
-    create: {
-      id: branchId,
-      tenantId: tenant.id,
-      name: 'Main Branch',
-      timezone: 'Africa/Lagos',
-      receiptWeekStartDay: 1,
-      status: 'ACTIVE',
-    },
-  });
-
-  const user = await prisma.user.upsert({
-    where: { id: userId },
-    update: {
-      tenantId: tenant.id,
-      branchId: branch.id,
-      username,
-      role: UserRole.ADMIN,
-      status: UserStatus.ACTIVE,
-      supabaseAuthId,
-    },
-    create: {
-      id: userId,
-      tenantId: tenant.id,
-      branchId: branch.id,
-      username,
-      role: UserRole.ADMIN,
-      status: UserStatus.ACTIVE,
-      supabaseAuthId,
-    },
-  });
-
-  return {
-    tenant,
-    branch,
-    user,
-    username,
-  };
-}
 
 function cookieValue(setCookie: string[] | string | undefined, name: string): string {
   const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
@@ -276,4 +273,19 @@ function createRedisPongServer(): Server {
 
 function isAddressInfo(address: string | AddressInfo | null): address is AddressInfo {
   return Boolean(address && typeof address !== 'string');
+}
+
+function createSupabaseAdminStub(supabaseAuthId: string) {
+  return {
+    auth: {
+      admin: {
+        listUsers: jest.fn().mockResolvedValue({ data: { users: [] }, error: null }),
+        createUser: jest.fn().mockResolvedValue({
+          data: { user: { id: supabaseAuthId } },
+          error: null,
+        }),
+        deleteUser: jest.fn().mockResolvedValue({ error: null }),
+      },
+    },
+  } as never;
 }

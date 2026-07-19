@@ -55,7 +55,11 @@ export function buildOpenApiDocument(app: INestApplication) {
       .addTag('cards')
       .addTag('audit')
       .addTag('configuration')
-      .addBearerAuth()
+      .addBearerAuth({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'opaque-session',
+      })
       .build(),
   );
 

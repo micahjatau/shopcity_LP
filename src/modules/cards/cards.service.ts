@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CardStatus, CustomerStatus } from '@prisma/client';
+import { CardStatus, CustomerStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -51,25 +51,29 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
-      const card = await prisma.card.create({
-        data: {
+      try {
+        const card = await prisma.card.create({
+          data: {
+            tenantId,
+            customerId: customer.id,
+            barcodeValue: data.barcodeValue,
+            issuedBy: actor.user.id,
+          },
+        });
+
+        await this.auditService.recordWithClient(prisma, {
           tenantId,
-          customerId: customer.id,
-          barcodeValue: data.barcodeValue,
-          issuedBy: actor.user.id,
-        },
-      });
+          actorId: actor.user.id,
+          action: 'card.create',
+          entityType: 'card',
+          entityId: card.id,
+          metadata: card,
+        });
 
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'card.create',
-        entityType: 'card',
-        entityId: card.id,
-        metadata: card,
-      });
-
-      return card;
+        return card;
+      } catch (error) {
+        throw normalizeCardWriteError(error);
+      }
     });
   }
 
@@ -98,35 +102,53 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
-      const newCard = await prisma.card.create({
-        data: {
+      const replaced = await prisma.card.updateMany({
+        where: {
+          id: current.id,
           tenantId,
-          customerId: current.customerId,
-          barcodeValue: data.barcodeValue,
-          issuedBy: actor.user.id,
+          status: CardStatus.ACTIVE,
         },
-      });
-
-      await prisma.card.update({
-        where: { id: current.id },
         data: {
           status: CardStatus.REPLACED,
           blockedAt: new Date(),
-          replacedByCardId: newCard.id,
           replacedAt: new Date(),
         },
       });
 
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'card.replace',
-        entityType: 'card',
-        entityId: newCard.id,
-        metadata: { previousCardId: cardId, barcodeValue: data.barcodeValue },
-      });
+      if (replaced.count !== 1) {
+        throw new BadRequestException('Only active cards can be replaced');
+      }
 
-      return newCard;
+      try {
+        const newCard = await prisma.card.create({
+          data: {
+            tenantId,
+            customerId: current.customerId,
+            barcodeValue: data.barcodeValue,
+            issuedBy: actor.user.id,
+          },
+        });
+
+        await prisma.card.update({
+          where: { id: current.id },
+          data: {
+            replacedByCardId: newCard.id,
+          },
+        });
+
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'card.replace',
+          entityType: 'card',
+          entityId: newCard.id,
+          metadata: { previousCardId: cardId, barcodeValue: data.barcodeValue },
+        });
+
+        return newCard;
+      } catch (error) {
+        throw normalizeCardWriteError(error);
+      }
     });
   }
 
@@ -148,24 +170,69 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
-      const updated = await prisma.card.update({
-        where: { id: cardId },
-        data: {
-          status: status as CardStatus,
-          blockedAt: status === 'BLOCKED' ? new Date() : null,
-        },
-      });
+      if (status === 'ACTIVE') {
+        const existingActiveCard = await prisma.card.findFirst({
+          where: {
+            tenantId,
+            customerId: card.customerId,
+            status: CardStatus.ACTIVE,
+            NOT: { id: cardId },
+          },
+        });
 
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'card.status',
-        entityType: 'card',
-        entityId: updated.id,
-        metadata: { status },
-      });
+        if (existingActiveCard) {
+          throw new BadRequestException(
+            'Customer already has an active card',
+          );
+        }
+      }
 
-      return updated;
+      try {
+        const updated = await prisma.card.update({
+          where: { id: cardId },
+          data: {
+            status: status as CardStatus,
+            blockedAt: status === 'BLOCKED' ? new Date() : null,
+          },
+        });
+
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'card.status',
+          entityType: 'card',
+          entityId: updated.id,
+          metadata: { status },
+        });
+
+        return updated;
+      } catch (error) {
+        throw normalizeCardWriteError(error);
+      }
     });
   }
+}
+
+function normalizeCardWriteError(error: unknown): Error {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  ) {
+    const target = Array.isArray(error.meta?.target)
+      ? error.meta.target.join(', ')
+      : String(error.meta?.target ?? '');
+
+    if (
+      target.includes('Card_one_active_per_customer') ||
+      (target.includes('tenantId') && target.includes('customerId'))
+    ) {
+      return new BadRequestException('Customer already has an active card');
+    }
+
+    if (target.includes('tenantId') && target.includes('barcodeValue')) {
+      return new BadRequestException('Card barcode already exists');
+    }
+  }
+
+  return error instanceof Error ? error : new Error('Unable to update card');
 }

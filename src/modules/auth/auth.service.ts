@@ -1,12 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, UserStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { randomUUID, createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
-import { hashToken } from '../../common/auth/session.guard';
+import { hashToken, isAuthUserEligible } from '../../common/auth/session.guard';
 
 interface IssuedSession {
   context: AuthContext;
@@ -34,13 +34,17 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const user = await this.prismaService.user.findFirst({
+    const user = await this.prismaService.user.findUnique({
       where: {
-        OR: [{ supabaseAuthId: data.user.id }, { username }],
+        supabaseAuthId: data.user.id,
+      },
+      include: {
+        tenant: true,
+        branch: true,
       },
     });
 
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user || !isAuthUserEligible(user)) {
       throw new UnauthorizedException('User is not active');
     }
 
@@ -52,23 +56,31 @@ export class AuthService {
   async refresh(sessionId: string): Promise<IssuedSession> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
-      include: { user: true },
+      include: { user: { include: { tenant: true, branch: true } } },
     });
 
     if (
       !session ||
       session.status !== 'ACTIVE' ||
       session.expiresAt <= new Date() ||
-      session.user.status !== UserStatus.ACTIVE
+      !isAuthUserEligible(session.user)
     ) {
       throw new UnauthorizedException('Session expired or revoked');
     }
 
     return this.prismaService.$transaction(async (prisma) => {
-      await prisma.session.update({
-        where: { id: session.id },
+      const revoked = await prisma.session.updateMany({
+        where: {
+          id: session.id,
+          status: 'ACTIVE',
+          expiresAt: { gt: new Date() },
+        },
         data: { status: 'REVOKED', revokedAt: new Date() },
       });
+
+      if (revoked.count !== 1) {
+        throw new UnauthorizedException('Session already rotated');
+      }
 
       return this.issueSession(
         prisma,
@@ -96,11 +108,7 @@ export class AuthService {
     tenantId: string,
     action: string,
   ): Promise<IssuedSession> {
-    const [sessionToken, refreshToken, csrfToken] = [
-      randomUUID(),
-      randomUUID(),
-      randomUUID(),
-    ];
+    const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 12);
     const sessionSecret =
       this.configService.get<string>('SESSION_SECRET') ?? '';
@@ -108,8 +116,9 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: { tenant: true, branch: true },
     });
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user || !isAuthUserEligible(user)) {
       throw new UnauthorizedException('User is not active');
     }
 
@@ -117,7 +126,6 @@ export class AuthService {
       data: {
         userId,
         sessionTokenHash: hashToken(sessionToken, sessionSecret),
-        refreshTokenHash: hashToken(refreshToken, sessionSecret),
         csrfTokenHash: createHash('sha256')
           .update(`${csrfSecret}:${csrfToken}`)
           .digest('hex'),
@@ -159,14 +167,10 @@ export class AuthService {
   async resolveCurrentSession(sessionId: string): Promise<AuthContext> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
-      include: { user: true },
+      include: { user: { include: { tenant: true, branch: true } } },
     });
 
-    if (!session || session.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Session expired or revoked');
-    }
-
-    if (session.user.status !== UserStatus.ACTIVE) {
+    if (!session || session.status !== 'ACTIVE' || !isAuthUserEligible(session.user)) {
       throw new UnauthorizedException('User is not active');
     }
 

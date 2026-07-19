@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  DEFAULT_PUBLIC_BRANCH_NAME,
-  DEFAULT_PUBLIC_TENANT_NAME,
-} from '../../config/app.constants';
+import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class ConfigurationService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prismaService: PrismaService,
+  ) {}
 
-  getPublicConfig() {
+  async getPublicConfig() {
     const tenantId =
       this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
       '00000000-0000-0000-0000-000000000001';
@@ -17,18 +17,25 @@ export class ConfigurationService {
       this.configService.get<string>('DEFAULT_PUBLIC_BRANCH_ID') ??
       '00000000-0000-0000-0000-000000000002';
 
+    const [tenant, branch] = await Promise.all([
+      this.prismaService.tenant.findUnique({ where: { id: tenantId } }),
+      this.prismaService.branch.findUnique({ where: { id: branchId } }),
+    ]);
+
+    if (!tenant || !branch) {
+      throw new Error('Public configuration bootstrap data is missing');
+    }
+
     return {
       tenant: {
-        id: tenantId,
-        name: DEFAULT_PUBLIC_TENANT_NAME,
+        id: tenant.id,
+        name: tenant.name,
       },
       branch: {
-        id: branchId,
-        name: DEFAULT_PUBLIC_BRANCH_NAME,
-        timezone:
-          this.configService.get<string>('SHOPCITY_TIMEZONE') ?? 'Africa/Lagos',
-        receiptWeekStartDay:
-          this.configService.get<number>('RECEIPT_WEEK_START_DAY') ?? 1,
+        id: branch.id,
+        name: branch.name,
+        timezone: branch.timezone,
+        receiptWeekStartDay: branch.receiptWeekStartDay,
       },
       policies: {
         defaultEarnRateBps:

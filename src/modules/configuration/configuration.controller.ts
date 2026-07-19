@@ -63,7 +63,7 @@ export class ConfigurationController {
     },
   })
   @ApiOperation({ summary: 'Get public configuration' })
-  getPublicConfig() {
+  async getPublicConfig() {
     return this.configurationService.getPublicConfig();
   }
 }

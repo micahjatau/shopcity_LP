@@ -61,6 +61,8 @@ npm run start:dev
 
 The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
+The seed step provisions the foundation tenant, branch, and a usable admin login. By default the bootstrap admin is `admin@shopcity.local` with password `password`, unless `DEFAULT_ADMIN_PASSWORD` is set.
+
 ## Common Commands
 
 - `npm run build`

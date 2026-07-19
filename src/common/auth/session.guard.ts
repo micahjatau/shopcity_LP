@@ -6,13 +6,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { UserStatus } from '@prisma/client';
+import { BranchStatus, TenantStatus, UserStatus } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SESSION_COOKIE_NAME } from '../../config/app.constants';
 import { PUBLIC_ROUTE_KEY } from './auth.constants';
 import { parseCookies } from './cookie';
-import { AuthContext, AuthenticatedRequest } from './session.types';
+import { AuthContext, AuthenticatedRequest, AuthUser } from './session.types';
 
 @Injectable()
 export class SessionGuard implements CanActivate {
@@ -43,8 +43,12 @@ export class SessionGuard implements CanActivate {
     }
 
     request.authContext = authContext;
-    await this.prismaService.session.update({
-      where: { id: authContext.session.id },
+    const staleThreshold = new Date(Date.now() - 5 * 60 * 1000);
+    await this.prismaService.session.updateMany({
+      where: {
+        id: authContext.session.id,
+        OR: [{ lastUsedAt: null }, { lastUsedAt: { lt: staleThreshold } }],
+      },
       data: { lastUsedAt: new Date() },
     });
     return true;
@@ -71,15 +75,18 @@ export async function loadAuthContext(
   );
   const session = await prismaService.session.findUnique({
     where: { sessionTokenHash },
-    include: { user: true },
+    include: { user: { include: { tenant: true, branch: true } } },
   });
 
   if (
     !session ||
     session.status !== 'ACTIVE' ||
-    session.expiresAt <= new Date() ||
-    session.user.status !== UserStatus.ACTIVE
+    session.expiresAt <= new Date()
   ) {
+    return null;
+  }
+
+  if (!isAuthUserEligible(session.user)) {
     return null;
   }
 
@@ -96,4 +103,20 @@ export function extractSessionToken(
 
   const cookies = parseCookies(request.headers.cookie);
   return cookies[SESSION_COOKIE_NAME];
+}
+
+export function isAuthUserEligible(user: AuthUser): boolean {
+  if (user.status !== UserStatus.ACTIVE) {
+    return false;
+  }
+
+  if (user.tenant?.status !== TenantStatus.ACTIVE) {
+    return false;
+  }
+
+  if (user.branchId && user.branch?.status !== BranchStatus.ACTIVE) {
+    return false;
+  }
+
+  return true;
 }

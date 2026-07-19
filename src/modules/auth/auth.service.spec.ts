@@ -15,7 +15,6 @@ describe('AuthService', () => {
         id: 'session-id',
         userId: 'user-id',
         sessionTokenHash: 'session-hash',
-        refreshTokenHash: 'refresh-hash',
         csrfTokenHash: 'csrf-hash',
         status: 'ACTIVE',
         expiresAt: new Date('2026-07-19T00:00:00.000Z'),
@@ -51,6 +50,36 @@ describe('AuthService', () => {
     });
   });
 
+  it('rejects login when the Supabase identity is not linked locally', async () => {
+    const service = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+        session: {
+          create: jest.fn(),
+        },
+        $transaction: jest.fn(),
+      } as never,
+      {
+        publicClient: {
+          auth: {
+            signInWithPassword: jest.fn().mockResolvedValue({
+              data: { user: { id: 'supabase-id' } },
+              error: null,
+            }),
+          },
+        },
+      } as never,
+      { get: () => 'secret' } as never,
+      {} as never,
+    );
+
+    await expect(service.login('admin@shopcity.local', 'password')).rejects.toThrow(
+      'User is not active',
+    );
+  });
+
   it('rejects inactive users when resolving the current session', async () => {
     const service = new AuthService(
       {
@@ -59,6 +88,8 @@ describe('AuthService', () => {
             status: 'ACTIVE',
             user: {
               status: UserStatus.SUSPENDED,
+              tenant: { status: 'ACTIVE' },
+              branch: null,
             },
           }),
         },

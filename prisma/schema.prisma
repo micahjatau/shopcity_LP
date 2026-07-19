@@ -126,7 +126,6 @@ model Session {
   id               String        @id @default(uuid())
   userId           String
   sessionTokenHash String        @unique
-  refreshTokenHash  String        @unique
   csrfTokenHash     String
   status           SessionStatus @default(ACTIVE)
   expiresAt        DateTime

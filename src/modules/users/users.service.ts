@@ -62,29 +62,40 @@ export class UsersService {
       );
     }
 
-    return this.prismaService.$transaction(async (prisma) => {
-      const user = await prisma.user.create({
-        data: {
+    try {
+      return await this.prismaService.$transaction(async (prisma) => {
+        const user = await prisma.user.create({
+          data: {
+            tenantId,
+            branchId,
+            username: data.username,
+            role: data.role,
+            status: UserStatus.ACTIVE,
+            supabaseAuthId: authResult.data.user.id,
+          },
+        });
+
+        await this.auditService.recordWithClient(prisma, {
           tenantId,
-          branchId,
-          username: data.username,
-          role: data.role,
-          status: UserStatus.ACTIVE,
-          supabaseAuthId: authResult.data.user.id,
-        },
-      });
+          actorId: actor.user.id,
+          action: 'user.create',
+          entityType: 'user',
+          entityId: user.id,
+          metadata: user,
+        });
 
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'user.create',
-        entityType: 'user',
-        entityId: user.id,
-        metadata: user,
+        return user;
       });
-
-      return user;
-    });
+    } catch (error) {
+      try {
+        await this.supabaseService.serviceRoleClient.auth.admin.deleteUser(
+          authResult.data.user.id,
+        );
+      } catch {
+        // Ignore compensation failures so the original database error surfaces.
+      }
+      throw error;
+    }
   }
 
   async updateRole(
