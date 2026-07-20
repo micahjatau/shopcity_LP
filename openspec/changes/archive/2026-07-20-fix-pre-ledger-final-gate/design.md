@@ -41,8 +41,8 @@ This change is a final gate before ledger work. It should remove those contradic
 - Alternatives considered: keep `barcodeValue` public. Rejected because it preserves the current specification drift.
 
 6. Model receipts as idempotent capture records, not weekly unique POS references.
-- Why: ledger inputs need a stable retry key and clear operational context, but an external receipt number is not guaranteed to be authoritative.
-- Alternatives considered: keep branch/week/receipt-number uniqueness as the main contract. Rejected because it does not express idempotent retries or optional external references.
+- Why: ledger inputs need a stable retry key and clear operational context, but an external receipt number is not guaranteed to be authoritative and should remain informational.
+- Alternatives considered: keep branch/week/receipt-number uniqueness as the main contract. Rejected because it does not express idempotent retries or optional informational references.
 
 ## Risks / Trade-offs
 

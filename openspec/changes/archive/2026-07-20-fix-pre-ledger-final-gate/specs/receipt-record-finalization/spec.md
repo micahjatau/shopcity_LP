@@ -7,6 +7,10 @@ The system MUST define a receipt as the pre-ledger loyalty input record and MUST
 - **WHEN** a receipt is captured without a POS receipt number
 - **THEN** the receipt record still succeeds if the required idempotency and purchase fields are present
 
+#### Scenario: External POS reference remains informational
+- **WHEN** a receipt includes an external POS receipt number
+- **THEN** the system stores it for reference only and does not use it as an idempotency key or uniqueness constraint
+
 #### Scenario: Duplicate client submission is deduplicated
 - **WHEN** the same tenant submits the same client operation and idempotency key again
 - **THEN** the system does not create a second receipt record

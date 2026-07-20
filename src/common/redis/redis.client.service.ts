@@ -52,7 +52,8 @@ export class RedisClientService implements OnModuleDestroy {
     const client = createClient({
       url: redisUrl,
       socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 100, 1_000),
+        connectTimeout: 2_000,
+        reconnectStrategy: () => false,
       },
     });
 

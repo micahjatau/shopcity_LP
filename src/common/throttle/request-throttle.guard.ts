@@ -28,14 +28,18 @@ export class RequestThrottleGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const key = `${options.bucket}:${this.resolveKey(request, options)}`;
-    const result = await this.throttleService.consume(
-      key,
-      options.limit,
-      options.windowMs,
+    const keys = this.resolveKeys(request, options);
+    const results = await Promise.all(
+      keys.map((key) =>
+        this.throttleService.consume(
+          `${options.bucket}:${key}`,
+          options.limit,
+          options.windowMs,
+        ),
+      ),
     );
 
-    if (!result.allowed) {
+    if (results.some((result) => !result.allowed)) {
       throw new HttpException(
         'Too many requests',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -45,14 +49,15 @@ export class RequestThrottleGuard implements CanActivate {
     return true;
   }
 
-  private resolveKey(
+  private resolveKeys(
     request: AuthenticatedRequest,
     options: ThrottleOptions,
-  ): string {
+  ): string[] {
     if (options.keyFactory) {
-      return options.keyFactory(request);
+      const value = options.keyFactory(request);
+      return Array.isArray(value) ? value : [value];
     }
 
-    return request.ip || 'unknown';
+    return [request.ip || 'unknown'];
   }
 }

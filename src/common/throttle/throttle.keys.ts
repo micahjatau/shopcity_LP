@@ -4,12 +4,20 @@ export function normalizeThrottleIdentity(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function buildLoginThrottleKey(request: AuthenticatedRequest): string {
+export function buildLoginThrottleKey(
+  request: AuthenticatedRequest,
+): string[] {
   const body = request.body as { username?: string } | undefined;
   const username = body?.username
     ? normalizeThrottleIdentity(body.username)
     : '';
-  return `login:${request.ip || 'unknown'}:${username}`;
+
+  const ip = request.ip || 'unknown';
+  return [
+    `login:ip:${ip}`,
+    `login:account:${username || 'unknown-account'}`,
+    `login:pair:${ip}:${username || 'unknown-account'}`,
+  ];
 }
 
 export function buildCardLookupThrottleKey(

@@ -6,7 +6,7 @@ export interface ThrottleOptions {
   bucket: string;
   limit: number;
   windowMs: number;
-  keyFactory?: (request: AuthenticatedRequest) => string;
+  keyFactory?: (request: AuthenticatedRequest) => string | string[];
 }
 
 export const Throttle = (options: ThrottleOptions) =>

@@ -9,14 +9,22 @@ describe('RequestThrottleGuard', () => {
         bucket: 'auth.login',
         limit: 1,
         windowMs: 60_000,
-        keyFactory: () => '127.0.0.1:admin@shopcity.local',
+        keyFactory: () => [
+          'login:ip:127.0.0.1',
+          'login:account:admin@shopcity.local',
+          'login:pair:127.0.0.1:admin@shopcity.local',
+        ],
       }),
     } as unknown as Reflector;
     const throttleService = {
       consume: jest
         .fn()
         .mockResolvedValueOnce({ allowed: true })
-        .mockResolvedValueOnce({ allowed: false }),
+        .mockResolvedValueOnce({ allowed: true })
+        .mockResolvedValueOnce({ allowed: false })
+        .mockResolvedValueOnce({ allowed: true })
+        .mockResolvedValueOnce({ allowed: true })
+        .mockResolvedValueOnce({ allowed: true }),
     };
     const guard = new RequestThrottleGuard(reflector, throttleService as never);
     const context = executionContextStub();
@@ -25,8 +33,21 @@ describe('RequestThrottleGuard', () => {
     await expect(guard.canActivate(context)).rejects.toMatchObject(
       new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS),
     );
-    expect(throttleService.consume).toHaveBeenCalledWith(
-      'auth.login:127.0.0.1:admin@shopcity.local',
+    expect(throttleService.consume).toHaveBeenNthCalledWith(
+      1,
+      'auth.login:login:ip:127.0.0.1',
+      1,
+      60_000,
+    );
+    expect(throttleService.consume).toHaveBeenNthCalledWith(
+      2,
+      'auth.login:login:account:admin@shopcity.local',
+      1,
+      60_000,
+    );
+    expect(throttleService.consume).toHaveBeenNthCalledWith(
+      3,
+      'auth.login:login:pair:127.0.0.1:admin@shopcity.local',
       1,
       60_000,
     );

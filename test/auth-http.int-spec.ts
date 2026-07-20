@@ -174,6 +174,41 @@ describe('auth and readiness flows (int)', () => {
       .expect(401);
   }, 120000);
 
+  it('writes ip, account, and pair buckets for login throttling', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+
+    const redisKeys = execSync(
+      "redis-cli -h 127.0.0.1 -p 6379 --raw KEYS 'auth.login*'",
+      { encoding: 'utf8' },
+    )
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    expect(redisKeys).toHaveLength(3);
+    expect(redisKeys.some((key) => key.startsWith('auth.login:login:ip:'))).toBe(
+      true,
+    );
+    expect(
+      redisKeys.some((key) =>
+        key.startsWith(`auth.login:login:account:${seedData.user.username}`),
+      ),
+    ).toBe(true);
+    expect(
+      redisKeys.some((key) =>
+        key.startsWith(
+          `auth.login:login:pair:`,
+        ) && key.endsWith(`:${seedData.user.username}`),
+      ),
+    ).toBe(true);
+  }, 120000);
+
   it('rejects protected requests when the tenant or branch is inactive', async () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
