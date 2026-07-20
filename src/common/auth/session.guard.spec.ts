@@ -2,7 +2,8 @@ import { loadAuthContext } from './session.guard';
 
 describe('loadAuthContext', () => {
   const configService = {
-    get: (key: string) => (key === 'SESSION_SECRET' ? 'test-secret' : undefined),
+    get: (key: string) =>
+      key === 'SESSION_SECRET' ? 'test-secret' : undefined,
   } as never;
 
   it('rejects suspended tenants', async () => {

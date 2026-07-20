@@ -18,6 +18,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { SessionGuard } from './common/auth/session.guard';
 import { CsrfGuard } from './common/auth/csrf.guard';
 import { RolesGuard } from './common/auth/roles.guard';
+import { RequestThrottleGuard } from './common/throttle/request-throttle.guard';
+import { RequestThrottleService } from './common/throttle/request-throttle.service';
 
 @Module({
   imports: [
@@ -68,6 +70,11 @@ import { RolesGuard } from './common/auth/roles.guard';
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: RequestThrottleGuard,
+    },
+    RequestThrottleService,
   ],
 })
 export class AppModule {}

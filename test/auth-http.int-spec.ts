@@ -68,7 +68,7 @@ describe('auth and readiness flows (int)', () => {
 
     const supabaseService = app.get(SupabaseService);
     jest
-      .spyOn((supabaseService.publicClient.auth as any), 'signInWithPassword')
+      .spyOn(supabaseService.publicClient.auth as any, 'signInWithPassword')
       .mockResolvedValue({
         data: { user: { id: seedData.user.supabaseAuthId } },
         error: null,
@@ -85,7 +85,10 @@ describe('auth and readiness flows (int)', () => {
   it('logs in, rotates, rejects stale sessions, and logs out over HTTP', async () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .send({ username: seedData.user.username, password: seedData.adminPassword })
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
       .expect(200);
 
     const loginSessionCookie = cookieValue(
@@ -214,6 +217,15 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 
   it('serves branch config from the database', async () => {
+    await prisma.tenant.update({
+      where: { id: seedData.tenant.id },
+      data: { status: TenantStatus.ACTIVE },
+    });
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: { status: BranchStatus.ACTIVE },
+    });
+
     await prisma.branch.update({
       where: { id: seedData.branch.id },
       data: {
@@ -234,6 +246,26 @@ describe('auth and readiness flows (int)', () => {
     });
   }, 120000);
 
+  it('rejects public config when the tenant or branch is inactive', async () => {
+    await prisma.tenant.update({
+      where: { id: seedData.tenant.id },
+      data: { status: TenantStatus.SUSPENDED },
+    });
+
+    await request(app.getHttpServer()).get('/api/v1/config/public').expect(503);
+
+    await prisma.tenant.update({
+      where: { id: seedData.tenant.id },
+      data: { status: TenantStatus.ACTIVE },
+    });
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: { status: BranchStatus.INACTIVE },
+    });
+
+    await request(app.getHttpServer()).get('/api/v1/config/public').expect(503);
+  }, 120000);
+
   it('reports readiness from live postgres and redis dependencies', async () => {
     const response = await request(app.getHttpServer()).get('/health/ready');
     expect(response.status).toBe(200);
@@ -244,8 +276,15 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 });
 
-function cookieValue(setCookie: string[] | string | undefined, name: string): string {
-  const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+function cookieValue(
+  setCookie: string[] | string | undefined,
+  name: string,
+): string {
+  const cookies = Array.isArray(setCookie)
+    ? setCookie
+    : setCookie
+      ? [setCookie]
+      : [];
   const match = cookies.find((entry) => entry.startsWith(`${name}=`));
   if (!match) {
     throw new Error(`Missing ${name} cookie`);
@@ -271,7 +310,9 @@ function createRedisPongServer(): Server {
   });
 }
 
-function isAddressInfo(address: string | AddressInfo | null): address is AddressInfo {
+function isAddressInfo(
+  address: string | AddressInfo | null,
+): address is AddressInfo {
   return Boolean(address && typeof address !== 'string');
 }
 
@@ -279,11 +320,14 @@ function createSupabaseAdminStub(supabaseAuthId: string) {
   return {
     auth: {
       admin: {
-        listUsers: jest.fn().mockResolvedValue({ data: { users: [] }, error: null }),
+        listUsers: jest
+          .fn()
+          .mockResolvedValue({ data: { users: [] }, error: null }),
         createUser: jest.fn().mockResolvedValue({
           data: { user: { id: supabaseAuthId } },
           error: null,
         }),
+        updateUserById: jest.fn().mockResolvedValue({ error: null }),
         deleteUser: jest.fn().mockResolvedValue({ error: null }),
       },
     },

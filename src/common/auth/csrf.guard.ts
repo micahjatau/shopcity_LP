@@ -34,11 +34,7 @@ export class CsrfGuard implements CanActivate {
 
     const contextState =
       request.authContext ??
-      (await loadAuthContext(
-        request,
-        this.prismaService,
-        this.configService,
-      ));
+      (await loadAuthContext(request, this.prismaService, this.configService));
     if (!contextState) {
       throw new ForbiddenException(
         'CSRF verification requires an authenticated session',

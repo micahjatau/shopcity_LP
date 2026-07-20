@@ -2,6 +2,7 @@ import { Controller, Get, Version } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigurationService } from './configuration.service';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
+import { Throttle } from '../../common/throttle/throttle.decorator';
 import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
@@ -15,6 +16,11 @@ export class ConfigurationController {
 
   @Get('public')
   @PublicRoute()
+  @Throttle({
+    bucket: 'config.public',
+    limit: 30,
+    windowMs: 60 * 1000,
+  })
   @Version('1')
   @apiSuccessEnvelopeResponse({
     description: 'Frontend-safe branch and policy config',

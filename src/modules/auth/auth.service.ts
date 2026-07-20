@@ -170,7 +170,11 @@ export class AuthService {
       include: { user: { include: { tenant: true, branch: true } } },
     });
 
-    if (!session || session.status !== 'ACTIVE' || !isAuthUserEligible(session.user)) {
+    if (
+      !session ||
+      session.status !== 'ACTIVE' ||
+      !isAuthUserEligible(session.user)
+    ) {
       throw new UnauthorizedException('User is not active');
     }
 

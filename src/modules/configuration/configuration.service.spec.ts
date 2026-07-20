@@ -1,3 +1,5 @@
+import { ServiceUnavailableException } from '@nestjs/common';
+import { BranchStatus, TenantStatus } from '@prisma/client';
 import { ConfigurationService } from './configuration.service';
 
 describe('ConfigurationService', () => {
@@ -23,6 +25,7 @@ describe('ConfigurationService', () => {
         tenant: {
           findUnique: jest.fn().mockResolvedValue({
             id: '00000000-0000-0000-0000-000000000001',
+            status: TenantStatus.ACTIVE,
             name: 'ShopCity',
           }),
         },
@@ -30,6 +33,7 @@ describe('ConfigurationService', () => {
           findUnique: jest.fn().mockResolvedValue({
             id: '00000000-0000-0000-0000-000000000002',
             tenantId: '00000000-0000-0000-0000-000000000001',
+            status: BranchStatus.ACTIVE,
             name: 'Main Branch',
             timezone: 'Africa/Nairobi',
             receiptWeekStartDay: 3,
@@ -76,6 +80,7 @@ describe('ConfigurationService', () => {
         tenant: {
           findUnique: jest.fn().mockResolvedValue({
             id: '00000000-0000-0000-0000-000000000001',
+            status: TenantStatus.ACTIVE,
             name: 'ShopCity',
           }),
         },
@@ -83,6 +88,7 @@ describe('ConfigurationService', () => {
           findUnique: jest.fn().mockResolvedValue({
             id: '00000000-0000-0000-0000-000000000002',
             tenantId: '00000000-0000-0000-0000-000000000099',
+            status: BranchStatus.ACTIVE,
             name: 'Main Branch',
             timezone: 'Africa/Lagos',
             receiptWeekStartDay: 1,
@@ -93,6 +99,44 @@ describe('ConfigurationService', () => {
 
     await expect(service.getPublicConfig()).rejects.toThrow(
       'Public configuration bootstrap data is inconsistent',
+    );
+  });
+
+  it('rejects inactive public tenant or branch configuration', async () => {
+    const service = new ConfigurationService(
+      {
+        get: (key: string) => {
+          const values: Record<string, unknown> = {
+            DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
+            DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
+          };
+
+          return values[key];
+        },
+      } as never,
+      {
+        tenant: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: '00000000-0000-0000-0000-000000000001',
+            status: TenantStatus.SUSPENDED,
+            name: 'ShopCity',
+          }),
+        },
+        branch: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: '00000000-0000-0000-0000-000000000002',
+            tenantId: '00000000-0000-0000-0000-000000000001',
+            status: BranchStatus.ACTIVE,
+            name: 'Main Branch',
+            timezone: 'Africa/Lagos',
+            receiptWeekStartDay: 1,
+          }),
+        },
+      } as never,
+    );
+
+    await expect(service.getPublicConfig()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
     );
   });
 });

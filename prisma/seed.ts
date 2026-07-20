@@ -6,6 +6,7 @@ import {
 } from '../src/config/app.constants';
 
 const prisma = new PrismaClient();
+const WEAK_BOOTSTRAP_PASSWORDS = new Set(['password', 'admin', 'admin123', 'shopcity']);
 
 type SupabaseAdminClient = ReturnType<typeof createClient>;
 
@@ -73,8 +74,7 @@ export async function seedFoundation(
     '00000000-0000-0000-0000-000000000002';
   const adminUserId = '00000000-0000-0000-0000-000000000003';
   const username = options.adminUsername ?? 'admin@shopcity.local';
-  const adminPassword =
-    options.adminPassword ?? process.env.DEFAULT_ADMIN_PASSWORD ?? 'password';
+  const adminPassword = resolveBootstrapPassword(options.adminPassword);
   const supabaseAdminClient =
     options.supabaseAdminClient ?? createSupabaseAdminClient();
 
@@ -245,8 +245,24 @@ async function ensureSupabaseAdminUser(
   password: string,
 ): Promise<SupabaseBootstrapIdentity> {
   const users = await supabaseAdminClient.auth.admin.listUsers();
-  const existingUser = users.data.users.find((user) => user.email === username);
+  const existingUser = (users.data.users as Array<{ id: string; email?: string | null }>).find(
+    (user) => user.email === username,
+  );
   if (existingUser) {
+    const updateResult = await supabaseAdminClient.auth.admin.updateUserById(
+      existingUser.id,
+      {
+        password,
+        email_confirm: true,
+      },
+    );
+
+    if (updateResult.error) {
+      throw new Error(
+        updateResult.error.message ?? 'Unable to update bootstrap Supabase user',
+      );
+    }
+
     return { id: existingUser.id, created: false };
   }
 
@@ -272,4 +288,31 @@ function requiredEnv(name: string): string {
   }
 
   return value;
+}
+
+function resolveBootstrapPassword(override?: string): string {
+  const candidate =
+    override ?? process.env.DEFAULT_ADMIN_PASSWORD ?? defaultTestPassword();
+
+  if (!candidate) {
+    throw new Error('DEFAULT_ADMIN_PASSWORD is required for bootstrap seeding');
+  }
+
+  if (!isTestEnvironment() && isWeakBootstrapPassword(candidate)) {
+    throw new Error('DEFAULT_ADMIN_PASSWORD must not use a weak default');
+  }
+
+  return candidate;
+}
+
+function defaultTestPassword(): string | undefined {
+  return isTestEnvironment() ? 'password' : undefined;
+}
+
+function isTestEnvironment(): boolean {
+  return process.env.NODE_ENV === 'test';
+}
+
+function isWeakBootstrapPassword(password: string): boolean {
+  return WEAK_BOOTSTRAP_PASSWORDS.has(password.toLowerCase());
 }

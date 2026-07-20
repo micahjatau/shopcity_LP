@@ -5,18 +5,20 @@ import { CsrfGuard } from './csrf.guard';
 describe('CsrfGuard', () => {
   it('requires matching header and cookie tokens', async () => {
     process.env.CSRF_SECRET = 'test-csrf-secret';
-    const guard = new CsrfGuard({
-      getAllAndOverride: () => false,
-    } as unknown as Reflector,
-    {
-      session: {
-        findUnique: jest.fn(),
-      },
-    } as never,
-    {
-      get: (key: string) =>
-        key === 'CSRF_SECRET' ? 'test-csrf-secret' : undefined,
-    } as never);
+    const guard = new CsrfGuard(
+      {
+        getAllAndOverride: () => false,
+      } as unknown as Reflector,
+      {
+        session: {
+          findUnique: jest.fn(),
+        },
+      } as never,
+      {
+        get: (key: string) =>
+          key === 'CSRF_SECRET' ? 'test-csrf-secret' : undefined,
+      } as never,
+    );
 
     await expect(
       guard.canActivate({
@@ -43,18 +45,20 @@ describe('CsrfGuard', () => {
   });
 
   it('rejects when the header token is missing', async () => {
-    const guard = new CsrfGuard({
-      getAllAndOverride: () => false,
-    } as unknown as Reflector,
-    {
-      session: {
-        findUnique: jest.fn(),
-      },
-    } as never,
-    {
-      get: (key: string) =>
-        key === 'CSRF_SECRET' ? 'test-csrf-secret' : undefined,
-    } as never);
+    const guard = new CsrfGuard(
+      {
+        getAllAndOverride: () => false,
+      } as unknown as Reflector,
+      {
+        session: {
+          findUnique: jest.fn(),
+        },
+      } as never,
+      {
+        get: (key: string) =>
+          key === 'CSRF_SECRET' ? 'test-csrf-secret' : undefined,
+      } as never,
+    );
 
     await expect(
       guard.canActivate({

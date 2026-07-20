@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { CardStatus, CustomerStatus } from '@prisma/client';
 import { CardsService } from './cards.service';
 
@@ -11,6 +11,7 @@ describe('CardsService', () => {
           tenantId: 'tenant-id',
           customerId: 'customer-id',
           status: CardStatus.REPLACED,
+          customer: { status: CustomerStatus.ACTIVE },
         }),
       },
       $transaction: jest.fn(),
@@ -26,7 +27,8 @@ describe('CardsService', () => {
   it('allows blocking an active card and records the audit event', async () => {
     const tx = {
       card: {
-        update: jest.fn().mockResolvedValue({
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn().mockResolvedValue({
           id: 'card-id',
           tenantId: 'tenant-id',
           customerId: 'customer-id',
@@ -42,10 +44,12 @@ describe('CardsService', () => {
           tenantId: 'tenant-id',
           customerId: 'customer-id',
           status: CardStatus.ACTIVE,
+          customer: { status: CustomerStatus.ACTIVE },
         }),
       },
-      $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<unknown>) =>
-        callback(tx),
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
       ),
     };
     const auditService = auditStub();
@@ -58,12 +62,13 @@ describe('CardsService', () => {
       status: CardStatus.BLOCKED,
     });
 
-    expect(tx.card.update).toHaveBeenCalledWith({
-      where: { id: 'card-id' },
-      data: {
-        status: CardStatus.BLOCKED,
-        blockedAt: expect.any(Date),
+    expect(tx.card.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'card-id',
+        tenantId: 'tenant-id',
+        status: CardStatus.ACTIVE,
       },
+      data: { status: CardStatus.BLOCKED, blockedAt: expect.any(Date) },
     });
     expect(auditService.recordWithClient).toHaveBeenCalledWith(tx, {
       tenantId: 'tenant-id',
@@ -73,6 +78,57 @@ describe('CardsService', () => {
       entityId: 'card-id',
       metadata: { status: 'BLOCKED' },
     });
+  });
+
+  it('requires the customer to be active before reactivating a blocked card', async () => {
+    const prisma = {
+      card: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'card-id',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          status: CardStatus.BLOCKED,
+          customer: { status: CustomerStatus.BLOCKED },
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.updateStatus('tenant-id', actorStub(), 'card-id', 'ACTIVE'),
+    ).rejects.toThrow('Customer is not active');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('fails when a stale card state loses a race inside the transaction', async () => {
+    const tx = {
+      card: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUnique: jest.fn(),
+      },
+    };
+    const prisma = {
+      card: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'card-id',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          status: CardStatus.ACTIVE,
+          customer: { status: CustomerStatus.ACTIVE },
+        }),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.updateStatus('tenant-id', actorStub(), 'card-id', 'BLOCKED'),
+    ).rejects.toThrow(ConflictException);
   });
 });
 

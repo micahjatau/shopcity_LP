@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { BranchStatus, TenantStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -28,6 +29,15 @@ export class ConfigurationService {
 
     if (branch.tenantId !== tenant.id) {
       throw new Error('Public configuration bootstrap data is inconsistent');
+    }
+
+    if (
+      tenant.status !== TenantStatus.ACTIVE ||
+      branch.status !== BranchStatus.ACTIVE
+    ) {
+      throw new ServiceUnavailableException(
+        'Public configuration is unavailable',
+      );
     }
 
     return {

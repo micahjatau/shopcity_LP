@@ -13,6 +13,7 @@ import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
 import { CardsService } from './cards.service';
+import { Throttle } from '../../common/throttle/throttle.decorator';
 import {
   CreateCardDto,
   ReplaceCardDto,
@@ -31,6 +32,15 @@ export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
 
   @Get('lookup/:barcode')
+  @Throttle({
+    bucket: 'cards.lookup',
+    limit: 30,
+    windowMs: 60 * 1000,
+    keyFactory: (request) => {
+      const params = request.params as { barcode?: string } | undefined;
+      return `${request.ip}:${params?.barcode ?? ''}`;
+    },
+  })
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })

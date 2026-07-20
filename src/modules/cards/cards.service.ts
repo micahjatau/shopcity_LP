@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -164,6 +165,7 @@ export class CardsService {
 
     const card = await this.prismaService.card.findFirst({
       where: { id: cardId, tenantId },
+      include: { customer: true },
     });
     if (!card) {
       throw new NotFoundException('Card not found');
@@ -171,6 +173,10 @@ export class CardsService {
 
     if (card.status === CardStatus.REPLACED) {
       throw new BadRequestException('Replaced cards cannot be updated');
+    }
+
+    if (status === 'ACTIVE' && card.customer.status !== CustomerStatus.ACTIVE) {
+      throw new BadRequestException('Customer is not active');
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -185,31 +191,45 @@ export class CardsService {
         });
 
         if (existingActiveCard) {
-          throw new BadRequestException(
-            'Customer already has an active card',
-          );
+          throw new BadRequestException('Customer already has an active card');
         }
       }
 
       try {
-        const updated = await prisma.card.update({
-          where: { id: cardId },
+        const updated = await prisma.card.updateMany({
+          where: {
+            id: cardId,
+            tenantId,
+            status: card.status,
+          },
           data: {
             status: status as CardStatus,
             blockedAt: status === 'BLOCKED' ? new Date() : null,
           },
         });
 
+        if (updated.count !== 1) {
+          throw new ConflictException('Card state changed during update');
+        }
+
+        const current = await prisma.card.findUnique({
+          where: { id: cardId },
+        });
+
+        if (!current) {
+          throw new ConflictException('Card state changed during update');
+        }
+
         await this.auditService.recordWithClient(prisma, {
           tenantId,
           actorId: actor.user.id,
           action: 'card.status',
           entityType: 'card',
-          entityId: updated.id,
+          entityId: current.id,
           metadata: { status },
         });
 
-        return updated;
+        return current;
       } catch (error) {
         throw normalizeCardWriteError(error);
       }

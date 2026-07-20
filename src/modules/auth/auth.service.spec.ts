@@ -75,9 +75,9 @@ describe('AuthService', () => {
       {} as never,
     );
 
-    await expect(service.login('admin@shopcity.local', 'password')).rejects.toThrow(
-      'User is not active',
-    );
+    await expect(
+      service.login('admin@shopcity.local', 'password'),
+    ).rejects.toThrow('User is not active');
   });
 
   it('rejects inactive users when resolving the current session', async () => {

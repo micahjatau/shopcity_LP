@@ -188,14 +188,20 @@ describe('phase 1 service flows', () => {
       authService.refresh(initialSession!.id),
       authService.refresh(initialSession!.id),
     ]);
-    expect(rotationResults.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    expect(rotationResults.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(
+      rotationResults.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
+    expect(
+      rotationResults.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
 
     const sessions = await prisma.session.findMany({
       where: { userId: seed.user.id },
     });
     expect(sessions).toHaveLength(2);
-    expect(sessions.filter((session) => session.status === SessionStatus.ACTIVE)).toHaveLength(1);
+    expect(
+      sessions.filter((session) => session.status === SessionStatus.ACTIVE),
+    ).toHaveLength(1);
     expect(issued.context.user.id).toBe(seed.user.id);
   });
 
@@ -203,7 +209,10 @@ describe('phase 1 service flows', () => {
     const seed = await seedFoundation(prisma, {
       supabaseAdminClient: createSupabaseAdminStub(),
     });
-    const cardsService = new CardsService(prisma as never, auditStub() as never);
+    const cardsService = new CardsService(
+      prisma as never,
+      auditStub() as never,
+    );
 
     const customer = await prisma.customer.create({
       data: {
@@ -228,14 +237,22 @@ describe('phase 1 service flows', () => {
       }),
     ]);
 
-    expect([createA.status, createB.status].filter((status) => status === 'fulfilled')).toHaveLength(1);
+    expect(
+      [createA.status, createB.status].filter(
+        (status) => status === 'fulfilled',
+      ),
+    ).toHaveLength(1);
 
     const createdCards = await prisma.card.findMany({
       where: { tenantId: seed.tenant.id, customerId: customer.id },
     });
-    expect(createdCards.filter((card) => card.status === CardStatus.ACTIVE)).toHaveLength(1);
+    expect(
+      createdCards.filter((card) => card.status === CardStatus.ACTIVE),
+    ).toHaveLength(1);
 
-    const activeCard = createdCards.find((card) => card.status === CardStatus.ACTIVE)!;
+    const activeCard = createdCards.find(
+      (card) => card.status === CardStatus.ACTIVE,
+    )!;
     const [replaceA, replaceB] = await Promise.allSettled([
       cardsService.replaceCard(seed.tenant.id, seed.actor, activeCard.id, {
         barcodeValue: 'SC-2001',
@@ -245,14 +262,22 @@ describe('phase 1 service flows', () => {
       }),
     ]);
 
-    expect([replaceA.status, replaceB.status].filter((status) => status === 'fulfilled')).toHaveLength(1);
+    expect(
+      [replaceA.status, replaceB.status].filter(
+        (status) => status === 'fulfilled',
+      ),
+    ).toHaveLength(1);
 
     const cardsAfterReplacement = await prisma.card.findMany({
       where: { tenantId: seed.tenant.id, customerId: customer.id },
       orderBy: { createdAt: 'asc' },
     });
-    expect(cardsAfterReplacement.filter((card) => card.status === CardStatus.ACTIVE)).toHaveLength(1);
-    expect(cardsAfterReplacement.some((card) => card.status === CardStatus.REPLACED)).toBe(true);
+    expect(
+      cardsAfterReplacement.filter((card) => card.status === CardStatus.ACTIVE),
+    ).toHaveLength(1);
+    expect(
+      cardsAfterReplacement.some((card) => card.status === CardStatus.REPLACED),
+    ).toBe(true);
   });
 });
 
@@ -267,11 +292,14 @@ function createSupabaseAdminStub() {
   return {
     auth: {
       admin: {
-        listUsers: jest.fn().mockResolvedValue({ data: { users: [] }, error: null }),
+        listUsers: jest
+          .fn()
+          .mockResolvedValue({ data: { users: [] }, error: null }),
         createUser: jest.fn().mockResolvedValue({
           data: { user: { id: 'seed-admin-supabase-user' } },
           error: null,
         }),
+        updateUserById: jest.fn().mockResolvedValue({ error: null }),
         deleteUser: jest.fn().mockResolvedValue({ error: null }),
       },
     },

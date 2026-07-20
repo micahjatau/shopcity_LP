@@ -12,6 +12,7 @@ import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
 import { LoginDto, authResponseSchema } from './auth.dto';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
+import { Throttle } from '../../common/throttle/throttle.decorator';
 import {
   CSRF_COOKIE_NAME,
   SESSION_COOKIE_NAME,
@@ -36,6 +37,15 @@ export class AuthController {
 
   @Post('login')
   @PublicRoute()
+  @Throttle({
+    bucket: 'auth.login',
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    keyFactory: (request) => {
+      const body = request.body as { username?: string } | undefined;
+      return `${request.ip}:${body?.username ?? ''}`;
+    },
+  })
   @Version('1')
   @HttpCode(200)
   @apiSuccessEnvelopeResponse({

@@ -52,6 +52,7 @@ prisma/
 ```bash
 npm install
 npm run prisma:generate
+supabase start
 docker compose up -d
 npx prisma migrate deploy
 npm run prisma:seed
@@ -61,7 +62,7 @@ npm run start:dev
 
 The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
-The seed step provisions the foundation tenant, branch, and a usable admin login. By default the bootstrap admin is `admin@shopcity.local` with password `password`, unless `DEFAULT_ADMIN_PASSWORD` is set.
+The seed step provisions the foundation tenant, branch, and a usable admin login. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests.
 
 ## Common Commands
 

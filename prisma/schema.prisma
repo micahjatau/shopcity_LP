@@ -82,6 +82,7 @@ model Branch {
   receipts            Receipt[]
 
   @@index([tenantId])
+  @@unique([tenantId, id])
 }
 
 model Device {
@@ -95,7 +96,7 @@ model Device {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch          Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch          Branch       @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
 
   @@index([tenantId, branchId])
 }
@@ -112,7 +113,7 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch             Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branch             Branch?    @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   sessions           Session[]
   registeredCustomers Customer[] @relation("CustomerRegisteredBy")
   cardsIssued        Card[]     @relation("CardIssuedBy")
@@ -120,6 +121,7 @@ model User {
 
   @@unique([tenantId, username])
   @@index([tenantId, role])
+  @@unique([tenantId, id])
 }
 
 model Session {
@@ -151,12 +153,13 @@ model Customer {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch         Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   registeredByUser User?        @relation("CustomerRegisteredBy", fields: [registeredBy], references: [id], onDelete: SetNull)
   cards          Card[]
 
   @@unique([tenantId, phoneE164])
   @@index([tenantId, status])
+  @@unique([tenantId, id])
 }
 
 model Card {
@@ -173,13 +176,14 @@ model Card {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  customer         Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customer         Customer   @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   issuedByUser     User?      @relation("CardIssuedBy", fields: [issuedBy], references: [id], onDelete: SetNull)
   replacedByCard   Card?      @relation("CardReplacement", fields: [replacedByCardId], references: [id], onDelete: SetNull)
   replacedCards    Card[]     @relation("CardReplacement")
 
   @@unique([tenantId, barcodeValue])
   @@index([tenantId, customerId, status])
+  @@unique([tenantId, id])
 }
 
 model Receipt {
