@@ -9,6 +9,8 @@ import {
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
+import type { SignInWithPasswordCredentials } from '@supabase/supabase-js';
+import { createApp } from '../src/bootstrap';
 import { seedFoundation } from '../prisma/seed';
 import { SupabaseService } from '../src/supabase/supabase.service';
 import {
@@ -31,9 +33,6 @@ let cashierTwo: {
 describe('receipt capture flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let redisEnv: RedisTestEnvironment;
-  let createAppFn: (options?: {
-    enableDocs?: boolean;
-  }) => Promise<INestApplication>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -57,8 +56,6 @@ describe('receipt capture flows (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-    ({ createApp: createAppFn } = await import('../src/bootstrap'));
-
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
     });
@@ -81,8 +78,7 @@ describe('receipt capture flows (int)', () => {
       },
     });
 
-    app = await createAppFn({ enableDocs: false });
-    await app.getHttpAdapter().getInstance().ready();
+    app = await createApp({ enableDocs: false });
 
     const supabaseService = app.get(SupabaseService);
     const authIds: Record<string, string> = {
@@ -91,19 +87,20 @@ describe('receipt capture flows (int)', () => {
     };
     jest
       .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
-      .mockImplementation(({ email }: { email: string }) => {
-        const userId = authIds[email];
+      .mockImplementation((credentials: SignInWithPasswordCredentials) => {
+        const email = 'email' in credentials ? credentials.email : undefined;
+        const userId = email ? authIds[email] : undefined;
         if (!userId) {
           return {
             data: { user: null },
             error: new Error('Invalid credentials'),
-          };
+          } as never;
         }
 
         return {
-          data: { user: { id: userId } },
+          data: { user: { id: userId }, session: null },
           error: null,
-        };
+        } as never;
       });
   }, 120000);
 

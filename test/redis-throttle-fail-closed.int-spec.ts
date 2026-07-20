@@ -1,15 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-require-imports, @typescript-eslint/no-unnecessary-type-assertion */
 import { execSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
+import { createApp } from '../src/bootstrap';
+import { SupabaseService } from '../src/supabase/supabase.service.js';
 import { seedFoundation } from '../prisma/seed';
 
 describe('redis throttling fail-closed (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let prisma: PrismaClient;
   let app: any;
-  let createAppFn: (options?: { enableDocs?: boolean }) => Promise<any>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -31,10 +31,6 @@ describe('redis throttling fail-closed (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-    jest.resetModules();
-    ({ createApp: createAppFn } = require('../src/bootstrap'));
-    const { SupabaseService } = require('../src/supabase/supabase.service');
-
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
     });
@@ -45,14 +41,16 @@ describe('redis throttling fail-closed (int)', () => {
       adminPassword: 'password',
     });
 
-    app = await createAppFn({ enableDocs: false });
-    await app.getHttpAdapter().getInstance().ready();
+    app = await createApp({ enableDocs: false });
 
     const supabaseService = app.get(SupabaseService);
     jest
-      .spyOn(supabaseService.publicClient.auth as any, 'signInWithPassword')
+      .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
       .mockResolvedValue({
-        data: { user: { id: seedData.user.supabaseAuthId } },
+        data: {
+          user: { id: seedData.user.supabaseAuthId },
+          session: null,
+        },
         error: null,
       } as never);
   }, 240000);
