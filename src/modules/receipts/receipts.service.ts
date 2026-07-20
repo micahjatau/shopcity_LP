@@ -4,14 +4,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CardStatus, CustomerStatus, Prisma } from '@prisma/client';
-import { randomUUID, createHash } from 'node:crypto';
+import {
+  BranchStatus,
+  CardStatus,
+  CustomerStatus,
+  DeviceStatus,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { CaptureReceiptDto } from './receipts.dto';
 
 const RECEIPT_CAPTURE_ENDPOINT = 'POST /api/v1/receipts';
+const MAX_POS_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const MAX_POS_PAST_SKEW_MS = 12 * 60 * 60 * 1000;
 
 type ReceiptCaptureResponse = {
   id: string;
@@ -20,8 +29,7 @@ type ReceiptCaptureResponse = {
   customerId: string;
   cardSerialNumber: string;
   deviceId: string | null;
-  receiptNumber: string;
-  externalReceiptNumber: string | null;
+  posReceiptNumber: string;
   purchaseAmountKobo: number;
   occurredAt: string;
   capturedAt: string;
@@ -52,19 +60,66 @@ export class ReceiptsService {
     data: CaptureReceiptDto,
   ): Promise<ReceiptCaptureResponse> {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
+    const posReceiptNumber = normalizeReceiptNumber(data.posReceiptNumber);
+    const normalizedPosReceiptNumber = normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(data.occurredAt, 'occurredAt');
-    const externalReceiptNumber = normalizeOptionalText(
-      data.externalReceiptNumber,
+
+    const device = await this.prismaService.device.findFirst({
+      where: { id: data.deviceId, tenantId },
+      include: { branch: true },
+    });
+
+    if (!device) {
+      throw new NotFoundException('Device not found');
+    }
+
+    if (device.status !== DeviceStatus.ACTIVE) {
+      throw new BadRequestException('Device is not active');
+    }
+
+    if (device.branch.status !== BranchStatus.ACTIVE) {
+      throw new BadRequestException('Branch is not active');
+    }
+
+    if (actor.user.branchId && actor.user.branchId !== device.branchId) {
+      throw new BadRequestException('Device does not belong to cashier branch');
+    }
+
+    const branchId = actor.user.branchId ?? device.branchId;
+    if (!branchId) {
+      throw new BadRequestException('Branch context is required');
+    }
+
+    assertReceiptTimestampAllowed(actor.user.role, occurredAt);
+
+    const card = await this.prismaService.card.findFirst({
+      where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
+      include: { customer: true },
+    });
+    if (
+      !card ||
+      card.status !== CardStatus.ACTIVE ||
+      card.customer.status !== CustomerStatus.ACTIVE ||
+      card.customer.isStaff
+    ) {
+      throw new NotFoundException('Card not found');
+    }
+
+    const receiptWeekStart = deriveReceiptWeekStart(
+      occurredAt,
+      device.branch.timezone,
+      device.branch.receiptWeekStartDay,
     );
+
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
-      branchId: data.branchId,
+      branchId,
       cardSerialNumber: data.cardSerialNumber.trim(),
+      posReceiptNumber: normalizedPosReceiptNumber,
       purchaseAmountKobo: data.purchaseAmountKobo,
       occurredAt: occurredAt.toISOString(),
-      deviceId: data.deviceId ?? null,
-      externalReceiptNumber,
+      deviceId: device.id,
     });
 
     const existing = await this.prismaService.idempotencyRecord.findUnique({
@@ -89,45 +144,18 @@ export class ReceiptsService {
       throw new ConflictException('Idempotency key is still being processed');
     }
 
-    const branch = await this.prismaService.branch.findFirst({
-      where: { id: data.branchId, tenantId },
+    const duplicateReceipt = await this.prismaService.receipt.findFirst({
+      where: {
+        tenantId,
+        branchId,
+        receiptWeekStart,
+        normalizedPosReceiptNumber,
+      },
     });
-    if (!branch) {
-      throw new BadRequestException('Branch not found for tenant');
+
+    if (duplicateReceipt) {
+      throw new ConflictException('Physical receipt already captured');
     }
-
-    const card = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
-      include: { customer: true },
-    });
-    if (
-      !card ||
-      card.status !== CardStatus.ACTIVE ||
-      card.customer.status !== CustomerStatus.ACTIVE ||
-      card.customer.isStaff
-    ) {
-      throw new NotFoundException('Card not found');
-    }
-
-    const device = data.deviceId
-      ? await this.prismaService.device.findFirst({
-          where: { id: data.deviceId, tenantId },
-        })
-      : null;
-
-    if (data.deviceId && !device) {
-      throw new NotFoundException('Device not found');
-    }
-
-    if (device && device.branchId !== branch.id) {
-      throw new BadRequestException('Device does not belong to branch');
-    }
-
-    const receiptWeekStart = deriveReceiptWeekStart(
-      occurredAt,
-      branch.timezone,
-      branch.receiptWeekStartDay,
-    );
 
     try {
       return await this.prismaService.$transaction(async (prisma) => {
@@ -145,15 +173,14 @@ export class ReceiptsService {
         const receipt = await prisma.receipt.create({
           data: {
             tenantId,
-            branchId: branch.id,
+            branchId,
             customerId: card.customerId,
             cardId: card.id,
-            deviceId: device?.id ?? null,
-            receiptNumber: randomUUID(),
-            externalReceiptNumber,
+            deviceId: device.id,
+            posReceiptNumber,
+            normalizedPosReceiptNumber,
             receiptWeekStart,
             purchaseAmountKobo: BigInt(data.purchaseAmountKobo),
-            cashierId: actor.user.id,
             occurredAt,
             capturedByTenantId: actor.user.tenantId,
             capturedBy: actor.user.id,
@@ -209,6 +236,10 @@ export class ReceiptsService {
         );
       }
 
+      if (isUniqueReceiptConflict(error)) {
+        throw new ConflictException('Physical receipt already captured');
+      }
+
       throw error;
     }
   }
@@ -232,8 +263,7 @@ function toReceiptCaptureResponse(
     customerId: receipt.customerId,
     cardSerialNumber: receipt.card.barcodeValue,
     deviceId: receipt.deviceId,
-    receiptNumber: receipt.receiptNumber,
-    externalReceiptNumber: receipt.externalReceiptNumber,
+    posReceiptNumber: receipt.posReceiptNumber,
     purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
     occurredAt: receipt.occurredAt.toISOString(),
     capturedAt: receipt.capturedAt.toISOString(),
@@ -250,6 +280,19 @@ function normalizeIdempotencyKey(key: string | undefined): string {
   return normalized;
 }
 
+function normalizeReceiptNumber(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new BadRequestException('posReceiptNumber is required');
+  }
+
+  return normalized;
+}
+
+function normalizeReceiptIdentity(value: string): string {
+  return value.trim().toUpperCase();
+}
+
 function parseDate(value: string, fieldName: string): Date {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -259,9 +302,22 @@ function parseDate(value: string, fieldName: string): Date {
   return date;
 }
 
-function normalizeOptionalText(value?: string): string | undefined {
-  const normalized = value?.trim();
-  return normalized ? normalized : undefined;
+function assertReceiptTimestampAllowed(
+  role: UserRole,
+  occurredAt: Date,
+): void {
+  if (role !== UserRole.CASHIER) {
+    return;
+  }
+
+  const skewMs = occurredAt.getTime() - Date.now();
+  if (skewMs > MAX_POS_FUTURE_SKEW_MS) {
+    throw new BadRequestException('occurredAt cannot be in the future');
+  }
+
+  if (skewMs < -MAX_POS_PAST_SKEW_MS) {
+    throw new BadRequestException('occurredAt is too old');
+  }
 }
 
 function hashRequest(payload: Record<string, unknown>): string {
@@ -336,5 +392,28 @@ function isUniqueIdempotencyConflict(error: unknown): boolean {
     target.includes('actorId') &&
     target.includes('endpoint') &&
     target.includes('idempotencyKey')
+  );
+}
+
+function isUniqueReceiptConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (error.code !== 'P2002') {
+    return false;
+  }
+
+  const target = Array.isArray(error.meta?.target)
+    ? error.meta.target.join(', ')
+    : typeof error.meta?.target === 'string'
+      ? error.meta.target
+      : '';
+
+  return (
+    target.includes('tenantId') &&
+    target.includes('branchId') &&
+    target.includes('receiptWeekStart') &&
+    target.includes('normalizedPosReceiptNumber')
   );
 }

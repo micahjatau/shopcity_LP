@@ -65,12 +65,13 @@ describe('OpenAPI contract (int)', () => {
       document.paths['/api/v1/receipts']?.post?.requestBody,
     );
 
-    expect(createSchema?.properties?.branchId).toBeDefined();
+    expect(createSchema?.properties?.posReceiptNumber).toBeDefined();
     expect(createSchema?.properties?.cardSerialNumber).toBeDefined();
     expect(createSchema?.properties?.purchaseAmountKobo).toBeDefined();
     expect(createSchema?.properties?.occurredAt).toBeDefined();
     expect(createSchema?.properties?.deviceId).toBeDefined();
-    expect(createSchema?.properties?.externalReceiptNumber).toBeDefined();
+    expect(createSchema?.properties?.branchId).toBeUndefined();
+    expect(createSchema?.properties?.externalReceiptNumber).toBeUndefined();
   });
 });
 

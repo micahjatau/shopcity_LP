@@ -1,10 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsInt, IsString, IsUUID, Min } from 'class-validator';
 
 export class CaptureReceiptDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty()
   @IsString()
-  branchId!: string;
+  posReceiptNumber!: string;
 
   @ApiProperty()
   @IsString()
@@ -19,13 +19,7 @@ export class CaptureReceiptDto {
   @IsDateString()
   occurredAt!: string;
 
-  @ApiPropertyOptional({ format: 'uuid' })
-  @IsOptional()
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
-  deviceId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  externalReceiptNumber?: string;
+  deviceId!: string;
 }

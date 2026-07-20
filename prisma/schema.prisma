@@ -106,6 +106,7 @@ model Device {
   receipts        Receipt[]
 
   @@index([tenantId, branchId])
+  @@unique([tenantId, id])
 }
 
 model User {
@@ -202,31 +203,30 @@ model Card {
 }
 
 model Receipt {
-  id                 String   @id @default(uuid())
-  tenantId           String
-  branchId           String
-  customerId         String
-  cardId             String
-  deviceId           String?
-  receiptNumber      String
-  externalReceiptNumber String?
-  receiptWeekStart   DateTime
-  purchaseAmountKobo BigInt
-  cashierId          String?
-  occurredAt         DateTime
-  capturedByTenantId  String
-  capturedBy         String
-  capturedAt         DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch             Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customer           Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  card               Card     @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
-  device             Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
-  capturedByUser     User     @relation("ReceiptCapturedBy", fields: [capturedByTenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
+  id                       String   @id @default(uuid())
+  tenantId                 String
+  branchId                 String
+  customerId               String
+  cardId                   String
+  deviceId                 String?
+  posReceiptNumber         String
+  normalizedPosReceiptNumber String
+  receiptWeekStart         DateTime
+  purchaseAmountKobo       BigInt
+  occurredAt               DateTime
+  capturedByTenantId       String
+  capturedBy               String
+  capturedAt               DateTime @default(now())
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                   Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  customer                 Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  card                     Card     @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
+  device                   Device?  @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: SetNull)
+  capturedByUser           User     @relation("ReceiptCapturedBy", fields: [capturedByTenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
 
-  @@unique([branchId, receiptNumber, receiptWeekStart])
+  @@unique([tenantId, branchId, receiptWeekStart, normalizedPosReceiptNumber])
   @@unique([tenantId, id])
   @@index([tenantId, branchId, receiptWeekStart])
   @@index([tenantId, cardId, occurredAt])

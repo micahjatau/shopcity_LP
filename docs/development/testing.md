@@ -12,5 +12,5 @@
 
 ## Expectations
 - Keep tests deterministic.
-- Use Testcontainers for database integration checks.
+- Use Testcontainers for database integration checks and Redis-backed integration checks.
 - Prefer focused spec runs while developing.

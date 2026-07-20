@@ -10,9 +10,11 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
 import { SupabaseService } from '../src/supabase/supabase.service';
+import { createRedisTestEnvironment, type RedisTestEnvironment } from './support/redis-testcontainer';
 
 describe('auth and readiness flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
+  let redisEnv: RedisTestEnvironment;
   let prisma: PrismaClient;
   let app: any;
   let createAppFn: (options?: { enableDocs?: boolean }) => Promise<any>;
@@ -20,6 +22,7 @@ describe('auth and readiness flows (int)', () => {
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
+    redisEnv = await createRedisTestEnvironment();
 
     const databaseUrl = pgContainer.getConnectionUri();
 
@@ -32,7 +35,7 @@ describe('auth and readiness flows (int)', () => {
     });
 
     process.env.DATABASE_URL = databaseUrl;
-    process.env.REDIS_URL = 'redis://127.0.0.1:6379';
+    process.env.REDIS_URL = redisEnv.redisUrl;
     process.env.SESSION_SECRET = 'session-secret';
     process.env.CSRF_SECRET = 'csrf-secret';
     process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
@@ -64,15 +67,14 @@ describe('auth and readiness flows (int)', () => {
       } as never);
   }, 120000);
 
-  beforeEach(() => {
-    execSync('redis-cli -h 127.0.0.1 -p 6379 FLUSHDB', {
-      stdio: 'ignore',
-    });
+  beforeEach(async () => {
+    await redisEnv.flushDb();
   });
 
   afterAll(async () => {
     await app?.close();
     await prisma?.$disconnect();
+    await redisEnv?.close();
     await pgContainer?.stop();
   }, 120000);
 
@@ -183,13 +185,7 @@ describe('auth and readiness flows (int)', () => {
       })
       .expect(200);
 
-    const redisKeys = execSync(
-      "redis-cli -h 127.0.0.1 -p 6379 --raw KEYS 'auth.login*'",
-      { encoding: 'utf8' },
-    )
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
+    const redisKeys = await redisEnv.getKeys('auth.login*');
 
     expect(redisKeys).toHaveLength(3);
     expect(redisKeys.some((key) => key.startsWith('auth.login:login:ip:'))).toBe(
