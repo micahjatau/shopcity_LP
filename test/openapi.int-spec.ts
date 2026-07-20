@@ -40,4 +40,51 @@ describe('OpenAPI contract (int)', () => {
     expect(schema?.properties?.meta?.properties?.requestId).toBeDefined();
     expect(schema?.properties?.success?.example).toBe(true);
   });
+
+  it('keeps the card contract on barcodeValue', () => {
+    const document = buildOpenApiDocument(app);
+    const createSchema = resolveRequestBodySchema(
+      document,
+      document.paths['/api/v1/cards']?.post?.requestBody,
+    );
+    const replaceSchema = resolveRequestBodySchema(
+      document,
+      document.paths['/api/v1/cards/{id}/replace']?.post?.requestBody,
+    );
+
+    expect(createSchema?.properties?.barcodeValue).toBeDefined();
+    expect(replaceSchema?.properties?.barcodeValue).toBeDefined();
+    expect(createSchema?.properties?.serialNumber).toBeUndefined();
+    expect(replaceSchema?.properties?.serialNumber).toBeUndefined();
+  });
 });
+
+function resolveRequestBodySchema(
+  document: ReturnType<typeof buildOpenApiDocument>,
+  requestBody: unknown,
+) {
+  const content = requestBody as {
+    content?: {
+      ['application/json']?: {
+        schema?: {
+          $ref?: string;
+          properties?: Record<string, unknown>;
+        };
+      };
+    };
+  };
+  const schema = content.content?.['application/json']?.schema;
+
+  if (!schema) {
+    return undefined;
+  }
+
+  if (schema.$ref) {
+    const refName = schema.$ref.split('/').pop() as string;
+    return document.components?.schemas?.[refName] as {
+      properties?: Record<string, unknown>;
+    };
+  }
+
+  return schema;
+}

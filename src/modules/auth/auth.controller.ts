@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { LoginDto, authResponseSchema } from './auth.dto';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
 import { Throttle } from '../../common/throttle/throttle.decorator';
+import { buildLoginThrottleKey } from '../../common/throttle/throttle.keys';
 import {
   CSRF_COOKIE_NAME,
   SESSION_COOKIE_NAME,
@@ -41,10 +42,7 @@ export class AuthController {
     bucket: 'auth.login',
     limit: 5,
     windowMs: 15 * 60 * 1000,
-    keyFactory: (request) => {
-      const body = request.body as { username?: string } | undefined;
-      return `${request.ip}:${body?.username ?? ''}`;
-    },
+    keyFactory: buildLoginThrottleKey,
   })
   @Version('1')
   @HttpCode(200)

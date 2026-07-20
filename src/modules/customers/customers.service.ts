@@ -25,6 +25,8 @@ export class CustomersService {
             OR: [
               { fullName: { contains: query, mode: 'insensitive' } },
               { phoneE164: { contains: query } },
+              { email: { contains: query, mode: 'insensitive' } },
+              { cards: { some: { barcodeValue: { contains: query } } } },
             ],
           }
         : { tenantId },
@@ -48,11 +50,13 @@ export class CustomersService {
     data: {
       fullName: string;
       phone: string;
+      email?: string;
       isStaff?: boolean;
       branchId?: string;
     },
   ) {
     const phoneE164 = normalizePhoneToE164(data.phone);
+    const email = data.email?.trim().toLowerCase();
     if (!phoneE164.startsWith('+')) {
       throw new BadRequestException('Phone number is invalid');
     }
@@ -70,12 +74,13 @@ export class CustomersService {
     }
 
     const existing = await this.prismaService.customer.findFirst({
-      where: { tenantId, phoneE164 },
+      where: {
+        tenantId,
+        OR: [{ phoneE164 }, ...(email ? [{ email }] : [])],
+      },
     });
     if (existing) {
-      throw new ConflictException(
-        'Active customer already exists for this phone',
-      );
+      throw new ConflictException('Active customer already exists');
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -84,8 +89,10 @@ export class CustomersService {
           tenantId,
           branchId,
           fullName: data.fullName,
+          email,
           phoneE164,
           isStaff: data.isStaff ?? false,
+          registeredByTenantId: actor.user.tenantId,
           registeredBy: actor.user.id,
         },
       });
@@ -107,25 +114,32 @@ export class CustomersService {
     tenantId: string,
     actor: AuthContext,
     id: string,
-    data: { fullName?: string; phone?: string; isStaff?: boolean },
+    data: {
+      fullName?: string;
+      phone?: string;
+      email?: string;
+      isStaff?: boolean;
+    },
   ) {
     const customer = await this.getCustomer(tenantId, id);
     const phoneE164 = data.phone
       ? normalizePhoneToE164(data.phone)
       : customer.phoneE164;
+    const email = data.email?.trim().toLowerCase();
 
-    if (data.phone) {
+    if (data.phone || data.email) {
       const duplicate = await this.prismaService.customer.findFirst({
         where: {
           tenantId,
-          phoneE164,
+          OR: [
+            ...(data.phone ? [{ phoneE164 }] : []),
+            ...(email ? [{ email }] : []),
+          ],
           NOT: { id },
         },
       });
       if (duplicate) {
-        throw new ConflictException(
-          'Active customer already exists for this phone',
-        );
+        throw new ConflictException('Active customer already exists');
       }
     }
 
@@ -144,6 +158,7 @@ export class CustomersService {
         data: {
           ...(data.fullName ? { fullName: data.fullName } : {}),
           ...(data.phone ? { phoneE164 } : {}),
+          ...(data.email ? { email } : {}),
           ...(typeof data.isStaff === 'boolean'
             ? { isStaff: data.isStaff }
             : {}),

@@ -53,6 +53,7 @@ prisma/
 npm install
 npm run prisma:generate
 supabase start
+supabase status
 docker compose up -d
 npx prisma migrate deploy
 npm run prisma:seed
@@ -62,7 +63,7 @@ npm run start:dev
 
 The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
-The seed step provisions the foundation tenant, branch, and a usable admin login. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests.
+The seed step provisions the foundation tenant, branch, and a usable admin login. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `supabase status` into your environment before seeding. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests.
 
 ## Common Commands
 
@@ -78,6 +79,7 @@ The seed step provisions the foundation tenant, branch, and a usable admin login
 - Available CLIs in this repo include `nest`, `supabase`, `prisma`, `spectral`, `orval`, `compodoc`, `oasdiff`, `bru`, `lint-staged`, and `commitlint`.
 - Generate schemas, auth config, OpenAPI checks, frontend clients, and docs with the CLI that owns them; do not hand-edit generated outputs.
 - Use `supabase` for identity/password workflows and generated types, `prisma` for schema and migrations, `spectral` and `oasdiff` for contract validation, `orval` for client generation, `compodoc` for NestJS docs, and `bru` for API collections.
+- Before drafting a spec proposal, run `npm run proposal:impact -- --file <path> <symbol>` and record the findings in `docs/development/gitnexus-impact-tracker.md`.
 
 ## Foundation Stack
 

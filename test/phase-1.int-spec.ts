@@ -56,7 +56,7 @@ describe('phase 1 service flows', () => {
         fullName: 'Ada Lovelace',
         phone: '08012345678',
       }),
-    ).rejects.toThrow('Active customer already exists for this phone');
+    ).rejects.toThrow('Active customer already exists');
 
     const customers = await prisma.customer.findMany({
       where: { tenantId: seed.tenant.id },
@@ -75,9 +75,11 @@ describe('phase 1 service flows', () => {
         tenantId: seed.tenant.id,
         branchId: seed.branch.id,
         fullName: 'Ada Lovelace',
+        email: 'ada.lovelace@shopcity.local',
         phoneE164: '+2348012345679',
         isStaff: false,
         status: CustomerStatus.ACTIVE,
+        registeredByTenantId: seed.tenant.id,
         registeredBy: seed.user.id,
       },
     });
@@ -87,6 +89,7 @@ describe('phase 1 service flows', () => {
         customerId: customer.id,
         barcodeValue: 'SC-0001',
         status: CardStatus.ACTIVE,
+        issuedByTenantId: seed.tenant.id,
         issuedBy: seed.user.id,
       },
     });
@@ -219,9 +222,11 @@ describe('phase 1 service flows', () => {
         tenantId: seed.tenant.id,
         branchId: seed.branch.id,
         fullName: 'Ada Lovelace',
+        email: 'ada.lovelace+2@shopcity.local',
         phoneE164: '+2348012345680',
         isStaff: false,
         status: CustomerStatus.ACTIVE,
+        registeredByTenantId: seed.tenant.id,
         registeredBy: seed.user.id,
       },
     });

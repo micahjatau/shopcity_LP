@@ -14,6 +14,8 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "architecture:check": "depcruise --config dependency-cruiser.config.cjs src",
+    "gitnexus:analyze": "gitnexus analyze .",
+    "proposal:impact": "gitnexus impact -r shopcity_LP --summary-only --include-tests",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
     "typecheck": "tsc --noEmit -p tsconfig.json",

@@ -18,7 +18,7 @@ export class RequestThrottleGuard implements CanActivate {
     private readonly throttleService: RequestThrottleService,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const options = this.reflector.getAllAndOverride<
       ThrottleOptions | undefined
     >(THROTTLE_KEY, [context.getHandler(), context.getClass()]);
@@ -29,7 +29,7 @@ export class RequestThrottleGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const key = `${options.bucket}:${this.resolveKey(request, options)}`;
-    const result = this.throttleService.consume(
+    const result = await this.throttleService.consume(
       key,
       options.limit,
       options.windowMs,

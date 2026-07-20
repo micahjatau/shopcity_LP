@@ -58,6 +58,7 @@ export class CardsService {
             tenantId,
             customerId: customer.id,
             barcodeValue: data.barcodeValue,
+            issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
         });
@@ -126,6 +127,7 @@ export class CardsService {
             tenantId,
             customerId: current.customerId,
             barcodeValue: data.barcodeValue,
+            issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
         });
@@ -244,7 +246,9 @@ function normalizeCardWriteError(error: unknown): Error {
   ) {
     const target = Array.isArray(error.meta?.target)
       ? error.meta.target.join(', ')
-      : String(error.meta?.target ?? '');
+      : typeof error.meta?.target === 'string'
+        ? error.meta.target
+        : '';
 
     if (
       target.includes('Card_one_active_per_customer') ||

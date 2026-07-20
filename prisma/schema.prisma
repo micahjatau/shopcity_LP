@@ -55,7 +55,7 @@ enum SessionStatus {
 model Tenant {
   id        String       @id @default(uuid())
   name      String
-  status    TenantStatus  @default(ACTIVE)
+  status    TenantStatus @default(ACTIVE)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   branches  Branch[]
@@ -81,8 +81,8 @@ model Branch {
   customers           Customer[]
   receipts            Receipt[]
 
-  @@index([tenantId])
   @@unique([tenantId, id])
+  @@index([tenantId])
 }
 
 model Device {
@@ -102,33 +102,33 @@ model Device {
 }
 
 model User {
-  id                 String     @id @default(uuid())
-  tenantId           String
-  branchId           String?
-  username           String
-  supabaseAuthId     String?    @unique
-  role               UserRole
-  status             UserStatus @default(ACTIVE)
-  lastLoginAt        DateTime?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch             Branch?    @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  sessions           Session[]
+  id                  String     @id @default(uuid())
+  tenantId            String
+  branchId            String?
+  username            String
+  supabaseAuthId      String?    @unique
+  role                UserRole
+  status              UserStatus @default(ACTIVE)
+  lastLoginAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  tenant              Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch              Branch?    @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  sessions            Session[]
   registeredCustomers Customer[] @relation("CustomerRegisteredBy")
-  cardsIssued        Card[]     @relation("CardIssuedBy")
-  auditLogs          AuditLog[]
+  cardsIssued         Card[]     @relation("CardIssuedBy")
+  auditLogs           AuditLog[]
 
   @@unique([tenantId, username])
-  @@index([tenantId, role])
   @@unique([tenantId, id])
+  @@index([tenantId, role])
 }
 
 model Session {
   id               String        @id @default(uuid())
   userId           String
   sessionTokenHash String        @unique
-  csrfTokenHash     String
+  csrfTokenHash    String
   status           SessionStatus @default(ACTIVE)
   expiresAt        DateTime
   revokedAt        DateTime?
@@ -141,25 +141,29 @@ model Session {
 }
 
 model Customer {
-  id             String         @id @default(uuid())
-  tenantId       String
-  branchId       String
-  fullName       String
-  phoneE164      String
-  isStaff        Boolean        @default(false)
-  status         CustomerStatus @default(ACTIVE)
-  registeredBy   String?
-  blockedAt      DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch         Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  registeredByUser User?        @relation("CustomerRegisteredBy", fields: [registeredBy], references: [id], onDelete: SetNull)
-  cards          Card[]
+  id                   String         @id @default(uuid())
+  tenantId             String
+  branchId             String
+  fullName             String
+  email                String?
+  phoneE164            String
+  isStaff              Boolean        @default(false)
+  status               CustomerStatus @default(ACTIVE)
+  registeredBy         String?
+  registeredByTenantId String?
+  blockedAt            DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  tenant               Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch               Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  registeredByUser     User?          @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
+  cards                Card[]
 
   @@unique([tenantId, phoneE164])
-  @@index([tenantId, status])
+  @@unique([tenantId, email])
   @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@index([registeredByTenantId, registeredBy])
 }
 
 model Card {
@@ -169,6 +173,7 @@ model Card {
   barcodeValue     String
   status           CardStatus @default(ACTIVE)
   issuedBy         String?
+  issuedByTenantId String?
   issuedAt         DateTime   @default(now())
   blockedAt        DateTime?
   replacedByCardId String?    @unique
@@ -177,13 +182,13 @@ model Card {
   updatedAt        DateTime   @updatedAt
   tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customer         Customer   @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  issuedByUser     User?      @relation("CardIssuedBy", fields: [issuedBy], references: [id], onDelete: SetNull)
-  replacedByCard   Card?      @relation("CardReplacement", fields: [replacedByCardId], references: [id], onDelete: SetNull)
+  issuedByUser     User?      @relation("CardIssuedBy", fields: [issuedByTenantId, issuedBy], references: [tenantId, id], onDelete: SetNull)
+  replacedByCard   Card?      @relation("CardReplacement", fields: [tenantId, replacedByCardId], references: [tenantId, id], onDelete: Restrict)
   replacedCards    Card[]     @relation("CardReplacement")
 
   @@unique([tenantId, barcodeValue])
-  @@index([tenantId, customerId, status])
   @@unique([tenantId, id])
+  @@index([tenantId, customerId, status])
 }
 
 model Receipt {
@@ -200,18 +205,20 @@ model Receipt {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  tenantId   String
-  actorId    String?
-  action     String
-  entityType String
-  entityId   String?
-  requestId  String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  id            String   @id @default(uuid())
+  tenantId      String
+  actorId       String?
+  actorTenantId String?
+  action        String
+  entityType    String
+  entityId      String?
+  requestId     String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor         User?    @relation(fields: [actorTenantId, actorId], references: [tenantId, id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([actorId, createdAt])
+  @@index([actorTenantId, actorId])
 }

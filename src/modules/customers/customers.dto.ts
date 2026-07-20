@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateCustomerDto {
   @ApiProperty()
@@ -14,6 +20,11 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsBoolean()
   isStaff?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
@@ -36,6 +47,11 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsBoolean()
   isStaff?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 }
 
 export class UpdateCustomerStatusDto {
