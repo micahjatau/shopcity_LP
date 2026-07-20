@@ -3,11 +3,12 @@ import { RedisClientService } from '../redis/redis.client.service';
 
 describe('RequestThrottleService', () => {
   it('uses Redis-backed counters for throttling decisions', async () => {
+    const evalMock = jest
+      .fn()
+      .mockResolvedValueOnce([1, 15_000])
+      .mockResolvedValueOnce([2, 14_999]);
     const redisClientService = {
-      eval: jest
-        .fn()
-        .mockResolvedValueOnce([1, 15_000])
-        .mockResolvedValueOnce([2, 14_999]),
+      eval: evalMock,
     } as unknown as RedisClientService;
     const service = new RequestThrottleService(redisClientService);
 
@@ -25,13 +26,13 @@ describe('RequestThrottleService', () => {
       count: 2,
       remaining: 0,
     });
-    expect(redisClientService.eval).toHaveBeenNthCalledWith(
+    expect(evalMock).toHaveBeenNthCalledWith(
       1,
       expect.any(String),
       ['auth.login:bucket'],
       [15_000],
     );
-    expect(redisClientService.eval).toHaveBeenNthCalledWith(
+    expect(evalMock).toHaveBeenNthCalledWith(
       2,
       expect.any(String),
       ['auth.login:bucket'],

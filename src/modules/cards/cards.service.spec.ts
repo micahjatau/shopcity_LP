@@ -62,14 +62,23 @@ describe('CardsService', () => {
       status: CardStatus.BLOCKED,
     });
 
-    expect(tx.card.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'card-id',
-        tenantId: 'tenant-id',
-        status: CardStatus.ACTIVE,
-      },
-      data: { status: CardStatus.BLOCKED, blockedAt: expect.any(Date) },
+    const updateManyCalls = tx.card.updateMany.mock.calls as Array<
+      [
+        {
+          where: { id: string; tenantId: string; status: CardStatus };
+          data: { status: CardStatus; blockedAt: Date };
+        },
+      ]
+    >;
+    const updateManyCall = updateManyCalls[0][0];
+
+    expect(updateManyCall.where).toEqual({
+      id: 'card-id',
+      tenantId: 'tenant-id',
+      status: CardStatus.ACTIVE,
     });
+    expect(updateManyCall.data.status).toBe(CardStatus.BLOCKED);
+    expect(updateManyCall.data.blockedAt).toBeInstanceOf(Date);
     expect(auditService.recordWithClient).toHaveBeenCalledWith(tx, {
       tenantId: 'tenant-id',
       actorId: 'user-id',

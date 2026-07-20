@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { execSync } from 'node:child_process';
 import {
   CardStatus,
@@ -14,9 +15,10 @@ import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
 } from './support/redis-testcontainer';
+import type { INestApplication } from '@nestjs/common';
 
 let prisma: PrismaClient;
-let app: any;
+let app: INestApplication;
 let seedData: Awaited<ReturnType<typeof seedFoundation>>;
 let cashierTwo: {
   id: string;
@@ -29,7 +31,9 @@ let cashierTwo: {
 describe('receipt capture flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let redisEnv: RedisTestEnvironment;
-  let createAppFn: (options?: { enableDocs?: boolean }) => Promise<any>;
+  let createAppFn: (options?: {
+    enableDocs?: boolean;
+  }) => Promise<INestApplication>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -53,7 +57,7 @@ describe('receipt capture flows (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-    ({ createApp: createAppFn } = require('../src/bootstrap'));
+    ({ createApp: createAppFn } = await import('../src/bootstrap'));
 
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
@@ -86,20 +90,20 @@ describe('receipt capture flows (int)', () => {
       [cashierTwo.username]: cashierTwo.supabaseAuthId!,
     };
     jest
-      .spyOn(supabaseService.publicClient.auth as any, 'signInWithPassword')
-      .mockImplementation(async ({ email }: { email: string }) => {
+      .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
+      .mockImplementation(({ email }: { email: string }) => {
         const userId = authIds[email];
         if (!userId) {
           return {
             data: { user: null },
             error: new Error('Invalid credentials'),
-          } as never;
+          };
         }
 
         return {
           data: { user: { id: userId } },
           error: null,
-        } as never;
+        };
       });
   }, 120000);
 

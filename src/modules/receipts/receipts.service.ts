@@ -203,7 +203,7 @@ export class ReceiptsService {
             },
           },
           data: {
-            responseJson: response as Prisma.InputJsonValue,
+            responseJson: response,
           },
         });
 

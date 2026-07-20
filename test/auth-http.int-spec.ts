@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { execSync } from 'node:child_process';
 import {
   PrismaClient,
@@ -14,13 +15,16 @@ import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
 } from './support/redis-testcontainer';
+import type { INestApplication } from '@nestjs/common';
 
 describe('auth and readiness flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let redisEnv: RedisTestEnvironment;
   let prisma: PrismaClient;
-  let app: any;
-  let createAppFn: (options?: { enableDocs?: boolean }) => Promise<any>;
+  let app: INestApplication;
+  let createAppFn: (options?: {
+    enableDocs?: boolean;
+  }) => Promise<INestApplication>;
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
 
   beforeAll(async () => {
@@ -45,7 +49,7 @@ describe('auth and readiness flows (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
-    ({ createApp: createAppFn } = require('../src/bootstrap'));
+    ({ createApp: createAppFn } = await import('../src/bootstrap'));
 
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
@@ -63,11 +67,11 @@ describe('auth and readiness flows (int)', () => {
 
     const supabaseService = app.get(SupabaseService);
     jest
-      .spyOn(supabaseService.publicClient.auth as any, 'signInWithPassword')
+      .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
       .mockResolvedValue({
         data: { user: { id: seedData.user.supabaseAuthId } },
         error: null,
-      } as never);
+      });
   }, 120000);
 
   beforeEach(async () => {
