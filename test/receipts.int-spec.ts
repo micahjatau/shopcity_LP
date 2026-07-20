@@ -10,7 +10,10 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
 import { SupabaseService } from '../src/supabase/supabase.service';
-import { createRedisTestEnvironment, type RedisTestEnvironment } from './support/redis-testcontainer';
+import {
+  createRedisTestEnvironment,
+  type RedisTestEnvironment,
+} from './support/redis-testcontainer';
 
 let prisma: PrismaClient;
 let app: any;
@@ -121,8 +124,16 @@ describe('receipt capture flows (int)', () => {
       occurredAt: '2026-07-19T09:44:00+01:00',
     });
 
-    const firstResponse = await postReceipt(body, authHeaders, 'receipt-key-1').expect(201);
-    const replayResponse = await postReceipt(body, authHeaders, 'receipt-key-1').expect(201);
+    const firstResponse = await postReceipt(
+      body,
+      authHeaders,
+      'receipt-key-1',
+    ).expect(201);
+    const replayResponse = await postReceipt(
+      body,
+      authHeaders,
+      'receipt-key-1',
+    ).expect(201);
 
     expect(firstResponse.body.data).toMatchObject({
       branchId: seedData.branch.id,
@@ -207,7 +218,11 @@ describe('receipt capture flows (int)', () => {
       },
     });
 
-    await postReceipt(fixture.body, fixture.authHeaders, 'receipt-key-6').expect(201);
+    await postReceipt(
+      fixture.body,
+      fixture.authHeaders,
+      'receipt-key-6',
+    ).expect(201);
     await postReceipt(
       {
         ...fixture.body,

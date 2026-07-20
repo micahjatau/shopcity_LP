@@ -4,9 +4,7 @@ export function normalizeThrottleIdentity(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function buildLoginThrottleKey(
-  request: AuthenticatedRequest,
-): string[] {
+export function buildLoginThrottleKey(request: AuthenticatedRequest): string[] {
   const body = request.body as { username?: string } | undefined;
   const username = body?.username
     ? normalizeThrottleIdentity(body.username)

@@ -61,7 +61,8 @@ export class ReceiptsService {
   ): Promise<ReceiptCaptureResponse> {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const posReceiptNumber = normalizeReceiptNumber(data.posReceiptNumber);
-    const normalizedPosReceiptNumber = normalizeReceiptIdentity(posReceiptNumber);
+    const normalizedPosReceiptNumber =
+      normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(data.occurredAt, 'occurredAt');
 
     const device = await this.prismaService.device.findFirst({
@@ -134,7 +135,9 @@ export class ReceiptsService {
 
     if (existing) {
       if (existing.requestHash !== requestHash) {
-        throw new ConflictException('Idempotency key reused with different payload');
+        throw new ConflictException(
+          'Idempotency key reused with different payload',
+        );
       }
 
       if (existing.responseJson && existing.status === 'COMPLETED') {
@@ -302,10 +305,7 @@ function parseDate(value: string, fieldName: string): Date {
   return date;
 }
 
-function assertReceiptTimestampAllowed(
-  role: UserRole,
-  occurredAt: Date,
-): void {
+function assertReceiptTimestampAllowed(role: UserRole, occurredAt: Date): void {
   if (role !== UserRole.CASHIER) {
     return;
   }
@@ -337,7 +337,10 @@ function stableStringify(value: unknown): string {
     ([left], [right]) => left.localeCompare(right),
   );
   return `{${entries
-    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`)
+    .map(
+      ([key, entryValue]) =>
+        `${JSON.stringify(key)}:${stableStringify(entryValue)}`,
+    )
     .join(',')}}`;
 }
 

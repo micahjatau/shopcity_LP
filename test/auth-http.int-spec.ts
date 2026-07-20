@@ -10,7 +10,10 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
 import { SupabaseService } from '../src/supabase/supabase.service';
-import { createRedisTestEnvironment, type RedisTestEnvironment } from './support/redis-testcontainer';
+import {
+  createRedisTestEnvironment,
+  type RedisTestEnvironment,
+} from './support/redis-testcontainer';
 
 describe('auth and readiness flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -188,19 +191,19 @@ describe('auth and readiness flows (int)', () => {
     const redisKeys = await redisEnv.getKeys('auth.login*');
 
     expect(redisKeys).toHaveLength(3);
-    expect(redisKeys.some((key) => key.startsWith('auth.login:login:ip:'))).toBe(
-      true,
-    );
+    expect(
+      redisKeys.some((key) => key.startsWith('auth.login:login:ip:')),
+    ).toBe(true);
     expect(
       redisKeys.some((key) =>
         key.startsWith(`auth.login:login:account:${seedData.user.username}`),
       ),
     ).toBe(true);
     expect(
-      redisKeys.some((key) =>
-        key.startsWith(
-          `auth.login:login:pair:`,
-        ) && key.endsWith(`:${seedData.user.username}`),
+      redisKeys.some(
+        (key) =>
+          key.startsWith(`auth.login:login:pair:`) &&
+          key.endsWith(`:${seedData.user.username}`),
       ),
     ).toBe(true);
   }, 120000);

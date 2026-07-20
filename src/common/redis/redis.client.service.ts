@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, type RedisClientType } from 'redis';
 
@@ -60,7 +65,10 @@ export class RedisClientService implements OnModuleDestroy {
     });
 
     client.on('error', (error) => {
-      this.logger.error('Redis client error', error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        'Redis client error',
+        error instanceof Error ? error.stack : String(error),
+      );
     });
     client.on('reconnecting', (delay) => {
       this.logger.warn(`Redis reconnecting in ${delay}ms`);
