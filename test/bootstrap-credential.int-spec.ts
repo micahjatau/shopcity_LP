@@ -19,6 +19,18 @@ describe('bootstrap credential handling', () => {
     ).rejects.toThrow('DEFAULT_ADMIN_PASSWORD must not use a weak default');
   });
 
+  it('rejects the documented bootstrap placeholder outside tests', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.DEFAULT_ADMIN_PASSWORD = 'replace-me-with-a-strong-password';
+
+    await expect(
+      seedFoundation({} as never, {
+        adminPassword: 'replace-me-with-a-strong-password',
+        supabaseAdminClient: supabaseAdminClientStub(),
+      }),
+    ).rejects.toThrow('DEFAULT_ADMIN_PASSWORD must not use a weak default');
+  });
+
   it('fails fast when Supabase credentials are missing', async () => {
     process.env.NODE_ENV = 'production';
     process.env.DEFAULT_ADMIN_PASSWORD = 'Strong-password-123!';

@@ -52,6 +52,11 @@ enum SessionStatus {
   EXPIRED
 }
 
+enum IdempotencyRecordStatus {
+  PENDING
+  COMPLETED
+}
+
 model Tenant {
   id        String       @id @default(uuid())
   name      String
@@ -63,6 +68,7 @@ model Tenant {
   users     User[]
   customers Customer[]
   cards     Card[]
+  receipts  Receipt[]
   auditLogs AuditLog[]
 }
 
@@ -97,6 +103,7 @@ model Device {
   updatedAt       DateTime     @updatedAt
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   branch          Branch       @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  receipts        Receipt[]
 
   @@index([tenantId, branchId])
 }
@@ -117,6 +124,7 @@ model User {
   sessions            Session[]
   registeredCustomers Customer[] @relation("CustomerRegisteredBy")
   cardsIssued         Card[]     @relation("CardIssuedBy")
+  receiptsCaptured    Receipt[]  @relation("ReceiptCapturedBy")
   auditLogs           AuditLog[]
 
   @@unique([tenantId, username])
@@ -158,6 +166,7 @@ model Customer {
   branch               Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   registeredByUser     User?          @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
   cards                Card[]
+  receipts             Receipt[]
 
   @@unique([tenantId, phoneE164])
   @@unique([tenantId, email])
@@ -185,6 +194,7 @@ model Card {
   issuedByUser     User?      @relation("CardIssuedBy", fields: [issuedByTenantId, issuedBy], references: [tenantId, id], onDelete: SetNull)
   replacedByCard   Card?      @relation("CardReplacement", fields: [tenantId, replacedByCardId], references: [tenantId, id], onDelete: Restrict)
   replacedCards    Card[]     @relation("CardReplacement")
+  receipts         Receipt[]
 
   @@unique([tenantId, barcodeValue])
   @@unique([tenantId, id])
@@ -193,15 +203,50 @@ model Card {
 
 model Receipt {
   id                 String   @id @default(uuid())
+  tenantId           String
   branchId           String
+  customerId         String
+  cardId             String
+  deviceId           String?
   receiptNumber      String
+  externalReceiptNumber String?
   receiptWeekStart   DateTime
   purchaseAmountKobo BigInt
   cashierId          String?
+  occurredAt         DateTime
+  capturedByTenantId  String
+  capturedBy         String
+  capturedAt         DateTime @default(now())
   createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   branch             Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer           Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  card               Card     @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
+  device             Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  capturedByUser     User     @relation("ReceiptCapturedBy", fields: [capturedByTenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([branchId, receiptNumber, receiptWeekStart])
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, receiptWeekStart])
+  @@index([tenantId, cardId, occurredAt])
+  @@index([capturedByTenantId, capturedBy])
+}
+
+model IdempotencyRecord {
+  id             String                 @id @default(uuid())
+  actorId        String
+  endpoint       String
+  idempotencyKey String
+  requestHash    String
+  responseJson   Json?
+  status         IdempotencyRecordStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([actorId, endpoint, idempotencyKey])
+  @@index([expiresAt])
 }
 
 model AuditLog {

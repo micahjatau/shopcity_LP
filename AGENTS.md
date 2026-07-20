@@ -27,6 +27,7 @@
 - `npm run prisma:generate` regenerates the Prisma client.
 - `npm run test:integration` runs the Testcontainers-backed database check.
 - `docker compose up -d` starts local Postgres and Redis.
+- Use `npx supabase start`, `npx supabase status`, `npx supabase link --project-ref nmuedccamqacgszvosvm --password "$SUPABASE_DB_PASSWORD"`, and `npx supabase db push --linked` for Supabase local/remote schema work.
 - `npm run lint` runs ESLint with `--fix`, so it can change files.
 - `npm run test`, `npm run test:e2e`, and `npm run test:cov` run unit, e2e, and coverage suites.
 - For one spec file, use `npx jest <path-to-spec> --runInBand`.
@@ -36,7 +37,7 @@
 - Prefer the repo-local binaries through `npm exec` or `npx`.
 - Installed CLIs here include `nest`, `supabase`, `prisma`, `spectral`, `orval`, `compodoc`, `oasdiff`, `bru`, `lint-staged`, and `commitlint`.
 - Regenerate contract, schema, client, auth, and docs artifacts with the matching CLI instead of hand-editing generated output.
-- Use `supabase` for local identity/password workflows and type generation, `prisma` for schema/migration work, `spectral` and `oasdiff` for OpenAPI checks, `orval` for client generation, `compodoc` for Nest docs, and `bru` for API collections.
+- Use `npx supabase` for local identity/password workflows, remote linking, and schema pushes; use `prisma` for schema/migration work, `spectral` and `oasdiff` for OpenAPI checks, `orval` for client generation, `compodoc` for Nest docs, and `bru` for API collections.
 - Before creating a spec proposal, run `npm run proposal:impact -- --file <path> <symbol>` for the planned change surface and log the result in `docs/development/gitnexus-impact-tracker.md`.
 
 ## TRD Constraints
@@ -52,9 +53,10 @@
 
 ## Environment
 
-- TRD environment variables include `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`, `CSRF_SECRET`, `SHOPCITY_TIMEZONE`, `RECEIPT_WEEK_START_DAY`, and `DEFAULT_EARN_RATE_BPS`.
+- TRD environment variables include `DATABASE_URL`, `REDIS_URL=redis://127.0.0.1:6379`, `SESSION_SECRET`, `CSRF_SECRET`, `SHOPCITY_TIMEZONE`, `RECEIPT_WEEK_START_DAY`, and `DEFAULT_EARN_RATE_BPS`.
 - Supabase workflows will also need `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; backend auth/session logic stays in `src/modules/auth/`.
 - `dist/` is disposable because `nest-cli.json` sets `deleteOutDir: true`.
+- The current local Supabase stack uses `http://127.0.0.1:55421` and `postgresql://postgres:postgres@127.0.0.1:55422/postgres`.
 
 <!-- gitnexus:start -->
 
@@ -67,7 +69,7 @@ This project is indexed by GitNexus as **shopcity_LP** (1455 symbols, 2316 relat
 ## Always Do
 
 - **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "master"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
 - When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
 - When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.

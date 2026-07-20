@@ -41,7 +41,7 @@ export class AuditService {
     return client.auditLog.create({
       data: {
         tenantId: params.tenantId,
-        actorTenantId: params.tenantId,
+        actorTenantId: params.actorId ? params.tenantId : null,
         actorId: params.actorId ?? null,
         action: params.action,
         entityType: params.entityType,

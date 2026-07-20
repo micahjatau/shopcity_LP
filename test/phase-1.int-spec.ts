@@ -99,11 +99,11 @@ describe('phase 1 service flows', () => {
       seed.actor,
       card.id,
       {
-        barcodeValue: 'SC-0002',
+        serialNumber: 'SC-0002',
       },
     );
 
-    expect(replacement.barcodeValue).toBe('SC-0002');
+    expect(replacement.serialNumber).toBe('SC-0002');
 
     const replaced = await prisma.card.findUnique({ where: { id: card.id } });
     expect(replaced?.status).toBe(CardStatus.REPLACED);
@@ -234,11 +234,11 @@ describe('phase 1 service flows', () => {
     const [createA, createB] = await Promise.allSettled([
       cardsService.createCard(seed.tenant.id, seed.actor, {
         customerId: customer.id,
-        barcodeValue: 'SC-1001',
+        serialNumber: 'SC-1001',
       }),
       cardsService.createCard(seed.tenant.id, seed.actor, {
         customerId: customer.id,
-        barcodeValue: 'SC-1002',
+        serialNumber: 'SC-1002',
       }),
     ]);
 
@@ -260,10 +260,10 @@ describe('phase 1 service flows', () => {
     )!;
     const [replaceA, replaceB] = await Promise.allSettled([
       cardsService.replaceCard(seed.tenant.id, seed.actor, activeCard.id, {
-        barcodeValue: 'SC-2001',
+        serialNumber: 'SC-2001',
       }),
       cardsService.replaceCard(seed.tenant.id, seed.actor, activeCard.id, {
-        barcodeValue: 'SC-2002',
+        serialNumber: 'SC-2002',
       }),
     ]);
 

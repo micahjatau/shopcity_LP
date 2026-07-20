@@ -7,14 +7,12 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import { createServer, type AddressInfo, type Server } from 'node:net';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
 import { SupabaseService } from '../src/supabase/supabase.service';
 
 describe('auth and readiness flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
-  let redisServer: Server;
   let prisma: PrismaClient;
   let app: any;
   let createAppFn: (options?: { enableDocs?: boolean }) => Promise<any>;
@@ -24,15 +22,6 @@ describe('auth and readiness flows (int)', () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
 
     const databaseUrl = pgContainer.getConnectionUri();
-    redisServer = createRedisPongServer();
-    await new Promise<void>((resolve) =>
-      redisServer.listen(0, '127.0.0.1', resolve),
-    );
-    const address = redisServer.address();
-    if (!isAddressInfo(address)) {
-      throw new Error('Redis test server did not bind a port');
-    }
-    const redisUrl = `redis://127.0.0.1:${address.port}`;
 
     execSync('npx prisma migrate deploy', {
       stdio: 'inherit',
@@ -43,7 +32,7 @@ describe('auth and readiness flows (int)', () => {
     });
 
     process.env.DATABASE_URL = databaseUrl;
-    process.env.REDIS_URL = redisUrl;
+    process.env.REDIS_URL = 'redis://127.0.0.1:6379';
     process.env.SESSION_SECRET = 'session-secret';
     process.env.CSRF_SECRET = 'csrf-secret';
     process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
@@ -75,10 +64,15 @@ describe('auth and readiness flows (int)', () => {
       } as never);
   }, 120000);
 
+  beforeEach(() => {
+    execSync('redis-cli -h 127.0.0.1 -p 6379 FLUSHDB', {
+      stdio: 'ignore',
+    });
+  });
+
   afterAll(async () => {
     await app?.close();
     await prisma?.$disconnect();
-    await new Promise<void>((resolve) => redisServer?.close(() => resolve()));
     await pgContainer?.stop();
   }, 120000);
 
@@ -300,20 +294,6 @@ function cookieToken(cookiePair: string): string {
   }
 
   return cookiePair.slice(separator + 1);
-}
-
-function createRedisPongServer(): Server {
-  return createServer((socket) => {
-    socket.on('data', () => {
-      socket.write('+PONG\r\n');
-    });
-  });
-}
-
-function isAddressInfo(
-  address: string | AddressInfo | null,
-): address is AddressInfo {
-  return Boolean(address && typeof address !== 'string');
 }
 
 function createSupabaseAdminStub(supabaseAuthId: string) {

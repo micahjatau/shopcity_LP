@@ -12,8 +12,10 @@ import { UsersModule } from './modules/users/users.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { CardsModule } from './modules/cards/cards.module';
+import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
+import { RedisModule } from './common/redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { SessionGuard } from './common/auth/session.guard';
 import { CsrfGuard } from './common/auth/csrf.guard';
@@ -45,6 +47,7 @@ import { RequestThrottleService } from './common/throttle/request-throttle.servi
       },
     }),
     PrismaModule,
+    RedisModule,
     HealthModule,
     SupabaseModule,
     AuthModule,
@@ -52,6 +55,7 @@ import { RequestThrottleService } from './common/throttle/request-throttle.servi
     BranchesModule,
     CustomersModule,
     CardsModule,
+    ReceiptsModule,
     AuditModule,
     ConfigurationModule,
   ],

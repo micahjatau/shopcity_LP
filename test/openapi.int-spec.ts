@@ -41,7 +41,7 @@ describe('OpenAPI contract (int)', () => {
     expect(schema?.properties?.success?.example).toBe(true);
   });
 
-  it('keeps the card contract on barcodeValue', () => {
+  it('keeps the card contract on serialNumber', () => {
     const document = buildOpenApiDocument(app);
     const createSchema = resolveRequestBodySchema(
       document,
@@ -52,10 +52,25 @@ describe('OpenAPI contract (int)', () => {
       document.paths['/api/v1/cards/{id}/replace']?.post?.requestBody,
     );
 
-    expect(createSchema?.properties?.barcodeValue).toBeDefined();
-    expect(replaceSchema?.properties?.barcodeValue).toBeDefined();
-    expect(createSchema?.properties?.serialNumber).toBeUndefined();
-    expect(replaceSchema?.properties?.serialNumber).toBeUndefined();
+    expect(createSchema?.properties?.serialNumber).toBeDefined();
+    expect(replaceSchema?.properties?.serialNumber).toBeDefined();
+    expect(createSchema?.properties?.barcodeValue).toBeUndefined();
+    expect(replaceSchema?.properties?.barcodeValue).toBeUndefined();
+  });
+
+  it('documents the receipt capture contract', () => {
+    const document = buildOpenApiDocument(app);
+    const createSchema = resolveRequestBodySchema(
+      document,
+      document.paths['/api/v1/receipts']?.post?.requestBody,
+    );
+
+    expect(createSchema?.properties?.branchId).toBeDefined();
+    expect(createSchema?.properties?.cardSerialNumber).toBeDefined();
+    expect(createSchema?.properties?.purchaseAmountKobo).toBeDefined();
+    expect(createSchema?.properties?.occurredAt).toBeDefined();
+    expect(createSchema?.properties?.deviceId).toBeDefined();
+    expect(createSchema?.properties?.externalReceiptNumber).toBeDefined();
   });
 });
 

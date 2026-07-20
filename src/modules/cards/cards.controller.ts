@@ -32,7 +32,7 @@ import {
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
 
-  @Get('lookup/:barcode')
+  @Get('lookup/:serialNumber')
   @Throttle({
     bucket: 'cards.lookup',
     limit: 30,
@@ -44,11 +44,11 @@ export class CardsController {
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
   lookupCard(
     @Req() request: AuthenticatedRequest,
-    @Param('barcode') barcode: string,
+    @Param('serialNumber') serialNumber: string,
   ) {
     return this.cardsService.lookupCard(
       request.authContext!.user.tenantId,
-      barcode,
+      serialNumber,
     );
   }
 

@@ -56,7 +56,7 @@ describe('customer email identity', () => {
     );
     const card = await cardsService.createCard(seed.tenant.id, seed.actor, {
       customerId: customer.id,
-      barcodeValue: 'SC-0001',
+      serialNumber: 'SC-0001',
     });
 
     expect(customer.email).toBe('ada.lovelace@shopcity.local');
@@ -67,7 +67,7 @@ describe('customer email identity', () => {
     );
     const bySerial = await customersService.listCustomers(
       seed.tenant.id,
-      card.barcodeValue,
+      card.serialNumber,
     );
 
     expect(byEmail).toHaveLength(1);

@@ -53,6 +53,7 @@ export function buildOpenApiDocument(app: INestApplication) {
       .addTag('branches')
       .addTag('customers')
       .addTag('cards')
+      .addTag('receipts')
       .addTag('audit')
       .addTag('configuration')
       .addBearerAuth({

@@ -52,8 +52,8 @@ prisma/
 ```bash
 npm install
 npm run prisma:generate
-supabase start
-supabase status
+npx supabase start
+npx supabase status
 docker compose up -d
 npx prisma migrate deploy
 npm run prisma:seed
@@ -63,7 +63,15 @@ npm run start:dev
 
 The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
-The seed step provisions the foundation tenant, branch, and a usable admin login. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `supabase status` into your environment before seeding. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests.
+The seed step provisions the foundation tenant, branch, and a usable admin login. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` before seeding. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder. Redis defaults to `redis://127.0.0.1:6379`.
+
+## Supabase Workflow
+
+- Local stack: `npx supabase start`
+- Local database URL: `postgresql://postgres:postgres@127.0.0.1:55422/postgres`
+- Local API URL: `http://127.0.0.1:55421`
+- Linked remote project: `nmuedccamqacgszvosvm`
+- Remote push: `npx supabase db push --linked`
 
 ## Common Commands
 

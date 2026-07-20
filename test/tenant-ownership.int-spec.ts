@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { AuditService } from '../src/modules/audit/audit.service';
 
 describe('tenant ownership constraints', () => {
   let container: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -97,5 +98,34 @@ describe('tenant ownership constraints', () => {
         },
       }),
     ).rejects.toThrow();
+  });
+
+  it('persists actorless system audit events', async () => {
+    const tenant = await prisma.tenant.create({
+      data: { name: 'System Tenant', status: 'ACTIVE' },
+    });
+    const auditService = new AuditService(prisma as never);
+
+    await auditService.record({
+      tenantId: tenant.id,
+      action: 'system.rebuild',
+      entityType: 'receipt',
+      requestId: 'request-1',
+      metadata: { source: 'job' },
+    });
+
+    const entry = await prisma.auditLog.findFirst({
+      where: {
+        tenantId: tenant.id,
+        action: 'system.rebuild',
+      },
+    });
+
+    expect(entry).toMatchObject({
+      tenantId: tenant.id,
+      actorTenantId: null,
+      actorId: null,
+      requestId: 'request-1',
+    });
   });
 });

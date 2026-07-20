@@ -7,15 +7,15 @@ export class CreateCardDto {
   @IsString()
   customerId!: string;
 
-  @ApiProperty()
+  @ApiProperty({ name: 'serialNumber' })
   @IsString()
-  barcodeValue!: string;
+  serialNumber!: string;
 }
 
 export class ReplaceCardDto {
-  @ApiProperty()
+  @ApiProperty({ name: 'serialNumber' })
   @IsString()
-  barcodeValue!: string;
+  serialNumber!: string;
 }
 
 export class UpdateCardStatusDto {

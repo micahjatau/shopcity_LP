@@ -6,7 +6,13 @@ import {
 } from '../src/config/app.constants';
 
 const prisma = new PrismaClient();
-const WEAK_BOOTSTRAP_PASSWORDS = new Set(['password', 'admin', 'admin123', 'shopcity']);
+const WEAK_BOOTSTRAP_PASSWORDS = new Set([
+  'password',
+  'admin',
+  'admin123',
+  'shopcity',
+  'replace-me-with-a-strong-password',
+]);
 
 type SupabaseAdminClient = ReturnType<typeof createClient>;
 

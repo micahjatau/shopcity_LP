@@ -17,7 +17,7 @@
 7. Run `npm run prisma:seed` to seed the foundation data and bootstrap the admin login.
 8. Run the app in watch mode.
 
-The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests. If `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` is missing, seeding fails immediately.
+The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder. If `SUPABASE_URL`, `SUPABASE_ANON_KEY`, or `SUPABASE_SERVICE_ROLE_KEY` is missing, seeding fails immediately.
 
 ## Useful Commands
 

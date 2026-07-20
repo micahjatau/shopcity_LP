@@ -16,9 +16,9 @@ export class CardsService {
     private readonly auditService: AuditService,
   ) {}
 
-  async lookupCard(tenantId: string, barcodeValue: string) {
+  async lookupCard(tenantId: string, serialNumber: string) {
     const card = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue },
+      where: { tenantId, barcodeValue: serialNumber },
       include: { customer: true },
     });
     if (
@@ -29,13 +29,13 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
 
-    return card;
+    return toPublicCard(card);
   }
 
   async createCard(
     tenantId: string,
     actor: AuthContext,
-    data: { customerId: string; barcodeValue: string },
+    data: { customerId: string; serialNumber: string },
   ) {
     const customer = await this.prismaService.customer.findFirst({
       where: { id: data.customerId, tenantId },
@@ -57,7 +57,7 @@ export class CardsService {
           data: {
             tenantId,
             customerId: customer.id,
-            barcodeValue: data.barcodeValue,
+            barcodeValue: data.serialNumber,
             issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
@@ -72,7 +72,7 @@ export class CardsService {
           metadata: card,
         });
 
-        return card;
+        return toPublicCard(card);
       } catch (error) {
         throw normalizeCardWriteError(error);
       }
@@ -83,7 +83,7 @@ export class CardsService {
     tenantId: string,
     actor: AuthContext,
     cardId: string,
-    data: { barcodeValue: string },
+    data: { serialNumber: string },
   ) {
     const current = await this.prismaService.card.findFirst({
       where: { id: cardId, tenantId },
@@ -126,7 +126,7 @@ export class CardsService {
           data: {
             tenantId,
             customerId: current.customerId,
-            barcodeValue: data.barcodeValue,
+            barcodeValue: data.serialNumber,
             issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
@@ -145,10 +145,10 @@ export class CardsService {
           action: 'card.replace',
           entityType: 'card',
           entityId: newCard.id,
-          metadata: { previousCardId: cardId, barcodeValue: data.barcodeValue },
+          metadata: { previousCardId: cardId, serialNumber: data.serialNumber },
         });
 
-        return newCard;
+        return toPublicCard(newCard);
       } catch (error) {
         throw normalizeCardWriteError(error);
       }
@@ -231,7 +231,7 @@ export class CardsService {
           metadata: { status },
         });
 
-        return current;
+        return toPublicCard(current);
       } catch (error) {
         throw normalizeCardWriteError(error);
       }
@@ -263,4 +263,12 @@ function normalizeCardWriteError(error: unknown): Error {
   }
 
   return error instanceof Error ? error : new Error('Unable to update card');
+}
+
+function toPublicCard<T extends { barcodeValue: string }>(card: T) {
+  const { barcodeValue, ...rest } = card;
+  return {
+    ...rest,
+    serialNumber: barcodeValue,
+  };
 }
