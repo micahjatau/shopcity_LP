@@ -39,8 +39,8 @@ export class ApprovalsController {
     @Param('id') receiptId: string,
   ) {
     return this.approvalsService.approveReceipt(
-      context!.user.tenantId,
-      context!,
+      context.user.tenantId,
+      context,
       receiptId,
     );
   }
@@ -67,8 +67,8 @@ export class ApprovalsController {
     @Param('id') receiptId: string,
   ) {
     return this.approvalsService.rejectReceipt(
-      context!.user.tenantId,
-      context!,
+      context.user.tenantId,
+      context,
       receiptId,
     );
   }

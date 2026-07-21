@@ -588,7 +588,7 @@ describe('receipt capture flows (int)', () => {
       authHeaders,
       'receipt-key-10a',
     ).expect(201);
-    const payload = response.body as ReceiptResponseBody;
+    const payload = response.body as unknown as ReceiptResponseBody;
 
     expect(payload.data.branchId).toBe(reassignedBranch.id);
 
@@ -767,9 +767,10 @@ describe('receipt capture flows (int)', () => {
       fixture.authHeaders,
       'receipt-key-17',
     ).expect(201);
+    const receiptBody = receiptResponse.body as unknown as ReceiptResponseBody;
 
     await postReceiptDecision(
-      `/api/v1/receipts/${receiptResponse.body.data.id}/approve`,
+      `/api/v1/receipts/${receiptBody.data.id}/approve`,
       await loginAs(branchlessAdmin.username, fixture.device.id),
     ).expect(200);
 
@@ -777,7 +778,7 @@ describe('receipt capture flows (int)', () => {
       where: {
         tenantId_id: {
           tenantId: seedData.tenant.id,
-          id: receiptResponse.body.data.id,
+          id: receiptBody.data.id,
         },
       },
     });
@@ -806,9 +807,10 @@ describe('receipt capture flows (int)', () => {
       fixture.authHeaders,
       'receipt-key-18',
     ).expect(201);
+    const receiptBody = receiptResponse.body as unknown as ReceiptResponseBody;
 
     await postReceiptDecision(
-      `/api/v1/receipts/${receiptResponse.body.data.id}/approve`,
+      `/api/v1/receipts/${receiptBody.data.id}/approve`,
       fixture.authHeaders,
     ).expect(400);
   }, 120000);
@@ -832,9 +834,10 @@ describe('receipt capture flows (int)', () => {
       fixture.authHeaders,
       'receipt-key-19',
     ).expect(201);
+    const receiptBody = receiptResponse.body as unknown as ReceiptResponseBody;
 
     await postReceiptDecision(
-      `/api/v1/receipts/${receiptResponse.body.data.id}/reject`,
+      `/api/v1/receipts/${receiptBody.data.id}/reject`,
       await loginAs(branchlessAdmin.username, fixture.device.id),
     ).expect(200);
 
@@ -842,7 +845,7 @@ describe('receipt capture flows (int)', () => {
       where: {
         tenantId_id: {
           tenantId: seedData.tenant.id,
-          id: receiptResponse.body.data.id,
+          id: receiptBody.data.id,
         },
       },
     });
@@ -885,8 +888,9 @@ describe('receipt capture flows (int)', () => {
       authHeaders,
       'expired-completed-key',
     ).expect(201);
+    const responseBody = response.body as unknown as ReceiptResponseBody;
 
-    expect(response.body.data.posReceiptNumber).toBe('POS-1015-NEW');
+    expect(responseBody.data.posReceiptNumber).toBe('POS-1015-NEW');
   }, 120000);
 
   it('allows an expired pending idempotency record to be ignored', async () => {
@@ -921,8 +925,9 @@ describe('receipt capture flows (int)', () => {
       authHeaders,
       'expired-pending-key',
     ).expect(201);
+    const responseBody = response.body as unknown as ReceiptResponseBody;
 
-    expect(response.body.data.posReceiptNumber).toBe('POS-1016-NEW');
+    expect(responseBody.data.posReceiptNumber).toBe('POS-1016-NEW');
   }, 120000);
 });
 

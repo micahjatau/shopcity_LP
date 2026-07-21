@@ -226,7 +226,9 @@ describe('auth and readiness flows (int)', () => {
       })
       .expect(200);
 
-    expect(loginResponse.body.data.session).toHaveProperty('expiresAt');
+    const loginBody = loginResponse.body as unknown as AuthLoginResponseBody;
+
+    expect(loginBody.data.session).toHaveProperty('expiresAt');
 
     const session = await prisma.session.findFirst({
       where: { userId: seedData.user.id, deviceId: device.id },
