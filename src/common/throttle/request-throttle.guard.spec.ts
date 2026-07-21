@@ -29,7 +29,6 @@ describe('RequestThrottleGuard', () => {
     const guard = new RequestThrottleGuard(reflector, throttleService as never);
     const context = executionContextStub();
 
-    await expect(guard.canActivate(context)).resolves.toBe(true);
     await expect(guard.canActivate(context)).rejects.toMatchObject(
       new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS),
     );

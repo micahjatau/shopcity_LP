@@ -15,15 +15,21 @@ describe('throttle keys', () => {
       body: { username: '  Admin@ShopCity.Local ' },
     };
 
-    expect(buildLoginThrottleKey(baseRequest as never)).toBe(
-      'login:127.0.0.1:admin@shopcity.local',
-    );
+    expect(buildLoginThrottleKey(baseRequest as never)).toEqual([
+      'login:ip:127.0.0.1',
+      'login:account:admin@shopcity.local',
+      'login:pair:127.0.0.1:admin@shopcity.local',
+    ]);
     expect(
       buildLoginThrottleKey({
         ...baseRequest,
         body: { username: 'admin@shopcity.local' },
       } as never),
-    ).toBe('login:127.0.0.1:admin@shopcity.local');
+    ).toEqual([
+      'login:ip:127.0.0.1',
+      'login:account:admin@shopcity.local',
+      'login:pair:127.0.0.1:admin@shopcity.local',
+    ]);
   });
 
   it('keeps card lookup buckets stable across serial changes', () => {
