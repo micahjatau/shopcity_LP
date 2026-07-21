@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { execSync } from 'node:child_process';
 import {
   PrismaClient,
@@ -9,9 +8,7 @@ import {
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
-import { createApp } from '../src/bootstrap';
 import { seedFoundation } from '../prisma/seed';
-import { SupabaseService } from '../src/supabase/supabase.service';
 import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
@@ -23,6 +20,11 @@ describe('auth and readiness flows (int)', () => {
   let redisEnv: RedisTestEnvironment;
   let prisma: PrismaClient;
   let app: INestApplication;
+  let createAppFn: (options?: {
+    enableDocs?: boolean;
+  }) => Promise<INestApplication>;
+  let SupabaseServiceToken: typeof import('../src/supabase/supabase.service').SupabaseService;
+  let httpServer: Parameters<typeof request>[0];
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
 
   beforeAll(async () => {
@@ -47,6 +49,15 @@ describe('auth and readiness flows (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
+    jest.resetModules();
+    const supabaseModule = jest.requireActual<
+      typeof import('../src/supabase/supabase.service')
+    >('../src/supabase/supabase.service');
+    SupabaseServiceToken = supabaseModule.SupabaseService;
+    const bootstrap =
+      jest.requireActual<typeof import('../src/bootstrap')>('../src/bootstrap');
+    createAppFn = bootstrap.createApp;
+
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
     });
@@ -58,9 +69,15 @@ describe('auth and readiness flows (int)', () => {
       adminPassword: 'password',
     });
 
-    app = await createApp({ enableDocs: false });
+    app = await createAppFn({ enableDocs: false });
+    await (
+      app.getHttpAdapter().getInstance() as {
+        ready: () => Promise<void>;
+      }
+    ).ready();
+    httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    const supabaseService = app.get(SupabaseService);
+    const supabaseService = app.get(SupabaseServiceToken);
     jest
       .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
       .mockResolvedValue({
@@ -84,7 +101,7 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 
   it('logs in, rotates, rejects stale sessions, and logs out over HTTP', async () => {
-    const loginResponse = await request(app.getHttpServer())
+    const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
       .send({
         username: seedData.user.username,
@@ -102,29 +119,31 @@ describe('auth and readiness flows (int)', () => {
     );
     const loginCsrfToken = cookieToken(loginCsrfCookie);
 
-    expect(loginResponse.body.success).toBe(true);
-    expect(loginResponse.body.data.user).toEqual({
+    const loginBody = loginResponse.body as AuthLoginResponseBody;
+    expect(loginBody.success).toBe(true);
+    expect(loginBody.data.user).toEqual({
       id: seedData.user.id,
       username: seedData.user.username,
       role: UserRole.ADMIN,
       branchId: seedData.user.branchId,
     });
-    expect(loginResponse.body.data.session).toHaveProperty('expiresAt');
+    expect(loginBody.data.session).toHaveProperty('expiresAt');
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .get('/api/v1/auth/me')
       .set('Cookie', loginSessionCookie)
       .expect(200)
       .expect((response) => {
-        expect(response.body.data.user.username).toBe(seedData.user.username);
+        const body = response.body as AuthMeResponseBody;
+        expect(body.data.user.username).toBe(seedData.user.username);
       });
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .post('/api/v1/auth/refresh')
       .set('Cookie', `${loginSessionCookie}; ${loginCsrfCookie}`)
       .expect(403);
 
-    const refreshResponse = await request(app.getHttpServer())
+    const refreshResponse = await request(httpServer)
       .post('/api/v1/auth/refresh')
       .set('Cookie', `${loginSessionCookie}; ${loginCsrfCookie}`)
       .set('x-csrf-token', loginCsrfToken)
@@ -148,17 +167,17 @@ describe('auth and readiness flows (int)', () => {
     expect(sessionsAfterRefresh[0].status).toBe(SessionStatus.REVOKED);
     expect(sessionsAfterRefresh[1].status).toBe(SessionStatus.ACTIVE);
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .get('/api/v1/auth/me')
       .set('Cookie', loginSessionCookie)
       .expect(401);
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .get('/api/v1/auth/me')
       .set('Cookie', refreshedSessionCookie)
       .expect(200);
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .post('/api/v1/auth/logout')
       .set('Cookie', `${refreshedSessionCookie}; ${refreshedCsrfCookie}`)
       .set('x-csrf-token', cookieToken(refreshedCsrfCookie))
@@ -175,14 +194,14 @@ describe('auth and readiness flows (int)', () => {
       ),
     ).toBe(true);
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .get('/api/v1/auth/me')
       .set('Cookie', refreshedSessionCookie)
       .expect(401);
   }, 120000);
 
   it('writes ip, account, and pair buckets for login throttling', async () => {
-    await request(app.getHttpServer())
+    await request(httpServer)
       .post('/api/v1/auth/login')
       .send({
         username: seedData.user.username,
@@ -211,7 +230,7 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 
   it('rejects protected requests when the tenant or branch is inactive', async () => {
-    const loginResponse = await request(app.getHttpServer())
+    const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
       .send({ username: seedData.username, password: seedData.adminPassword })
       .expect(200);
@@ -226,7 +245,7 @@ describe('auth and readiness flows (int)', () => {
       data: { status: TenantStatus.SUSPENDED },
     });
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .get('/api/v1/auth/me')
       .set('Cookie', sessionCookie)
       .expect(401);
@@ -240,7 +259,7 @@ describe('auth and readiness flows (int)', () => {
       data: { status: BranchStatus.INACTIVE },
     });
 
-    await request(app.getHttpServer())
+    await request(httpServer)
       .get('/api/v1/auth/me')
       .set('Cookie', sessionCookie)
       .expect(401);
@@ -264,11 +283,12 @@ describe('auth and readiness flows (int)', () => {
       },
     });
 
-    const response = await request(app.getHttpServer())
+    const response = await request(httpServer)
       .get('/api/v1/config/public')
       .expect(200);
 
-    expect(response.body.data.branch).toEqual({
+    const body = response.body as PublicConfigResponseBody;
+    expect(body.data.branch).toEqual({
       id: seedData.branch.id,
       name: 'Main Branch',
       timezone: 'Africa/Nairobi',
@@ -282,7 +302,7 @@ describe('auth and readiness flows (int)', () => {
       data: { status: TenantStatus.SUSPENDED },
     });
 
-    await request(app.getHttpServer()).get('/api/v1/config/public').expect(503);
+    await request(httpServer).get('/api/v1/config/public').expect(503);
 
     await prisma.tenant.update({
       where: { id: seedData.tenant.id },
@@ -293,18 +313,64 @@ describe('auth and readiness flows (int)', () => {
       data: { status: BranchStatus.INACTIVE },
     });
 
-    await request(app.getHttpServer()).get('/api/v1/config/public').expect(503);
+    await request(httpServer).get('/api/v1/config/public').expect(503);
   }, 120000);
 
   it('reports readiness from live postgres and redis dependencies', async () => {
-    const response = await request(app.getHttpServer()).get('/health/ready');
+    const response = await request(httpServer).get('/health/ready');
     expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data.status).toBe('ok');
-    expect(response.body.data.info.database.status).toBe('up');
-    expect(response.body.data.info.redis.status).toBe('up');
+    const body = response.body as ReadinessResponseBody;
+    expect(body.success).toBe(true);
+    expect(body.data.status).toBe('ok');
+    expect(body.data.info.database.status).toBe('up');
+    expect(body.data.info.redis.status).toBe('up');
   }, 120000);
 });
+
+type AuthLoginResponseBody = {
+  success: boolean;
+  data: {
+    user: {
+      id: string;
+      username: string;
+      role: UserRole;
+      branchId: string | null;
+    };
+    session: {
+      expiresAt: string;
+    };
+  };
+};
+
+type AuthMeResponseBody = {
+  data: {
+    user: {
+      username: string;
+    };
+  };
+};
+
+type PublicConfigResponseBody = {
+  data: {
+    branch: {
+      id: string;
+      name: string;
+      timezone: string;
+      receiptWeekStartDay: number;
+    };
+  };
+};
+
+type ReadinessResponseBody = {
+  success: boolean;
+  data: {
+    status: string;
+    info: {
+      database: { status: string };
+      redis: { status: string };
+    };
+  };
+};
 
 function cookieValue(
   setCookie: string[] | string | undefined,

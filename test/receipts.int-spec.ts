@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { execSync } from 'node:child_process';
 import {
   CardStatus,
@@ -10,9 +9,7 @@ import {
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import type { SignInWithPasswordCredentials } from '@supabase/supabase-js';
-import { createApp } from '../src/bootstrap';
 import { seedFoundation } from '../prisma/seed';
-import { SupabaseService } from '../src/supabase/supabase.service';
 import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
@@ -21,6 +18,7 @@ import type { INestApplication } from '@nestjs/common';
 
 let prisma: PrismaClient;
 let app: INestApplication;
+let httpServer: Parameters<typeof request>[0];
 let seedData: Awaited<ReturnType<typeof seedFoundation>>;
 let cashierTwo: {
   id: string;
@@ -33,6 +31,10 @@ let cashierTwo: {
 describe('receipt capture flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let redisEnv: RedisTestEnvironment;
+  let createAppFn: (options?: {
+    enableDocs?: boolean;
+  }) => Promise<INestApplication>;
+  let SupabaseServiceToken: typeof import('../src/supabase/supabase.service').SupabaseService;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -56,6 +58,15 @@ describe('receipt capture flows (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
+    jest.resetModules();
+    const supabaseModule = jest.requireActual<
+      typeof import('../src/supabase/supabase.service')
+    >('../src/supabase/supabase.service');
+    SupabaseServiceToken = supabaseModule.SupabaseService;
+    const bootstrap =
+      jest.requireActual<typeof import('../src/bootstrap')>('../src/bootstrap');
+    createAppFn = bootstrap.createApp;
+
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
     });
@@ -78,9 +89,15 @@ describe('receipt capture flows (int)', () => {
       },
     });
 
-    app = await createApp({ enableDocs: false });
+    app = await createAppFn({ enableDocs: false });
+    await (
+      app.getHttpAdapter().getInstance() as {
+        ready: () => Promise<void>;
+      }
+    ).ready();
+    httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    const supabaseService = app.get(SupabaseService);
+    const supabaseService = app.get(SupabaseServiceToken);
     const authIds: Record<string, string> = {
       [seedData.user.username]: seedData.user.supabaseAuthId,
       [cashierTwo.username]: cashierTwo.supabaseAuthId!,
@@ -136,7 +153,10 @@ describe('receipt capture flows (int)', () => {
       'receipt-key-1',
     ).expect(201);
 
-    expect(firstResponse.body.data).toMatchObject({
+    const firstBody = firstResponse.body as ReceiptResponseBody;
+    const replayBody = replayResponse.body as ReceiptResponseBody;
+
+    expect(firstBody.data).toMatchObject({
       branchId: seedData.branch.id,
       customerId: card.customerId,
       cardSerialNumber: card.barcodeValue,
@@ -145,7 +165,7 @@ describe('receipt capture flows (int)', () => {
       purchaseAmountKobo: 1000000,
       status: 'CAPTURED',
     });
-    expect(replayResponse.body.data).toEqual(firstResponse.body.data);
+    expect(replayBody.data).toEqual(firstBody.data);
 
     const receiptCount = await prisma.receipt.count({
       where: { tenantId: seedData.tenant.id },
@@ -430,7 +450,7 @@ async function prepareReceiptFixture(options: {
 }
 
 async function loginAs(username: string) {
-  const loginResponse = await request(app.getHttpServer())
+  const loginResponse = await request(httpServer)
     .post('/api/v1/auth/login')
     .send({
       username,
@@ -458,13 +478,25 @@ function postReceipt(
   authHeaders: { headers: string; csrfToken: string },
   idempotencyKey: string,
 ) {
-  return request(app.getHttpServer())
+  return request(httpServer)
     .post('/api/v1/receipts')
     .set('Cookie', authHeaders.headers)
     .set('x-csrf-token', authHeaders.csrfToken)
     .set('Idempotency-Key', idempotencyKey)
     .send(body);
 }
+
+type ReceiptResponseBody = {
+  data: {
+    branchId: string;
+    customerId: string;
+    cardSerialNumber: string;
+    deviceId: string;
+    posReceiptNumber: string;
+    purchaseAmountKobo: number;
+    status: string;
+  };
+};
 
 function cookieValue(
   setCookie: string[] | string | undefined,

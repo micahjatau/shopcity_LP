@@ -1,15 +1,19 @@
 import { execSync } from 'node:child_process';
+import type { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
-import { createApp } from '../src/bootstrap';
-import { SupabaseService } from '../src/supabase/supabase.service.js';
 import { seedFoundation } from '../prisma/seed';
 
 describe('redis throttling fail-closed (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let prisma: PrismaClient;
-  let app: any;
+  let app: INestApplication;
+  let createAppFn: (options?: {
+    enableDocs?: boolean;
+  }) => Promise<INestApplication>;
+  let SupabaseServiceToken: typeof import('../src/supabase/supabase.service').SupabaseService;
+  let httpServer: Parameters<typeof request>[0];
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -31,6 +35,15 @@ describe('redis throttling fail-closed (int)', () => {
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
+    jest.resetModules();
+    const supabaseModule = jest.requireActual<
+      typeof import('../src/supabase/supabase.service')
+    >('../src/supabase/supabase.service');
+    SupabaseServiceToken = supabaseModule.SupabaseService;
+    const bootstrap =
+      jest.requireActual<typeof import('../src/bootstrap')>('../src/bootstrap');
+    createAppFn = bootstrap.createApp;
+
     prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
     });
@@ -41,18 +54,41 @@ describe('redis throttling fail-closed (int)', () => {
       adminPassword: 'password',
     });
 
-    app = await createApp({ enableDocs: false });
+    app = await createAppFn({ enableDocs: false });
+    await (
+      app.getHttpAdapter().getInstance() as {
+        ready: () => Promise<void>;
+      }
+    ).ready();
+    httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
-    const supabaseService = app.get(SupabaseService);
+    const supabaseService = app.get(SupabaseServiceToken);
+    const user = {
+      id: seedData.user.supabaseAuthId,
+      app_metadata: {},
+      user_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    } satisfies AuthUser;
+    const session = {
+      access_token: 'test-access-token',
+      refresh_token: 'test-refresh-token',
+      expires_in: 3600,
+      token_type: 'bearer',
+      user,
+    } satisfies AuthSession;
+    const successResponse = {
+      data: {
+        user,
+        session,
+      },
+      error: null,
+    } satisfies Awaited<
+      ReturnType<typeof supabaseService.publicClient.auth.signInWithPassword>
+    >;
     jest
       .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
-      .mockResolvedValue({
-        data: {
-          user: { id: seedData.user.supabaseAuthId },
-          session: null,
-        },
-        error: null,
-      } as never);
+      .mockResolvedValue(successResponse);
   }, 240000);
 
   afterAll(async () => {
@@ -62,7 +98,7 @@ describe('redis throttling fail-closed (int)', () => {
   }, 240000);
 
   it('returns service unavailable when Redis cannot be reached', async () => {
-    await request(app.getHttpServer())
+    await request(httpServer)
       .post('/api/v1/auth/login')
       .send({
         username: 'admin@shopcity.local',
@@ -90,3 +126,19 @@ function createSupabaseAdminStub(supabaseAuthId: string) {
     },
   } as never;
 }
+
+type AuthUser = {
+  id: string;
+  app_metadata: Record<string, unknown>;
+  user_metadata: Record<string, unknown>;
+  aud: string;
+  created_at: string;
+};
+
+type AuthSession = {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: 'bearer';
+  user: AuthUser;
+};
