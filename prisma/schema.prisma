@@ -63,6 +63,12 @@ enum ReceiptCaptureStatus {
   PENDING_APPROVAL
 }
 
+enum ReceiptReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Tenant {
   id        String       @id @default(uuid())
   name      String
@@ -115,6 +121,7 @@ model Device {
 
   @@index([tenantId, branchId])
   @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
 }
 
 model User {
@@ -134,6 +141,7 @@ model User {
   registeredCustomers Customer[] @relation("CustomerRegisteredBy")
   cardsIssued         Card[]     @relation("CardIssuedBy")
   receiptsCaptured    Receipt[]  @relation("ReceiptCapturedBy")
+  receiptsReviewed    Receipt[]  @relation("ReceiptReviewedBy")
   receiptsApproved    Receipt[]  @relation("ReceiptApprovedBy")
   auditLogs           AuditLog[]
 
@@ -229,7 +237,11 @@ model Receipt {
   capturedByTenantId       String
   capturedBy               String
   captureStatus            ReceiptCaptureStatus @default(CAPTURED)
+  reviewStatus             ReceiptReviewStatus  @default(APPROVED)
   approvalReasonCode       String?
+  reviewedAt               DateTime?
+  reviewedByTenantId       String?
+  reviewedBy               String?
   approvedByTenantId       String?
   approvedBy               String?
   approvedAt               DateTime?
@@ -240,8 +252,9 @@ model Receipt {
   branch                   Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   customer                 Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   card                     Card     @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
-  device                   Device?  @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: Restrict)
+  device                   Device?  @relation(fields: [tenantId, branchId, deviceId], references: [tenantId, branchId, id], onDelete: Restrict)
   capturedByUser           User     @relation("ReceiptCapturedBy", fields: [capturedByTenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
+  reviewedByUser           User?    @relation("ReceiptReviewedBy", fields: [reviewedByTenantId, reviewedBy], references: [tenantId, id], onDelete: SetNull)
   approvedByUser           User?    @relation("ReceiptApprovedBy", fields: [approvedByTenantId, approvedBy], references: [tenantId, id], onDelete: SetNull)
 
   @@unique([tenantId, branchId, receiptWeekStart, normalizedPosReceiptNumber])
@@ -249,6 +262,7 @@ model Receipt {
   @@index([tenantId, branchId, receiptWeekStart])
   @@index([tenantId, cardId, occurredAt])
   @@index([capturedByTenantId, capturedBy])
+  @@index([reviewedByTenantId, reviewedBy])
   @@index([approvedByTenantId, approvedBy])
 }
 

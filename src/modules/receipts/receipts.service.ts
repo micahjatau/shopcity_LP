@@ -11,6 +11,7 @@ import {
   CustomerStatus,
   DeviceStatus,
   Prisma,
+  ReceiptReviewStatus,
   UserRole,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -22,6 +23,7 @@ import { CaptureReceiptDto } from './receipts.dto';
 const RECEIPT_CAPTURE_ENDPOINT = 'POST /api/v1/receipts';
 const MAX_POS_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const MAX_POS_PAST_SKEW_MS = 12 * 60 * 60 * 1000;
+const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 type ReceiptCaptureResponse = {
   id: string;
@@ -35,6 +37,7 @@ type ReceiptCaptureResponse = {
   occurredAt: string;
   capturedAt: string;
   status: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
+  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 };
 
 type ReceiptWithRelations = Prisma.ReceiptGetPayload<{
@@ -68,68 +71,9 @@ export class ReceiptsService {
     const occurredAt = parseDate(data.occurredAt, 'occurredAt');
     const overrideReason = data.overrideReason?.trim();
     const sessionDeviceId = actor.session.deviceId;
-
-    assertPurchaseAmountAllowed(data.purchaseAmountKobo);
-
-    if (!sessionDeviceId) {
-      throw new BadRequestException('Session device is required');
-    }
-
-    const device = await this.prismaService.device.findFirst({
-      where: { id: sessionDeviceId, tenantId },
-      include: { branch: true },
-    });
-
-    if (!device) {
-      throw new NotFoundException('Device not found');
-    }
-
-    if (device.status !== DeviceStatus.ACTIVE) {
-      throw new BadRequestException('Device is not active');
-    }
-
-    if (device.branch.status !== BranchStatus.ACTIVE) {
-      throw new BadRequestException('Branch is not active');
-    }
-
-    if (actor.user.branchId && actor.user.branchId !== device.branchId) {
-      throw new BadRequestException('Device does not belong to cashier branch');
-    }
-
-    const branchId = actor.user.branchId ?? device.branchId;
-    if (!branchId) {
-      throw new BadRequestException('Branch context is required');
-    }
-
-    const overrideApplied = assertReceiptTimestampAllowed(
-      actor.user.role,
-      occurredAt,
-      overrideReason,
-    );
-
-    const card = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
-      include: { customer: true },
-    });
-    if (
-      !card ||
-      card.status !== CardStatus.ACTIVE ||
-      card.customer.status !== CustomerStatus.ACTIVE ||
-      card.customer.isStaff
-    ) {
-      throw new NotFoundException('Card not found');
-    }
-
-    const receiptWeekStart = deriveReceiptWeekStart(
-      occurredAt,
-      device.branch.timezone,
-      device.branch.receiptWeekStartDay,
-    );
-
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
-      branchId,
       cardSerialNumber: data.cardSerialNumber.trim(),
       posReceiptNumber: normalizedPosReceiptNumber,
       purchaseAmountKobo: data.purchaseAmountKobo,
@@ -138,166 +82,237 @@ export class ReceiptsService {
       overrideReason,
     });
 
-    const existing = await this.prismaService.idempotencyRecord.findUnique({
-      where: {
-        tenantId_actorId_endpoint_idempotencyKey: {
-          tenantId,
-          actorId: actor.user.id,
-          endpoint: RECEIPT_CAPTURE_ENDPOINT,
-          idempotencyKey: normalizedKey,
-        },
-      },
-    });
+    assertPurchaseAmountAllowed(data.purchaseAmountKobo);
 
-    if (existing) {
-      if (existing.requestHash !== requestHash) {
-        throw new ConflictException(
-          'Idempotency key reused with different payload',
-        );
-      }
-
-      if (existing.responseJson && existing.status === 'COMPLETED') {
-        return existing.responseJson as ReceiptCaptureResponse;
-      }
-
-      throw new ConflictException('Idempotency key is still being processed');
+    if (!sessionDeviceId) {
+      throw new BadRequestException('Session device is required');
     }
 
-    const duplicateReceipt = await this.prismaService.receipt.findFirst({
-      where: {
-        tenantId,
-        branchId,
-        receiptWeekStart,
-        normalizedPosReceiptNumber,
-      },
-    });
+    const overrideApplied = assertReceiptTimestampAllowed(
+      actor.user.role,
+      occurredAt,
+      overrideReason,
+    );
 
-    if (duplicateReceipt) {
-      throw new ConflictException('Physical receipt already captured');
-    }
+    await cleanupExpiredIdempotencyRecords(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      normalizedKey,
+    );
 
     try {
-      return await this.prismaService.$transaction(async (prisma) => {
-        const [transactionDevice, transactionCard] = await Promise.all([
-          prisma.device.findFirst({
-            where: { id: sessionDeviceId, tenantId },
-            include: { branch: true },
-          }),
-          prisma.card.findFirst({
-            where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
-            include: { customer: true },
-          }),
-        ]);
+      return await this.prismaService.$transaction(
+        async (prisma) => {
+          const [transactionDevice, transactionCard] = await Promise.all([
+            prisma.device.findFirst({
+              where: { id: sessionDeviceId, tenantId },
+              include: { branch: true },
+            }),
+            prisma.card.findFirst({
+              where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
+              include: { customer: true },
+            }),
+          ]);
 
-        if (
-          !transactionDevice ||
-          transactionDevice.status !== DeviceStatus.ACTIVE ||
-          transactionDevice.branch.status !== BranchStatus.ACTIVE
-        ) {
-          throw new BadRequestException('Device is not active');
-        }
+          if (
+            !transactionDevice ||
+            transactionDevice.status !== DeviceStatus.ACTIVE ||
+            transactionDevice.branch.status !== BranchStatus.ACTIVE
+          ) {
+            throw new BadRequestException('Device is not active');
+          }
 
-        if (actor.user.branchId && actor.user.branchId !== transactionDevice.branchId) {
-          throw new BadRequestException('Device does not belong to cashier branch');
-        }
+          if (
+            actor.user.branchId &&
+            actor.user.branchId !== transactionDevice.branchId
+          ) {
+            throw new BadRequestException(
+              'Device does not belong to cashier branch',
+            );
+          }
 
-        if (
-          !transactionCard ||
-          transactionCard.status !== CardStatus.ACTIVE ||
-          transactionCard.customer.status !== CustomerStatus.ACTIVE ||
-          transactionCard.customer.isStaff
-        ) {
-          throw new NotFoundException('Card not found');
-        }
+          if (
+            !transactionCard ||
+            transactionCard.status !== CardStatus.ACTIVE ||
+            transactionCard.customer.status !== CustomerStatus.ACTIVE ||
+            transactionCard.customer.isStaff
+          ) {
+            throw new NotFoundException('Card not found');
+          }
 
-        const captureStatus = resolveCaptureStatus(
-          data.purchaseAmountKobo,
-          this.configService,
-        );
+          const branchId = actor.user.branchId ?? transactionDevice.branchId;
+          if (!branchId) {
+            throw new BadRequestException('Branch context is required');
+          }
 
-        await prisma.idempotencyRecord.create({
-          data: {
-            tenantId,
-            actorId: actor.user.id,
-            endpoint: RECEIPT_CAPTURE_ENDPOINT,
-            idempotencyKey: normalizedKey,
-            requestHash,
-            status: 'COMPLETED',
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          },
-        });
-
-        const receipt = await prisma.receipt.create({
-          data: {
-            tenantId,
-            branchId,
-            customerId: transactionCard.customerId,
-            cardId: transactionCard.id,
-            deviceId: transactionDevice.id,
-            posReceiptNumber,
-            normalizedPosReceiptNumber,
-            receiptWeekStart,
-            purchaseAmountKobo: BigInt(data.purchaseAmountKobo),
+          const receiptWeekStart = deriveReceiptWeekStart(
             occurredAt,
-            capturedByTenantId: actor.user.tenantId,
-            capturedBy: actor.user.id,
-            capturedAt: new Date(),
-            captureStatus,
-            approvedByTenantId: null,
-            approvedBy: null,
-            approvedAt: null,
-            approvalReasonCode:
-              captureStatus === 'PENDING_APPROVAL'
-                ? 'PURCHASE_ABOVE_APPROVAL_THRESHOLD'
-                : null,
-          },
-          include: receiptInclude,
-        });
+            transactionDevice.branch.timezone,
+            transactionDevice.branch.receiptWeekStartDay,
+          );
 
-        const response = toReceiptCaptureResponse(receipt);
-
-        if (overrideApplied) {
-          await this.auditService.recordWithClient(prisma, {
-            tenantId,
-            actorId: actor.user.id,
-            action: 'receipt.capture.override',
-            entityType: 'receipt',
-            entityId: receipt.id,
-            metadata: {
-              approvedByUserId: actor.user.id,
-              approvedOccurredAt: occurredAt,
-              approvalTimestamp: new Date(),
-              originalOccurredAt: occurredAt,
-              overrideReason,
+          const existing = await prisma.idempotencyRecord.findUnique({
+            where: {
+              tenantId_actorId_endpoint_idempotencyKey: {
+                tenantId,
+                actorId: actor.user.id,
+                endpoint: RECEIPT_CAPTURE_ENDPOINT,
+                idempotencyKey: normalizedKey,
+              },
             },
           });
-        }
 
-        await prisma.idempotencyRecord.update({
-          where: {
-            tenantId_actorId_endpoint_idempotencyKey: {
+          if (existing?.expiresAt && existing.expiresAt <= new Date()) {
+            await prisma.idempotencyRecord.deleteMany({
+              where: {
+                tenantId,
+                actorId: actor.user.id,
+                endpoint: RECEIPT_CAPTURE_ENDPOINT,
+                idempotencyKey: normalizedKey,
+              },
+            });
+          } else if (existing) {
+            if (existing.requestHash !== requestHash) {
+              throw new ConflictException(
+                'Idempotency key reused with different payload',
+              );
+            }
+
+            if (existing.responseJson && existing.status === 'COMPLETED') {
+              return existing.responseJson as ReceiptCaptureResponse;
+            }
+
+            throw new ConflictException('Idempotency key is still being processed');
+          }
+
+          const duplicateReceipt = await prisma.receipt.findFirst({
+            where: {
+              tenantId,
+              branchId,
+              receiptWeekStart,
+              normalizedPosReceiptNumber,
+            },
+          });
+
+          if (duplicateReceipt) {
+            throw new ConflictException('Physical receipt already captured');
+          }
+
+          const captureStatus = resolveCaptureStatus(
+            data.purchaseAmountKobo,
+            this.configService,
+          );
+          const now = new Date();
+          const reviewStatus: ReceiptReviewStatus =
+            captureStatus === 'PENDING_APPROVAL'
+              ? ReceiptReviewStatus.PENDING
+              : ReceiptReviewStatus.APPROVED;
+
+          await prisma.idempotencyRecord.create({
+            data: {
               tenantId,
               actorId: actor.user.id,
               endpoint: RECEIPT_CAPTURE_ENDPOINT,
               idempotencyKey: normalizedKey,
+              requestHash,
+              status: 'PENDING',
+              expiresAt: new Date(now.getTime() + IDP_EXPIRY_MS),
             },
-          },
-          data: {
-            responseJson: response,
-          },
-        });
+          });
 
-        await this.auditService.recordWithClient(prisma, {
-          tenantId,
-          actorId: actor.user.id,
-          action: 'receipt.capture',
-          entityType: 'receipt',
-          entityId: receipt.id,
-          metadata: response,
-        });
+          const receipt = await prisma.receipt.create({
+            data: {
+              tenantId,
+              branchId,
+              customerId: transactionCard.customerId,
+              cardId: transactionCard.id,
+              deviceId: transactionDevice.id,
+              posReceiptNumber,
+              normalizedPosReceiptNumber,
+              receiptWeekStart,
+              purchaseAmountKobo: BigInt(data.purchaseAmountKobo),
+              occurredAt,
+              capturedByTenantId: actor.user.tenantId,
+              capturedBy: actor.user.id,
+              capturedAt: now,
+              captureStatus,
+              reviewStatus,
+              reviewedAt:
+                reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
+              reviewedByTenantId:
+                reviewStatus === ReceiptReviewStatus.PENDING
+                  ? null
+                  : actor.user.tenantId,
+              reviewedBy:
+                reviewStatus === ReceiptReviewStatus.PENDING
+                  ? null
+                  : actor.user.id,
+              approvedByTenantId:
+                reviewStatus === ReceiptReviewStatus.PENDING
+                  ? null
+                  : actor.user.tenantId,
+              approvedBy:
+                reviewStatus === ReceiptReviewStatus.PENDING
+                  ? null
+                  : actor.user.id,
+              approvedAt:
+                reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
+              approvalReasonCode:
+                captureStatus === 'PENDING_APPROVAL'
+                  ? 'PURCHASE_ABOVE_APPROVAL_THRESHOLD'
+                  : null,
+            },
+            include: receiptInclude,
+          });
 
-        return response;
-      });
+          const response = toReceiptCaptureResponse(receipt);
+
+          if (overrideApplied) {
+            await this.auditService.recordWithClient(prisma, {
+              tenantId,
+              actorId: actor.user.id,
+              action: 'receipt.capture.override',
+              entityType: 'receipt',
+              entityId: receipt.id,
+              metadata: {
+                approvedByUserId: actor.user.id,
+                approvedOccurredAt: occurredAt,
+                approvalTimestamp: now,
+                originalOccurredAt: occurredAt,
+                overrideReason,
+              },
+            });
+          }
+
+          await prisma.idempotencyRecord.update({
+            where: {
+              tenantId_actorId_endpoint_idempotencyKey: {
+                tenantId,
+                actorId: actor.user.id,
+                endpoint: RECEIPT_CAPTURE_ENDPOINT,
+                idempotencyKey: normalizedKey,
+              },
+            },
+            data: {
+              status: 'COMPLETED',
+              responseJson: response,
+            },
+          });
+
+          await this.auditService.recordWithClient(prisma, {
+            tenantId,
+            actorId: actor.user.id,
+            action: 'receipt.capture',
+            entityType: 'receipt',
+            entityId: receipt.id,
+            metadata: response,
+          });
+
+          return response;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     } catch (error) {
       if (isUniqueIdempotencyConflict(error)) {
         const replay = await this.prismaService.idempotencyRecord.findUnique({
@@ -320,12 +335,108 @@ export class ReceiptsService {
         );
       }
 
+      if (isTransactionConflict(error)) {
+        throw new ConflictException('Physical receipt already captured');
+      }
+
       if (isUniqueReceiptConflict(error)) {
         throw new ConflictException('Physical receipt already captured');
       }
 
       throw error;
     }
+  }
+
+  async approveReceipt(
+    tenantId: string,
+    actor: AuthContext,
+    receiptId: string,
+  ) {
+    return this.reviewReceipt(tenantId, actor, receiptId, 'APPROVED');
+  }
+
+  async rejectReceipt(
+    tenantId: string,
+    actor: AuthContext,
+    receiptId: string,
+  ) {
+    return this.reviewReceipt(tenantId, actor, receiptId, 'REJECTED');
+  }
+
+  private async reviewReceipt(
+    tenantId: string,
+    actor: AuthContext,
+    receiptId: string,
+    reviewStatus: 'APPROVED' | 'REJECTED',
+  ) {
+    return this.prismaService.$transaction(async (prisma) => {
+      const receipt = await prisma.receipt.findFirst({
+        where: { tenantId, id: receiptId },
+      });
+
+      if (!receipt) {
+        throw new NotFoundException('Receipt not found');
+      }
+
+      if (receipt.captureStatus !== 'PENDING_APPROVAL') {
+        throw new BadRequestException('Receipt does not require review');
+      }
+
+      if (receipt.reviewStatus !== ReceiptReviewStatus.PENDING) {
+        throw new ConflictException('Receipt has already been reviewed');
+      }
+
+      if (
+        receipt.capturedByTenantId === actor.user.tenantId &&
+        receipt.capturedBy === actor.user.id
+      ) {
+        throw new BadRequestException(
+          'Capturing cashier cannot review the same receipt',
+        );
+      }
+
+      const now = new Date();
+      const updatedCount = await prisma.receipt.updateMany({
+        where: {
+          tenantId,
+          id: receiptId,
+          captureStatus: 'PENDING_APPROVAL',
+          reviewStatus: ReceiptReviewStatus.PENDING,
+        },
+        data: {
+          reviewStatus,
+          reviewedAt: now,
+          reviewedByTenantId: actor.user.tenantId,
+          reviewedBy: actor.user.id,
+          approvedAt: reviewStatus === 'APPROVED' ? now : null,
+          approvedByTenantId:
+            reviewStatus === 'APPROVED' ? actor.user.tenantId : null,
+          approvedBy: reviewStatus === 'APPROVED' ? actor.user.id : null,
+        },
+      });
+
+      if (updatedCount.count !== 1) {
+        throw new ConflictException('Receipt has already been reviewed');
+      }
+
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: reviewStatus === 'APPROVED' ? 'receipt.approve' : 'receipt.reject',
+        entityType: 'receipt',
+        entityId: receiptId,
+        metadata: {
+          reviewStatus,
+          reviewedAt: now,
+        },
+      });
+
+      return {
+        id: receiptId,
+        reviewStatus,
+        reviewedAt: now.toISOString(),
+      };
+    });
   }
 }
 
@@ -352,6 +463,7 @@ function toReceiptCaptureResponse(
     occurredAt: receipt.occurredAt.toISOString(),
     capturedAt: receipt.capturedAt.toISOString(),
     status: receipt.captureStatus,
+    reviewStatus: receipt.reviewStatus,
   };
 }
 
@@ -505,6 +617,23 @@ function deriveReceiptWeekStart(
   return new Date(Date.UTC(year, month - 1, day - deltaDays));
 }
 
+async function cleanupExpiredIdempotencyRecords(
+  prismaService: PrismaService,
+  tenantId: string,
+  actorId: string,
+  normalizedKey: string,
+): Promise<void> {
+  await prismaService.idempotencyRecord.deleteMany({
+    where: {
+      tenantId,
+      actorId,
+      endpoint: RECEIPT_CAPTURE_ENDPOINT,
+      idempotencyKey: normalizedKey,
+      expiresAt: { lte: new Date() },
+    },
+  });
+}
+
 function isUniqueIdempotencyConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
     return false;
@@ -548,4 +677,12 @@ function isUniqueReceiptConflict(error: unknown): boolean {
     target.includes('receiptWeekStart') &&
     target.includes('normalizedPosReceiptNumber')
   );
+}
+
+function isTransactionConflict(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return ['P2028', 'P2031', 'P2034'].includes(error.code);
+  }
+
+  return error instanceof Error && /transaction/i.test(error.message);
 }

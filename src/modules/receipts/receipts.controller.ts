@@ -42,6 +42,7 @@ export class ReceiptsController {
         'occurredAt',
         'capturedAt',
         'status',
+        'reviewStatus',
       ],
       properties: {
         id: { type: 'string', format: 'uuid' },
@@ -54,6 +55,7 @@ export class ReceiptsController {
         occurredAt: { type: 'string', format: 'date-time' },
         capturedAt: { type: 'string', format: 'date-time' },
         status: { type: 'string', example: 'CAPTURED' },
+        reviewStatus: { type: 'string', example: 'APPROVED' },
       },
     },
   })

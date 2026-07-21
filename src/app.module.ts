@@ -13,6 +13,7 @@ import { BranchesModule } from './modules/branches/branches.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { CardsModule } from './modules/cards/cards.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
+import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -56,6 +57,7 @@ import { RequestThrottleService } from './common/throttle/request-throttle.servi
     CustomersModule,
     CardsModule,
     ReceiptsModule,
+    ApprovalsModule,
     AuditModule,
     ConfigurationModule,
   ],

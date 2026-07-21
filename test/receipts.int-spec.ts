@@ -27,6 +27,13 @@ let cashierTwo: {
   username: string;
   supabaseAuthId: string | null;
 };
+let branchlessAdmin: {
+  id: string;
+  tenantId: string;
+  branchId: string | null;
+  username: string;
+  supabaseAuthId: string | null;
+};
 
 describe('receipt capture flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -89,6 +96,17 @@ describe('receipt capture flows (int)', () => {
       },
     });
 
+    branchlessAdmin = await prisma.user.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: null,
+        username: 'admin.branchless@shopcity.local',
+        supabaseAuthId: 'seed-branchless-admin-supabase-user',
+        role: UserRole.ADMIN,
+        status: 'ACTIVE',
+      },
+    });
+
     app = await createAppFn({ enableDocs: false });
     await (
       app.getHttpAdapter().getInstance() as {
@@ -101,6 +119,7 @@ describe('receipt capture flows (int)', () => {
     const authIds: Record<string, string> = {
       [seedData.user.username]: seedData.user.supabaseAuthId,
       [cashierTwo.username]: cashierTwo.supabaseAuthId!,
+      [branchlessAdmin.username]: branchlessAdmin.supabaseAuthId!,
     };
     jest
       .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
@@ -433,6 +452,43 @@ describe('receipt capture flows (int)', () => {
       .expect(400);
   }, 120000);
 
+  it('derives the receipt branch from the transaction snapshot when a device is reassigned after login', async () => {
+    const { authHeaders, body, device } = await prepareReceiptFixture({
+      customerSuffix: '06a',
+      cardSerialNumber: 'SC-1006A',
+      deviceName: 'POS-6A',
+      fingerprintHash: 'device-fingerprint-6a',
+      posReceiptNumber: 'POS-1006A',
+      occurredAt: recentOccurredAt(),
+      loginUsername: branchlessAdmin.username,
+    });
+    const reassignedBranch = await prisma.branch.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        name: 'Reassigned Branch',
+        timezone: 'Africa/Lagos',
+        receiptWeekStartDay: 1,
+        status: 'ACTIVE',
+      },
+    });
+
+    await prisma.device.update({
+      where: { id: device.id },
+      data: { branchId: reassignedBranch.id },
+    });
+
+    const response = await postReceipt(body, authHeaders, 'receipt-key-10a').expect(201);
+    const payload = response.body as ReceiptResponseBody;
+
+    expect(payload.data.branchId).toBe(reassignedBranch.id);
+
+    const receipt = await prisma.receipt.findUnique({
+      where: { tenantId_id: { tenantId: seedData.tenant.id, id: payload.data.id } },
+    });
+
+    expect(receipt?.branchId).toBe(reassignedBranch.id);
+  }, 120000);
+
   it('rejects future and stale cashier timestamps', async () => {
     const { body } = await prepareReceiptFixture({
       customerSuffix: '07',
@@ -532,6 +588,177 @@ describe('receipt capture flows (int)', () => {
         expect(payload.data.status).toBe('PENDING_APPROVAL');
       });
   }, 120000);
+
+  it('approves a pending receipt from a different reviewer', async () => {
+    const fixture = await prepareReceiptFixture({
+      customerSuffix: '10',
+      cardSerialNumber: 'SC-1010',
+      deviceName: 'POS-10',
+      fingerprintHash: 'device-fingerprint-10',
+      posReceiptNumber: 'POS-1012',
+      occurredAt: recentOccurredAt(),
+      loginUsername: cashierTwo.username,
+    });
+
+    const receiptResponse = await postReceipt(
+      {
+        ...fixture.body,
+        purchaseAmountKobo: 25_000_000,
+      },
+      fixture.authHeaders,
+      'receipt-key-17',
+    ).expect(201);
+
+    await postReceiptDecision(
+      `/api/v1/receipts/${receiptResponse.body.data.id}/approve`,
+      await loginAs(branchlessAdmin.username, fixture.device.id),
+    ).expect(200);
+
+    const receipt = await prisma.receipt.findUnique({
+      where: {
+        tenantId_id: { tenantId: seedData.tenant.id, id: receiptResponse.body.data.id },
+      },
+    });
+
+    expect(receipt?.reviewStatus).toBe('APPROVED');
+    expect(receipt?.approvedAt).toBeTruthy();
+    expect(receipt?.reviewedBy).toBe(branchlessAdmin.id);
+  }, 120000);
+
+  it('rejects self-approval on a pending receipt', async () => {
+    const fixture = await prepareReceiptFixture({
+      customerSuffix: '11',
+      cardSerialNumber: 'SC-1011',
+      deviceName: 'POS-11',
+      fingerprintHash: 'device-fingerprint-11',
+      posReceiptNumber: 'POS-1013',
+      occurredAt: recentOccurredAt(),
+      loginUsername: seedData.user.username,
+    });
+
+    const receiptResponse = await postReceipt(
+      {
+        ...fixture.body,
+        purchaseAmountKobo: 25_000_000,
+      },
+      fixture.authHeaders,
+      'receipt-key-18',
+    ).expect(201);
+
+    await postReceiptDecision(
+      `/api/v1/receipts/${receiptResponse.body.data.id}/approve`,
+      fixture.authHeaders,
+    ).expect(400);
+  }, 120000);
+
+  it('rejects a pending receipt through the approval workflow', async () => {
+    const fixture = await prepareReceiptFixture({
+      customerSuffix: '12',
+      cardSerialNumber: 'SC-1012',
+      deviceName: 'POS-12',
+      fingerprintHash: 'device-fingerprint-12',
+      posReceiptNumber: 'POS-1014',
+      occurredAt: recentOccurredAt(),
+      loginUsername: cashierTwo.username,
+    });
+
+    const receiptResponse = await postReceipt(
+      {
+        ...fixture.body,
+        purchaseAmountKobo: 25_000_000,
+      },
+      fixture.authHeaders,
+      'receipt-key-19',
+    ).expect(201);
+
+    await postReceiptDecision(
+      `/api/v1/receipts/${receiptResponse.body.data.id}/reject`,
+      await loginAs(branchlessAdmin.username, fixture.device.id),
+    ).expect(200);
+
+    const receipt = await prisma.receipt.findUnique({
+      where: {
+        tenantId_id: { tenantId: seedData.tenant.id, id: receiptResponse.body.data.id },
+      },
+    });
+
+    expect(receipt?.reviewStatus).toBe('REJECTED');
+    expect(receipt?.approvedAt).toBeNull();
+    expect(receipt?.reviewedBy).toBe(branchlessAdmin.id);
+  }, 120000);
+
+  it('allows an expired completed idempotency record to be ignored', async () => {
+    const { authHeaders, body } = await prepareReceiptFixture({
+      customerSuffix: '13',
+      cardSerialNumber: 'SC-1013',
+      deviceName: 'POS-13',
+      fingerprintHash: 'device-fingerprint-13',
+      posReceiptNumber: 'POS-1015',
+      occurredAt: recentOccurredAt(),
+      loginUsername: cashierTwo.username,
+    });
+
+    await prisma.idempotencyRecord.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        actorId: cashierTwo.id,
+        endpoint: 'POST /api/v1/receipts',
+        idempotencyKey: 'expired-completed-key',
+        requestHash: 'stale-hash',
+        responseJson: { stale: true },
+        status: 'COMPLETED',
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+
+    const response = await postReceipt(
+      {
+        ...body,
+        posReceiptNumber: 'POS-1015-NEW',
+        cardSerialNumber: 'SC-1013',
+      },
+      authHeaders,
+      'expired-completed-key',
+    ).expect(201);
+
+    expect(response.body.data.posReceiptNumber).toBe('POS-1015-NEW');
+  }, 120000);
+
+  it('allows an expired pending idempotency record to be ignored', async () => {
+    const { authHeaders, body } = await prepareReceiptFixture({
+      customerSuffix: '14',
+      cardSerialNumber: 'SC-1014',
+      deviceName: 'POS-14',
+      fingerprintHash: 'device-fingerprint-14',
+      posReceiptNumber: 'POS-1016',
+      occurredAt: recentOccurredAt(),
+      loginUsername: cashierTwo.username,
+    });
+
+    await prisma.idempotencyRecord.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        actorId: cashierTwo.id,
+        endpoint: 'POST /api/v1/receipts',
+        idempotencyKey: 'expired-pending-key',
+        requestHash: 'stale-hash',
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+
+    const response = await postReceipt(
+      {
+        ...body,
+        posReceiptNumber: 'POS-1016-NEW',
+        cardSerialNumber: 'SC-1014',
+      },
+      authHeaders,
+      'expired-pending-key',
+    ).expect(201);
+
+    expect(response.body.data.posReceiptNumber).toBe('POS-1016-NEW');
+  }, 120000);
 });
 
 async function prepareReceiptFixture(options: {
@@ -541,6 +768,7 @@ async function prepareReceiptFixture(options: {
   fingerprintHash: string;
   posReceiptNumber: string;
   occurredAt: string;
+  loginUsername?: string;
 }) {
   const customer = await prisma.customer.create({
     data: {
@@ -576,7 +804,7 @@ async function prepareReceiptFixture(options: {
     },
   });
 
-  const authHeaders = await loginAs(seedData.user.username, device.id);
+  const authHeaders = await loginAs(options.loginUsername ?? seedData.user.username, device.id);
 
   return {
     authHeaders,
@@ -627,6 +855,16 @@ function postReceipt(
     .set('x-csrf-token', authHeaders.csrfToken)
     .set('Idempotency-Key', idempotencyKey)
     .send(body);
+}
+
+function postReceiptDecision(
+  path: string,
+  authHeaders: { headers: string; csrfToken: string },
+) {
+  return request(httpServer)
+    .post(path)
+    .set('Cookie', authHeaders.headers)
+    .set('x-csrf-token', authHeaders.csrfToken);
 }
 
 type ReceiptResponseBody = {
