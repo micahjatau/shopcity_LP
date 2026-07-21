@@ -57,6 +57,12 @@ enum IdempotencyRecordStatus {
   COMPLETED
 }
 
+enum ReceiptCaptureStatus {
+  CAPTURED
+  FLAGGED
+  PENDING_APPROVAL
+}
+
 model Tenant {
   id        String       @id @default(uuid())
   name      String
@@ -69,6 +75,7 @@ model Tenant {
   customers Customer[]
   cards     Card[]
   receipts  Receipt[]
+  idempotencyRecords IdempotencyRecord[]
   auditLogs AuditLog[]
 }
 
@@ -103,6 +110,7 @@ model Device {
   updatedAt       DateTime     @updatedAt
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   branch          Branch       @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  sessions        Session[]
   receipts        Receipt[]
 
   @@index([tenantId, branchId])
@@ -126,6 +134,7 @@ model User {
   registeredCustomers Customer[] @relation("CustomerRegisteredBy")
   cardsIssued         Card[]     @relation("CardIssuedBy")
   receiptsCaptured    Receipt[]  @relation("ReceiptCapturedBy")
+  receiptsApproved    Receipt[]  @relation("ReceiptApprovedBy")
   auditLogs           AuditLog[]
 
   @@unique([tenantId, username])
@@ -136,6 +145,7 @@ model User {
 model Session {
   id               String        @id @default(uuid())
   userId           String
+  deviceId         String?
   sessionTokenHash String        @unique
   csrfTokenHash    String
   status           SessionStatus @default(ACTIVE)
@@ -145,8 +155,10 @@ model Session {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device           Device?       @relation(fields: [deviceId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
+  @@index([deviceId])
 }
 
 model Customer {
@@ -216,6 +228,11 @@ model Receipt {
   occurredAt               DateTime
   capturedByTenantId       String
   capturedBy               String
+  captureStatus            ReceiptCaptureStatus @default(CAPTURED)
+  approvalReasonCode       String?
+  approvedByTenantId       String?
+  approvedBy               String?
+  approvedAt               DateTime?
   capturedAt               DateTime @default(now())
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
@@ -223,18 +240,21 @@ model Receipt {
   branch                   Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   customer                 Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   card                     Card     @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
-  device                   Device?  @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: SetNull)
+  device                   Device?  @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: Restrict)
   capturedByUser           User     @relation("ReceiptCapturedBy", fields: [capturedByTenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
+  approvedByUser           User?    @relation("ReceiptApprovedBy", fields: [approvedByTenantId, approvedBy], references: [tenantId, id], onDelete: SetNull)
 
   @@unique([tenantId, branchId, receiptWeekStart, normalizedPosReceiptNumber])
   @@unique([tenantId, id])
   @@index([tenantId, branchId, receiptWeekStart])
   @@index([tenantId, cardId, occurredAt])
   @@index([capturedByTenantId, capturedBy])
+  @@index([approvedByTenantId, approvedBy])
 }
 
 model IdempotencyRecord {
   id             String                 @id @default(uuid())
+  tenantId       String
   actorId        String
   endpoint       String
   idempotencyKey String
@@ -244,8 +264,9 @@ model IdempotencyRecord {
   expiresAt      DateTime
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@unique([actorId, endpoint, idempotencyKey])
+  @@unique([tenantId, actorId, endpoint, idempotencyKey])
   @@index([expiresAt])
 }
 

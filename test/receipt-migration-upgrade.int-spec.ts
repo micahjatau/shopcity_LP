@@ -39,7 +39,7 @@ async function prepareReceiptMigrationFixture(): Promise<ReceiptMigrationFixture
 
   for (const entry of readdirSync(migrationsRoot).sort()) {
     if (entry === migrationName) {
-      continue;
+      break;
     }
 
     const sourcePath = join(migrationsRoot, entry);
@@ -271,16 +271,31 @@ describe('receipt integrity migration upgrade', () => {
       try {
         await prisma.$connect();
 
-        const receipt = await prisma.receipt.findUnique({
-          where: { id: ids.receiptId },
-        });
+        const receipts = await prisma.$queryRaw<
+          {
+            tenantId: string;
+            branchId: string;
+            posReceiptNumber: string;
+            normalizedPosReceiptNumber: string;
+          }[]
+        >`
+          SELECT
+            "tenantId",
+            "branchId",
+            "posReceiptNumber",
+            "normalizedPosReceiptNumber"
+          FROM "Receipt"
+          WHERE "id" = ${ids.receiptId}
+        `;
 
-        expect(receipt).toMatchObject({
-          tenantId: ids.tenantId,
-          branchId: ids.branchId,
-          posReceiptNumber: 'POS-LEGACY-0001',
-          normalizedPosReceiptNumber: 'POS-LEGACY-0001',
-        });
+        expect(receipts).toEqual([
+          {
+            tenantId: ids.tenantId,
+            branchId: ids.branchId,
+            posReceiptNumber: 'POS-LEGACY-0001',
+            normalizedPosReceiptNumber: 'POS-LEGACY-0001',
+          },
+        ]);
 
         const droppedColumns = await prisma.$queryRaw<
           { column_name: string }[]
@@ -318,6 +333,41 @@ describe('receipt integrity migration upgrade', () => {
           receiptId: '88888888-8888-8888-8888-888888888888',
           receiptNumber: 'LEGACY-RECEIPT-0002',
           externalReceiptNumber: null,
+        }),
+      );
+
+      expect(() => fixture.applyPatchedMigration()).toThrow();
+    } finally {
+      await fixture.cleanup();
+    }
+  }, 120000);
+
+  it('rejects duplicate legacy POS receipt identities', async () => {
+    const fixture = await prepareReceiptMigrationFixture();
+    const ids = {
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      branchId: '22222222-2222-2222-2222-222222222222',
+      deviceId: '33333333-3333-3333-3333-333333333333',
+      userId: '44444444-4444-4444-4444-444444444444',
+      customerId: '55555555-5555-5555-5555-555555555555',
+      cardId: '66666666-6666-6666-6666-666666666666',
+    };
+
+    try {
+      fixture.executeSql(
+        buildLegacyReceiptSeedSql({
+          ...ids,
+          receiptId: '77777777-7777-7777-7777-777777777777',
+          receiptNumber: 'LEGACY-RECEIPT-0001',
+          externalReceiptNumber: 'POS-DUP-0001',
+        }),
+      );
+      fixture.executeSql(
+        buildLegacyReceiptInsertSql({
+          ...ids,
+          receiptId: '88888888-8888-8888-8888-888888888888',
+          receiptNumber: 'LEGACY-RECEIPT-0002',
+          externalReceiptNumber: ' pos-dup-0001 ',
         }),
       );
 

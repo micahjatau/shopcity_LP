@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Headers,
   Post,
   Res,
   Version,
@@ -53,9 +54,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Create authenticated session' })
   async login(
     @Body() dto: LoginDto,
+    @Headers('x-device-id') deviceId: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    const issued = await this.authService.login(dto.username, dto.password);
+    const issued = await this.authService.login(
+      dto.username,
+      dto.password,
+      deviceId,
+    );
     const maxAge = Math.max(
       0,
       Math.floor(

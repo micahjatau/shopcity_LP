@@ -4,7 +4,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   Min,
   MinLength,
@@ -28,10 +27,6 @@ export class CaptureReceiptDto {
   @ApiProperty({ format: 'date-time' })
   @IsDateString()
   occurredAt!: string;
-
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  deviceId!: string;
 
   @ApiPropertyOptional({ minLength: 1 })
   @IsOptional()

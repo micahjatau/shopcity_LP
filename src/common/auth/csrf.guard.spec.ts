@@ -31,6 +31,7 @@ describe('CsrfGuard', () => {
             },
             authContext: {
               session: {
+                deviceId: null,
                 csrfTokenHash: createHash('sha256')
                   .update('test-csrf-secret:csrf-token')
                   .digest('hex'),
@@ -67,7 +68,7 @@ describe('CsrfGuard', () => {
             method: 'POST',
             headers: { cookie: 'shopcity_csrf=csrf-token' },
             authContext: {
-              session: { csrfTokenHash: 'placeholder' },
+              session: { deviceId: null, csrfTokenHash: 'placeholder' },
             },
           }),
         }),

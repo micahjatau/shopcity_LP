@@ -201,10 +201,50 @@ describe('receipt capture flows (int)', () => {
       posReceiptNumber: 'POS-1003',
       occurredAt: new Date(Date.now() - 60_000).toISOString(),
     });
-    const cashierHeaders = await loginAs(cashierTwo.username);
+    const cashierDevice = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-cashier-two',
+        fingerprintHash: 'device-fingerprint-cashier-two',
+        status: DeviceStatus.ACTIVE,
+      },
+    });
+    const cashierHeaders = await loginAs(cashierTwo.username, cashierDevice.id);
 
     await postReceipt(body, adminHeaders, 'receipt-key-4').expect(201);
     await postReceipt(body, cashierHeaders, 'receipt-key-5').expect(409);
+  }, 120000);
+
+  it('serializes concurrent captures of the same physical receipt', async () => {
+    const { authHeaders, body } = await prepareReceiptFixture({
+      customerSuffix: '03a',
+      cardSerialNumber: 'SC-1003A',
+      deviceName: 'POS-3A',
+      fingerprintHash: 'device-fingerprint-3a',
+      posReceiptNumber: 'POS-1003A',
+      occurredAt: recentOccurredAt(),
+    });
+
+    const [firstStatus, secondStatus] = await Promise.all([
+      postReceipt(body, authHeaders, 'receipt-key-4a').then(
+        (response) => response.status,
+      ),
+      postReceipt(body, authHeaders, 'receipt-key-4b').then(
+        (response) => response.status,
+      ),
+    ]);
+
+    expect([firstStatus, secondStatus].sort()).toEqual([201, 409]);
+
+    const receiptCount = await prisma.receipt.count({
+      where: {
+        tenantId: seedData.tenant.id,
+        normalizedPosReceiptNumber: 'POS-1003A',
+      },
+    });
+
+    expect(receiptCount).toBe(1);
   }, 120000);
 
   it('rejects the same receipt when a different card is used', async () => {
@@ -288,6 +328,7 @@ describe('receipt capture flows (int)', () => {
         {
           ...body,
           occurredAt: new Date(boundaryStart.getTime() - 60_000).toISOString(),
+          overrideReason: 'Boundary timing validation',
         },
         authHeaders,
         'receipt-key-8',
@@ -296,6 +337,7 @@ describe('receipt capture flows (int)', () => {
         {
           ...body,
           occurredAt: new Date(boundaryStart.getTime() + 60_000).toISOString(),
+          overrideReason: 'Boundary timing validation',
         },
         authHeaders,
         'receipt-key-9',
@@ -324,7 +366,7 @@ describe('receipt capture flows (int)', () => {
     }
   }, 120000);
 
-  it('rejects cross-branch and invalid device submissions', async () => {
+  it('binds the device to the session and rejects spoofed receipt device fields', async () => {
     const { authHeaders, body } = await prepareReceiptFixture({
       customerSuffix: '06',
       cardSerialNumber: 'SC-1006',
@@ -352,6 +394,15 @@ describe('receipt capture flows (int)', () => {
       },
     });
 
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('x-device-id', otherBranchDevice.id)
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(400);
+
     await postReceipt(
       {
         ...body,
@@ -360,17 +411,6 @@ describe('receipt capture flows (int)', () => {
       },
       authHeaders,
       'receipt-key-10',
-    ).expect(400);
-
-    const bodyWithoutDevice = { ...body } as Record<string, unknown>;
-    delete bodyWithoutDevice.deviceId;
-    await postReceipt(
-      {
-        ...bodyWithoutDevice,
-        posReceiptNumber: 'POS-1007',
-      },
-      authHeaders,
-      'receipt-key-11',
     ).expect(400);
 
     const inactiveDevice = await prisma.device.create({
@@ -383,15 +423,14 @@ describe('receipt capture flows (int)', () => {
       },
     });
 
-    await postReceipt(
-      {
-        ...body,
-        deviceId: inactiveDevice.id,
-        posReceiptNumber: 'POS-1008',
-      },
-      authHeaders,
-      'receipt-key-12',
-    ).expect(400);
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('x-device-id', inactiveDevice.id)
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(400);
   }, 120000);
 
   it('rejects future and stale cashier timestamps', async () => {
@@ -403,7 +442,16 @@ describe('receipt capture flows (int)', () => {
       posReceiptNumber: 'POS-1009',
       occurredAt: new Date(Date.now() - 60_000).toISOString(),
     });
-    const cashierHeaders = await loginAs(cashierTwo.username);
+    const cashierDevice = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-cashier-two-timecheck',
+        fingerprintHash: 'device-fingerprint-cashier-two-timecheck',
+        status: DeviceStatus.ACTIVE,
+      },
+    });
+    const cashierHeaders = await loginAs(cashierTwo.username, cashierDevice.id);
 
     await postReceipt(
       {
@@ -427,7 +475,7 @@ describe('receipt capture flows (int)', () => {
   }, 120000);
 
   it('allows a privileged timestamp override with audit evidence', async () => {
-    const { body } = await prepareReceiptFixture({
+    const { body, device } = await prepareReceiptFixture({
       customerSuffix: '08',
       cardSerialNumber: 'SC-1008',
       deviceName: 'POS-8',
@@ -443,7 +491,7 @@ describe('receipt capture flows (int)', () => {
         overrideReason: 'POS clock drift during close-out',
         posReceiptNumber: 'POS-1010-OVERRIDE',
       },
-      await loginAs(seedData.user.username),
+      await loginAs(seedData.user.username, device.id),
       'receipt-key-15',
     ).expect(201);
 
@@ -461,7 +509,7 @@ describe('receipt capture flows (int)', () => {
     expect(overrideAudit).toBeTruthy();
   }, 120000);
 
-  it('rejects purchase amounts beyond the configured ceiling', async () => {
+  it('marks purchases beyond the approval threshold as pending approval', async () => {
     const { authHeaders, body } = await prepareReceiptFixture({
       customerSuffix: '09',
       cardSerialNumber: 'SC-1009',
@@ -478,7 +526,11 @@ describe('receipt capture flows (int)', () => {
       },
       authHeaders,
       'receipt-key-16',
-    ).expect(400);
+    ).expect(201)
+      .expect((response) => {
+        const payload = response.body as ReceiptResponseBody;
+        expect(payload.data.status).toBe('PENDING_APPROVAL');
+      });
   }, 120000);
 });
 
@@ -524,13 +576,12 @@ async function prepareReceiptFixture(options: {
     },
   });
 
-  const authHeaders = await loginAs(seedData.user.username);
+  const authHeaders = await loginAs(seedData.user.username, device.id);
 
   return {
     authHeaders,
     body: {
       cardSerialNumber: card.barcodeValue,
-      deviceId: device.id,
       posReceiptNumber: options.posReceiptNumber,
       purchaseAmountKobo: 1000000,
       occurredAt: options.occurredAt,
@@ -540,9 +591,10 @@ async function prepareReceiptFixture(options: {
   };
 }
 
-async function loginAs(username: string) {
+async function loginAs(username: string, deviceId?: string) {
   const loginResponse = await request(httpServer)
     .post('/api/v1/auth/login')
+    .set('x-device-id', deviceId ?? '')
     .send({
       username,
       password: seedData.adminPassword,

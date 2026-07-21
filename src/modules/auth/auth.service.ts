@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { randomUUID, createHash } from 'node:crypto';
@@ -23,7 +23,11 @@ export class AuthService {
     private readonly auditService: AuditService,
   ) {}
 
-  async login(username: string, password: string): Promise<IssuedSession> {
+  async login(
+    username: string,
+    password: string,
+    deviceId?: string,
+  ): Promise<IssuedSession> {
     const { data, error } =
       await this.supabaseService.publicClient.auth.signInWithPassword({
         email: username,
@@ -48,8 +52,31 @@ export class AuthService {
       throw new UnauthorizedException('User is not active');
     }
 
+    const sessionDevice = deviceId
+      ? await this.prismaService.device.findFirst({
+          where: { id: deviceId, tenantId: user.tenantId },
+          include: { branch: true },
+        })
+      : null;
+
+    if (
+      deviceId &&
+      (!sessionDevice ||
+        sessionDevice.status !== 'ACTIVE' ||
+        sessionDevice.branch.status !== 'ACTIVE' ||
+        (user.branchId && user.branchId !== sessionDevice.branchId))
+    ) {
+      throw new BadRequestException('Device is not active');
+    }
+
     return this.prismaService.$transaction((prisma) =>
-      this.issueSession(prisma, user.id, user.tenantId, 'auth.login'),
+      this.issueSession(
+        prisma,
+        user.id,
+        user.tenantId,
+        'auth.login',
+        sessionDevice?.id ?? null,
+      ),
     );
   }
 
@@ -87,6 +114,7 @@ export class AuthService {
         session.userId,
         session.user.tenantId,
         'auth.refresh',
+        session.deviceId ?? null,
       );
     });
   }
@@ -107,6 +135,7 @@ export class AuthService {
     userId: string,
     tenantId: string,
     action: string,
+    deviceId: string | null,
   ): Promise<IssuedSession> {
     const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 12);
@@ -125,6 +154,7 @@ export class AuthService {
     const session = await prisma.session.create({
       data: {
         userId,
+        deviceId,
         sessionTokenHash: hashToken(sessionToken, sessionSecret),
         csrfTokenHash: createHash('sha256')
           .update(`${csrfSecret}:${csrfToken}`)

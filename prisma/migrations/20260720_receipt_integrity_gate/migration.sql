@@ -1,15 +1,20 @@
-ALTER TABLE "Receipt"
-  RENAME COLUMN "receiptNumber" TO "posReceiptNumber";
-
-ALTER TABLE "Receipt"
-  ADD COLUMN "normalizedPosReceiptNumber" TEXT;
-
-UPDATE "Receipt"
-SET "posReceiptNumber" = BTRIM("externalReceiptNumber")
-WHERE "externalReceiptNumber" IS NOT NULL;
-
 DO $$
 BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM "Receipt"
+    WHERE "externalReceiptNumber" IS NOT NULL
+      AND BTRIM("externalReceiptNumber") <> ''
+    GROUP BY
+      "tenantId",
+      "branchId",
+      "receiptWeekStart",
+      UPPER(BTRIM("externalReceiptNumber"))
+    HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate legacy POS receipt identities require resolution';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM "Receipt"
@@ -19,6 +24,16 @@ BEGIN
     RAISE EXCEPTION 'Receipt legacy POS references are missing';
   END IF;
 END $$;
+
+ALTER TABLE "Receipt"
+  RENAME COLUMN "receiptNumber" TO "posReceiptNumber";
+
+ALTER TABLE "Receipt"
+  ADD COLUMN "normalizedPosReceiptNumber" TEXT;
+
+UPDATE "Receipt"
+SET "posReceiptNumber" = BTRIM("externalReceiptNumber")
+WHERE "externalReceiptNumber" IS NOT NULL;
 
 UPDATE "Receipt"
 SET "normalizedPosReceiptNumber" = UPPER(TRIM("posReceiptNumber"));

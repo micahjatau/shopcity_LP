@@ -69,7 +69,7 @@ describe('OpenAPI contract (int)', () => {
     expect(createSchema?.properties?.cardSerialNumber).toBeDefined();
     expect(createSchema?.properties?.purchaseAmountKobo).toBeDefined();
     expect(createSchema?.properties?.occurredAt).toBeDefined();
-    expect(createSchema?.properties?.deviceId).toBeDefined();
+    expect(createSchema?.properties?.deviceId).toBeUndefined();
     expect(createSchema?.properties?.overrideReason).toBeDefined();
     expect(createSchema?.properties?.branchId).toBeUndefined();
     expect(createSchema?.properties?.externalReceiptNumber).toBeUndefined();

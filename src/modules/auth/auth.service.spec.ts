@@ -14,6 +14,7 @@ describe('AuthService', () => {
       session: {
         id: 'session-id',
         userId: 'user-id',
+        deviceId: null,
         sessionTokenHash: 'session-hash',
         csrfTokenHash: 'csrf-hash',
         status: 'ACTIVE',

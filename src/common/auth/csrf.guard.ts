@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { CSRF_COOKIE_NAME } from '../../config/app.constants';
 import { PUBLIC_ROUTE_KEY } from './auth.constants';
 import { AuthenticatedRequest } from './session.types';
-import { loadAuthContext } from './session.guard';
+import { extractAuthTransport, loadAuthContext } from './session.guard';
 
 @Injectable()
 export class CsrfGuard implements CanActivate {
@@ -29,6 +29,11 @@ export class CsrfGuard implements CanActivate {
     );
 
     if (isPublic || isSafeMethod(request.method)) {
+      return true;
+    }
+
+    const authTransport = request.authTransport ?? extractAuthTransport(request);
+    if (authTransport === 'bearer') {
       return true;
     }
 

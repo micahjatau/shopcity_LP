@@ -43,6 +43,7 @@ export class SessionGuard implements CanActivate {
     }
 
     request.authContext = authContext;
+    request.authTransport = extractAuthTransport(request);
     const staleThreshold = new Date(Date.now() - 5 * 60 * 1000);
     await this.prismaService.session.updateMany({
       where: {
@@ -103,6 +104,13 @@ export function extractSessionToken(
 
   const cookies = parseCookies(request.headers.cookie);
   return cookies[SESSION_COOKIE_NAME];
+}
+
+export function extractAuthTransport(
+  request: AuthenticatedRequest,
+): 'bearer' | 'cookie' {
+  const authorization = request.headers.authorization;
+  return authorization?.startsWith('Bearer ') ? 'bearer' : 'cookie';
 }
 
 export function isAuthUserEligible(user: AuthUser): boolean {

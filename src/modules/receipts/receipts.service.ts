@@ -34,7 +34,7 @@ type ReceiptCaptureResponse = {
   purchaseAmountKobo: number;
   occurredAt: string;
   capturedAt: string;
-  status: 'CAPTURED';
+  status: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
 };
 
 type ReceiptWithRelations = Prisma.ReceiptGetPayload<{
@@ -67,11 +67,16 @@ export class ReceiptsService {
       normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(data.occurredAt, 'occurredAt');
     const overrideReason = data.overrideReason?.trim();
+    const sessionDeviceId = actor.session.deviceId;
 
-    assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
+    assertPurchaseAmountAllowed(data.purchaseAmountKobo);
+
+    if (!sessionDeviceId) {
+      throw new BadRequestException('Session device is required');
+    }
 
     const device = await this.prismaService.device.findFirst({
-      where: { id: data.deviceId, tenantId },
+      where: { id: sessionDeviceId, tenantId },
       include: { branch: true },
     });
 
@@ -129,13 +134,14 @@ export class ReceiptsService {
       posReceiptNumber: normalizedPosReceiptNumber,
       purchaseAmountKobo: data.purchaseAmountKobo,
       occurredAt: occurredAt.toISOString(),
-      deviceId: device.id,
+      deviceId: sessionDeviceId,
       overrideReason,
     });
 
     const existing = await this.prismaService.idempotencyRecord.findUnique({
       where: {
-        actorId_endpoint_idempotencyKey: {
+        tenantId_actorId_endpoint_idempotencyKey: {
+          tenantId,
           actorId: actor.user.id,
           endpoint: RECEIPT_CAPTURE_ENDPOINT,
           idempotencyKey: normalizedKey,
@@ -172,8 +178,46 @@ export class ReceiptsService {
 
     try {
       return await this.prismaService.$transaction(async (prisma) => {
+        const [transactionDevice, transactionCard] = await Promise.all([
+          prisma.device.findFirst({
+            where: { id: sessionDeviceId, tenantId },
+            include: { branch: true },
+          }),
+          prisma.card.findFirst({
+            where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
+            include: { customer: true },
+          }),
+        ]);
+
+        if (
+          !transactionDevice ||
+          transactionDevice.status !== DeviceStatus.ACTIVE ||
+          transactionDevice.branch.status !== BranchStatus.ACTIVE
+        ) {
+          throw new BadRequestException('Device is not active');
+        }
+
+        if (actor.user.branchId && actor.user.branchId !== transactionDevice.branchId) {
+          throw new BadRequestException('Device does not belong to cashier branch');
+        }
+
+        if (
+          !transactionCard ||
+          transactionCard.status !== CardStatus.ACTIVE ||
+          transactionCard.customer.status !== CustomerStatus.ACTIVE ||
+          transactionCard.customer.isStaff
+        ) {
+          throw new NotFoundException('Card not found');
+        }
+
+        const captureStatus = resolveCaptureStatus(
+          data.purchaseAmountKobo,
+          this.configService,
+        );
+
         await prisma.idempotencyRecord.create({
           data: {
+            tenantId,
             actorId: actor.user.id,
             endpoint: RECEIPT_CAPTURE_ENDPOINT,
             idempotencyKey: normalizedKey,
@@ -187,9 +231,9 @@ export class ReceiptsService {
           data: {
             tenantId,
             branchId,
-            customerId: card.customerId,
-            cardId: card.id,
-            deviceId: device.id,
+            customerId: transactionCard.customerId,
+            cardId: transactionCard.id,
+            deviceId: transactionDevice.id,
             posReceiptNumber,
             normalizedPosReceiptNumber,
             receiptWeekStart,
@@ -198,6 +242,14 @@ export class ReceiptsService {
             capturedByTenantId: actor.user.tenantId,
             capturedBy: actor.user.id,
             capturedAt: new Date(),
+            captureStatus,
+            approvedByTenantId: null,
+            approvedBy: null,
+            approvedAt: null,
+            approvalReasonCode:
+              captureStatus === 'PENDING_APPROVAL'
+                ? 'PURCHASE_ABOVE_APPROVAL_THRESHOLD'
+                : null,
           },
           include: receiptInclude,
         });
@@ -223,7 +275,8 @@ export class ReceiptsService {
 
         await prisma.idempotencyRecord.update({
           where: {
-            actorId_endpoint_idempotencyKey: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
               actorId: actor.user.id,
               endpoint: RECEIPT_CAPTURE_ENDPOINT,
               idempotencyKey: normalizedKey,
@@ -249,7 +302,8 @@ export class ReceiptsService {
       if (isUniqueIdempotencyConflict(error)) {
         const replay = await this.prismaService.idempotencyRecord.findUnique({
           where: {
-            actorId_endpoint_idempotencyKey: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
               actorId: actor.user.id,
               endpoint: RECEIPT_CAPTURE_ENDPOINT,
               idempotencyKey: normalizedKey,
@@ -297,7 +351,7 @@ function toReceiptCaptureResponse(
     purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
     occurredAt: receipt.occurredAt.toISOString(),
     capturedAt: receipt.capturedAt.toISOString(),
-    status: 'CAPTURED',
+    status: receipt.captureStatus,
   };
 }
 
@@ -369,22 +423,30 @@ function assertOverrideAllowed(
   return true;
 }
 
-function assertPurchaseAmountAllowed(
-  purchaseAmountKobo: number,
-  configService: ConfigService,
-): void {
+function assertPurchaseAmountAllowed(purchaseAmountKobo: number): void {
   if (!Number.isSafeInteger(purchaseAmountKobo)) {
     throw new BadRequestException('purchaseAmountKobo must be a safe integer');
   }
+}
 
-  const maxPurchaseAmountKobo =
+function resolveCaptureStatus(
+  purchaseAmountKobo: number,
+  configService: ConfigService,
+): 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL' {
+  const flagThresholdKobo =
+    configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ?? 10_000_000;
+  const approvalThresholdKobo =
     configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ?? 20_000_000;
 
-  if (purchaseAmountKobo > maxPurchaseAmountKobo) {
-    throw new BadRequestException(
-      'purchaseAmountKobo exceeds the configured approval threshold',
-    );
+  if (purchaseAmountKobo > approvalThresholdKobo) {
+    return 'PENDING_APPROVAL';
   }
+
+  if (purchaseAmountKobo > flagThresholdKobo) {
+    return 'FLAGGED';
+  }
+
+  return 'CAPTURED';
 }
 
 function hashRequest(payload: Record<string, unknown>): string {

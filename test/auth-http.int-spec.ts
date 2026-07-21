@@ -200,6 +200,23 @@ describe('auth and readiness flows (int)', () => {
       .expect(401);
   }, 120000);
 
+  it('allows bearer-authenticated unsafe requests without CSRF', async () => {
+    const loginResponse = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .send({ username: seedData.user.username, password: seedData.adminPassword })
+      .expect(200);
+
+    const sessionCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_session',
+    );
+
+    await request(httpServer)
+      .post('/api/v1/auth/refresh')
+      .set('Authorization', `Bearer ${cookieToken(sessionCookie)}`)
+      .expect(200);
+  }, 120000);
+
   it('writes ip, account, and pair buckets for login throttling', async () => {
     await request(httpServer)
       .post('/api/v1/auth/login')

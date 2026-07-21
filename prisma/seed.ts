@@ -38,6 +38,7 @@ export interface SeedFoundationResult {
     session: {
       id: string;
       userId: string;
+      deviceId: string | null;
       sessionTokenHash: string;
       csrfTokenHash: string;
       status: 'ACTIVE';
@@ -193,6 +194,7 @@ export async function seedFoundation(
       session: {
         id: 'session-1',
         userId: user.id,
+        deviceId: null,
         sessionTokenHash: 'hash',
         csrfTokenHash: 'hash',
         status: 'ACTIVE',

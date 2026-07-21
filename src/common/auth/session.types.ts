@@ -13,4 +13,5 @@ export interface AuthContext {
 
 export interface AuthenticatedRequest extends FastifyRequest {
   authContext?: AuthContext;
+  authTransport?: 'bearer' | 'cookie';
 }
