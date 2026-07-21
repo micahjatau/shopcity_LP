@@ -5,7 +5,7 @@ ALTER TABLE "Receipt"
   ADD COLUMN "normalizedPosReceiptNumber" TEXT;
 
 UPDATE "Receipt"
-SET "posReceiptNumber" = "externalReceiptNumber"
+SET "posReceiptNumber" = BTRIM("externalReceiptNumber")
 WHERE "externalReceiptNumber" IS NOT NULL;
 
 DO $$
@@ -14,6 +14,7 @@ BEGIN
     SELECT 1
     FROM "Receipt"
     WHERE "externalReceiptNumber" IS NULL
+      OR BTRIM("externalReceiptNumber") = ''
   ) THEN
     RAISE EXCEPTION 'Receipt legacy POS references are missing';
   END IF;
