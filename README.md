@@ -10,7 +10,8 @@ Backend foundation for the ShopCity loyalty MVP.
 ## Current App
 
 - App entrypoint: `src/main.ts`
-- Default route: `GET /api/v1` in `src/app.controller.ts`
+- API root: `GET /api/v1` in `src/app.controller.ts`
+- Health checks: `GET /health/live` and `GET /health/ready`
 - Supabase identity/DB wiring: `src/supabase/`
 - Tests: unit tests in `src/**/*.spec.ts`, e2e tests in `test/**/*.e2e-spec.ts`, integration tests in `test/**/*.int-spec.ts`
 
@@ -78,9 +79,13 @@ Receipt capture now requires a physical POS receipt number and an active device.
 ## Common Commands
 
 - `npm run build`
+- `npm run typecheck`
 - `npm run lint`
+- `npm run openapi:lint`
+- `npm run openapi:diff`
 - `npm run test`
 - `npm run test:e2e`
+- `npm run test:integration`
 - `npm run test:cov`
 
 ## CLI Workflow
