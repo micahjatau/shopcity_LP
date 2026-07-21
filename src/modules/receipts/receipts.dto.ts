@@ -1,5 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsString, IsUUID, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CaptureReceiptDto {
   @ApiProperty()
@@ -13,6 +22,7 @@ export class CaptureReceiptDto {
   @ApiProperty({ minimum: 1 })
   @IsInt()
   @Min(1)
+  @Max(Number.MAX_SAFE_INTEGER)
   purchaseAmountKobo!: number;
 
   @ApiProperty({ format: 'date-time' })
@@ -22,4 +32,10 @@ export class CaptureReceiptDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   deviceId!: string;
+
+  @ApiPropertyOptional({ minLength: 1 })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  overrideReason?: string;
 }

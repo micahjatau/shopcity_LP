@@ -66,7 +66,7 @@ The bootstrap path assumes a fresh database, applied migrations, and seeded foun
 
 The seed step provisions the foundation tenant, branch, and a usable admin login. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` before seeding. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder. Redis defaults to `redis://127.0.0.1:6379`.
 
-Receipt capture now requires a physical POS receipt number and an active device. The cashier branch must come from the authenticated user or bound device, and stale timestamps require an audited supervisor path.
+Receipt capture now requires a physical POS receipt number and an active device. The cashier branch must come from the authenticated user or bound device, stale timestamps require an explicit audited supervisor override reason, and purchase amounts must stay within the configured approval threshold.
 
 ## Supabase Workflow
 

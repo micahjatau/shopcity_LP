@@ -19,7 +19,7 @@
 
 The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder. If `SUPABASE_URL`, `SUPABASE_ANON_KEY`, or `SUPABASE_SERVICE_ROLE_KEY` is missing, seeding fails immediately.
 
-Receipt capture now requires a physical POS receipt number, an active device, and branch context derived from the authenticated cashier or bound device. Stale transaction timestamps require an explicit audited supervisor path.
+Receipt capture now requires a physical POS receipt number, an active device, and branch context derived from the authenticated cashier or bound device. Stale or future transaction timestamps require an explicit supervisor override reason and are audited, and purchase amounts must stay within the configured approval threshold.
 
 ## Useful Commands
 

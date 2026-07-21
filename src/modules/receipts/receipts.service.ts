@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   BranchStatus,
   CardStatus,
@@ -51,6 +52,7 @@ export class ReceiptsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
+    private readonly configService: ConfigService,
   ) {}
 
   async captureReceipt(
@@ -64,6 +66,9 @@ export class ReceiptsService {
     const normalizedPosReceiptNumber =
       normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(data.occurredAt, 'occurredAt');
+    const overrideReason = data.overrideReason?.trim();
+
+    assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
 
     const device = await this.prismaService.device.findFirst({
       where: { id: data.deviceId, tenantId },
@@ -91,7 +96,11 @@ export class ReceiptsService {
       throw new BadRequestException('Branch context is required');
     }
 
-    assertReceiptTimestampAllowed(actor.user.role, occurredAt);
+    const overrideApplied = assertReceiptTimestampAllowed(
+      actor.user.role,
+      occurredAt,
+      overrideReason,
+    );
 
     const card = await this.prismaService.card.findFirst({
       where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
@@ -121,6 +130,7 @@ export class ReceiptsService {
       purchaseAmountKobo: data.purchaseAmountKobo,
       occurredAt: occurredAt.toISOString(),
       deviceId: device.id,
+      overrideReason,
     });
 
     const existing = await this.prismaService.idempotencyRecord.findUnique({
@@ -193,6 +203,23 @@ export class ReceiptsService {
         });
 
         const response = toReceiptCaptureResponse(receipt);
+
+        if (overrideApplied) {
+          await this.auditService.recordWithClient(prisma, {
+            tenantId,
+            actorId: actor.user.id,
+            action: 'receipt.capture.override',
+            entityType: 'receipt',
+            entityId: receipt.id,
+            metadata: {
+              approvedByUserId: actor.user.id,
+              approvedOccurredAt: occurredAt,
+              approvalTimestamp: new Date(),
+              originalOccurredAt: occurredAt,
+              overrideReason,
+            },
+          });
+        }
 
         await prisma.idempotencyRecord.update({
           where: {
@@ -305,18 +332,58 @@ function parseDate(value: string, fieldName: string): Date {
   return date;
 }
 
-function assertReceiptTimestampAllowed(role: UserRole, occurredAt: Date): void {
-  if (role !== UserRole.CASHIER) {
-    return;
-  }
-
+function assertReceiptTimestampAllowed(
+  role: UserRole,
+  occurredAt: Date,
+  overrideReason?: string,
+): boolean {
   const skewMs = occurredAt.getTime() - Date.now();
   if (skewMs > MAX_POS_FUTURE_SKEW_MS) {
-    throw new BadRequestException('occurredAt cannot be in the future');
+    return assertOverrideAllowed(role, overrideReason, 'future');
   }
 
   if (skewMs < -MAX_POS_PAST_SKEW_MS) {
-    throw new BadRequestException('occurredAt is too old');
+    return assertOverrideAllowed(role, overrideReason, 'stale');
+  }
+
+  return false;
+}
+
+function assertOverrideAllowed(
+  role: UserRole,
+  overrideReason: string | undefined,
+  kind: 'future' | 'stale',
+): boolean {
+  if (role === UserRole.CASHIER) {
+    throw new BadRequestException(
+      `occurredAt cannot be ${kind === 'future' ? 'in the future' : 'too old'}`,
+    );
+  }
+
+  if (!overrideReason) {
+    throw new BadRequestException(
+      'overrideReason is required for timestamp overrides',
+    );
+  }
+
+  return true;
+}
+
+function assertPurchaseAmountAllowed(
+  purchaseAmountKobo: number,
+  configService: ConfigService,
+): void {
+  if (!Number.isSafeInteger(purchaseAmountKobo)) {
+    throw new BadRequestException('purchaseAmountKobo must be a safe integer');
+  }
+
+  const maxPurchaseAmountKobo =
+    configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ?? 20_000_000;
+
+  if (purchaseAmountKobo > maxPurchaseAmountKobo) {
+    throw new BadRequestException(
+      'purchaseAmountKobo exceeds the configured approval threshold',
+    );
   }
 }
 

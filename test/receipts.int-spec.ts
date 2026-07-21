@@ -139,7 +139,7 @@ describe('receipt capture flows (int)', () => {
       deviceName: 'POS-1',
       fingerprintHash: 'device-fingerprint-1',
       posReceiptNumber: 'POS-1001',
-      occurredAt: '2026-07-19T09:44:00+01:00',
+      occurredAt: recentOccurredAt(),
     });
 
     const firstResponse = await postReceipt(
@@ -185,7 +185,7 @@ describe('receipt capture flows (int)', () => {
       deviceName: 'POS-2',
       fingerprintHash: 'device-fingerprint-2',
       posReceiptNumber: 'POS-1002',
-      occurredAt: '2026-07-19T09:44:00+01:00',
+      occurredAt: recentOccurredAt(),
     });
 
     await postReceipt(body, authHeaders, 'receipt-key-2').expect(201);
@@ -214,7 +214,7 @@ describe('receipt capture flows (int)', () => {
       deviceName: 'POS-4',
       fingerprintHash: 'device-fingerprint-4',
       posReceiptNumber: 'POS-1004',
-      occurredAt: '2026-07-19T09:44:00+01:00',
+      occurredAt: recentOccurredAt(),
     });
     const secondCustomer = await prisma.customer.create({
       data: {
@@ -255,37 +255,73 @@ describe('receipt capture flows (int)', () => {
   }, 120000);
 
   it('accepts the same receipt on a week boundary', async () => {
-    const { authHeaders, body } = await prepareReceiptFixture({
-      customerSuffix: '05',
-      cardSerialNumber: 'SC-1005',
-      deviceName: 'POS-5',
-      fingerprintHash: 'device-fingerprint-5',
-      posReceiptNumber: 'POS-1005',
-      occurredAt: '2026-07-19T23:59:00+01:00',
+    const originalBranch = await prisma.branch.findUnique({
+      where: { id: seedData.branch.id },
     });
 
-    await postReceipt(body, authHeaders, 'receipt-key-8').expect(201);
-    await postReceipt(
-      {
-        ...body,
-        occurredAt: '2026-07-20T00:01:00+01:00',
-      },
-      authHeaders,
-      'receipt-key-9',
-    ).expect(201);
+    if (!originalBranch) {
+      throw new Error('Missing seed branch');
+    }
 
-    const receipts = await prisma.receipt.findMany({
-      where: {
-        tenantId: seedData.tenant.id,
-        normalizedPosReceiptNumber: 'POS-1005',
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: {
+        timezone: 'UTC',
+        receiptWeekStartDay: 2,
       },
-      orderBy: { occurredAt: 'asc' },
     });
 
-    expect(receipts).toHaveLength(2);
-    expect(receipts[0].receiptWeekStart.getTime()).not.toBe(
-      receipts[1].receiptWeekStart.getTime(),
-    );
+    try {
+      const { authHeaders, body } = await prepareReceiptFixture({
+        customerSuffix: '05',
+        cardSerialNumber: 'SC-1005',
+        deviceName: 'POS-5',
+        fingerprintHash: 'device-fingerprint-5',
+        posReceiptNumber: 'POS-1005',
+        occurredAt: recentOccurredAt(),
+      });
+
+      const boundaryStart = new Date();
+      boundaryStart.setUTCHours(0, 0, 0, 0);
+
+      await postReceipt(
+        {
+          ...body,
+          occurredAt: new Date(boundaryStart.getTime() - 60_000).toISOString(),
+        },
+        authHeaders,
+        'receipt-key-8',
+      ).expect(201);
+      await postReceipt(
+        {
+          ...body,
+          occurredAt: new Date(boundaryStart.getTime() + 60_000).toISOString(),
+        },
+        authHeaders,
+        'receipt-key-9',
+      ).expect(201);
+
+      const receipts = await prisma.receipt.findMany({
+        where: {
+          tenantId: seedData.tenant.id,
+          normalizedPosReceiptNumber: 'POS-1005',
+        },
+        orderBy: { occurredAt: 'asc' },
+      });
+
+      expect(receipts).toHaveLength(2);
+      expect(receipts[0].receiptWeekStart.getTime()).not.toBe(
+        receipts[1].receiptWeekStart.getTime(),
+      );
+    } finally {
+      await prisma.branch.update({
+        where: { id: seedData.branch.id },
+        data: {
+          timezone: originalBranch.timezone,
+          receiptWeekStartDay: originalBranch.receiptWeekStartDay,
+        },
+      });
+    }
   }, 120000);
 
   it('rejects cross-branch and invalid device submissions', async () => {
@@ -295,7 +331,7 @@ describe('receipt capture flows (int)', () => {
       deviceName: 'POS-6',
       fingerprintHash: 'device-fingerprint-6',
       posReceiptNumber: 'POS-1006',
-      occurredAt: '2026-07-19T09:44:00+01:00',
+      occurredAt: recentOccurredAt(),
     });
     const otherBranch = await prisma.branch.create({
       data: {
@@ -387,6 +423,61 @@ describe('receipt capture flows (int)', () => {
       },
       cashierHeaders,
       'receipt-key-14',
+    ).expect(400);
+  }, 120000);
+
+  it('allows a privileged timestamp override with audit evidence', async () => {
+    const { body } = await prepareReceiptFixture({
+      customerSuffix: '08',
+      cardSerialNumber: 'SC-1008',
+      deviceName: 'POS-8',
+      fingerprintHash: 'device-fingerprint-8',
+      posReceiptNumber: 'POS-1010',
+      occurredAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    const overrideResponse = await postReceipt(
+      {
+        ...body,
+        occurredAt: new Date(Date.now() - 13 * 60 * 60_000).toISOString(),
+        overrideReason: 'POS clock drift during close-out',
+        posReceiptNumber: 'POS-1010-OVERRIDE',
+      },
+      await loginAs(seedData.user.username),
+      'receipt-key-15',
+    ).expect(201);
+
+    const overrideBody = overrideResponse.body as ReceiptResponseBody;
+    expect(overrideBody.data.posReceiptNumber).toBe('POS-1010-OVERRIDE');
+
+    const overrideAudit = await prisma.auditLog.findFirst({
+      where: {
+        tenantId: seedData.tenant.id,
+        action: 'receipt.capture.override',
+        entityId: overrideBody.data.id,
+      },
+    });
+
+    expect(overrideAudit).toBeTruthy();
+  }, 120000);
+
+  it('rejects purchase amounts beyond the configured ceiling', async () => {
+    const { authHeaders, body } = await prepareReceiptFixture({
+      customerSuffix: '09',
+      cardSerialNumber: 'SC-1009',
+      deviceName: 'POS-9',
+      fingerprintHash: 'device-fingerprint-9',
+      posReceiptNumber: 'POS-1011',
+      occurredAt: recentOccurredAt(),
+    });
+
+    await postReceipt(
+      {
+        ...body,
+        purchaseAmountKobo: 25_000_000,
+      },
+      authHeaders,
+      'receipt-key-16',
     ).expect(400);
   }, 120000);
 });
@@ -488,6 +579,7 @@ function postReceipt(
 
 type ReceiptResponseBody = {
   data: {
+    id: string;
     branchId: string;
     customerId: string;
     cardSerialNumber: string;
@@ -522,6 +614,10 @@ function cookieToken(cookiePair: string): string {
   }
 
   return cookiePair.slice(separator + 1);
+}
+
+function recentOccurredAt(minutesAgo = 1): string {
+  return new Date(Date.now() - minutesAgo * 60_000).toISOString();
 }
 
 function createSupabaseAdminStub(supabaseAuthId: string) {
