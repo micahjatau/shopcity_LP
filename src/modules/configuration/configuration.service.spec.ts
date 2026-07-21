@@ -15,6 +15,7 @@ describe('ConfigurationService', () => {
             MAX_REDEMPTION_BASKET_PERCENT: 30,
             PURCHASE_FLAG_THRESHOLD_KOBO: 10000000,
             PURCHASE_APPROVAL_THRESHOLD_KOBO: 20000000,
+            PURCHASE_AMOUNT_CEILING_KOBO: 100000000,
             REDEMPTION_APPROVAL_THRESHOLD_KOBO: 500000,
           };
 
@@ -59,6 +60,7 @@ describe('ConfigurationService', () => {
         maxRedemptionBasketPercent: 30,
         purchaseFlagThresholdKobo: 10000000,
         purchaseApprovalThresholdKobo: 20000000,
+        purchaseAmountCeilingKobo: 100000000,
         redemptionApprovalThresholdKobo: 500000,
       },
     });

@@ -64,6 +64,9 @@ export class ConfigurationService {
         purchaseApprovalThresholdKobo:
           this.configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
           20000000,
+        purchaseAmountCeilingKobo:
+          this.configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ??
+          100000000,
         redemptionApprovalThresholdKobo:
           this.configService.get<number>(
             'REDEMPTION_APPROVAL_THRESHOLD_KOBO',

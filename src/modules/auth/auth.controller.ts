@@ -8,7 +8,7 @@ import {
   Res,
   Version,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
 import { LoginDto, authResponseSchema } from './auth.dto';
@@ -45,6 +45,8 @@ export class AuthController {
     windowMs: 15 * 60 * 1000,
     keyFactory: buildLoginThrottleKey,
   })
+  @ApiHeader({ name: 'x-device-id', required: false })
+  @ApiHeader({ name: 'x-device-attestation', required: false })
   @Version('1')
   @HttpCode(200)
   @apiSuccessEnvelopeResponse({
@@ -55,12 +57,14 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @Headers('x-device-id') deviceId: string | undefined,
+    @Headers('x-device-attestation') deviceAttestation: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     const issued = await this.authService.login(
       dto.username,
       dto.password,
       deviceId,
+      deviceAttestation,
     );
     const maxAge = Math.max(
       0,

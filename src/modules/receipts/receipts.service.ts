@@ -82,7 +82,7 @@ export class ReceiptsService {
       overrideReason,
     });
 
-    assertPurchaseAmountAllowed(data.purchaseAmountKobo);
+    assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
 
     if (!sessionDeviceId) {
       throw new BadRequestException('Session device is required');
@@ -535,9 +535,19 @@ function assertOverrideAllowed(
   return true;
 }
 
-function assertPurchaseAmountAllowed(purchaseAmountKobo: number): void {
+function assertPurchaseAmountAllowed(
+  purchaseAmountKobo: number,
+  configService: ConfigService,
+): void {
   if (!Number.isSafeInteger(purchaseAmountKobo)) {
     throw new BadRequestException('purchaseAmountKobo must be a safe integer');
+  }
+
+  const purchaseAmountCeilingKobo =
+    configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ?? 100_000_000;
+
+  if (purchaseAmountKobo > purchaseAmountCeilingKobo) {
+    throw new BadRequestException('purchaseAmountKobo exceeds the allowed maximum');
   }
 }
 
@@ -590,7 +600,7 @@ function deriveReceiptWeekStart(
   timeZone: string,
   receiptWeekStartDay: number,
 ): Date {
-  if (receiptWeekStartDay < 1 || receiptWeekStartDay > 7) {
+  if (receiptWeekStartDay < 0 || receiptWeekStartDay > 6) {
     throw new BadRequestException('Branch receipt week start day is invalid');
   }
 
@@ -611,7 +621,7 @@ function deriveReceiptWeekStart(
 
   const localDate = new Date(Date.UTC(year, month - 1, day));
   const localWeekday = localDate.getUTCDay();
-  const weekStartZeroBased = receiptWeekStartDay % 7;
+  const weekStartZeroBased = receiptWeekStartDay;
   const deltaDays = (7 + localWeekday - weekStartZeroBased) % 7;
 
   return new Date(Date.UTC(year, month - 1, day - deltaDays));

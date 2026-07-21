@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process';
+import { createHmac, randomUUID } from 'node:crypto';
 import {
   PrismaClient,
   BranchStatus,
+  DeviceStatus,
   TenantStatus,
   SessionStatus,
   UserRole,
@@ -200,6 +202,73 @@ describe('auth and readiness flows (int)', () => {
       .expect(401);
   }, 120000);
 
+  it('binds login sessions to attested devices', async () => {
+    const device = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-attested',
+        fingerprintHash: 'device-fingerprint-attested',
+        status: DeviceStatus.ACTIVE,
+      },
+    });
+
+    const loginResponse = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('x-device-id', device.id)
+      .set(
+        'x-device-attestation',
+        buildDeviceAttestation(device.id, device.fingerprintHash),
+      )
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+
+    expect(loginResponse.body.data.session).toHaveProperty('expiresAt');
+
+    const session = await prisma.session.findFirst({
+      where: { userId: seedData.user.id, deviceId: device.id },
+    });
+
+    expect(session).toBeTruthy();
+  }, 120000);
+
+  it('rejects login when the device attestation is missing or invalid', async () => {
+    const device = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-unattested',
+        fingerprintHash: 'device-fingerprint-unattested',
+        status: 'ACTIVE',
+      },
+    });
+
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('x-device-id', device.id)
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(400);
+
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('x-device-id', device.id)
+      .set(
+        'x-device-attestation',
+        buildDeviceAttestation(device.id, 'wrong-fingerprint-secret'),
+      )
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(400);
+  }, 120000);
+
   it('allows bearer-authenticated unsafe requests without CSRF', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
@@ -311,6 +380,7 @@ describe('auth and readiness flows (int)', () => {
       timezone: 'Africa/Nairobi',
       receiptWeekStartDay: 3,
     });
+    expect(body.data.policies.purchaseAmountCeilingKobo).toBe(100000000);
   }, 120000);
 
   it('rejects public config when the tenant or branch is inactive', async () => {
@@ -375,6 +445,9 @@ type PublicConfigResponseBody = {
       timezone: string;
       receiptWeekStartDay: number;
     };
+    policies: {
+      purchaseAmountCeilingKobo: number;
+    };
   };
 };
 
@@ -413,6 +486,19 @@ function cookieToken(cookiePair: string): string {
   }
 
   return cookiePair.slice(separator + 1);
+}
+
+function buildDeviceAttestation(
+  deviceId: string,
+  fingerprintHash: string,
+): string {
+  const timestamp = Date.now();
+  const nonce = randomUUID();
+  const signature = createHmac('sha256', fingerprintHash)
+    .update(`${deviceId}.${timestamp}.${nonce}`)
+    .digest('base64url');
+
+  return `${timestamp}.${nonce}.${signature}`;
 }
 
 function createSupabaseAdminStub(supabaseAuthId: string) {

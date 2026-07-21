@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { createHmac, randomUUID } from 'node:crypto';
 import {
   CardStatus,
   CustomerStatus,
@@ -385,6 +386,111 @@ describe('receipt capture flows (int)', () => {
     }
   }, 120000);
 
+  it('accepts a zero-based receipt week start day', async () => {
+    const originalBranch = await prisma.branch.findUnique({
+      where: { id: seedData.branch.id },
+    });
+
+    if (!originalBranch) {
+      throw new Error('Missing seed branch');
+    }
+
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: {
+        timezone: 'UTC',
+        receiptWeekStartDay: 0,
+      },
+    });
+
+    try {
+      const { authHeaders, body } = await prepareReceiptFixture({
+        customerSuffix: '05a',
+        cardSerialNumber: 'SC-1005A',
+        deviceName: 'POS-5A',
+        fingerprintHash: 'device-fingerprint-5a',
+        posReceiptNumber: 'POS-1005A',
+        occurredAt: '2026-07-19T12:00:00.000Z',
+      });
+
+      await postReceipt(
+        {
+          ...body,
+          occurredAt: '2026-07-19T12:00:00.000Z',
+          overrideReason: 'Zero-based week validation',
+        },
+        authHeaders,
+        'receipt-key-8a',
+      ).expect(201);
+
+      const receipt = await prisma.receipt.findFirst({
+        where: {
+          tenantId: seedData.tenant.id,
+          normalizedPosReceiptNumber: 'POS-1005A',
+        },
+      });
+
+      expect(receipt?.receiptWeekStart.toISOString()).toBe(
+        '2026-07-19T00:00:00.000Z',
+      );
+    } finally {
+      await prisma.branch.update({
+        where: { id: seedData.branch.id },
+        data: {
+          timezone: originalBranch.timezone,
+          receiptWeekStartDay: originalBranch.receiptWeekStartDay,
+        },
+      });
+    }
+  }, 120000);
+
+  it('rejects invalid stored receipt week start values', async () => {
+    const originalBranch = await prisma.branch.findUnique({
+      where: { id: seedData.branch.id },
+    });
+
+    if (!originalBranch) {
+      throw new Error('Missing seed branch');
+    }
+
+    await prisma.branch.update({
+      where: { id: seedData.branch.id },
+      data: {
+        timezone: 'UTC',
+        receiptWeekStartDay: 7,
+      },
+    });
+
+    try {
+      const { authHeaders, body } = await prepareReceiptFixture({
+        customerSuffix: '05b',
+        cardSerialNumber: 'SC-1005B',
+        deviceName: 'POS-5B',
+        fingerprintHash: 'device-fingerprint-5b',
+        posReceiptNumber: 'POS-1005B',
+        occurredAt: '2026-07-19T12:00:00.000Z',
+      });
+
+      await postReceipt(
+        {
+          ...body,
+          occurredAt: '2026-07-19T12:00:00.000Z',
+          overrideReason: 'Invalid week validation',
+        },
+        authHeaders,
+        'receipt-key-8b',
+      ).expect(400);
+    } finally {
+      await prisma.branch.update({
+        where: { id: seedData.branch.id },
+        data: {
+          timezone: originalBranch.timezone,
+          receiptWeekStartDay: originalBranch.receiptWeekStartDay,
+        },
+      });
+    }
+  }, 120000);
+
   it('binds the device to the session and rejects spoofed receipt device fields', async () => {
     const { authHeaders, body } = await prepareReceiptFixture({
       customerSuffix: '06',
@@ -587,6 +693,52 @@ describe('receipt capture flows (int)', () => {
         const payload = response.body as ReceiptResponseBody;
         expect(payload.data.status).toBe('PENDING_APPROVAL');
       });
+  }, 120000);
+
+  it('enforces the hard purchase ceiling', async () => {
+    const { authHeaders, body } = await prepareReceiptFixture({
+      customerSuffix: '09a',
+      cardSerialNumber: 'SC-1009A',
+      deviceName: 'POS-9A',
+      fingerprintHash: 'device-fingerprint-9a',
+      posReceiptNumber: 'POS-1011A',
+      occurredAt: recentOccurredAt(),
+    });
+
+    await postReceipt(
+      {
+        ...body,
+        posReceiptNumber: 'POS-1011A-BELOW',
+        purchaseAmountKobo: 99_999_999,
+      },
+      authHeaders,
+      'receipt-key-16a',
+    ).expect(201);
+
+    await postReceipt(
+      {
+        ...body,
+        posReceiptNumber: 'POS-1011A-AT',
+        purchaseAmountKobo: 100_000_000,
+      },
+      authHeaders,
+      'receipt-key-16b',
+    )
+      .expect(201)
+      .expect((response) => {
+        const payload = response.body as ReceiptResponseBody;
+        expect(payload.data.status).toBe('PENDING_APPROVAL');
+      });
+
+    await postReceipt(
+      {
+        ...body,
+        posReceiptNumber: 'POS-1011A-OVER',
+        purchaseAmountKobo: 100_000_001,
+      },
+      authHeaders,
+      'receipt-key-16c',
+    ).expect(400);
   }, 120000);
 
   it('approves a pending receipt from a different reviewer', async () => {
@@ -820,14 +972,31 @@ async function prepareReceiptFixture(options: {
 }
 
 async function loginAs(username: string, deviceId?: string) {
-  const loginResponse = await request(httpServer)
+  const attestation = deviceId
+    ? buildDeviceAttestation(
+        deviceId,
+        (
+          await prisma.device.findUnique({
+            where: { id: deviceId },
+            select: { fingerprintHash: true },
+          })
+      )?.fingerprintHash,
+      )
+    : undefined;
+
+  const loginRequest = request(httpServer)
     .post('/api/v1/auth/login')
     .set('x-device-id', deviceId ?? '')
     .send({
       username,
       password: seedData.adminPassword,
-    })
-    .expect(200);
+    });
+
+  if (attestation) {
+    loginRequest.set('x-device-attestation', attestation);
+  }
+
+  const loginResponse = await loginRequest.expect(200);
 
   const sessionCookie = cookieValue(
     loginResponse.headers['set-cookie'],
@@ -842,6 +1011,23 @@ async function loginAs(username: string, deviceId?: string) {
     headers: `${sessionCookie}; ${csrfCookie}`,
     csrfToken: cookieToken(csrfCookie),
   };
+}
+
+function buildDeviceAttestation(
+  deviceId: string,
+  fingerprintHash: string | undefined,
+): string {
+  if (!fingerprintHash) {
+    throw new Error(`Missing fingerprint hash for device ${deviceId}`);
+  }
+
+  const timestamp = Date.now();
+  const nonce = randomUUID();
+  const signature = createHmac('sha256', fingerprintHash)
+    .update(`${deviceId}.${timestamp}.${nonce}`)
+    .digest('base64url');
+
+  return `${timestamp}.${nonce}.${signature}`;
 }
 
 function postReceipt(

@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { hashToken, isAuthUserEligible } from '../../common/auth/session.guard';
+
+const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
 
 interface IssuedSession {
   context: AuthContext;
@@ -27,6 +29,7 @@ export class AuthService {
     username: string,
     password: string,
     deviceId?: string,
+    deviceAttestation?: string,
   ): Promise<IssuedSession> {
     const { data, error } =
       await this.supabaseService.publicClient.auth.signInWithPassword({
@@ -67,6 +70,18 @@ export class AuthService {
         (user.branchId && user.branchId !== sessionDevice.branchId))
     ) {
       throw new BadRequestException('Device is not active');
+    }
+
+    if (deviceId) {
+      if (!deviceAttestation) {
+        throw new BadRequestException('Device attestation is required');
+      }
+
+      assertDeviceAttestationValid(
+        deviceId,
+        deviceAttestation,
+        sessionDevice!.fingerprintHash,
+      );
     }
 
     return this.prismaService.$transaction((prisma) =>
@@ -209,5 +224,40 @@ export class AuthService {
     }
 
     return { session, user: session.user };
+  }
+}
+
+function assertDeviceAttestationValid(
+  deviceId: string,
+  attestation: string,
+  fingerprintHash: string,
+): void {
+  const parts = attestation.split('.');
+  if (parts.length !== 3) {
+    throw new BadRequestException('Device attestation is invalid');
+  }
+
+  const [timestampRaw, nonce, signature] = parts;
+  const timestamp = Number(timestampRaw);
+  if (!Number.isInteger(timestamp) || !nonce || !signature) {
+    throw new BadRequestException('Device attestation is invalid');
+  }
+
+  if (Math.abs(Date.now() - timestamp) > MAX_DEVICE_ATTESTATION_SKEW_MS) {
+    throw new BadRequestException('Device attestation is invalid');
+  }
+
+  const expected = createHmac('sha256', fingerprintHash)
+    .update(`${deviceId}.${timestamp}.${nonce}`)
+    .digest('base64url');
+
+  const expectedBuffer = Buffer.from(expected, 'base64url');
+  const providedBuffer = Buffer.from(signature, 'base64url');
+
+  if (
+    expectedBuffer.length !== providedBuffer.length ||
+    !timingSafeEqual(expectedBuffer, providedBuffer)
+  ) {
+    throw new BadRequestException('Device attestation is invalid');
   }
 }
