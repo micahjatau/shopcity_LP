@@ -14497,6 +14497,10 @@
           "deviceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "overrideReason": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
