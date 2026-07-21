@@ -183,7 +183,9 @@ export class ReceiptsService {
               return existing.responseJson as ReceiptCaptureResponse;
             }
 
-            throw new ConflictException('Idempotency key is still being processed');
+            throw new ConflictException(
+              'Idempotency key is still being processed',
+            );
           }
 
           const duplicateReceipt = await prisma.receipt.findFirst({
@@ -355,11 +357,7 @@ export class ReceiptsService {
     return this.reviewReceipt(tenantId, actor, receiptId, 'APPROVED');
   }
 
-  async rejectReceipt(
-    tenantId: string,
-    actor: AuthContext,
-    receiptId: string,
-  ) {
+  async rejectReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
     return this.reviewReceipt(tenantId, actor, receiptId, 'REJECTED');
   }
 
@@ -422,7 +420,8 @@ export class ReceiptsService {
       await this.auditService.recordWithClient(prisma, {
         tenantId,
         actorId: actor.user.id,
-        action: reviewStatus === 'APPROVED' ? 'receipt.approve' : 'receipt.reject',
+        action:
+          reviewStatus === 'APPROVED' ? 'receipt.approve' : 'receipt.reject',
         entityType: 'receipt',
         entityId: receiptId,
         metadata: {
@@ -547,7 +546,9 @@ function assertPurchaseAmountAllowed(
     configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ?? 100_000_000;
 
   if (purchaseAmountKobo > purchaseAmountCeilingKobo) {
-    throw new BadRequestException('purchaseAmountKobo exceeds the allowed maximum');
+    throw new BadRequestException(
+      'purchaseAmountKobo exceeds the allowed maximum',
+    );
   }
 }
 

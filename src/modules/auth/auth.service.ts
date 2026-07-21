@@ -1,7 +1,16 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { randomUUID, createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  randomUUID,
+  createHash,
+  createHmac,
+  timingSafeEqual,
+} from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditService } from '../audit/audit.service';

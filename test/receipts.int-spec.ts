@@ -583,13 +583,19 @@ describe('receipt capture flows (int)', () => {
       data: { branchId: reassignedBranch.id },
     });
 
-    const response = await postReceipt(body, authHeaders, 'receipt-key-10a').expect(201);
+    const response = await postReceipt(
+      body,
+      authHeaders,
+      'receipt-key-10a',
+    ).expect(201);
     const payload = response.body as ReceiptResponseBody;
 
     expect(payload.data.branchId).toBe(reassignedBranch.id);
 
     const receipt = await prisma.receipt.findUnique({
-      where: { tenantId_id: { tenantId: seedData.tenant.id, id: payload.data.id } },
+      where: {
+        tenantId_id: { tenantId: seedData.tenant.id, id: payload.data.id },
+      },
     });
 
     expect(receipt?.branchId).toBe(reassignedBranch.id);
@@ -688,7 +694,8 @@ describe('receipt capture flows (int)', () => {
       },
       authHeaders,
       'receipt-key-16',
-    ).expect(201)
+    )
+      .expect(201)
       .expect((response) => {
         const payload = response.body as ReceiptResponseBody;
         expect(payload.data.status).toBe('PENDING_APPROVAL');
@@ -768,7 +775,10 @@ describe('receipt capture flows (int)', () => {
 
     const receipt = await prisma.receipt.findUnique({
       where: {
-        tenantId_id: { tenantId: seedData.tenant.id, id: receiptResponse.body.data.id },
+        tenantId_id: {
+          tenantId: seedData.tenant.id,
+          id: receiptResponse.body.data.id,
+        },
       },
     });
 
@@ -830,7 +840,10 @@ describe('receipt capture flows (int)', () => {
 
     const receipt = await prisma.receipt.findUnique({
       where: {
-        tenantId_id: { tenantId: seedData.tenant.id, id: receiptResponse.body.data.id },
+        tenantId_id: {
+          tenantId: seedData.tenant.id,
+          id: receiptResponse.body.data.id,
+        },
       },
     });
 
@@ -956,7 +969,10 @@ async function prepareReceiptFixture(options: {
     },
   });
 
-  const authHeaders = await loginAs(options.loginUsername ?? seedData.user.username, device.id);
+  const authHeaders = await loginAs(
+    options.loginUsername ?? seedData.user.username,
+    device.id,
+  );
 
   return {
     authHeaders,
@@ -980,7 +996,7 @@ async function loginAs(username: string, deviceId?: string) {
             where: { id: deviceId },
             select: { fingerprintHash: true },
           })
-      )?.fingerprintHash,
+        )?.fingerprintHash,
       )
     : undefined;
 

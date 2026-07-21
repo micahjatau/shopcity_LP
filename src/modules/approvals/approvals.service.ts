@@ -83,7 +83,8 @@ export class ApprovalsService {
       await this.auditService.recordWithClient(prisma, {
         tenantId,
         actorId: actor.user.id,
-        action: reviewStatus === 'APPROVED' ? 'receipt.approve' : 'receipt.reject',
+        action:
+          reviewStatus === 'APPROVED' ? 'receipt.approve' : 'receipt.reject',
         entityType: 'receipt',
         entityId: receiptId,
         metadata: { reviewStatus, reviewedAt: now },

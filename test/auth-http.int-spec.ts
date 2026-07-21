@@ -272,7 +272,10 @@ describe('auth and readiness flows (int)', () => {
   it('allows bearer-authenticated unsafe requests without CSRF', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
-      .send({ username: seedData.user.username, password: seedData.adminPassword })
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
       .expect(200);
 
     const sessionCookie = cookieValue(

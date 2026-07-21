@@ -32,7 +32,8 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    const authTransport = request.authTransport ?? extractAuthTransport(request);
+    const authTransport =
+      request.authTransport ?? extractAuthTransport(request);
     if (authTransport === 'bearer') {
       return true;
     }
