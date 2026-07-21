@@ -1,5 +1,12 @@
 import { execSync } from 'node:child_process';
-import { mkdtempSync, cpSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import {
+  mkdtempSync,
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PrismaClient } from '@prisma/client';
@@ -65,9 +72,13 @@ async function prepareReceiptMigrationFixture(): Promise<ReceiptMigrationFixture
       });
     },
     applyPatchedMigration: () => {
-      cpSync(join(migrationsRoot, migrationName), join(tempMigrationsRoot, migrationName), {
-        recursive: true,
-      });
+      cpSync(
+        join(migrationsRoot, migrationName),
+        join(tempMigrationsRoot, migrationName),
+        {
+          recursive: true,
+        },
+      );
 
       execSync(`npx prisma migrate deploy --schema "${tempSchemaPath}"`, {
         env,
@@ -271,7 +282,9 @@ describe('receipt integrity migration upgrade', () => {
           normalizedPosReceiptNumber: 'POS-LEGACY-0001',
         });
 
-        const droppedColumns = await prisma.$queryRaw<{ column_name: string }[]>`
+        const droppedColumns = await prisma.$queryRaw<
+          { column_name: string }[]
+        >`
           SELECT column_name
           FROM information_schema.columns
           WHERE table_schema = 'public'
