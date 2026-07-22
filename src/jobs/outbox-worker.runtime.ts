@@ -3,6 +3,7 @@ import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
+import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
 import type { SmsProvider } from './sms.provider';
@@ -184,7 +185,8 @@ export class OutboxWorkerRuntime {
               FROM "SmsMessage" sm
               WHERE sm."tenantId" = "OutboxEvent"."tenantId"
                 AND sm."outboxEventId" = "OutboxEvent"."id"
-                AND sm."status" IN ('QUEUED', 'SENT', 'FAILED')
+                AND sm."status" IN ('QUEUED', 'FAILED')
+                AND sm."deadLetteredAt" IS NULL
             )
           )
           OR (
@@ -197,6 +199,13 @@ export class OutboxWorkerRuntime {
                 AND sm."outboxEventId" = "OutboxEvent"."id"
             )
           )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "SmsMessage" sm
+          WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+            AND sm."outboxEventId" = "OutboxEvent"."id"
+            AND sm."deadLetteredAt" IS NOT NULL
         )
         ORDER BY "createdAt" ASC
         LIMIT ${this.config.publishBatchSize}
@@ -292,6 +301,7 @@ export class OutboxWorkerRuntime {
       smsMessage ?? (await this.createSmsMessageFromOutboxEvent(outboxEvent));
 
     if (
+      resolvedSmsMessage.status === 'SENT' ||
       resolvedSmsMessage.status === 'DELIVERED' ||
       resolvedSmsMessage.status === 'SUPPRESSED'
     ) {
@@ -323,6 +333,9 @@ export class OutboxWorkerRuntime {
         data: mapSmsDispatchResult(result, now),
       });
     } catch (error) {
+      const deadLetteredAt =
+        resolvedSmsMessage.attempts + 1 >= OUTBOX_RETRY_ATTEMPTS ? now : null;
+
       await this.prisma.smsMessage.update({
         where: {
           tenantId_receiptId: {
@@ -334,8 +347,28 @@ export class OutboxWorkerRuntime {
           status: 'FAILED',
           attempts: { increment: 1 },
           failedAt: now,
+          lastAttemptAt: now,
+          nextAttemptAt:
+            deadLetteredAt === null
+              ? new Date(now.getTime() + this.config.retryDelayMs)
+              : null,
+          deadLetteredAt,
+          failureCategory: deadLetteredAt ? 'dead-lettered' : 'retryable-failure',
           lastError:
             error instanceof Error ? error.message : 'SMS delivery failed',
+        },
+      });
+
+      await this.prisma.outboxEvent.update({
+        where: {
+          tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+        },
+        data: {
+          status: OutboxEventStatus.FAILED,
+          nextAttemptAt:
+            deadLetteredAt === null
+              ? new Date(now.getTime() + this.config.retryDelayMs)
+              : null,
         },
       });
 
@@ -370,9 +403,13 @@ export class OutboxWorkerRuntime {
         outboxEventId: outboxEvent.id,
         phoneE164,
         template,
-        payload,
+        payload: payload as Prisma.InputJsonValue,
         status: 'QUEUED',
         queuedAt: new Date(),
+        lastAttemptAt: null,
+        nextAttemptAt: null,
+        deadLetteredAt: null,
+        failureCategory: null,
       },
       update: {},
     });
@@ -402,6 +439,10 @@ function mapSmsDispatchResult(
         failedAt: null,
         suppressedAt: null,
         lastError: null,
+        lastAttemptAt: now,
+        nextAttemptAt: null,
+        deadLetteredAt: null,
+        failureCategory: null,
       };
     case 'SENT':
       return {
@@ -412,6 +453,10 @@ function mapSmsDispatchResult(
         failedAt: null,
         suppressedAt: null,
         lastError: null,
+        lastAttemptAt: now,
+        nextAttemptAt: null,
+        deadLetteredAt: null,
+        failureCategory: null,
       };
     case 'SUPPRESSED':
       return {
@@ -421,6 +466,10 @@ function mapSmsDispatchResult(
         suppressedAt: now,
         failedAt: null,
         lastError: result.errorMessage ?? null,
+        lastAttemptAt: now,
+        nextAttemptAt: null,
+        deadLetteredAt: null,
+        failureCategory: null,
       };
     case 'FAILED':
     default:
@@ -430,6 +479,8 @@ function mapSmsDispatchResult(
         providerMessageId: result.providerMessageId ?? null,
         failedAt: now,
         lastError: result.errorMessage ?? 'SMS delivery failed',
+        lastAttemptAt: now,
+        nextAttemptAt: null,
       };
   }
 }

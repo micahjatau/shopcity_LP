@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 
 export const OUTBOX_QUEUE_NAME = 'outbox';
 
@@ -19,12 +20,24 @@ export async function publishOutboxEvent(
     payload: unknown;
   },
 ): Promise<void> {
+  const existingJob = await queue.getJob(outboxEvent.id);
+
+  if (existingJob) {
+    const state = await existingJob.getState();
+
+    if (state !== 'active') {
+      await existingJob.remove();
+    }
+  }
+
   await queue.add(outboxEvent.eventType, outboxEvent, {
     jobId: outboxEvent.id,
-    attempts: 5,
+    attempts: OUTBOX_RETRY_ATTEMPTS,
     backoff: {
       type: 'exponential',
       delay: 1_000,
     },
+    removeOnComplete: true,
+    removeOnFail: true,
   });
 }

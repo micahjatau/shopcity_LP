@@ -412,7 +412,7 @@ model SmsMessage {
   id               String           @id @default(uuid())
   tenantId         String
   receiptId        String
-  outboxEventId    String           @unique
+  outboxEventId    String
   phoneE164        String
   template         String
   payload          Json
@@ -421,6 +421,10 @@ model SmsMessage {
   providerMessageId String?
   lastError        String?
   queuedAt         DateTime         @default(now())
+  lastAttemptAt    DateTime?
+  nextAttemptAt    DateTime?
+  deadLetteredAt   DateTime?
+  failureCategory  String?
   sentAt           DateTime?
   deliveredAt      DateTime?
   failedAt         DateTime?
