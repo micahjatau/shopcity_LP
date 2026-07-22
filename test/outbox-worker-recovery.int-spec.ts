@@ -11,7 +11,10 @@ import {
   loadWorkerConfig,
   OutboxWorkerRuntime,
 } from '../src/jobs/outbox-worker.runtime';
-import { ScriptedSmsProvider } from '../src/jobs/sms.provider';
+import {
+  DeterministicSmsProvider,
+  ScriptedSmsProvider,
+} from '../src/jobs/sms.provider';
 
 describe('outbox worker recovery (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -26,7 +29,7 @@ describe('outbox worker recovery (int)', () => {
     process.env.DATABASE_URL = databaseUrl;
     process.env.REDIS_URL = 'redis://127.0.0.1:6379';
 
-    execSync('npx prisma db push --skip-generate', {
+    execSync('npx prisma migrate deploy', {
       stdio: 'inherit',
       env: {
         ...process.env,
@@ -107,6 +110,7 @@ describe('outbox worker recovery (int)', () => {
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
+      new DeterministicSmsProvider(),
     );
 
     try {
@@ -162,6 +166,238 @@ describe('outbox worker recovery (int)', () => {
       expect(outboxEvent?.status).toBe('PUBLISHED');
     } finally {
       await runtime.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('recovers queued deliveries after a Redis outage and restart', async () => {
+    const redisEnv = await createRedisTestEnvironment();
+    let recoveryRuntime: OutboxWorkerRuntime | undefined;
+
+    try {
+      const fixture = await createEarnFixture(prisma, 'receipt-worker-redis');
+      const response = await loyaltyService.earn(
+        fixture.tenant.id,
+        fixture.actor,
+        'worker-earn-key-redis',
+        {
+          posReceiptNumber: fixture.posReceiptNumber,
+          cardSerialNumber: fixture.card.barcodeValue,
+          purchaseAmountKobo: 1_000_000,
+          occurredAt: recentOccurredAt(),
+        },
+      );
+
+      await waitFor(async () => {
+        const smsMessage = await prisma.smsMessage.findUnique({
+          where: {
+            tenantId_receiptId: {
+              tenantId: fixture.tenant.id,
+              receiptId: response.receiptId,
+            },
+          },
+        });
+
+        const outboxEvent = await prisma.outboxEvent.findFirst({
+          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        return smsMessage?.status === 'QUEUED' && outboxEvent?.status === 'PENDING';
+      });
+
+      await redisEnv.restart();
+
+      recoveryRuntime = new OutboxWorkerRuntime(
+        prisma,
+        loadWorkerConfig({
+          ...process.env,
+          REDIS_URL: redisEnv.redisUrl,
+          OUTBOX_PUBLISH_INTERVAL_MS: '200',
+          OUTBOX_RETRY_DELAY_MS: '1000',
+        }),
+        new DeterministicSmsProvider(),
+      );
+      await recoveryRuntime.start();
+
+      await waitFor(async () => {
+        const smsMessage = await prisma.smsMessage.findUnique({
+          where: {
+            tenantId_receiptId: {
+              tenantId: fixture.tenant.id,
+              receiptId: response.receiptId,
+            },
+          },
+        });
+
+        const outboxEvent = await prisma.outboxEvent.findFirst({
+          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        return smsMessage?.status === 'DELIVERED' && outboxEvent?.status === 'PUBLISHED';
+      }, 20000);
+
+      const [smsMessage, outboxEvent] = await Promise.all([
+        prisma.smsMessage.findUnique({
+          where: {
+            tenantId_receiptId: {
+              tenantId: fixture.tenant.id,
+              receiptId: response.receiptId,
+            },
+          },
+        }),
+        prisma.outboxEvent.findFirst({
+          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
+
+      expect(smsMessage?.status).toBe('DELIVERED');
+      expect(outboxEvent?.status).toBe('PUBLISHED');
+    } finally {
+      await recoveryRuntime?.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('backfills missing sms rows for published outbox events', async () => {
+    const redisEnv = await createRedisTestEnvironment();
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      loadWorkerConfig({
+        ...process.env,
+        REDIS_URL: redisEnv.redisUrl,
+      }),
+      new DeterministicSmsProvider(),
+    );
+
+    try {
+      const fixture = await createEarnFixture(prisma, 'receipt-worker-2b');
+      const response = await loyaltyService.earn(
+        fixture.tenant.id,
+        fixture.actor,
+        'worker-earn-key-2b',
+        {
+          posReceiptNumber: fixture.posReceiptNumber,
+          cardSerialNumber: fixture.card.barcodeValue,
+          purchaseAmountKobo: 1_000_000,
+          occurredAt: recentOccurredAt(),
+        },
+      );
+
+      await prisma.smsMessage.delete({
+        where: {
+          tenantId_receiptId: {
+            tenantId: fixture.tenant.id,
+            receiptId: response.receiptId,
+          },
+        },
+      });
+
+      await prisma.outboxEvent.updateMany({
+        where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+        data: {
+          status: 'PUBLISHED',
+          publishedAt: new Date(Date.now() - 5 * 60 * 1000),
+          nextAttemptAt: null,
+        },
+      });
+
+      await runtime.start();
+
+      await waitFor(async () => {
+        const smsMessage = await prisma.smsMessage.findUnique({
+          where: {
+            tenantId_receiptId: {
+              tenantId: fixture.tenant.id,
+              receiptId: response.receiptId,
+            },
+          },
+        });
+
+        return smsMessage?.status === 'DELIVERED';
+      });
+
+      const smsMessage = await prisma.smsMessage.findUnique({
+        where: {
+          tenantId_receiptId: {
+            tenantId: fixture.tenant.id,
+            receiptId: response.receiptId,
+          },
+        },
+      });
+
+      expect(smsMessage?.outboxEventId).toBeDefined();
+      expect(smsMessage?.status).toBe('DELIVERED');
+      expect(smsMessage?.providerMessageId).toBeDefined();
+    } finally {
+      await runtime.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('keeps multi-worker recovery to one sms delivery per outbox event', async () => {
+    const redisEnv = await createRedisTestEnvironment();
+    const runtimeA = new OutboxWorkerRuntime(
+      prisma,
+      loadWorkerConfig({
+        ...process.env,
+        REDIS_URL: redisEnv.redisUrl,
+      }),
+      new DeterministicSmsProvider(),
+    );
+    const runtimeB = new OutboxWorkerRuntime(
+      prisma,
+      loadWorkerConfig({
+        ...process.env,
+        REDIS_URL: redisEnv.redisUrl,
+      }),
+      new DeterministicSmsProvider(),
+    );
+
+    try {
+      await Promise.all([runtimeA.start(), runtimeB.start()]);
+
+      const fixture = await createEarnFixture(prisma, 'receipt-worker-2c');
+      const response = await loyaltyService.earn(
+        fixture.tenant.id,
+        fixture.actor,
+        'worker-earn-key-2c',
+        {
+          posReceiptNumber: fixture.posReceiptNumber,
+          cardSerialNumber: fixture.card.barcodeValue,
+          purchaseAmountKobo: 1_000_000,
+          occurredAt: recentOccurredAt(),
+        },
+      );
+
+      await waitFor(async () => {
+        const smsMessage = await prisma.smsMessage.findUnique({
+          where: {
+            tenantId_receiptId: {
+              tenantId: fixture.tenant.id,
+              receiptId: response.receiptId,
+            },
+          },
+        });
+
+        return smsMessage?.status === 'DELIVERED';
+      });
+
+      const [smsCount, outboxCount] = await Promise.all([
+        prisma.smsMessage.count({
+          where: { tenantId: fixture.tenant.id, receiptId: response.receiptId },
+        }),
+        prisma.outboxEvent.count({
+          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+        }),
+      ]);
+
+      expect([smsCount, outboxCount]).toEqual([1, 1]);
+    } finally {
+      await runtimeA.stop();
+      await runtimeB.stop();
       await redisEnv.close();
     }
   }, 120000);

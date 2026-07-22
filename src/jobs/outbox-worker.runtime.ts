@@ -5,10 +5,7 @@ import { envValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
-import {
-  DeterministicSmsProvider,
-  type SmsProvider,
-} from './sms.provider';
+import type { SmsProvider } from './sms.provider';
 
 export interface WorkerConfig {
   redisUrl: string;
@@ -48,13 +45,14 @@ export class OutboxWorkerRuntime {
   private queue?: Queue;
   private worker?: Worker<OutboxJobPayload>;
   private publisherTimer?: NodeJS.Timeout;
+  private activeRecovery?: Promise<void>;
   private started = false;
   private stopping = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: WorkerConfig,
-    private readonly smsProvider: SmsProvider = new DeterministicSmsProvider(),
+    private readonly smsProvider: SmsProvider,
   ) {}
 
   async start(): Promise<void> {
@@ -82,15 +80,10 @@ export class OutboxWorkerRuntime {
       );
     });
 
-    await this.recoverAndPublishOnce();
+    await this.runRecoveryCycle();
 
     this.publisherTimer = setInterval(() => {
-      void this.recoverAndPublishOnce().catch((error) => {
-        this.logger.error(
-          'Outbox recovery loop failed',
-          error instanceof Error ? error.stack : String(error),
-        );
-      });
+      this.scheduleRecoveryCycle();
     }, this.config.publishIntervalMs);
 
     this.publisherTimer.unref?.();
@@ -107,6 +100,8 @@ export class OutboxWorkerRuntime {
       clearInterval(this.publisherTimer);
       this.publisherTimer = undefined;
     }
+
+    await this.activeRecovery?.catch(() => undefined);
 
     if (this.worker) {
       await this.worker.close().catch((error) => {
@@ -125,7 +120,45 @@ export class OutboxWorkerRuntime {
     }
 
     await this.prisma.$disconnect();
+    this.queue = undefined;
+    this.worker = undefined;
+    this.activeRecovery = undefined;
     this.started = false;
+    this.stopping = false;
+  }
+
+  private scheduleRecoveryCycle(): void {
+    if (this.stopping || !this.queue || this.activeRecovery) {
+      return;
+    }
+
+    const recovery = this.runRecoveryCycle();
+    this.activeRecovery = recovery;
+
+    void recovery
+      .catch((error) => {
+        if (this.stopping) {
+          return;
+        }
+
+        this.logger.error(
+          'Outbox recovery loop failed',
+          error instanceof Error ? error.stack : String(error),
+        );
+      })
+      .finally(() => {
+        if (this.activeRecovery === recovery) {
+          this.activeRecovery = undefined;
+        }
+      });
+  }
+
+  private async runRecoveryCycle(): Promise<void> {
+    if (this.stopping) {
+      return;
+    }
+
+    await this.recoverAndPublishOnce();
   }
 
   private async recoverAndPublishOnce(): Promise<void> {
@@ -143,6 +176,27 @@ export class OutboxWorkerRuntime {
         WHERE (
           ("status" IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now}))
           OR ("status" = 'QUEUED' AND "updatedAt" <= ${staleCutoff})
+          OR (
+            "status" = 'PUBLISHED'
+            AND "publishedAt" <= ${staleCutoff}
+            AND EXISTS (
+              SELECT 1
+              FROM "SmsMessage" sm
+              WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+                AND sm."outboxEventId" = "OutboxEvent"."id"
+                AND sm."status" IN ('QUEUED', 'SENT', 'FAILED')
+            )
+          )
+          OR (
+            "status" = 'PUBLISHED'
+            AND "publishedAt" <= ${staleCutoff}
+            AND NOT EXISTS (
+              SELECT 1
+              FROM "SmsMessage" sm
+              WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+                AND sm."outboxEventId" = "OutboxEvent"."id"
+            )
+          )
         )
         ORDER BY "createdAt" ASC
         LIMIT ${this.config.publishBatchSize}
@@ -234,13 +288,12 @@ export class OutboxWorkerRuntime {
     });
 
     const smsMessage = outboxEvent.smsMessage;
-    if (!smsMessage) {
-      throw new Error(`SmsMessage not found for outbox event ${outboxEvent.id}`);
-    }
+    const resolvedSmsMessage =
+      smsMessage ?? (await this.createSmsMessageFromOutboxEvent(outboxEvent));
 
     if (
-      smsMessage.status === 'DELIVERED' ||
-      smsMessage.status === 'SUPPRESSED'
+      resolvedSmsMessage.status === 'DELIVERED' ||
+      resolvedSmsMessage.status === 'SUPPRESSED'
     ) {
       return;
     }
@@ -249,11 +302,11 @@ export class OutboxWorkerRuntime {
     try {
       const result = await this.smsProvider.send({
         tenantId: outboxEvent.tenantId,
-        receiptId: smsMessage.receiptId,
+        receiptId: resolvedSmsMessage.receiptId,
         outboxEventId: outboxEvent.id,
-        phoneE164: smsMessage.phoneE164,
-        template: smsMessage.template,
-        payload: normalizeJsonPayload(smsMessage.payload),
+        phoneE164: resolvedSmsMessage.phoneE164,
+        template: resolvedSmsMessage.template,
+        payload: normalizeJsonPayload(resolvedSmsMessage.payload),
       });
 
       if (result.status === 'FAILED') {
@@ -263,8 +316,8 @@ export class OutboxWorkerRuntime {
       await this.prisma.smsMessage.update({
         where: {
           tenantId_receiptId: {
-            tenantId: smsMessage.tenantId,
-            receiptId: smsMessage.receiptId,
+            tenantId: resolvedSmsMessage.tenantId,
+            receiptId: resolvedSmsMessage.receiptId,
           },
         },
         data: mapSmsDispatchResult(result, now),
@@ -273,8 +326,8 @@ export class OutboxWorkerRuntime {
       await this.prisma.smsMessage.update({
         where: {
           tenantId_receiptId: {
-            tenantId: smsMessage.tenantId,
-            receiptId: smsMessage.receiptId,
+            tenantId: resolvedSmsMessage.tenantId,
+            receiptId: resolvedSmsMessage.receiptId,
           },
         },
         data: {
@@ -288,6 +341,41 @@ export class OutboxWorkerRuntime {
 
       throw error;
     }
+  }
+
+  private async createSmsMessageFromOutboxEvent(outboxEvent: {
+    id: string;
+    tenantId: string;
+    payload: Prisma.JsonValue;
+  }) {
+    const payload = normalizeJsonPayload(outboxEvent.payload);
+    const receiptId = String(payload.receiptId ?? outboxEvent.id);
+    const phoneE164 = String(payload.phoneE164 ?? '').trim();
+    const template = String(payload.template ?? '').trim();
+
+    if (!phoneE164 || !template) {
+      throw new Error(`SmsMessage payload missing required fields for ${outboxEvent.id}`);
+    }
+
+    return this.prisma.smsMessage.upsert({
+      where: {
+        tenantId_outboxEventId: {
+          tenantId: outboxEvent.tenantId,
+          outboxEventId: outboxEvent.id,
+        },
+      },
+      create: {
+        tenantId: outboxEvent.tenantId,
+        receiptId,
+        outboxEventId: outboxEvent.id,
+        phoneE164,
+        template,
+        payload,
+        status: 'QUEUED',
+        queuedAt: new Date(),
+      },
+      update: {},
+    });
   }
 }
 
