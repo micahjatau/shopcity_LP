@@ -69,6 +69,32 @@ enum ReceiptReviewStatus {
   REJECTED
 }
 
+enum LedgerEntryStatus {
+  CONFIRMED
+}
+
+enum LedgerEntryType {
+  EARN
+}
+
+enum LedgerEntryDirection {
+  CREDIT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  EXECUTED
+  REJECTED
+  EXPIRED
+}
+
+enum OutboxEventStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
 model Tenant {
   id        String       @id @default(uuid())
   name      String
@@ -81,6 +107,10 @@ model Tenant {
   customers Customer[]
   cards     Card[]
   receipts  Receipt[]
+  ledgerEntries LoyaltyLedgerEntry[]
+  creditLots CreditLot[]
+  approvals Approval[]
+  outboxEvents OutboxEvent[]
   idempotencyRecords IdempotencyRecord[]
   auditLogs AuditLog[]
 }
@@ -188,6 +218,8 @@ model Customer {
   registeredByUser     User?          @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
   cards                Card[]
   receipts             Receipt[]
+  ledgerEntries        LoyaltyLedgerEntry[]
+  creditLots           CreditLot[]
 
   @@unique([tenantId, phoneE164])
   @@unique([tenantId, email])
@@ -256,6 +288,8 @@ model Receipt {
   capturedByUser           User     @relation("ReceiptCapturedBy", fields: [capturedByTenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
   reviewedByUser           User?    @relation("ReceiptReviewedBy", fields: [reviewedByTenantId, reviewedBy], references: [tenantId, id], onDelete: SetNull)
   approvedByUser           User?    @relation("ReceiptApprovedBy", fields: [approvedByTenantId, approvedBy], references: [tenantId, id], onDelete: SetNull)
+  ledgerEntries            LoyaltyLedgerEntry[]
+  approvals                Approval[]
 
   @@unique([tenantId, branchId, receiptWeekStart, normalizedPosReceiptNumber])
   @@unique([tenantId, id])
@@ -264,6 +298,89 @@ model Receipt {
   @@index([capturedByTenantId, capturedBy])
   @@index([reviewedByTenantId, reviewedBy])
   @@index([approvedByTenantId, approvedBy])
+}
+
+model LoyaltyLedgerEntry {
+  id             String               @id @default(uuid())
+  tenantId       String
+  customerId     String
+  receiptId      String               @unique
+  type           LedgerEntryType
+  direction      LedgerEntryDirection
+  amountKobo     BigInt
+  status         LedgerEntryStatus    @default(CONFIRMED)
+  correlationId  String               @unique
+  reversesEntryId String?              @unique
+  createdBy      String
+  effectiveAt    DateTime
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer       Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  receipt        Receipt               @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  creditLot      CreditLot?
+
+  @@index([tenantId, customerId, effectiveAt])
+  @@index([tenantId, createdAt])
+  @@unique([tenantId, id])
+}
+
+model CreditLot {
+  id                String      @id @default(uuid())
+  tenantId          String
+  customerId        String
+  earnLedgerEntryId String      @unique
+  originalAmountKobo BigInt
+  remainingAmountKobo BigInt
+  earnedAt          DateTime
+  expiresAt         DateTime
+  createdAt         DateTime    @default(now())
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer          Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  earnLedgerEntry   LoyaltyLedgerEntry @relation(fields: [tenantId, earnLedgerEntryId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, customerId, expiresAt])
+  @@unique([tenantId, earnLedgerEntryId])
+}
+
+model Approval {
+  id                 String         @id @default(uuid())
+  tenantId           String
+  receiptId          String         @unique
+  status             ApprovalStatus @default(PENDING)
+  requestedByTenantId String
+  requestedBy        String
+  reasonCode        String?
+  decisionByTenantId String?
+  decisionBy         String?
+  decisionReason    String?
+  requestedAt       DateTime       @default(now())
+  decidedAt         DateTime?
+  executedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  receipt           Receipt        @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, status, requestedAt])
+}
+
+model OutboxEvent {
+  id            String            @id @default(uuid())
+  tenantId      String
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  status        OutboxEventStatus @default(PENDING)
+  attempts      Int               @default(0)
+  nextAttemptAt DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, nextAttemptAt])
 }
 
 model IdempotencyRecord {

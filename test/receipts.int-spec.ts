@@ -341,8 +341,7 @@ describe('receipt capture flows (int)', () => {
         occurredAt: recentOccurredAt(),
       });
 
-      const boundaryStart = new Date();
-      boundaryStart.setUTCHours(0, 0, 0, 0);
+      const boundaryStart = new Date('2026-07-21T00:00:00.000Z');
 
       await postReceipt(
         {

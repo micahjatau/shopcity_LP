@@ -23,6 +23,7 @@ import { CsrfGuard } from './common/auth/csrf.guard';
 import { RolesGuard } from './common/auth/roles.guard';
 import { RequestThrottleGuard } from './common/throttle/request-throttle.guard';
 import { RequestThrottleService } from './common/throttle/request-throttle.service';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { RequestThrottleService } from './common/throttle/request-throttle.servi
     CustomersModule,
     CardsModule,
     ReceiptsModule,
+    LoyaltyModule,
     ApprovalsModule,
     AuditModule,
     ConfigurationModule,

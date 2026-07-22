@@ -1,4 +1,13 @@
-import { Body, Controller, Headers, Post, Req, Version } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  Version,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -7,20 +16,26 @@ import {
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
+import { CurrentSession } from '../../common/auth/current-user.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
+import type { AuthContext } from '../../common/auth/session.types';
 import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
 import { CaptureReceiptDto } from './receipts.dto';
 import { ReceiptsService } from './receipts.service';
+import { ApprovalsService } from '../approvals/approvals.service';
 
 @ApiTags('receipts')
 @ApiBearerAuth()
 @Controller('receipts')
 @apiErrorEnvelopeResponses()
 export class ReceiptsController {
-  constructor(private readonly receiptsService: ReceiptsService) {}
+  constructor(
+    private readonly receiptsService: ReceiptsService,
+    private readonly approvalsService: ApprovalsService,
+  ) {}
 
   @Post()
   @Version('1')
@@ -70,6 +85,64 @@ export class ReceiptsController {
       request.authContext!,
       idempotencyKey,
       dto,
+    );
+  }
+
+  @Post(':id/approve')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @HttpCode(200)
+  @apiSuccessEnvelopeResponse({
+    description: 'Receipt approved',
+    dataSchema: {
+      type: 'object',
+      required: ['id', 'status', 'receiptId', 'decidedAt'],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        status: { type: 'string', example: 'EXECUTED' },
+        receiptId: { type: 'string', format: 'uuid' },
+        decidedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Approve pending receipt' })
+  approveReceipt(
+    @CurrentSession() context: AuthContext,
+    @Param('id') receiptId: string,
+  ) {
+    return this.approvalsService.approveReceipt(
+      context.user.tenantId,
+      context,
+      receiptId,
+    );
+  }
+
+  @Post(':id/reject')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @HttpCode(200)
+  @apiSuccessEnvelopeResponse({
+    description: 'Receipt rejected',
+    dataSchema: {
+      type: 'object',
+      required: ['id', 'status', 'receiptId', 'decidedAt'],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        status: { type: 'string', example: 'REJECTED' },
+        receiptId: { type: 'string', format: 'uuid' },
+        decidedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Reject pending receipt' })
+  rejectReceipt(
+    @CurrentSession() context: AuthContext,
+    @Param('id') receiptId: string,
+  ) {
+    return this.approvalsService.rejectReceipt(
+      context.user.tenantId,
+      context,
+      receiptId,
     );
   }
 }

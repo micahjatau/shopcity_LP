@@ -5,26 +5,88 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ReceiptReviewStatus } from '@prisma/client';
-import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../../database/prisma.service';
 import { AuthContext } from '../../common/auth/session.types';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 
 @Injectable()
 export class ApprovalsService {
   constructor(
+    private readonly loyaltyService: LoyaltyService,
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
   ) {}
 
-  approveReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
-    return this.reviewReceipt(tenantId, actor, receiptId, 'APPROVED');
+  listApprovals(tenantId: string) {
+    return this.loyaltyService.listApprovals(tenantId);
   }
 
-  rejectReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
-    return this.reviewReceipt(tenantId, actor, receiptId, 'REJECTED');
+  async approveReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
+    const approval = await this.loyaltyService.findApprovalByReceiptId(
+      tenantId,
+      receiptId,
+    );
+
+    if (!approval) {
+      return this.reviewLegacyReceipt(
+        tenantId,
+        actor,
+        receiptId,
+        'APPROVED',
+      );
+    }
+
+    return this.loyaltyService.decideApproval(
+      tenantId,
+      actor,
+      approval.id,
+      'APPROVED',
+      'legacy receipt approval',
+    );
   }
 
-  private async reviewReceipt(
+  async rejectReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
+    const approval = await this.loyaltyService.findApprovalByReceiptId(
+      tenantId,
+      receiptId,
+    );
+
+    if (!approval) {
+      return this.reviewLegacyReceipt(
+        tenantId,
+        actor,
+        receiptId,
+        'REJECTED',
+      );
+    }
+
+    return this.loyaltyService.decideApproval(
+      tenantId,
+      actor,
+      approval.id,
+      'REJECTED',
+      'legacy receipt rejection',
+    );
+  }
+
+  decideApproval(
+    tenantId: string,
+    actor: AuthContext,
+    approvalId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason: string,
+  ) {
+    return this.loyaltyService.decideApproval(
+      tenantId,
+      actor,
+      approvalId,
+      decision,
+      reason,
+    );
+  }
+
+  private async reviewLegacyReceipt(
     tenantId: string,
     actor: AuthContext,
     receiptId: string,

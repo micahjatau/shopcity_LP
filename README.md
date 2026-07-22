@@ -2,6 +2,10 @@
 
 Backend foundation for the ShopCity loyalty MVP.
 
+## About
+
+ShopCity is a backend-first loyalty store-credit platform that runs beside an existing POS. It owns the source of truth for customer identity, receipt capture, approvals, audit history, sessions, and weekly duplicate prevention, with PostgreSQL/Prisma for data and Supabase for staff identity verification.
+
 ## Source Of Truth
 
 - `docs/TRD.md` is the technical requirements and architecture baseline.
