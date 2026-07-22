@@ -23,6 +23,10 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { EarnTransactionDto } from './loyalty.dto';
+import {
+  createOutboxQueue,
+  publishOutboxEvent,
+} from '../../jobs/outbox.publisher';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
@@ -38,11 +42,16 @@ export interface EarnTransactionResponse {
   ledgerEntryId?: string | null;
   tenantId: string;
   branchId: string;
+  deviceId: string;
   customerId: string;
   cardSerialNumber: string;
   posReceiptNumber: string;
   purchaseAmountKobo: number;
   creditKobo: number;
+  captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
+  availableBalanceKobo: number | null;
+  expiresAt: string | null;
+  smsStatus: string | null;
   occurredAt: string;
   capturedAt: string;
   reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -74,6 +83,30 @@ export interface TransactionLedgerItem {
     earnedAt: string;
     expiresAt: string;
   } | null;
+}
+
+export interface TransactionResponse {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  customerId: string;
+  deviceId: string | null;
+  cardSerialNumber: string;
+  posReceiptNumber: string;
+  purchaseAmountKobo: number;
+  occurredAt: string;
+  capturedAt: string;
+  state: 'CONFIRMED' | 'PENDING_APPROVAL' | 'REJECTED' | 'INVALID';
+  captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
+  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvalId: string | null;
+  approvalStatus: ApprovalStatus | null;
+  ledgerEntryId: string | null;
+  creditKobo: number;
+  availableBalanceKobo: number | null;
+  expiresAt: string | null;
+  smsStatus: string | null;
+  ledger: TransactionLedgerItem | null;
 }
 
 export interface ApprovalListItem {
@@ -109,7 +142,8 @@ export class LoyaltyService {
   ): Promise<EarnTransactionResponse> {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const posReceiptNumber = normalizeReceiptNumber(data.posReceiptNumber);
-    const normalizedPosReceiptNumber = normalizeReceiptIdentity(posReceiptNumber);
+    const normalizedPosReceiptNumber =
+      normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(data.occurredAt, 'occurredAt');
     const overrideReason = data.overrideReason?.trim();
     const sessionDeviceId = actor.session.deviceId;
@@ -288,7 +322,8 @@ export class LoyaltyService {
                 reviewStatus === ReceiptReviewStatus.PENDING
                   ? null
                   : actor.user.id,
-              approvedAt: reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
+              approvedAt:
+                reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
               approvalReasonCode:
                 captureStatus === 'PENDING_APPROVAL'
                   ? APPROVAL_REASON_CODE
@@ -315,11 +350,16 @@ export class LoyaltyService {
               approvalId: approval.id,
               tenantId,
               branchId,
+              deviceId: transactionDevice.id,
               customerId: transactionCard.customerId,
               cardSerialNumber: transactionCard.barcodeValue,
               posReceiptNumber: receipt.posReceiptNumber,
               purchaseAmountKobo: data.purchaseAmountKobo,
               creditKobo: 0,
+              captureStatus,
+              availableBalanceKobo: null,
+              expiresAt: null,
+              smsStatus: null,
               occurredAt: occurredAt.toISOString(),
               capturedAt: now.toISOString(),
               reviewStatus: 'PENDING' as const,
@@ -365,6 +405,7 @@ export class LoyaltyService {
               amountKobo: creditKobo,
               status: LedgerEntryStatus.CONFIRMED,
               correlationId: requestHash,
+              createdByTenantId: actor.user.tenantId,
               createdBy: actor.user.id,
               effectiveAt: occurredAt,
             },
@@ -382,7 +423,7 @@ export class LoyaltyService {
             },
           });
 
-          await prisma.outboxEvent.create({
+          const outboxEvent = await prisma.outboxEvent.create({
             data: {
               tenantId,
               aggregateType: 'receipt',
@@ -400,6 +441,12 @@ export class LoyaltyService {
               nextAttemptAt: now,
             },
           });
+          await publishOutboxEventSafely(
+            toOutboxEventPayload(outboxEvent),
+            this.configService.get<string>('REDIS_URL') ??
+              process.env.REDIS_URL ??
+              'redis://127.0.0.1:6379',
+          );
 
           const response = {
             id: receipt.id,
@@ -408,11 +455,22 @@ export class LoyaltyService {
             ledgerEntryId: ledgerEntry.id,
             tenantId,
             branchId,
+            deviceId: transactionDevice.id,
             customerId: transactionCard.customerId,
             cardSerialNumber: transactionCard.barcodeValue,
             posReceiptNumber: receipt.posReceiptNumber,
             purchaseAmountKobo: data.purchaseAmountKobo,
             creditKobo: Number(creditKobo),
+            captureStatus,
+            availableBalanceKobo: Number(
+              await calculateAvailableBalanceKobo(
+                prisma,
+                tenantId,
+                transactionCard.customerId,
+              ),
+            ),
+            expiresAt: creditLot.expiresAt.toISOString(),
+            smsStatus: 'PENDING',
             occurredAt: occurredAt.toISOString(),
             capturedAt: now.toISOString(),
             reviewStatus: 'APPROVED' as const,
@@ -491,7 +549,10 @@ export class LoyaltyService {
     }
   }
 
-  async getTransaction(tenantId: string, transactionId: string) {
+  async getTransaction(
+    tenantId: string,
+    transactionId: string,
+  ): Promise<TransactionResponse> {
     const receipt = await this.prismaService.receipt.findFirst({
       where: { tenantId, id: transactionId },
       include: {
@@ -509,26 +570,51 @@ export class LoyaltyService {
 
     const ledgerEntry = receipt.ledgerEntries[0] ?? null;
     const approval = receipt.approvals[0] ?? null;
+    const outboxEvent = await this.prismaService.outboxEvent.findFirst({
+      where: {
+        tenantId,
+        aggregateId: receipt.id,
+        eventType: 'sms.send',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const availableBalanceKobo = await calculateAvailableBalanceKobo(
+      this.prismaService,
+      tenantId,
+      receipt.customerId,
+    );
 
     return {
       id: receipt.id,
       tenantId: receipt.tenantId,
       branchId: receipt.branchId,
       customerId: receipt.customerId,
+      deviceId: receipt.deviceId,
       cardSerialNumber: receipt.card.barcodeValue,
       posReceiptNumber: receipt.posReceiptNumber,
       purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
       occurredAt: receipt.occurredAt.toISOString(),
       capturedAt: receipt.capturedAt.toISOString(),
-      state:
-        receipt.reviewStatus === ReceiptReviewStatus.PENDING
-          ? 'PENDING_APPROVAL'
-          : 'CONFIRMED',
+      state: ledgerEntry
+        ? 'CONFIRMED'
+        : approval?.status === ApprovalStatus.REJECTED
+          ? 'REJECTED'
+          : approval?.status === ApprovalStatus.PENDING
+            ? 'PENDING_APPROVAL'
+            : receipt.reviewStatus === ReceiptReviewStatus.PENDING
+              ? 'PENDING_APPROVAL'
+              : receipt.reviewStatus === ReceiptReviewStatus.REJECTED
+                ? 'REJECTED'
+                : 'INVALID',
+      captureStatus: receipt.captureStatus,
       reviewStatus: receipt.reviewStatus,
       approvalId: approval?.id ?? null,
       approvalStatus: approval?.status ?? null,
       ledgerEntryId: ledgerEntry?.id ?? null,
       creditKobo: ledgerEntry ? Number(ledgerEntry.amountKobo) : 0,
+      availableBalanceKobo: Number(availableBalanceKobo),
+      expiresAt: ledgerEntry?.creditLot?.expiresAt.toISOString() ?? null,
+      smsStatus: outboxEvent?.status ?? null,
       ledger: ledgerEntry
         ? {
             id: ledgerEntry.id,
@@ -689,6 +775,19 @@ export class LoyaltyService {
             throw new ConflictException('Approval has already been decided');
           }
 
+          await prisma.receipt.update({
+            where: { tenantId_id: { tenantId, id: approval.receiptId } },
+            data: {
+              reviewStatus: ReceiptReviewStatus.REJECTED,
+              reviewedAt: now,
+              reviewedByTenantId: actor.user.tenantId,
+              reviewedBy: actor.user.id,
+              approvedAt: null,
+              approvedByTenantId: null,
+              approvedBy: null,
+            },
+          });
+
           await this.auditService.recordWithClient(prisma, {
             tenantId,
             actorId: actor.user.id,
@@ -774,6 +873,7 @@ export class LoyaltyService {
             amountKobo: creditKobo,
             status: LedgerEntryStatus.CONFIRMED,
             correlationId: `approval:${approval.id}`,
+            createdByTenantId: actor.user.tenantId,
             createdBy: actor.user.id,
             effectiveAt: receipt.occurredAt,
           },
@@ -791,7 +891,7 @@ export class LoyaltyService {
           },
         });
 
-        await prisma.outboxEvent.create({
+        const outboxEvent = await prisma.outboxEvent.create({
           data: {
             tenantId,
             aggregateType: 'receipt',
@@ -809,6 +909,12 @@ export class LoyaltyService {
             nextAttemptAt: now,
           },
         });
+        await publishOutboxEventSafely(
+          toOutboxEventPayload(outboxEvent),
+          this.configService.get<string>('REDIS_URL') ??
+            process.env.REDIS_URL ??
+            'redis://127.0.0.1:6379',
+        );
 
         await prisma.receipt.update({
           where: { tenantId_id: { tenantId, id: receipt.id } },
@@ -1035,15 +1141,71 @@ function calculateCreditKobo(
     configService.get<number>('DEFAULT_EARN_RATE_BPS') ?? 200,
   );
 
-  return (
-    (BigInt(purchaseAmountKobo) * earnRateBps + 9_999n) / 10_000n
-  );
+  return (BigInt(purchaseAmountKobo) * earnRateBps + 9_999n) / 10_000n;
 }
 
 function addMonths(date: Date, months: number): Date {
   const result = new Date(date.getTime());
   result.setUTCMonth(result.getUTCMonth() + months);
   return result;
+}
+
+type OutboxEventPayload = {
+  id: string;
+  tenantId: string;
+  aggregateType: string;
+  aggregateId: string;
+  eventType: string;
+  payload: Prisma.JsonValue;
+};
+
+function toOutboxEventPayload(event: OutboxEventPayload): OutboxEventPayload {
+  return event;
+}
+
+async function publishOutboxEventSafely(
+  event: OutboxEventPayload,
+  redisUrl: string,
+): Promise<void> {
+  try {
+    const queue = createOutboxQueue(redisUrl);
+    try {
+      await publishOutboxEvent(queue, event);
+    } finally {
+      await queue.close();
+    }
+  } catch {
+    // Outbox publication must not block the financial transaction.
+  }
+}
+
+async function calculateAvailableBalanceKobo(
+  prismaService:
+    | PrismaService
+    | {
+        creditLot: {
+          findMany: (
+            args: Prisma.CreditLotFindManyArgs,
+          ) => Promise<Array<{ remainingAmountKobo: bigint }>>;
+        };
+      },
+  tenantId: string,
+  customerId: string,
+  now = new Date(),
+): Promise<bigint> {
+  const lots = await prismaService.creditLot.findMany({
+    where: {
+      tenantId,
+      customerId,
+      remainingAmountKobo: { gt: 0 },
+      expiresAt: { gt: now },
+    },
+    select: {
+      remainingAmountKobo: true,
+    },
+  });
+
+  return lots.reduce((total, lot) => total + lot.remainingAmountKobo, 0n);
 }
 
 async function cleanupExpiredIdempotencyRecords(

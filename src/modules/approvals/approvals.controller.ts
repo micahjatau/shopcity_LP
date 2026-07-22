@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Version } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Version,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
@@ -8,7 +16,6 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
-import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { ApprovalDecisionDto } from '../loyalty/loyalty.dto';
 import { ApprovalsService } from './approvals.service';
 

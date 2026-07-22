@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Req,
+  Res,
   Version,
 } from '@nestjs/common';
 import {
@@ -15,6 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { FastifyReply } from 'fastify';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -24,8 +26,8 @@ import {
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
 import { CaptureReceiptDto } from './receipts.dto';
-import { ReceiptsService } from './receipts.service';
 import { ApprovalsService } from '../approvals/approvals.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 
 @ApiTags('receipts')
 @ApiBearerAuth()
@@ -33,7 +35,7 @@ import { ApprovalsService } from '../approvals/approvals.service';
 @apiErrorEnvelopeResponses()
 export class ReceiptsController {
   constructor(
-    private readonly receiptsService: ReceiptsService,
+    private readonly loyaltyService: LoyaltyService,
     private readonly approvalsService: ApprovalsService,
   ) {}
 
@@ -74,18 +76,71 @@ export class ReceiptsController {
       },
     },
   })
+  @apiSuccessEnvelopeResponse({
+    description: 'Receipt captured and queued for approval',
+    status: 202,
+    dataSchema: {
+      type: 'object',
+      required: [
+        'id',
+        'tenantId',
+        'branchId',
+        'customerId',
+        'cardSerialNumber',
+        'posReceiptNumber',
+        'purchaseAmountKobo',
+        'occurredAt',
+        'capturedAt',
+        'status',
+        'reviewStatus',
+      ],
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        tenantId: { type: 'string', format: 'uuid' },
+        branchId: { type: 'string', format: 'uuid' },
+        customerId: { type: 'string', format: 'uuid' },
+        cardSerialNumber: { type: 'string' },
+        posReceiptNumber: { type: 'string' },
+        purchaseAmountKobo: { type: 'integer' },
+        occurredAt: { type: 'string', format: 'date-time' },
+        capturedAt: { type: 'string', format: 'date-time' },
+        status: { type: 'string', example: 'PENDING_APPROVAL' },
+        reviewStatus: { type: 'string', example: 'PENDING' },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Capture receipt' })
   captureReceipt(
     @Req() request: AuthenticatedRequest,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: CaptureReceiptDto,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.receiptsService.captureReceipt(
-      request.authContext!.user.tenantId,
-      request.authContext!,
-      idempotencyKey,
-      dto,
-    );
+    return this.loyaltyService
+      .earn(
+        request.authContext!.user.tenantId,
+        request.authContext!,
+        idempotencyKey,
+        dto,
+      )
+      .then((response) => {
+        reply.code(response.state === 'PENDING_APPROVAL' ? 202 : 201);
+
+        return {
+          id: response.id,
+          tenantId: response.tenantId,
+          branchId: response.branchId,
+          customerId: response.customerId,
+          cardSerialNumber: response.cardSerialNumber,
+          deviceId: response.deviceId,
+          posReceiptNumber: response.posReceiptNumber,
+          purchaseAmountKobo: response.purchaseAmountKobo,
+          occurredAt: response.occurredAt,
+          capturedAt: response.capturedAt,
+          status: response.captureStatus,
+          reviewStatus: response.reviewStatus,
+        };
+      });
   }
 
   @Post(':id/approve')

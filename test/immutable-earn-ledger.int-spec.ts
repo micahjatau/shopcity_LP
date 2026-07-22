@@ -13,6 +13,7 @@ describe('immutable earn ledger (int)', () => {
   let prisma: PrismaService;
   let loyaltyService: LoyaltyService;
   let approvalsService: ApprovalsService;
+  let auditService: AuditService;
   let tenant: { id: string };
   let branch: { id: string };
   let cashier: Awaited<ReturnType<typeof createStaffUser>>;
@@ -50,10 +51,22 @@ describe('immutable earn ledger (int)', () => {
       },
     });
 
-    cashier = await createStaffUser(prisma, tenant.id, branch.id, UserRole.CASHIER, 'cashier@ledger.local');
-    approver = await createStaffUser(prisma, tenant.id, branch.id, UserRole.SUPERVISOR, 'approver@ledger.local');
+    cashier = await createStaffUser(
+      prisma,
+      tenant.id,
+      branch.id,
+      UserRole.CASHIER,
+      'cashier@ledger.local',
+    );
+    approver = await createStaffUser(
+      prisma,
+      tenant.id,
+      branch.id,
+      UserRole.SUPERVISOR,
+      'approver@ledger.local',
+    );
 
-    const auditService = new AuditService(prisma);
+    auditService = new AuditService(prisma);
     const configService = {
       get: (key: string) => {
         const values: Record<string, number> = {
@@ -68,7 +81,11 @@ describe('immutable earn ledger (int)', () => {
     } as never;
 
     loyaltyService = new LoyaltyService(prisma, auditService, configService);
-    approvalsService = new ApprovalsService(loyaltyService);
+    approvalsService = new ApprovalsService(
+      loyaltyService,
+      prisma,
+      auditService,
+    );
   }, 120000);
 
   afterAll(async () => {
@@ -77,7 +94,13 @@ describe('immutable earn ledger (int)', () => {
   }, 120000);
 
   it('records a confirmed earn atomically and replays idempotently', async () => {
-    const fixture = await createEarnFixture(prisma, tenant.id, branch.id, cashier.id, 'POS-LEDGER-0001');
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-0001',
+    );
     const occurredAt = recentOccurredAt();
 
     const first = await loyaltyService.earn(
@@ -106,7 +129,11 @@ describe('immutable earn ledger (int)', () => {
 
     expect(replay).toEqual(first);
     expect(first.state).toBe('CONFIRMED');
+    expect(first.captureStatus).toBe('CAPTURED');
     expect(first.creditKobo).toBe(20_000);
+    expect(first.availableBalanceKobo).toBe(20_000);
+    expect(first.smsStatus).toBe('PENDING');
+    expect(first.expiresAt).toBeTruthy();
 
     await expect(
       loyaltyService.earn(tenant.id, fixture.actor, 'earn-confirmed-key', {
@@ -119,25 +146,45 @@ describe('immutable earn ledger (int)', () => {
 
     const counts = await Promise.all([
       prisma.receipt.count({ where: { id: first.receiptId } }),
-      prisma.loyaltyLedgerEntry.count({ where: { receiptId: first.receiptId } }),
-      prisma.creditLot.count({ where: { tenantId: tenant.id, customerId: fixture.customer.id } }),
-      prisma.outboxEvent.count({ where: { tenantId: tenant.id, aggregateId: first.receiptId } }),
+      prisma.loyaltyLedgerEntry.count({
+        where: { receiptId: first.receiptId },
+      }),
+      prisma.creditLot.count({
+        where: { tenantId: tenant.id, customerId: fixture.customer.id },
+      }),
+      prisma.outboxEvent.count({
+        where: { tenantId: tenant.id, aggregateId: first.receiptId },
+      }),
     ]);
 
     expect(counts).toEqual([1, 1, 1, 1]);
 
-    const transaction = await loyaltyService.getTransaction(tenant.id, first.receiptId);
+    const transaction = await loyaltyService.getTransaction(
+      tenant.id,
+      first.receiptId,
+    );
     expect(transaction.state).toBe('CONFIRMED');
+    expect(transaction.captureStatus).toBe('CAPTURED');
+    expect(transaction.availableBalanceKobo).toBe(20_000);
     expect(transaction.ledgerEntryId).toBe(first.ledgerEntryId);
     expect(transaction.ledger?.creditLot?.remainingAmountKobo).toBe(20_000);
 
-    const ledger = await loyaltyService.listCustomerLedger(tenant.id, fixture.customer.id);
+    const ledger = await loyaltyService.listCustomerLedger(
+      tenant.id,
+      fixture.customer.id,
+    );
     expect(ledger.items).toHaveLength(1);
     expect(ledger.items[0]?.amountKobo).toBe(20_000);
   }, 120000);
 
   it('creates approval records and executes them exactly once', async () => {
-    const fixture = await createEarnFixture(prisma, tenant.id, branch.id, cashier.id, 'POS-LEDGER-0002');
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-0002',
+    );
     const occurredAt = recentOccurredAt();
 
     const pending = await loyaltyService.earn(
@@ -154,6 +201,9 @@ describe('immutable earn ledger (int)', () => {
 
     expect(pending.state).toBe('PENDING_APPROVAL');
     expect(pending.approvalId).toBeDefined();
+    expect(pending.captureStatus).toBe('PENDING_APPROVAL');
+    expect(pending.availableBalanceKobo).toBeNull();
+    expect(pending.smsStatus).toBeNull();
 
     const approvalsBefore = await approvalsService.listApprovals(tenant.id);
     expect(approvalsBefore.items).toHaveLength(1);
@@ -176,13 +226,23 @@ describe('immutable earn ledger (int)', () => {
       ),
     ]);
 
-    expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(settled.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      settled.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      settled.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
 
     const [ledgerCount, lotCount, outboxCount] = await Promise.all([
-      prisma.loyaltyLedgerEntry.count({ where: { receiptId: pending.receiptId } }),
-      prisma.creditLot.count({ where: { tenantId: tenant.id, customerId: fixture.customer.id } }),
-      prisma.outboxEvent.count({ where: { tenantId: tenant.id, aggregateId: pending.receiptId } }),
+      prisma.loyaltyLedgerEntry.count({
+        where: { receiptId: pending.receiptId },
+      }),
+      prisma.creditLot.count({
+        where: { tenantId: tenant.id, customerId: fixture.customer.id },
+      }),
+      prisma.outboxEvent.count({
+        where: { tenantId: tenant.id, aggregateId: pending.receiptId },
+      }),
     ]);
 
     expect([ledgerCount, lotCount, outboxCount]).toEqual([1, 1, 1]);
@@ -193,13 +253,23 @@ describe('immutable earn ledger (int)', () => {
 
     expect(approvalRecord?.status).toBe(ApprovalStatus.EXECUTED);
 
-    const transaction = await loyaltyService.getTransaction(tenant.id, pending.receiptId);
+    const transaction = await loyaltyService.getTransaction(
+      tenant.id,
+      pending.receiptId,
+    );
     expect(transaction.state).toBe('CONFIRMED');
     expect(transaction.ledgerEntryId).toBeDefined();
+    expect(transaction.availableBalanceKobo).toBeGreaterThan(0);
   }, 120000);
 
   it('serializes concurrent captures of the same receipt', async () => {
-    const fixture = await createEarnFixture(prisma, tenant.id, branch.id, cashier.id, 'POS-LEDGER-0003');
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-0003',
+    );
     const occurredAt = recentOccurredAt();
 
     const settled = await Promise.allSettled([
@@ -217,21 +287,40 @@ describe('immutable earn ledger (int)', () => {
       }),
     ]);
 
-    expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(settled.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      settled.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      settled.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
 
     const fulfilled = settled.find(
-      (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof loyaltyService.earn>>> =>
-        result.status === 'fulfilled',
+      (
+        result,
+      ): result is PromiseFulfilledResult<
+        Awaited<ReturnType<typeof loyaltyService.earn>>
+      > => result.status === 'fulfilled',
     );
 
     expect(fulfilled).toBeDefined();
 
     const [receipts, ledgers, lots, outbox] = await Promise.all([
-      prisma.receipt.count({ where: { tenantId: tenant.id, branchId: branch.id, posReceiptNumber: fixture.posReceiptNumber } }),
-      prisma.loyaltyLedgerEntry.count({ where: { tenantId: tenant.id, customerId: fixture.customer.id } }),
-      prisma.creditLot.count({ where: { tenantId: tenant.id, customerId: fixture.customer.id } }),
-      prisma.outboxEvent.count({ where: { tenantId: tenant.id, aggregateId: fulfilled!.value.receiptId } }),
+      prisma.receipt.count({
+        where: {
+          tenantId: tenant.id,
+          branchId: branch.id,
+          posReceiptNumber: fixture.posReceiptNumber,
+        },
+      }),
+      prisma.loyaltyLedgerEntry.count({
+        where: { tenantId: tenant.id, customerId: fixture.customer.id },
+      }),
+      prisma.creditLot.count({
+        where: { tenantId: tenant.id, customerId: fixture.customer.id },
+      }),
+      prisma.outboxEvent.count({
+        where: { tenantId: tenant.id, aggregateId: fulfilled!.value.receiptId },
+      }),
     ]);
 
     expect([receipts, ledgers, lots, outbox]).toEqual([1, 1, 1, 1]);
@@ -281,7 +370,9 @@ async function createEarnFixture(
       tenantId,
       branchId,
       fullName: `Customer ${receiptNumber}`,
-      phoneE164: `+23480123${Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0')}`,
+      phoneE164: `+23480123${Math.floor(Math.random() * 1_000_000)
+        .toString()
+        .padStart(6, '0')}`,
       isStaff: false,
       status: 'ACTIVE',
       registeredByTenantId: tenantId,
@@ -306,12 +397,15 @@ async function createEarnFixture(
     customer,
     card,
     posReceiptNumber: receiptNumber,
-    actor: makeContext({
-      id: cashierId,
-      tenantId,
-      branchId,
-      role: UserRole.CASHIER,
-    }, device.id),
+    actor: makeContext(
+      {
+        id: cashierId,
+        tenantId,
+        branchId,
+        role: UserRole.CASHIER,
+      },
+      device.id,
+    ),
   };
 }
 
@@ -319,7 +413,7 @@ function makeContext(
   user: {
     id: string;
     tenantId: string;
-    branchId: string;
+    branchId: string | null;
     role: UserRole;
   },
   deviceId?: string,
@@ -354,7 +448,7 @@ function makeContext(
       tenant: null,
       branch: null,
     },
-  } as AuthContext;
+  };
 }
 
 function recentOccurredAt(): string {

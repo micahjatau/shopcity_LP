@@ -668,7 +668,7 @@ describe('receipt capture flows (int)', () => {
     const overrideAudit = await prisma.auditLog.findFirst({
       where: {
         tenantId: seedData.tenant.id,
-        action: 'receipt.capture.override',
+        action: 'earn.timestamp_override',
         entityId: overrideBody.data.id,
       },
     });
@@ -694,7 +694,7 @@ describe('receipt capture flows (int)', () => {
       authHeaders,
       'receipt-key-16',
     )
-      .expect(201)
+      .expect(202)
       .expect((response) => {
         const payload = response.body as ReceiptResponseBody;
         expect(payload.data.status).toBe('PENDING_APPROVAL');
@@ -719,7 +719,7 @@ describe('receipt capture flows (int)', () => {
       },
       authHeaders,
       'receipt-key-16a',
-    ).expect(201);
+    ).expect(202);
 
     await postReceipt(
       {
@@ -730,7 +730,7 @@ describe('receipt capture flows (int)', () => {
       authHeaders,
       'receipt-key-16b',
     )
-      .expect(201)
+      .expect(202)
       .expect((response) => {
         const payload = response.body as ReceiptResponseBody;
         expect(payload.data.status).toBe('PENDING_APPROVAL');
@@ -765,7 +765,7 @@ describe('receipt capture flows (int)', () => {
       },
       fixture.authHeaders,
       'receipt-key-17',
-    ).expect(201);
+    ).expect(202);
     const receiptBody = receiptResponse.body as unknown as ReceiptResponseBody;
 
     await postReceiptDecision(
@@ -805,7 +805,7 @@ describe('receipt capture flows (int)', () => {
       },
       fixture.authHeaders,
       'receipt-key-18',
-    ).expect(201);
+    ).expect(202);
     const receiptBody = receiptResponse.body as unknown as ReceiptResponseBody;
 
     await postReceiptDecision(
@@ -832,7 +832,7 @@ describe('receipt capture flows (int)', () => {
       },
       fixture.authHeaders,
       'receipt-key-19',
-    ).expect(201);
+    ).expect(202);
     const receiptBody = receiptResponse.body as unknown as ReceiptResponseBody;
 
     await postReceiptDecision(

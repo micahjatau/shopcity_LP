@@ -22,19 +22,18 @@ export class ApprovalsService {
     return this.loyaltyService.listApprovals(tenantId);
   }
 
-  async approveReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
+  async approveReceipt(
+    tenantId: string,
+    actor: AuthContext,
+    receiptId: string,
+  ) {
     const approval = await this.loyaltyService.findApprovalByReceiptId(
       tenantId,
       receiptId,
     );
 
     if (!approval) {
-      return this.reviewLegacyReceipt(
-        tenantId,
-        actor,
-        receiptId,
-        'APPROVED',
-      );
+      return this.reviewLegacyReceipt(tenantId, actor, receiptId, 'APPROVED');
     }
 
     return this.loyaltyService.decideApproval(
@@ -53,12 +52,7 @@ export class ApprovalsService {
     );
 
     if (!approval) {
-      return this.reviewLegacyReceipt(
-        tenantId,
-        actor,
-        receiptId,
-        'REJECTED',
-      );
+      return this.reviewLegacyReceipt(tenantId, actor, receiptId, 'REJECTED');
     }
 
     return this.loyaltyService.decideApproval(

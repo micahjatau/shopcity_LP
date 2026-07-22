@@ -173,6 +173,9 @@ model User {
   receiptsCaptured    Receipt[]  @relation("ReceiptCapturedBy")
   receiptsReviewed    Receipt[]  @relation("ReceiptReviewedBy")
   receiptsApproved    Receipt[]  @relation("ReceiptApprovedBy")
+  approvalsRequested  Approval[] @relation("ApprovalRequestedBy")
+  approvalsDecided    Approval[] @relation("ApprovalDecisionBy")
+  ledgerEntriesCreated LoyaltyLedgerEntry[] @relation("LoyaltyLedgerEntryCreatedBy")
   auditLogs           AuditLog[]
 
   @@unique([tenantId, username])
@@ -311,6 +314,7 @@ model LoyaltyLedgerEntry {
   status         LedgerEntryStatus    @default(CONFIRMED)
   correlationId  String               @unique
   reversesEntryId String?              @unique
+  createdByTenantId String
   createdBy      String
   effectiveAt    DateTime
   createdAt      DateTime             @default(now())
@@ -318,10 +322,14 @@ model LoyaltyLedgerEntry {
   tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customer       Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   receipt        Receipt               @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser  User                  @relation("LoyaltyLedgerEntryCreatedBy", fields: [createdByTenantId, createdBy], references: [tenantId, id], onDelete: Restrict)
+  reversesEntry  LoyaltyLedgerEntry?   @relation("LedgerReversal", fields: [tenantId, reversesEntryId], references: [tenantId, id], onDelete: Restrict)
+  reversedByEntries LoyaltyLedgerEntry[] @relation("LedgerReversal")
   creditLot      CreditLot?
 
   @@index([tenantId, customerId, effectiveAt])
   @@index([tenantId, createdAt])
+  @@index([createdByTenantId, createdBy])
   @@unique([tenantId, id])
 }
 
@@ -361,8 +369,12 @@ model Approval {
   updatedAt         DateTime       @updatedAt
   tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   receipt           Receipt        @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  requestedByUser    User           @relation("ApprovalRequestedBy", fields: [requestedByTenantId, requestedBy], references: [tenantId, id], onDelete: Restrict)
+  decisionByUser     User?          @relation("ApprovalDecisionBy", fields: [decisionByTenantId, decisionBy], references: [tenantId, id], onDelete: SetNull)
 
   @@index([tenantId, status, requestedAt])
+  @@index([requestedByTenantId, requestedBy])
+  @@index([decisionByTenantId, decisionBy])
 }
 
 model OutboxEvent {

@@ -2,6 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiAcceptedResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -22,14 +23,18 @@ type EnvelopeDataSchema = {
 type EnvelopeResponseOptions = {
   description?: string;
   dataSchema?: EnvelopeDataSchema;
-  status?: 200 | 201;
+  status?: 200 | 201 | 202;
 };
 
 export function apiSuccessEnvelopeResponse(
   options: EnvelopeResponseOptions = {},
 ) {
   const responseDecorator =
-    options.status === 201 ? ApiCreatedResponse : ApiOkResponse;
+    options.status === 201
+      ? ApiCreatedResponse
+      : options.status === 202
+        ? ApiAcceptedResponse
+        : ApiOkResponse;
 
   return responseDecorator({
     description: options.description,

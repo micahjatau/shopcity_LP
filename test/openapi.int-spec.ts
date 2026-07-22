@@ -73,6 +73,24 @@ describe('OpenAPI contract (int)', () => {
     expect(createSchema?.properties?.overrideReason).toBeDefined();
     expect(createSchema?.properties?.branchId).toBeUndefined();
     expect(createSchema?.properties?.externalReceiptNumber).toBeUndefined();
+
+    expect(
+      document.paths['/api/v1/receipts']?.post?.responses?.['201'],
+    ).toBeDefined();
+    expect(
+      document.paths['/api/v1/receipts']?.post?.responses?.['202'],
+    ).toBeDefined();
+  });
+
+  it('documents the earn contract for confirmed and pending approval outcomes', () => {
+    const document = buildOpenApiDocument(app);
+
+    expect(
+      document.paths['/api/v1/transactions/earn']?.post?.responses?.['201'],
+    ).toBeDefined();
+    expect(
+      document.paths['/api/v1/transactions/earn']?.post?.responses?.['202'],
+    ).toBeDefined();
   });
 });
 
