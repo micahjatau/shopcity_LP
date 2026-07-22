@@ -132,7 +132,7 @@ describe('immutable earn ledger (int)', () => {
     expect(first.captureStatus).toBe('CAPTURED');
     expect(first.creditKobo).toBe(20_000);
     expect(first.availableBalanceKobo).toBe(20_000);
-    expect(first.smsStatus).toBe('PENDING');
+    expect(first.smsStatus).toBe('QUEUED');
     expect(first.expiresAt).toBeTruthy();
 
     await expect(

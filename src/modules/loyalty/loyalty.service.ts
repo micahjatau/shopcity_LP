@@ -16,6 +16,7 @@ import {
   LedgerEntryType,
   Prisma,
   ReceiptReviewStatus,
+  SmsMessageStatus,
   UserRole,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -23,10 +24,6 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { EarnTransactionDto } from './loyalty.dto';
-import {
-  createOutboxQueue,
-  publishOutboxEvent,
-} from '../../jobs/outbox.publisher';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
@@ -51,7 +48,13 @@ export interface EarnTransactionResponse {
   captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
   availableBalanceKobo: number | null;
   expiresAt: string | null;
-  smsStatus: string | null;
+  smsStatus:
+    | 'QUEUED'
+    | 'SENT'
+    | 'DELIVERED'
+    | 'FAILED'
+    | 'SUPPRESSED'
+    | null;
   occurredAt: string;
   capturedAt: string;
   reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -105,7 +108,13 @@ export interface TransactionResponse {
   creditKobo: number;
   availableBalanceKobo: number | null;
   expiresAt: string | null;
-  smsStatus: string | null;
+  smsStatus:
+    | 'QUEUED'
+    | 'SENT'
+    | 'DELIVERED'
+    | 'FAILED'
+    | 'SUPPRESSED'
+    | null;
   ledger: TransactionLedgerItem | null;
 }
 
@@ -441,12 +450,25 @@ export class LoyaltyService {
               nextAttemptAt: now,
             },
           });
-          await publishOutboxEventSafely(
-            toOutboxEventPayload(outboxEvent),
-            this.configService.get<string>('REDIS_URL') ??
-              process.env.REDIS_URL ??
-              'redis://127.0.0.1:6379',
-          );
+          const smsMessage = await prisma.smsMessage.create({
+            data: {
+              tenantId,
+              receiptId: receipt.id,
+              outboxEventId: outboxEvent.id,
+              phoneE164: transactionCard.customer.phoneE164,
+              template: 'earn-confirmed',
+              payload: {
+                receiptId: receipt.id,
+                transactionId: ledgerEntry.id,
+                customerId: transactionCard.customerId,
+                phoneE164: transactionCard.customer.phoneE164,
+                template: 'earn-confirmed',
+                creditKobo: creditKobo.toString(),
+              },
+              status: SmsMessageStatus.QUEUED,
+              queuedAt: now,
+            },
+          });
 
           const response = {
             id: receipt.id,
@@ -470,7 +492,7 @@ export class LoyaltyService {
               ),
             ),
             expiresAt: creditLot.expiresAt.toISOString(),
-            smsStatus: 'PENDING',
+            smsStatus: smsMessage.status,
             occurredAt: occurredAt.toISOString(),
             capturedAt: now.toISOString(),
             reviewStatus: 'APPROVED' as const,
@@ -570,11 +592,10 @@ export class LoyaltyService {
 
     const ledgerEntry = receipt.ledgerEntries[0] ?? null;
     const approval = receipt.approvals[0] ?? null;
-    const outboxEvent = await this.prismaService.outboxEvent.findFirst({
+    const smsMessage = await this.prismaService.smsMessage.findFirst({
       where: {
         tenantId,
-        aggregateId: receipt.id,
-        eventType: 'sms.send',
+        receiptId: receipt.id,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -614,7 +635,7 @@ export class LoyaltyService {
       creditKobo: ledgerEntry ? Number(ledgerEntry.amountKobo) : 0,
       availableBalanceKobo: Number(availableBalanceKobo),
       expiresAt: ledgerEntry?.creditLot?.expiresAt.toISOString() ?? null,
-      smsStatus: outboxEvent?.status ?? null,
+      smsStatus: smsMessage?.status ?? null,
       ledger: ledgerEntry
         ? {
             id: ledgerEntry.id,
@@ -909,12 +930,25 @@ export class LoyaltyService {
             nextAttemptAt: now,
           },
         });
-        await publishOutboxEventSafely(
-          toOutboxEventPayload(outboxEvent),
-          this.configService.get<string>('REDIS_URL') ??
-            process.env.REDIS_URL ??
-            'redis://127.0.0.1:6379',
-        );
+        await prisma.smsMessage.create({
+          data: {
+            tenantId,
+            receiptId: receipt.id,
+            outboxEventId: outboxEvent.id,
+            phoneE164: receipt.customer.phoneE164,
+            template: 'earn-confirmed',
+            payload: {
+              receiptId: receipt.id,
+              transactionId: ledgerEntry.id,
+              customerId: receipt.customerId,
+              phoneE164: receipt.customer.phoneE164,
+              template: 'earn-confirmed',
+              creditKobo: creditKobo.toString(),
+            },
+            status: SmsMessageStatus.QUEUED,
+            queuedAt: now,
+          },
+        });
 
         await prisma.receipt.update({
           where: { tenantId_id: { tenantId, id: receipt.id } },
@@ -1148,35 +1182,6 @@ function addMonths(date: Date, months: number): Date {
   const result = new Date(date.getTime());
   result.setUTCMonth(result.getUTCMonth() + months);
   return result;
-}
-
-type OutboxEventPayload = {
-  id: string;
-  tenantId: string;
-  aggregateType: string;
-  aggregateId: string;
-  eventType: string;
-  payload: Prisma.JsonValue;
-};
-
-function toOutboxEventPayload(event: OutboxEventPayload): OutboxEventPayload {
-  return event;
-}
-
-async function publishOutboxEventSafely(
-  event: OutboxEventPayload,
-  redisUrl: string,
-): Promise<void> {
-  try {
-    const queue = createOutboxQueue(redisUrl);
-    try {
-      await publishOutboxEvent(queue, event);
-    } finally {
-      await queue.close();
-    }
-  } catch {
-    // Outbox publication must not block the financial transaction.
-  }
 }
 
 async function calculateAvailableBalanceKobo(

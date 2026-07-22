@@ -91,8 +91,17 @@ enum ApprovalStatus {
 
 enum OutboxEventStatus {
   PENDING
+  QUEUED
   PUBLISHED
   FAILED
+}
+
+enum SmsMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SUPPRESSED
 }
 
 model Tenant {
@@ -111,6 +120,7 @@ model Tenant {
   creditLots CreditLot[]
   approvals Approval[]
   outboxEvents OutboxEvent[]
+  smsMessages SmsMessage[]
   idempotencyRecords IdempotencyRecord[]
   auditLogs AuditLog[]
 }
@@ -293,6 +303,7 @@ model Receipt {
   approvedByUser           User?    @relation("ReceiptApprovedBy", fields: [approvedByTenantId, approvedBy], references: [tenantId, id], onDelete: SetNull)
   ledgerEntries            LoyaltyLedgerEntry[]
   approvals                Approval[]
+  smsMessages              SmsMessage[]
 
   @@unique([tenantId, branchId, receiptWeekStart, normalizedPosReceiptNumber])
   @@unique([tenantId, id])
@@ -391,8 +402,38 @@ model OutboxEvent {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  smsMessage    SmsMessage?
 
+  @@unique([tenantId, id])
   @@index([tenantId, status, nextAttemptAt])
+}
+
+model SmsMessage {
+  id               String           @id @default(uuid())
+  tenantId         String
+  receiptId        String
+  outboxEventId    String           @unique
+  phoneE164        String
+  template         String
+  payload          Json
+  status           SmsMessageStatus @default(QUEUED)
+  attempts         Int              @default(0)
+  providerMessageId String?
+  lastError        String?
+  queuedAt         DateTime         @default(now())
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  failedAt         DateTime?
+  suppressedAt     DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  receipt          Receipt          @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  outboxEvent      OutboxEvent      @relation(fields: [tenantId, outboxEventId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, receiptId])
+  @@unique([tenantId, outboxEventId])
+  @@index([tenantId, status, queuedAt])
 }
 
 model IdempotencyRecord {
