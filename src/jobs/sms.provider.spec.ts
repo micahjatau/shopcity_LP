@@ -41,6 +41,44 @@ describe('sms provider selection', () => {
     });
   });
 
+  it('allows sandbox mode through the factory', () => {
+    const provider = createSmsProvider({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://example',
+      REDIS_URL: 'redis://localhost:6379',
+      SESSION_SECRET: 'secret',
+      CSRF_SECRET: 'secret',
+      DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
+      DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
+      CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
+      SUPABASE_URL: 'http://127.0.0.1:54321',
+      SUPABASE_ANON_KEY: 'anon',
+      SUPABASE_SERVICE_ROLE_KEY: 'service',
+      SMS_PROVIDER_MODE: 'sandbox',
+    });
+
+    expect(provider).toBeInstanceOf(SandboxSmsProvider);
+  });
+
+  it('allows deterministic mode through the factory outside production', () => {
+    const provider = createSmsProvider({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://example',
+      REDIS_URL: 'redis://localhost:6379',
+      SESSION_SECRET: 'secret',
+      CSRF_SECRET: 'secret',
+      DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
+      DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
+      CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
+      SUPABASE_URL: 'http://127.0.0.1:54321',
+      SUPABASE_ANON_KEY: 'anon',
+      SUPABASE_SERVICE_ROLE_KEY: 'service',
+      SMS_PROVIDER_MODE: 'deterministic',
+    });
+
+    expect(provider).toBeInstanceOf(DeterministicSmsProvider);
+  });
+
   it('rejects deterministic mode in production', () => {
     expect(() =>
       createSmsProvider({

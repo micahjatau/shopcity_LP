@@ -3,16 +3,13 @@ import {
   loadWorkerConfig,
   OutboxWorkerRuntime,
 } from './jobs/outbox-worker.runtime';
-import { DeterministicSmsProvider } from './jobs/sms.provider';
+import { createSmsProvider } from './jobs/sms.provider.factory';
 
-async function bootstrap() {
+export async function bootstrap() {
   const config = loadWorkerConfig(process.env);
+  const smsProvider = createSmsProvider(process.env);
   const prisma = new PrismaService();
-  const runtime = new OutboxWorkerRuntime(
-    prisma,
-    config,
-    new DeterministicSmsProvider(),
-  );
+  const runtime = new OutboxWorkerRuntime(prisma, config, smsProvider);
 
   const shutdown = async () => {
     await runtime.stop();
@@ -33,9 +30,11 @@ async function bootstrap() {
   }
 }
 
-void bootstrap().catch((error) => {
-  process.stderr.write(
-    `${error instanceof Error ? error.stack ?? error.message : String(error)}\n`,
-  );
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  void bootstrap().catch((error) => {
+    process.stderr.write(
+      `${error instanceof Error ? error.stack ?? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+  });
+}

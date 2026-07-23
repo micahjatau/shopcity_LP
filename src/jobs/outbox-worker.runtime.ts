@@ -301,6 +301,14 @@ export class OutboxWorkerRuntime {
       smsMessage ?? (await this.createSmsMessageFromOutboxEvent(outboxEvent));
 
     if (
+      resolvedSmsMessage.deadLetteredAt ||
+      resolvedSmsMessage.attempts >= OUTBOX_RETRY_ATTEMPTS
+    ) {
+      job.discard();
+      return;
+    }
+
+    if (
       resolvedSmsMessage.status === 'SENT' ||
       resolvedSmsMessage.status === 'DELIVERED' ||
       resolvedSmsMessage.status === 'SUPPRESSED'
@@ -371,6 +379,10 @@ export class OutboxWorkerRuntime {
               : null,
         },
       });
+
+      if (deadLetteredAt) {
+        job.discard();
+      }
 
       throw error;
     }

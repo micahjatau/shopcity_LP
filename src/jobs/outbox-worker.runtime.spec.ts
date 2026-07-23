@@ -1,6 +1,81 @@
 import { OutboxWorkerRuntime } from './outbox-worker.runtime';
 
 describe('OutboxWorkerRuntime', () => {
+  it('stops retrying when an SMS row is already dead-lettered', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-1',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: {
+          id: 'sms-1',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-1',
+          outboxEventId: 'outbox-1',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          payload: {},
+          status: 'FAILED',
+          attempts: 4,
+          deadLetteredAt: new Date(),
+        },
+      },
+    });
+    const smsProvider = { send: jest.fn() };
+    const job = { data: { id: 'outbox-1', tenantId: 'tenant-1' }, discard: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider as never,
+    );
+
+    await (runtime as any).handleJob(job);
+
+    expect(smsProvider.send).not.toHaveBeenCalled();
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops retrying when the persisted retry budget is exhausted', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-1',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: {
+          id: 'sms-1',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-1',
+          outboxEventId: 'outbox-1',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          payload: {},
+          status: 'FAILED',
+          attempts: 5,
+        },
+      },
+    });
+    const smsProvider = { send: jest.fn() };
+    const job = { data: { id: 'outbox-1', tenantId: 'tenant-1' }, discard: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider as never,
+    );
+
+    await (runtime as any).handleJob(job);
+
+    expect(smsProvider.send).not.toHaveBeenCalled();
+    expect(job.discard).toHaveBeenCalledTimes(1);
+  });
+
   it('does not resend SMS messages that are already SENT', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -74,17 +149,19 @@ describe('OutboxWorkerRuntime', () => {
     const smsProvider = {
       send: jest.fn().mockRejectedValue(new Error('provider down')),
     };
+    const job = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
     const runtime = new OutboxWorkerRuntime(
       prisma as never,
       runtimeConfig(),
       smsProvider as never,
     );
 
-    await expect(
-      (runtime as any).handleJob({
-        data: { id: 'outbox-1', tenantId: 'tenant-1' },
-      }),
-    ).rejects.toThrow('provider down');
+    await expect((runtime as any).handleJob(job)).rejects.toThrow(
+      'provider down',
+    );
 
     expect(prisma.smsMessage.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,6 +172,7 @@ describe('OutboxWorkerRuntime', () => {
         }),
       }),
     );
+    expect(job.discard).toHaveBeenCalledTimes(1);
   });
 });
 
