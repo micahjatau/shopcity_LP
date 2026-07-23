@@ -45,5 +45,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y redis-server
       - run: npm ci
       - run: npm run test:integration
