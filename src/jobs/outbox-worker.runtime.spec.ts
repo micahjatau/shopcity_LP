@@ -26,7 +26,10 @@ describe('OutboxWorkerRuntime', () => {
       },
     });
     const smsProvider = { send: jest.fn() };
-    const job = { data: { id: 'outbox-1', tenantId: 'tenant-1' }, discard: jest.fn() };
+    const job = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
     const runtime = new OutboxWorkerRuntime(
       prisma as never,
       runtimeConfig(),
@@ -63,7 +66,10 @@ describe('OutboxWorkerRuntime', () => {
       },
     });
     const smsProvider = { send: jest.fn() };
-    const job = { data: { id: 'outbox-1', tenantId: 'tenant-1' }, discard: jest.fn() };
+    const job = {
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
     const runtime = new OutboxWorkerRuntime(
       prisma as never,
       runtimeConfig(),

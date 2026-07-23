@@ -168,7 +168,9 @@ export class OutboxWorkerRuntime {
     }
 
     const now = new Date();
-    const staleCutoff = new Date(now.getTime() - this.config.recoveryThresholdMs);
+    const staleCutoff = new Date(
+      now.getTime() - this.config.recoveryThresholdMs,
+    );
 
     const outboxRows = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.$queryRaw<OutboxClaimRow[]>`
@@ -361,7 +363,9 @@ export class OutboxWorkerRuntime {
               ? new Date(now.getTime() + this.config.retryDelayMs)
               : null,
           deadLetteredAt,
-          failureCategory: deadLetteredAt ? 'dead-lettered' : 'retryable-failure',
+          failureCategory: deadLetteredAt
+            ? 'dead-lettered'
+            : 'retryable-failure',
           lastError:
             error instanceof Error ? error.message : 'SMS delivery failed',
         },
@@ -399,7 +403,9 @@ export class OutboxWorkerRuntime {
     const template = String(payload.template ?? '').trim();
 
     if (!phoneE164 || !template) {
-      throw new Error(`SmsMessage payload missing required fields for ${outboxEvent.id}`);
+      throw new Error(
+        `SmsMessage payload missing required fields for ${outboxEvent.id}`,
+      );
     }
 
     return this.prisma.smsMessage.upsert({
@@ -428,7 +434,9 @@ export class OutboxWorkerRuntime {
   }
 }
 
-function normalizeJsonPayload(payload: Prisma.JsonValue): Record<string, unknown> {
+function normalizeJsonPayload(
+  payload: Prisma.JsonValue,
+): Record<string, unknown> {
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     return payload as Record<string, unknown>;
   }

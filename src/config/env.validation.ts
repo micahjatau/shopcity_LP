@@ -35,17 +35,19 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(Number.MAX_SAFE_INTEGER)
     .default(100000000),
-  OUTBOX_PUBLISH_BATCH_SIZE: Joi.number().integer().min(1).max(1000).default(25),
-  OUTBOX_PUBLISH_INTERVAL_MS: Joi.number()
+  OUTBOX_PUBLISH_BATCH_SIZE: Joi.number()
     .integer()
-    .min(100)
-    .default(5000),
+    .min(1)
+    .max(1000)
+    .default(25),
+  OUTBOX_PUBLISH_INTERVAL_MS: Joi.number().integer().min(100).default(5000),
   OUTBOX_RETRY_DELAY_MS: Joi.number().integer().min(1000).default(30000),
-  OUTBOX_RECOVERY_THRESHOLD_MS: Joi.number()
-    .integer()
-    .min(1000)
-    .default(60000),
-  SMS_PROVIDER_MODE: Joi.string().valid('deterministic').default('deterministic'),
+  OUTBOX_RECOVERY_THRESHOLD_MS: Joi.number().integer().min(1000).default(60000),
+  SMS_PROVIDER_MODE: Joi.string()
+    .valid('deterministic', 'sandbox', 'real')
+    .default('deterministic'),
+  SMS_PROVIDER_URL: Joi.string().uri().optional(),
+  SMS_PROVIDER_TOKEN: Joi.string().optional(),
   REDEMPTION_APPROVAL_THRESHOLD_KOBO: Joi.number()
     .integer()
     .min(0)

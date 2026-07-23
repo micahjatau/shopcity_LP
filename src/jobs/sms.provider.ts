@@ -1,8 +1,4 @@
-export type SmsDeliveryOutcome =
-  | 'SENT'
-  | 'DELIVERED'
-  | 'FAILED'
-  | 'SUPPRESSED';
+export type SmsDeliveryOutcome = 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED';
 
 export interface SmsSendInput {
   tenantId: string;

@@ -1,7 +1,4 @@
-import {
-  DeterministicSmsProvider,
-  SandboxSmsProvider,
-} from './sms.provider';
+import { DeterministicSmsProvider, SandboxSmsProvider } from './sms.provider';
 import { createSmsProvider } from './sms.provider.factory';
 
 describe('sms provider selection', () => {

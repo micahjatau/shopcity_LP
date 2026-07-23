@@ -91,6 +91,18 @@ describe('OpenAPI contract (int)', () => {
     expect(
       document.paths['/api/v1/transactions/earn']?.post?.responses?.['202'],
     ).toBeDefined();
+
+    const confirmedSchema = resolveResponseDataSchema(
+      document,
+      document.paths['/api/v1/transactions/earn']?.post?.responses?.['201'],
+    );
+    const pendingSchema = resolveResponseDataSchema(
+      document,
+      document.paths['/api/v1/transactions/earn']?.post?.responses?.['202'],
+    );
+
+    expect(confirmedSchema?.properties?.transactionId).toBeDefined();
+    expect(pendingSchema?.properties?.transactionId).toBeDefined();
   });
 });
 
@@ -122,4 +134,39 @@ function resolveRequestBodySchema(
   }
 
   return schema;
+}
+
+function resolveResponseDataSchema(
+  document: ReturnType<typeof buildOpenApiDocument>,
+  response: unknown,
+) {
+  const content = response as {
+    content?: {
+      ['application/json']?: {
+        schema?: {
+          properties?: {
+            data?: {
+              $ref?: string;
+              properties?: Record<string, unknown>;
+            };
+          };
+        };
+      };
+    };
+  };
+  const dataSchema =
+    content.content?.['application/json']?.schema?.properties?.data;
+
+  if (!dataSchema) {
+    return undefined;
+  }
+
+  if (dataSchema.$ref) {
+    const refName = dataSchema.$ref.split('/').pop() as string;
+    return document.components?.schemas?.[refName] as {
+      properties?: Record<string, unknown>;
+    };
+  }
+
+  return dataSchema;
 }

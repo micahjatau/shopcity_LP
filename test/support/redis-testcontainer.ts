@@ -24,7 +24,16 @@ export async function createRedisTestEnvironment(): Promise<RedisTestEnvironment
 
     child = spawn(
       'redis-server',
-      ['--bind', '127.0.0.1', '--port', String(port), '--save', '', '--appendonly', 'no'],
+      [
+        '--bind',
+        '127.0.0.1',
+        '--port',
+        String(port),
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+      ],
       {
         stdio: 'ignore',
       },
@@ -129,7 +138,11 @@ async function waitForRedisToBeReady(redisUrl: string) {
   throw new Error(`Redis at ${redisUrl} did not become ready in time`);
 }
 
-async function waitForTcpPort(hostname: string, port: number, timeoutMs: number) {
+async function waitForTcpPort(
+  hostname: string,
+  port: number,
+  timeoutMs: number,
+) {
   await new Promise<void>((resolve, reject) => {
     const client = createConnection({ host: hostname, port });
     const timeout = setTimeout(() => {

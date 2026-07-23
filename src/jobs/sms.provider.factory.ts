@@ -13,12 +13,16 @@ export function createSmsProvider(env = process.env): SmsProvider {
   });
 
   if (result.error) {
-    throw new Error(`Invalid SMS provider environment: ${result.error.message}`);
+    throw new Error(
+      `Invalid SMS provider environment: ${result.error.message}`,
+    );
   }
 
   const values = result.value as Record<string, unknown>;
   const mode = String(values.SMS_PROVIDER_MODE ?? 'deterministic');
-  const nodeEnv = String(values.NODE_ENV ?? process.env.NODE_ENV ?? 'development');
+  const nodeEnv = String(
+    values.NODE_ENV ?? process.env.NODE_ENV ?? 'development',
+  );
 
   if (nodeEnv === 'production' && mode === 'deterministic') {
     throw new Error('Deterministic SMS provider is not allowed in production');

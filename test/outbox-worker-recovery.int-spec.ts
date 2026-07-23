@@ -140,11 +140,17 @@ describe('outbox worker recovery (int)', () => {
         });
 
         const outboxEvent = await prisma.outboxEvent.findFirst({
-          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          where: {
+            tenantId: fixture.tenant.id,
+            aggregateId: response.receiptId,
+          },
           orderBy: { createdAt: 'desc' },
         });
 
-        return smsMessage?.status === 'DELIVERED' && outboxEvent?.status === 'PUBLISHED';
+        return (
+          smsMessage?.status === 'DELIVERED' &&
+          outboxEvent?.status === 'PUBLISHED'
+        );
       });
 
       const smsMessage = await prisma.smsMessage.findUnique({
@@ -199,11 +205,16 @@ describe('outbox worker recovery (int)', () => {
         });
 
         const outboxEvent = await prisma.outboxEvent.findFirst({
-          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          where: {
+            tenantId: fixture.tenant.id,
+            aggregateId: response.receiptId,
+          },
           orderBy: { createdAt: 'desc' },
         });
 
-        return smsMessage?.status === 'QUEUED' && outboxEvent?.status === 'PENDING';
+        return (
+          smsMessage?.status === 'QUEUED' && outboxEvent?.status === 'PENDING'
+        );
       });
 
       await redisEnv.restart();
@@ -231,11 +242,17 @@ describe('outbox worker recovery (int)', () => {
         });
 
         const outboxEvent = await prisma.outboxEvent.findFirst({
-          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          where: {
+            tenantId: fixture.tenant.id,
+            aggregateId: response.receiptId,
+          },
           orderBy: { createdAt: 'desc' },
         });
 
-        return smsMessage?.status === 'DELIVERED' && outboxEvent?.status === 'PUBLISHED';
+        return (
+          smsMessage?.status === 'DELIVERED' &&
+          outboxEvent?.status === 'PUBLISHED'
+        );
       }, 20000);
 
       const [smsMessage, outboxEvent] = await Promise.all([
@@ -248,7 +265,10 @@ describe('outbox worker recovery (int)', () => {
           },
         }),
         prisma.outboxEvent.findFirst({
-          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          where: {
+            tenantId: fixture.tenant.id,
+            aggregateId: response.receiptId,
+          },
           orderBy: { createdAt: 'desc' },
         }),
       ]);
@@ -390,7 +410,10 @@ describe('outbox worker recovery (int)', () => {
           where: { tenantId: fixture.tenant.id, receiptId: response.receiptId },
         }),
         prisma.outboxEvent.count({
-          where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+          where: {
+            tenantId: fixture.tenant.id,
+            aggregateId: response.receiptId,
+          },
         }),
       ]);
 
