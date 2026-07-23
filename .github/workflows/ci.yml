@@ -4,41 +4,46 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  verify:
+  static:
+    name: Static Checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
+      - run: npm run verify:fast
 
-      - run: npm run prisma:generate
+  gitnexus:
+    name: GitNexus
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run gitnexus:smoke
+      - run: npm run gitnexus:analyze
 
-      - run: npm run prisma:validate
-
-      - run: npm run build
-
-      - run: npm run format:check
-
-      - run: npm run lint
-
-      - run: npm run architecture:check
-
-      - run: npm run typecheck
-
-      - run: npm run openapi:lint
-
-      - run: npm test -- --runInBand
-
-      - run: npm run test:e2e
-
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm run test:integration
-
-      - run: npm run openapi:diff
-
-      - run: git diff --exit-code -- docs/api/openapi.json

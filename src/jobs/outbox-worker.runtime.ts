@@ -398,9 +398,9 @@ export class OutboxWorkerRuntime {
     payload: Prisma.JsonValue;
   }) {
     const payload = normalizeJsonPayload(outboxEvent.payload);
-    const receiptId = String(payload.receiptId ?? outboxEvent.id);
-    const phoneE164 = String(payload.phoneE164 ?? '').trim();
-    const template = String(payload.template ?? '').trim();
+    const receiptId = readStringField(payload, 'receiptId', outboxEvent.id);
+    const phoneE164 = readStringField(payload, 'phoneE164').trim();
+    const template = readStringField(payload, 'template').trim();
 
     if (!phoneE164 || !template) {
       throw new Error(
@@ -421,7 +421,7 @@ export class OutboxWorkerRuntime {
         outboxEventId: outboxEvent.id,
         phoneE164,
         template,
-        payload: payload as Prisma.InputJsonValue,
+        payload,
         status: 'QUEUED',
         queuedAt: new Date(),
         lastAttemptAt: null,
@@ -436,12 +436,30 @@ export class OutboxWorkerRuntime {
 
 function normalizeJsonPayload(
   payload: Prisma.JsonValue,
-): Record<string, unknown> {
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-    return payload as Record<string, unknown>;
+): Record<string, Prisma.JsonValue> {
+  if (isJsonObject(payload)) {
+    return payload;
   }
 
-  return { value: payload as unknown as Record<string, unknown> };
+  return { value: payload };
+}
+
+function isJsonObject(
+  payload: Prisma.JsonValue,
+): payload is Record<string, Prisma.JsonValue> {
+  return (
+    Boolean(payload) && typeof payload === 'object' && !Array.isArray(payload)
+  );
+}
+
+function readStringField(
+  payload: Record<string, Prisma.JsonValue>,
+  key: string,
+  fallback = '',
+): string {
+  const value = payload[key];
+
+  return typeof value === 'string' ? value : fallback;
 }
 
 function mapSmsDispatchResult(

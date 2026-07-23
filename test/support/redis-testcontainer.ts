@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { createConnection, createServer } from 'node:net';
 import { createClient } from 'redis';
 
@@ -14,7 +14,7 @@ export interface RedisTestEnvironment {
 
 export async function createRedisTestEnvironment(): Promise<RedisTestEnvironment> {
   const port = await getFreePort();
-  let child: ChildProcessWithoutNullStreams | undefined;
+  let child: ChildProcess | undefined;
   const redisUrl = `redis://127.0.0.1:${port}`;
 
   const startProcess = async () => {

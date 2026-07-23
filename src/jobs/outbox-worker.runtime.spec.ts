@@ -1,4 +1,6 @@
+import type { PrismaService } from '../database/prisma.service';
 import { OutboxWorkerRuntime } from './outbox-worker.runtime';
+import type { OutboxJobPayload } from './outbox.worker';
 
 describe('OutboxWorkerRuntime', () => {
   it('stops retrying when an SMS row is already dead-lettered', async () => {
@@ -26,20 +28,22 @@ describe('OutboxWorkerRuntime', () => {
       },
     });
     const smsProvider = { send: jest.fn() };
-    const job = {
+    const job: TestJob = {
       data: { id: 'outbox-1', tenantId: 'tenant-1' },
       discard: jest.fn(),
     };
     const runtime = new OutboxWorkerRuntime(
-      prisma as never,
+      prisma,
       runtimeConfig(),
-      smsProvider as never,
+      smsProvider,
     );
+    const { outboxEventUpdate } = prisma;
 
-    await (runtime as any).handleJob(job);
+    await runtimeWithHandleJob(runtime).handleJob(job);
 
     expect(smsProvider.send).not.toHaveBeenCalled();
     expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(outboxEventUpdate).toHaveBeenCalledTimes(1);
   });
 
   it('stops retrying when the persisted retry budget is exhausted', async () => {
@@ -66,17 +70,17 @@ describe('OutboxWorkerRuntime', () => {
       },
     });
     const smsProvider = { send: jest.fn() };
-    const job = {
+    const job: TestJob = {
       data: { id: 'outbox-1', tenantId: 'tenant-1' },
       discard: jest.fn(),
     };
     const runtime = new OutboxWorkerRuntime(
-      prisma as never,
+      prisma,
       runtimeConfig(),
-      smsProvider as never,
+      smsProvider,
     );
 
-    await (runtime as any).handleJob(job);
+    await runtimeWithHandleJob(runtime).handleJob(job);
 
     expect(smsProvider.send).not.toHaveBeenCalled();
     expect(job.discard).toHaveBeenCalledTimes(1);
@@ -107,17 +111,17 @@ describe('OutboxWorkerRuntime', () => {
     });
     const smsProvider = { send: jest.fn() };
     const runtime = new OutboxWorkerRuntime(
-      prisma as never,
+      prisma,
       runtimeConfig(),
-      smsProvider as never,
+      smsProvider,
     );
 
-    await (runtime as any).handleJob({
+    await runtimeWithHandleJob(runtime).handleJob({
       data: { id: 'outbox-1', tenantId: 'tenant-1' },
     });
 
     expect(smsProvider.send).not.toHaveBeenCalled();
-    expect(prisma.outboxEvent.update).toHaveBeenCalledWith(
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           tenantId_id: { tenantId: 'tenant-1', id: 'outbox-1' },
@@ -148,39 +152,49 @@ describe('OutboxWorkerRuntime', () => {
           attempts: 4,
         },
       },
-      smsMessage: {
-        update: jest.fn().mockResolvedValue(undefined),
-      },
     });
     const smsProvider = {
       send: jest.fn().mockRejectedValue(new Error('provider down')),
     };
-    const job = {
+    const job: TestJob = {
       data: { id: 'outbox-1', tenantId: 'tenant-1' },
       discard: jest.fn(),
     };
     const runtime = new OutboxWorkerRuntime(
-      prisma as never,
+      prisma,
       runtimeConfig(),
-      smsProvider as never,
+      smsProvider,
     );
 
-    await expect((runtime as any).handleJob(job)).rejects.toThrow(
+    await expect(runtimeWithHandleJob(runtime).handleJob(job)).rejects.toThrow(
       'provider down',
     );
 
-    expect(prisma.smsMessage.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          deadLetteredAt: expect.any(Date),
-          failureCategory: 'dead-lettered',
-          nextAttemptAt: null,
-        }),
-      }),
+    expect(prisma.smsMessageUpdateCalls[0]?.data.deadLetteredAt).toBeInstanceOf(
+      Date,
     );
+    expect(prisma.smsMessageUpdateCalls[0]?.data.failureCategory).toBe(
+      'dead-lettered',
+    );
+    expect(prisma.smsMessageUpdateCalls[0]?.data.nextAttemptAt).toBeNull();
     expect(job.discard).toHaveBeenCalledTimes(1);
   });
 });
+
+type TestJob = {
+  data: Pick<OutboxJobPayload, 'id' | 'tenantId'>;
+  discard?: jest.Mock;
+};
+
+type RuntimeWithHandleJob = {
+  handleJob(job: TestJob): Promise<void>;
+};
+
+function runtimeWithHandleJob(
+  runtime: OutboxWorkerRuntime,
+): RuntimeWithHandleJob {
+  return runtime as unknown as RuntimeWithHandleJob;
+}
 
 function runtimeConfig() {
   return {
@@ -192,24 +206,76 @@ function runtimeConfig() {
   };
 }
 
-function prismaStub(overrides: any) {
-  const outboxEvent = overrides.outboxEvent as any;
+type PrismaStubOverrides = {
+  outboxEvent: {
+    id: string;
+    tenantId: string;
+    aggregateType: string;
+    aggregateId: string;
+    eventType: string;
+    payload: Record<string, unknown>;
+    publishedAt: Date | null;
+    smsMessage: {
+      id: string;
+      tenantId: string;
+      receiptId: string;
+      outboxEventId: string;
+      phoneE164: string;
+      template: string;
+      payload: Record<string, unknown>;
+      status: string;
+      attempts: number;
+      deadLetteredAt?: Date | null;
+    };
+  };
+  smsMessage?: {
+    update?: jest.Mock;
+  };
+};
+
+type SmsMessageUpdateArgs = {
+  data: {
+    deadLetteredAt: Date;
+    failureCategory: string;
+    nextAttemptAt: null;
+  };
+};
+
+type PrismaStub = PrismaService & {
+  outboxEventUpdate: jest.Mock;
+  smsMessageUpdate: jest.Mock;
+  smsMessageUpdateCalls: SmsMessageUpdateArgs[];
+};
+
+function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
+  const { outboxEvent } = overrides;
+  const outboxEventUpdate = jest.fn().mockResolvedValue(undefined);
+  const smsMessageUpdateCalls: SmsMessageUpdateArgs[] = [];
+  const smsMessageUpdate =
+    overrides.smsMessage?.update ??
+    jest.fn((args: SmsMessageUpdateArgs) => {
+      smsMessageUpdateCalls.push(args);
+      return Promise.resolve(undefined);
+    });
 
   return {
     outboxEvent: {
       findUnique: jest.fn().mockResolvedValue(outboxEvent),
-      update: jest.fn().mockResolvedValue(undefined),
+      update: outboxEventUpdate,
       updateMany: jest.fn().mockResolvedValue(undefined),
       findMany: jest.fn().mockResolvedValue([outboxEvent]),
     },
     smsMessage: {
-      update: jest.fn().mockResolvedValue(undefined),
+      update: smsMessageUpdate,
       upsert: jest.fn().mockResolvedValue(outboxEvent.smsMessage),
     },
     $connect: jest.fn().mockResolvedValue(undefined),
     $disconnect: jest.fn().mockResolvedValue(undefined),
-    $transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) =>
-      callback({} as any),
+    $transaction: jest.fn(async (callback: (tx: never) => Promise<unknown>) =>
+      callback(undefined as never),
     ),
-  };
+    outboxEventUpdate,
+    smsMessageUpdate,
+    smsMessageUpdateCalls,
+  } as unknown as PrismaStub;
 }

@@ -20,20 +20,20 @@ export interface SmsProvider {
 }
 
 export class DeterministicSmsProvider implements SmsProvider {
-  async send(input: SmsSendInput): Promise<SmsSendResult> {
-    return {
+  send(input: SmsSendInput): Promise<SmsSendResult> {
+    return Promise.resolve({
       status: 'DELIVERED',
       providerMessageId: `sms-${input.outboxEventId}`,
-    };
+    });
   }
 }
 
 export class SandboxSmsProvider implements SmsProvider {
-  async send(input: SmsSendInput): Promise<SmsSendResult> {
-    return {
+  send(input: SmsSendInput): Promise<SmsSendResult> {
+    return Promise.resolve({
       status: 'SENT',
       providerMessageId: `sandbox-${input.outboxEventId}`,
-    };
+    });
   }
 }
 

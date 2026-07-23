@@ -433,7 +433,7 @@ describe('outbox worker recovery (int)', () => {
         ...process.env,
         REDIS_URL: redisEnv.redisUrl,
       }),
-      new ScriptedSmsProvider(async () => ({
+      new ScriptedSmsProvider(() => ({
         status: 'FAILED',
         errorMessage: 'provider offline',
       })),

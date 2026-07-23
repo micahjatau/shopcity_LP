@@ -812,7 +812,9 @@ describe('receipt capture flows (int)', () => {
       `/api/v1/receipts/${receiptBody.data.id}/approve`,
       fixture.authHeaders,
     ).expect(400);
-    expect(response.body.error.code).toBe('APPROVAL_SELF_DECISION_FORBIDDEN');
+    expect((response.body as { error: { code: string } }).error.code).toBe(
+      'APPROVAL_SELF_DECISION_FORBIDDEN',
+    );
   }, 120000);
 
   it('rejects a pending receipt through the approval workflow', async () => {
