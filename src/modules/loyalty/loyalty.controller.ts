@@ -44,6 +44,7 @@ export class LoyaltyController {
       type: 'object',
       required: [
         'id',
+        'transactionId',
         'state',
         'receiptId',
         'tenantId',
@@ -61,6 +62,7 @@ export class LoyaltyController {
       ],
       properties: {
         id: { type: 'string', format: 'uuid' },
+        transactionId: { type: 'string', format: 'uuid', nullable: true },
         state: { type: 'string', example: 'CONFIRMED' },
         receiptId: { type: 'string', format: 'uuid' },
         approvalId: { type: 'string', format: 'uuid', nullable: true },
@@ -90,6 +92,7 @@ export class LoyaltyController {
       type: 'object',
       required: [
         'id',
+        'transactionId',
         'state',
         'receiptId',
         'tenantId',
@@ -107,6 +110,7 @@ export class LoyaltyController {
       ],
       properties: {
         id: { type: 'string', format: 'uuid' },
+        transactionId: { type: 'string', format: 'uuid', nullable: true },
         state: { type: 'string', example: 'PENDING_APPROVAL' },
         receiptId: { type: 'string', format: 'uuid' },
         approvalId: { type: 'string', format: 'uuid', nullable: true },
@@ -155,7 +159,13 @@ export class LoyaltyController {
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
     description: 'Transaction details',
-    dataSchema: { type: 'object' },
+    dataSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', format: 'uuid' },
+        transactionId: { type: 'string', format: 'uuid' },
+      },
+    },
   })
   @ApiOperation({ summary: 'Get transaction details' })
   getTransaction(

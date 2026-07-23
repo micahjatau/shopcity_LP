@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -23,6 +22,7 @@ import { createHash } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthContext } from '../../common/auth/session.types';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 import { EarnTransactionDto } from './loyalty.dto';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
@@ -33,6 +33,7 @@ const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface EarnTransactionResponse {
   id: string;
+  transactionId: string | null;
   state: 'CONFIRMED' | 'PENDING_APPROVAL';
   receiptId: string;
   approvalId?: string | null;
@@ -48,13 +49,7 @@ export interface EarnTransactionResponse {
   captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
   availableBalanceKobo: number | null;
   expiresAt: string | null;
-  smsStatus:
-    | 'QUEUED'
-    | 'SENT'
-    | 'DELIVERED'
-    | 'FAILED'
-    | 'SUPPRESSED'
-    | null;
+  smsStatus: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED' | null;
   occurredAt: string;
   capturedAt: string;
   reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -90,6 +85,7 @@ export interface TransactionLedgerItem {
 
 export interface TransactionResponse {
   id: string;
+  transactionId: string;
   tenantId: string;
   branchId: string;
   customerId: string;
@@ -108,13 +104,7 @@ export interface TransactionResponse {
   creditKobo: number;
   availableBalanceKobo: number | null;
   expiresAt: string | null;
-  smsStatus:
-    | 'QUEUED'
-    | 'SENT'
-    | 'DELIVERED'
-    | 'FAILED'
-    | 'SUPPRESSED'
-    | null;
+  smsStatus: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED' | null;
   ledger: TransactionLedgerItem | null;
 }
 
@@ -170,7 +160,11 @@ export class LoyaltyService {
     assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
 
     if (!sessionDeviceId) {
-      throw new BadRequestException('Session device is required');
+      throw new DomainHttpException(
+        400,
+        'SESSION_DEVICE_REQUIRED',
+        'Session device is required',
+      );
     }
 
     const overrideApplied = assertReceiptTimestampAllowed(
@@ -205,14 +199,20 @@ export class LoyaltyService {
             transactionDevice.status !== DeviceStatus.ACTIVE ||
             transactionDevice.branch.status !== BranchStatus.ACTIVE
           ) {
-            throw new BadRequestException('Device is not active');
+            throw new DomainHttpException(
+              400,
+              'DEVICE_NOT_ACTIVE',
+              'Device is not active',
+            );
           }
 
           if (
             actor.user.branchId &&
             actor.user.branchId !== transactionDevice.branchId
           ) {
-            throw new BadRequestException(
+            throw new DomainHttpException(
+              400,
+              'DEVICE_BRANCH_MISMATCH',
               'Device does not belong to cashier branch',
             );
           }
@@ -223,12 +223,20 @@ export class LoyaltyService {
             transactionCard.customer.status !== CustomerStatus.ACTIVE ||
             transactionCard.customer.isStaff
           ) {
-            throw new NotFoundException('Card not found');
+            throw new DomainHttpException(
+              404,
+              'CARD_NOT_FOUND',
+              'Card not found',
+            );
           }
 
           const branchId = actor.user.branchId ?? transactionDevice.branchId;
           if (!branchId) {
-            throw new BadRequestException('Branch context is required');
+            throw new DomainHttpException(
+              400,
+              'BRANCH_CONTEXT_REQUIRED',
+              'Branch context is required',
+            );
           }
 
           const receiptWeekStart = deriveReceiptWeekStart(
@@ -259,7 +267,9 @@ export class LoyaltyService {
             });
           } else if (existing) {
             if (existing.requestHash !== requestHash) {
-              throw new ConflictException(
+              throw new DomainHttpException(
+                409,
+                'IDEMPOTENCY_CONFLICT',
                 'Idempotency key reused with different payload',
               );
             }
@@ -283,7 +293,11 @@ export class LoyaltyService {
           });
 
           if (duplicateReceipt) {
-            throw new ConflictException('Physical receipt already captured');
+            throw new DomainHttpException(
+              409,
+              'RECEIPT_ALREADY_CAPTURED',
+              'Physical receipt already captured',
+            );
           }
 
           const captureStatus = resolveCaptureStatus(
@@ -354,6 +368,7 @@ export class LoyaltyService {
 
             const response = {
               id: receipt.id,
+              transactionId: null,
               state: 'PENDING_APPROVAL' as const,
               receiptId: receipt.id,
               approvalId: approval.id,
@@ -472,6 +487,7 @@ export class LoyaltyService {
 
           const response = {
             id: receipt.id,
+            transactionId: ledgerEntry.id,
             state: 'CONFIRMED' as const,
             receiptId: receipt.id,
             ledgerEntryId: ledgerEntry.id,
@@ -558,13 +574,34 @@ export class LoyaltyService {
           return replay.responseJson as unknown as EarnTransactionResponse;
         }
 
-        throw new ConflictException(
+        throw new DomainHttpException(
+          409,
+          'IDEMPOTENCY_CONFLICT',
           'Idempotency key reused with different payload',
         );
       }
 
       if (isUniqueReceiptConflict(error) || isTransactionConflict(error)) {
-        throw new ConflictException('Physical receipt already captured');
+        const replay = await this.prismaService.idempotencyRecord.findUnique({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint: EARN_ENDPOINT,
+              idempotencyKey: normalizedKey,
+            },
+          },
+        });
+
+        if (replay?.requestHash === requestHash && replay.responseJson) {
+          return replay.responseJson as unknown as EarnTransactionResponse;
+        }
+
+        throw new DomainHttpException(
+          409,
+          'RECEIPT_ALREADY_CAPTURED',
+          'Physical receipt already captured',
+        );
       }
 
       throw error;
@@ -575,22 +612,30 @@ export class LoyaltyService {
     tenantId: string,
     transactionId: string,
   ): Promise<TransactionResponse> {
-    const receipt = await this.prismaService.receipt.findFirst({
+    const ledgerEntry = await this.prismaService.loyaltyLedgerEntry.findFirst({
       where: { tenantId, id: transactionId },
       include: {
-        card: true,
-        customer: true,
-        device: true,
-        approvals: true,
-        ledgerEntries: { include: { creditLot: true } },
+        creditLot: true,
+        receipt: {
+          include: {
+            card: true,
+            customer: true,
+            device: true,
+            approvals: true,
+          },
+        },
       },
     });
 
-    if (!receipt) {
-      throw new NotFoundException('Transaction not found');
+    if (!ledgerEntry) {
+      throw new DomainHttpException(
+        404,
+        'TRANSACTION_NOT_FOUND',
+        'Transaction not found',
+      );
     }
 
-    const ledgerEntry = receipt.ledgerEntries[0] ?? null;
+    const receipt = ledgerEntry.receipt;
     const approval = receipt.approvals[0] ?? null;
     const smsMessage = await this.prismaService.smsMessage.findFirst({
       where: {
@@ -607,6 +652,7 @@ export class LoyaltyService {
 
     return {
       id: receipt.id,
+      transactionId: ledgerEntry.id,
       tenantId: receipt.tenantId,
       branchId: receipt.branchId,
       customerId: receipt.customerId,
@@ -616,50 +662,38 @@ export class LoyaltyService {
       purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
       occurredAt: receipt.occurredAt.toISOString(),
       capturedAt: receipt.capturedAt.toISOString(),
-      state: ledgerEntry
-        ? 'CONFIRMED'
-        : approval?.status === ApprovalStatus.REJECTED
-          ? 'REJECTED'
-          : approval?.status === ApprovalStatus.PENDING
-            ? 'PENDING_APPROVAL'
-            : receipt.reviewStatus === ReceiptReviewStatus.PENDING
-              ? 'PENDING_APPROVAL'
-              : receipt.reviewStatus === ReceiptReviewStatus.REJECTED
-                ? 'REJECTED'
-                : 'INVALID',
+      state: 'CONFIRMED',
       captureStatus: receipt.captureStatus,
       reviewStatus: receipt.reviewStatus,
       approvalId: approval?.id ?? null,
       approvalStatus: approval?.status ?? null,
-      ledgerEntryId: ledgerEntry?.id ?? null,
-      creditKobo: ledgerEntry ? Number(ledgerEntry.amountKobo) : 0,
+      ledgerEntryId: ledgerEntry.id,
+      creditKobo: Number(ledgerEntry.amountKobo),
       availableBalanceKobo: Number(availableBalanceKobo),
-      expiresAt: ledgerEntry?.creditLot?.expiresAt.toISOString() ?? null,
+      expiresAt: ledgerEntry.creditLot?.expiresAt.toISOString() ?? null,
       smsStatus: smsMessage?.status ?? null,
-      ledger: ledgerEntry
-        ? {
-            id: ledgerEntry.id,
-            receiptId: ledgerEntry.receiptId,
-            type: ledgerEntry.type,
-            direction: ledgerEntry.direction,
-            amountKobo: Number(ledgerEntry.amountKobo),
-            status: ledgerEntry.status,
-            effectiveAt: ledgerEntry.effectiveAt.toISOString(),
-            creditLot: ledgerEntry.creditLot
-              ? {
-                  id: ledgerEntry.creditLot.id,
-                  originalAmountKobo: Number(
-                    ledgerEntry.creditLot.originalAmountKobo,
-                  ),
-                  remainingAmountKobo: Number(
-                    ledgerEntry.creditLot.remainingAmountKobo,
-                  ),
-                  earnedAt: ledgerEntry.creditLot.earnedAt.toISOString(),
-                  expiresAt: ledgerEntry.creditLot.expiresAt.toISOString(),
-                }
-              : null,
-          }
-        : null,
+      ledger: {
+        id: ledgerEntry.id,
+        receiptId: ledgerEntry.receiptId,
+        type: ledgerEntry.type,
+        direction: ledgerEntry.direction,
+        amountKobo: Number(ledgerEntry.amountKobo),
+        status: ledgerEntry.status,
+        effectiveAt: ledgerEntry.effectiveAt.toISOString(),
+        creditLot: ledgerEntry.creditLot
+          ? {
+              id: ledgerEntry.creditLot.id,
+              originalAmountKobo: Number(
+                ledgerEntry.creditLot.originalAmountKobo,
+              ),
+              remainingAmountKobo: Number(
+                ledgerEntry.creditLot.remainingAmountKobo,
+              ),
+              earnedAt: ledgerEntry.creditLot.earnedAt.toISOString(),
+              expiresAt: ledgerEntry.creditLot.expiresAt.toISOString(),
+            }
+          : null,
+      },
     };
   }
 
@@ -765,18 +799,30 @@ export class LoyaltyService {
         });
 
         if (!approval) {
-          throw new NotFoundException('Approval not found');
+          throw new DomainHttpException(
+            404,
+            'APPROVAL_NOT_FOUND',
+            'Approval not found',
+          );
         }
 
         if (
           approval.requestedByTenantId === actor.user.tenantId &&
           approval.requestedBy === actor.user.id
         ) {
-          throw new BadRequestException('Requester cannot decide own approval');
+          throw new DomainHttpException(
+            400,
+            'APPROVAL_SELF_DECISION_FORBIDDEN',
+            'Requester cannot decide own approval',
+          );
         }
 
         if (approval.status !== ApprovalStatus.PENDING) {
-          throw new ConflictException('Approval has already been decided');
+          throw new DomainHttpException(
+            409,
+            'APPROVAL_ALREADY_DECIDED',
+            'Approval has already been decided',
+          );
         }
 
         if (decision === 'REJECTED') {
@@ -793,7 +839,11 @@ export class LoyaltyService {
           });
 
           if (updated.count !== 1) {
-            throw new ConflictException('Approval has already been decided');
+            throw new DomainHttpException(
+              409,
+              'APPROVAL_ALREADY_DECIDED',
+              'Approval has already been decided',
+            );
           }
 
           await prisma.receipt.update({
@@ -833,14 +883,20 @@ export class LoyaltyService {
           receipt.captureStatus !== 'PENDING_APPROVAL' ||
           receipt.reviewStatus !== ReceiptReviewStatus.PENDING
         ) {
-          throw new BadRequestException('Receipt does not require review');
+          throw new DomainHttpException(
+            400,
+            'RECEIPT_NOT_ELIGIBLE',
+            'Receipt does not require review',
+          );
         }
 
         if (
           receipt.capturedByTenantId === actor.user.tenantId &&
           receipt.capturedBy === actor.user.id
         ) {
-          throw new BadRequestException(
+          throw new DomainHttpException(
+            400,
+            'REVIEW_SELF_DECISION_FORBIDDEN',
             'Capturing cashier cannot review the same receipt',
           );
         }
@@ -852,7 +908,11 @@ export class LoyaltyService {
           receipt.customer.status !== CustomerStatus.ACTIVE ||
           receipt.customer.isStaff
         ) {
-          throw new BadRequestException('Receipt is no longer eligible');
+          throw new DomainHttpException(
+            422,
+            'RECEIPT_NO_LONGER_ELIGIBLE',
+            'Receipt is no longer eligible',
+          );
         }
 
         const now = new Date();
@@ -868,7 +928,11 @@ export class LoyaltyService {
         });
 
         if (approved.count !== 1) {
-          throw new ConflictException('Approval has already been decided');
+          throw new DomainHttpException(
+            409,
+            'APPROVAL_ALREADY_DECIDED',
+            'Approval has already been decided',
+          );
         }
 
         const creditKobo = calculateCreditKobo(
@@ -881,7 +945,11 @@ export class LoyaltyService {
         });
 
         if (existingLedger) {
-          throw new ConflictException('Ledger entry already exists');
+          throw new DomainHttpException(
+            409,
+            'LEDGER_ENTRY_ALREADY_EXISTS',
+            'Ledger entry already exists',
+          );
         }
 
         const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
@@ -972,7 +1040,11 @@ export class LoyaltyService {
         });
 
         if (executed.count !== 1) {
-          throw new ConflictException('Approval execution did not complete');
+          throw new DomainHttpException(
+            409,
+            'APPROVAL_EXECUTION_FAILED',
+            'Approval execution did not complete',
+          );
         }
 
         await this.auditService.recordWithClient(prisma, {
@@ -1179,9 +1251,26 @@ function calculateCreditKobo(
 }
 
 function addMonths(date: Date, months: number): Date {
-  const result = new Date(date.getTime());
-  result.setUTCMonth(result.getUTCMonth() + months);
-  return result;
+  const year = date.getUTCFullYear();
+  const monthIndex = date.getUTCMonth() + months;
+  const targetYear = year + Math.floor(monthIndex / 12);
+  const targetMonth = ((monthIndex % 12) + 12) % 12;
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(targetYear, targetMonth + 1, 0),
+  ).getUTCDate();
+  const day = Math.min(date.getUTCDate(), lastDayOfTargetMonth);
+
+  return new Date(
+    Date.UTC(
+      targetYear,
+      targetMonth,
+      day,
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds(),
+      date.getUTCMilliseconds(),
+    ),
+  );
 }
 
 async function calculateAvailableBalanceKobo(

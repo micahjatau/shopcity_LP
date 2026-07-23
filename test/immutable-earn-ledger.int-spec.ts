@@ -81,11 +81,7 @@ describe('immutable earn ledger (int)', () => {
     } as never;
 
     loyaltyService = new LoyaltyService(prisma, auditService, configService);
-    approvalsService = new ApprovalsService(
-      loyaltyService,
-      prisma,
-      auditService,
-    );
+    approvalsService = new ApprovalsService(loyaltyService);
   }, 120000);
 
   afterAll(async () => {
@@ -134,6 +130,7 @@ describe('immutable earn ledger (int)', () => {
     expect(first.availableBalanceKobo).toBe(20_000);
     expect(first.smsStatus).toBe('QUEUED');
     expect(first.expiresAt).toBeTruthy();
+    expect(first.transactionId).toBeDefined();
 
     await expect(
       loyaltyService.earn(tenant.id, fixture.actor, 'earn-confirmed-key', {
@@ -142,7 +139,9 @@ describe('immutable earn ledger (int)', () => {
         purchaseAmountKobo: 1_000_001,
         occurredAt,
       }),
-    ).rejects.toThrow('Idempotency key reused with different payload');
+    ).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_CONFLICT' },
+    });
 
     const counts = await Promise.all([
       prisma.receipt.count({ where: { id: first.receiptId } }),
@@ -161,7 +160,7 @@ describe('immutable earn ledger (int)', () => {
 
     const transaction = await loyaltyService.getTransaction(
       tenant.id,
-      first.receiptId,
+      first.transactionId!,
     );
     expect(transaction.state).toBe('CONFIRMED');
     expect(transaction.captureStatus).toBe('CAPTURED');
@@ -175,6 +174,39 @@ describe('immutable earn ledger (int)', () => {
     );
     expect(ledger.items).toHaveLength(1);
     expect(ledger.items[0]?.amountKobo).toBe(20_000);
+  }, 120000);
+
+  it('clamps leap-day expiry to the last valid day of the target month', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-0001B',
+    );
+
+    const response = await loyaltyService.earn(
+      tenant.id,
+      makeContext(
+        {
+          id: approver.id,
+          tenantId: tenant.id,
+          branchId: branch.id,
+          role: UserRole.SUPERVISOR,
+        },
+        fixture.device.id,
+      ),
+      'earn-leap-day-key',
+      {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: '2024-02-29T10:15:00.000Z',
+        overrideReason: 'leap-day regression',
+      },
+    );
+
+    expect(response.expiresAt).toBe('2025-02-28T10:15:00.000Z');
   }, 120000);
 
   it('creates approval records and executes them exactly once', async () => {
@@ -233,6 +265,14 @@ describe('immutable earn ledger (int)', () => {
       settled.filter((result) => result.status === 'rejected'),
     ).toHaveLength(1);
 
+    const decision = settled.find(
+      (
+        result,
+      ): result is PromiseFulfilledResult<
+        Awaited<ReturnType<typeof approvalsService.decideApproval>>
+      > => result.status === 'fulfilled',
+    );
+
     const [ledgerCount, lotCount, outboxCount] = await Promise.all([
       prisma.loyaltyLedgerEntry.count({
         where: { receiptId: pending.receiptId },
@@ -255,7 +295,7 @@ describe('immutable earn ledger (int)', () => {
 
     const transaction = await loyaltyService.getTransaction(
       tenant.id,
-      pending.receiptId,
+      decision?.value.ledgerEntryId ?? pending.transactionId!,
     );
     expect(transaction.state).toBe('CONFIRMED');
     expect(transaction.ledgerEntryId).toBeDefined();
@@ -324,6 +364,35 @@ describe('immutable earn ledger (int)', () => {
     ]);
 
     expect([receipts, ledgers, lots, outbox]).toEqual([1, 1, 1, 1]);
+  }, 120000);
+
+  it('returns the same response for concurrent same-key earn requests', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-0004',
+    );
+    const occurredAt = recentOccurredAt();
+
+    const [first, second] = await Promise.all([
+      loyaltyService.earn(tenant.id, fixture.actor, 'earn-same-key', {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt,
+      }),
+      loyaltyService.earn(tenant.id, fixture.actor, 'earn-same-key', {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt,
+      }),
+    ]);
+
+    expect(first).toEqual(second);
+    expect(first.transactionId).toBeDefined();
   }, 120000);
 });
 
