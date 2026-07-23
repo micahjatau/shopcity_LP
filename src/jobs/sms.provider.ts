@@ -50,6 +50,7 @@ export class RealSmsProvider implements SmsProvider {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
+        'idempotency-key': input.outboxEventId,
         ...(this.config.token
           ? { authorization: `Bearer ${this.config.token}` }
           : {}),

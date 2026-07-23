@@ -1,4 +1,8 @@
-import { DeterministicSmsProvider, SandboxSmsProvider } from './sms.provider';
+import {
+  DeterministicSmsProvider,
+  RealSmsProvider,
+  SandboxSmsProvider,
+} from './sms.provider';
 import { createSmsProvider } from './sms.provider.factory';
 
 describe('sms provider selection', () => {
@@ -36,6 +40,43 @@ describe('sms provider selection', () => {
       status: 'SENT',
       providerMessageId: 'sandbox-outbox-1',
     });
+  });
+
+  it('sends an idempotency key to the real provider', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        status: 'SENT',
+        providerMessageId: 'sms-1',
+      }),
+    } as unknown as Response);
+
+    const provider = new RealSmsProvider({ url: 'https://sms.example.test' });
+
+    await expect(
+      provider.send({
+        tenantId: 'tenant-1',
+        receiptId: 'receipt-1',
+        outboxEventId: 'outbox-1',
+        phoneE164: '+2348000000000',
+        template: 'earn-confirmed',
+        payload: {},
+      }),
+    ).resolves.toEqual({
+      status: 'SENT',
+      providerMessageId: 'sms-1',
+      errorMessage: undefined,
+    });
+
+    const requestInit = fetchSpy.mock.calls[0]?.[1];
+    const requestHeaders = (requestInit as FetchRequestInit)?.headers;
+
+    expect(requestHeaders).toMatchObject({
+      'content-type': 'application/json',
+      'idempotency-key': 'outbox-1',
+    });
+
+    fetchSpy.mockRestore();
   });
 
   it('allows sandbox mode through the factory', () => {
@@ -114,3 +155,7 @@ describe('sms provider selection', () => {
     ).toThrow('SMS_PROVIDER_URL is required for real SMS mode');
   });
 });
+
+type FetchRequestInit = {
+  headers?: Record<string, string>;
+};
