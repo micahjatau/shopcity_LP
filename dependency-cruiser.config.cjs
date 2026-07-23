@@ -16,6 +16,10 @@ const moduleNames = [
 ];
 
 const crossCuttingModules = ['audit', 'configuration'];
+const allowedPeerImports = {
+  approvals: ['loyalty'],
+  receipts: ['approvals', 'loyalty'],
+};
 const sharedLayers = ['common', 'config', 'database', 'supabase', 'jobs'];
 
 const moduleBoundaryRules = moduleNames.map((moduleName) => ({
@@ -25,7 +29,11 @@ const moduleBoundaryRules = moduleNames.map((moduleName) => ({
   from: { path: `^src/modules/${moduleName}/` },
   to: {
     path: '^src/modules/',
-    pathNot: `^src/modules/(?:${[moduleName, ...crossCuttingModules].join('|')})(?:/|$)`,
+    pathNot: `^src/modules/(?:${[
+      moduleName,
+      ...crossCuttingModules,
+      ...(allowedPeerImports[moduleName] ?? []),
+    ].join('|')})(?:/|$)`,
   },
 }));
 

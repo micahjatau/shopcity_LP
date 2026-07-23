@@ -6,26 +6,30 @@ const path = require('path');
 
 const args = process.argv.slice(2);
 const localRunner = path.join(process.cwd(), '.gitnexus', 'run.cjs');
+const localBinary = path.join(
+  process.cwd(),
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'gitnexus.cmd' : 'gitnexus',
+);
+const timeoutMs = 10 * 60 * 1000;
 
 function run(command, commandArgs) {
-  return spawnSync(command, commandArgs, { stdio: 'inherit' });
+  return spawnSync(command, commandArgs, { stdio: 'inherit', timeout: timeoutMs });
 }
 
 if (existsSync(localRunner)) {
   const result = run(process.execPath, [localRunner, ...args]);
-  process.exit(result.status ?? 0);
+  process.exit(result.error || result.signal || result.status !== 0 ? 1 : 0);
 }
 
-let result = run('gitnexus', args);
-
-if (result.error && result.error.code === 'ENOENT') {
-  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  result = run(npx, ['--yes', 'gitnexus', ...args]);
+if (existsSync(localBinary)) {
+  const result = run(localBinary, args);
+  process.exit(result.error || result.signal || result.status !== 0 ? 1 : 0);
 }
 
-if (result.error) {
-  console.error('Unable to run GitNexus. Install it locally or generate .gitnexus/run.cjs.');
-  process.exit(1);
-}
+console.error(
+  'Unable to run GitNexus. Install the pinned dependency or generate .gitnexus/run.cjs.',
+);
 
-process.exit(result.status ?? 0);
+process.exit(1);

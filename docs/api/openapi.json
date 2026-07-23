@@ -15794,6 +15794,7 @@
                       "type": "object",
                       "required": [
                         "id",
+                        "transactionId",
                         "state",
                         "receiptId",
                         "tenantId",
@@ -15813,6 +15814,11 @@
                         "id": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "transactionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
                         },
                         "state": {
                           "type": "string",
@@ -15937,6 +15943,7 @@
                       "type": "object",
                       "required": [
                         "id",
+                        "transactionId",
                         "state",
                         "receiptId",
                         "tenantId",
@@ -15956,6 +15963,11 @@
                         "id": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "transactionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
                         },
                         "state": {
                           "type": "string",
@@ -16511,7 +16523,17 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "transactionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
