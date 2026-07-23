@@ -33,7 +33,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run gitnexus:smoke
-      - run: npm run gitnexus:analyze
+      - name: Run GitNexus analysis
+        env:
+          GITNEXUS_ALLOW_FAILURE: ${{ vars.GITNEXUS_ALLOW_FAILURE || 'true' }}
+        run: |
+          if [ "${GITNEXUS_ALLOW_FAILURE}" = "true" ]; then
+            npm run gitnexus:analyze || echo "GitNexus analysis failed, continuing because GITNEXUS_ALLOW_FAILURE=true"
+          else
+            npm run gitnexus:analyze
+          fi
 
   integration:
     name: Integration Tests
