@@ -11,10 +11,13 @@
 - Feature boundaries live under `src/modules/`; shared code lives under `src/common/`, `src/config/`, `src/database/`, and `src/jobs/`.
 - `src/main.ts` boots Nest with Fastify and listens on `process.env.PORT ?? 3000`.
 - The current root route is `GET /` in `src/app.controller.ts`.
-- Supabase integration lives under `src/supabase/` and is the entrypoint for DB plus identity/password verification; application sessions and RBAC live in the backend.
+- Supabase integration lives under `src/supabase/` and is the entrypoint for DB
+  plus identity/password verification; application sessions and RBAC live in the
+  backend.
 - Prisma schema lives under `prisma/`; architecture notes belong in `docs/adr/`.
 - Docs are organized under `docs/architecture/`, `docs/api/`, `docs/adr/`, `docs/runbooks/`, `docs/development/`, and `docs/database/`.
-- The TRD target shape is a backend-first modular monolith with `apps/`, `packages/`, `prisma/`, and `docs/adr/`.
+- The TRD target shape is a backend-first modular monolith with `apps/`,
+  `packages/`, `prisma/`, and `docs/adr/`.
 
 ## Commands
 
@@ -27,7 +30,9 @@
 - `npm run prisma:generate` regenerates the Prisma client.
 - `npm run test:integration` runs the Testcontainers-backed database check.
 - `docker compose up -d` starts local Postgres and Redis.
-- Use `npx supabase start`, `npx supabase status`, `npx supabase link --project-ref nmuedccamqacgszvosvm --password "$SUPABASE_DB_PASSWORD"`, and `npx supabase db push --linked` for Supabase local/remote schema work.
+- Use `npx supabase start`, `npx supabase status`,
+  `npx supabase link --project-ref nmuedccamqacgszvosvm --password "$SUPABASE_DB_PASSWORD"`,
+  and `npx supabase db push --linked` for Supabase local/remote schema work.
 - `npm run lint` checks only; `npm run lint:fix` applies automatic fixes.
 - `npm run test`, `npm run test:e2e`, and `npm run test:cov` run unit, e2e, and coverage suites.
 - For one spec file, use `npx jest <path-to-spec> --runInBand`.
@@ -38,7 +43,9 @@
 - Installed CLIs here include `nest`, `supabase`, `prisma`, `spectral`, `orval`, `compodoc`, `oasdiff`, `bru`, `lint-staged`, and `commitlint`.
 - Regenerate contract, schema, client, auth, and docs artifacts with the matching CLI instead of hand-editing generated output.
 - Use `npx supabase` for local identity/password workflows, remote linking, and schema pushes; use `prisma` for schema/migration work, `spectral` and `oasdiff` for OpenAPI checks, `orval` for client generation, `compodoc` for Nest docs, and `bru` for API collections.
-- Before creating a spec proposal, run `npm run proposal:impact -- --file <path> <symbol>` for the planned change surface and log the result in `docs/development/gitnexus-impact-tracker.md`.
+- Before creating a spec proposal, run
+  `npm run proposal:impact -- --file <path> <symbol>` for the planned change
+  surface and log the result in `docs/development/gitnexus-impact-tracker.md`.
 
 ## TRD Constraints
 
@@ -54,11 +61,14 @@
 ## Environment
 
 - TRD environment variables include `DATABASE_URL`, `REDIS_URL=redis://127.0.0.1:6379`, `SESSION_SECRET`, `CSRF_SECRET`, `SHOPCITY_TIMEZONE`, `RECEIPT_WEEK_START_DAY`, and `DEFAULT_EARN_RATE_BPS`.
-- Supabase workflows will also need `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; backend auth/session logic stays in `src/modules/auth/`.
+- Supabase workflows will also need `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
+  `SUPABASE_SERVICE_ROLE_KEY`; backend auth/session logic stays in
+  `src/modules/auth/`.
 - `dist/` is disposable because `nest-cli.json` sets `deleteOutDir: true`.
 - The current local Supabase stack uses `http://127.0.0.1:55421` and `postgresql://postgres:postgres@127.0.0.1:55422/postgres`.
 
 <!-- gitnexus:start -->
+
 # GitNexus — Code Intelligence
 
 This project is indexed by GitNexus as **shopcity_LP** (2805 symbols, 4613 relationships, 91 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
@@ -83,22 +93,22 @@ This project is indexed by GitNexus as **shopcity_LP** (2805 symbols, 4613 relat
 
 ## Resources
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/shopcity_LP/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/shopcity_LP/clusters` | All functional areas |
-| `gitnexus://repo/shopcity_LP/processes` | All execution flows |
-| `gitnexus://repo/shopcity_LP/process/{name}` | Step-by-step execution trace |
+| Resource                                     | Use for                                  |
+| -------------------------------------------- | ---------------------------------------- |
+| `gitnexus://repo/shopcity_LP/context`        | Codebase overview, check index freshness |
+| `gitnexus://repo/shopcity_LP/clusters`       | All functional areas                     |
+| `gitnexus://repo/shopcity_LP/processes`      | All execution flows                      |
+| `gitnexus://repo/shopcity_LP/process/{name}` | Step-by-step execution trace             |
 
 ## CLI
 
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Task                                         | Read this skill file                                        |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md`       |
+| Blast radius / "What breaks if I change X?"  | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?"             | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md`       |
+| Rename / extract / split / refactor          | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md`     |
+| Tools, resources, schema reference           | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md`           |
+| Index, status, clean, wiki CLI commands      | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md`             |
 
 <!-- gitnexus:end -->
