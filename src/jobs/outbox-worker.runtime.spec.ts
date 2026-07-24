@@ -43,7 +43,7 @@ describe('OutboxWorkerRuntime', () => {
 
     expect(smsProvider.send).not.toHaveBeenCalled();
     expect(job.discard).toHaveBeenCalledTimes(1);
-    expect(outboxEventUpdate).toHaveBeenCalledTimes(1);
+    expect(outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('stops retrying when the persisted retry budget is exhausted', async () => {
@@ -84,6 +84,7 @@ describe('OutboxWorkerRuntime', () => {
 
     expect(smsProvider.send).not.toHaveBeenCalled();
     expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('does not resend SMS messages that are already SENT', async () => {
@@ -179,6 +180,70 @@ describe('OutboxWorkerRuntime', () => {
     expect(prisma.smsMessageUpdateCalls[0]?.data.nextAttemptAt).toBeNull();
     expect(job.discard).toHaveBeenCalledTimes(1);
   });
+
+  it('dead-letters unsupported outbox event types', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-unsupported',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'receipt.capture',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: {
+          id: 'sms-1',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-1',
+          outboxEventId: 'outbox-unsupported',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          payload: {},
+          status: 'FAILED',
+          attempts: 0,
+        },
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send: jest.fn(),
+    });
+    const job: TestJob = {
+      data: { id: 'outbox-unsupported', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('dead-letters malformed SMS payloads', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-invalid',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send: jest.fn(),
+    });
+    const job: TestJob = {
+      data: { id: 'outbox-invalid', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
+  });
 });
 
 type TestJob = {
@@ -226,7 +291,7 @@ type PrismaStubOverrides = {
       status: string;
       attempts: number;
       deadLetteredAt?: Date | null;
-    };
+    } | null;
   };
   smsMessage?: {
     update?: jest.Mock;
@@ -243,13 +308,18 @@ type SmsMessageUpdateArgs = {
 
 type PrismaStub = PrismaService & {
   outboxEventUpdate: jest.Mock;
+  outboxEventUpdateCalls: Array<unknown>;
   smsMessageUpdate: jest.Mock;
   smsMessageUpdateCalls: SmsMessageUpdateArgs[];
 };
 
 function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
   const { outboxEvent } = overrides;
-  const outboxEventUpdate = jest.fn().mockResolvedValue(undefined);
+  const outboxEventUpdateCalls: Array<unknown> = [];
+  const outboxEventUpdate = jest.fn((args: unknown) => {
+    outboxEventUpdateCalls.push(args);
+    return Promise.resolve(undefined);
+  });
   const smsMessageUpdateCalls: SmsMessageUpdateArgs[] = [];
   const smsMessageUpdate =
     overrides.smsMessage?.update ??
@@ -275,6 +345,7 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
       callback(undefined as never),
     ),
     outboxEventUpdate,
+    outboxEventUpdateCalls,
     smsMessageUpdate,
     smsMessageUpdateCalls,
   } as unknown as PrismaStub;

@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run verify:fast
       - run: npm run build
       - run: npm run prisma:generate
       - run: npm run prisma:validate

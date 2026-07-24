@@ -176,39 +176,34 @@ export class OutboxWorkerRuntime {
       const claimed = await tx.$queryRaw<OutboxClaimRow[]>`
         SELECT id
         FROM "OutboxEvent"
-        WHERE (
-          ("status" IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now}))
-          OR ("status" = 'QUEUED' AND "updatedAt" <= ${staleCutoff})
-          OR (
-            "status" = 'PUBLISHED'
-            AND "publishedAt" <= ${staleCutoff}
-            AND EXISTS (
-              SELECT 1
-              FROM "SmsMessage" sm
-              WHERE sm."tenantId" = "OutboxEvent"."tenantId"
-                AND sm."outboxEventId" = "OutboxEvent"."id"
-                AND sm."status" IN ('QUEUED', 'FAILED')
-                AND sm."deadLetteredAt" IS NULL
+        WHERE "eventType" = 'sms.send'
+          AND "deadLetteredAt" IS NULL
+          AND (
+            ("status" IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now}))
+            OR ("status" = 'QUEUED' AND "updatedAt" <= ${staleCutoff})
+            OR (
+              "status" = 'PUBLISHED'
+              AND "publishedAt" <= ${staleCutoff}
+              AND EXISTS (
+                SELECT 1
+                FROM "SmsMessage" sm
+                WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+                  AND sm."outboxEventId" = "OutboxEvent"."id"
+                  AND sm."status" IN ('QUEUED', 'FAILED')
+                  AND sm."deadLetteredAt" IS NULL
+              )
+            )
+            OR (
+              "status" = 'PUBLISHED'
+              AND "publishedAt" <= ${staleCutoff}
+              AND NOT EXISTS (
+                SELECT 1
+                FROM "SmsMessage" sm
+                WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+                  AND sm."outboxEventId" = "OutboxEvent"."id"
+              )
             )
           )
-          OR (
-            "status" = 'PUBLISHED'
-            AND "publishedAt" <= ${staleCutoff}
-            AND NOT EXISTS (
-              SELECT 1
-              FROM "SmsMessage" sm
-              WHERE sm."tenantId" = "OutboxEvent"."tenantId"
-                AND sm."outboxEventId" = "OutboxEvent"."id"
-            )
-          )
-        )
-        AND NOT EXISTS (
-          SELECT 1
-          FROM "SmsMessage" sm
-          WHERE sm."tenantId" = "OutboxEvent"."tenantId"
-            AND sm."outboxEventId" = "OutboxEvent"."id"
-            AND sm."deadLetteredAt" IS NOT NULL
-        )
         ORDER BY "createdAt" ASC
         LIMIT ${this.config.publishBatchSize}
         FOR UPDATE SKIP LOCKED
@@ -288,6 +283,11 @@ export class OutboxWorkerRuntime {
       return;
     }
 
+    if (outboxEvent.deadLetteredAt) {
+      job.discard();
+      return;
+    }
+
     await this.prisma.outboxEvent.update({
       where: {
         tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
@@ -298,14 +298,37 @@ export class OutboxWorkerRuntime {
       },
     });
 
-    const smsMessage = outboxEvent.smsMessage;
-    const resolvedSmsMessage =
-      smsMessage ?? (await this.createSmsMessageFromOutboxEvent(outboxEvent));
+    if (outboxEvent.eventType !== 'sms.send') {
+      await this.markOutboxEventDeadLettered(outboxEvent, 'unsupported-event');
+      job.discard();
+      return;
+    }
+
+    let resolvedSmsMessage: NonNullable<typeof outboxEvent.smsMessage>;
+
+    try {
+      resolvedSmsMessage =
+        outboxEvent.smsMessage ??
+        (await this.createSmsMessageFromOutboxEvent(outboxEvent));
+    } catch (error) {
+      await this.markOutboxEventDeadLettered(
+        outboxEvent,
+        'invalid-payload',
+        error instanceof Error ? error.message : 'SMS payload is invalid',
+      );
+      job.discard();
+      return;
+    }
 
     if (
       resolvedSmsMessage.deadLetteredAt ||
       resolvedSmsMessage.attempts >= OUTBOX_RETRY_ATTEMPTS
     ) {
+      await this.markOutboxEventDeadLettered(
+        outboxEvent,
+        'dead-lettered',
+        'SMS retry budget exhausted',
+      );
       job.discard();
       return;
     }
@@ -330,7 +353,52 @@ export class OutboxWorkerRuntime {
       });
 
       if (result.status === 'FAILED') {
-        throw new Error(result.errorMessage ?? 'SMS delivery failed');
+        const deadLetteredAt =
+          result.failureCategory === 'terminal' ||
+          resolvedSmsMessage.attempts + 1 >= OUTBOX_RETRY_ATTEMPTS
+            ? now
+            : null;
+
+        await this.prisma.smsMessage.update({
+          where: {
+            tenantId_receiptId: {
+              tenantId: resolvedSmsMessage.tenantId,
+              receiptId: resolvedSmsMessage.receiptId,
+            },
+          },
+          data: {
+            status: 'FAILED',
+            attempts: { increment: 1 },
+            failedAt: now,
+            lastAttemptAt: now,
+            nextAttemptAt:
+              deadLetteredAt === null
+                ? new Date(now.getTime() + this.config.retryDelayMs)
+                : null,
+            deadLetteredAt,
+            failureCategory: deadLetteredAt
+              ? 'dead-lettered'
+              : result.failureCategory === 'terminal'
+                ? 'terminal-failure'
+                : 'retryable-failure',
+            lastError: result.errorMessage ?? 'SMS delivery failed',
+          },
+        });
+
+        await this.markOutboxEventFailure(
+          outboxEvent,
+          deadLetteredAt ? 'dead-lettered' : 'retryable-failure',
+          deadLetteredAt === null
+            ? new Date(now.getTime() + this.config.retryDelayMs)
+            : null,
+        );
+
+        if (deadLetteredAt) {
+          job.discard();
+          return;
+        }
+
+        return;
       }
 
       await this.prisma.smsMessage.update({
@@ -371,18 +439,13 @@ export class OutboxWorkerRuntime {
         },
       });
 
-      await this.prisma.outboxEvent.update({
-        where: {
-          tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
-        },
-        data: {
-          status: OutboxEventStatus.FAILED,
-          nextAttemptAt:
-            deadLetteredAt === null
-              ? new Date(now.getTime() + this.config.retryDelayMs)
-              : null,
-        },
-      });
+      await this.markOutboxEventFailure(
+        outboxEvent,
+        deadLetteredAt ? 'dead-lettered' : 'retryable-failure',
+        deadLetteredAt === null
+          ? new Date(now.getTime() + this.config.retryDelayMs)
+          : null,
+      );
 
       if (deadLetteredAt) {
         job.discard();
@@ -395,9 +458,20 @@ export class OutboxWorkerRuntime {
   private async createSmsMessageFromOutboxEvent(outboxEvent: {
     id: string;
     tenantId: string;
+    eventType: string;
     payload: Prisma.JsonValue;
   }) {
+    if (outboxEvent.eventType !== 'sms.send') {
+      throw new Error(`Unsupported outbox event type ${outboxEvent.eventType}`);
+    }
+
     const payload = normalizeJsonPayload(outboxEvent.payload);
+    const version = readNumberField(payload, 'version', 1);
+
+    if (version !== 1) {
+      throw new Error(`Unsupported SMS payload version for ${outboxEvent.id}`);
+    }
+
     const receiptId = readStringField(payload, 'receiptId', outboxEvent.id);
     const phoneE164 = readStringField(payload, 'phoneE164').trim();
     const template = readStringField(payload, 'template').trim();
@@ -432,6 +506,48 @@ export class OutboxWorkerRuntime {
       update: {},
     });
   }
+
+  private async markOutboxEventDeadLettered(
+    outboxEvent: { tenantId: string; id: string },
+    failureCategory: string,
+    lastError?: string,
+  ): Promise<void> {
+    await this.prisma.outboxEvent.update({
+      where: {
+        tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+      },
+      data: {
+        status: OutboxEventStatus.FAILED,
+        nextAttemptAt: null,
+        deadLetteredAt: new Date(),
+        failureCategory,
+      },
+    });
+
+    if (lastError) {
+      this.logger.warn(
+        `Dead-lettered outbox event ${outboxEvent.id}: ${lastError}`,
+      );
+    }
+  }
+
+  private async markOutboxEventFailure(
+    outboxEvent: { tenantId: string; id: string },
+    failureCategory: string,
+    nextAttemptAt: Date | null,
+  ): Promise<void> {
+    await this.prisma.outboxEvent.update({
+      where: {
+        tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+      },
+      data: {
+        status: OutboxEventStatus.FAILED,
+        nextAttemptAt,
+        failureCategory,
+        deadLetteredAt: nextAttemptAt === null ? new Date() : null,
+      },
+    });
+  }
 }
 
 function normalizeJsonPayload(
@@ -460,6 +576,16 @@ function readStringField(
   const value = payload[key];
 
   return typeof value === 'string' ? value : fallback;
+}
+
+function readNumberField(
+  payload: Record<string, Prisma.JsonValue>,
+  key: string,
+  fallback = 0,
+): number {
+  const value = payload[key];
+
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function mapSmsDispatchResult(

@@ -46,8 +46,17 @@ export const envValidationSchema = Joi.object({
   SMS_PROVIDER_MODE: Joi.string()
     .valid('deterministic', 'sandbox', 'real')
     .default('deterministic'),
-  SMS_PROVIDER_URL: Joi.string().uri().optional(),
-  SMS_PROVIDER_TOKEN: Joi.string().optional(),
+  SMS_PROVIDER_URL: Joi.string().uri().when('SMS_PROVIDER_MODE', {
+    is: 'real',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  SMS_PROVIDER_TOKEN: Joi.string().when('SMS_PROVIDER_MODE', {
+    is: 'real',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.optional(),
+  }),
+  SMS_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   REDEMPTION_APPROVAL_THRESHOLD_KOBO: Joi.number()
     .integer()
     .min(0)

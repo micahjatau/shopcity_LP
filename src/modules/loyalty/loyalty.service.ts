@@ -30,6 +30,8 @@ const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
 const MAX_POS_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const MAX_POS_PAST_SKEW_MS = 12 * 60 * 60 * 1000;
 const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+const APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const LEGACY_APPROVAL_POLICY_VERSION = 'legacy';
 
 export interface EarnTransactionResponse {
   id: string;
@@ -45,7 +47,7 @@ export interface EarnTransactionResponse {
   cardSerialNumber: string;
   posReceiptNumber: string;
   purchaseAmountKobo: number;
-  creditKobo: number;
+  creditKobo: number | null;
   captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
   availableBalanceKobo: number | null;
   expiresAt: string | null;
@@ -114,6 +116,7 @@ export interface ApprovalListItem {
   status: ApprovalStatus;
   reasonCode: string | null;
   requestedAt: string;
+  expiresAt: string;
   decidedAt: string | null;
   executedAt: string | null;
   receipt: {
@@ -363,6 +366,8 @@ export class LoyaltyService {
                 requestedByTenantId: actor.user.tenantId,
                 requestedBy: actor.user.id,
                 reasonCode: APPROVAL_REASON_CODE,
+                policyVersion: getApprovalPolicyVersion(this.configService),
+                expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
               },
             });
 
@@ -379,7 +384,7 @@ export class LoyaltyService {
               cardSerialNumber: transactionCard.barcodeValue,
               posReceiptNumber: receipt.posReceiptNumber,
               purchaseAmountKobo: data.purchaseAmountKobo,
-              creditKobo: 0,
+              creditKobo: null,
               captureStatus,
               availableBalanceKobo: null,
               expiresAt: null,
@@ -751,6 +756,7 @@ export class LoyaltyService {
         status: approval.status,
         reasonCode: approval.reasonCode,
         requestedAt: approval.requestedAt.toISOString(),
+        expiresAt: approval.expiresAt.toISOString(),
         decidedAt: approval.decidedAt?.toISOString() ?? null,
         executedAt: approval.executedAt?.toISOString() ?? null,
         receipt: {
@@ -825,8 +831,38 @@ export class LoyaltyService {
           );
         }
 
+        const receipt = approval.receipt;
+
+        const now = new Date();
+
+        if (approval.expiresAt <= now) {
+          const expired = await prisma.approval.updateMany({
+            where: { tenantId, id: approvalId, status: ApprovalStatus.PENDING },
+            data: {
+              status: ApprovalStatus.EXPIRED,
+              decidedAt: now,
+              decisionByTenantId: actor.user.tenantId,
+              decisionBy: actor.user.id,
+              decisionReason: 'approval expired',
+            },
+          });
+
+          if (expired.count !== 1) {
+            throw new DomainHttpException(
+              409,
+              'APPROVAL_ALREADY_DECIDED',
+              'Approval has already been decided',
+            );
+          }
+
+          throw new DomainHttpException(
+            422,
+            'APPROVAL_EXPIRED',
+            'Approval has expired',
+          );
+        }
+
         if (decision === 'REJECTED') {
-          const now = new Date();
           const updated = await prisma.approval.updateMany({
             where: { tenantId, id: approvalId, status: ApprovalStatus.PENDING },
             data: {
@@ -878,7 +914,6 @@ export class LoyaltyService {
           };
         }
 
-        const receipt = approval.receipt;
         if (
           receipt.captureStatus !== 'PENDING_APPROVAL' ||
           receipt.reviewStatus !== ReceiptReviewStatus.PENDING
@@ -915,7 +950,12 @@ export class LoyaltyService {
           );
         }
 
-        const now = new Date();
+        assertApprovalPolicyStillPermitsExecution(
+          Number(receipt.purchaseAmountKobo),
+          this.configService,
+          approval.policyVersion,
+        );
+
         const approved = await prisma.approval.updateMany({
           where: { tenantId, id: approvalId, status: ApprovalStatus.PENDING },
           data: {
@@ -987,6 +1027,7 @@ export class LoyaltyService {
             aggregateId: receipt.id,
             eventType: 'sms.send',
             payload: {
+              version: 1,
               receiptId: receipt.id,
               transactionId: ledgerEntry.id,
               customerId: receipt.customerId,
@@ -1006,6 +1047,7 @@ export class LoyaltyService {
             phoneE164: receipt.customer.phoneE164,
             template: 'earn-confirmed',
             payload: {
+              version: 1,
               receiptId: receipt.id,
               transactionId: ledgerEntry.id,
               customerId: receipt.customerId,
@@ -1248,6 +1290,66 @@ function calculateCreditKobo(
   );
 
   return (BigInt(purchaseAmountKobo) * earnRateBps + 9_999n) / 10_000n;
+}
+
+function getApprovalPolicyVersion(configService: ConfigService): string {
+  return createHash('sha256')
+    .update(
+      stableStringify({
+        purchaseFlagThresholdKobo:
+          configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ??
+          10_000_000,
+        purchaseApprovalThresholdKobo:
+          configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
+          20_000_000,
+        purchaseAmountCeilingKobo:
+          configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ??
+          100_000_000,
+        defaultEarnRateBps:
+          configService.get<number>('DEFAULT_EARN_RATE_BPS') ?? 200,
+      }),
+    )
+    .digest('hex');
+}
+
+function assertApprovalPolicyStillPermitsExecution(
+  purchaseAmountKobo: number,
+  configService: ConfigService,
+  expectedPolicyVersion: string,
+): void {
+  const purchaseAmountCeilingKobo =
+    configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ?? 100_000_000;
+  const currentPolicyVersion = getApprovalPolicyVersion(configService);
+
+  if (purchaseAmountKobo > purchaseAmountCeilingKobo) {
+    throw new DomainHttpException(
+      422,
+      'APPROVAL_POLICY_CHANGED',
+      'Approval can no longer be executed under the current policy ceiling',
+    );
+  }
+
+  if (
+    expectedPolicyVersion !== LEGACY_APPROVAL_POLICY_VERSION &&
+    expectedPolicyVersion !== currentPolicyVersion
+  ) {
+    throw new DomainHttpException(
+      422,
+      'APPROVAL_POLICY_CHANGED',
+      'Approval policy changed after the request was captured',
+    );
+  }
+
+  if (
+    resolveCaptureStatus(purchaseAmountKobo, configService) !==
+    'PENDING_APPROVAL'
+  ) {
+    throw new DomainHttpException(
+      422,
+      'APPROVAL_POLICY_CHANGED',
+      'Approval is no longer required under the current policy',
+    );
+  }
 }
 
 function addMonths(date: Date, months: number): Date {

@@ -33,13 +33,22 @@ export function createSmsProvider(env = process.env): SmsProvider {
   switch (mode) {
     case 'real': {
       const url = readString(values, 'SMS_PROVIDER_URL').trim();
+      const token = readString(values, 'SMS_PROVIDER_TOKEN').trim();
       if (!url) {
         throw new Error('SMS_PROVIDER_URL is required for real SMS mode');
       }
 
+      if (!token) {
+        throw new Error('SMS_PROVIDER_TOKEN is required for real SMS mode');
+      }
+
       return new RealSmsProvider({
         url,
-        token: readString(values, 'SMS_PROVIDER_TOKEN').trim() || undefined,
+        token,
+        timeoutMs:
+          typeof values.SMS_PROVIDER_TIMEOUT_MS === 'number'
+            ? values.SMS_PROVIDER_TIMEOUT_MS
+            : 10000,
       });
     }
     case 'sandbox':

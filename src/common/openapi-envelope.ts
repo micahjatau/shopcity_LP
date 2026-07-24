@@ -15,7 +15,7 @@ type EnvelopeDataSchema = {
   type?: string;
   items?: Record<string, unknown>;
   properties?: Record<string, unknown>;
-  required?: string[];
+  required?: readonly string[];
   additionalProperties?: boolean | Record<string, unknown>;
   example?: unknown;
 };

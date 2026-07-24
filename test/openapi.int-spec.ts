@@ -102,7 +102,38 @@ describe('OpenAPI contract (int)', () => {
     );
 
     expect(confirmedSchema?.properties?.transactionId).toBeDefined();
-    expect(pendingSchema?.properties?.transactionId).toBeDefined();
+    expect(confirmedSchema?.properties?.ledgerEntryId).toBeDefined();
+    expect(confirmedSchema?.properties?.creditKobo).toBeDefined();
+    expect(pendingSchema?.properties?.approvalId).toBeDefined();
+    expect(pendingSchema?.properties?.creditKobo).toBeDefined();
+  });
+
+  it('documents the transaction, ledger, and approval list payloads', () => {
+    const document = buildOpenApiDocument(app);
+    const transactionSchema = resolveResponseDataSchema(
+      document,
+      document.paths['/api/v1/transactions/{id}']?.get?.responses?.['200'],
+    );
+    const ledgerSchema = resolveResponseDataSchema(
+      document,
+      document.paths['/api/v1/customers/{id}/ledger']?.get?.responses?.['200'],
+    );
+    const approvalsSchema = resolveResponseDataSchema(
+      document,
+      document.paths['/api/v1/approvals']?.get?.responses?.['200'],
+    );
+
+    expect(transactionSchema?.properties?.ledger).toBeDefined();
+    expect(transactionSchema?.properties?.approvalStatus).toBeDefined();
+    expect(ledgerSchema?.properties?.items).toBeDefined();
+    expect(approvalsSchema?.properties?.items).toBeDefined();
+    const approvalItemsSchema = approvalsSchema?.properties?.items as
+      | {
+          items?: { properties?: Record<string, unknown> };
+        }
+      | undefined;
+
+    expect(approvalItemsSchema?.items?.properties?.expiresAt).toBeDefined();
   });
 });
 

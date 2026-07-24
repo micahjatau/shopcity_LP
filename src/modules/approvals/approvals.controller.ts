@@ -19,6 +19,56 @@ import {
 import { ApprovalDecisionDto } from '../loyalty/loyalty.dto';
 import { ApprovalsService } from './approvals.service';
 
+const approvalListResponseSchema = {
+  type: 'object',
+  required: ['items'],
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: [
+          'id',
+          'receiptId',
+          'status',
+          'requestedAt',
+          'expiresAt',
+          'decidedAt',
+          'executedAt',
+          'receipt',
+        ],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          receiptId: { type: 'string', format: 'uuid' },
+          status: { type: 'string', example: 'PENDING' },
+          reasonCode: { type: 'string', nullable: true },
+          requestedAt: { type: 'string', format: 'date-time' },
+          expiresAt: { type: 'string', format: 'date-time' },
+          decidedAt: { type: 'string', format: 'date-time', nullable: true },
+          executedAt: { type: 'string', format: 'date-time', nullable: true },
+          receipt: {
+            type: 'object',
+            required: [
+              'id',
+              'posReceiptNumber',
+              'purchaseAmountKobo',
+              'captureStatus',
+              'reviewStatus',
+            ],
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              posReceiptNumber: { type: 'string' },
+              purchaseAmountKobo: { type: 'integer' },
+              captureStatus: { type: 'string' },
+              reviewStatus: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 @ApiTags('approvals')
 @ApiBearerAuth()
 @Controller('approvals')
@@ -31,7 +81,7 @@ export class ApprovalsController {
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
     description: 'Pending approvals',
-    dataSchema: { type: 'object' },
+    dataSchema: approvalListResponseSchema,
   })
   @ApiOperation({ summary: 'List approvals' })
   listApprovals(@CurrentSession() context: AuthContext) {
