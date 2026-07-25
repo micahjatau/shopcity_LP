@@ -40,10 +40,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: corepack enable
-      - run: node scripts/gitnexus.cjs --help
+      - run: pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@1.6.9 --help
       - name: Run GitNexus analysis
         continue-on-error: ${{ vars.GITNEXUS_ALLOW_FAILURE == 'true' }}
-        run: node scripts/gitnexus.cjs analyze .
+        run: pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@1.6.9 analyze .
 
   e2e:
     name: End-to-End Tests
