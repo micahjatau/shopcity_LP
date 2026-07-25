@@ -440,10 +440,28 @@ describe('immutable earn ledger (int)', () => {
     await expect(
       prisma.creditLot.update({
         where: { id: creditLot.id },
+        data: { expiresAt: addMonthsUtc(creditLot.earnedAt, 13) },
+      }),
+    ).rejects.toThrow(
+      /credit lot expiry must be derived|credit lot expiry is immutable/i,
+    );
+
+    await expect(
+      prisma.creditLot.update({
+        where: { id: creditLot.id },
         data: { remainingAmountKobo: creditLot.remainingAmountKobo - 1n },
       }),
+    ).rejects.toThrow(/credit lot remaining balance is temporarily immutable/i);
+
+    await expect(
+      prisma.creditLot.delete({ where: { id: creditLot.id } }),
+    ).rejects.toThrow(/credit lots cannot be deleted/i);
+
+    await expect(
+      prisma.creditLot.findUniqueOrThrow({ where: { id: creditLot.id } }),
     ).resolves.toMatchObject({
-      remainingAmountKobo: creditLot.remainingAmountKobo - 1n,
+      expiresAt: creditLot.expiresAt,
+      remainingAmountKobo: creditLot.remainingAmountKobo,
     });
 
     const direct = await createDirectEarnLedgerFixture(
@@ -466,10 +484,83 @@ describe('immutable earn ledger (int)', () => {
           originalAmountKobo: direct.ledgerEntry.amountKobo + 1n,
           remainingAmountKobo: direct.ledgerEntry.amountKobo + 1n,
           earnedAt: direct.ledgerEntry.effectiveAt,
-          expiresAt: new Date(direct.ledgerEntry.effectiveAt.getTime() + 1000),
+          expiresAt: addMonthsUtc(direct.ledgerEntry.effectiveAt, 12),
         },
       }),
     ).rejects.toThrow(/credit lot must match its earn ledger entry/i);
+  }, 120000);
+
+  it('enforces derived credit lot expiry on insert', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-LOT-EXPIRY',
+    );
+    const expiryCases = [
+      new Date('2024-01-15T10:30:45.123Z'),
+      new Date('2024-01-31T10:30:45.123Z'),
+      new Date('2024-02-29T10:30:45.123Z'),
+    ];
+
+    for (const [index, earnedAt] of expiryCases.entries()) {
+      const direct = await createDirectEarnLedgerFixture(
+        prisma,
+        tenant.id,
+        branch.id,
+        cashier.id,
+        fixture.device.id,
+        fixture.customer.id,
+        fixture.card.id,
+        `POS-LEDGER-LOT-EXPIRY-${index}`,
+        earnedAt,
+      );
+
+      await expect(
+        prisma.creditLot.create({
+          data: {
+            tenantId: tenant.id,
+            customerId: fixture.customer.id,
+            earnLedgerEntryId: direct.ledgerEntry.id,
+            originalAmountKobo: direct.ledgerEntry.amountKobo,
+            remainingAmountKobo: direct.ledgerEntry.amountKobo,
+            earnedAt: direct.ledgerEntry.effectiveAt,
+            expiresAt: addMonthsUtc(direct.ledgerEntry.effectiveAt, 12),
+          },
+        }),
+      ).resolves.toMatchObject({
+        expiresAt: addMonthsUtc(earnedAt, 12),
+      });
+    }
+
+    const invalid = await createDirectEarnLedgerFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      fixture.device.id,
+      fixture.customer.id,
+      fixture.card.id,
+      'POS-LEDGER-LOT-EXPIRY-BAD',
+      new Date('2024-02-29T10:30:45.123Z'),
+    );
+
+    await expect(
+      prisma.creditLot.create({
+        data: {
+          tenantId: tenant.id,
+          customerId: fixture.customer.id,
+          earnLedgerEntryId: invalid.ledgerEntry.id,
+          originalAmountKobo: invalid.ledgerEntry.amountKobo,
+          remainingAmountKobo: invalid.ledgerEntry.amountKobo,
+          earnedAt: invalid.ledgerEntry.effectiveAt,
+          expiresAt: new Date('2025-03-01T10:30:45.123Z'),
+        },
+      }),
+    ).rejects.toThrow(
+      /credit lot expiry must be derived from earned timestamp/i,
+    );
   }, 120000);
 
   it('rejects stale approval policies without financial side effects', async () => {
@@ -713,8 +804,8 @@ async function createDirectEarnLedgerFixture(
   customerId: string,
   cardId: string,
   receiptNumber: string,
+  occurredAt = new Date(),
 ) {
-  const occurredAt = new Date();
   const receipt = await prisma.receipt.create({
     data: {
       id: randomUUID(),
@@ -810,4 +901,27 @@ function makeContext(
 
 function recentOccurredAt(): string {
   return new Date(Date.now() - 60_000).toISOString();
+}
+
+function addMonthsUtc(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const monthIndex = date.getUTCMonth() + months;
+  const targetYear = year + Math.floor(monthIndex / 12);
+  const targetMonth = ((monthIndex % 12) + 12) % 12;
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(targetYear, targetMonth + 1, 0),
+  ).getUTCDate();
+  const day = Math.min(date.getUTCDate(), lastDayOfTargetMonth);
+
+  return new Date(
+    Date.UTC(
+      targetYear,
+      targetMonth,
+      day,
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds(),
+      date.getUTCMilliseconds(),
+    ),
+  );
 }

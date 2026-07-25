@@ -91,7 +91,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -159,7 +161,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -227,7 +231,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -295,7 +301,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -363,7 +371,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -431,7 +441,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -499,7 +511,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -626,7 +640,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -694,7 +710,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -762,7 +780,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -830,7 +850,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -898,7 +920,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -966,7 +990,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1034,7 +1060,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1161,7 +1189,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1229,7 +1259,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1297,7 +1329,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1365,7 +1399,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1433,7 +1469,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1501,7 +1539,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1569,7 +1609,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1773,7 +1815,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1841,7 +1885,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1909,7 +1955,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -1977,7 +2025,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2045,7 +2095,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2113,7 +2165,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2181,7 +2235,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2358,7 +2414,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2426,7 +2484,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2494,7 +2554,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2562,7 +2624,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2630,7 +2694,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2698,7 +2764,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2766,7 +2834,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2892,7 +2962,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -2960,7 +3032,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3028,7 +3102,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3096,7 +3172,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3164,7 +3242,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3232,7 +3312,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3300,7 +3382,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3477,7 +3561,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3545,7 +3631,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3613,7 +3701,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3681,7 +3771,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3749,7 +3841,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3817,7 +3911,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -3885,7 +3981,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4023,7 +4121,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4091,7 +4191,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4159,7 +4261,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4227,7 +4331,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4295,7 +4401,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4363,7 +4471,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4431,7 +4541,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4565,7 +4677,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4633,7 +4747,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4701,7 +4817,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4769,7 +4887,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4837,7 +4957,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4905,7 +5027,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -4973,7 +5097,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5111,7 +5237,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5179,7 +5307,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5247,7 +5377,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5315,7 +5447,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5383,7 +5517,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5451,7 +5587,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5519,7 +5657,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5669,7 +5809,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5737,7 +5879,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5805,7 +5949,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5873,7 +6019,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -5941,7 +6089,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6009,7 +6159,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6077,7 +6229,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6226,7 +6380,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6294,7 +6450,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6362,7 +6520,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6430,7 +6590,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6498,7 +6660,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6566,7 +6730,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6634,7 +6800,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6767,7 +6935,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6835,7 +7005,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6903,7 +7075,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -6971,7 +7145,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7039,7 +7215,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7107,7 +7285,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7175,7 +7355,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7314,7 +7496,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7382,7 +7566,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7450,7 +7636,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7518,7 +7706,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7586,7 +7776,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7654,7 +7846,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7722,7 +7916,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7871,7 +8067,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -7939,7 +8137,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8007,7 +8207,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8075,7 +8277,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8143,7 +8347,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8211,7 +8417,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8279,7 +8487,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8412,7 +8622,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8480,7 +8692,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8548,7 +8762,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8616,7 +8832,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8684,7 +8902,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8752,7 +8972,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8820,7 +9042,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -8958,7 +9182,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9026,7 +9252,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9094,7 +9322,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9162,7 +9392,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9230,7 +9462,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9298,7 +9532,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9366,7 +9602,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9515,7 +9753,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9583,7 +9823,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9651,7 +9893,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9719,7 +9963,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9787,7 +10033,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9855,7 +10103,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -9923,7 +10173,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10065,7 +10317,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10133,7 +10387,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10201,7 +10457,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10269,7 +10527,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10337,7 +10597,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10405,7 +10667,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10473,7 +10737,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10611,7 +10877,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10679,7 +10947,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10747,7 +11017,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10815,7 +11087,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10883,7 +11157,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -10951,7 +11227,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11019,7 +11297,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11159,7 +11439,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11227,7 +11509,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11295,7 +11579,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11363,7 +11649,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11431,7 +11719,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11499,7 +11789,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11567,7 +11859,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11714,7 +12008,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11782,7 +12078,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11850,7 +12148,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11918,7 +12218,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -11986,7 +12288,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12054,7 +12358,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12122,7 +12428,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12271,7 +12579,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12339,7 +12649,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12407,7 +12719,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12475,7 +12789,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12543,7 +12859,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12611,7 +12929,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12679,7 +12999,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12818,7 +13140,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12886,7 +13210,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -12954,7 +13280,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13022,7 +13350,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13090,7 +13420,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13158,7 +13490,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13226,7 +13560,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13366,7 +13702,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13434,7 +13772,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13502,7 +13842,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13570,7 +13912,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13638,7 +13982,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13706,7 +14052,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13774,7 +14122,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13924,7 +14274,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -13992,7 +14344,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14060,7 +14414,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14128,7 +14484,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14196,7 +14554,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14264,7 +14624,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14332,7 +14694,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14481,7 +14845,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14549,7 +14915,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14617,7 +14985,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14685,7 +15055,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14753,7 +15125,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14821,7 +15195,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -14889,7 +15265,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15198,7 +15576,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15266,7 +15646,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15334,7 +15716,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15402,7 +15786,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15470,7 +15856,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15538,7 +15926,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15606,7 +15996,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15772,7 +16164,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15840,7 +16234,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15908,7 +16304,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -15976,7 +16374,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16044,7 +16444,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16112,7 +16514,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16180,7 +16584,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16346,7 +16752,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16414,7 +16822,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16482,7 +16892,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16550,7 +16962,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16618,7 +17032,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16686,7 +17102,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16754,7 +17172,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -16970,7 +17390,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17038,7 +17460,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17106,7 +17530,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17174,7 +17600,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17242,7 +17670,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17310,7 +17740,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17378,7 +17810,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17570,7 +18004,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17638,7 +18074,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17706,7 +18144,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17774,7 +18214,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17842,7 +18284,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17910,7 +18354,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -17978,7 +18424,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18349,7 +18797,6 @@
             }
           },
           "400": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -18385,7 +18832,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18412,9 +18861,57 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "sessionDeviceRequired": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "SESSION_DEVICE_REQUIRED",
+                        "message": "Session device is required"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "deviceNotActive": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "DEVICE_NOT_ACTIVE",
+                        "message": "Device is not active"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "validationError": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "VALIDATION_ERROR",
+                        "message": "Validation failed"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "401": {
             "description": "",
@@ -18453,7 +18950,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18521,7 +19020,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18553,7 +19054,6 @@
             }
           },
           "404": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -18589,7 +19089,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18616,12 +19118,29 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "cardNotFound": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 404,
+                        "code": "CARD_NOT_FOUND",
+                        "message": "Card not found"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -18657,7 +19176,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18684,12 +19205,44 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "receiptAlreadyUsed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "RECEIPT_ALREADY_USED",
+                        "message": "Physical receipt already captured"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "idempotencyConflict": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "IDEMPOTENCY_CONFLICT",
+                        "message": "Idempotency key reused with different payload"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -18725,7 +19278,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18752,12 +19307,44 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "purchaseRequiresApproval": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 422,
+                        "code": "PURCHASE_REQUIRES_APPROVAL",
+                        "message": "Purchase requires supervisor approval"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "approvalPolicyChanged": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 422,
+                        "code": "APPROVAL_POLICY_CHANGED",
+                        "message": "Approval policy changed; restart approval request"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "503": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -18793,7 +19380,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -18820,9 +19409,42 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "earnTransactionConflict": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 503,
+                        "code": "EARN_TRANSACTION_CONFLICT",
+                        "message": "Earn transaction conflicted; retry the request"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "dependencyUnavailable": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 503,
+                        "code": "DEPENDENCY_UNAVAILABLE",
+                        "message": "Required dependency is unavailable"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -19114,7 +19736,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19182,7 +19806,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19250,7 +19876,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19318,7 +19946,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19386,7 +20016,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19454,7 +20086,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19522,7 +20156,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19748,7 +20384,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19816,7 +20454,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19884,7 +20524,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -19952,7 +20594,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20020,7 +20664,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20088,7 +20734,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20156,7 +20804,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20365,7 +21015,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20433,7 +21085,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20501,7 +21155,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20569,7 +21225,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20637,7 +21295,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20705,7 +21365,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },
@@ -20773,7 +21435,9 @@
                           "example": "Validation failed"
                         },
                         "details": {
-                          "nullable": true
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
                         }
                       }
                     },

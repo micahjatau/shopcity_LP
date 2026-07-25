@@ -251,6 +251,68 @@ export class LoyaltyController {
     status: 202,
     dataSchema: earnPendingApprovalResponseSchema,
   })
+  @apiErrorEnvelopeResponses({
+    badRequest: {
+      sessionDeviceRequired: {
+        statusCode: 400,
+        code: 'SESSION_DEVICE_REQUIRED',
+        message: 'Session device is required',
+      },
+      deviceNotActive: {
+        statusCode: 400,
+        code: 'DEVICE_NOT_ACTIVE',
+        message: 'Device is not active',
+      },
+      validationError: {
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+      },
+    },
+    notFound: {
+      cardNotFound: {
+        statusCode: 404,
+        code: 'CARD_NOT_FOUND',
+        message: 'Card not found',
+      },
+    },
+    conflict: {
+      receiptAlreadyUsed: {
+        statusCode: 409,
+        code: 'RECEIPT_ALREADY_USED',
+        message: 'Physical receipt already captured',
+      },
+      idempotencyConflict: {
+        statusCode: 409,
+        code: 'IDEMPOTENCY_CONFLICT',
+        message: 'Idempotency key reused with different payload',
+      },
+    },
+    unprocessableEntity: {
+      purchaseRequiresApproval: {
+        statusCode: 422,
+        code: 'PURCHASE_REQUIRES_APPROVAL',
+        message: 'Purchase requires supervisor approval',
+      },
+      approvalPolicyChanged: {
+        statusCode: 422,
+        code: 'APPROVAL_POLICY_CHANGED',
+        message: 'Approval policy changed; restart approval request',
+      },
+    },
+    serviceUnavailable: {
+      earnTransactionConflict: {
+        statusCode: 503,
+        code: 'EARN_TRANSACTION_CONFLICT',
+        message: 'Earn transaction conflicted; retry the request',
+      },
+      dependencyUnavailable: {
+        statusCode: 503,
+        code: 'DEPENDENCY_UNAVAILABLE',
+        message: 'Required dependency is unavailable',
+      },
+    },
+  })
   @ApiOperation({ summary: 'Record an earn transaction' })
   earn(
     @Req() request: AuthenticatedRequest,

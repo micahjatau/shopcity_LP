@@ -1540,8 +1540,8 @@ function isUniqueReceiptConflict(error: unknown): boolean {
 
 function isTransactionConflict(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return ['P2028', 'P2031', 'P2034'].includes(error.code);
+    return error.code === 'P2034';
   }
 
-  return error instanceof Error && /transaction/i.test(error.message);
+  return false;
 }

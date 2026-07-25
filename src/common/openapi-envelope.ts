@@ -27,6 +27,25 @@ type EnvelopeResponseOptions = {
   status?: 200 | 201 | 202;
 };
 
+type ErrorEnvelopeExample = {
+  statusCode: number;
+  code: string;
+  message: string;
+  details?: unknown;
+};
+
+type ErrorEnvelopeResponseExamples = Record<string, ErrorEnvelopeExample>;
+
+type ErrorEnvelopeResponseOptions = {
+  badRequest?: ErrorEnvelopeResponseExamples;
+  unauthorized?: ErrorEnvelopeResponseExamples;
+  forbidden?: ErrorEnvelopeResponseExamples;
+  notFound?: ErrorEnvelopeResponseExamples;
+  conflict?: ErrorEnvelopeResponseExamples;
+  unprocessableEntity?: ErrorEnvelopeResponseExamples;
+  serviceUnavailable?: ErrorEnvelopeResponseExamples;
+};
+
 export function apiSuccessEnvelopeResponse(
   options: EnvelopeResponseOptions = {},
 ) {
@@ -43,16 +62,56 @@ export function apiSuccessEnvelopeResponse(
   });
 }
 
-export function apiErrorEnvelopeResponses() {
+export function apiErrorEnvelopeResponses(
+  options: ErrorEnvelopeResponseOptions = {},
+) {
   return applyDecorators(
-    ApiBadRequestResponse({ schema: errorEnvelopeSchema() }),
-    ApiUnauthorizedResponse({ schema: errorEnvelopeSchema() }),
-    ApiForbiddenResponse({ schema: errorEnvelopeSchema() }),
-    ApiNotFoundResponse({ schema: errorEnvelopeSchema() }),
-    ApiConflictResponse({ schema: errorEnvelopeSchema() }),
-    ApiUnprocessableEntityResponse({ schema: errorEnvelopeSchema() }),
-    ApiServiceUnavailableResponse({ schema: errorEnvelopeSchema() }),
+    ApiBadRequestResponse(errorResponseOptions(options.badRequest)),
+    ApiUnauthorizedResponse(errorResponseOptions(options.unauthorized)),
+    ApiForbiddenResponse(errorResponseOptions(options.forbidden)),
+    ApiNotFoundResponse(errorResponseOptions(options.notFound)),
+    ApiConflictResponse(errorResponseOptions(options.conflict)),
+    ApiUnprocessableEntityResponse(
+      errorResponseOptions(options.unprocessableEntity),
+    ),
+    ApiServiceUnavailableResponse(
+      errorResponseOptions(options.serviceUnavailable),
+    ),
   );
+}
+
+function errorResponseOptions(examples?: ErrorEnvelopeResponseExamples) {
+  const schema = errorEnvelopeSchema();
+
+  if (!examples) {
+    return { schema };
+  }
+
+  return {
+    content: {
+      'application/json': {
+        schema,
+        examples: Object.fromEntries(
+          Object.entries(examples).map(([name, error]) => [
+            name,
+            { value: errorEnvelopeExample(error) },
+          ]),
+        ),
+      },
+    },
+  };
+}
+
+function errorEnvelopeExample(error: ErrorEnvelopeExample) {
+  return {
+    success: false,
+    error,
+    meta: {
+      timestamp: '2026-07-19T00:00:00.000Z',
+      path: '/api/v1/transactions/earn',
+      requestId: 'req_example',
+    },
+  };
 }
 
 function envelopeSchema(dataSchema: EnvelopeDataSchema) {
@@ -80,7 +139,11 @@ function errorEnvelopeSchema() {
           statusCode: { type: 'integer', example: 400 },
           code: { type: 'string', example: 'VALIDATION_ERROR' },
           message: { type: 'string', example: 'Validation failed' },
-          details: { nullable: true },
+          details: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+          },
         },
       },
       meta: metaSchema(),

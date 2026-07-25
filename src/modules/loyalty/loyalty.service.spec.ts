@@ -47,11 +47,55 @@ describe('LoyaltyService earn transaction retries', () => {
     });
     expect(transaction).toHaveBeenCalledTimes(3);
   });
+
+  it.each(['P2028', 'P2031'])('does not retry Prisma %s', async (code) => {
+    const error = prismaKnownRequestError(code);
+    const transaction = jest.fn().mockRejectedValue(error);
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+    );
+
+    await expect(
+      service.earn('tenant-1', authContext(), 'idem-1', {
+        posReceiptNumber: `POS-${code}`,
+        cardSerialNumber: 'CARD-1',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: new Date().toISOString(),
+      }),
+    ).rejects.toBe(error);
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry generic transaction-message errors', async () => {
+    const error = new Error('transaction already closed');
+    const transaction = jest.fn().mockRejectedValue(error);
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+    );
+
+    await expect(
+      service.earn('tenant-1', authContext(), 'idem-1', {
+        posReceiptNumber: 'POS-GENERIC-TRANSACTION',
+        cardSerialNumber: 'CARD-1',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: new Date().toISOString(),
+      }),
+    ).rejects.toBe(error);
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
 });
 
 function serializationConflict() {
+  return prismaKnownRequestError('P2034');
+}
+
+function prismaKnownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('serialization conflict', {
-    code: 'P2034',
+    code,
     clientVersion: 'test',
   });
 }
