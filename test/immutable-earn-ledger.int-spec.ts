@@ -18,6 +18,7 @@ describe('immutable earn ledger (int)', () => {
   let branch: { id: string };
   let cashier: Awaited<ReturnType<typeof createStaffUser>>;
   let approver: Awaited<ReturnType<typeof createStaffUser>>;
+  let configValues: Record<string, number>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -67,17 +68,14 @@ describe('immutable earn ledger (int)', () => {
     );
 
     auditService = new AuditService(prisma);
+    configValues = {
+      DEFAULT_EARN_RATE_BPS: 200,
+      PURCHASE_FLAG_THRESHOLD_KOBO: 10_000_000,
+      PURCHASE_APPROVAL_THRESHOLD_KOBO: 20_000_000,
+      PURCHASE_AMOUNT_CEILING_KOBO: 100_000_000,
+    };
     const configService = {
-      get: (key: string) => {
-        const values: Record<string, number> = {
-          DEFAULT_EARN_RATE_BPS: 200,
-          PURCHASE_FLAG_THRESHOLD_KOBO: 10_000_000,
-          PURCHASE_APPROVAL_THRESHOLD_KOBO: 20_000_000,
-          PURCHASE_AMOUNT_CEILING_KOBO: 100_000_000,
-        };
-
-        return values[key];
-      },
+      get: (key: string) => configValues[key],
     } as never;
 
     loyaltyService = new LoyaltyService(prisma, auditService, configService);
@@ -300,6 +298,118 @@ describe('immutable earn ledger (int)', () => {
     expect(transaction.state).toBe('CONFIRMED');
     expect(transaction.ledgerEntryId).toBeDefined();
     expect(transaction.availableBalanceKobo).toBeGreaterThan(0);
+  }, 120000);
+
+  it('persists expired approvals without financial side effects', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-EXPIRY',
+    );
+    const pending = await loyaltyService.earn(
+      tenant.id,
+      fixture.actor,
+      'earn-expired-approval-key',
+      {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 21_000_000,
+        occurredAt: recentOccurredAt(),
+      },
+    );
+
+    await prisma.approval.update({
+      where: { id: pending.approvalId! },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+
+    await expect(
+      approvalsService.decideApproval(
+        tenant.id,
+        makeContext(approver),
+        pending.approvalId!,
+        'APPROVED',
+        'approval reviewed too late',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'APPROVAL_EXPIRED' },
+    });
+
+    const [approvalRecord, ledgerCount, lotCount, outboxCount] =
+      await Promise.all([
+        prisma.approval.findUnique({ where: { id: pending.approvalId! } }),
+        prisma.loyaltyLedgerEntry.count({
+          where: { receiptId: pending.receiptId },
+        }),
+        prisma.creditLot.count({
+          where: { tenantId: tenant.id, customerId: fixture.customer.id },
+        }),
+        prisma.outboxEvent.count({
+          where: { tenantId: tenant.id, aggregateId: pending.receiptId },
+        }),
+      ]);
+
+    expect(approvalRecord?.status).toBe(ApprovalStatus.EXPIRED);
+    expect(approvalRecord?.decidedAt).toBeInstanceOf(Date);
+    expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 0]);
+  }, 120000);
+
+  it('rejects stale approval policies without financial side effects', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-STALE-POLICY',
+    );
+    const pending = await loyaltyService.earn(
+      tenant.id,
+      fixture.actor,
+      'earn-stale-policy-key',
+      {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 21_000_000,
+        occurredAt: recentOccurredAt(),
+      },
+    );
+
+    configValues.DEFAULT_EARN_RATE_BPS = 250;
+
+    try {
+      await expect(
+        approvalsService.decideApproval(
+          tenant.id,
+          makeContext(approver),
+          pending.approvalId!,
+          'APPROVED',
+          'approval policy changed',
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'APPROVAL_POLICY_CHANGED' },
+      });
+    } finally {
+      configValues.DEFAULT_EARN_RATE_BPS = 200;
+    }
+
+    const [approvalRecord, ledgerCount, lotCount, outboxCount] =
+      await Promise.all([
+        prisma.approval.findUnique({ where: { id: pending.approvalId! } }),
+        prisma.loyaltyLedgerEntry.count({
+          where: { receiptId: pending.receiptId },
+        }),
+        prisma.creditLot.count({
+          where: { tenantId: tenant.id, customerId: fixture.customer.id },
+        }),
+        prisma.outboxEvent.count({
+          where: { tenantId: tenant.id, aggregateId: pending.receiptId },
+        }),
+      ]);
+
+    expect(approvalRecord?.status).toBe(ApprovalStatus.PENDING);
+    expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 0]);
   }, 120000);
 
   it('serializes concurrent captures of the same receipt', async () => {

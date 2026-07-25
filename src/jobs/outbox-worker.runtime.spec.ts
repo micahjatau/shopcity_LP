@@ -244,6 +244,73 @@ describe('OutboxWorkerRuntime', () => {
     expect(job.discard).toHaveBeenCalledTimes(1);
     expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
+
+  it('dead-letters reconstructed SMS payloads without receipt IDs', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-missing-receipt',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: {
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+        },
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send: jest.fn(),
+    });
+    const job: TestJob = {
+      data: { id: 'outbox-missing-receipt', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(prisma.smsMessageUpsert).not.toHaveBeenCalled();
+    expect(prisma.outboxEventUpdateCalls[1]).toMatchObject({
+      data: {
+        status: 'FAILED',
+        nextAttemptAt: null,
+        failureCategory: 'invalid-payload',
+      },
+    });
+  });
+
+  it('waits for active recovery before disconnecting during shutdown', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-1',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    const runtime = runtimeWithInternals(
+      new OutboxWorkerRuntime(prisma, runtimeConfig(), { send: jest.fn() }),
+    );
+    const recovery = deferred<void>();
+
+    runtime.activeRecovery = recovery.promise;
+    const stopPromise = runtime.stop();
+
+    await Promise.resolve();
+    expect(prisma.prismaDisconnect).not.toHaveBeenCalled();
+
+    recovery.resolve();
+    await stopPromise;
+
+    expect(prisma.prismaDisconnect).toHaveBeenCalledTimes(1);
+  });
 });
 
 type TestJob = {
@@ -255,10 +322,32 @@ type RuntimeWithHandleJob = {
   handleJob(job: TestJob): Promise<void>;
 };
 
+type RuntimeWithInternals = {
+  activeRecovery?: Promise<void>;
+  stop(): Promise<void>;
+};
+
 function runtimeWithHandleJob(
   runtime: OutboxWorkerRuntime,
 ): RuntimeWithHandleJob {
   return runtime as unknown as RuntimeWithHandleJob;
+}
+
+function runtimeWithInternals(
+  runtime: OutboxWorkerRuntime,
+): RuntimeWithInternals {
+  return runtime as unknown as RuntimeWithInternals;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
 }
 
 function runtimeConfig() {
@@ -311,6 +400,8 @@ type PrismaStub = PrismaService & {
   outboxEventUpdateCalls: Array<unknown>;
   smsMessageUpdate: jest.Mock;
   smsMessageUpdateCalls: SmsMessageUpdateArgs[];
+  smsMessageUpsert: jest.Mock;
+  prismaDisconnect: jest.Mock;
 };
 
 function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
@@ -327,6 +418,8 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
       smsMessageUpdateCalls.push(args);
       return Promise.resolve(undefined);
     });
+  const smsMessageUpsert = jest.fn().mockResolvedValue(outboxEvent.smsMessage);
+  const prismaDisconnect = jest.fn().mockResolvedValue(undefined);
 
   return {
     outboxEvent: {
@@ -337,10 +430,10 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     },
     smsMessage: {
       update: smsMessageUpdate,
-      upsert: jest.fn().mockResolvedValue(outboxEvent.smsMessage),
+      upsert: smsMessageUpsert,
     },
     $connect: jest.fn().mockResolvedValue(undefined),
-    $disconnect: jest.fn().mockResolvedValue(undefined),
+    $disconnect: prismaDisconnect,
     $transaction: jest.fn(async (callback: (tx: never) => Promise<unknown>) =>
       callback(undefined as never),
     ),
@@ -348,5 +441,7 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     outboxEventUpdateCalls,
     smsMessageUpdate,
     smsMessageUpdateCalls,
+    smsMessageUpsert,
+    prismaDisconnect,
   } as unknown as PrismaStub;
 }

@@ -39,11 +39,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: corepack enable
-      - run: pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@1.6.9 --help
+      - run: npm ci
+      - run: npm run gitnexus:smoke
       - name: Run GitNexus analysis
         continue-on-error: ${{ vars.GITNEXUS_ALLOW_FAILURE == 'true' }}
-        run: pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@1.6.9 analyze .
+        run: npm run gitnexus:analyze
 
   e2e:
     name: End-to-End Tests

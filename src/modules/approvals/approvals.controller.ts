@@ -103,6 +103,7 @@ export class ApprovalsController {
         receiptId: { type: 'string', format: 'uuid' },
         ledgerEntryId: { type: 'string', format: 'uuid', nullable: true },
         creditKobo: { type: 'integer', nullable: true },
+        reason: { type: 'string', nullable: true },
         decidedAt: { type: 'string', format: 'date-time' },
         executedAt: { type: 'string', format: 'date-time', nullable: true },
       },

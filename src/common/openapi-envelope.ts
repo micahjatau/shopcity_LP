@@ -9,6 +9,7 @@ import {
   ApiOkResponse,
   ApiServiceUnavailableResponse,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 
 type EnvelopeDataSchema = {
@@ -49,6 +50,7 @@ export function apiErrorEnvelopeResponses() {
     ApiForbiddenResponse({ schema: errorEnvelopeSchema() }),
     ApiNotFoundResponse({ schema: errorEnvelopeSchema() }),
     ApiConflictResponse({ schema: errorEnvelopeSchema() }),
+    ApiUnprocessableEntityResponse({ schema: errorEnvelopeSchema() }),
     ApiServiceUnavailableResponse({ schema: errorEnvelopeSchema() }),
   );
 }

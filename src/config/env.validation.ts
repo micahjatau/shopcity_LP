@@ -51,12 +51,26 @@ export const envValidationSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_TOKEN: Joi.string().when('SMS_PROVIDER_MODE', {
+  SMS_PROVIDER_USERNAME: Joi.string().when('SMS_PROVIDER_MODE', {
+    is: 'real',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.optional(),
+  }),
+  SMS_PROVIDER_API_KEY: Joi.string().when('SMS_PROVIDER_MODE', {
+    is: 'real',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.optional(),
+  }),
+  SMS_PROVIDER_SENDER_ID: Joi.string().when('SMS_PROVIDER_MODE', {
     is: 'real',
     then: Joi.string().min(1).required(),
     otherwise: Joi.optional(),
   }),
   SMS_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
+  ALLOW_FAKE_SMS_IN_PRODUCTION: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   REDEMPTION_APPROVAL_THRESHOLD_KOBO: Joi.number()
     .integer()
     .min(0)

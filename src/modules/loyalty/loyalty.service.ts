@@ -788,7 +788,7 @@ export class LoyaltyService {
       throw new BadRequestException('Decision reason is required');
     }
 
-    return this.prismaService.$transaction(
+    const decisionResult = await this.prismaService.$transaction(
       async (prisma) => {
         const approval = await prisma.approval.findFirst({
           where: { tenantId, id: approvalId },
@@ -855,11 +855,7 @@ export class LoyaltyService {
             );
           }
 
-          throw new DomainHttpException(
-            422,
-            'APPROVAL_EXPIRED',
-            'Approval has expired',
-          );
+          return { expired: true } as const;
         }
 
         if (decision === 'REJECTED') {
@@ -1116,6 +1112,16 @@ export class LoyaltyService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+
+    if ('expired' in decisionResult) {
+      throw new DomainHttpException(
+        422,
+        'APPROVAL_EXPIRED',
+        'Approval has expired',
+      );
+    }
+
+    return decisionResult;
   }
 }
 

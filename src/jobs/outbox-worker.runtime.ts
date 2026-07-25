@@ -81,7 +81,14 @@ export class OutboxWorkerRuntime {
       );
     });
 
-    await this.runRecoveryCycle();
+    const initialRecovery = this.runRecoveryCycle();
+    this.activeRecovery = initialRecovery;
+
+    await initialRecovery.finally(() => {
+      if (this.activeRecovery === initialRecovery) {
+        this.activeRecovery = undefined;
+      }
+    });
 
     this.publisherTimer = setInterval(() => {
       this.scheduleRecoveryCycle();
@@ -472,11 +479,11 @@ export class OutboxWorkerRuntime {
       throw new Error(`Unsupported SMS payload version for ${outboxEvent.id}`);
     }
 
-    const receiptId = readStringField(payload, 'receiptId', outboxEvent.id);
+    const receiptId = readStringField(payload, 'receiptId').trim();
     const phoneE164 = readStringField(payload, 'phoneE164').trim();
     const template = readStringField(payload, 'template').trim();
 
-    if (!phoneE164 || !template) {
+    if (!receiptId || !phoneE164 || !template) {
       throw new Error(
         `SmsMessage payload missing required fields for ${outboxEvent.id}`,
       );

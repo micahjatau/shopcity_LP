@@ -1,6 +1,12 @@
 import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
+import {
   DeterministicSmsProvider,
-  RealSmsProvider,
+  EbulkSmsProvider,
   SandboxSmsProvider,
 } from './sms.provider';
 import { createSmsProvider } from './sms.provider.factory';
@@ -9,16 +15,7 @@ describe('sms provider selection', () => {
   it('maps deterministic mode to a fake delivery id for tests', async () => {
     const provider = new DeterministicSmsProvider();
 
-    await expect(
-      provider.send({
-        tenantId: 'tenant-1',
-        receiptId: 'receipt-1',
-        outboxEventId: 'outbox-1',
-        phoneE164: '+2348000000000',
-        template: 'earn-confirmed',
-        payload: {},
-      }),
-    ).resolves.toEqual({
+    await expect(provider.send(smsInput())).resolves.toEqual({
       status: 'DELIVERED',
       providerMessageId: 'sms-outbox-1',
     });
@@ -27,74 +24,119 @@ describe('sms provider selection', () => {
   it('keeps sandbox delivery truthful', async () => {
     const provider = new SandboxSmsProvider();
 
-    await expect(
-      provider.send({
-        tenantId: 'tenant-1',
-        receiptId: 'receipt-1',
-        outboxEventId: 'outbox-1',
-        phoneE164: '+2348000000000',
-        template: 'earn-confirmed',
-        payload: {},
-      }),
-    ).resolves.toEqual({
+    await expect(provider.send(smsInput())).resolves.toEqual({
       status: 'SENT',
       providerMessageId: 'sandbox-outbox-1',
     });
   });
 
-  it('sends an idempotency key to the real provider', async () => {
+  it('sends the eBulkSMS JSON contract to the real provider', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+
+      return {
+        statusCode: 200,
+        body: {
+          response: {
+            status: 'SUCCESS',
+            batch_id: 'sms-1',
+          },
+        },
+      };
+    });
+
+    const provider = newEbulkSmsProvider(server.url);
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'sms-1',
+      });
+
+      expect(requests).toEqual([
+        {
+          method: 'POST',
+          url: '/',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'idempotency-key': 'outbox-1',
+          }) as Record<string, string>,
+          body: {
+            SMS: {
+              auth: {
+                username: 'shopcity-user',
+                apikey: 'api-key',
+              },
+              message: {
+                sender: 'ShopCity',
+                messagetext:
+                  'ShopCity: Your receipt receipt-1 earned NGN 1250.50.',
+              },
+              recipients: {
+                gsm: [
+                  {
+                    msidn: '+2348000000000',
+                    msgid: 'outbox-1',
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('maps terminal eBulkSMS failures', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({
-        status: 'SENT',
-        providerMessageId: 'sms-1',
+        response: {
+          status: 'AUTH_FAILURE',
+          message: 'bad credentials',
+        },
       }),
     } as unknown as Response);
 
-    const provider = new RealSmsProvider({
-      url: 'https://sms.example.test',
-      timeoutMs: 1000,
-    });
+    await expect(newEbulkSmsProvider().send(smsInput())).resolves.toMatchObject(
+      {
+        status: 'FAILED',
+        failureCategory: 'terminal',
+        errorMessage: 'bad credentials',
+      },
+    );
 
-    await expect(
-      provider.send({
-        tenantId: 'tenant-1',
-        receiptId: 'receipt-1',
-        outboxEventId: 'outbox-1',
-        phoneE164: '+2348000000000',
-        template: 'earn-confirmed',
-        payload: {},
+    fetchSpy.mockRestore();
+  });
+
+  it('maps retryable eBulkSMS failures', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        response: {
+          status: 'RATE_LIMITED',
+          message: 'try later',
+        },
       }),
-    ).resolves.toEqual({
-      status: 'SENT',
-      providerMessageId: 'sms-1',
-      errorMessage: undefined,
-    });
+    } as unknown as Response);
 
-    const requestInit = fetchSpy.mock.calls[0]?.[1];
-    const requestHeaders = (requestInit as FetchRequestInit)?.headers;
-
-    expect(requestHeaders).toMatchObject({
-      'content-type': 'application/json',
-      'idempotency-key': 'outbox-1',
-    });
+    await expect(newEbulkSmsProvider().send(smsInput())).resolves.toMatchObject(
+      {
+        status: 'FAILED',
+        failureCategory: 'retryable',
+        errorMessage: 'try later',
+      },
+    );
 
     fetchSpy.mockRestore();
   });
 
   it('allows sandbox mode through the factory', () => {
     const provider = createSmsProvider({
-      NODE_ENV: 'development',
-      DATABASE_URL: 'postgresql://example',
-      REDIS_URL: 'redis://localhost:6379',
-      SESSION_SECRET: 'secret',
-      CSRF_SECRET: 'secret',
-      DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
-      DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
-      CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
-      SUPABASE_URL: 'http://127.0.0.1:54321',
-      SUPABASE_ANON_KEY: 'anon',
-      SUPABASE_SERVICE_ROLE_KEY: 'service',
+      ...baseEnv(),
       SMS_PROVIDER_MODE: 'sandbox',
     });
 
@@ -103,83 +145,65 @@ describe('sms provider selection', () => {
 
   it('allows deterministic mode through the factory outside production', () => {
     const provider = createSmsProvider({
-      NODE_ENV: 'development',
-      DATABASE_URL: 'postgresql://example',
-      REDIS_URL: 'redis://localhost:6379',
-      SESSION_SECRET: 'secret',
-      CSRF_SECRET: 'secret',
-      DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
-      DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
-      CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
-      SUPABASE_URL: 'http://127.0.0.1:54321',
-      SUPABASE_ANON_KEY: 'anon',
-      SUPABASE_SERVICE_ROLE_KEY: 'service',
+      ...baseEnv(),
       SMS_PROVIDER_MODE: 'deterministic',
     });
 
     expect(provider).toBeInstanceOf(DeterministicSmsProvider);
   });
 
-  it('rejects deterministic mode in production', () => {
+  it('rejects fake providers in production', () => {
     expect(() =>
       createSmsProvider({
+        ...baseEnv(),
         NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://example',
-        REDIS_URL: 'redis://localhost:6379',
-        SESSION_SECRET: 'secret',
-        CSRF_SECRET: 'secret',
-        DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
-        DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
-        CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
-        SUPABASE_URL: 'http://127.0.0.1:54321',
-        SUPABASE_ANON_KEY: 'anon',
-        SUPABASE_SERVICE_ROLE_KEY: 'service',
         SMS_PROVIDER_MODE: 'deterministic',
       }),
-    ).toThrow('Deterministic SMS provider is not allowed in production');
+    ).toThrow('Fake SMS providers are not allowed in production');
+
+    expect(() =>
+      createSmsProvider({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'sandbox',
+      }),
+    ).toThrow('Fake SMS providers are not allowed in production');
+  });
+
+  it('allows fake providers in production only with the explicit override', () => {
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      NODE_ENV: 'production',
+      SMS_PROVIDER_MODE: 'sandbox',
+      ALLOW_FAKE_SMS_IN_PRODUCTION: 'true',
+    });
+
+    expect(provider).toBeInstanceOf(SandboxSmsProvider);
   });
 
   it('requires a provider URL for real mode', () => {
     expect(() =>
       createSmsProvider({
-        NODE_ENV: 'development',
-        DATABASE_URL: 'postgresql://example',
-        REDIS_URL: 'redis://localhost:6379',
-        SESSION_SECRET: 'secret',
-        CSRF_SECRET: 'secret',
-        DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
-        DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
-        CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
-        SUPABASE_URL: 'http://127.0.0.1:54321',
-        SUPABASE_ANON_KEY: 'anon',
-        SUPABASE_SERVICE_ROLE_KEY: 'service',
+        ...baseEnv(),
         SMS_PROVIDER_MODE: 'real',
-        SMS_PROVIDER_TOKEN: 'token',
+        SMS_PROVIDER_USERNAME: 'shopcity-user',
+        SMS_PROVIDER_API_KEY: 'api-key',
+        SMS_PROVIDER_SENDER_ID: 'ShopCity',
       }),
     ).toThrow(
       'Invalid SMS provider environment: "SMS_PROVIDER_URL" is required',
     );
   });
 
-  it('requires a token for real mode', () => {
+  it('requires eBulkSMS credentials for real mode', () => {
     expect(() =>
       createSmsProvider({
-        NODE_ENV: 'development',
-        DATABASE_URL: 'postgresql://example',
-        REDIS_URL: 'redis://localhost:6379',
-        SESSION_SECRET: 'secret',
-        CSRF_SECRET: 'secret',
-        DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
-        DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
-        CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
-        SUPABASE_URL: 'http://127.0.0.1:54321',
-        SUPABASE_ANON_KEY: 'anon',
-        SUPABASE_SERVICE_ROLE_KEY: 'service',
+        ...baseEnv(),
         SMS_PROVIDER_MODE: 'real',
         SMS_PROVIDER_URL: 'https://sms.example.test',
       }),
     ).toThrow(
-      'Invalid SMS provider environment: "SMS_PROVIDER_TOKEN" is required',
+      'Invalid SMS provider environment: "SMS_PROVIDER_USERNAME" is required',
     );
   });
 
@@ -188,27 +212,13 @@ describe('sms provider selection', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockImplementation(
       (_input, init?: RequestInit): Promise<Response> =>
         new Promise((_resolve, reject) => {
-          const signal = init?.signal;
-          signal?.addEventListener('abort', () => {
+          init?.signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'));
           });
         }),
     );
 
-    const provider = new RealSmsProvider({
-      url: 'https://sms.example.test',
-      timeoutMs: 1_000,
-      token: 'token',
-    });
-
-    const sendPromise = provider.send({
-      tenantId: 'tenant-1',
-      receiptId: 'receipt-1',
-      outboxEventId: 'outbox-1',
-      phoneE164: '+2348000000000',
-      template: 'earn-confirmed',
-      payload: {},
-    });
+    const sendPromise = newEbulkSmsProvider().send(smsInput());
 
     await jest.advanceTimersByTimeAsync(1_001);
 
@@ -221,39 +231,165 @@ describe('sms provider selection', () => {
     jest.useRealTimers();
   });
 
-  it('rejects invalid runtime statuses as terminal failures', async () => {
+  it('marks stalled provider response bodies as retryable failures', async () => {
+    jest.useFakeTimers();
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: jest.fn(
+        () => new Promise<never>(() => undefined),
+      ) as unknown as () => Promise<unknown>,
+    } as unknown as Response);
+
+    const sendPromise = newEbulkSmsProvider().send(smsInput());
+
+    await jest.advanceTimersByTimeAsync(1_001);
+
+    await expect(sendPromise).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'retryable',
+    });
+
+    fetchSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('rejects invalid eBulkSMS response bodies as terminal failures', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({
-        status: 'BOGUS',
-        providerMessageId: 'sms-1',
+        response: {
+          status: 'BOGUS',
+          batch_id: 'sms-1',
+        },
       }),
     } as unknown as Response);
 
-    const provider = new RealSmsProvider({
-      url: 'https://sms.example.test',
-      timeoutMs: 1000,
-      token: 'token',
-    });
-
-    await expect(
-      provider.send({
-        tenantId: 'tenant-1',
-        receiptId: 'receipt-1',
-        outboxEventId: 'outbox-1',
-        phoneE164: '+2348000000000',
-        template: 'earn-confirmed',
-        payload: {},
-      }),
-    ).resolves.toMatchObject({
-      status: 'FAILED',
-      failureCategory: 'terminal',
-    });
+    await expect(newEbulkSmsProvider().send(smsInput())).resolves.toMatchObject(
+      {
+        status: 'FAILED',
+        failureCategory: 'terminal',
+      },
+    );
 
     fetchSpy.mockRestore();
   });
 });
 
-type FetchRequestInit = {
-  headers?: Record<string, string>;
+function smsInput() {
+  return {
+    tenantId: 'tenant-1',
+    receiptId: 'receipt-1',
+    outboxEventId: 'outbox-1',
+    phoneE164: '+2348000000000',
+    template: 'earn-confirmed',
+    payload: { creditKobo: '125050' },
+  };
+}
+
+function newEbulkSmsProvider(url = 'https://sms.example.test') {
+  return new EbulkSmsProvider({
+    url,
+    username: 'shopcity-user',
+    apiKey: 'api-key',
+    senderId: 'ShopCity',
+    timeoutMs: 1000,
+  });
+}
+
+function baseEnv() {
+  return {
+    NODE_ENV: 'development',
+    DATABASE_URL: 'postgresql://example',
+    REDIS_URL: 'redis://localhost:6379',
+    SESSION_SECRET: 'secret',
+    CSRF_SECRET: 'secret',
+    DEFAULT_PUBLIC_TENANT_ID: '00000000-0000-0000-0000-000000000001',
+    DEFAULT_PUBLIC_BRANCH_ID: '00000000-0000-0000-0000-000000000002',
+    CORS_ORIGIN_ALLOWLIST: 'http://localhost:3000',
+    SUPABASE_URL: 'http://127.0.0.1:54321',
+    SUPABASE_ANON_KEY: 'anon',
+    SUPABASE_SERVICE_ROLE_KEY: 'service',
+  };
+}
+
+type CapturedRequest = {
+  method: string | undefined;
+  url: string | undefined;
+  headers: Record<string, string>;
+  body: unknown;
 };
+
+type SmsServer = {
+  url: string;
+  close: () => Promise<void>;
+};
+
+async function startSmsServer(
+  handler: (request: CapturedRequest) => {
+    statusCode: number;
+    body?: unknown;
+  },
+): Promise<SmsServer> {
+  const server = createServer((request, response) => {
+    void handleServerRequest(request, response, handler);
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Failed to start SMS test server');
+  }
+
+  return {
+    url: `http://127.0.0.1:${address.port}`,
+    close: () => closeServer(server),
+  };
+}
+
+async function handleServerRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  handler: (request: CapturedRequest) => {
+    statusCode: number;
+    body?: unknown;
+  },
+): Promise<void> {
+  const capturedRequest = await captureRequest(request);
+  const result = handler(capturedRequest);
+
+  response.statusCode = result.statusCode;
+  response.setHeader('content-type', 'application/json');
+  response.end(JSON.stringify(result.body ?? {}));
+}
+
+async function captureRequest(
+  request: IncomingMessage,
+): Promise<CapturedRequest> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    const requestChunk = chunk as Buffer | string;
+    chunks.push(
+      Buffer.isBuffer(requestChunk) ? requestChunk : Buffer.from(requestChunk),
+    );
+  }
+
+  const rawBody = Buffer.concat(chunks).toString('utf8');
+
+  return {
+    method: request.method,
+    url: request.url,
+    headers: Object.fromEntries(
+      Object.entries(request.headers).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value.join(',') : (value ?? ''),
+      ]),
+    ),
+    body: rawBody ? (JSON.parse(rawBody) as unknown) : undefined,
+  };
+}
+
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+}

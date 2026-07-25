@@ -1,7 +1,7 @@
 import { envValidationSchema } from '../config/env.validation';
 import {
   DeterministicSmsProvider,
-  RealSmsProvider,
+  EbulkSmsProvider,
   SandboxSmsProvider,
   type SmsProvider,
 } from './sms.provider';
@@ -26,25 +26,47 @@ export function createSmsProvider(env = process.env): SmsProvider {
     process.env.NODE_ENV ?? 'development',
   );
 
-  if (nodeEnv === 'production' && mode === 'deterministic') {
-    throw new Error('Deterministic SMS provider is not allowed in production');
+  const allowFakeInProduction =
+    values.ALLOW_FAKE_SMS_IN_PRODUCTION === true ||
+    readString(values, 'ALLOW_FAKE_SMS_IN_PRODUCTION').toLowerCase() === 'true';
+
+  if (
+    nodeEnv === 'production' &&
+    (mode === 'deterministic' || mode === 'sandbox') &&
+    !allowFakeInProduction
+  ) {
+    throw new Error(
+      'Fake SMS providers are not allowed in production without ALLOW_FAKE_SMS_IN_PRODUCTION=true',
+    );
   }
 
   switch (mode) {
     case 'real': {
       const url = readString(values, 'SMS_PROVIDER_URL').trim();
-      const token = readString(values, 'SMS_PROVIDER_TOKEN').trim();
+      const username = readString(values, 'SMS_PROVIDER_USERNAME').trim();
+      const apiKey = readString(values, 'SMS_PROVIDER_API_KEY').trim();
+      const senderId = readString(values, 'SMS_PROVIDER_SENDER_ID').trim();
       if (!url) {
         throw new Error('SMS_PROVIDER_URL is required for real SMS mode');
       }
 
-      if (!token) {
-        throw new Error('SMS_PROVIDER_TOKEN is required for real SMS mode');
+      if (!username) {
+        throw new Error('SMS_PROVIDER_USERNAME is required for real SMS mode');
       }
 
-      return new RealSmsProvider({
+      if (!apiKey) {
+        throw new Error('SMS_PROVIDER_API_KEY is required for real SMS mode');
+      }
+
+      if (!senderId) {
+        throw new Error('SMS_PROVIDER_SENDER_ID is required for real SMS mode');
+      }
+
+      return new EbulkSmsProvider({
         url,
-        token,
+        username,
+        apiKey,
+        senderId,
         timeoutMs:
           typeof values.SMS_PROVIDER_TIMEOUT_MS === 'number'
             ? values.SMS_PROVIDER_TIMEOUT_MS
