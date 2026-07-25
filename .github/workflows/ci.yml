@@ -18,10 +18,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
+      - run: npm run prisma:generate
       - run: npm run verify:fast
       - run: npm run build
-      - run: npm run prisma:generate
       - run: npm run prisma:validate
       - run: npm run architecture:check
       - run: npm test -- --runInBand
@@ -39,11 +39,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run gitnexus:smoke
+      - run: corepack enable
+      - run: node scripts/gitnexus.cjs --help
       - name: Run GitNexus analysis
         continue-on-error: ${{ vars.GITNEXUS_ALLOW_FAILURE == 'true' }}
-        run: npm run gitnexus:analyze
+        run: node scripts/gitnexus.cjs analyze .
 
   e2e:
     name: End-to-End Tests
@@ -55,7 +55,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
+      - run: npm run prisma:generate
       - run: npm run test:e2e
 
   integration:
@@ -69,5 +70,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: sudo apt-get update && sudo apt-get install -y redis-server
-      - run: npm ci
+      - run: npm ci --ignore-scripts
+      - run: npm run prisma:generate
       - run: npm run test:integration
