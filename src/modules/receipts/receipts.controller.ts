@@ -109,7 +109,12 @@ export class ReceiptsController {
       },
     },
   })
-  @ApiOperation({ summary: 'Capture receipt' })
+  @ApiOperation({
+    summary: 'Capture receipt',
+    deprecated: true,
+    description:
+      'Deprecated for new frontend integration. Use POST /api/v1/transactions/earn instead.',
+  })
   captureReceipt(
     @Req() request: AuthenticatedRequest,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -160,7 +165,12 @@ export class ReceiptsController {
       },
     },
   })
-  @ApiOperation({ summary: 'Approve pending receipt' })
+  @ApiOperation({
+    summary: 'Approve pending receipt',
+    deprecated: true,
+    description:
+      'Deprecated for new frontend integration. Use POST /api/v1/approvals/{id}/decision instead.',
+  })
   approveReceipt(
     @CurrentSession() context: AuthContext,
     @Param('id') receiptId: string,
@@ -189,7 +199,12 @@ export class ReceiptsController {
       },
     },
   })
-  @ApiOperation({ summary: 'Reject pending receipt' })
+  @ApiOperation({
+    summary: 'Reject pending receipt',
+    deprecated: true,
+    description:
+      'Deprecated for new frontend integration. Use POST /api/v1/approvals/{id}/decision instead.',
+  })
   rejectReceipt(
     @CurrentSession() context: AuthContext,
     @Param('id') receiptId: string,

@@ -32,6 +32,8 @@ const MAX_POS_PAST_SKEW_MS = 12 * 60 * 60 * 1000;
 const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const LEGACY_APPROVAL_POLICY_VERSION = 'legacy';
+const EARN_SERIALIZATION_RETRY_ATTEMPTS = 3;
+const EARN_SERIALIZATION_RETRY_JITTER_MS = 25;
 
 export interface EarnTransactionResponse {
   id: string;
@@ -183,200 +185,324 @@ export class LoyaltyService {
       normalizedKey,
     );
 
-    try {
-      return await this.prismaService.$transaction(
-        async (prisma) => {
-          const [transactionDevice, transactionCard] = await Promise.all([
-            prisma.device.findFirst({
-              where: { id: sessionDeviceId, tenantId },
-              include: { branch: true },
-            }),
-            prisma.card.findFirst({
-              where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
-              include: { customer: true },
-            }),
-          ]);
+    for (
+      let attempt = 1;
+      attempt <= EARN_SERIALIZATION_RETRY_ATTEMPTS;
+      attempt++
+    ) {
+      try {
+        return await this.prismaService.$transaction(
+          async (prisma) => {
+            const [transactionDevice, transactionCard] = await Promise.all([
+              prisma.device.findFirst({
+                where: { id: sessionDeviceId, tenantId },
+                include: { branch: true },
+              }),
+              prisma.card.findFirst({
+                where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
+                include: { customer: true },
+              }),
+            ]);
 
-          if (
-            !transactionDevice ||
-            transactionDevice.status !== DeviceStatus.ACTIVE ||
-            transactionDevice.branch.status !== BranchStatus.ACTIVE
-          ) {
-            throw new DomainHttpException(
-              400,
-              'DEVICE_NOT_ACTIVE',
-              'Device is not active',
-            );
-          }
-
-          if (
-            actor.user.branchId &&
-            actor.user.branchId !== transactionDevice.branchId
-          ) {
-            throw new DomainHttpException(
-              400,
-              'DEVICE_BRANCH_MISMATCH',
-              'Device does not belong to cashier branch',
-            );
-          }
-
-          if (
-            !transactionCard ||
-            transactionCard.status !== CardStatus.ACTIVE ||
-            transactionCard.customer.status !== CustomerStatus.ACTIVE ||
-            transactionCard.customer.isStaff
-          ) {
-            throw new DomainHttpException(
-              404,
-              'CARD_NOT_FOUND',
-              'Card not found',
-            );
-          }
-
-          const branchId = actor.user.branchId ?? transactionDevice.branchId;
-          if (!branchId) {
-            throw new DomainHttpException(
-              400,
-              'BRANCH_CONTEXT_REQUIRED',
-              'Branch context is required',
-            );
-          }
-
-          const receiptWeekStart = deriveReceiptWeekStart(
-            occurredAt,
-            transactionDevice.branch.timezone,
-            transactionDevice.branch.receiptWeekStartDay,
-          );
-
-          const existing = await prisma.idempotencyRecord.findUnique({
-            where: {
-              tenantId_actorId_endpoint_idempotencyKey: {
-                tenantId,
-                actorId: actor.user.id,
-                endpoint: EARN_ENDPOINT,
-                idempotencyKey: normalizedKey,
-              },
-            },
-          });
-
-          if (existing?.expiresAt && existing.expiresAt <= new Date()) {
-            await prisma.idempotencyRecord.deleteMany({
-              where: {
-                tenantId,
-                actorId: actor.user.id,
-                endpoint: EARN_ENDPOINT,
-                idempotencyKey: normalizedKey,
-              },
-            });
-          } else if (existing) {
-            if (existing.requestHash !== requestHash) {
+            if (
+              !transactionDevice ||
+              transactionDevice.status !== DeviceStatus.ACTIVE ||
+              transactionDevice.branch.status !== BranchStatus.ACTIVE
+            ) {
               throw new DomainHttpException(
-                409,
-                'IDEMPOTENCY_CONFLICT',
-                'Idempotency key reused with different payload',
+                400,
+                'DEVICE_NOT_ACTIVE',
+                'Device is not active',
               );
             }
 
-            if (existing.responseJson && existing.status === 'COMPLETED') {
-              return existing.responseJson as unknown as EarnTransactionResponse;
+            if (
+              actor.user.branchId &&
+              actor.user.branchId !== transactionDevice.branchId
+            ) {
+              throw new DomainHttpException(
+                400,
+                'DEVICE_BRANCH_MISMATCH',
+                'Device does not belong to cashier branch',
+              );
             }
 
-            throw new ConflictException(
-              'Idempotency key is still being processed',
-            );
-          }
+            if (
+              !transactionCard ||
+              transactionCard.status !== CardStatus.ACTIVE ||
+              transactionCard.customer.status !== CustomerStatus.ACTIVE ||
+              transactionCard.customer.isStaff
+            ) {
+              throw new DomainHttpException(
+                404,
+                'CARD_NOT_FOUND',
+                'Card not found',
+              );
+            }
 
-          const duplicateReceipt = await prisma.receipt.findFirst({
-            where: {
-              tenantId,
-              branchId,
-              receiptWeekStart,
-              normalizedPosReceiptNumber,
-            },
-          });
+            const branchId = actor.user.branchId ?? transactionDevice.branchId;
+            if (!branchId) {
+              throw new DomainHttpException(
+                400,
+                'BRANCH_CONTEXT_REQUIRED',
+                'Branch context is required',
+              );
+            }
 
-          if (duplicateReceipt) {
-            throw new DomainHttpException(
-              409,
-              'RECEIPT_ALREADY_CAPTURED',
-              'Physical receipt already captured',
-            );
-          }
-
-          const captureStatus = resolveCaptureStatus(
-            data.purchaseAmountKobo,
-            this.configService,
-          );
-          const now = new Date();
-          const reviewStatus: ReceiptReviewStatus =
-            captureStatus === 'PENDING_APPROVAL'
-              ? ReceiptReviewStatus.PENDING
-              : ReceiptReviewStatus.APPROVED;
-
-          const receipt = await prisma.receipt.create({
-            data: {
-              tenantId,
-              branchId,
-              customerId: transactionCard.customerId,
-              cardId: transactionCard.id,
-              deviceId: transactionDevice.id,
-              posReceiptNumber,
-              normalizedPosReceiptNumber,
-              receiptWeekStart,
-              purchaseAmountKobo: BigInt(data.purchaseAmountKobo),
+            const receiptWeekStart = deriveReceiptWeekStart(
               occurredAt,
-              capturedByTenantId: actor.user.tenantId,
-              capturedBy: actor.user.id,
-              capturedAt: now,
-              captureStatus,
-              reviewStatus,
-              reviewedAt:
-                reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
-              reviewedByTenantId:
-                reviewStatus === ReceiptReviewStatus.PENDING
-                  ? null
-                  : actor.user.tenantId,
-              reviewedBy:
-                reviewStatus === ReceiptReviewStatus.PENDING
-                  ? null
-                  : actor.user.id,
-              approvedByTenantId:
-                reviewStatus === ReceiptReviewStatus.PENDING
-                  ? null
-                  : actor.user.tenantId,
-              approvedBy:
-                reviewStatus === ReceiptReviewStatus.PENDING
-                  ? null
-                  : actor.user.id,
-              approvedAt:
-                reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
-              approvalReasonCode:
-                captureStatus === 'PENDING_APPROVAL'
-                  ? APPROVAL_REASON_CODE
-                  : null,
-            },
-          });
+              transactionDevice.branch.timezone,
+              transactionDevice.branch.receiptWeekStartDay,
+            );
 
-          if (captureStatus === 'PENDING_APPROVAL') {
-            const approval = await prisma.approval.create({
+            const existing = await prisma.idempotencyRecord.findUnique({
+              where: {
+                tenantId_actorId_endpoint_idempotencyKey: {
+                  tenantId,
+                  actorId: actor.user.id,
+                  endpoint: EARN_ENDPOINT,
+                  idempotencyKey: normalizedKey,
+                },
+              },
+            });
+
+            if (existing?.expiresAt && existing.expiresAt <= new Date()) {
+              await prisma.idempotencyRecord.deleteMany({
+                where: {
+                  tenantId,
+                  actorId: actor.user.id,
+                  endpoint: EARN_ENDPOINT,
+                  idempotencyKey: normalizedKey,
+                },
+              });
+            } else if (existing) {
+              if (existing.requestHash !== requestHash) {
+                throw new DomainHttpException(
+                  409,
+                  'IDEMPOTENCY_CONFLICT',
+                  'Idempotency key reused with different payload',
+                );
+              }
+
+              if (existing.responseJson && existing.status === 'COMPLETED') {
+                return existing.responseJson as unknown as EarnTransactionResponse;
+              }
+
+              throw new ConflictException(
+                'Idempotency key is still being processed',
+              );
+            }
+
+            const duplicateReceipt = await prisma.receipt.findFirst({
+              where: {
+                tenantId,
+                branchId,
+                receiptWeekStart,
+                normalizedPosReceiptNumber,
+              },
+            });
+
+            if (duplicateReceipt) {
+              throw new DomainHttpException(
+                409,
+                'RECEIPT_ALREADY_USED',
+                'Physical receipt already captured',
+              );
+            }
+
+            const captureStatus = resolveCaptureStatus(
+              data.purchaseAmountKobo,
+              this.configService,
+            );
+            const now = new Date();
+            const reviewStatus: ReceiptReviewStatus =
+              captureStatus === 'PENDING_APPROVAL'
+                ? ReceiptReviewStatus.PENDING
+                : ReceiptReviewStatus.APPROVED;
+
+            const receipt = await prisma.receipt.create({
+              data: {
+                tenantId,
+                branchId,
+                customerId: transactionCard.customerId,
+                cardId: transactionCard.id,
+                deviceId: transactionDevice.id,
+                posReceiptNumber,
+                normalizedPosReceiptNumber,
+                receiptWeekStart,
+                purchaseAmountKobo: BigInt(data.purchaseAmountKobo),
+                occurredAt,
+                capturedByTenantId: actor.user.tenantId,
+                capturedBy: actor.user.id,
+                capturedAt: now,
+                captureStatus,
+                reviewStatus,
+                reviewedAt:
+                  reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
+                reviewedByTenantId:
+                  reviewStatus === ReceiptReviewStatus.PENDING
+                    ? null
+                    : actor.user.tenantId,
+                reviewedBy:
+                  reviewStatus === ReceiptReviewStatus.PENDING
+                    ? null
+                    : actor.user.id,
+                approvedByTenantId:
+                  reviewStatus === ReceiptReviewStatus.PENDING
+                    ? null
+                    : actor.user.tenantId,
+                approvedBy:
+                  reviewStatus === ReceiptReviewStatus.PENDING
+                    ? null
+                    : actor.user.id,
+                approvedAt:
+                  reviewStatus === ReceiptReviewStatus.PENDING ? null : now,
+                approvalReasonCode:
+                  captureStatus === 'PENDING_APPROVAL'
+                    ? APPROVAL_REASON_CODE
+                    : null,
+              },
+            });
+
+            if (captureStatus === 'PENDING_APPROVAL') {
+              const approval = await prisma.approval.create({
+                data: {
+                  tenantId,
+                  receiptId: receipt.id,
+                  status: ApprovalStatus.PENDING,
+                  requestedByTenantId: actor.user.tenantId,
+                  requestedBy: actor.user.id,
+                  reasonCode: APPROVAL_REASON_CODE,
+                  policyVersion: getApprovalPolicyVersion(this.configService),
+                  expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
+                },
+              });
+
+              const response = {
+                id: receipt.id,
+                transactionId: null,
+                state: 'PENDING_APPROVAL' as const,
+                receiptId: receipt.id,
+                approvalId: approval.id,
+                tenantId,
+                branchId,
+                deviceId: transactionDevice.id,
+                customerId: transactionCard.customerId,
+                cardSerialNumber: transactionCard.barcodeValue,
+                posReceiptNumber: receipt.posReceiptNumber,
+                purchaseAmountKobo: data.purchaseAmountKobo,
+                creditKobo: null,
+                captureStatus,
+                availableBalanceKobo: null,
+                expiresAt: null,
+                smsStatus: null,
+                occurredAt: occurredAt.toISOString(),
+                capturedAt: now.toISOString(),
+                reviewStatus: 'PENDING' as const,
+              } satisfies EarnTransactionResponse;
+
+              await prisma.idempotencyRecord.create({
+                data: {
+                  tenantId,
+                  actorId: actor.user.id,
+                  endpoint: EARN_ENDPOINT,
+                  idempotencyKey: normalizedKey,
+                  requestHash,
+                  status: 'COMPLETED',
+                  expiresAt: new Date(now.getTime() + IDP_EXPIRY_MS),
+                  responseJson: response,
+                },
+              });
+
+              await this.auditService.recordWithClient(prisma, {
+                tenantId,
+                actorId: actor.user.id,
+                action: 'earn.request.approval_required',
+                entityType: 'receipt',
+                entityId: receipt.id,
+                metadata: response,
+              });
+
+              return response;
+            }
+
+            const creditKobo = calculateCreditKobo(
+              data.purchaseAmountKobo,
+              this.configService,
+            );
+
+            const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+              data: {
+                tenantId,
+                customerId: transactionCard.customerId,
+                receiptId: receipt.id,
+                type: LedgerEntryType.EARN,
+                direction: LedgerEntryDirection.CREDIT,
+                amountKobo: creditKobo,
+                status: LedgerEntryStatus.CONFIRMED,
+                correlationId: requestHash,
+                createdByTenantId: actor.user.tenantId,
+                createdBy: actor.user.id,
+                effectiveAt: occurredAt,
+              },
+            });
+
+            const creditLot = await prisma.creditLot.create({
+              data: {
+                tenantId,
+                customerId: transactionCard.customerId,
+                earnLedgerEntryId: ledgerEntry.id,
+                originalAmountKobo: creditKobo,
+                remainingAmountKobo: creditKobo,
+                earnedAt: occurredAt,
+                expiresAt: addMonths(occurredAt, 12),
+              },
+            });
+
+            const outboxEvent = await prisma.outboxEvent.create({
+              data: {
+                tenantId,
+                aggregateType: 'receipt',
+                aggregateId: receipt.id,
+                eventType: 'sms.send',
+                payload: {
+                  receiptId: receipt.id,
+                  transactionId: ledgerEntry.id,
+                  customerId: transactionCard.customerId,
+                  phoneE164: transactionCard.customer.phoneE164,
+                  template: 'earn-confirmed',
+                  creditKobo: creditKobo.toString(),
+                },
+                status: 'PENDING',
+                nextAttemptAt: now,
+              },
+            });
+            const smsMessage = await prisma.smsMessage.create({
               data: {
                 tenantId,
                 receiptId: receipt.id,
-                status: ApprovalStatus.PENDING,
-                requestedByTenantId: actor.user.tenantId,
-                requestedBy: actor.user.id,
-                reasonCode: APPROVAL_REASON_CODE,
-                policyVersion: getApprovalPolicyVersion(this.configService),
-                expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
+                outboxEventId: outboxEvent.id,
+                phoneE164: transactionCard.customer.phoneE164,
+                template: 'earn-confirmed',
+                payload: {
+                  receiptId: receipt.id,
+                  transactionId: ledgerEntry.id,
+                  customerId: transactionCard.customerId,
+                  phoneE164: transactionCard.customer.phoneE164,
+                  template: 'earn-confirmed',
+                  creditKobo: creditKobo.toString(),
+                },
+                status: SmsMessageStatus.QUEUED,
+                queuedAt: now,
               },
             });
 
             const response = {
               id: receipt.id,
-              transactionId: null,
-              state: 'PENDING_APPROVAL' as const,
+              transactionId: ledgerEntry.id,
+              state: 'CONFIRMED' as const,
               receiptId: receipt.id,
-              approvalId: approval.id,
+              ledgerEntryId: ledgerEntry.id,
               tenantId,
               branchId,
               deviceId: transactionDevice.id,
@@ -384,14 +510,20 @@ export class LoyaltyService {
               cardSerialNumber: transactionCard.barcodeValue,
               posReceiptNumber: receipt.posReceiptNumber,
               purchaseAmountKobo: data.purchaseAmountKobo,
-              creditKobo: null,
+              creditKobo: Number(creditKobo),
               captureStatus,
-              availableBalanceKobo: null,
-              expiresAt: null,
-              smsStatus: null,
+              availableBalanceKobo: Number(
+                await calculateAvailableBalanceKobo(
+                  prisma,
+                  tenantId,
+                  transactionCard.customerId,
+                ),
+              ),
+              expiresAt: creditLot.expiresAt.toISOString(),
+              smsStatus: smsMessage.status,
               occurredAt: occurredAt.toISOString(),
               capturedAt: now.toISOString(),
-              reviewStatus: 'PENDING' as const,
+              reviewStatus: 'APPROVED' as const,
             } satisfies EarnTransactionResponse;
 
             await prisma.idempotencyRecord.create({
@@ -410,207 +542,108 @@ export class LoyaltyService {
             await this.auditService.recordWithClient(prisma, {
               tenantId,
               actorId: actor.user.id,
-              action: 'earn.request.approval_required',
-              entityType: 'receipt',
-              entityId: receipt.id,
-              metadata: response,
-            });
-
-            return response;
-          }
-
-          const creditKobo = calculateCreditKobo(
-            data.purchaseAmountKobo,
-            this.configService,
-          );
-
-          const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-            data: {
-              tenantId,
-              customerId: transactionCard.customerId,
-              receiptId: receipt.id,
-              type: LedgerEntryType.EARN,
-              direction: LedgerEntryDirection.CREDIT,
-              amountKobo: creditKobo,
-              status: LedgerEntryStatus.CONFIRMED,
-              correlationId: requestHash,
-              createdByTenantId: actor.user.tenantId,
-              createdBy: actor.user.id,
-              effectiveAt: occurredAt,
-            },
-          });
-
-          const creditLot = await prisma.creditLot.create({
-            data: {
-              tenantId,
-              customerId: transactionCard.customerId,
-              earnLedgerEntryId: ledgerEntry.id,
-              originalAmountKobo: creditKobo,
-              remainingAmountKobo: creditKobo,
-              earnedAt: occurredAt,
-              expiresAt: addMonths(occurredAt, 12),
-            },
-          });
-
-          const outboxEvent = await prisma.outboxEvent.create({
-            data: {
-              tenantId,
-              aggregateType: 'receipt',
-              aggregateId: receipt.id,
-              eventType: 'sms.send',
-              payload: {
-                receiptId: receipt.id,
-                transactionId: ledgerEntry.id,
-                customerId: transactionCard.customerId,
-                phoneE164: transactionCard.customer.phoneE164,
-                template: 'earn-confirmed',
-                creditKobo: creditKobo.toString(),
-              },
-              status: 'PENDING',
-              nextAttemptAt: now,
-            },
-          });
-          const smsMessage = await prisma.smsMessage.create({
-            data: {
-              tenantId,
-              receiptId: receipt.id,
-              outboxEventId: outboxEvent.id,
-              phoneE164: transactionCard.customer.phoneE164,
-              template: 'earn-confirmed',
-              payload: {
-                receiptId: receipt.id,
-                transactionId: ledgerEntry.id,
-                customerId: transactionCard.customerId,
-                phoneE164: transactionCard.customer.phoneE164,
-                template: 'earn-confirmed',
-                creditKobo: creditKobo.toString(),
-              },
-              status: SmsMessageStatus.QUEUED,
-              queuedAt: now,
-            },
-          });
-
-          const response = {
-            id: receipt.id,
-            transactionId: ledgerEntry.id,
-            state: 'CONFIRMED' as const,
-            receiptId: receipt.id,
-            ledgerEntryId: ledgerEntry.id,
-            tenantId,
-            branchId,
-            deviceId: transactionDevice.id,
-            customerId: transactionCard.customerId,
-            cardSerialNumber: transactionCard.barcodeValue,
-            posReceiptNumber: receipt.posReceiptNumber,
-            purchaseAmountKobo: data.purchaseAmountKobo,
-            creditKobo: Number(creditKobo),
-            captureStatus,
-            availableBalanceKobo: Number(
-              await calculateAvailableBalanceKobo(
-                prisma,
-                tenantId,
-                transactionCard.customerId,
-              ),
-            ),
-            expiresAt: creditLot.expiresAt.toISOString(),
-            smsStatus: smsMessage.status,
-            occurredAt: occurredAt.toISOString(),
-            capturedAt: now.toISOString(),
-            reviewStatus: 'APPROVED' as const,
-          } satisfies EarnTransactionResponse;
-
-          await prisma.idempotencyRecord.create({
-            data: {
-              tenantId,
-              actorId: actor.user.id,
-              endpoint: EARN_ENDPOINT,
-              idempotencyKey: normalizedKey,
-              requestHash,
-              status: 'COMPLETED',
-              expiresAt: new Date(now.getTime() + IDP_EXPIRY_MS),
-              responseJson: response,
-            },
-          });
-
-          await this.auditService.recordWithClient(prisma, {
-            tenantId,
-            actorId: actor.user.id,
-            action: 'earn.confirmed',
-            entityType: 'receipt',
-            entityId: receipt.id,
-            metadata: {
-              ...response,
-              creditLotId: creditLot.id,
-            },
-          });
-
-          if (overrideApplied) {
-            await this.auditService.recordWithClient(prisma, {
-              tenantId,
-              actorId: actor.user.id,
-              action: 'earn.timestamp_override',
+              action: 'earn.confirmed',
               entityType: 'receipt',
               entityId: receipt.id,
               metadata: {
-                overrideReason,
-                occurredAt: occurredAt.toISOString(),
+                ...response,
+                creditLotId: creditLot.id,
               },
             });
+
+            if (overrideApplied) {
+              await this.auditService.recordWithClient(prisma, {
+                tenantId,
+                actorId: actor.user.id,
+                action: 'earn.timestamp_override',
+                entityType: 'receipt',
+                entityId: receipt.id,
+                metadata: {
+                  overrideReason,
+                  occurredAt: occurredAt.toISOString(),
+                },
+              });
+            }
+
+            return response;
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (isUniqueIdempotencyConflict(error)) {
+          const replay = await findCompletedEarnReplay(
+            this.prismaService,
+            tenantId,
+            actor.user.id,
+            normalizedKey,
+            requestHash,
+          );
+
+          if (replay) {
+            return replay;
           }
 
-          return response;
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-    } catch (error) {
-      if (isUniqueIdempotencyConflict(error)) {
-        const replay = await this.prismaService.idempotencyRecord.findUnique({
-          where: {
-            tenantId_actorId_endpoint_idempotencyKey: {
-              tenantId,
-              actorId: actor.user.id,
-              endpoint: EARN_ENDPOINT,
-              idempotencyKey: normalizedKey,
-            },
-          },
-        });
-
-        if (replay?.requestHash === requestHash && replay.responseJson) {
-          return replay.responseJson as unknown as EarnTransactionResponse;
+          throw new DomainHttpException(
+            409,
+            'IDEMPOTENCY_CONFLICT',
+            'Idempotency key reused with different payload',
+          );
         }
 
-        throw new DomainHttpException(
-          409,
-          'IDEMPOTENCY_CONFLICT',
-          'Idempotency key reused with different payload',
-        );
-      }
+        if (isUniqueReceiptConflict(error)) {
+          const replay = await findCompletedEarnReplay(
+            this.prismaService,
+            tenantId,
+            actor.user.id,
+            normalizedKey,
+            requestHash,
+          );
 
-      if (isUniqueReceiptConflict(error) || isTransactionConflict(error)) {
-        const replay = await this.prismaService.idempotencyRecord.findUnique({
-          where: {
-            tenantId_actorId_endpoint_idempotencyKey: {
-              tenantId,
-              actorId: actor.user.id,
-              endpoint: EARN_ENDPOINT,
-              idempotencyKey: normalizedKey,
-            },
-          },
-        });
+          if (replay) {
+            return replay;
+          }
 
-        if (replay?.requestHash === requestHash && replay.responseJson) {
-          return replay.responseJson as unknown as EarnTransactionResponse;
+          throw new DomainHttpException(
+            409,
+            'RECEIPT_ALREADY_USED',
+            'Physical receipt already captured',
+          );
         }
 
-        throw new DomainHttpException(
-          409,
-          'RECEIPT_ALREADY_CAPTURED',
-          'Physical receipt already captured',
-        );
-      }
+        if (isTransactionConflict(error)) {
+          const replay = await findCompletedEarnReplay(
+            this.prismaService,
+            tenantId,
+            actor.user.id,
+            normalizedKey,
+            requestHash,
+          );
 
-      throw error;
+          if (replay) {
+            return replay;
+          }
+
+          if (attempt < EARN_SERIALIZATION_RETRY_ATTEMPTS) {
+            await waitForSerializationRetryJitter();
+            continue;
+          }
+
+          throw new DomainHttpException(
+            503,
+            'EARN_TRANSACTION_CONFLICT',
+            'Earn transaction conflicted; retry the request',
+          );
+        }
+
+        throw error;
+      }
     }
+
+    throw new DomainHttpException(
+      503,
+      'EARN_TRANSACTION_CONFLICT',
+      'Earn transaction conflicted; retry the request',
+    );
   }
 
   async getTransaction(
@@ -1425,6 +1458,39 @@ async function cleanupExpiredIdempotencyRecords(
       expiresAt: { lte: new Date() },
     },
   });
+}
+
+async function findCompletedEarnReplay(
+  prismaService: PrismaService,
+  tenantId: string,
+  actorId: string,
+  normalizedKey: string,
+  requestHash: string,
+): Promise<EarnTransactionResponse | null> {
+  const replay = await prismaService.idempotencyRecord.findUnique({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint: EARN_ENDPOINT,
+        idempotencyKey: normalizedKey,
+      },
+    },
+  });
+
+  if (replay?.requestHash === requestHash && replay.responseJson) {
+    return replay.responseJson as unknown as EarnTransactionResponse;
+  }
+
+  return null;
+}
+
+async function waitForSerializationRetryJitter(): Promise<void> {
+  const delayMs = Math.floor(
+    Math.random() * (EARN_SERIALIZATION_RETRY_JITTER_MS + 1),
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 function isUniqueIdempotencyConflict(error: unknown): boolean {

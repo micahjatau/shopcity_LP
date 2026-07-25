@@ -25,3 +25,6 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 | 2026-07-25 | `LoyaltyService.decideApproval` | HIGH | 7 | 3 | Approval expiry persistence fix affects receipt approval/rejection and approvals decision processes. |
 | 2026-07-25 | `ApprovalsController.decideApproval` | LOW | 0 | 0 | OpenAPI response schema update has no indexed upstream callers. |
 | 2026-07-25 | `OutboxWorkerRuntime` | MEDIUM | 8 | 6 | Worker recovery edits affect worker bootstrap paths and background job recovery behavior. |
+| 2026-07-25 | `LoyaltyService.earn` | LOW | 4 | 4 | Sprint 2 financial integrity closure changes earn transaction retry/error mapping and affects earn plus receipt capture flows. |
+| 2026-07-25 | `ReceiptsController.captureReceipt` | LOW | 0 | 0 | Receipt workflow OpenAPI/deprecation surface has no indexed upstream callers. |
+| 2026-07-25 | `apiSuccessEnvelopeResponse` | MEDIUM | 13 | 12 | API governance work touches shared OpenAPI response decorators used across controllers. |

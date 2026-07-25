@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { ApprovalStatus, UserRole } from '@prisma/client';
+import {
+  ApprovalStatus,
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  LedgerEntryType,
+  ReceiptCaptureStatus,
+  ReceiptReviewStatus,
+  UserRole,
+} from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
@@ -356,6 +364,114 @@ describe('immutable earn ledger (int)', () => {
     expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 0]);
   }, 120000);
 
+  it('rejects receipt evidence mutation but allows workflow metadata updates', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-IMMUTABLE-RECEIPT',
+    );
+    const pending = await loyaltyService.earn(
+      tenant.id,
+      fixture.actor,
+      'earn-immutable-receipt-key',
+      {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 21_000_000,
+        occurredAt: recentOccurredAt(),
+      },
+    );
+
+    await expect(
+      prisma.receipt.update({
+        where: { id: pending.receiptId },
+        data: { purchaseAmountKobo: 22_000_000 },
+      }),
+    ).rejects.toThrow(/receipt purchase evidence is immutable/i);
+
+    await expect(
+      prisma.receipt.update({
+        where: { id: pending.receiptId },
+        data: {
+          reviewStatus: ReceiptReviewStatus.REJECTED,
+          reviewedAt: new Date(),
+          reviewedByTenantId: approver.tenantId,
+          reviewedBy: approver.id,
+          approvedAt: null,
+          approvedByTenantId: null,
+          approvedBy: null,
+        },
+      }),
+    ).resolves.toMatchObject({ reviewStatus: ReceiptReviewStatus.REJECTED });
+  }, 120000);
+
+  it('rejects credit lot source mismatches and immutable source updates', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-LOT-INTEGRITY',
+    );
+    const confirmed = await loyaltyService.earn(
+      tenant.id,
+      fixture.actor,
+      'earn-lot-integrity-key',
+      {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: recentOccurredAt(),
+      },
+    );
+    const creditLot = await prisma.creditLot.findFirstOrThrow({
+      where: { earnLedgerEntryId: confirmed.ledgerEntryId! },
+    });
+
+    await expect(
+      prisma.creditLot.update({
+        where: { id: creditLot.id },
+        data: { originalAmountKobo: creditLot.originalAmountKobo + 1n },
+      }),
+    ).rejects.toThrow(/credit lot source fields are immutable/i);
+
+    await expect(
+      prisma.creditLot.update({
+        where: { id: creditLot.id },
+        data: { remainingAmountKobo: creditLot.remainingAmountKobo - 1n },
+      }),
+    ).resolves.toMatchObject({
+      remainingAmountKobo: creditLot.remainingAmountKobo - 1n,
+    });
+
+    const direct = await createDirectEarnLedgerFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      fixture.device.id,
+      fixture.customer.id,
+      fixture.card.id,
+      'POS-LEDGER-LOT-MISMATCH',
+    );
+
+    await expect(
+      prisma.creditLot.create({
+        data: {
+          tenantId: tenant.id,
+          customerId: fixture.customer.id,
+          earnLedgerEntryId: direct.ledgerEntry.id,
+          originalAmountKobo: direct.ledgerEntry.amountKobo + 1n,
+          remainingAmountKobo: direct.ledgerEntry.amountKobo + 1n,
+          earnedAt: direct.ledgerEntry.effectiveAt,
+          expiresAt: new Date(direct.ledgerEntry.effectiveAt.getTime() + 1000),
+        },
+      }),
+    ).rejects.toThrow(/credit lot must match its earn ledger entry/i);
+  }, 120000);
+
   it('rejects stale approval policies without financial side effects', async () => {
     const fixture = await createEarnFixture(
       prisma,
@@ -586,6 +702,68 @@ async function createEarnFixture(
       device.id,
     ),
   };
+}
+
+async function createDirectEarnLedgerFixture(
+  prisma: PrismaService,
+  tenantId: string,
+  branchId: string,
+  cashierId: string,
+  deviceId: string,
+  customerId: string,
+  cardId: string,
+  receiptNumber: string,
+) {
+  const occurredAt = new Date();
+  const receipt = await prisma.receipt.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      branchId,
+      customerId,
+      cardId,
+      deviceId,
+      posReceiptNumber: receiptNumber,
+      normalizedPosReceiptNumber: receiptNumber,
+      receiptWeekStart: new Date(
+        Date.UTC(
+          occurredAt.getUTCFullYear(),
+          occurredAt.getUTCMonth(),
+          occurredAt.getUTCDate(),
+        ),
+      ),
+      purchaseAmountKobo: 1_000_000,
+      occurredAt,
+      capturedByTenantId: tenantId,
+      capturedBy: cashierId,
+      captureStatus: ReceiptCaptureStatus.CAPTURED,
+      reviewStatus: ReceiptReviewStatus.APPROVED,
+      reviewedAt: occurredAt,
+      reviewedByTenantId: tenantId,
+      reviewedBy: cashierId,
+      approvedAt: occurredAt,
+      approvedByTenantId: tenantId,
+      approvedBy: cashierId,
+    },
+  });
+  const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      customerId,
+      receiptId: receipt.id,
+      type: LedgerEntryType.EARN,
+      direction: LedgerEntryDirection.CREDIT,
+      amountKobo: 20_000,
+      status: LedgerEntryStatus.CONFIRMED,
+      correlationId: `direct-${receiptNumber}`,
+      createdByTenantId: tenantId,
+      createdBy: cashierId,
+      effectiveAt: occurredAt,
+    },
+  });
+
+  return { receipt, ledgerEntry };
 }
 
 function makeContext(

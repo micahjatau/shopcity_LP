@@ -14933,6 +14933,8 @@
     },
     "/api/v1/receipts": {
       "post": {
+        "deprecated": true,
+        "description": "Deprecated for new frontend integration. Use POST /api/v1/transactions/earn instead.",
         "operationId": "ReceiptsController_captureReceipt_v1",
         "parameters": [
           {
@@ -15649,6 +15651,8 @@
     },
     "/api/v1/receipts/{id}/approve": {
       "post": {
+        "deprecated": true,
+        "description": "Deprecated for new frontend integration. Use POST /api/v1/approvals/{id}/decision instead.",
         "operationId": "ReceiptsController_approveReceipt_v1",
         "parameters": [
           {
@@ -16221,6 +16225,8 @@
     },
     "/api/v1/receipts/{id}/reject": {
       "post": {
+        "deprecated": true,
+        "description": "Deprecated for new frontend integration. Use POST /api/v1/approvals/{id}/decision instead.",
         "operationId": "ReceiptsController_rejectReceipt_v1",
         "parameters": [
           {

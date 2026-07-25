@@ -15,3 +15,6 @@
 - Do not expose internal stack traces to API consumers.
 - Use structured responses that preserve operational context.
 - `AUTH_*` covers invalid credentials, expired or revoked sessions, CSRF failures, suspension blocks, and login throttling.
+- `RECEIPT_ALREADY_USED` is the canonical duplicate physical receipt code.
+- `EARN_TRANSACTION_CONFLICT` represents exhausted serialization retries and should be treated as temporary/retryable by clients.
+- `RECEIPT_ALREADY_CAPTURED` is legacy wording and should not be used for new duplicate receipt mappings.
