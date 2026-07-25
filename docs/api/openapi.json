@@ -14773,7 +14773,92 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "required": [
+                        "items"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "receiptId",
+                              "status",
+                              "requestedAt",
+                              "expiresAt",
+                              "decidedAt",
+                              "executedAt",
+                              "receipt"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "receiptId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "example": "PENDING"
+                              },
+                              "reasonCode": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "requestedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "decidedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "executedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "receipt": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "posReceiptNumber",
+                                  "purchaseAmountKobo",
+                                  "captureStatus",
+                                  "reviewStatus"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "posReceiptNumber": {
+                                    "type": "string"
+                                  },
+                                  "purchaseAmountKobo": {
+                                    "type": "integer"
+                                  },
+                                  "captureStatus": {
+                                    "type": "string"
+                                  },
+                                  "reviewStatus": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -15806,6 +15891,9 @@
                         "purchaseAmountKobo",
                         "creditKobo",
                         "captureStatus",
+                        "availableBalanceKobo",
+                        "expiresAt",
+                        "smsStatus",
                         "occurredAt",
                         "capturedAt",
                         "reviewStatus"
@@ -15817,8 +15905,7 @@
                         },
                         "transactionId": {
                           "type": "string",
-                          "format": "uuid",
-                          "nullable": true
+                          "format": "uuid"
                         },
                         "state": {
                           "type": "string",
@@ -15835,8 +15922,7 @@
                         },
                         "ledgerEntryId": {
                           "type": "string",
-                          "format": "uuid",
-                          "nullable": true
+                          "format": "uuid"
                         },
                         "tenantId": {
                           "type": "string",
@@ -15871,17 +15957,15 @@
                           "example": "CAPTURED"
                         },
                         "availableBalanceKobo": {
-                          "type": "integer",
-                          "nullable": true
+                          "type": "integer"
                         },
                         "expiresAt": {
                           "type": "string",
-                          "format": "date-time",
-                          "nullable": true
+                          "format": "date-time"
                         },
                         "smsStatus": {
                           "type": "string",
-                          "nullable": true
+                          "example": "QUEUED"
                         },
                         "occurredAt": {
                           "type": "string",
@@ -15892,7 +15976,8 @@
                           "format": "date-time"
                         },
                         "reviewStatus": {
-                          "type": "string"
+                          "type": "string",
+                          "example": "APPROVED"
                         }
                       }
                     },
@@ -15946,6 +16031,7 @@
                         "transactionId",
                         "state",
                         "receiptId",
+                        "approvalId",
                         "tenantId",
                         "branchId",
                         "deviceId",
@@ -15955,6 +16041,9 @@
                         "purchaseAmountKobo",
                         "creditKobo",
                         "captureStatus",
+                        "availableBalanceKobo",
+                        "expiresAt",
+                        "smsStatus",
                         "occurredAt",
                         "capturedAt",
                         "reviewStatus"
@@ -15979,8 +16068,7 @@
                         },
                         "approvalId": {
                           "type": "string",
-                          "format": "uuid",
-                          "nullable": true
+                          "format": "uuid"
                         },
                         "ledgerEntryId": {
                           "type": "string",
@@ -16013,7 +16101,8 @@
                           "type": "integer"
                         },
                         "creditKobo": {
-                          "type": "integer"
+                          "type": "integer",
+                          "nullable": true
                         },
                         "captureStatus": {
                           "type": "string",
@@ -16041,7 +16130,8 @@
                           "format": "date-time"
                         },
                         "reviewStatus": {
-                          "type": "string"
+                          "type": "string",
+                          "example": "PENDING"
                         }
                       }
                     },
@@ -16524,6 +16614,30 @@
                     },
                     "data": {
                       "type": "object",
+                      "required": [
+                        "id",
+                        "transactionId",
+                        "tenantId",
+                        "branchId",
+                        "customerId",
+                        "deviceId",
+                        "cardSerialNumber",
+                        "posReceiptNumber",
+                        "purchaseAmountKobo",
+                        "occurredAt",
+                        "capturedAt",
+                        "state",
+                        "captureStatus",
+                        "reviewStatus",
+                        "approvalId",
+                        "approvalStatus",
+                        "ledgerEntryId",
+                        "creditKobo",
+                        "availableBalanceKobo",
+                        "expiresAt",
+                        "smsStatus",
+                        "ledger"
+                      ],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -16532,6 +16646,153 @@
                         "transactionId": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "tenantId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "customerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "cardSerialNumber": {
+                          "type": "string"
+                        },
+                        "posReceiptNumber": {
+                          "type": "string"
+                        },
+                        "purchaseAmountKobo": {
+                          "type": "integer"
+                        },
+                        "occurredAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "capturedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "state": {
+                          "type": "string",
+                          "example": "CONFIRMED"
+                        },
+                        "captureStatus": {
+                          "type": "string",
+                          "example": "CAPTURED"
+                        },
+                        "reviewStatus": {
+                          "type": "string",
+                          "example": "APPROVED"
+                        },
+                        "approvalId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "approvalStatus": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "ledgerEntryId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "creditKobo": {
+                          "type": "integer"
+                        },
+                        "availableBalanceKobo": {
+                          "type": "integer"
+                        },
+                        "expiresAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "smsStatus": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "ledger": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "receiptId",
+                            "type",
+                            "direction",
+                            "amountKobo",
+                            "status",
+                            "effectiveAt",
+                            "creditLot"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "receiptId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "type": {
+                              "type": "string",
+                              "example": "EARN"
+                            },
+                            "direction": {
+                              "type": "string",
+                              "example": "CREDIT"
+                            },
+                            "amountKobo": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string",
+                              "example": "CONFIRMED"
+                            },
+                            "effectiveAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "creditLot": {
+                              "type": "object",
+                              "nullable": true,
+                              "required": [
+                                "id",
+                                "originalAmountKobo",
+                                "remainingAmountKobo",
+                                "earnedAt",
+                                "expiresAt"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "originalAmountKobo": {
+                                  "type": "integer"
+                                },
+                                "remainingAmountKobo": {
+                                  "type": "integer"
+                                },
+                                "earnedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "expiresAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              }
+                            }
+                          }
                         }
                       }
                     },
@@ -17013,7 +17274,93 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "required": [
+                        "customerId",
+                        "items"
+                      ],
+                      "properties": {
+                        "customerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "receiptId",
+                              "type",
+                              "direction",
+                              "amountKobo",
+                              "status",
+                              "effectiveAt",
+                              "creditLot"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "receiptId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "type": {
+                                "type": "string",
+                                "example": "EARN"
+                              },
+                              "direction": {
+                                "type": "string",
+                                "example": "CREDIT"
+                              },
+                              "amountKobo": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "example": "CONFIRMED"
+                              },
+                              "effectiveAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "creditLot": {
+                                "type": "object",
+                                "nullable": true,
+                                "required": [
+                                  "id",
+                                  "originalAmountKobo",
+                                  "remainingAmountKobo",
+                                  "earnedAt",
+                                  "expiresAt"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "originalAmountKobo": {
+                                    "type": "integer"
+                                  },
+                                  "remainingAmountKobo": {
+                                    "type": "integer"
+                                  },
+                                  "earnedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
