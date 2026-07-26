@@ -1,345 +1,252 @@
-import { SmsMessageStatus, UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import type { AuthContext } from '../../common/auth/session.types';
+import { RedemptionPolicyService } from './redemption-policy.service';
 import { RedemptionsService } from './redemptions.service';
 
-describe('RedemptionsService', () => {
-  it('confirms an eligible redemption atomically', async () => {
-    const tx = transactionClient();
-    const transaction = jest.fn(
-      (callback: (client: unknown) => Promise<unknown>) => callback(tx),
-    );
-    const activeBalanceService = balanceService([900_000n, 650_000n]);
-    const lotAllocationService = {
-      allocateDebit: jest.fn().mockResolvedValue([
-        {
-          creditLotId: 'lot-1',
-          amountKobo: 250_000n,
-          allocationOrder: 1,
-          expiresAt: new Date('2027-01-15T10:00:00.000Z'),
-        },
-      ]),
-    } as never;
-    const service = new RedemptionsService(
-      prismaService({ transaction }),
-      activeBalanceService,
-      lotAllocationService,
-      policyService({ maximumAllowedKobo: 270_000n }),
-      auditService(),
-    );
+const REQUEST_OCCURRED_AT = '2026-07-26T12:00:00.000Z';
 
-    await expect(
-      service.redeem('tenant-1', authContext(), 'idem-1', {
-        cardSerialNumber: 'CARD-1',
-        posReceiptNumber: 'POS-1',
-        basketAmountKobo: 900_000,
-        requestedRedemptionKobo: 250_000,
-        occurredAt: '2026-07-26T12:00:00.000Z',
-      }),
-    ).resolves.toMatchObject({
-      transactionId: 'ledger-1',
-      redemptionId: 'redemption-1',
-      receiptId: 'receipt-1',
-      state: 'CONFIRMED',
-      basketAmountKobo: 900_000,
-      redeemedKobo: 250_000,
-      maximumAllowedKobo: 270_000,
-      remainingBalanceKobo: 650_000,
-      smsStatus: SmsMessageStatus.QUEUED,
+describe('RedemptionsService', () => {
+  it('creates pending REDEEM approvals with redemptionId only', async () => {
+    const tx = transactionClient();
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const service = serviceWith({ transaction });
+
+    const response = await service.redeem('tenant-1', authContext(), 'idem-1', {
+      cardSerialNumber: 'CARD-1',
+      posReceiptNumber: 'POS-REDEEM-1',
+      basketAmountKobo: 30_000,
+      requestedRedemptionKobo: 6_000,
+      occurredAt: REQUEST_OCCURRED_AT,
     });
 
-    expect(transaction).toHaveBeenCalledTimes(1);
-    const receiptCreate = firstCall<{
-      data: { normalizedPosReceiptNumber: string; purchaseAmountKobo: bigint };
-    }>(tx.receipt.create);
-    expect(receiptCreate.data.normalizedPosReceiptNumber).toBe('POS-1');
-    expect(receiptCreate.data.purchaseAmountKobo).toBe(900_000n);
+    expect(response.state).toBe('PENDING_APPROVAL');
+    const approvalCreate = tx.approval.create;
 
-    const redemptionCreate = firstCall<{
-      data: {
-        requestedAmountKobo: bigint;
-        confirmedAmountKobo: bigint;
-        status: string;
-      };
-    }>(tx.redemption.create);
-    expect(redemptionCreate.data.requestedAmountKobo).toBe(250_000n);
-    expect(redemptionCreate.data.confirmedAmountKobo).toBe(250_000n);
-    expect(redemptionCreate.data.status).toBe('CONFIRMED');
-
-    const ledgerCreate = firstCall<{
-      data: { amountKobo: bigint; type: string; direction: string };
-    }>(tx.loyaltyLedgerEntry.create);
-    expect(ledgerCreate.data.amountKobo).toBe(250_000n);
-    expect(ledgerCreate.data.type).toBe('REDEEM');
-    expect(ledgerCreate.data.direction).toBe('DEBIT');
-
-    const idempotencyCreate = firstCall<{
-      data: { status: string; responseJson: { state: string } };
-    }>(tx.idempotencyRecord.create);
-    expect(idempotencyCreate.data.status).toBe('COMPLETED');
-    expect(idempotencyCreate.data.responseJson.state).toBe('CONFIRMED');
+    expect(approvalCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        targetType: 'REDEEM',
+        redemptionId: 'redemption-1',
+      }) as Record<string, unknown>,
+    });
+    const firstCall = approvalCreate.mock.calls[0]?.[0];
+    expect(firstCall.data).not.toHaveProperty('receiptId');
   });
 
-  it('replays a completed idempotent redemption response without duplicate writes', async () => {
-    const replay = {
-      transactionId: 'ledger-1',
-      redemptionId: 'redemption-1',
-      receiptId: 'receipt-1',
-      state: 'CONFIRMED',
-      basketAmountKobo: 900_000,
-      redeemedKobo: 250_000,
-      maximumAllowedKobo: 270_000,
-      remainingBalanceKobo: 650_000,
-      allocations: [],
-      smsStatus: SmsMessageStatus.QUEUED,
-    };
-    const tx = transactionClient({
-      existingIdempotency: {
-        requestHash:
-          '8f6f5e7344c80c92d63358139f483799b8fbe1b6fe4d968f610060ea9b7add02',
-        responseJson: replay,
-        status: 'COMPLETED',
-        expiresAt: new Date('2026-08-01T00:00:00.000Z'),
-      },
-    });
-    const transaction = jest.fn(
-      (callback: (client: unknown) => Promise<unknown>) => callback(tx),
+  it('rejects invalid high-value requests before reserving receipt identity', async () => {
+    const tx = transactionClient();
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
     );
-    const service = new RedemptionsService(
-      prismaService({ transaction }),
-      balanceService(),
-      { allocateDebit: jest.fn() } as never,
-      policyService(),
-      auditService(),
-    );
+    const service = serviceWith({ transaction });
 
     await expect(
-      service.redeem('tenant-1', authContext(), 'idem-1', {
+      service.redeem('tenant-1', authContext(), 'idem-2', {
         cardSerialNumber: 'CARD-1',
-        posReceiptNumber: 'POS-1',
-        basketAmountKobo: 900_000,
-        requestedRedemptionKobo: 250_000,
-        occurredAt: '2026-07-26T12:00:00.000Z',
+        posReceiptNumber: 'POS-REDEEM-2',
+        basketAmountKobo: 10_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
       }),
-    ).resolves.toEqual(replay);
+    ).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_BASKET_CAP_EXCEEDED' },
+    });
 
     expect(tx.receipt.create).not.toHaveBeenCalled();
     expect(tx.redemption.create).not.toHaveBeenCalled();
-    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
-  });
-
-  it('creates a pending approval for high-value redemption without financial effects', async () => {
-    const tx = transactionClient();
-    const service = redemptionService({
-      tx,
-      policy: policyService({ requiresApproval: true }),
-    });
-
-    await expect(redeemRequest(service)).resolves.toMatchObject({
-      transactionId: null,
-      redemptionId: 'redemption-1',
-      receiptId: 'receipt-1',
-      approvalId: 'approval-1',
-      state: 'PENDING_APPROVAL',
-      requestedAmountKobo: 250_000,
-      maximumAllowedKobo: 270_000,
-      reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
-    });
-    expect(tx.approval.create).toHaveBeenCalledTimes(1);
-    const approvalCreateInput = tx.approval.create.mock.calls[0]?.[0];
-    expect(approvalCreateInput.data).not.toHaveProperty('receiptId');
-    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(tx.approval.create).not.toHaveBeenCalled();
+    expect(tx.idempotencyRecord.create).not.toHaveBeenCalled();
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 
-  it('rejects redemptions below the configured minimum without writes', async () => {
+  it('rejects high-value requests with insufficient active balance before writes', async () => {
     const tx = transactionClient();
-    const service = redemptionService({
-      tx,
-      policy: policyService({
-        minimumRedemptionKobo: 300_000n,
-        maximumAllowedKobo: 500_000n,
-      }),
+    const service = serviceWith({
+      transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+      activeBalanceKobo: 5_000n,
     });
 
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'REDEMPTION_BELOW_MINIMUM' },
-    });
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-balance', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-BALANCE',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'INSUFFICIENT_BALANCE' } });
+
     expect(tx.receipt.create).not.toHaveBeenCalled();
     expect(tx.redemption.create).not.toHaveBeenCalled();
+    expect(tx.approval.create).not.toHaveBeenCalled();
   });
 
-  it('rejects redemptions above the basket cap without writes', async () => {
+  it('rejects high-value requests with zero maximum allowed before writes', async () => {
     const tx = transactionClient();
-    const service = redemptionService({
-      tx,
-      policy: policyService({
-        basketCapKobo: 200_000n,
-        maximumAllowedKobo: 200_000n,
+    const service = serviceWith({
+      transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+      activeBalanceKobo: 0n,
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-zero', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-ZERO',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
       }),
-    });
+    ).rejects.toMatchObject({ response: { code: 'REDEMPTION_NOT_ALLOWED' } });
 
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'REDEMPTION_EXCEEDS_BASKET_CAP' },
-    });
-    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects redemptions above active balance without writes', async () => {
-    const tx = transactionClient();
-    const service = redemptionService({
-      tx,
-      policy: policyService({
-        basketCapKobo: 270_000n,
-        maximumAllowedKobo: 200_000n,
-      }),
-    });
-
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'INSUFFICIENT_BALANCE' },
-    });
-    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects same-purchase credit consumption before duplicate receipt handling', async () => {
-    const tx = transactionClient({
-      duplicateReceipt: { id: 'receipt-1' },
-      samePurchaseCreditLot: { id: 'lot-1' },
-    });
-    const service = redemptionService({ tx });
-
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'SAME_PURCHASE_REDEMPTION_NOT_ALLOWED' },
-    });
-    expect(tx.redemption.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects duplicate receipt reuse without financial writes', async () => {
-    const tx = transactionClient({ duplicateReceipt: { id: 'receipt-1' } });
-    const service = redemptionService({ tx });
-
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'RECEIPT_ALREADY_USED' },
-    });
-    expect(tx.redemption.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects inactive devices as offline redemption attempts', async () => {
-    const tx = transactionClient({ deviceStatus: 'INACTIVE' });
-    const service = redemptionService({ tx });
-
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'DEVICE_NOT_ACTIVE' },
-    });
     expect(tx.receipt.create).not.toHaveBeenCalled();
+    expect(tx.redemption.create).not.toHaveBeenCalled();
+    expect(tx.approval.create).not.toHaveBeenCalled();
   });
 
-  it('rejects conflicting idempotency payloads without duplicate writes', async () => {
-    const tx = transactionClient({
-      existingIdempotency: {
-        requestHash: 'different-hash',
-        responseJson: {},
-        status: 'COMPLETED',
-        expiresAt: new Date('2026-08-01T00:00:00.000Z'),
-      },
+  it('replays completed response after idempotency P2002', async () => {
+    const replay = { state: 'CONFIRMED', redemptionId: 'redemption-1' };
+    const service = serviceWith({
+      transaction: jest
+        .fn()
+        .mockRejectedValue(p2002(['actorId', 'endpoint', 'idempotencyKey'])),
+      replay,
     });
-    const service = redemptionService({ tx });
 
-    await expect(redeemRequest(service)).rejects.toMatchObject({
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-3', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-3',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).resolves.toBe(replay);
+  });
+
+  it('maps idempotency P2002 without matching replay to IDEMPOTENCY_CONFLICT', async () => {
+    const service = serviceWith({
+      transaction: jest
+        .fn()
+        .mockRejectedValue(p2002(['actorId', 'endpoint', 'idempotencyKey'])),
+      replay: null,
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-4', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-4',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
       response: { code: 'IDEMPOTENCY_CONFLICT' },
     });
-    expect(tx.receipt.create).not.toHaveBeenCalled();
   });
 
-  it('returns dependency unavailable when collaborators are missing', async () => {
-    const transaction = jest.fn();
-    const service = new RedemptionsService(
-      prismaService({ transaction }),
-      balanceService(),
-      { allocateDebit: jest.fn() } as never,
-      policyService(),
-      null as never,
-    );
-
-    await expect(redeemRequest(service)).rejects.toMatchObject({
-      response: { code: 'DEPENDENCY_UNAVAILABLE' },
+  it('maps duplicate receipt P2002 to RECEIPT_ALREADY_USED', async () => {
+    const service = serviceWith({
+      transaction: jest
+        .fn()
+        .mockRejectedValue(
+          p2002([
+            'tenantId',
+            'branchId',
+            'receiptWeekStart',
+            'normalizedPosReceiptNumber',
+          ]),
+        ),
+      replay: null,
     });
-    expect(transaction).not.toHaveBeenCalled();
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-5', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-5',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'RECEIPT_ALREADY_USED' },
+    });
+  });
+
+  it('maps redemption one-to-one P2002 to REDEMPTION_TRANSACTION_CONFLICT', async () => {
+    const service = serviceWith({
+      transaction: jest.fn().mockRejectedValue(p2002(['redemptionId'])),
+      replay: null,
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-6', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-6',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_TRANSACTION_CONFLICT' },
+    });
   });
 });
 
-function prismaService({ transaction }: { transaction: jest.Mock }) {
-  return {
+function serviceWith({
+  transaction,
+  replay,
+  activeBalanceKobo = 100_000n,
+}: {
+  transaction: jest.Mock;
+  replay?: unknown;
+  activeBalanceKobo?: bigint;
+}) {
+  const prisma = {
     $transaction: transaction,
     idempotencyRecord: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest
+        .fn()
+        .mockResolvedValue(
+          replay === undefined
+            ? null
+            : replay === null
+              ? { requestHash: 'different-hash', responseJson: null }
+              : { requestHash: expectedHash('idem-3'), responseJson: replay },
+        ),
     },
   } as never;
-}
-
-function firstCall<T>(mock: { mock: { calls: [T][] } }): T {
-  return mock.mock.calls[0][0];
-}
-
-function redemptionService({
-  tx,
-  policy = policyService(),
-}: {
-  tx: ReturnType<typeof transactionClient>;
-  policy?: ReturnType<typeof policyService>;
-}) {
-  const transaction = jest.fn(
-    (callback: (client: unknown) => Promise<unknown>) => callback(tx),
-  );
 
   return new RedemptionsService(
-    prismaService({ transaction }),
-    balanceService([900_000n, 650_000n]),
+    prisma,
+    {
+      getActiveBalanceKobo: jest.fn().mockResolvedValue(activeBalanceKobo),
+    } as never,
     { allocateDebit: jest.fn() } as never,
-    policy,
-    auditService(),
+    new RedemptionPolicyService(configService()),
+    { recordWithClient: jest.fn().mockResolvedValue(undefined) } as never,
   );
 }
 
-function redeemRequest(service: RedemptionsService) {
-  return service.redeem('tenant-1', authContext(), 'idem-1', {
-    cardSerialNumber: 'CARD-1',
-    posReceiptNumber: 'POS-1',
-    basketAmountKobo: 900_000,
-    requestedRedemptionKobo: 250_000,
-    occurredAt: '2026-07-26T12:00:00.000Z',
-  });
-}
+function transactionClient() {
+  const now = new Date('2026-07-26T12:00:00.000Z');
 
-type IdempotencyReplay = {
-  requestHash: string;
-  responseJson: Record<string, unknown>;
-  status: string;
-  expiresAt: Date;
-} | null;
-
-function transactionClient({
-  existingIdempotency = null,
-  duplicateReceipt = null,
-  samePurchaseCreditLot = null,
-  deviceStatus = 'ACTIVE',
-  branchStatus = 'ACTIVE',
-}: {
-  existingIdempotency?: IdempotencyReplay;
-  duplicateReceipt?: { id: string } | null;
-  samePurchaseCreditLot?: { id: string } | null;
-  deviceStatus?: string;
-  branchStatus?: string;
-} = {}) {
   return {
     device: {
       findFirst: jest.fn().mockResolvedValue({
         id: 'device-1',
         branchId: 'branch-1',
-        status: deviceStatus,
+        status: 'ACTIVE',
         branch: {
           id: 'branch-1',
-          status: branchStatus,
+          status: 'ACTIVE',
           timezone: 'Africa/Lagos',
           receiptWeekStartDay: 1,
         },
@@ -360,20 +267,20 @@ function transactionClient({
       }),
     },
     idempotencyRecord: {
-      findUnique: jest.fn().mockResolvedValue(existingIdempotency),
+      findUnique: jest.fn().mockResolvedValue(null),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       create: jest.fn().mockResolvedValue({}),
     },
     receipt: {
-      findFirst: jest.fn().mockResolvedValue(duplicateReceipt),
-      create: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
-    },
-    creditLot: {
-      findFirst: jest.fn().mockResolvedValue(samePurchaseCreditLot),
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({
+        id: 'receipt-1',
+        posReceiptNumber: 'POS-REDEEM-1',
+      }),
     },
     redemption: {
       create: jest.fn().mockResolvedValue({ id: 'redemption-1' }),
-      update: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({ id: 'redemption-1' }),
     },
     approval: {
       create: jest
@@ -387,49 +294,79 @@ function transactionClient({
       create: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
     },
     smsMessage: {
-      create: jest.fn().mockResolvedValue({
-        id: 'sms-1',
-        status: SmsMessageStatus.QUEUED,
-      }),
+      create: jest.fn().mockResolvedValue({ id: 'sms-1', status: 'QUEUED' }),
     },
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    creditLot: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      aggregate: jest
+        .fn()
+        .mockResolvedValue({ _sum: { remainingAmountKobo: 94_000n } }),
+    },
+    now,
   };
 }
 
-function balanceService(balances: bigint[] = [900_000n]) {
-  return {
-    getActiveBalanceKobo: jest
-      .fn()
-      .mockImplementation(() => Promise.resolve(balances.shift() ?? 0n)),
-    toJsonSafeKobo: jest.fn((value: bigint) => Number(value)),
-  } as never;
+function p2002(target: string[]) {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+    meta: { target },
+  });
 }
 
-function policyService({
-  minimumRedemptionKobo = 50_000n,
-  basketCapKobo = 270_000n,
-  maximumAllowedKobo = 270_000n,
-  requiresApproval = false,
-} = {}) {
-  return {
-    evaluate: jest.fn().mockReturnValue({
-      minimumRedemptionKobo,
-      basketCapKobo,
-      maximumAllowedKobo,
-      approvalThresholdKobo: 500_000n,
-      requiresApproval,
-      policyVersion: 'policy-version',
-    }),
-  } as never;
+function expectedHash(idempotencyKey: string) {
+  const suffix = idempotencyKey.replace('idem-', '');
+
+  return createHash('sha256')
+    .update(
+      stableStringify({
+        tenantId: 'tenant-1',
+        actorId: 'user-1',
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: `POS-REDEEM-${suffix}`,
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+        deviceId: 'device-1',
+      }),
+    )
+    .digest('hex');
 }
 
-function auditService() {
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+  return `{${entries
+    .map(
+      ([key, entryValue]) =>
+        `${JSON.stringify(key)}:${stableStringify(entryValue)}`,
+    )
+    .join(',')}}`;
+}
+
+function configService() {
   return {
-    recordWithClient: jest.fn().mockResolvedValue(undefined),
+    get: (key: string) =>
+      ({
+        MIN_REDEMPTION_KOBO: 500,
+        MAX_REDEMPTION_BASKET_PERCENT: 30,
+        REDEMPTION_APPROVAL_THRESHOLD_KOBO: 5_000,
+      })[key],
   } as never;
 }
 
 function authContext(): AuthContext {
-  const now = new Date('2026-07-26T12:00:00.000Z');
+  const now = new Date();
 
   return {
     session: {

@@ -1,7 +1,6 @@
-import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   ApprovalStatus,
-  ApprovalTargetType,
   BranchStatus,
   CardStatus,
   CustomerStatus,
@@ -16,12 +15,9 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
-import {
-  FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS,
-  LotAllocationService,
-  PersistedAllocation,
-} from '../../common/balance/lot-allocation.service';
-import { runWithBoundedFinancialRetries } from '../../common/balance/financial-transaction-retry';
+import { isFinancialTransactionConflict } from '../../common/balance/financial-transaction-retry';
+import { FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS } from '../../common/balance/lot-allocation.service';
+import { LotAllocationService } from '../../common/balance/lot-allocation.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
@@ -30,41 +26,38 @@ import { RedemptionPolicyService } from './redemption-policy.service';
 import { RedeemTransactionDto } from './redemptions.dto';
 
 const REDEEM_ENDPOINT = 'POST /api/v1/transactions/redeem';
-const IDEMPOTENCY_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
-const REDEMPTION_RETRY_ATTEMPTS = 3;
+const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
-const REDEMPTION_APPROVAL_REASON_CODE = 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD';
 
-export interface RedeemConfirmedResponse {
-  transactionId: string;
+export interface RedeemTransactionResponse {
+  id: string;
+  transactionId: string | null;
   redemptionId: string;
   receiptId: string;
-  state: 'CONFIRMED';
+  approvalId: string | null;
+  state: 'CONFIRMED' | 'PENDING_APPROVAL';
+  tenantId: string;
+  branchId: string;
+  deviceId: string;
+  customerId: string;
+  cardSerialNumber: string;
+  posReceiptNumber: string;
   basketAmountKobo: number;
-  redeemedKobo: number;
+  requestedRedemptionKobo: number;
+  redeemedAmountKobo: number | null;
   maximumAllowedKobo: number;
-  remainingBalanceKobo: number;
+  remainingBalanceKobo: number | null;
   allocations: Array<{
     creditLotId: string;
     amountKobo: number;
+    allocationOrder: number;
     expiresAt: string;
   }>;
-  smsStatus: SmsMessageStatus;
+  smsStatus: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED' | null;
+  occurredAt: string;
+  requestedAt: string;
+  policyVersion: string;
 }
-
-export interface RedeemPendingApprovalResponse {
-  transactionId: null;
-  redemptionId: string;
-  receiptId: string;
-  approvalId: string;
-  state: 'PENDING_APPROVAL';
-  requestedAmountKobo: number;
-  maximumAllowedKobo: number;
-  reasonCode: string;
-}
-
-export type RedeemResponse =
-  RedeemConfirmedResponse | RedeemPendingApprovalResponse;
 
 @Injectable()
 export class RedemptionsService {
@@ -81,8 +74,7 @@ export class RedemptionsService {
       this.prismaService &&
       this.activeBalanceService &&
       this.lotAllocationService &&
-      this.redemptionPolicyService &&
-      this.auditService,
+      this.redemptionPolicyService,
     );
   }
 
@@ -91,30 +83,21 @@ export class RedemptionsService {
     actor: AuthContext,
     idempotencyKey: string | undefined,
     dto: RedeemTransactionDto,
-  ): Promise<RedeemResponse> {
-    if (!this.dependenciesReady) {
-      throw new DomainHttpException(
-        HttpStatus.SERVICE_UNAVAILABLE,
-        'DEPENDENCY_UNAVAILABLE',
-        'Redemption dependencies are unavailable',
-      );
-    }
-
+  ): Promise<RedeemTransactionResponse> {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const posReceiptNumber = normalizeReceiptNumber(dto.posReceiptNumber);
     const normalizedPosReceiptNumber =
       normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(dto.occurredAt, 'occurredAt');
+    const requestedAmountKobo = toSafePositiveBigInt(
+      dto.requestedRedemptionKobo,
+      'requestedRedemptionKobo',
+    );
+    const basketAmountKobo = toSafePositiveBigInt(
+      dto.basketAmountKobo,
+      'basketAmountKobo',
+    );
     const sessionDeviceId = actor.session.deviceId;
-
-    if (!sessionDeviceId) {
-      throw new DomainHttpException(
-        HttpStatus.BAD_REQUEST,
-        'SESSION_DEVICE_REQUIRED',
-        'Session device is required',
-      );
-    }
-
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
@@ -126,6 +109,14 @@ export class RedemptionsService {
       deviceId: sessionDeviceId,
     });
 
+    if (!sessionDeviceId) {
+      throw new DomainHttpException(
+        HttpStatus.BAD_REQUEST,
+        'SESSION_DEVICE_REQUIRED',
+        'Session device is required',
+      );
+    }
+
     await cleanupExpiredIdempotencyRecords(
       this.prismaService,
       tenantId,
@@ -133,468 +124,486 @@ export class RedemptionsService {
       normalizedKey,
     );
 
-    return runWithBoundedFinancialRetries(
-      () =>
-        this.prismaService.$transaction(async (prisma) => {
-          const [transactionDevice, transactionCard] = await Promise.all([
-            prisma.device.findFirst({
-              where: { id: sessionDeviceId, tenantId },
-              include: { branch: true },
-            }),
-            prisma.card.findFirst({
-              where: { tenantId, barcodeValue: dto.cardSerialNumber.trim() },
-              include: { customer: true },
-            }),
-          ]);
+    try {
+      return await this.prismaService.$transaction(async (prisma) => {
+        const [transactionDevice, transactionCard] = await Promise.all([
+          prisma.device.findFirst({
+            where: { id: sessionDeviceId, tenantId },
+            include: { branch: true },
+          }),
+          prisma.card.findFirst({
+            where: { tenantId, barcodeValue: dto.cardSerialNumber.trim() },
+            include: { customer: true },
+          }),
+        ]);
 
-          if (
-            !transactionDevice ||
-            transactionDevice.status !== DeviceStatus.ACTIVE ||
-            transactionDevice.branch.status !== BranchStatus.ACTIVE
-          ) {
-            throw new DomainHttpException(
-              HttpStatus.BAD_REQUEST,
-              'DEVICE_NOT_ACTIVE',
-              'Device is not active',
-            );
-          }
-
-          if (
-            actor.user.branchId &&
-            actor.user.branchId !== transactionDevice.branchId
-          ) {
-            throw new DomainHttpException(
-              HttpStatus.BAD_REQUEST,
-              'DEVICE_BRANCH_MISMATCH',
-              'Device does not belong to cashier branch',
-            );
-          }
-
-          if (
-            !transactionCard ||
-            transactionCard.status !== CardStatus.ACTIVE ||
-            transactionCard.customer.status !== CustomerStatus.ACTIVE ||
-            transactionCard.customer.isStaff
-          ) {
-            throw new DomainHttpException(
-              HttpStatus.NOT_FOUND,
-              'CARD_NOT_FOUND',
-              'Card not found',
-            );
-          }
-
-          const branchId = actor.user.branchId ?? transactionDevice.branchId;
-          if (!branchId) {
-            throw new DomainHttpException(
-              HttpStatus.BAD_REQUEST,
-              'BRANCH_CONTEXT_REQUIRED',
-              'Branch context is required',
-            );
-          }
-
-          const existing = await prisma.idempotencyRecord.findUnique({
-            where: {
-              tenantId_actorId_endpoint_idempotencyKey: {
-                tenantId,
-                actorId: actor.user.id,
-                endpoint: REDEEM_ENDPOINT,
-                idempotencyKey: normalizedKey,
-              },
-            },
-          });
-
-          if (existing?.expiresAt && existing.expiresAt <= new Date()) {
-            await prisma.idempotencyRecord.deleteMany({
-              where: {
-                tenantId,
-                actorId: actor.user.id,
-                endpoint: REDEEM_ENDPOINT,
-                idempotencyKey: normalizedKey,
-              },
-            });
-          } else if (existing) {
-            if (existing.requestHash !== requestHash) {
-              throw new DomainHttpException(
-                HttpStatus.CONFLICT,
-                'IDEMPOTENCY_CONFLICT',
-                'Idempotency key reused with different payload',
-              );
-            }
-
-            if (existing.responseJson && existing.status === 'COMPLETED') {
-              return existing.responseJson as unknown as RedeemResponse;
-            }
-
-            throw new ConflictException(
-              'Idempotency key is still being processed',
-            );
-          }
-
-          const now = new Date();
-          const receiptWeekStart = deriveReceiptWeekStart(
-            occurredAt,
-            transactionDevice.branch.timezone,
-            transactionDevice.branch.receiptWeekStartDay,
+        if (
+          !transactionDevice ||
+          transactionDevice.status !== DeviceStatus.ACTIVE ||
+          transactionDevice.branch.status !== BranchStatus.ACTIVE
+        ) {
+          throw new DomainHttpException(
+            HttpStatus.BAD_REQUEST,
+            'DEVICE_NOT_ACTIVE',
+            'Device is not active',
           );
-          const duplicateReceipt = await prisma.receipt.findFirst({
-            where: {
-              tenantId,
-              branchId,
-              receiptWeekStart,
-              normalizedPosReceiptNumber,
-            },
-          });
+        }
 
-          if (duplicateReceipt) {
-            const samePurchaseCreditLot = await prisma.creditLot.findFirst({
-              where: {
-                tenantId,
-                customerId: transactionCard.customerId,
-                remainingAmountKobo: { gt: 0n },
-                earnLedgerEntry: { receiptId: duplicateReceipt.id },
-              },
-              select: { id: true },
-            });
-
-            if (samePurchaseCreditLot) {
-              throw new DomainHttpException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                'SAME_PURCHASE_REDEMPTION_NOT_ALLOWED',
-                'Credit earned on the same purchase cannot be redeemed for that purchase',
-              );
-            }
-
-            throw new DomainHttpException(
-              HttpStatus.CONFLICT,
-              'RECEIPT_ALREADY_USED',
-              'Physical receipt already captured',
-            );
-          }
-
-          const activeBalanceKobo =
-            await this.activeBalanceService.getActiveBalanceKobo(
-              tenantId,
-              transactionCard.customerId,
-              now,
-              prisma,
-            );
-          const requestedAmountKobo = BigInt(dto.requestedRedemptionKobo);
-          const policy = this.redemptionPolicyService.evaluate({
-            requestedAmountKobo,
-            basketAmountKobo: BigInt(dto.basketAmountKobo),
-            activeBalanceKobo,
-          });
-
-          if (policy.requiresApproval) {
-            const receipt = await prisma.receipt.create({
-              data: {
-                tenantId,
-                branchId,
-                customerId: transactionCard.customerId,
-                cardId: transactionCard.id,
-                deviceId: transactionDevice.id,
-                posReceiptNumber,
-                normalizedPosReceiptNumber,
-                receiptWeekStart,
-                purchaseAmountKobo: BigInt(dto.basketAmountKobo),
-                occurredAt,
-                capturedByTenantId: actor.user.tenantId,
-                capturedBy: actor.user.id,
-                capturedAt: now,
-                captureStatus: 'CAPTURED',
-                reviewStatus: ReceiptReviewStatus.APPROVED,
-                reviewedAt: now,
-                reviewedByTenantId: actor.user.tenantId,
-                reviewedBy: actor.user.id,
-                approvedByTenantId: actor.user.tenantId,
-                approvedBy: actor.user.id,
-                approvedAt: now,
-                approvalReasonCode: REDEMPTION_APPROVAL_REASON_CODE,
-              },
-            });
-            const redemption = await prisma.redemption.create({
-              data: {
-                tenantId,
-                branchId,
-                customerId: transactionCard.customerId,
-                cardId: transactionCard.id,
-                deviceId: transactionDevice.id,
-                receiptId: receipt.id,
-                requestedByTenantId: actor.user.tenantId,
-                requestedBy: actor.user.id,
-                requestedAmountKobo,
-                basketAmountKobo: BigInt(dto.basketAmountKobo),
-                maximumAllowedKobo: policy.maximumAllowedKobo,
-                confirmedAmountKobo: null,
-                status: RedemptionStatus.PENDING_APPROVAL,
-                policyVersion: policy.policyVersion,
-                requestedAt: now,
-                confirmedAt: null,
-              },
-            });
-            const approval = await prisma.approval.create({
-              data: {
-                tenantId,
-                redemptionId: redemption.id,
-                targetType: ApprovalTargetType.REDEEM,
-                status: ApprovalStatus.PENDING,
-                requestedByTenantId: actor.user.tenantId,
-                requestedBy: actor.user.id,
-                reasonCode: REDEMPTION_APPROVAL_REASON_CODE,
-                policyVersion: policy.policyVersion,
-                expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
-              },
-            });
-            const response = toPendingApprovalResponse({
-              redemptionId: redemption.id,
-              receiptId: receipt.id,
-              approvalId: approval.id,
-              requestedAmountKobo,
-              maximumAllowedKobo: policy.maximumAllowedKobo,
-              activeBalanceService: this.activeBalanceService,
-            });
-
-            await prisma.idempotencyRecord.create({
-              data: {
-                tenantId,
-                actorId: actor.user.id,
-                endpoint: REDEEM_ENDPOINT,
-                idempotencyKey: normalizedKey,
-                requestHash,
-                status: 'COMPLETED',
-                expiresAt: new Date(now.getTime() + IDEMPOTENCY_EXPIRY_MS),
-                responseJson: response as unknown as Prisma.InputJsonValue,
-              },
-            });
-
-            await this.auditService.recordWithClient(prisma, {
-              tenantId,
-              actorId: actor.user.id,
-              action: 'redemption.request.approval_required',
-              entityType: 'redemption',
-              entityId: redemption.id,
-              metadata: response,
-            });
-
-            return response;
-          }
-
-          if (requestedAmountKobo < policy.minimumRedemptionKobo) {
-            throw new DomainHttpException(
-              HttpStatus.UNPROCESSABLE_ENTITY,
-              'REDEMPTION_BELOW_MINIMUM',
-              'Requested redemption is below the configured minimum amount',
-              {
-                minimumRedemptionKobo: this.activeBalanceService.toJsonSafeKobo(
-                  policy.minimumRedemptionKobo,
-                ),
-              },
-            );
-          }
-
-          if (requestedAmountKobo > policy.maximumAllowedKobo) {
-            throw new DomainHttpException(
-              HttpStatus.UNPROCESSABLE_ENTITY,
-              requestedAmountKobo > policy.basketCapKobo
-                ? 'REDEMPTION_EXCEEDS_BASKET_CAP'
-                : 'INSUFFICIENT_BALANCE',
-              'Requested redemption exceeds the current maximum allowed amount',
-              {
-                maximumAllowedKobo: this.activeBalanceService.toJsonSafeKobo(
-                  policy.maximumAllowedKobo,
-                ),
-              },
-            );
-          }
-
-          const receipt = await prisma.receipt.create({
-            data: {
-              tenantId,
-              branchId,
-              customerId: transactionCard.customerId,
-              cardId: transactionCard.id,
-              deviceId: transactionDevice.id,
-              posReceiptNumber,
-              normalizedPosReceiptNumber,
-              receiptWeekStart,
-              purchaseAmountKobo: BigInt(dto.basketAmountKobo),
-              occurredAt,
-              capturedByTenantId: actor.user.tenantId,
-              capturedBy: actor.user.id,
-              capturedAt: now,
-              captureStatus: 'CAPTURED',
-              reviewStatus: ReceiptReviewStatus.APPROVED,
-              reviewedAt: now,
-              reviewedByTenantId: actor.user.tenantId,
-              reviewedBy: actor.user.id,
-              approvedByTenantId: actor.user.tenantId,
-              approvedBy: actor.user.id,
-              approvedAt: now,
-            },
-          });
-
-          const redemption = await prisma.redemption.create({
-            data: {
-              tenantId,
-              branchId,
-              customerId: transactionCard.customerId,
-              cardId: transactionCard.id,
-              deviceId: transactionDevice.id,
-              receiptId: receipt.id,
-              requestedByTenantId: actor.user.tenantId,
-              requestedBy: actor.user.id,
-              requestedAmountKobo,
-              basketAmountKobo: BigInt(dto.basketAmountKobo),
-              maximumAllowedKobo: policy.maximumAllowedKobo,
-              confirmedAmountKobo: requestedAmountKobo,
-              status: RedemptionStatus.CONFIRMED,
-              policyVersion: policy.policyVersion,
-              requestedAt: now,
-              confirmedAt: now,
-            },
-          });
-
-          const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-            data: {
-              tenantId,
-              customerId: transactionCard.customerId,
-              receiptId: receipt.id,
-              type: LedgerEntryType.REDEEM,
-              direction: LedgerEntryDirection.DEBIT,
-              amountKobo: requestedAmountKobo,
-              status: LedgerEntryStatus.CONFIRMED,
-              correlationId: requestHash,
-              createdByTenantId: actor.user.tenantId,
-              createdBy: actor.user.id,
-              effectiveAt: occurredAt,
-            },
-          });
-
-          const allocations = await this.lotAllocationService.allocateDebit(
-            prisma,
-            {
-              tenantId,
-              customerId: transactionCard.customerId,
-              debitLedgerEntryId: ledgerEntry.id,
-              redemptionId: redemption.id,
-              amountKobo: requestedAmountKobo,
-              now,
-            },
+        if (
+          actor.user.branchId &&
+          actor.user.branchId !== transactionDevice.branchId
+        ) {
+          throw new DomainHttpException(
+            HttpStatus.BAD_REQUEST,
+            'DEVICE_BRANCH_MISMATCH',
+            'Device does not belong to cashier branch',
           );
+        }
 
-          await prisma.redemption.update({
-            where: { tenantId_id: { tenantId, id: redemption.id } },
-            data: { ledgerEntryId: ledgerEntry.id },
-          });
+        if (
+          !transactionCard ||
+          transactionCard.status !== CardStatus.ACTIVE ||
+          transactionCard.customer.status !== CustomerStatus.ACTIVE ||
+          transactionCard.customer.isStaff
+        ) {
+          throw new DomainHttpException(
+            HttpStatus.NOT_FOUND,
+            'CARD_NOT_FOUND',
+            'Card not found',
+          );
+        }
 
-          const remainingBalanceKobo =
-            await this.activeBalanceService.getActiveBalanceKobo(
-              tenantId,
-              transactionCard.customerId,
-              now,
-              prisma,
-            );
-          const outboxEvent = await prisma.outboxEvent.create({
-            data: {
-              tenantId,
-              aggregateType: 'redemption',
-              aggregateId: redemption.id,
-              eventType: 'sms.send',
-              payload: {
-                version: 1,
-                receiptId: receipt.id,
-                redemptionId: redemption.id,
-                transactionId: ledgerEntry.id,
-                customerId: transactionCard.customerId,
-                phoneE164: transactionCard.customer.phoneE164,
-                template: 'redemption-confirmed',
-                redeemedKobo: requestedAmountKobo.toString(),
-                remainingBalanceKobo: remainingBalanceKobo.toString(),
-              },
-              status: 'PENDING',
-              nextAttemptAt: now,
-            },
-          });
-          const smsMessage = await prisma.smsMessage.create({
-            data: {
-              tenantId,
-              receiptId: receipt.id,
-              outboxEventId: outboxEvent.id,
-              phoneE164: transactionCard.customer.phoneE164,
-              template: 'redemption-confirmed',
-              payload: {
-                version: 1,
-                receiptId: receipt.id,
-                redemptionId: redemption.id,
-                transactionId: ledgerEntry.id,
-                customerId: transactionCard.customerId,
-                phoneE164: transactionCard.customer.phoneE164,
-                template: 'redemption-confirmed',
-                redeemedKobo: requestedAmountKobo.toString(),
-                remainingBalanceKobo: remainingBalanceKobo.toString(),
-              },
-              status: SmsMessageStatus.QUEUED,
-              queuedAt: now,
-            },
-          });
+        const branchId = actor.user.branchId ?? transactionDevice.branchId;
+        if (!branchId) {
+          throw new DomainHttpException(
+            HttpStatus.BAD_REQUEST,
+            'BRANCH_CONTEXT_REQUIRED',
+            'Branch context is required',
+          );
+        }
 
-          const response = toConfirmedResponse({
-            transactionId: ledgerEntry.id,
-            redemptionId: redemption.id,
-            receiptId: receipt.id,
-            basketAmountKobo: BigInt(dto.basketAmountKobo),
-            redeemedKobo: requestedAmountKobo,
-            maximumAllowedKobo: policy.maximumAllowedKobo,
-            remainingBalanceKobo,
-            allocations,
-            smsStatus: smsMessage.status,
-            activeBalanceService: this.activeBalanceService,
-          });
+        const receiptWeekStart = deriveReceiptWeekStart(
+          occurredAt,
+          transactionDevice.branch.timezone,
+          transactionDevice.branch.receiptWeekStartDay,
+        );
 
-          await prisma.idempotencyRecord.create({
-            data: {
+        const existing = await prisma.idempotencyRecord.findUnique({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
               tenantId,
               actorId: actor.user.id,
               endpoint: REDEEM_ENDPOINT,
               idempotencyKey: normalizedKey,
-              requestHash,
-              status: 'COMPLETED',
-              expiresAt: new Date(now.getTime() + IDEMPOTENCY_EXPIRY_MS),
-              responseJson: response as unknown as Prisma.InputJsonValue,
+            },
+          },
+        });
+
+        if (existing?.expiresAt && existing.expiresAt <= new Date()) {
+          await prisma.idempotencyRecord.deleteMany({
+            where: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint: REDEEM_ENDPOINT,
+              idempotencyKey: normalizedKey,
             },
           });
+        } else if (existing) {
+          if (existing.requestHash !== requestHash) {
+            throw new DomainHttpException(
+              HttpStatus.CONFLICT,
+              'IDEMPOTENCY_CONFLICT',
+              'Idempotency key reused with different payload',
+            );
+          }
+
+          if (existing.responseJson && existing.status === 'COMPLETED') {
+            return existing.responseJson as unknown as RedeemTransactionResponse;
+          }
+
+          throw new DomainHttpException(
+            HttpStatus.CONFLICT,
+            'IDEMPOTENCY_IN_PROGRESS',
+            'Idempotency key is still being processed',
+          );
+        }
+
+        const duplicateReceipt = await prisma.receipt.findFirst({
+          where: {
+            tenantId,
+            branchId,
+            receiptWeekStart,
+            normalizedPosReceiptNumber,
+          },
+        });
+
+        if (duplicateReceipt) {
+          throw new DomainHttpException(
+            HttpStatus.CONFLICT,
+            'RECEIPT_ALREADY_USED',
+            'Physical receipt already captured',
+          );
+        }
+
+        const now = new Date();
+        const activeBalanceKobo =
+          await this.activeBalanceService.getActiveBalanceKobo(
+            tenantId,
+            transactionCard.customerId,
+            now,
+            prisma,
+          );
+        const policy = this.redemptionPolicyService.evaluate({
+          requestedAmountKobo,
+          basketAmountKobo,
+          activeBalanceKobo,
+        });
+
+        assertRedemptionPolicyAllowsRequest(requestedAmountKobo, policy);
+
+        const receipt = await prisma.receipt.create({
+          data: {
+            tenantId,
+            branchId,
+            customerId: transactionCard.customerId,
+            cardId: transactionCard.id,
+            deviceId: transactionDevice.id,
+            posReceiptNumber,
+            normalizedPosReceiptNumber,
+            receiptWeekStart,
+            purchaseAmountKobo: basketAmountKobo,
+            occurredAt,
+            capturedByTenantId: actor.user.tenantId,
+            capturedBy: actor.user.id,
+            capturedAt: now,
+            captureStatus: policy.requiresApproval
+              ? 'PENDING_APPROVAL'
+              : 'CAPTURED',
+            reviewStatus: policy.requiresApproval
+              ? ReceiptReviewStatus.PENDING
+              : ReceiptReviewStatus.APPROVED,
+            reviewedAt: policy.requiresApproval ? null : now,
+            reviewedByTenantId: policy.requiresApproval
+              ? null
+              : actor.user.tenantId,
+            reviewedBy: policy.requiresApproval ? null : actor.user.id,
+            approvedByTenantId: policy.requiresApproval
+              ? null
+              : actor.user.tenantId,
+            approvedBy: policy.requiresApproval ? null : actor.user.id,
+            approvedAt: policy.requiresApproval ? null : now,
+            approvalReasonCode: policy.requiresApproval
+              ? 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD'
+              : null,
+          },
+        });
+
+        const redemption = await prisma.redemption.create({
+          data: {
+            tenantId,
+            branchId,
+            customerId: transactionCard.customerId,
+            cardId: transactionCard.id,
+            deviceId: transactionDevice.id,
+            receiptId: receipt.id,
+            requestedByTenantId: actor.user.tenantId,
+            requestedBy: actor.user.id,
+            requestedAmountKobo,
+            basketAmountKobo,
+            maximumAllowedKobo: policy.maximumAllowedKobo,
+            confirmedAmountKobo: policy.requiresApproval
+              ? null
+              : requestedAmountKobo,
+            status: policy.requiresApproval
+              ? RedemptionStatus.PENDING_APPROVAL
+              : RedemptionStatus.CONFIRMED,
+            policyVersion: policy.policyVersion,
+            requestedAt: now,
+            confirmedAt: policy.requiresApproval ? null : now,
+          },
+        });
+
+        if (policy.requiresApproval) {
+          const approval = await prisma.approval.create({
+            data: {
+              tenantId,
+              redemptionId: redemption.id,
+              targetType: 'REDEEM',
+              status: ApprovalStatus.PENDING,
+              requestedByTenantId: actor.user.tenantId,
+              requestedBy: actor.user.id,
+              reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+              policyVersion: policy.policyVersion,
+              expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
+            },
+          });
+
+          const response = buildRedeemResponse({
+            tenantId,
+            branchId,
+            deviceId: transactionDevice.id,
+            customerId: transactionCard.customerId,
+            cardSerialNumber: transactionCard.barcodeValue,
+            receiptId: receipt.id,
+            posReceiptNumber: receipt.posReceiptNumber,
+            redemptionId: redemption.id,
+            approvalId: approval.id,
+            state: 'PENDING_APPROVAL',
+            transactionId: null,
+            basketAmountKobo,
+            requestedAmountKobo,
+            redeemedAmountKobo: null,
+            maximumAllowedKobo: policy.maximumAllowedKobo,
+            remainingBalanceKobo: null,
+            allocations: [],
+            smsStatus: null,
+            occurredAt,
+            requestedAt: now,
+            policyVersion: policy.policyVersion,
+          });
+
+          await persistCompletedIdempotencyResponse(
+            prisma,
+            tenantId,
+            actor.user.id,
+            normalizedKey,
+            requestHash,
+            response,
+            now,
+          );
 
           await this.auditService.recordWithClient(prisma, {
             tenantId,
             actorId: actor.user.id,
-            action: 'redemption.confirmed',
+            action: 'redemption.request.approval_required',
             entityType: 'redemption',
             entityId: redemption.id,
             metadata: response,
           });
 
           return response;
-        }, FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS),
-      {
-        attempts: REDEMPTION_RETRY_ATTEMPTS,
-        conflictCode: 'REDEMPTION_TRANSACTION_CONFLICT',
-        conflictMessage: 'Redemption transaction conflicted; retry the request',
-        onConflict: () =>
-          findCompletedRedeemReplay(
-            this.prismaService,
+        }
+
+        const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+          data: {
             tenantId,
-            actor.user.id,
-            normalizedKey,
-            requestHash,
-          ),
-      },
-    );
+            customerId: transactionCard.customerId,
+            receiptId: receipt.id,
+            type: LedgerEntryType.REDEEM,
+            direction: LedgerEntryDirection.DEBIT,
+            amountKobo: requestedAmountKobo,
+            status: LedgerEntryStatus.CONFIRMED,
+            correlationId: requestHash,
+            createdByTenantId: actor.user.tenantId,
+            createdBy: actor.user.id,
+            effectiveAt: occurredAt,
+          },
+        });
+
+        await prisma.redemption.update({
+          where: { tenantId_id: { tenantId, id: redemption.id } },
+          data: { ledgerEntryId: ledgerEntry.id },
+        });
+
+        const allocations = await this.lotAllocationService.allocateDebit(
+          prisma,
+          {
+            tenantId,
+            customerId: transactionCard.customerId,
+            debitLedgerEntryId: ledgerEntry.id,
+            amountKobo: requestedAmountKobo,
+            now,
+            redemptionId: redemption.id,
+          },
+        );
+
+        const outboxPayload = {
+          version: 1,
+          receiptId: receipt.id,
+          transactionId: ledgerEntry.id,
+          redemptionId: redemption.id,
+          customerId: transactionCard.customerId,
+          phoneE164: transactionCard.customer.phoneE164,
+          template: 'redemption-confirmed',
+          redeemedAmountKobo: requestedAmountKobo.toString(),
+        };
+        const outboxEvent = await prisma.outboxEvent.create({
+          data: {
+            tenantId,
+            aggregateType: 'redemption',
+            aggregateId: redemption.id,
+            eventType: 'sms.send',
+            payload: outboxPayload,
+            status: 'PENDING',
+            nextAttemptAt: now,
+          },
+        });
+        const smsMessage = await prisma.smsMessage.create({
+          data: {
+            tenantId,
+            receiptId: receipt.id,
+            ledgerEntryId: ledgerEntry.id,
+            redemptionId: redemption.id,
+            outboxEventId: outboxEvent.id,
+            phoneE164: transactionCard.customer.phoneE164,
+            template: 'redemption-confirmed',
+            payload: outboxPayload,
+            status: SmsMessageStatus.QUEUED,
+            queuedAt: now,
+          },
+        });
+        const remainingBalanceKobo =
+          await this.activeBalanceService.getActiveBalanceKobo(
+            tenantId,
+            transactionCard.customerId,
+            now,
+            prisma,
+          );
+        const response = buildRedeemResponse({
+          tenantId,
+          branchId,
+          deviceId: transactionDevice.id,
+          customerId: transactionCard.customerId,
+          cardSerialNumber: transactionCard.barcodeValue,
+          receiptId: receipt.id,
+          posReceiptNumber: receipt.posReceiptNumber,
+          redemptionId: redemption.id,
+          approvalId: null,
+          state: 'CONFIRMED',
+          transactionId: ledgerEntry.id,
+          basketAmountKobo,
+          requestedAmountKobo,
+          redeemedAmountKobo: requestedAmountKobo,
+          maximumAllowedKobo: policy.maximumAllowedKobo,
+          remainingBalanceKobo,
+          allocations,
+          smsStatus: smsMessage.status,
+          occurredAt,
+          requestedAt: now,
+          policyVersion: policy.policyVersion,
+        });
+
+        await persistCompletedIdempotencyResponse(
+          prisma,
+          tenantId,
+          actor.user.id,
+          normalizedKey,
+          requestHash,
+          response,
+          now,
+        );
+
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'redemption.confirmed',
+          entityType: 'redemption',
+          entityId: redemption.id,
+          metadata: response,
+        });
+
+        return response;
+      }, FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS);
+    } catch (error) {
+      if (isUniqueIdempotencyConflict(error)) {
+        const replay = await findCompletedRedeemReplay(
+          this.prismaService,
+          tenantId,
+          actor.user.id,
+          normalizedKey,
+          requestHash,
+        );
+
+        if (replay) {
+          return replay;
+        }
+
+        throw new DomainHttpException(
+          HttpStatus.CONFLICT,
+          'IDEMPOTENCY_CONFLICT',
+          'Idempotency key reused with different payload',
+        );
+      }
+
+      if (isUniqueReceiptConflict(error)) {
+        const replay = await findCompletedRedeemReplay(
+          this.prismaService,
+          tenantId,
+          actor.user.id,
+          normalizedKey,
+          requestHash,
+        );
+
+        if (replay) {
+          return replay;
+        }
+
+        throw new DomainHttpException(
+          HttpStatus.CONFLICT,
+          'RECEIPT_ALREADY_USED',
+          'Physical receipt already captured',
+        );
+      }
+
+      if (isUniqueRedemptionTransactionConflict(error)) {
+        const replay = await findCompletedRedeemReplay(
+          this.prismaService,
+          tenantId,
+          actor.user.id,
+          normalizedKey,
+          requestHash,
+        );
+
+        if (replay) {
+          return replay;
+        }
+
+        throw new DomainHttpException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          'REDEMPTION_TRANSACTION_CONFLICT',
+          'Redemption transaction conflicted; retry the request',
+        );
+      }
+
+      if (isFinancialTransactionConflict(error)) {
+        const replay = await findCompletedRedeemReplay(
+          this.prismaService,
+          tenantId,
+          actor.user.id,
+          normalizedKey,
+          requestHash,
+        );
+
+        if (replay) {
+          return replay;
+        }
+
+        const duplicateReceipt = await this.prismaService.receipt.findFirst({
+          where: { tenantId, normalizedPosReceiptNumber },
+        });
+
+        if (duplicateReceipt) {
+          throw new DomainHttpException(
+            HttpStatus.CONFLICT,
+            'RECEIPT_ALREADY_USED',
+            'Physical receipt already captured',
+          );
+        }
+
+        throw new DomainHttpException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          'REDEMPTION_TRANSACTION_CONFLICT',
+          'Redemption transaction conflicted; retry the request',
+        );
+      }
+
+      throw error;
+    }
   }
 }
 
-function normalizeIdempotencyKey(value: string | undefined): string {
-  const normalized = value?.trim();
-
+function normalizeIdempotencyKey(key: string | undefined): string {
+  const normalized = key?.trim();
   if (!normalized) {
     throw new DomainHttpException(
       HttpStatus.BAD_REQUEST,
@@ -608,12 +617,11 @@ function normalizeIdempotencyKey(value: string | undefined): string {
 
 function normalizeReceiptNumber(value: string): string {
   const normalized = value.trim();
-
   if (!normalized) {
     throw new DomainHttpException(
       HttpStatus.BAD_REQUEST,
       'VALIDATION_ERROR',
-      'Receipt number is required',
+      'posReceiptNumber is required',
     );
   }
 
@@ -621,36 +629,114 @@ function normalizeReceiptNumber(value: string): string {
 }
 
 function normalizeReceiptIdentity(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').toUpperCase();
+  return value.trim().toUpperCase();
 }
 
 function parseDate(value: string, fieldName: string): Date {
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
     throw new DomainHttpException(
       HttpStatus.BAD_REQUEST,
       'VALIDATION_ERROR',
-      `${fieldName} must be a valid ISO date-time`,
+      `${fieldName} must be a valid date-time`,
     );
   }
 
-  return parsed;
+  return date;
+}
+
+function toSafePositiveBigInt(value: number, fieldName: string): bigint {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      `${fieldName} must be a positive safe integer`,
+    );
+  }
+
+  return BigInt(value);
+}
+
+function assertRedemptionPolicyAllowsRequest(
+  requestedAmountKobo: bigint,
+  policy: {
+    minimumRedemptionKobo: bigint;
+    basketCapKobo: bigint;
+    maximumAllowedKobo: bigint;
+  },
+): void {
+  if (requestedAmountKobo < policy.minimumRedemptionKobo) {
+    throw new DomainHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'MINIMUM_REDEMPTION_NOT_MET',
+      'Requested redemption is below the minimum amount',
+    );
+  }
+
+  if (policy.maximumAllowedKobo <= 0n) {
+    throw new DomainHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'REDEMPTION_NOT_ALLOWED',
+      'No redemption amount is currently allowed',
+    );
+  }
+
+  if (requestedAmountKobo > policy.basketCapKobo) {
+    throw new DomainHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'REDEMPTION_BASKET_CAP_EXCEEDED',
+      'Requested redemption exceeds the basket cap',
+    );
+  }
+
+  if (requestedAmountKobo > policy.maximumAllowedKobo) {
+    throw new DomainHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'INSUFFICIENT_BALANCE',
+      'Active balance is lower than requested redemption amount',
+    );
+  }
 }
 
 function hashRequest(payload: Record<string, unknown>): string {
-  return createHash('sha256')
-    .update(JSON.stringify(payload, Object.keys(payload).sort()))
-    .digest('hex');
+  return createHash('sha256').update(stableStringify(payload)).digest('hex');
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+  return `{${entries
+    .map(
+      ([key, entryValue]) =>
+        `${JSON.stringify(key)}:${stableStringify(entryValue)}`,
+    )
+    .join(',')}}`;
 }
 
 function deriveReceiptWeekStart(
   occurredAt: Date,
-  timezone: string,
-  weekStartDay: number,
+  timeZone: string,
+  receiptWeekStartDay: number,
 ): Date {
+  if (receiptWeekStartDay < 0 || receiptWeekStartDay > 6) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'Branch receipt week start day is invalid',
+    );
+  }
+
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -658,12 +744,20 @@ function deriveReceiptWeekStart(
   const year = Number(parts.find((part) => part.type === 'year')?.value);
   const month = Number(parts.find((part) => part.type === 'month')?.value);
   const day = Number(parts.find((part) => part.type === 'day')?.value);
-  const localMidnight = new Date(Date.UTC(year, month - 1, day));
-  const diff = (localMidnight.getUTCDay() - weekStartDay + 7) % 7;
 
-  localMidnight.setUTCDate(localMidnight.getUTCDate() - diff);
+  if ([year, month, day].some((part) => Number.isNaN(part))) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'Unable to derive receipt week start',
+    );
+  }
 
-  return localMidnight;
+  const localDate = new Date(Date.UTC(year, month - 1, day));
+  const localWeekday = localDate.getUTCDay();
+  const deltaDays = (7 + localWeekday - receiptWeekStartDay) % 7;
+
+  return new Date(Date.UTC(year, month - 1, day - deltaDays));
 }
 
 async function cleanupExpiredIdempotencyRecords(
@@ -683,13 +777,36 @@ async function cleanupExpiredIdempotencyRecords(
   });
 }
 
+async function persistCompletedIdempotencyResponse(
+  prisma: Pick<Prisma.TransactionClient, 'idempotencyRecord'>,
+  tenantId: string,
+  actorId: string,
+  idempotencyKey: string,
+  requestHash: string,
+  response: RedeemTransactionResponse,
+  now: Date,
+): Promise<void> {
+  await prisma.idempotencyRecord.create({
+    data: {
+      tenantId,
+      actorId,
+      endpoint: REDEEM_ENDPOINT,
+      idempotencyKey,
+      requestHash,
+      status: 'COMPLETED',
+      expiresAt: new Date(now.getTime() + IDP_EXPIRY_MS),
+      responseJson: response as unknown as Prisma.InputJsonValue,
+    },
+  });
+}
+
 async function findCompletedRedeemReplay(
   prismaService: PrismaService,
   tenantId: string,
   actorId: string,
   normalizedKey: string,
   requestHash: string,
-): Promise<RedeemResponse | null> {
+): Promise<RedeemTransactionResponse | null> {
   const replay = await prismaService.idempotencyRecord.findUnique({
     where: {
       tenantId_actorId_endpoint_idempotencyKey: {
@@ -702,70 +819,112 @@ async function findCompletedRedeemReplay(
   });
 
   if (replay?.requestHash === requestHash && replay.responseJson) {
-    return replay.responseJson as unknown as RedeemResponse;
+    return replay.responseJson as unknown as RedeemTransactionResponse;
   }
 
   return null;
 }
 
-function toConfirmedResponse(input: {
-  transactionId: string;
-  redemptionId: string;
+function buildRedeemResponse(input: {
+  tenantId: string;
+  branchId: string;
+  deviceId: string;
+  customerId: string;
+  cardSerialNumber: string;
   receiptId: string;
+  posReceiptNumber: string;
+  redemptionId: string;
+  approvalId: string | null;
+  state: 'CONFIRMED' | 'PENDING_APPROVAL';
+  transactionId: string | null;
   basketAmountKobo: bigint;
-  redeemedKobo: bigint;
+  requestedAmountKobo: bigint;
+  redeemedAmountKobo: bigint | null;
   maximumAllowedKobo: bigint;
-  remainingBalanceKobo: bigint;
-  allocations: PersistedAllocation[];
-  smsStatus: SmsMessageStatus;
-  activeBalanceService: ActiveBalanceService;
-}): RedeemConfirmedResponse {
+  remainingBalanceKobo: bigint | null;
+  allocations: Array<{
+    creditLotId: string;
+    amountKobo: bigint;
+    allocationOrder: number;
+    expiresAt: Date;
+  }>;
+  smsStatus: RedeemTransactionResponse['smsStatus'];
+  occurredAt: Date;
+  requestedAt: Date;
+  policyVersion: string;
+}): RedeemTransactionResponse {
   return {
+    id: input.redemptionId,
     transactionId: input.transactionId,
     redemptionId: input.redemptionId,
     receiptId: input.receiptId,
-    state: 'CONFIRMED',
-    basketAmountKobo: input.activeBalanceService.toJsonSafeKobo(
-      input.basketAmountKobo,
-    ),
-    redeemedKobo: input.activeBalanceService.toJsonSafeKobo(input.redeemedKobo),
-    maximumAllowedKobo: input.activeBalanceService.toJsonSafeKobo(
-      input.maximumAllowedKobo,
-    ),
-    remainingBalanceKobo: input.activeBalanceService.toJsonSafeKobo(
-      input.remainingBalanceKobo,
-    ),
+    approvalId: input.approvalId,
+    state: input.state,
+    tenantId: input.tenantId,
+    branchId: input.branchId,
+    deviceId: input.deviceId,
+    customerId: input.customerId,
+    cardSerialNumber: input.cardSerialNumber,
+    posReceiptNumber: input.posReceiptNumber,
+    basketAmountKobo: Number(input.basketAmountKobo),
+    requestedRedemptionKobo: Number(input.requestedAmountKobo),
+    redeemedAmountKobo:
+      input.redeemedAmountKobo === null
+        ? null
+        : Number(input.redeemedAmountKobo),
+    maximumAllowedKobo: Number(input.maximumAllowedKobo),
+    remainingBalanceKobo:
+      input.remainingBalanceKobo === null
+        ? null
+        : Number(input.remainingBalanceKobo),
     allocations: input.allocations.map((allocation) => ({
       creditLotId: allocation.creditLotId,
-      amountKobo: input.activeBalanceService.toJsonSafeKobo(
-        allocation.amountKobo,
-      ),
+      amountKobo: Number(allocation.amountKobo),
+      allocationOrder: allocation.allocationOrder,
       expiresAt: allocation.expiresAt.toISOString(),
     })),
     smsStatus: input.smsStatus,
+    occurredAt: input.occurredAt.toISOString(),
+    requestedAt: input.requestedAt.toISOString(),
+    policyVersion: input.policyVersion,
   };
 }
 
-function toPendingApprovalResponse(input: {
-  redemptionId: string;
-  receiptId: string;
-  approvalId: string;
-  requestedAmountKobo: bigint;
-  maximumAllowedKobo: bigint;
-  activeBalanceService: ActiveBalanceService;
-}): RedeemPendingApprovalResponse {
-  return {
-    transactionId: null,
-    redemptionId: input.redemptionId,
-    receiptId: input.receiptId,
-    approvalId: input.approvalId,
-    state: 'PENDING_APPROVAL',
-    requestedAmountKobo: input.activeBalanceService.toJsonSafeKobo(
-      input.requestedAmountKobo,
-    ),
-    maximumAllowedKobo: input.activeBalanceService.toJsonSafeKobo(
-      input.maximumAllowedKobo,
-    ),
-    reasonCode: REDEMPTION_APPROVAL_REASON_CODE,
-  };
+function isUniqueIdempotencyConflict(error: unknown): boolean {
+  return p2002Target(error, ['actorId', 'endpoint', 'idempotencyKey']);
+}
+
+function isUniqueReceiptConflict(error: unknown): boolean {
+  return p2002Target(error, [
+    'tenantId',
+    'branchId',
+    'receiptWeekStart',
+    'normalizedPosReceiptNumber',
+  ]);
+}
+
+function isUniqueRedemptionTransactionConflict(error: unknown): boolean {
+  return (
+    p2002Target(error, ['receiptId']) ||
+    p2002Target(error, ['ledgerEntryId']) ||
+    p2002Target(error, ['redemptionId'])
+  );
+}
+
+function p2002Target(error: unknown, requiredParts: string[]): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (error.code !== 'P2002') {
+    return false;
+  }
+
+  const target = Array.isArray(error.meta?.target)
+    ? error.meta.target.join(', ')
+    : typeof error.meta?.target === 'string'
+      ? error.meta.target
+      : '';
+
+  return requiredParts.every((part) => target.includes(part));
 }

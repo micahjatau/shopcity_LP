@@ -223,6 +223,17 @@ describe('LotAllocationService', () => {
   });
 });
 
+type PrismaStub = {
+  $queryRaw: jest.Mock;
+  redemptionAllocation: {
+    createMany: jest.Mock;
+    findMany: jest.Mock;
+  };
+  creditLot: {
+    updateMany: jest.Mock;
+  };
+};
+
 function prismaStub({
   lots = [],
   updateCount = 1,

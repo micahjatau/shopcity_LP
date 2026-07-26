@@ -375,7 +375,7 @@ model LoyaltyLedgerEntry {
   adjustment     Adjustment?           @relation("AdjustmentLedgerEntry")
   redemptionAllocations RedemptionAllocation[] @relation("RedemptionAllocationLedgerEntry")
   allocationRestorations AllocationRestoration[] @relation("AllocationRestorationReversalLedgerEntry")
-  smsMessages              SmsMessage[]
+  smsMessages     SmsMessage[]
 
   @@index([tenantId, customerId, effectiveAt])
   @@index([tenantId, createdAt])
@@ -571,9 +571,9 @@ model SmsMessage {
   tenantId         String
   receiptId        String?
   outboxEventId    String
-  ledgerEntryId    String?
-  redemptionId     String?
-  adjustmentId     String?
+  ledgerEntryId     String?
+  redemptionId      String?
+  adjustmentId      String?
   phoneE164        String
   template         String
   payload          Json

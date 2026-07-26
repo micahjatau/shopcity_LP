@@ -83,13 +83,10 @@ describe('redemption approval lifecycle (int)', () => {
     );
 
     expect(pending.state).toBe('PENDING_APPROVAL');
-    if (pending.state !== 'PENDING_APPROVAL') {
-      throw new Error('Expected pending approval redemption response');
-    }
     expect(pending.approvalId).toBeDefined();
 
     const approvalRecord = await prisma.approval.findUniqueOrThrow({
-      where: { id: pending.approvalId },
+      where: { id: pending.approvalId! },
     });
     expect(approvalRecord).toMatchObject({
       targetType: 'REDEEM',
@@ -116,7 +113,7 @@ describe('redemption approval lifecycle (int)', () => {
     const decision = await approvalsService.decideApproval(
       fixture.tenantId,
       makeContext(fixture.supervisor, fixture.deviceId),
-      pending.approvalId,
+      pending.approvalId!,
       'APPROVED',
       'verified high-value redemption',
     );
@@ -125,7 +122,7 @@ describe('redemption approval lifecycle (int)', () => {
       status: ApprovalStatus.EXECUTED,
       receiptId: pending.receiptId,
       redemptionId: pending.redemptionId,
-      redeemedKobo: 6_000,
+      redeemedAmountKobo: 6_000,
     });
 
     const [redemption, allocationCount, smsCount, remainingBalance] =
@@ -293,22 +290,18 @@ describe('redemption approval lifecycle (int)', () => {
       },
     );
 
-    if (pending.state !== 'PENDING_APPROVAL') {
-      throw new Error('Expected pending approval redemption response');
-    }
-
     const settled = await Promise.allSettled([
       approvalsService.decideApproval(
         localFixture.tenantId,
         makeContext(localFixture.supervisor, localFixture.deviceId),
-        pending.approvalId,
+        pending.approvalId!,
         'APPROVED',
         'first supervisor approval',
       ),
       approvalsService.decideApproval(
         localFixture.tenantId,
         makeContext(localFixture.supervisor, localFixture.deviceId),
-        pending.approvalId,
+        pending.approvalId!,
         'APPROVED',
         'second supervisor approval',
       ),
@@ -342,15 +335,11 @@ describe('redemption approval lifecycle (int)', () => {
       },
     );
 
-    if (pending.state !== 'PENDING_APPROVAL') {
-      throw new Error('Expected pending approval redemption response');
-    }
-
     const settled = await Promise.allSettled([
       approvalsService.decideApproval(
         localFixture.tenantId,
         makeContext(localFixture.supervisor, localFixture.deviceId),
-        pending.approvalId,
+        pending.approvalId!,
         'APPROVED',
         'approval racing redemption',
       ),
