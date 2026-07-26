@@ -1,5 +1,10 @@
 import { Body, Controller, Headers, Post, Req, Version } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';

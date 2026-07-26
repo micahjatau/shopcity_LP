@@ -175,28 +175,32 @@ export class LotAllocationService {
       },
     });
 
-    const restorations = allocations.map((allocation) => {
-      if (allocation.creditLot.expiresAt <= now) {
-        throw reviewRequired('Original credit lot is expired');
-      }
+    const restorations = allocations
+      .map((allocation) => {
+        if (allocation.creditLot.expiresAt <= now) {
+          throw reviewRequired('Original credit lot is expired');
+        }
 
-      const restoredAmount = allocation.restorations.reduce(
-        (sum, restoration) => sum + restoration.amountKobo,
-        0n,
-      );
-      const amountKobo = allocation.amountKobo - restoredAmount;
+        const restoredAmount = allocation.restorations.reduce(
+          (sum, restoration) => sum + restoration.amountKobo,
+          0n,
+        );
+        const amountKobo = allocation.amountKobo - restoredAmount;
 
-      if (amountKobo < 0n) {
-        throw reviewRequired('Restoration evidence exceeds allocation amount');
-      }
+        if (amountKobo < 0n) {
+          throw reviewRequired(
+            'Restoration evidence exceeds allocation amount',
+          );
+        }
 
-      return {
-        allocationId: allocation.id,
-        creditLotId: allocation.creditLotId,
-        amountKobo,
-        expiresAt: allocation.creditLot.expiresAt,
-      };
-    }).filter((restoration) => restoration.amountKobo > 0n);
+        return {
+          allocationId: allocation.id,
+          creditLotId: allocation.creditLotId,
+          amountKobo,
+          expiresAt: allocation.creditLot.expiresAt,
+        };
+      })
+      .filter((restoration) => restoration.amountKobo > 0n);
 
     if (restorations.length === 0) {
       throw reviewRequired('No restorable allocation balance remains');
@@ -240,9 +244,10 @@ export class LotAllocationService {
         break;
       }
 
-      const amount = lot.remainingAmountKobo < remaining
-        ? lot.remainingAmountKobo
-        : remaining;
+      const amount =
+        lot.remainingAmountKobo < remaining
+          ? lot.remainingAmountKobo
+          : remaining;
 
       allocations.push({
         creditLotId: lot.id,

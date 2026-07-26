@@ -74,12 +74,12 @@ describe('financial transaction retry helpers', () => {
   });
 
   it('classifies Prisma P2034 as a financial transaction conflict', () => {
-    expect(isFinancialTransactionConflict(prismaKnownRequestError('P2034'))).toBe(
-      true,
-    );
-    expect(isFinancialTransactionConflict(prismaKnownRequestError('P2002'))).toBe(
-      false,
-    );
+    expect(
+      isFinancialTransactionConflict(prismaKnownRequestError('P2034')),
+    ).toBe(true);
+    expect(
+      isFinancialTransactionConflict(prismaKnownRequestError('P2002')),
+    ).toBe(false);
   });
 });
 

@@ -19,9 +19,9 @@ export class RedemptionsService {
   get dependenciesReady(): boolean {
     return Boolean(
       this.prismaService &&
-        this.activeBalanceService &&
-        this.lotAllocationService &&
-        this.redemptionPolicyService,
+      this.activeBalanceService &&
+      this.lotAllocationService &&
+      this.redemptionPolicyService,
     );
   }
 
