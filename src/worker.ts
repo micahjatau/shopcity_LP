@@ -31,6 +31,11 @@ export async function bootstrap() {
 }
 
 if (require.main === module) {
+  if (process.argv.includes('--help')) {
+    process.stdout.write('Usage: node dist/src/worker.js [--help]\n');
+    process.exit(0);
+  }
+
   void bootstrap().catch((error) => {
     process.stderr.write(
       `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,

@@ -23,6 +23,12 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
+import {
+  CursorPageRequest,
+  decodeCursor,
+  encodeCursor,
+  pageMeta,
+} from '../../common/pagination/cursor-pagination';
 import { EarnTransactionDto } from './loyalty.dto';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
@@ -735,16 +741,33 @@ export class LoyaltyService {
     };
   }
 
-  async listCustomerLedger(tenantId: string, customerId: string) {
+  async listCustomerLedger(
+    tenantId: string,
+    customerId: string,
+    page?: CursorPageRequest,
+  ) {
+    const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const entries = await this.prismaService.loyaltyLedgerEntry.findMany({
       where: { tenantId, customerId },
-      orderBy: [{ effectiveAt: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
       include: { creditLot: true },
+      ...(page
+        ? {
+            take: page.limit + 1,
+            ...(decodedCursor
+              ? { cursor: { id: decodedCursor.id }, skip: 1 }
+              : {}),
+          }
+        : {}),
     });
+    const { pageItems, hasMore } = pageMeta(
+      entries,
+      page?.limit ?? entries.length,
+    );
 
     return {
       customerId,
-      items: entries.map((entry) => ({
+      items: pageItems.map((entry) => ({
         id: entry.id,
         receiptId: entry.receiptId,
         type: entry.type,
@@ -762,13 +785,18 @@ export class LoyaltyService {
             }
           : null,
       })),
+      nextCursor: hasMore
+        ? encodeCursor(pageItems.at(-1)!.id, pageItems.at(-1)!.effectiveAt)
+        : null,
+      hasMore,
     };
   }
 
-  async listApprovals(tenantId: string) {
+  async listApprovals(tenantId: string, page?: CursorPageRequest) {
+    const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const approvals = await this.prismaService.approval.findMany({
       where: { tenantId },
-      orderBy: [{ requestedAt: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
       include: {
         receipt: {
           select: {
@@ -780,10 +808,22 @@ export class LoyaltyService {
           },
         },
       },
+      ...(page
+        ? {
+            take: page.limit + 1,
+            ...(decodedCursor
+              ? { cursor: { id: decodedCursor.id }, skip: 1 }
+              : {}),
+          }
+        : {}),
     });
+    const { pageItems, hasMore } = pageMeta(
+      approvals,
+      page?.limit ?? approvals.length,
+    );
 
     return {
-      items: approvals.map((approval) => ({
+      items: pageItems.map((approval) => ({
         id: approval.id,
         receiptId: approval.receiptId,
         status: approval.status,
@@ -800,6 +840,10 @@ export class LoyaltyService {
           reviewStatus: approval.receipt.reviewStatus,
         },
       })),
+      nextCursor: hasMore
+        ? encodeCursor(pageItems.at(-1)!.id, pageItems.at(-1)!.requestedAt)
+        : null,
+      hasMore,
     };
   }
 

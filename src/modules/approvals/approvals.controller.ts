@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Version,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -16,12 +17,13 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+import { parseCursorPageRequest } from '../../common/pagination/cursor-pagination';
 import { ApprovalDecisionDto } from '../loyalty/loyalty.dto';
 import { ApprovalsService } from './approvals.service';
 
 const approvalListResponseSchema = {
   type: 'object',
-  required: ['items'],
+  required: ['items', 'nextCursor', 'hasMore'],
   properties: {
     items: {
       type: 'array',
@@ -66,6 +68,8 @@ const approvalListResponseSchema = {
         },
       },
     },
+    nextCursor: { type: 'string', nullable: true },
+    hasMore: { type: 'boolean' },
   },
 } as const;
 
@@ -84,8 +88,15 @@ export class ApprovalsController {
     dataSchema: approvalListResponseSchema,
   })
   @ApiOperation({ summary: 'List approvals' })
-  listApprovals(@CurrentSession() context: AuthContext) {
-    return this.approvalsService.listApprovals(context.user.tenantId);
+  listApprovals(
+    @CurrentSession() context: AuthContext,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.approvalsService.listApprovals(
+      context.user.tenantId,
+      parseCursorPageRequest(limit, cursor),
+    );
   }
 
   @Post(':id/decision')
@@ -106,6 +117,15 @@ export class ApprovalsController {
         reason: { type: 'string', nullable: true },
         decidedAt: { type: 'string', format: 'date-time' },
         executedAt: { type: 'string', format: 'date-time', nullable: true },
+      },
+    },
+  })
+  @apiErrorEnvelopeResponses({
+    unprocessableEntity: {
+      approvalPolicyChanged: {
+        statusCode: 422,
+        code: 'APPROVAL_POLICY_CHANGED',
+        message: 'Approval policy changed after the request was captured',
       },
     },
   })

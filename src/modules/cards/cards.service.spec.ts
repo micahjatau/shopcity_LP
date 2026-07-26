@@ -3,6 +3,44 @@ import { CardStatus, CustomerStatus } from '@prisma/client';
 import { CardsService } from './cards.service';
 
 describe('CardsService', () => {
+  it('returns card lookup without nested customer PII', async () => {
+    const prisma = {
+      card: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'card-id',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          barcodeValue: 'CARD-1',
+          status: CardStatus.ACTIVE,
+          customer: {
+            id: 'customer-id',
+            fullName: 'Ada Customer',
+            phoneE164: '+2348012345678',
+            email: 'customer@example.com',
+            status: CustomerStatus.ACTIVE,
+            creditLots: [{ remainingAmountKobo: BigInt(2_500) }],
+          },
+        }),
+      },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(service.lookupCard('tenant-id', 'CARD-1')).resolves.toEqual({
+      id: 'card-id',
+      tenantId: 'tenant-id',
+      customerId: 'customer-id',
+      status: CardStatus.ACTIVE,
+      serialNumber: 'CARD-1',
+      customer: {
+        customerId: 'customer-id',
+        fullName: 'Ada Customer',
+        maskedPhone: '+234801* *** 5678',
+        cardStatus: CardStatus.ACTIVE,
+        availableBalanceKobo: 2_500,
+      },
+    });
+  });
+
   it('rejects status updates for replaced cards', async () => {
     const prisma = {
       card: {

@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
+import { CursorPageRequest } from '../../common/pagination/cursor-pagination';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 
 @Injectable()
 export class ApprovalsService {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
-  listApprovals(tenantId: string) {
-    return this.loyaltyService.listApprovals(tenantId);
+  listApprovals(tenantId: string, page?: CursorPageRequest) {
+    return this.loyaltyService.listApprovals(tenantId, page);
   }
 
   async approveReceipt(

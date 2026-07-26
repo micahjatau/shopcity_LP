@@ -125,18 +125,26 @@ describe('OpenAPI contract (int)', () => {
     expect(responseExampleCodes(earnOperation?.responses?.['409'])).toEqual(
       expect.arrayContaining(['RECEIPT_ALREADY_USED', 'IDEMPOTENCY_CONFLICT']),
     );
-    expect(responseExampleCodes(earnOperation?.responses?.['422'])).toEqual(
-      expect.arrayContaining([
-        'PURCHASE_REQUIRES_APPROVAL',
-        'APPROVAL_POLICY_CHANGED',
-      ]),
-    );
+    expect(responseExampleCodes(earnOperation?.responses?.['422'])).toEqual([]);
+    expect(responseExampleCodes(earnOperation?.responses?.['429'])).toEqual([
+      'RATE_LIMITED',
+    ]);
     expect(responseExampleCodes(earnOperation?.responses?.['503'])).toEqual(
       expect.arrayContaining([
         'EARN_TRANSACTION_CONFLICT',
         'DEPENDENCY_UNAVAILABLE',
       ]),
     );
+  });
+
+  it('documents approval decision policy-change errors on the approval endpoint', () => {
+    const document = buildOpenApiDocument(app);
+    const approvalDecisionOperation =
+      document.paths['/api/v1/approvals/{id}/decision']?.post;
+
+    expect(
+      responseExampleCodes(approvalDecisionOperation?.responses?.['422']),
+    ).toEqual(['APPROVAL_POLICY_CHANGED']);
   });
 
   it('documents the transaction, ledger, and approval list payloads', () => {
@@ -153,11 +161,22 @@ describe('OpenAPI contract (int)', () => {
       document,
       document.paths['/api/v1/approvals']?.get?.responses?.['200'],
     );
+    const customersSchema = resolveResponseDataSchema(
+      document,
+      document.paths['/api/v1/customers']?.get?.responses?.['200'],
+    );
 
     expect(transactionSchema?.properties?.ledger).toBeDefined();
     expect(transactionSchema?.properties?.approvalStatus).toBeDefined();
     expect(ledgerSchema?.properties?.items).toBeDefined();
+    expect(ledgerSchema?.properties?.nextCursor).toBeDefined();
+    expect(ledgerSchema?.properties?.hasMore).toBeDefined();
     expect(approvalsSchema?.properties?.items).toBeDefined();
+    expect(approvalsSchema?.properties?.nextCursor).toBeDefined();
+    expect(approvalsSchema?.properties?.hasMore).toBeDefined();
+    expect(customersSchema?.properties?.items).toBeDefined();
+    expect(customersSchema?.properties?.nextCursor).toBeDefined();
+    expect(customersSchema?.properties?.hasMore).toBeDefined();
     const approvalItemsSchema = approvalsSchema?.properties?.items as
       | {
           items?: { properties?: Record<string, unknown> };

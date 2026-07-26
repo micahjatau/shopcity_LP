@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   Post,
+  Query,
   Req,
   Res,
   Version,
@@ -23,6 +24,9 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+import { Throttle } from '../../common/throttle/throttle.decorator';
+import { buildEarnThrottleKey } from '../../common/throttle/throttle.keys';
+import { parseCursorPageRequest } from '../../common/pagination/cursor-pagination';
 import { EarnTransactionDto } from './loyalty.dto';
 import { LoyaltyService } from './loyalty.service';
 
@@ -123,13 +127,15 @@ const transactionResponseSchema = {
 
 const customerLedgerResponseSchema = {
   type: 'object',
-  required: ['customerId', 'items'],
+  required: ['customerId', 'items', 'nextCursor', 'hasMore'],
   properties: {
     customerId: { type: 'string', format: 'uuid' },
     items: {
       type: 'array',
       items: transactionLedgerItemSchema,
     },
+    nextCursor: { type: 'string', nullable: true },
+    hasMore: { type: 'boolean' },
   },
 } as const;
 
@@ -240,6 +246,12 @@ export class LoyaltyController {
   @Post('transactions/earn')
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Throttle({
+    bucket: 'transactions.earn',
+    limit: 30,
+    windowMs: 60_000,
+    keyFactory: buildEarnThrottleKey,
+  })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
   @apiSuccessEnvelopeResponse({
     description: 'Earn transaction processed',
@@ -288,16 +300,11 @@ export class LoyaltyController {
         message: 'Idempotency key reused with different payload',
       },
     },
-    unprocessableEntity: {
-      purchaseRequiresApproval: {
-        statusCode: 422,
-        code: 'PURCHASE_REQUIRES_APPROVAL',
-        message: 'Purchase requires supervisor approval',
-      },
-      approvalPolicyChanged: {
-        statusCode: 422,
-        code: 'APPROVAL_POLICY_CHANGED',
-        message: 'Approval policy changed; restart approval request',
+    tooManyRequests: {
+      rateLimited: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
       },
     },
     serviceUnavailable: {
@@ -363,10 +370,13 @@ export class LoyaltyController {
   getCustomerLedger(
     @Req() request: AuthenticatedRequest,
     @Param('id') customerId: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     return this.loyaltyService.listCustomerLedger(
       request.authContext!.user.tenantId,
       customerId,
+      parseCursorPageRequest(limit, cursor),
     );
   }
 }

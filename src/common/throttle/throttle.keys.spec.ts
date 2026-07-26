@@ -1,5 +1,6 @@
 import {
   buildCardLookupThrottleKey,
+  buildEarnThrottleKey,
   buildLoginThrottleKey,
   normalizeThrottleIdentity,
 } from './throttle.keys';
@@ -52,5 +53,30 @@ describe('throttle keys', () => {
 
     expect(first).toBe('card-lookup:tenant-id:user-id:127.0.0.1');
     expect(second).toBe(first);
+  });
+
+  it('keys earn throttling by tenant, staff user, and session device', () => {
+    const request = {
+      authContext: {
+        user: {
+          tenantId: 'tenant-id',
+          id: 'user-id',
+        },
+        session: {
+          deviceId: 'device-1',
+        },
+      },
+    };
+
+    const first = buildEarnThrottleKey(request as never);
+    const second = buildEarnThrottleKey({
+      authContext: {
+        ...request.authContext,
+        session: { deviceId: 'device-2' },
+      },
+    } as never);
+
+    expect(first).toBe('earn:tenant-id:user-id:device-1');
+    expect(second).toBe('earn:tenant-id:user-id:device-2');
   });
 });

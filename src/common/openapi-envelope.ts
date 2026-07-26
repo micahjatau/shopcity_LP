@@ -8,6 +8,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiServiceUnavailableResponse,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
@@ -42,6 +43,7 @@ type ErrorEnvelopeResponseOptions = {
   forbidden?: ErrorEnvelopeResponseExamples;
   notFound?: ErrorEnvelopeResponseExamples;
   conflict?: ErrorEnvelopeResponseExamples;
+  tooManyRequests?: ErrorEnvelopeResponseExamples;
   unprocessableEntity?: ErrorEnvelopeResponseExamples;
   serviceUnavailable?: ErrorEnvelopeResponseExamples;
 };
@@ -71,6 +73,7 @@ export function apiErrorEnvelopeResponses(
     ApiForbiddenResponse(errorResponseOptions(options.forbidden)),
     ApiNotFoundResponse(errorResponseOptions(options.notFound)),
     ApiConflictResponse(errorResponseOptions(options.conflict)),
+    ApiTooManyRequestsResponse(errorResponseOptions(options.tooManyRequests)),
     ApiUnprocessableEntityResponse(
       errorResponseOptions(options.unprocessableEntity),
     ),

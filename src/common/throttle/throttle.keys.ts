@@ -25,3 +25,10 @@ export function buildCardLookupThrottleKey(
   const userId = request.authContext?.user.id ?? 'unknown-user';
   return `card-lookup:${tenantId}:${userId}:${request.ip || 'unknown'}`;
 }
+
+export function buildEarnThrottleKey(request: AuthenticatedRequest): string {
+  const tenantId = request.authContext?.user.tenantId ?? 'unknown-tenant';
+  const userId = request.authContext?.user.id ?? 'unknown-user';
+  const deviceId = request.authContext?.session.deviceId ?? 'unknown-device';
+  return `earn:${tenantId}:${userId}:${deviceId}`;
+}

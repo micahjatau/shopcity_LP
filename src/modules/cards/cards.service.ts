@@ -19,7 +19,13 @@ export class CardsService {
   async lookupCard(tenantId: string, serialNumber: string) {
     const card = await this.prismaService.card.findFirst({
       where: { tenantId, barcodeValue: serialNumber },
-      include: { customer: true },
+      include: {
+        customer: {
+          include: {
+            creditLots: { select: { remainingAmountKobo: true } },
+          },
+        },
+      },
     });
     if (
       !card ||
@@ -29,7 +35,7 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
 
-    return toPublicCard(card);
+    return toPublicCardLookup(card);
   }
 
   async createCard(
@@ -271,4 +277,41 @@ function toPublicCard<T extends { barcodeValue: string }>(card: T) {
     ...rest,
     serialNumber: barcodeValue,
   };
+}
+
+function toPublicCardLookup(
+  card: Prisma.CardGetPayload<{
+    include: {
+      customer: {
+        include: { creditLots: { select: { remainingAmountKobo: true } } };
+      };
+    };
+  }>,
+) {
+  return {
+    id: card.id,
+    tenantId: card.tenantId,
+    customerId: card.customerId,
+    status: card.status,
+    serialNumber: card.barcodeValue,
+    customer: {
+      customerId: card.customer.id,
+      fullName: card.customer.fullName,
+      maskedPhone: maskPhone(card.customer.phoneE164),
+      cardStatus: card.status,
+      availableBalanceKobo: card.customer.creditLots.reduce(
+        (total, lot) => total + Number(lot.remainingAmountKobo),
+        0,
+      ),
+    },
+  };
+}
+
+function maskPhone(phoneE164: string): string {
+  const normalized = phoneE164.trim();
+  if (normalized.length <= 6) {
+    return '***';
+  }
+
+  return `${normalized.slice(0, Math.min(7, normalized.length - 4))}* *** ${normalized.slice(-4)}`;
 }

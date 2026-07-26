@@ -4,11 +4,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CustomerStatus } from '@prisma/client';
+import {
+  CardStatus,
+  Customer,
+  CustomerStatus,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { normalizePhoneToE164 } from '../../common/phone';
+import {
+  CursorPageRequest,
+  decodeCursor,
+  encodeCursor,
+  pageMeta,
+} from '../../common/pagination/cursor-pagination';
 
 @Injectable()
 export class CustomersService {
@@ -17,28 +29,128 @@ export class CustomersService {
     private readonly auditService: AuditService,
   ) {}
 
-  listCustomers(tenantId: string, query?: string) {
-    return this.prismaService.customer.findMany({
-      where: query
+  async listCustomers(tenantId: string, query?: string): Promise<Customer[]>;
+  async listCustomers(
+    tenantId: string,
+    actor: AuthContext,
+    query?: string,
+    page?: CursorPageRequest,
+  ): Promise<{
+    items: Array<CustomerSalesSummary | CashierCustomerSummary>;
+    nextCursor: string | null;
+    hasMore: boolean;
+  }>;
+  async listCustomers(
+    tenantId: string,
+    actorOrQuery?: AuthContext | string,
+    query?: string,
+    page?: CursorPageRequest,
+  ): Promise<unknown> {
+    const actor = typeof actorOrQuery === 'string' ? undefined : actorOrQuery;
+    const normalizedQuery =
+      typeof actorOrQuery === 'string' ? actorOrQuery : query;
+    const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
+    const customers = await this.prismaService.customer.findMany({
+      where: {
+        tenantId,
+        ...(normalizedQuery
+          ? {
+              OR: [
+                {
+                  fullName: { contains: normalizedQuery, mode: 'insensitive' },
+                },
+                { phoneE164: { contains: normalizedQuery } },
+                { email: { contains: normalizedQuery, mode: 'insensitive' } },
+                {
+                  cards: {
+                    some: { barcodeValue: { contains: normalizedQuery } },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      ...(actor ? { include: customerSalesSummaryInclude } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      ...(page
         ? {
-            tenantId,
-            OR: [
-              { fullName: { contains: query, mode: 'insensitive' } },
-              { phoneE164: { contains: query } },
-              { email: { contains: query, mode: 'insensitive' } },
-              { cards: { some: { barcodeValue: { contains: query } } } },
-            ],
+            take: page.limit + 1,
+            ...(decodedCursor
+              ? { cursor: { id: decodedCursor.id }, skip: 1 }
+              : {}),
           }
-        : { tenantId },
+        : {}),
     });
+
+    if (!actor) {
+      return customers;
+    }
+
+    if (isPrivilegedCustomerRead(actor)) {
+      await this.auditService.record({
+        tenantId,
+        actorId: actor.user.id,
+        action: 'customer.pii.list',
+        entityType: 'customer',
+        metadata: { query: normalizedQuery ?? null, count: customers.length },
+      });
+
+      const { pageItems, hasMore } = pageMeta(
+        customers as CustomerSalesSummary[],
+        page?.limit ?? customers.length,
+      );
+
+      return {
+        items: pageItems,
+        nextCursor: hasMore ? customerCursor(pageItems.at(-1)!) : null,
+        hasMore,
+      };
+    }
+
+    const { pageItems, hasMore } = pageMeta(
+      customers as CustomerSalesSummary[],
+      page?.limit ?? customers.length,
+    );
+
+    return {
+      items: pageItems.map(toCashierCustomerSummary),
+      nextCursor: hasMore ? customerCursor(pageItems.at(-1)!) : null,
+      hasMore,
+    };
   }
 
-  async getCustomer(tenantId: string, id: string) {
+  async getCustomer(
+    tenantId: string,
+    id: string,
+  ): Promise<CustomerSalesSummary>;
+  async getCustomer(
+    tenantId: string,
+    id: string,
+    actor: AuthContext,
+  ): Promise<CustomerSalesSummary | CashierCustomerSummary>;
+  async getCustomer(tenantId: string, id: string, actor?: AuthContext) {
     const customer = await this.prismaService.customer.findFirst({
       where: { tenantId, id },
+      include: customerSalesSummaryInclude,
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
+    }
+
+    if (actor && isPrivilegedCustomerRead(actor)) {
+      await this.auditService.record({
+        tenantId,
+        actorId: actor.user.id,
+        action: 'customer.pii.read',
+        entityType: 'customer',
+        entityId: customer.id,
+      });
+
+      return customer;
+    }
+
+    if (actor?.user.role === UserRole.CASHIER) {
+      return toCashierCustomerSummary(customer);
     }
 
     return customer;
@@ -121,7 +233,7 @@ export class CustomersService {
       isStaff?: boolean;
     },
   ) {
-    const customer = await this.getCustomer(tenantId, id);
+    const customer = await this.getCustomerRecord(tenantId, id);
     const phoneE164 = data.phone
       ? normalizePhoneToE164(data.phone)
       : customer.phoneE164;
@@ -178,6 +290,17 @@ export class CustomersService {
     });
   }
 
+  private async getCustomerRecord(tenantId: string, id: string) {
+    const customer = await this.prismaService.customer.findFirst({
+      where: { tenantId, id },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    return customer;
+  }
+
   async updateCustomerStatus(
     tenantId: string,
     actor: AuthContext,
@@ -216,4 +339,54 @@ export class CustomersService {
       return updated;
     });
   }
+}
+
+const customerSalesSummaryInclude = {
+  cards: {
+    select: { status: true },
+    orderBy: { issuedAt: 'desc' },
+    take: 1,
+  },
+  creditLots: {
+    select: { remainingAmountKobo: true },
+  },
+} satisfies Prisma.CustomerInclude;
+
+type CustomerSalesSummary = Prisma.CustomerGetPayload<{
+  include: typeof customerSalesSummaryInclude;
+}>;
+
+type CashierCustomerSummary = ReturnType<typeof toCashierCustomerSummary>;
+
+function isPrivilegedCustomerRead(actor: AuthContext): boolean {
+  return (
+    actor.user.role === UserRole.SUPERVISOR ||
+    actor.user.role === UserRole.ADMIN
+  );
+}
+
+function toCashierCustomerSummary(customer: CustomerSalesSummary) {
+  return {
+    customerId: customer.id,
+    fullName: customer.fullName,
+    maskedPhone: maskPhone(customer.phoneE164),
+    cardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
+    availableBalanceKobo: customer.creditLots.reduce(
+      (total, lot) => total + Number(lot.remainingAmountKobo),
+      0,
+    ),
+  };
+}
+
+function customerCursor(customer: CustomerSalesSummary): string {
+  return encodeCursor(customer.id, customer.createdAt);
+}
+
+function maskPhone(phoneE164: string): string {
+  const normalized = phoneE164.trim();
+  if (normalized.length <= 6) {
+    return '***';
+  }
+
+  return `${normalized.slice(0, Math.min(7, normalized.length - 4))}* *** ${normalized.slice(-4)}`;
 }

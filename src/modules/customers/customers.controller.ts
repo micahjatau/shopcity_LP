@@ -23,6 +23,7 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+import { parseCursorPageRequest } from '../../common/pagination/cursor-pagination';
 
 @ApiTags('customers')
 @ApiBearerAuth()
@@ -35,15 +36,27 @@ export class CustomersController {
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
-    dataSchema: { type: 'array', items: { type: 'object' } },
+    dataSchema: {
+      type: 'object',
+      required: ['items', 'nextCursor', 'hasMore'],
+      properties: {
+        items: { type: 'array', items: { type: 'object' } },
+        nextCursor: { type: 'string', nullable: true },
+        hasMore: { type: 'boolean' },
+      },
+    },
   })
   listCustomers(
     @Req() request: AuthenticatedRequest,
     @Query('q') query?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
   ) {
     return this.customersService.listCustomers(
       request.authContext!.user.tenantId,
+      request.authContext!,
       query,
+      parseCursorPageRequest(limit, cursor),
     );
   }
 
@@ -71,6 +84,7 @@ export class CustomersController {
     return this.customersService.getCustomer(
       request.authContext!.user.tenantId,
       id,
+      request.authContext!,
     );
   }
 
