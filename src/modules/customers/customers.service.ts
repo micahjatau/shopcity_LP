@@ -11,6 +11,7 @@ import {
   Prisma,
   UserRole,
 } from '@prisma/client';
+import { ActiveBalanceService } from '../loyalty/active-balance.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -27,6 +28,9 @@ export class CustomersService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
+    private readonly activeBalanceService: ActiveBalanceService = new ActiveBalanceService(
+      prismaService,
+    ),
   ) {}
 
   async listCustomers(tenantId: string, query?: string): Promise<Customer[]>;
@@ -36,7 +40,7 @@ export class CustomersService {
     query?: string,
     page?: CursorPageRequest,
   ): Promise<{
-    items: Array<CustomerSalesSummary | CashierCustomerSummary>;
+    items: Array<PrivilegedCustomerSummary | CashierCustomerSummary>;
     nextCursor: string | null;
     hasMore: boolean;
   }>;
@@ -49,28 +53,17 @@ export class CustomersService {
     const actor = typeof actorOrQuery === 'string' ? undefined : actorOrQuery;
     const normalizedQuery =
       typeof actorOrQuery === 'string' ? actorOrQuery : query;
+    if (!actor) {
+      return this.prismaService.customer.findMany({
+        where: customerSearchWhere(tenantId, normalizedQuery),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+    }
+
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const customers = await this.prismaService.customer.findMany({
-      where: {
-        tenantId,
-        ...(normalizedQuery
-          ? {
-              OR: [
-                {
-                  fullName: { contains: normalizedQuery, mode: 'insensitive' },
-                },
-                { phoneE164: { contains: normalizedQuery } },
-                { email: { contains: normalizedQuery, mode: 'insensitive' } },
-                {
-                  cards: {
-                    some: { barcodeValue: { contains: normalizedQuery } },
-                  },
-                },
-              ],
-            }
-          : {}),
-      },
-      ...(actor ? { include: customerSalesSummaryInclude } : {}),
+      where: customerSearchWhere(tenantId, normalizedQuery),
+      include: customerReadInclude,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       ...(page
         ? {
@@ -82,9 +75,14 @@ export class CustomersService {
         : {}),
     });
 
-    if (!actor) {
-      return customers;
-    }
+    const { pageItems, hasMore } = pageMeta(
+      customers,
+      page?.limit ?? customers.length,
+    );
+    const balances = await this.activeBalanceService.getActiveBalancesKobo(
+      tenantId,
+      pageItems.map((customer) => customer.id),
+    );
 
     if (isPrivilegedCustomerRead(actor)) {
       await this.auditService.record({
@@ -92,50 +90,56 @@ export class CustomersService {
         actorId: actor.user.id,
         action: 'customer.pii.list',
         entityType: 'customer',
-        metadata: { query: normalizedQuery ?? null, count: customers.length },
+        metadata: {
+          queryPresent: Boolean(normalizedQuery),
+          queryType: classifyCustomerSearchQuery(normalizedQuery),
+          resultCount: pageItems.length,
+        },
       });
 
-      const { pageItems, hasMore } = pageMeta(
-        customers as CustomerSalesSummary[],
-        page?.limit ?? customers.length,
-      );
-
       return {
-        items: pageItems,
+        items: pageItems.map((customer) =>
+          toPrivilegedCustomerSummary(
+            customer,
+            balances.get(customer.id) ?? 0n,
+          ),
+        ),
         nextCursor: hasMore ? customerCursor(pageItems.at(-1)!) : null,
         hasMore,
       };
     }
 
-    const { pageItems, hasMore } = pageMeta(
-      customers as CustomerSalesSummary[],
-      page?.limit ?? customers.length,
-    );
-
     return {
-      items: pageItems.map(toCashierCustomerSummary),
+      items: pageItems.map((customer) =>
+        toCashierCustomerSummary(customer, balances.get(customer.id) ?? 0n),
+      ),
       nextCursor: hasMore ? customerCursor(pageItems.at(-1)!) : null,
       hasMore,
     };
   }
 
-  async getCustomer(
-    tenantId: string,
-    id: string,
-  ): Promise<CustomerSalesSummary>;
+  async getCustomer(tenantId: string, id: string): Promise<CustomerReadRecord>;
   async getCustomer(
     tenantId: string,
     id: string,
     actor: AuthContext,
-  ): Promise<CustomerSalesSummary | CashierCustomerSummary>;
+  ): Promise<
+    CustomerReadRecord | PrivilegedCustomerSummary | CashierCustomerSummary
+  >;
   async getCustomer(tenantId: string, id: string, actor?: AuthContext) {
     const customer = await this.prismaService.customer.findFirst({
       where: { tenantId, id },
-      include: customerSalesSummaryInclude,
+      include: customerReadInclude,
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
+
+    const activeBalanceKobo =
+      await this.activeBalanceService.getActiveBalanceKobo(
+        tenantId,
+        customer.id,
+      );
 
     if (actor && isPrivilegedCustomerRead(actor)) {
       await this.auditService.record({
@@ -146,11 +150,11 @@ export class CustomersService {
         entityId: customer.id,
       });
 
-      return customer;
+      return toPrivilegedCustomerSummary(customer, activeBalanceKobo);
     }
 
     if (actor?.user.role === UserRole.CASHIER) {
-      return toCashierCustomerSummary(customer);
+      return toCashierCustomerSummary(customer, activeBalanceKobo);
     }
 
     return customer;
@@ -341,22 +345,20 @@ export class CustomersService {
   }
 }
 
-const customerSalesSummaryInclude = {
+const customerReadInclude = {
   cards: {
     select: { status: true },
     orderBy: { issuedAt: 'desc' },
     take: 1,
   },
-  creditLots: {
-    select: { remainingAmountKobo: true },
-  },
 } satisfies Prisma.CustomerInclude;
 
-type CustomerSalesSummary = Prisma.CustomerGetPayload<{
-  include: typeof customerSalesSummaryInclude;
+type CustomerReadRecord = Prisma.CustomerGetPayload<{
+  include: typeof customerReadInclude;
 }>;
 
 type CashierCustomerSummary = ReturnType<typeof toCashierCustomerSummary>;
+type PrivilegedCustomerSummary = ReturnType<typeof toPrivilegedCustomerSummary>;
 
 function isPrivilegedCustomerRead(actor: AuthContext): boolean {
   return (
@@ -365,21 +367,92 @@ function isPrivilegedCustomerRead(actor: AuthContext): boolean {
   );
 }
 
-function toCashierCustomerSummary(customer: CustomerSalesSummary) {
+function toCashierCustomerSummary(
+  customer: CustomerReadRecord,
+  activeBalanceKobo: bigint,
+) {
   return {
     customerId: customer.id,
     fullName: customer.fullName,
     maskedPhone: maskPhone(customer.phoneE164),
     cardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
-    availableBalanceKobo: customer.creditLots.reduce(
-      (total, lot) => total + Number(lot.remainingAmountKobo),
-      0,
-    ),
+    availableBalanceKobo: Number(activeBalanceKobo),
   };
 }
 
-function customerCursor(customer: CustomerSalesSummary): string {
+function toPrivilegedCustomerSummary(
+  customer: CustomerReadRecord,
+  activeBalanceKobo: bigint,
+) {
+  return {
+    id: customer.id,
+    tenantId: customer.tenantId,
+    branchId: customer.branchId,
+    fullName: customer.fullName,
+    phoneE164: customer.phoneE164,
+    email: customer.email,
+    isStaff: customer.isStaff,
+    status: customer.status,
+    activeCardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
+    availableBalanceKobo: Number(activeBalanceKobo),
+    registeredBy: customer.registeredBy,
+    registeredByTenantId: customer.registeredByTenantId,
+    blockedAt: customer.blockedAt,
+    createdAt: customer.createdAt,
+    updatedAt: customer.updatedAt,
+  };
+}
+
+function customerCursor(customer: CustomerReadRecord): string {
   return encodeCursor(customer.id, customer.createdAt);
+}
+
+function customerSearchWhere(
+  tenantId: string,
+  normalizedQuery?: string,
+): Prisma.CustomerWhereInput {
+  return {
+    tenantId,
+    ...(normalizedQuery
+      ? {
+          OR: [
+            {
+              fullName: { contains: normalizedQuery, mode: 'insensitive' },
+            },
+            { phoneE164: { contains: normalizedQuery } },
+            { email: { contains: normalizedQuery, mode: 'insensitive' } },
+            {
+              cards: {
+                some: { barcodeValue: { contains: normalizedQuery } },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+}
+
+function classifyCustomerSearchQuery(
+  normalizedQuery?: string,
+): 'none' | 'phone' | 'email' | 'card' | 'name' {
+  const query = normalizedQuery?.trim();
+  if (!query) {
+    return 'none';
+  }
+
+  if (query.includes('@')) {
+    return 'email';
+  }
+
+  if (/^\+?\d[\d\s-]+$/.test(query)) {
+    return 'phone';
+  }
+
+  if (/\d/.test(query) && /[A-Za-z-]/.test(query)) {
+    return 'card';
+  }
+
+  return 'name';
 }
 
 function maskPhone(phoneE164: string): string {

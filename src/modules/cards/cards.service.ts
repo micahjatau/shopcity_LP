@@ -8,23 +8,23 @@ import { CardStatus, CustomerStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
+import { ActiveBalanceService } from '../loyalty/active-balance.service';
 
 @Injectable()
 export class CardsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
+    private readonly activeBalanceService: ActiveBalanceService = new ActiveBalanceService(
+      prismaService,
+    ),
   ) {}
 
   async lookupCard(tenantId: string, serialNumber: string) {
     const card = await this.prismaService.card.findFirst({
       where: { tenantId, barcodeValue: serialNumber },
       include: {
-        customer: {
-          include: {
-            creditLots: { select: { remainingAmountKobo: true } },
-          },
-        },
+        customer: true,
       },
     });
     if (
@@ -35,7 +35,13 @@ export class CardsService {
       throw new NotFoundException('Card not found');
     }
 
-    return toPublicCardLookup(card);
+    const activeBalanceKobo =
+      await this.activeBalanceService.getActiveBalanceKobo(
+        tenantId,
+        card.customerId,
+      );
+
+    return toPublicCardLookup(card, activeBalanceKobo);
   }
 
   async createCard(
@@ -282,11 +288,10 @@ function toPublicCard<T extends { barcodeValue: string }>(card: T) {
 function toPublicCardLookup(
   card: Prisma.CardGetPayload<{
     include: {
-      customer: {
-        include: { creditLots: { select: { remainingAmountKobo: true } } };
-      };
+      customer: true;
     };
   }>,
+  activeBalanceKobo: bigint,
 ) {
   return {
     id: card.id,
@@ -299,10 +304,7 @@ function toPublicCardLookup(
       fullName: card.customer.fullName,
       maskedPhone: maskPhone(card.customer.phoneE164),
       cardStatus: card.status,
-      availableBalanceKobo: card.customer.creditLots.reduce(
-        (total, lot) => total + Number(lot.remainingAmountKobo),
-        0,
-      ),
+      availableBalanceKobo: Number(activeBalanceKobo),
     },
   };
 }

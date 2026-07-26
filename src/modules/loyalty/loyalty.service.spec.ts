@@ -14,6 +14,7 @@ describe('LoyaltyService earn transaction retries', () => {
       prismaService({ transaction }),
       auditService(),
       configService(),
+      activeBalanceService(20_000n),
     );
 
     const response = await service.earn('tenant-1', authContext(), 'idem-1', {
@@ -107,9 +108,12 @@ function prismaService({ transaction }: { transaction: jest.Mock }) {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn().mockResolvedValue(null),
     },
-    creditLot: {
-      findMany: jest.fn().mockResolvedValue([{ remainingAmountKobo: 20_000n }]),
-    },
+  } as never;
+}
+
+function activeBalanceService(balance: bigint) {
+  return {
+    getActiveBalanceKobo: jest.fn().mockResolvedValue(balance),
   } as never;
 }
 

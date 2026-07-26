@@ -1,13 +1,13 @@
 import {
   CanActivate,
   ExecutionContext,
-  HttpException,
   HttpStatus,
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RequestThrottleService } from './request-throttle.service';
 import { AuthenticatedRequest } from '../auth/session.types';
+import { DomainHttpException } from '../errors/domain.exception';
 import { THROTTLE_KEY } from './throttle.constants';
 import { ThrottleOptions } from './throttle.decorator';
 
@@ -40,9 +40,10 @@ export class RequestThrottleGuard implements CanActivate {
     );
 
     if (results.some((result) => !result.allowed)) {
-      throw new HttpException(
-        'Too many requests',
+      throw new DomainHttpException(
         HttpStatus.TOO_MANY_REQUESTS,
+        'RATE_LIMITED',
+        'Too many requests',
       );
     }
 

@@ -29,6 +29,7 @@ import {
   encodeCursor,
   pageMeta,
 } from '../../common/pagination/cursor-pagination';
+import { ActiveBalanceService } from './active-balance.service';
 import { EarnTransactionDto } from './loyalty.dto';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
@@ -142,6 +143,9 @@ export class LoyaltyService {
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
+    private readonly activeBalanceService: ActiveBalanceService = new ActiveBalanceService(
+      prismaService,
+    ),
   ) {}
 
   async earn(
@@ -519,10 +523,11 @@ export class LoyaltyService {
               creditKobo: Number(creditKobo),
               captureStatus,
               availableBalanceKobo: Number(
-                await calculateAvailableBalanceKobo(
-                  prisma,
+                await this.activeBalanceService.getActiveBalanceKobo(
                   tenantId,
                   transactionCard.customerId,
+                  now,
+                  prisma,
                 ),
               ),
               expiresAt: creditLot.expiresAt.toISOString(),
@@ -688,11 +693,11 @@ export class LoyaltyService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    const availableBalanceKobo = await calculateAvailableBalanceKobo(
-      this.prismaService,
-      tenantId,
-      receipt.customerId,
-    );
+    const availableBalanceKobo =
+      await this.activeBalanceService.getActiveBalanceKobo(
+        tenantId,
+        receipt.customerId,
+      );
 
     return {
       id: receipt.id,
@@ -1456,35 +1461,6 @@ function addMonths(date: Date, months: number): Date {
       date.getUTCMilliseconds(),
     ),
   );
-}
-
-async function calculateAvailableBalanceKobo(
-  prismaService:
-    | PrismaService
-    | {
-        creditLot: {
-          findMany: (
-            args: Prisma.CreditLotFindManyArgs,
-          ) => Promise<Array<{ remainingAmountKobo: bigint }>>;
-        };
-      },
-  tenantId: string,
-  customerId: string,
-  now = new Date(),
-): Promise<bigint> {
-  const lots = await prismaService.creditLot.findMany({
-    where: {
-      tenantId,
-      customerId,
-      remainingAmountKobo: { gt: 0 },
-      expiresAt: { gt: now },
-    },
-    select: {
-      remainingAmountKobo: true,
-    },
-  });
-
-  return lots.reduce((total, lot) => total + lot.remainingAmountKobo, 0n);
 }
 
 async function cleanupExpiredIdempotencyRecords(

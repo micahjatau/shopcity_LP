@@ -12,7 +12,11 @@ describe('CustomersService', () => {
           ]),
       },
     };
-    const service = new CustomersService(prisma as never, auditStub() as never);
+    const service = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub({ batch: new Map([['customer-id', 1_500n]]) }) as never,
+    );
 
     await expect(
       service.listCustomers('tenant-id', actorStub(UserRole.CASHIER)),
@@ -41,6 +45,7 @@ describe('CustomersService', () => {
     const service = new CustomersService(
       prisma as never,
       auditService as never,
+      activeBalanceStub({ single: 1_500n }) as never,
     );
 
     const result = await service.getCustomer(
@@ -53,7 +58,9 @@ describe('CustomersService', () => {
       id: 'customer-id',
       phoneE164: '+2348012345678',
       email: 'customer@example.com',
+      availableBalanceKobo: 1_500,
     });
+    expect(result).not.toHaveProperty('creditLots');
     expect(auditService.record).toHaveBeenCalledWith({
       tenantId: 'tenant-id',
       actorId: 'user-id',
@@ -87,6 +94,19 @@ function auditStub() {
   return {
     record: jest.fn().mockResolvedValue(undefined),
     recordWithClient: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+function activeBalanceStub({
+  single = 0n,
+  batch = new Map<string, bigint>(),
+}: {
+  single?: bigint;
+  batch?: Map<string, bigint>;
+} = {}) {
+  return {
+    getActiveBalanceKobo: jest.fn().mockResolvedValue(single),
+    getActiveBalancesKobo: jest.fn().mockResolvedValue(batch),
   };
 }
 

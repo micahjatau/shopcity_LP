@@ -18,12 +18,15 @@ describe('CardsService', () => {
             phoneE164: '+2348012345678',
             email: 'customer@example.com',
             status: CustomerStatus.ACTIVE,
-            creditLots: [{ remainingAmountKobo: BigInt(2_500) }],
           },
         }),
       },
     };
-    const service = new CardsService(prisma as never, auditStub() as never);
+    const service = new CardsService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub(2_500n) as never,
+    );
 
     await expect(service.lookupCard('tenant-id', 'CARD-1')).resolves.toEqual({
       id: 'card-id',
@@ -183,6 +186,12 @@ function auditStub() {
   return {
     record: jest.fn().mockResolvedValue(undefined),
     recordWithClient: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+function activeBalanceStub(balance: bigint) {
+  return {
+    getActiveBalanceKobo: jest.fn().mockResolvedValue(balance),
   };
 }
 

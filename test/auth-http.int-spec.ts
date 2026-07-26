@@ -3,6 +3,13 @@ import { createHmac, randomUUID } from 'node:crypto';
 import {
   PrismaClient,
   BranchStatus,
+  CardStatus,
+  CustomerStatus,
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  LedgerEntryType,
+  ReceiptCaptureStatus,
+  ReceiptReviewStatus,
   DeviceStatus,
   TenantStatus,
   SessionStatus,
@@ -28,6 +35,7 @@ describe('auth and readiness flows (int)', () => {
   let SupabaseServiceToken: typeof import('../src/supabase/supabase.service').SupabaseService;
   let httpServer: Parameters<typeof request>[0];
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
+  let cashierUser: Awaited<ReturnType<typeof createStaffUser>>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -70,6 +78,14 @@ describe('auth and readiness flows (int)', () => {
       supabaseAdminClient: createSupabaseAdminStub(supabaseAuthId),
       adminPassword: 'password',
     });
+    cashierUser = await createStaffUser(
+      prisma,
+      seedData.tenant.id,
+      seedData.branch.id,
+      UserRole.CASHIER,
+      'cashier.read-model@shopcity.local',
+      'cashier-read-model-supabase-user',
+    );
 
     app = await createAppFn({ enableDocs: false });
     await (
@@ -82,13 +98,20 @@ describe('auth and readiness flows (int)', () => {
     const supabaseService = app.get(SupabaseServiceToken);
     jest
       .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
-      .mockResolvedValue({
-        data: {
-          user: { id: seedData.user.supabaseAuthId },
-          session: null,
-        },
-        error: null,
-      } as never);
+      .mockImplementation(({ email }: { email: string }) =>
+        Promise.resolve({
+          data: {
+            user: {
+              id:
+                email === cashierUser.username
+                  ? cashierUser.supabaseAuthId
+                  : seedData.user.supabaseAuthId,
+            },
+            session: null,
+          },
+          error: null,
+        } as never),
+      );
   }, 120000);
 
   beforeEach(async () => {
@@ -320,6 +343,157 @@ describe('auth and readiness flows (int)', () => {
     ).toBe(true);
   }, 120000);
 
+  it('serializes cashier customer reads with active balance and without PII', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'cashier-http',
+    );
+    const sessionCookie = await loginSessionCookie(cashierUser.username);
+
+    const listResponse = await request(httpServer)
+      .get('/api/v1/customers')
+      .query({ q: fixture.customer.phoneE164, limit: '10' })
+      .set('Cookie', sessionCookie)
+      .expect(200);
+
+    const listItem = (listResponse.body as CustomerListResponseBody).data
+      .items[0];
+    expect(listItem).toEqual({
+      customerId: fixture.customer.id,
+      fullName: fixture.customer.fullName,
+      maskedPhone: maskPhone(fixture.customer.phoneE164),
+      cardStatus: CardStatus.ACTIVE,
+      availableBalanceKobo: 1_500,
+    });
+    expect(listItem).not.toHaveProperty('phoneE164');
+    expect(listItem).not.toHaveProperty('email');
+    expect(listItem).not.toHaveProperty('creditLots');
+
+    const detailResponse = await request(httpServer)
+      .get(`/api/v1/customers/${fixture.customer.id}`)
+      .set('Cookie', sessionCookie)
+      .expect(200);
+
+    const detail = (detailResponse.body as CustomerDetailResponseBody).data;
+    expect(detail.availableBalanceKobo).toBe(1_500);
+    expect(detail).not.toHaveProperty('phoneE164');
+    expect(detail).not.toHaveProperty('email');
+    expect(detail).not.toHaveProperty('creditLots');
+  }, 120000);
+
+  it('serializes supervisor customer reads without raw bigint or credit lots', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'supervisor-http',
+    );
+    const sessionCookie = await loginSessionCookie(seedData.user.username);
+
+    const listResponse = await request(httpServer)
+      .get('/api/v1/customers')
+      .query({ q: fixture.customer.email, limit: '10' })
+      .set('Cookie', sessionCookie)
+      .expect(200);
+
+    const listItem = (listResponse.body as CustomerListResponseBody).data
+      .items[0];
+    expect(listItem).toMatchObject({
+      id: fixture.customer.id,
+      phoneE164: fixture.customer.phoneE164,
+      email: fixture.customer.email,
+      activeCardStatus: CardStatus.ACTIVE,
+      availableBalanceKobo: 1_500,
+    });
+    expect(typeof listItem.availableBalanceKobo).toBe('number');
+    expect(listItem).not.toHaveProperty('creditLots');
+
+    const detailResponse = await request(httpServer)
+      .get(`/api/v1/customers/${fixture.customer.id}`)
+      .set('Cookie', sessionCookie)
+      .expect(200);
+
+    const detail = (detailResponse.body as CustomerDetailResponseBody).data;
+    expect(detail).toMatchObject({
+      id: fixture.customer.id,
+      phoneE164: fixture.customer.phoneE164,
+      email: fixture.customer.email,
+      availableBalanceKobo: 1_500,
+    });
+    expect(detail).not.toHaveProperty('creditLots');
+
+    const auditLog = await prisma.auditLog.findFirst({
+      where: {
+        tenantId: seedData.tenant.id,
+        actorId: seedData.user.id,
+        action: 'customer.pii.list',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(auditLog?.metadata).toMatchObject({
+      queryPresent: true,
+      queryType: 'email',
+      resultCount: 1,
+    });
+    expect(JSON.stringify(auditLog?.metadata)).not.toContain(
+      fixture.customer.email!,
+    );
+  }, 120000);
+
+  it('serializes card lookup with minimized customer active balance', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'card-http',
+    );
+    const sessionCookie = await loginSessionCookie(cashierUser.username);
+
+    const response = await request(httpServer)
+      .get(`/api/v1/cards/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', sessionCookie)
+      .expect(200);
+
+    const body = response.body as CardLookupResponseBody;
+    expect(body.data.customer).toEqual({
+      customerId: fixture.customer.id,
+      fullName: fixture.customer.fullName,
+      maskedPhone: maskPhone(fixture.customer.phoneE164),
+      cardStatus: CardStatus.ACTIVE,
+      availableBalanceKobo: 1_500,
+    });
+    expect(body.data.customer).not.toHaveProperty('email');
+    expect(body.data.customer).not.toHaveProperty('creditLots');
+  }, 120000);
+
+  it('returns RATE_LIMITED when earn throttling is exhausted', async () => {
+    const sessionCookie = await loginSessionCookie(cashierUser.username);
+    const bearerToken = cookieToken(sessionCookie);
+
+    for (let index = 0; index < 30; index += 1) {
+      await request(httpServer)
+        .post('/api/v1/transactions/earn')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .set('Idempotency-Key', `throttle-${index}`)
+        .send({})
+        .expect(400);
+    }
+
+    const response = await request(httpServer)
+      .post('/api/v1/transactions/earn')
+      .set('Authorization', `Bearer ${bearerToken}`)
+      .set('Idempotency-Key', 'throttle-over-limit')
+      .send({})
+      .expect(429);
+
+    expect(response.body).toMatchObject({
+      success: false,
+      error: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+      },
+    });
+  }, 120000);
+
   it('rejects protected requests when the tenant or branch is inactive', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
@@ -417,6 +591,15 @@ describe('auth and readiness flows (int)', () => {
     expect(body.data.info.database.status).toBe('up');
     expect(body.data.info.redis.status).toBe('up');
   }, 120000);
+
+  async function loginSessionCookie(username: string): Promise<string> {
+    const response = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .send({ username, password: seedData.adminPassword })
+      .expect(200);
+
+    return cookieValue(response.headers['set-cookie'], 'shopcity_session');
+  }
 });
 
 type AuthLoginResponseBody = {
@@ -467,6 +650,24 @@ type ReadinessResponseBody = {
   };
 };
 
+type CustomerListResponseBody = {
+  data: {
+    items: Array<Record<string, unknown> & { availableBalanceKobo?: number }>;
+  };
+};
+
+type CustomerDetailResponseBody = {
+  data: Record<string, unknown> & { availableBalanceKobo?: number };
+};
+
+type CardLookupResponseBody = {
+  data: {
+    customer: Record<string, unknown> & { availableBalanceKobo?: number };
+  };
+};
+
+let customerReadFixtureCounter = 0;
+
 function cookieValue(
   setCookie: string[] | string | undefined,
   name: string,
@@ -504,6 +705,198 @@ function buildDeviceAttestation(
     .digest('base64url');
 
   return `${timestamp}.${nonce}.${signature}`;
+}
+
+async function createStaffUser(
+  prisma: PrismaClient,
+  tenantId: string,
+  branchId: string,
+  role: UserRole,
+  username: string,
+  supabaseAuthId: string,
+) {
+  return prisma.user.create({
+    data: {
+      tenantId,
+      branchId,
+      username,
+      role,
+      status: 'ACTIVE',
+      supabaseAuthId,
+    },
+  });
+}
+
+async function createCustomerReadFixture(
+  prisma: PrismaClient,
+  seedData: Awaited<ReturnType<typeof seedFoundation>>,
+  suffix: string,
+) {
+  const now = new Date();
+  customerReadFixtureCounter += 1;
+  const phoneE164 = `+234802${String(customerReadFixtureCounter).padStart(7, '0')}`;
+  const customer = await prisma.customer.create({
+    data: {
+      tenantId: seedData.tenant.id,
+      branchId: seedData.branch.id,
+      fullName: `Read Model ${suffix}`,
+      email: `read-model-${suffix}@shopcity.local`,
+      phoneE164,
+      isStaff: false,
+      status: CustomerStatus.ACTIVE,
+      registeredByTenantId: seedData.tenant.id,
+      registeredBy: seedData.user.id,
+    },
+  });
+  const card = await prisma.card.create({
+    data: {
+      tenantId: seedData.tenant.id,
+      customerId: customer.id,
+      barcodeValue: `CARD-${suffix}`,
+      status: CardStatus.ACTIVE,
+      issuedByTenantId: seedData.tenant.id,
+      issuedBy: seedData.user.id,
+    },
+  });
+
+  const activeEarnedAt = now;
+  const expiredEarnedAt = new Date(
+    Date.UTC(
+      now.getUTCFullYear() - 2,
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      now.getUTCMinutes(),
+      now.getUTCSeconds(),
+      now.getUTCMilliseconds(),
+    ),
+  );
+
+  await createCreditLotFixture(prisma, seedData, {
+    customerId: customer.id,
+    cardId: card.id,
+    suffix: `${suffix}-active`,
+    remainingAmountKobo: 1_500,
+    earnedAt: activeEarnedAt,
+  });
+  await createCreditLotFixture(prisma, seedData, {
+    customerId: customer.id,
+    cardId: card.id,
+    suffix: `${suffix}-expired`,
+    remainingAmountKobo: 2_500,
+    earnedAt: expiredEarnedAt,
+  });
+  await createCreditLotFixture(prisma, seedData, {
+    customerId: customer.id,
+    cardId: card.id,
+    suffix: `${suffix}-depleted`,
+    originalAmountKobo: 500,
+    remainingAmountKobo: 0,
+    earnedAt: activeEarnedAt,
+  });
+
+  return { customer, card };
+}
+
+async function createCreditLotFixture(
+  prisma: PrismaClient,
+  seedData: Awaited<ReturnType<typeof seedFoundation>>,
+  data: {
+    customerId: string;
+    cardId: string;
+    suffix: string;
+    originalAmountKobo?: number;
+    remainingAmountKobo: number;
+    earnedAt: Date;
+  },
+) {
+  const occurredAt = data.earnedAt;
+  const originalAmountKobo =
+    data.originalAmountKobo ?? data.remainingAmountKobo;
+  const receipt = await prisma.receipt.create({
+    data: {
+      tenantId: seedData.tenant.id,
+      branchId: seedData.branch.id,
+      customerId: data.customerId,
+      cardId: data.cardId,
+      posReceiptNumber: `READ-${data.suffix}`,
+      normalizedPosReceiptNumber: `read-${data.suffix}`,
+      receiptWeekStart: new Date(
+        Date.UTC(
+          occurredAt.getUTCFullYear(),
+          occurredAt.getUTCMonth(),
+          occurredAt.getUTCDate(),
+        ),
+      ),
+      purchaseAmountKobo: Math.max(originalAmountKobo, 1),
+      occurredAt,
+      capturedByTenantId: seedData.tenant.id,
+      capturedBy: seedData.user.id,
+      captureStatus: ReceiptCaptureStatus.CAPTURED,
+      reviewStatus: ReceiptReviewStatus.APPROVED,
+      reviewedAt: occurredAt,
+      reviewedByTenantId: seedData.tenant.id,
+      reviewedBy: seedData.user.id,
+      approvedByTenantId: seedData.tenant.id,
+      approvedBy: seedData.user.id,
+      approvedAt: occurredAt,
+    },
+  });
+  const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+    data: {
+      tenantId: seedData.tenant.id,
+      customerId: data.customerId,
+      receiptId: receipt.id,
+      type: LedgerEntryType.EARN,
+      direction: LedgerEntryDirection.CREDIT,
+      amountKobo: originalAmountKobo,
+      status: LedgerEntryStatus.CONFIRMED,
+      correlationId: `read-model-${data.suffix}`,
+      createdByTenantId: seedData.tenant.id,
+      createdBy: seedData.user.id,
+      effectiveAt: occurredAt,
+    },
+  });
+
+  return prisma.creditLot.create({
+    data: {
+      tenantId: seedData.tenant.id,
+      customerId: data.customerId,
+      earnLedgerEntryId: ledgerEntry.id,
+      originalAmountKobo,
+      remainingAmountKobo: data.remainingAmountKobo,
+      earnedAt: data.earnedAt,
+      expiresAt: addUtcYears(data.earnedAt, 1),
+    },
+  });
+}
+
+function addUtcYears(date: Date, years: number): Date {
+  const year = date.getUTCFullYear() + years;
+  const month = date.getUTCMonth();
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(date.getUTCDate(), lastDayOfMonth);
+
+  return new Date(
+    Date.UTC(
+      year,
+      month,
+      day,
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds(),
+      date.getUTCMilliseconds(),
+    ),
+  );
+}
+
+function maskPhone(phoneE164: string): string {
+  const normalized = phoneE164.trim();
+  if (normalized.length <= 6) {
+    return '***';
+  }
+
+  return `${normalized.slice(0, Math.min(7, normalized.length - 4))}* *** ${normalized.slice(-4)}`;
 }
 
 function createSupabaseAdminStub(supabaseAuthId: string) {
