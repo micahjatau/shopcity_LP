@@ -15,6 +15,7 @@ import {
   LedgerEntryType,
   Prisma,
   ReceiptReviewStatus,
+  RedemptionStatus,
   SmsMessageStatus,
   UserRole,
 } from '@prisma/client';
@@ -30,6 +31,7 @@ import {
   pageMeta,
 } from '../../common/pagination/cursor-pagination';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
+import { LotAllocationService } from '../../common/balance/lot-allocation.service';
 import { EarnTransactionDto } from './loyalty.dto';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
@@ -70,8 +72,12 @@ export interface ApprovalDecisionResponse {
   id: string;
   status: ApprovalStatus;
   receiptId: string;
+  redemptionId?: string | null;
   ledgerEntryId?: string | null;
   creditKobo?: number | null;
+  redeemedKobo?: number | null;
+  remainingBalanceKobo?: number | null;
+  smsStatus?: SmsMessageStatus | null;
   reason?: string | null;
   decidedAt: string;
   executedAt?: string | null;
@@ -147,6 +153,39 @@ export interface ApprovalListItem {
   } | null;
 }
 
+type RedemptionApprovalExecutionInput = {
+  tenantId: string;
+  actor: AuthContext;
+  reason: string;
+  approval: {
+    id: string;
+    receiptId: string | null;
+    policyVersion: string;
+    redemption: {
+      id: string;
+      customerId: string;
+      receiptId: string;
+      requestedAmountKobo: bigint;
+      basketAmountKobo: bigint;
+      status: RedemptionStatus;
+      ledgerEntryId: string | null;
+      branch: { status: BranchStatus };
+      device: { status: DeviceStatus };
+      card: { status: CardStatus };
+      customer: {
+        id: string;
+        status: CustomerStatus;
+        isStaff: boolean;
+        phoneE164: string;
+      };
+    };
+  };
+  receipt: {
+    id: string;
+    occurredAt: Date;
+  };
+};
+
 @Injectable()
 export class LoyaltyService {
   constructor(
@@ -156,6 +195,7 @@ export class LoyaltyService {
     private readonly activeBalanceService: ActiveBalanceService = new ActiveBalanceService(
       prismaService,
     ),
+    private readonly lotAllocationService: LotAllocationService = new LotAllocationService(),
   ) {}
 
   async earn(
@@ -944,6 +984,14 @@ export class LoyaltyService {
                 device: true,
               },
             },
+            redemption: {
+              include: {
+                branch: true,
+                card: true,
+                customer: true,
+                device: true,
+              },
+            },
           },
         });
 
@@ -975,6 +1023,40 @@ export class LoyaltyService {
         }
 
         const receipt = approval.receipt;
+
+        if (approval.targetType === 'REDEEM') {
+          const redemption = approval.redemption;
+
+          if (!redemption || !approval.redemptionId || !receipt) {
+            throw new DomainHttpException(
+              422,
+              'UNSUPPORTED_APPROVAL_TARGET',
+              'Redemption approval target is incomplete',
+            );
+          }
+
+          if (decision !== 'APPROVED') {
+            throw new DomainHttpException(
+              422,
+              'UNSUPPORTED_APPROVAL_TARGET',
+              'Redemption approval rejection will be added by the next workflow task',
+            );
+          }
+
+          return this.executeRedemptionApproval(prisma, {
+            tenantId,
+            actor,
+            approval: {
+              id: approval.id,
+              receiptId: approval.receiptId,
+              policyVersion: approval.policyVersion,
+              redemption,
+            },
+            receipt,
+            reason: normalizedReason,
+          });
+        }
+
         if (approval.targetType !== 'EARN' || !receipt || !approval.receiptId) {
           throw new DomainHttpException(
             422,
@@ -1273,6 +1355,262 @@ export class LoyaltyService {
 
     return decisionResult;
   }
+
+  private async executeRedemptionApproval(
+    prisma: Prisma.TransactionClient,
+    input: RedemptionApprovalExecutionInput,
+  ): Promise<ApprovalDecisionResponse> {
+    const { actor, approval, receipt, reason, tenantId } = input;
+    const { redemption } = approval;
+    const now = new Date();
+
+    if (
+      redemption.status !== RedemptionStatus.PENDING_APPROVAL ||
+      redemption.ledgerEntryId
+    ) {
+      throw new DomainHttpException(
+        409,
+        'REDEMPTION_APPROVAL_NOT_EXECUTABLE',
+        'Redemption approval cannot be executed in its current state',
+      );
+    }
+
+    if (
+      redemption.branch.status !== BranchStatus.ACTIVE ||
+      redemption.device.status !== DeviceStatus.ACTIVE ||
+      redemption.card.status !== CardStatus.ACTIVE ||
+      redemption.customer.status !== CustomerStatus.ACTIVE ||
+      redemption.customer.isStaff
+    ) {
+      throw new DomainHttpException(
+        422,
+        'REDEMPTION_NO_LONGER_ELIGIBLE',
+        'Redemption is no longer eligible',
+      );
+    }
+
+    const activeBalanceKobo =
+      await this.activeBalanceService.getActiveBalanceKobo(
+        tenantId,
+        redemption.customerId,
+        now,
+        prisma,
+      );
+    const policy = evaluateRedemptionApprovalPolicy(
+      {
+        requestedAmountKobo: redemption.requestedAmountKobo,
+        basketAmountKobo: redemption.basketAmountKobo,
+        activeBalanceKobo,
+      },
+      this.configService,
+    );
+
+    if (
+      approval.policyVersion !== policy.policyVersion ||
+      !policy.requiresApproval
+    ) {
+      throw new DomainHttpException(
+        422,
+        'APPROVAL_POLICY_CHANGED',
+        'Redemption approval policy changed after the request was captured',
+      );
+    }
+
+    if (redemption.requestedAmountKobo < policy.minimumRedemptionKobo) {
+      throw new DomainHttpException(
+        422,
+        'REDEMPTION_BELOW_MINIMUM',
+        'Requested redemption is below the configured minimum amount',
+      );
+    }
+
+    if (redemption.requestedAmountKobo > policy.maximumAllowedKobo) {
+      throw new DomainHttpException(
+        422,
+        redemption.requestedAmountKobo > policy.basketCapKobo
+          ? 'REDEMPTION_EXCEEDS_BASKET_CAP'
+          : 'INSUFFICIENT_BALANCE',
+        'Requested redemption exceeds the current maximum allowed amount',
+      );
+    }
+
+    const approved = await prisma.approval.updateMany({
+      where: { tenantId, id: approval.id, status: ApprovalStatus.PENDING },
+      data: {
+        status: ApprovalStatus.APPROVED,
+        decidedAt: now,
+        decisionByTenantId: actor.user.tenantId,
+        decisionBy: actor.user.id,
+        decisionReason: reason,
+      },
+    });
+
+    if (approved.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'APPROVAL_ALREADY_DECIDED',
+        'Approval has already been decided',
+      );
+    }
+
+    const existingLedger = await prisma.loyaltyLedgerEntry.findUnique({
+      where: { receiptId: redemption.receiptId },
+    });
+
+    if (existingLedger) {
+      throw new DomainHttpException(
+        409,
+        'LEDGER_ENTRY_ALREADY_EXISTS',
+        'Ledger entry already exists',
+      );
+    }
+
+    const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+      data: {
+        tenantId,
+        customerId: redemption.customerId,
+        receiptId: redemption.receiptId,
+        type: LedgerEntryType.REDEEM,
+        direction: LedgerEntryDirection.DEBIT,
+        amountKobo: redemption.requestedAmountKobo,
+        status: LedgerEntryStatus.CONFIRMED,
+        correlationId: `redemption-approval:${approval.id}`,
+        createdByTenantId: actor.user.tenantId,
+        createdBy: actor.user.id,
+        effectiveAt: receipt.occurredAt,
+      },
+    });
+
+    const allocations = await this.lotAllocationService.allocateDebit(prisma, {
+      tenantId,
+      customerId: redemption.customerId,
+      debitLedgerEntryId: ledgerEntry.id,
+      redemptionId: redemption.id,
+      amountKobo: redemption.requestedAmountKobo,
+      now,
+    });
+
+    const updatedRedemption = await prisma.redemption.updateMany({
+      where: {
+        tenantId,
+        id: redemption.id,
+        status: RedemptionStatus.PENDING_APPROVAL,
+        ledgerEntryId: null,
+      },
+      data: {
+        status: RedemptionStatus.CONFIRMED,
+        confirmedAmountKobo: redemption.requestedAmountKobo,
+        ledgerEntryId: ledgerEntry.id,
+        confirmedAt: now,
+      },
+    });
+
+    if (updatedRedemption.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'REDEMPTION_APPROVAL_NOT_EXECUTABLE',
+        'Redemption approval cannot be executed in its current state',
+      );
+    }
+
+    const remainingBalanceKobo =
+      await this.activeBalanceService.getActiveBalanceKobo(
+        tenantId,
+        redemption.customerId,
+        now,
+        prisma,
+      );
+    const outboxEvent = await prisma.outboxEvent.create({
+      data: {
+        tenantId,
+        aggregateType: 'redemption',
+        aggregateId: redemption.id,
+        eventType: 'sms.send',
+        payload: {
+          version: 1,
+          receiptId: receipt.id,
+          redemptionId: redemption.id,
+          transactionId: ledgerEntry.id,
+          customerId: redemption.customerId,
+          phoneE164: redemption.customer.phoneE164,
+          template: 'redemption-confirmed',
+          redeemedKobo: redemption.requestedAmountKobo.toString(),
+          remainingBalanceKobo: remainingBalanceKobo.toString(),
+        },
+        status: 'PENDING',
+        nextAttemptAt: now,
+      },
+    });
+    const smsMessage = await prisma.smsMessage.create({
+      data: {
+        tenantId,
+        receiptId: receipt.id,
+        outboxEventId: outboxEvent.id,
+        phoneE164: redemption.customer.phoneE164,
+        template: 'redemption-confirmed',
+        payload: {
+          version: 1,
+          receiptId: receipt.id,
+          redemptionId: redemption.id,
+          transactionId: ledgerEntry.id,
+          customerId: redemption.customerId,
+          phoneE164: redemption.customer.phoneE164,
+          template: 'redemption-confirmed',
+          redeemedKobo: redemption.requestedAmountKobo.toString(),
+          remainingBalanceKobo: remainingBalanceKobo.toString(),
+        },
+        status: SmsMessageStatus.QUEUED,
+        queuedAt: now,
+      },
+    });
+
+    const executed = await prisma.approval.updateMany({
+      where: { tenantId, id: approval.id, status: ApprovalStatus.APPROVED },
+      data: {
+        status: ApprovalStatus.EXECUTED,
+        executedAt: now,
+      },
+    });
+
+    if (executed.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'APPROVAL_EXECUTION_FAILED',
+        'Approval execution did not complete',
+      );
+    }
+
+    await this.auditService.recordWithClient(prisma, {
+      tenantId,
+      actorId: actor.user.id,
+      action: 'redemption.approval.execute',
+      entityType: 'approval',
+      entityId: approval.id,
+      metadata: {
+        decision: 'APPROVED',
+        reason,
+        targetType: 'REDEEM',
+        redemptionId: redemption.id,
+        executedAt: now,
+        ledgerEntryId: ledgerEntry.id,
+        allocationCount: allocations.length,
+      },
+    });
+
+    return {
+      id: approval.id,
+      status: ApprovalStatus.EXECUTED,
+      receiptId: receipt.id,
+      redemptionId: redemption.id,
+      ledgerEntryId: ledgerEntry.id,
+      redeemedKobo: Number(redemption.requestedAmountKobo),
+      remainingBalanceKobo: Number(remainingBalanceKobo),
+      smsStatus: smsMessage.status,
+      reason,
+      decidedAt: now.toISOString(),
+      executedAt: now.toISOString(),
+    };
+  }
 }
 
 function normalizeIdempotencyKey(key: string | undefined): string {
@@ -1282,6 +1620,47 @@ function normalizeIdempotencyKey(key: string | undefined): string {
   }
 
   return normalized;
+}
+
+function evaluateRedemptionApprovalPolicy(
+  input: {
+    requestedAmountKobo: bigint;
+    basketAmountKobo: bigint;
+    activeBalanceKobo: bigint;
+  },
+  configService: ConfigService,
+) {
+  const minimumRedemptionKobo = BigInt(
+    configService.get<number>('MIN_REDEMPTION_KOBO') ?? 50_000,
+  );
+  const maxBasketPercent = BigInt(
+    configService.get<number>('MAX_REDEMPTION_BASKET_PERCENT') ?? 30,
+  );
+  const approvalThresholdKobo = BigInt(
+    configService.get<number>('REDEMPTION_APPROVAL_THRESHOLD_KOBO') ?? 500_000,
+  );
+  const basketCapKobo = (input.basketAmountKobo * maxBasketPercent) / 100n;
+  const maximumAllowedKobo =
+    input.activeBalanceKobo < basketCapKobo
+      ? input.activeBalanceKobo
+      : basketCapKobo;
+
+  return {
+    minimumRedemptionKobo,
+    basketCapKobo,
+    maximumAllowedKobo,
+    approvalThresholdKobo,
+    requiresApproval: input.requestedAmountKobo > approvalThresholdKobo,
+    policyVersion: createHash('sha256')
+      .update(
+        JSON.stringify({
+          minimumRedemptionKobo: Number(minimumRedemptionKobo),
+          maxBasketPercent: Number(maxBasketPercent),
+          approvalThresholdKobo: Number(approvalThresholdKobo),
+        }),
+      )
+      .digest('hex'),
+  };
 }
 
 function normalizeReceiptNumber(value: string): string {
