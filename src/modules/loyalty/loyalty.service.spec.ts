@@ -154,6 +154,55 @@ describe('LoyaltyService redemption approval execution', () => {
     });
     expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
   });
+
+  it('rejects a pending redemption approval without financial effects', async () => {
+    const tx = transactionClient({ approval: redemptionApprovalRow() });
+    const transaction = jest.fn(
+      (callback: (client: unknown) => Promise<unknown>) => callback(tx),
+    );
+    const lotAllocationService = { allocateDebit: jest.fn() } as never;
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(900_000n),
+      lotAllocationService,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        authContext(),
+        'approval-redeem',
+        'REJECTED',
+        'receipt mismatch',
+      ),
+    ).resolves.toMatchObject({
+      id: 'approval-redeem',
+      status: 'REJECTED',
+      receiptId: 'receipt-redeem',
+      redemptionId: 'redemption-1',
+      ledgerEntryId: null,
+      redeemedKobo: null,
+      remainingBalanceKobo: null,
+      smsStatus: null,
+      reason: 'receipt mismatch',
+      executedAt: null,
+    });
+
+    const approvalUpdate = firstCall<{ data: { status: string } }>(
+      tx.approval.updateMany,
+    );
+    expect(approvalUpdate.data.status).toBe('REJECTED');
+
+    const redemptionUpdate = firstCall<{ data: { status: string } }>(
+      tx.redemption.updateMany,
+    );
+    expect(redemptionUpdate.data.status).toBe('REJECTED');
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('LoyaltyService earn transaction retries', () => {

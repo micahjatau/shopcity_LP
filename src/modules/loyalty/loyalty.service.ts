@@ -1035,12 +1035,17 @@ export class LoyaltyService {
             );
           }
 
-          if (decision !== 'APPROVED') {
-            throw new DomainHttpException(
-              422,
-              'UNSUPPORTED_APPROVAL_TARGET',
-              'Redemption approval rejection will be added by the next workflow task',
-            );
+          if (decision === 'REJECTED') {
+            return this.rejectRedemptionApproval(prisma, {
+              tenantId,
+              actor,
+              approval: {
+                id: approval.id,
+                redemption,
+              },
+              receipt,
+              reason: normalizedReason,
+            });
           }
 
           return this.executeRedemptionApproval(prisma, {
@@ -1609,6 +1614,107 @@ export class LoyaltyService {
       reason,
       decidedAt: now.toISOString(),
       executedAt: now.toISOString(),
+    };
+  }
+
+  private async rejectRedemptionApproval(
+    prisma: Prisma.TransactionClient,
+    input: {
+      tenantId: string;
+      actor: AuthContext;
+      reason: string;
+      approval: {
+        id: string;
+        redemption: {
+          id: string;
+          status: RedemptionStatus;
+          ledgerEntryId: string | null;
+        };
+      };
+      receipt: { id: string };
+    },
+  ): Promise<ApprovalDecisionResponse> {
+    const { actor, approval, reason, receipt, tenantId } = input;
+    const now = new Date();
+
+    if (
+      approval.redemption.status !== RedemptionStatus.PENDING_APPROVAL ||
+      approval.redemption.ledgerEntryId
+    ) {
+      throw new DomainHttpException(
+        409,
+        'REDEMPTION_APPROVAL_NOT_EXECUTABLE',
+        'Redemption approval cannot be decided in its current state',
+      );
+    }
+
+    const rejectedApproval = await prisma.approval.updateMany({
+      where: { tenantId, id: approval.id, status: ApprovalStatus.PENDING },
+      data: {
+        status: ApprovalStatus.REJECTED,
+        decidedAt: now,
+        decisionByTenantId: actor.user.tenantId,
+        decisionBy: actor.user.id,
+        decisionReason: reason,
+      },
+    });
+
+    if (rejectedApproval.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'APPROVAL_ALREADY_DECIDED',
+        'Approval has already been decided',
+      );
+    }
+
+    const rejectedRedemption = await prisma.redemption.updateMany({
+      where: {
+        tenantId,
+        id: approval.redemption.id,
+        status: RedemptionStatus.PENDING_APPROVAL,
+        ledgerEntryId: null,
+      },
+      data: {
+        status: RedemptionStatus.REJECTED,
+        rejectedAt: now,
+      },
+    });
+
+    if (rejectedRedemption.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'REDEMPTION_APPROVAL_NOT_EXECUTABLE',
+        'Redemption approval cannot be decided in its current state',
+      );
+    }
+
+    await this.auditService.recordWithClient(prisma, {
+      tenantId,
+      actorId: actor.user.id,
+      action: 'redemption.approval.reject',
+      entityType: 'approval',
+      entityId: approval.id,
+      metadata: {
+        decision: 'REJECTED',
+        reason,
+        targetType: 'REDEEM',
+        redemptionId: approval.redemption.id,
+        decidedAt: now,
+      },
+    });
+
+    return {
+      id: approval.id,
+      status: ApprovalStatus.REJECTED,
+      receiptId: receipt.id,
+      redemptionId: approval.redemption.id,
+      ledgerEntryId: null,
+      redeemedKobo: null,
+      remainingBalanceKobo: null,
+      smsStatus: null,
+      reason,
+      decidedAt: now.toISOString(),
+      executedAt: null,
     };
   }
 }
