@@ -121,7 +121,9 @@ export interface TransactionResponse {
 
 export interface ApprovalListItem {
   id: string;
-  receiptId: string;
+  targetType: 'EARN' | 'REDEEM';
+  receiptId: string | null;
+  redemptionId: string | null;
   status: ApprovalStatus;
   reasonCode: string | null;
   requestedAt: string;
@@ -130,11 +132,19 @@ export interface ApprovalListItem {
   executedAt: string | null;
   receipt: {
     id: string;
+    customerId: string;
+    cardId: string;
     posReceiptNumber: string;
     purchaseAmountKobo: number;
     captureStatus: string;
     reviewStatus: string;
-  };
+  } | null;
+  redemption: {
+    id: string;
+    requestedAmountKobo: number;
+    maximumAllowedKobo: number;
+    status: string;
+  } | null;
 }
 
 @Injectable()
@@ -809,16 +819,26 @@ export class LoyaltyService {
   async listApprovals(tenantId: string, page?: CursorPageRequest) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const approvals = await this.prismaService.approval.findMany({
-      where: { tenantId, targetType: 'EARN' },
+      where: { tenantId },
       orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
       include: {
         receipt: {
           select: {
             id: true,
+            customerId: true,
+            cardId: true,
             posReceiptNumber: true,
             purchaseAmountKobo: true,
             captureStatus: true,
             reviewStatus: true,
+          },
+        },
+        redemption: {
+          select: {
+            id: true,
+            requestedAmountKobo: true,
+            maximumAllowedKobo: true,
+            status: true,
           },
         },
       },
@@ -837,28 +857,52 @@ export class LoyaltyService {
     );
 
     return {
-      items: pageItems.flatMap((approval) => {
-        if (!approval.receipt || !approval.receiptId) {
+      items: pageItems.flatMap<ApprovalListItem>((approval) => {
+        if (approval.targetType === 'EARN' && !approval.receipt) {
+          return [];
+        }
+
+        if (approval.targetType === 'REDEEM' && !approval.redemption) {
           return [];
         }
 
         return [
           {
             id: approval.id,
+            targetType: approval.targetType,
             receiptId: approval.receiptId,
+            redemptionId: approval.redemptionId,
             status: approval.status,
             reasonCode: approval.reasonCode,
             requestedAt: approval.requestedAt.toISOString(),
             expiresAt: approval.expiresAt.toISOString(),
             decidedAt: approval.decidedAt?.toISOString() ?? null,
             executedAt: approval.executedAt?.toISOString() ?? null,
-            receipt: {
-              id: approval.receipt.id,
-              posReceiptNumber: approval.receipt.posReceiptNumber,
-              purchaseAmountKobo: Number(approval.receipt.purchaseAmountKobo),
-              captureStatus: approval.receipt.captureStatus,
-              reviewStatus: approval.receipt.reviewStatus,
-            },
+            receipt: approval.receipt
+              ? {
+                  id: approval.receipt.id,
+                  customerId: approval.receipt.customerId,
+                  cardId: approval.receipt.cardId,
+                  posReceiptNumber: approval.receipt.posReceiptNumber,
+                  purchaseAmountKobo: Number(
+                    approval.receipt.purchaseAmountKobo,
+                  ),
+                  captureStatus: approval.receipt.captureStatus,
+                  reviewStatus: approval.receipt.reviewStatus,
+                }
+              : null,
+            redemption: approval.redemption
+              ? {
+                  id: approval.redemption.id,
+                  requestedAmountKobo: Number(
+                    approval.redemption.requestedAmountKobo,
+                  ),
+                  maximumAllowedKobo: Number(
+                    approval.redemption.maximumAllowedKobo,
+                  ),
+                  status: approval.redemption.status,
+                }
+              : null,
           },
         ];
       }),

@@ -2,6 +2,75 @@ import { Prisma, UserRole } from '@prisma/client';
 import type { AuthContext } from '../../common/auth/session.types';
 import { LoyaltyService } from './loyalty.service';
 
+describe('LoyaltyService approval list', () => {
+  it('returns typed earn and redemption approval targets', async () => {
+    const service = new LoyaltyService(
+      prismaService({
+        transaction: jest.fn(),
+        approvals: approvalRows(),
+      }),
+      auditService(),
+      configService(),
+    );
+
+    await expect(service.listApprovals('tenant-1')).resolves.toEqual({
+      items: [
+        {
+          id: 'approval-earn',
+          targetType: 'EARN',
+          receiptId: 'receipt-earn',
+          redemptionId: null,
+          status: 'PENDING',
+          reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+          requestedAt: '2026-07-26T12:00:00.000Z',
+          expiresAt: '2026-07-27T12:00:00.000Z',
+          decidedAt: null,
+          executedAt: null,
+          receipt: {
+            id: 'receipt-earn',
+            customerId: 'customer-1',
+            cardId: 'card-1',
+            posReceiptNumber: 'POS-EARN',
+            purchaseAmountKobo: 1_000_000,
+            captureStatus: 'PENDING_APPROVAL',
+            reviewStatus: 'PENDING',
+          },
+          redemption: null,
+        },
+        {
+          id: 'approval-redeem',
+          targetType: 'REDEEM',
+          receiptId: 'receipt-redeem',
+          redemptionId: 'redemption-1',
+          status: 'PENDING',
+          reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+          requestedAt: '2026-07-26T11:00:00.000Z',
+          expiresAt: '2026-07-27T11:00:00.000Z',
+          decidedAt: null,
+          executedAt: null,
+          receipt: {
+            id: 'receipt-redeem',
+            customerId: 'customer-1',
+            cardId: 'card-1',
+            posReceiptNumber: 'POS-REDEEM',
+            purchaseAmountKobo: 2_000_000,
+            captureStatus: 'CAPTURED',
+            reviewStatus: 'APPROVED',
+          },
+          redemption: {
+            id: 'redemption-1',
+            requestedAmountKobo: 600_000,
+            maximumAllowedKobo: 600_000,
+            status: 'PENDING_APPROVAL',
+          },
+        },
+      ],
+      nextCursor: null,
+      hasMore: false,
+    });
+  });
+});
+
 describe('LoyaltyService earn transaction retries', () => {
   it('retries serialization conflicts and returns the successful earn response', async () => {
     const transaction = jest
@@ -101,14 +170,77 @@ function prismaKnownRequestError(code: string) {
   });
 }
 
-function prismaService({ transaction }: { transaction: jest.Mock }) {
+function prismaService({
+  transaction,
+  approvals = [],
+}: {
+  transaction: jest.Mock;
+  approvals?: unknown[];
+}) {
   return {
     $transaction: transaction,
+    approval: {
+      findMany: jest.fn().mockResolvedValue(approvals),
+    },
     idempotencyRecord: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn().mockResolvedValue(null),
     },
   } as never;
+}
+
+function approvalRows() {
+  return [
+    {
+      id: 'approval-earn',
+      targetType: 'EARN',
+      receiptId: 'receipt-earn',
+      redemptionId: null,
+      status: 'PENDING',
+      reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+      requestedAt: new Date('2026-07-26T12:00:00.000Z'),
+      expiresAt: new Date('2026-07-27T12:00:00.000Z'),
+      decidedAt: null,
+      executedAt: null,
+      receipt: {
+        id: 'receipt-earn',
+        customerId: 'customer-1',
+        cardId: 'card-1',
+        posReceiptNumber: 'POS-EARN',
+        purchaseAmountKobo: 1_000_000n,
+        captureStatus: 'PENDING_APPROVAL',
+        reviewStatus: 'PENDING',
+      },
+      redemption: null,
+    },
+    {
+      id: 'approval-redeem',
+      targetType: 'REDEEM',
+      receiptId: 'receipt-redeem',
+      redemptionId: 'redemption-1',
+      status: 'PENDING',
+      reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+      requestedAt: new Date('2026-07-26T11:00:00.000Z'),
+      expiresAt: new Date('2026-07-27T11:00:00.000Z'),
+      decidedAt: null,
+      executedAt: null,
+      receipt: {
+        id: 'receipt-redeem',
+        customerId: 'customer-1',
+        cardId: 'card-1',
+        posReceiptNumber: 'POS-REDEEM',
+        purchaseAmountKobo: 2_000_000n,
+        captureStatus: 'CAPTURED',
+        reviewStatus: 'APPROVED',
+      },
+      redemption: {
+        id: 'redemption-1',
+        requestedAmountKobo: 600_000n,
+        maximumAllowedKobo: 600_000n,
+        status: 'PENDING_APPROVAL',
+      },
+    },
+  ];
 }
 
 function activeBalanceService(balance: bigint) {
