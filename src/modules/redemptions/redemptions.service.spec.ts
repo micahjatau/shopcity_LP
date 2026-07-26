@@ -126,6 +126,121 @@ describe('RedemptionsService', () => {
     expect(tx.redemption.create).not.toHaveBeenCalled();
     expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
   });
+
+  it('rejects redemptions below the configured minimum without writes', async () => {
+    const tx = transactionClient();
+    const service = redemptionService({
+      tx,
+      policy: policyService({
+        minimumRedemptionKobo: 300_000n,
+        maximumAllowedKobo: 500_000n,
+      }),
+    });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_BELOW_MINIMUM' },
+    });
+    expect(tx.receipt.create).not.toHaveBeenCalled();
+    expect(tx.redemption.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects redemptions above the basket cap without writes', async () => {
+    const tx = transactionClient();
+    const service = redemptionService({
+      tx,
+      policy: policyService({
+        basketCapKobo: 200_000n,
+        maximumAllowedKobo: 200_000n,
+      }),
+    });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_EXCEEDS_BASKET_CAP' },
+    });
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects redemptions above active balance without writes', async () => {
+    const tx = transactionClient();
+    const service = redemptionService({
+      tx,
+      policy: policyService({
+        basketCapKobo: 270_000n,
+        maximumAllowedKobo: 200_000n,
+      }),
+    });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'INSUFFICIENT_BALANCE' },
+    });
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects same-purchase credit consumption before duplicate receipt handling', async () => {
+    const tx = transactionClient({
+      duplicateReceipt: { id: 'receipt-1' },
+      samePurchaseCreditLot: { id: 'lot-1' },
+    });
+    const service = redemptionService({ tx });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'SAME_PURCHASE_REDEMPTION_NOT_ALLOWED' },
+    });
+    expect(tx.redemption.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate receipt reuse without financial writes', async () => {
+    const tx = transactionClient({ duplicateReceipt: { id: 'receipt-1' } });
+    const service = redemptionService({ tx });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'RECEIPT_ALREADY_USED' },
+    });
+    expect(tx.redemption.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects inactive devices as offline redemption attempts', async () => {
+    const tx = transactionClient({ deviceStatus: 'INACTIVE' });
+    const service = redemptionService({ tx });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'DEVICE_NOT_ACTIVE' },
+    });
+    expect(tx.receipt.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects conflicting idempotency payloads without duplicate writes', async () => {
+    const tx = transactionClient({
+      existingIdempotency: {
+        requestHash: 'different-hash',
+        responseJson: {},
+        status: 'COMPLETED',
+        expiresAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    });
+    const service = redemptionService({ tx });
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_CONFLICT' },
+    });
+    expect(tx.receipt.create).not.toHaveBeenCalled();
+  });
+
+  it('returns dependency unavailable when collaborators are missing', async () => {
+    const transaction = jest.fn();
+    const service = new RedemptionsService(
+      prismaService({ transaction }),
+      balanceService(),
+      { allocateDebit: jest.fn() } as never,
+      policyService(),
+      null as never,
+    );
+
+    await expect(redeemRequest(service)).rejects.toMatchObject({
+      response: { code: 'DEPENDENCY_UNAVAILABLE' },
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });
 
 function prismaService({ transaction }: { transaction: jest.Mock }) {
@@ -141,6 +256,36 @@ function firstCall<T>(mock: { mock: { calls: [T][] } }): T {
   return mock.mock.calls[0][0];
 }
 
+function redemptionService({
+  tx,
+  policy = policyService(),
+}: {
+  tx: ReturnType<typeof transactionClient>;
+  policy?: ReturnType<typeof policyService>;
+}) {
+  const transaction = jest.fn(
+    (callback: (client: unknown) => Promise<unknown>) => callback(tx),
+  );
+
+  return new RedemptionsService(
+    prismaService({ transaction }),
+    balanceService([900_000n, 650_000n]),
+    { allocateDebit: jest.fn() } as never,
+    policy,
+    auditService(),
+  );
+}
+
+function redeemRequest(service: RedemptionsService) {
+  return service.redeem('tenant-1', authContext(), 'idem-1', {
+    cardSerialNumber: 'CARD-1',
+    posReceiptNumber: 'POS-1',
+    basketAmountKobo: 900_000,
+    requestedRedemptionKobo: 250_000,
+    occurredAt: '2026-07-26T12:00:00.000Z',
+  });
+}
+
 type IdempotencyReplay = {
   requestHash: string;
   responseJson: Record<string, unknown>;
@@ -150,16 +295,26 @@ type IdempotencyReplay = {
 
 function transactionClient({
   existingIdempotency = null,
-}: { existingIdempotency?: IdempotencyReplay } = {}) {
+  duplicateReceipt = null,
+  samePurchaseCreditLot = null,
+  deviceStatus = 'ACTIVE',
+  branchStatus = 'ACTIVE',
+}: {
+  existingIdempotency?: IdempotencyReplay;
+  duplicateReceipt?: { id: string } | null;
+  samePurchaseCreditLot?: { id: string } | null;
+  deviceStatus?: string;
+  branchStatus?: string;
+} = {}) {
   return {
     device: {
       findFirst: jest.fn().mockResolvedValue({
         id: 'device-1',
         branchId: 'branch-1',
-        status: 'ACTIVE',
+        status: deviceStatus,
         branch: {
           id: 'branch-1',
-          status: 'ACTIVE',
+          status: branchStatus,
           timezone: 'Africa/Lagos',
           receiptWeekStartDay: 1,
         },
@@ -185,8 +340,11 @@ function transactionClient({
       create: jest.fn().mockResolvedValue({}),
     },
     receipt: {
-      findFirst: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(duplicateReceipt),
       create: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
+    },
+    creditLot: {
+      findFirst: jest.fn().mockResolvedValue(samePurchaseCreditLot),
     },
     redemption: {
       create: jest.fn().mockResolvedValue({ id: 'redemption-1' }),
@@ -217,13 +375,15 @@ function balanceService(balances: bigint[] = [900_000n]) {
 }
 
 function policyService({
+  minimumRedemptionKobo = 50_000n,
+  basketCapKobo = 270_000n,
   maximumAllowedKobo = 270_000n,
   requiresApproval = false,
 } = {}) {
   return {
     evaluate: jest.fn().mockReturnValue({
-      minimumRedemptionKobo: 50_000n,
-      basketCapKobo: 270_000n,
+      minimumRedemptionKobo,
+      basketCapKobo,
       maximumAllowedKobo,
       approvalThresholdKobo: 500_000n,
       requiresApproval,

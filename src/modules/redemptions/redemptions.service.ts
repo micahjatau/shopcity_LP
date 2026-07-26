@@ -63,7 +63,8 @@ export class RedemptionsService {
       this.prismaService &&
       this.activeBalanceService &&
       this.lotAllocationService &&
-      this.redemptionPolicyService,
+      this.redemptionPolicyService &&
+      this.auditService,
     );
   }
 
@@ -73,6 +74,14 @@ export class RedemptionsService {
     idempotencyKey: string | undefined,
     dto: RedeemTransactionDto,
   ): Promise<RedeemConfirmedResponse> {
+    if (!this.dependenciesReady) {
+      throw new DomainHttpException(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'DEPENDENCY_UNAVAILABLE',
+        'Redemption dependencies are unavailable',
+      );
+    }
+
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const posReceiptNumber = normalizeReceiptNumber(dto.posReceiptNumber);
     const normalizedPosReceiptNumber =
@@ -219,6 +228,24 @@ export class RedemptionsService {
           });
 
           if (duplicateReceipt) {
+            const samePurchaseCreditLot = await prisma.creditLot.findFirst({
+              where: {
+                tenantId,
+                customerId: transactionCard.customerId,
+                remainingAmountKobo: { gt: 0n },
+                earnLedgerEntry: { receiptId: duplicateReceipt.id },
+              },
+              select: { id: true },
+            });
+
+            if (samePurchaseCreditLot) {
+              throw new DomainHttpException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                'SAME_PURCHASE_REDEMPTION_NOT_ALLOWED',
+                'Credit earned on the same purchase cannot be redeemed for that purchase',
+              );
+            }
+
             throw new DomainHttpException(
               HttpStatus.CONFLICT,
               'RECEIPT_ALREADY_USED',
@@ -245,6 +272,19 @@ export class RedemptionsService {
               HttpStatus.NOT_IMPLEMENTED,
               'REDEMPTION_APPROVAL_NOT_IMPLEMENTED',
               'High-value redemption approval will be added by the next redemption task',
+            );
+          }
+
+          if (requestedAmountKobo < policy.minimumRedemptionKobo) {
+            throw new DomainHttpException(
+              HttpStatus.UNPROCESSABLE_ENTITY,
+              'REDEMPTION_BELOW_MINIMUM',
+              'Requested redemption is below the configured minimum amount',
+              {
+                minimumRedemptionKobo: this.activeBalanceService.toJsonSafeKobo(
+                  policy.minimumRedemptionKobo,
+                ),
+              },
             );
           }
 
