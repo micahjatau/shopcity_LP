@@ -19402,22 +19402,38 @@
                             "type": "object",
                             "required": [
                               "id",
+                              "targetType",
                               "receiptId",
+                              "redemptionId",
                               "status",
                               "requestedAt",
                               "expiresAt",
                               "decidedAt",
                               "executedAt",
-                              "receipt"
+                              "receipt",
+                              "redemption"
                             ],
                             "properties": {
                               "id": {
                                 "type": "string",
                                 "format": "uuid"
                               },
+                              "targetType": {
+                                "type": "string",
+                                "enum": [
+                                  "EARN",
+                                  "REDEEM"
+                                ]
+                              },
                               "receiptId": {
                                 "type": "string",
-                                "format": "uuid"
+                                "format": "uuid",
+                                "nullable": true
+                              },
+                              "redemptionId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
                               },
                               "status": {
                                 "type": "string",
@@ -19459,6 +19475,14 @@
                                     "type": "string",
                                     "format": "uuid"
                                   },
+                                  "customerId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "cardId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
                                   "posReceiptNumber": {
                                     "type": "string"
                                   },
@@ -19469,6 +19493,31 @@
                                     "type": "string"
                                   },
                                   "reviewStatus": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "redemption": {
+                                "type": "object",
+                                "nullable": true,
+                                "required": [
+                                  "id",
+                                  "requestedAmountKobo",
+                                  "maximumAllowedKobo",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "requestedAmountKobo": {
+                                    "type": "integer"
+                                  },
+                                  "maximumAllowedKobo": {
+                                    "type": "integer"
+                                  },
+                                  "status": {
                                     "type": "string"
                                   }
                                 }
@@ -20145,6 +20194,11 @@
                           "type": "string",
                           "format": "uuid"
                         },
+                        "redemptionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
                         "ledgerEntryId": {
                           "type": "string",
                           "format": "uuid",
@@ -20152,6 +20206,18 @@
                         },
                         "creditKobo": {
                           "type": "integer",
+                          "nullable": true
+                        },
+                        "redeemedKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "remainingBalanceKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "smsStatus": {
+                          "type": "string",
                           "nullable": true
                         },
                         "reason": {
@@ -23385,6 +23451,605 @@
         ]
       }
     },
+    "/api/v1/transactions/redeem": {
+      "post": {
+        "operationId": "RedemptionsController_redeem_v1",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemTransactionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "statusCode",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Redeem store credit",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
     "/api/v1/config/public": {
       "get": {
         "operationId": "ConfigurationController_getPublicConfig_v1",
@@ -24471,6 +25136,36 @@
           "posReceiptNumber",
           "cardSerialNumber",
           "purchaseAmountKobo",
+          "occurredAt"
+        ]
+      },
+      "RedeemTransactionDto": {
+        "type": "object",
+        "properties": {
+          "cardSerialNumber": {
+            "type": "string"
+          },
+          "posReceiptNumber": {
+            "type": "string"
+          },
+          "basketAmountKobo": {
+            "type": "number",
+            "minimum": 1
+          },
+          "requestedRedemptionKobo": {
+            "type": "number",
+            "minimum": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "cardSerialNumber",
+          "posReceiptNumber",
+          "basketAmountKobo",
+          "requestedRedemptionKobo",
           "occurredAt"
         ]
       }
