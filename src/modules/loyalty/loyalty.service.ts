@@ -1035,6 +1035,17 @@ export class LoyaltyService {
             );
           }
 
+          if (approval.expiresAt <= new Date()) {
+            return this.expireRedemptionApproval(prisma, {
+              tenantId,
+              actor,
+              approval: {
+                id: approval.id,
+                redemption,
+              },
+            });
+          }
+
           if (decision === 'REJECTED') {
             return this.rejectRedemptionApproval(prisma, {
               tenantId,
@@ -1716,6 +1727,89 @@ export class LoyaltyService {
       decidedAt: now.toISOString(),
       executedAt: null,
     };
+  }
+
+  private async expireRedemptionApproval(
+    prisma: Prisma.TransactionClient,
+    input: {
+      tenantId: string;
+      actor: AuthContext;
+      approval: {
+        id: string;
+        redemption: {
+          id: string;
+          status: RedemptionStatus;
+          ledgerEntryId: string | null;
+        };
+      };
+    },
+  ): Promise<{ expired: true }> {
+    const { actor, approval, tenantId } = input;
+    const now = new Date();
+
+    if (
+      approval.redemption.status !== RedemptionStatus.PENDING_APPROVAL ||
+      approval.redemption.ledgerEntryId
+    ) {
+      throw new DomainHttpException(
+        409,
+        'REDEMPTION_APPROVAL_NOT_EXECUTABLE',
+        'Redemption approval cannot be expired in its current state',
+      );
+    }
+
+    const expiredApproval = await prisma.approval.updateMany({
+      where: { tenantId, id: approval.id, status: ApprovalStatus.PENDING },
+      data: {
+        status: ApprovalStatus.EXPIRED,
+        decidedAt: now,
+        decisionByTenantId: actor.user.tenantId,
+        decisionBy: actor.user.id,
+        decisionReason: 'approval expired',
+      },
+    });
+
+    if (expiredApproval.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'APPROVAL_ALREADY_DECIDED',
+        'Approval has already been decided',
+      );
+    }
+
+    const expiredRedemption = await prisma.redemption.updateMany({
+      where: {
+        tenantId,
+        id: approval.redemption.id,
+        status: RedemptionStatus.PENDING_APPROVAL,
+        ledgerEntryId: null,
+      },
+      data: { status: RedemptionStatus.EXPIRED },
+    });
+
+    if (expiredRedemption.count !== 1) {
+      throw new DomainHttpException(
+        409,
+        'REDEMPTION_APPROVAL_NOT_EXECUTABLE',
+        'Redemption approval cannot be expired in its current state',
+      );
+    }
+
+    await this.auditService.recordWithClient(prisma, {
+      tenantId,
+      actorId: actor.user.id,
+      action: 'redemption.approval.expire',
+      entityType: 'approval',
+      entityId: approval.id,
+      metadata: {
+        reason: 'approval expired',
+        targetType: 'REDEEM',
+        redemptionId: approval.redemption.id,
+        decidedAt: now,
+      },
+    });
+
+    return { expired: true };
   }
 }
 

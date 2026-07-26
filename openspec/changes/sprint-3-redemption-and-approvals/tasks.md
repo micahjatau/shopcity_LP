@@ -38,7 +38,7 @@
 - [x] 5.1 Extend approval DTOs, services, queries, and read models to expose typed earn and redemption approval targets.
 - [x] 5.2 Implement redemption approval execution with approval/redemption locking, current-state revalidation, FIFO allocation, debit ledger creation, outbox/SMS, audit, and executed state transition.
 - [x] 5.3 Implement redemption approval rejection with required reason, requester/cashier self-approval protection, audit, and no financial effect.
-- [ ] 5.4 Implement approval expiry handling for redemption targets with no financial effect.
+- [x] 5.4 Implement approval expiry handling for redemption targets with no financial effect.
 - [ ] 5.5 Ensure concurrent approval attempts execute exactly once and return stable already-decided or conflict responses.
 
 ## 6. Reversals

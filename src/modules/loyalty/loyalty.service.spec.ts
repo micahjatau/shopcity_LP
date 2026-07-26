@@ -203,6 +203,49 @@ describe('LoyaltyService redemption approval execution', () => {
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
+
+  it('expires a stale redemption approval without financial effects', async () => {
+    const tx = transactionClient({
+      approval: redemptionApprovalRow({
+        expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+      }),
+    });
+    const transaction = jest.fn(
+      (callback: (client: unknown) => Promise<unknown>) => callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(900_000n),
+      { allocateDebit: jest.fn() } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        authContext(),
+        'approval-redeem',
+        'APPROVED',
+        'supervisor approved',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'APPROVAL_EXPIRED' },
+    });
+
+    const approvalUpdate = firstCall<{ data: { status: string } }>(
+      tx.approval.updateMany,
+    );
+    expect(approvalUpdate.data.status).toBe('EXPIRED');
+
+    const redemptionUpdate = firstCall<{ data: { status: string } }>(
+      tx.redemption.updateMany,
+    );
+    expect(redemptionUpdate.data.status).toBe('EXPIRED');
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('LoyaltyService earn transaction retries', () => {
@@ -456,7 +499,9 @@ function transactionClient({ approval = null }: { approval?: unknown } = {}) {
   };
 }
 
-function redemptionApprovalRow() {
+function redemptionApprovalRow({
+  expiresAt = new Date('2099-01-01T00:00:00.000Z'),
+}: { expiresAt?: Date } = {}) {
   return {
     id: 'approval-redeem',
     tenantId: 'tenant-1',
@@ -469,7 +514,7 @@ function redemptionApprovalRow() {
     reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
     policyVersion:
       '900e3cb1e11c958ddfad2d8665d39a2a0683b20320ebadebdbc5775ce1488b4c',
-    expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+    expiresAt,
     receipt: {
       id: 'receipt-redeem',
       occurredAt: new Date('2026-07-26T12:00:00.000Z'),
