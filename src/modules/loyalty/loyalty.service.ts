@@ -31,6 +31,7 @@ import {
   pageMeta,
 } from '../../common/pagination/cursor-pagination';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
+import { runWithBoundedFinancialRetries } from '../../common/balance/financial-transaction-retry';
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
 import { EarnTransactionDto } from './loyalty.dto';
 
@@ -42,6 +43,7 @@ const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const LEGACY_APPROVAL_POLICY_VERSION = 'legacy';
 const EARN_SERIALIZATION_RETRY_ATTEMPTS = 3;
+const APPROVAL_SERIALIZATION_RETRY_ATTEMPTS = 3;
 const EARN_SERIALIZATION_RETRY_JITTER_MS = 25;
 
 export interface EarnTransactionResponse {
@@ -971,394 +973,426 @@ export class LoyaltyService {
       throw new BadRequestException('Decision reason is required');
     }
 
-    const decisionResult = await this.prismaService.$transaction(
-      async (prisma) => {
-        const approval = await prisma.approval.findFirst({
-          where: { tenantId, id: approvalId },
-          include: {
-            receipt: {
+    const decisionResult = await runWithBoundedFinancialRetries(
+      () =>
+        this.prismaService.$transaction(
+          async (prisma) => {
+            const approval = await prisma.approval.findFirst({
+              where: { tenantId, id: approvalId },
               include: {
-                branch: true,
-                card: { include: { customer: true } },
-                customer: true,
-                device: true,
+                receipt: {
+                  include: {
+                    branch: true,
+                    card: { include: { customer: true } },
+                    customer: true,
+                    device: true,
+                  },
+                },
+                redemption: {
+                  include: {
+                    branch: true,
+                    card: true,
+                    customer: true,
+                    device: true,
+                  },
+                },
               },
-            },
-            redemption: {
-              include: {
-                branch: true,
-                card: true,
-                customer: true,
-                device: true,
-              },
-            },
-          },
-        });
+            });
 
-        if (!approval) {
-          throw new DomainHttpException(
-            404,
-            'APPROVAL_NOT_FOUND',
-            'Approval not found',
-          );
-        }
+            if (!approval) {
+              throw new DomainHttpException(
+                404,
+                'APPROVAL_NOT_FOUND',
+                'Approval not found',
+              );
+            }
 
-        if (
-          approval.requestedByTenantId === actor.user.tenantId &&
-          approval.requestedBy === actor.user.id
-        ) {
-          throw new DomainHttpException(
-            400,
-            'APPROVAL_SELF_DECISION_FORBIDDEN',
-            'Requester cannot decide own approval',
-          );
-        }
+            if (
+              approval.requestedByTenantId === actor.user.tenantId &&
+              approval.requestedBy === actor.user.id
+            ) {
+              throw new DomainHttpException(
+                400,
+                'APPROVAL_SELF_DECISION_FORBIDDEN',
+                'Requester cannot decide own approval',
+              );
+            }
 
-        if (approval.status !== ApprovalStatus.PENDING) {
-          throw new DomainHttpException(
-            409,
-            'APPROVAL_ALREADY_DECIDED',
-            'Approval has already been decided',
-          );
-        }
+            if (approval.status !== ApprovalStatus.PENDING) {
+              throw new DomainHttpException(
+                409,
+                'APPROVAL_ALREADY_DECIDED',
+                'Approval has already been decided',
+              );
+            }
 
-        const receipt = approval.receipt;
+            const receipt = approval.receipt;
 
-        if (approval.targetType === 'REDEEM') {
-          const redemption = approval.redemption;
+            if (approval.targetType === 'REDEEM') {
+              const redemption = approval.redemption;
 
-          if (!redemption || !approval.redemptionId || !receipt) {
-            throw new DomainHttpException(
-              422,
-              'UNSUPPORTED_APPROVAL_TARGET',
-              'Redemption approval target is incomplete',
+              if (!redemption || !approval.redemptionId || !receipt) {
+                throw new DomainHttpException(
+                  422,
+                  'UNSUPPORTED_APPROVAL_TARGET',
+                  'Redemption approval target is incomplete',
+                );
+              }
+
+              if (approval.expiresAt <= new Date()) {
+                return this.expireRedemptionApproval(prisma, {
+                  tenantId,
+                  actor,
+                  approval: {
+                    id: approval.id,
+                    redemption,
+                  },
+                });
+              }
+
+              if (decision === 'REJECTED') {
+                return this.rejectRedemptionApproval(prisma, {
+                  tenantId,
+                  actor,
+                  approval: {
+                    id: approval.id,
+                    redemption,
+                  },
+                  receipt,
+                  reason: normalizedReason,
+                });
+              }
+
+              return this.executeRedemptionApproval(prisma, {
+                tenantId,
+                actor,
+                approval: {
+                  id: approval.id,
+                  receiptId: approval.receiptId,
+                  policyVersion: approval.policyVersion,
+                  redemption,
+                },
+                receipt,
+                reason: normalizedReason,
+              });
+            }
+
+            if (
+              approval.targetType !== 'EARN' ||
+              !receipt ||
+              !approval.receiptId
+            ) {
+              throw new DomainHttpException(
+                422,
+                'UNSUPPORTED_APPROVAL_TARGET',
+                'This approval target is not available through the earn approval workflow yet',
+              );
+            }
+
+            const now = new Date();
+
+            if (approval.expiresAt <= now) {
+              const expired = await prisma.approval.updateMany({
+                where: {
+                  tenantId,
+                  id: approvalId,
+                  status: ApprovalStatus.PENDING,
+                },
+                data: {
+                  status: ApprovalStatus.EXPIRED,
+                  decidedAt: now,
+                  decisionByTenantId: actor.user.tenantId,
+                  decisionBy: actor.user.id,
+                  decisionReason: 'approval expired',
+                },
+              });
+
+              if (expired.count !== 1) {
+                throw new DomainHttpException(
+                  409,
+                  'APPROVAL_ALREADY_DECIDED',
+                  'Approval has already been decided',
+                );
+              }
+
+              return { expired: true } as const;
+            }
+
+            if (decision === 'REJECTED') {
+              const updated = await prisma.approval.updateMany({
+                where: {
+                  tenantId,
+                  id: approvalId,
+                  status: ApprovalStatus.PENDING,
+                },
+                data: {
+                  status: ApprovalStatus.REJECTED,
+                  decidedAt: now,
+                  decisionByTenantId: actor.user.tenantId,
+                  decisionBy: actor.user.id,
+                  decisionReason: normalizedReason,
+                },
+              });
+
+              if (updated.count !== 1) {
+                throw new DomainHttpException(
+                  409,
+                  'APPROVAL_ALREADY_DECIDED',
+                  'Approval has already been decided',
+                );
+              }
+
+              await prisma.receipt.update({
+                where: { tenantId_id: { tenantId, id: approval.receiptId } },
+                data: {
+                  reviewStatus: ReceiptReviewStatus.REJECTED,
+                  reviewedAt: now,
+                  reviewedByTenantId: actor.user.tenantId,
+                  reviewedBy: actor.user.id,
+                  approvedAt: null,
+                  approvedByTenantId: null,
+                  approvedBy: null,
+                },
+              });
+
+              await this.auditService.recordWithClient(prisma, {
+                tenantId,
+                actorId: actor.user.id,
+                action: 'approval.reject',
+                entityType: 'approval',
+                entityId: approvalId,
+                metadata: {
+                  decision,
+                  reason: normalizedReason,
+                  decidedAt: now,
+                },
+              });
+
+              return {
+                id: approvalId,
+                status: ApprovalStatus.REJECTED,
+                receiptId: approval.receiptId,
+                reason: normalizedReason,
+                decidedAt: now.toISOString(),
+                executedAt: null,
+              };
+            }
+
+            if (
+              receipt.captureStatus !== 'PENDING_APPROVAL' ||
+              receipt.reviewStatus !== ReceiptReviewStatus.PENDING
+            ) {
+              throw new DomainHttpException(
+                400,
+                'RECEIPT_NOT_ELIGIBLE',
+                'Receipt does not require review',
+              );
+            }
+
+            if (
+              receipt.capturedByTenantId === actor.user.tenantId &&
+              receipt.capturedBy === actor.user.id
+            ) {
+              throw new DomainHttpException(
+                400,
+                'REVIEW_SELF_DECISION_FORBIDDEN',
+                'Capturing cashier cannot review the same receipt',
+              );
+            }
+
+            if (
+              receipt.branch.status !== BranchStatus.ACTIVE ||
+              receipt.device?.status !== DeviceStatus.ACTIVE ||
+              receipt.card.status !== CardStatus.ACTIVE ||
+              receipt.customer.status !== CustomerStatus.ACTIVE ||
+              receipt.customer.isStaff
+            ) {
+              throw new DomainHttpException(
+                422,
+                'RECEIPT_NO_LONGER_ELIGIBLE',
+                'Receipt is no longer eligible',
+              );
+            }
+
+            assertApprovalPolicyStillPermitsExecution(
+              Number(receipt.purchaseAmountKobo),
+              this.configService,
+              approval.policyVersion,
             );
-          }
 
-          if (approval.expiresAt <= new Date()) {
-            return this.expireRedemptionApproval(prisma, {
-              tenantId,
-              actor,
-              approval: {
-                id: approval.id,
-                redemption,
+            const approved = await prisma.approval.updateMany({
+              where: {
+                tenantId,
+                id: approvalId,
+                status: ApprovalStatus.PENDING,
+              },
+              data: {
+                status: ApprovalStatus.APPROVED,
+                decidedAt: now,
+                decisionByTenantId: actor.user.tenantId,
+                decisionBy: actor.user.id,
+                decisionReason: normalizedReason,
               },
             });
-          }
 
-          if (decision === 'REJECTED') {
-            return this.rejectRedemptionApproval(prisma, {
-              tenantId,
-              actor,
-              approval: {
-                id: approval.id,
-                redemption,
-              },
-              receipt,
-              reason: normalizedReason,
+            if (approved.count !== 1) {
+              throw new DomainHttpException(
+                409,
+                'APPROVAL_ALREADY_DECIDED',
+                'Approval has already been decided',
+              );
+            }
+
+            const creditKobo = calculateCreditKobo(
+              Number(receipt.purchaseAmountKobo),
+              this.configService,
+            );
+
+            const existingLedger = await prisma.loyaltyLedgerEntry.findUnique({
+              where: { receiptId: approval.receiptId },
             });
-          }
 
-          return this.executeRedemptionApproval(prisma, {
-            tenantId,
-            actor,
-            approval: {
-              id: approval.id,
+            if (existingLedger) {
+              throw new DomainHttpException(
+                409,
+                'LEDGER_ENTRY_ALREADY_EXISTS',
+                'Ledger entry already exists',
+              );
+            }
+
+            const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+              data: {
+                tenantId,
+                customerId: receipt.customerId,
+                receiptId: receipt.id,
+                type: LedgerEntryType.EARN,
+                direction: LedgerEntryDirection.CREDIT,
+                amountKobo: creditKobo,
+                status: LedgerEntryStatus.CONFIRMED,
+                correlationId: `approval:${approval.id}`,
+                createdByTenantId: actor.user.tenantId,
+                createdBy: actor.user.id,
+                effectiveAt: receipt.occurredAt,
+              },
+            });
+
+            await prisma.creditLot.create({
+              data: {
+                tenantId,
+                customerId: receipt.customerId,
+                earnLedgerEntryId: ledgerEntry.id,
+                originalAmountKobo: creditKobo,
+                remainingAmountKobo: creditKobo,
+                earnedAt: receipt.occurredAt,
+                expiresAt: addMonths(receipt.occurredAt, 12),
+              },
+            });
+
+            const outboxEvent = await prisma.outboxEvent.create({
+              data: {
+                tenantId,
+                aggregateType: 'receipt',
+                aggregateId: receipt.id,
+                eventType: 'sms.send',
+                payload: {
+                  version: 1,
+                  receiptId: receipt.id,
+                  transactionId: ledgerEntry.id,
+                  customerId: receipt.customerId,
+                  phoneE164: receipt.customer.phoneE164,
+                  template: 'earn-confirmed',
+                  creditKobo: creditKobo.toString(),
+                },
+                status: 'PENDING',
+                nextAttemptAt: now,
+              },
+            });
+            await prisma.smsMessage.create({
+              data: {
+                tenantId,
+                receiptId: receipt.id,
+                outboxEventId: outboxEvent.id,
+                phoneE164: receipt.customer.phoneE164,
+                template: 'earn-confirmed',
+                payload: {
+                  version: 1,
+                  receiptId: receipt.id,
+                  transactionId: ledgerEntry.id,
+                  customerId: receipt.customerId,
+                  phoneE164: receipt.customer.phoneE164,
+                  template: 'earn-confirmed',
+                  creditKobo: creditKobo.toString(),
+                },
+                status: SmsMessageStatus.QUEUED,
+                queuedAt: now,
+              },
+            });
+
+            await prisma.receipt.update({
+              where: { tenantId_id: { tenantId, id: receipt.id } },
+              data: {
+                reviewStatus: ReceiptReviewStatus.APPROVED,
+                reviewedAt: now,
+                reviewedByTenantId: actor.user.tenantId,
+                reviewedBy: actor.user.id,
+                approvedAt: now,
+                approvedByTenantId: actor.user.tenantId,
+                approvedBy: actor.user.id,
+              },
+            });
+
+            const executed = await prisma.approval.updateMany({
+              where: {
+                tenantId,
+                id: approvalId,
+                status: ApprovalStatus.APPROVED,
+              },
+              data: {
+                status: ApprovalStatus.EXECUTED,
+                executedAt: now,
+              },
+            });
+
+            if (executed.count !== 1) {
+              throw new DomainHttpException(
+                409,
+                'APPROVAL_EXECUTION_FAILED',
+                'Approval execution did not complete',
+              );
+            }
+
+            await this.auditService.recordWithClient(prisma, {
+              tenantId,
+              actorId: actor.user.id,
+              action: 'approval.execute',
+              entityType: 'approval',
+              entityId: approvalId,
+              metadata: {
+                decision,
+                reason: normalizedReason,
+                executedAt: now,
+                ledgerEntryId: ledgerEntry.id,
+              },
+            });
+
+            return {
+              id: approvalId,
+              status: ApprovalStatus.EXECUTED,
               receiptId: approval.receiptId,
-              policyVersion: approval.policyVersion,
-              redemption,
-            },
-            receipt,
-            reason: normalizedReason,
-          });
-        }
-
-        if (approval.targetType !== 'EARN' || !receipt || !approval.receiptId) {
-          throw new DomainHttpException(
-            422,
-            'UNSUPPORTED_APPROVAL_TARGET',
-            'This approval target is not available through the earn approval workflow yet',
-          );
-        }
-
-        const now = new Date();
-
-        if (approval.expiresAt <= now) {
-          const expired = await prisma.approval.updateMany({
-            where: { tenantId, id: approvalId, status: ApprovalStatus.PENDING },
-            data: {
-              status: ApprovalStatus.EXPIRED,
-              decidedAt: now,
-              decisionByTenantId: actor.user.tenantId,
-              decisionBy: actor.user.id,
-              decisionReason: 'approval expired',
-            },
-          });
-
-          if (expired.count !== 1) {
-            throw new DomainHttpException(
-              409,
-              'APPROVAL_ALREADY_DECIDED',
-              'Approval has already been decided',
-            );
-          }
-
-          return { expired: true } as const;
-        }
-
-        if (decision === 'REJECTED') {
-          const updated = await prisma.approval.updateMany({
-            where: { tenantId, id: approvalId, status: ApprovalStatus.PENDING },
-            data: {
-              status: ApprovalStatus.REJECTED,
-              decidedAt: now,
-              decisionByTenantId: actor.user.tenantId,
-              decisionBy: actor.user.id,
-              decisionReason: normalizedReason,
-            },
-          });
-
-          if (updated.count !== 1) {
-            throw new DomainHttpException(
-              409,
-              'APPROVAL_ALREADY_DECIDED',
-              'Approval has already been decided',
-            );
-          }
-
-          await prisma.receipt.update({
-            where: { tenantId_id: { tenantId, id: approval.receiptId } },
-            data: {
-              reviewStatus: ReceiptReviewStatus.REJECTED,
-              reviewedAt: now,
-              reviewedByTenantId: actor.user.tenantId,
-              reviewedBy: actor.user.id,
-              approvedAt: null,
-              approvedByTenantId: null,
-              approvedBy: null,
-            },
-          });
-
-          await this.auditService.recordWithClient(prisma, {
-            tenantId,
-            actorId: actor.user.id,
-            action: 'approval.reject',
-            entityType: 'approval',
-            entityId: approvalId,
-            metadata: { decision, reason: normalizedReason, decidedAt: now },
-          });
-
-          return {
-            id: approvalId,
-            status: ApprovalStatus.REJECTED,
-            receiptId: approval.receiptId,
-            reason: normalizedReason,
-            decidedAt: now.toISOString(),
-            executedAt: null,
-          };
-        }
-
-        if (
-          receipt.captureStatus !== 'PENDING_APPROVAL' ||
-          receipt.reviewStatus !== ReceiptReviewStatus.PENDING
-        ) {
-          throw new DomainHttpException(
-            400,
-            'RECEIPT_NOT_ELIGIBLE',
-            'Receipt does not require review',
-          );
-        }
-
-        if (
-          receipt.capturedByTenantId === actor.user.tenantId &&
-          receipt.capturedBy === actor.user.id
-        ) {
-          throw new DomainHttpException(
-            400,
-            'REVIEW_SELF_DECISION_FORBIDDEN',
-            'Capturing cashier cannot review the same receipt',
-          );
-        }
-
-        if (
-          receipt.branch.status !== BranchStatus.ACTIVE ||
-          receipt.device?.status !== DeviceStatus.ACTIVE ||
-          receipt.card.status !== CardStatus.ACTIVE ||
-          receipt.customer.status !== CustomerStatus.ACTIVE ||
-          receipt.customer.isStaff
-        ) {
-          throw new DomainHttpException(
-            422,
-            'RECEIPT_NO_LONGER_ELIGIBLE',
-            'Receipt is no longer eligible',
-          );
-        }
-
-        assertApprovalPolicyStillPermitsExecution(
-          Number(receipt.purchaseAmountKobo),
-          this.configService,
-          approval.policyVersion,
-        );
-
-        const approved = await prisma.approval.updateMany({
-          where: { tenantId, id: approvalId, status: ApprovalStatus.PENDING },
-          data: {
-            status: ApprovalStatus.APPROVED,
-            decidedAt: now,
-            decisionByTenantId: actor.user.tenantId,
-            decisionBy: actor.user.id,
-            decisionReason: normalizedReason,
+              ledgerEntryId: ledgerEntry.id,
+              creditKobo: Number(creditKobo),
+              reason: normalizedReason,
+              decidedAt: now.toISOString(),
+              executedAt: now.toISOString(),
+            };
           },
-        });
-
-        if (approved.count !== 1) {
-          throw new DomainHttpException(
-            409,
-            'APPROVAL_ALREADY_DECIDED',
-            'Approval has already been decided',
-          );
-        }
-
-        const creditKobo = calculateCreditKobo(
-          Number(receipt.purchaseAmountKobo),
-          this.configService,
-        );
-
-        const existingLedger = await prisma.loyaltyLedgerEntry.findUnique({
-          where: { receiptId: approval.receiptId },
-        });
-
-        if (existingLedger) {
-          throw new DomainHttpException(
-            409,
-            'LEDGER_ENTRY_ALREADY_EXISTS',
-            'Ledger entry already exists',
-          );
-        }
-
-        const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-          data: {
-            tenantId,
-            customerId: receipt.customerId,
-            receiptId: receipt.id,
-            type: LedgerEntryType.EARN,
-            direction: LedgerEntryDirection.CREDIT,
-            amountKobo: creditKobo,
-            status: LedgerEntryStatus.CONFIRMED,
-            correlationId: `approval:${approval.id}`,
-            createdByTenantId: actor.user.tenantId,
-            createdBy: actor.user.id,
-            effectiveAt: receipt.occurredAt,
-          },
-        });
-
-        await prisma.creditLot.create({
-          data: {
-            tenantId,
-            customerId: receipt.customerId,
-            earnLedgerEntryId: ledgerEntry.id,
-            originalAmountKobo: creditKobo,
-            remainingAmountKobo: creditKobo,
-            earnedAt: receipt.occurredAt,
-            expiresAt: addMonths(receipt.occurredAt, 12),
-          },
-        });
-
-        const outboxEvent = await prisma.outboxEvent.create({
-          data: {
-            tenantId,
-            aggregateType: 'receipt',
-            aggregateId: receipt.id,
-            eventType: 'sms.send',
-            payload: {
-              version: 1,
-              receiptId: receipt.id,
-              transactionId: ledgerEntry.id,
-              customerId: receipt.customerId,
-              phoneE164: receipt.customer.phoneE164,
-              template: 'earn-confirmed',
-              creditKobo: creditKobo.toString(),
-            },
-            status: 'PENDING',
-            nextAttemptAt: now,
-          },
-        });
-        await prisma.smsMessage.create({
-          data: {
-            tenantId,
-            receiptId: receipt.id,
-            outboxEventId: outboxEvent.id,
-            phoneE164: receipt.customer.phoneE164,
-            template: 'earn-confirmed',
-            payload: {
-              version: 1,
-              receiptId: receipt.id,
-              transactionId: ledgerEntry.id,
-              customerId: receipt.customerId,
-              phoneE164: receipt.customer.phoneE164,
-              template: 'earn-confirmed',
-              creditKobo: creditKobo.toString(),
-            },
-            status: SmsMessageStatus.QUEUED,
-            queuedAt: now,
-          },
-        });
-
-        await prisma.receipt.update({
-          where: { tenantId_id: { tenantId, id: receipt.id } },
-          data: {
-            reviewStatus: ReceiptReviewStatus.APPROVED,
-            reviewedAt: now,
-            reviewedByTenantId: actor.user.tenantId,
-            reviewedBy: actor.user.id,
-            approvedAt: now,
-            approvedByTenantId: actor.user.tenantId,
-            approvedBy: actor.user.id,
-          },
-        });
-
-        const executed = await prisma.approval.updateMany({
-          where: { tenantId, id: approvalId, status: ApprovalStatus.APPROVED },
-          data: {
-            status: ApprovalStatus.EXECUTED,
-            executedAt: now,
-          },
-        });
-
-        if (executed.count !== 1) {
-          throw new DomainHttpException(
-            409,
-            'APPROVAL_EXECUTION_FAILED',
-            'Approval execution did not complete',
-          );
-        }
-
-        await this.auditService.recordWithClient(prisma, {
-          tenantId,
-          actorId: actor.user.id,
-          action: 'approval.execute',
-          entityType: 'approval',
-          entityId: approvalId,
-          metadata: {
-            decision,
-            reason: normalizedReason,
-            executedAt: now,
-            ledgerEntryId: ledgerEntry.id,
-          },
-        });
-
-        return {
-          id: approvalId,
-          status: ApprovalStatus.EXECUTED,
-          receiptId: approval.receiptId,
-          ledgerEntryId: ledgerEntry.id,
-          creditKobo: Number(creditKobo),
-          reason: normalizedReason,
-          decidedAt: now.toISOString(),
-          executedAt: now.toISOString(),
-        };
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        ),
+      {
+        attempts: APPROVAL_SERIALIZATION_RETRY_ATTEMPTS,
+        conflictCode: 'APPROVAL_TRANSACTION_CONFLICT',
+        conflictMessage: 'Approval transaction conflicted; retry the request',
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
     if ('expired' in decisionResult) {

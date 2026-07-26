@@ -246,6 +246,96 @@ describe('LoyaltyService redemption approval execution', () => {
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
+
+  it('retries serialization conflicts during redemption approval execution', async () => {
+    const tx = transactionClient({ approval: redemptionApprovalRow() });
+    const transaction = jest
+      .fn()
+      .mockRejectedValueOnce(serializationConflict())
+      .mockImplementationOnce(
+        (callback: (client: unknown) => Promise<unknown>) => callback(tx),
+      );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(900_000n),
+      {
+        allocateDebit: jest.fn().mockResolvedValue([
+          {
+            creditLotId: 'lot-1',
+            amountKobo: 600_000n,
+            allocationOrder: 1,
+            expiresAt: new Date('2027-01-15T10:00:00.000Z'),
+          },
+        ]),
+      } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        authContext(),
+        'approval-redeem',
+        'APPROVED',
+        'supervisor approved',
+      ),
+    ).resolves.toMatchObject({ status: 'EXECUTED' });
+    expect(transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps exhausted redemption approval serialization conflicts to a temporary conflict', async () => {
+    const transaction = jest.fn().mockRejectedValue(serializationConflict());
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(900_000n),
+      { allocateDebit: jest.fn() } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        authContext(),
+        'approval-redeem',
+        'APPROVED',
+        'supervisor approved',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'APPROVAL_TRANSACTION_CONFLICT' },
+    });
+    expect(transaction).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns already decided for completed redemption approvals without financial effects', async () => {
+    const tx = transactionClient({
+      approval: redemptionApprovalRow({ status: 'EXECUTED' }),
+    });
+    const transaction = jest.fn(
+      (callback: (client: unknown) => Promise<unknown>) => callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(900_000n),
+      { allocateDebit: jest.fn() } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        authContext(),
+        'approval-redeem',
+        'APPROVED',
+        'supervisor approved',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'APPROVAL_ALREADY_DECIDED' },
+    });
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('LoyaltyService earn transaction retries', () => {
@@ -501,14 +591,15 @@ function transactionClient({ approval = null }: { approval?: unknown } = {}) {
 
 function redemptionApprovalRow({
   expiresAt = new Date('2099-01-01T00:00:00.000Z'),
-}: { expiresAt?: Date } = {}) {
+  status = 'PENDING',
+}: { expiresAt?: Date; status?: string } = {}) {
   return {
     id: 'approval-redeem',
     tenantId: 'tenant-1',
     receiptId: 'receipt-redeem',
     redemptionId: 'redemption-1',
     targetType: 'REDEEM',
-    status: 'PENDING',
+    status,
     requestedByTenantId: 'tenant-1',
     requestedBy: 'requester-1',
     reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
