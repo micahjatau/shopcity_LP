@@ -31,7 +31,7 @@
 - [x] 4.2 Implement `POST /api/v1/transactions/redeem` with authentication, CSRF/session/device validation, explicit rate limiting, and idempotency.
 - [x] 4.3 Implement immediate redemption transaction flow with receipt evidence, redemption intent, debit ledger entry, allocations, lot updates, audit, outbox, SMS intent, and idempotency response.
 - [x] 4.4 Implement policy failures for minimum redemption, basket cap, insufficient balance, same-purchase redemption, offline redemption, duplicate receipt, and dependency failures.
-- [ ] 4.5 Implement high-value pending approval flow returning `202` with no ledger, allocation, lot, outbox, or SMS financial effect.
+- [x] 4.5 Implement high-value pending approval flow returning `202` with no ledger, allocation, lot, outbox, or SMS financial effect.
 
 ## 5. Approval Execution
 

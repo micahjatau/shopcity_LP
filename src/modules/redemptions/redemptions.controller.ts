@@ -1,4 +1,12 @@
-import { Body, Controller, Headers, Post, Req, Version } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  Post,
+  Req,
+  Res,
+  Version,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -6,6 +14,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { FastifyReply } from 'fastify';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
 import { Throttle } from '../../common/throttle/throttle.decorator';
@@ -36,12 +45,19 @@ export class RedemptionsController {
     @Req() request: AuthenticatedRequest,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: RedeemTransactionDto,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.redemptionsService.redeem(
-      request.authContext!.user.tenantId,
-      request.authContext!,
-      idempotencyKey,
-      dto,
-    );
+    return this.redemptionsService
+      .redeem(
+        request.authContext!.user.tenantId,
+        request.authContext!,
+        idempotencyKey,
+        dto,
+      )
+      .then((response) => {
+        reply.code(response.state === 'PENDING_APPROVAL' ? 202 : 201);
+
+        return response;
+      });
   }
 }

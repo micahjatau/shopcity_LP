@@ -1,5 +1,7 @@
 import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
 import {
+  ApprovalStatus,
+  ApprovalTargetType,
   BranchStatus,
   CardStatus,
   CustomerStatus,
@@ -30,6 +32,8 @@ import { RedeemTransactionDto } from './redemptions.dto';
 const REDEEM_ENDPOINT = 'POST /api/v1/transactions/redeem';
 const IDEMPOTENCY_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const REDEMPTION_RETRY_ATTEMPTS = 3;
+const APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const REDEMPTION_APPROVAL_REASON_CODE = 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD';
 
 export interface RedeemConfirmedResponse {
   transactionId: string;
@@ -47,6 +51,20 @@ export interface RedeemConfirmedResponse {
   }>;
   smsStatus: SmsMessageStatus;
 }
+
+export interface RedeemPendingApprovalResponse {
+  transactionId: null;
+  redemptionId: string;
+  receiptId: string;
+  approvalId: string;
+  state: 'PENDING_APPROVAL';
+  requestedAmountKobo: number;
+  maximumAllowedKobo: number;
+  reasonCode: string;
+}
+
+export type RedeemResponse =
+  RedeemConfirmedResponse | RedeemPendingApprovalResponse;
 
 @Injectable()
 export class RedemptionsService {
@@ -73,7 +91,7 @@ export class RedemptionsService {
     actor: AuthContext,
     idempotencyKey: string | undefined,
     dto: RedeemTransactionDto,
-  ): Promise<RedeemConfirmedResponse> {
+  ): Promise<RedeemResponse> {
     if (!this.dependenciesReady) {
       throw new DomainHttpException(
         HttpStatus.SERVICE_UNAVAILABLE,
@@ -204,7 +222,7 @@ export class RedemptionsService {
             }
 
             if (existing.responseJson && existing.status === 'COMPLETED') {
-              return existing.responseJson as unknown as RedeemConfirmedResponse;
+              return existing.responseJson as unknown as RedeemResponse;
             }
 
             throw new ConflictException(
@@ -268,11 +286,98 @@ export class RedemptionsService {
           });
 
           if (policy.requiresApproval) {
-            throw new DomainHttpException(
-              HttpStatus.NOT_IMPLEMENTED,
-              'REDEMPTION_APPROVAL_NOT_IMPLEMENTED',
-              'High-value redemption approval will be added by the next redemption task',
-            );
+            const receipt = await prisma.receipt.create({
+              data: {
+                tenantId,
+                branchId,
+                customerId: transactionCard.customerId,
+                cardId: transactionCard.id,
+                deviceId: transactionDevice.id,
+                posReceiptNumber,
+                normalizedPosReceiptNumber,
+                receiptWeekStart,
+                purchaseAmountKobo: BigInt(dto.basketAmountKobo),
+                occurredAt,
+                capturedByTenantId: actor.user.tenantId,
+                capturedBy: actor.user.id,
+                capturedAt: now,
+                captureStatus: 'CAPTURED',
+                reviewStatus: ReceiptReviewStatus.APPROVED,
+                reviewedAt: now,
+                reviewedByTenantId: actor.user.tenantId,
+                reviewedBy: actor.user.id,
+                approvedByTenantId: actor.user.tenantId,
+                approvedBy: actor.user.id,
+                approvedAt: now,
+                approvalReasonCode: REDEMPTION_APPROVAL_REASON_CODE,
+              },
+            });
+            const redemption = await prisma.redemption.create({
+              data: {
+                tenantId,
+                branchId,
+                customerId: transactionCard.customerId,
+                cardId: transactionCard.id,
+                deviceId: transactionDevice.id,
+                receiptId: receipt.id,
+                requestedByTenantId: actor.user.tenantId,
+                requestedBy: actor.user.id,
+                requestedAmountKobo,
+                basketAmountKobo: BigInt(dto.basketAmountKobo),
+                maximumAllowedKobo: policy.maximumAllowedKobo,
+                confirmedAmountKobo: null,
+                status: RedemptionStatus.PENDING_APPROVAL,
+                policyVersion: policy.policyVersion,
+                requestedAt: now,
+                confirmedAt: null,
+              },
+            });
+            const approval = await prisma.approval.create({
+              data: {
+                tenantId,
+                receiptId: receipt.id,
+                redemptionId: redemption.id,
+                targetType: ApprovalTargetType.REDEEM,
+                status: ApprovalStatus.PENDING,
+                requestedByTenantId: actor.user.tenantId,
+                requestedBy: actor.user.id,
+                reasonCode: REDEMPTION_APPROVAL_REASON_CODE,
+                policyVersion: policy.policyVersion,
+                expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
+              },
+            });
+            const response = toPendingApprovalResponse({
+              redemptionId: redemption.id,
+              receiptId: receipt.id,
+              approvalId: approval.id,
+              requestedAmountKobo,
+              maximumAllowedKobo: policy.maximumAllowedKobo,
+              activeBalanceService: this.activeBalanceService,
+            });
+
+            await prisma.idempotencyRecord.create({
+              data: {
+                tenantId,
+                actorId: actor.user.id,
+                endpoint: REDEEM_ENDPOINT,
+                idempotencyKey: normalizedKey,
+                requestHash,
+                status: 'COMPLETED',
+                expiresAt: new Date(now.getTime() + IDEMPOTENCY_EXPIRY_MS),
+                responseJson: response as unknown as Prisma.InputJsonValue,
+              },
+            });
+
+            await this.auditService.recordWithClient(prisma, {
+              tenantId,
+              actorId: actor.user.id,
+              action: 'redemption.request.approval_required',
+              entityType: 'redemption',
+              entityId: redemption.id,
+              metadata: response,
+            });
+
+            return response;
           }
 
           if (requestedAmountKobo < policy.minimumRedemptionKobo) {
@@ -585,7 +690,7 @@ async function findCompletedRedeemReplay(
   actorId: string,
   normalizedKey: string,
   requestHash: string,
-): Promise<RedeemConfirmedResponse | null> {
+): Promise<RedeemResponse | null> {
   const replay = await prismaService.idempotencyRecord.findUnique({
     where: {
       tenantId_actorId_endpoint_idempotencyKey: {
@@ -598,7 +703,7 @@ async function findCompletedRedeemReplay(
   });
 
   if (replay?.requestHash === requestHash && replay.responseJson) {
-    return replay.responseJson as unknown as RedeemConfirmedResponse;
+    return replay.responseJson as unknown as RedeemResponse;
   }
 
   return null;
@@ -639,5 +744,29 @@ function toConfirmedResponse(input: {
       expiresAt: allocation.expiresAt.toISOString(),
     })),
     smsStatus: input.smsStatus,
+  };
+}
+
+function toPendingApprovalResponse(input: {
+  redemptionId: string;
+  receiptId: string;
+  approvalId: string;
+  requestedAmountKobo: bigint;
+  maximumAllowedKobo: bigint;
+  activeBalanceService: ActiveBalanceService;
+}): RedeemPendingApprovalResponse {
+  return {
+    transactionId: null,
+    redemptionId: input.redemptionId,
+    receiptId: input.receiptId,
+    approvalId: input.approvalId,
+    state: 'PENDING_APPROVAL',
+    requestedAmountKobo: input.activeBalanceService.toJsonSafeKobo(
+      input.requestedAmountKobo,
+    ),
+    maximumAllowedKobo: input.activeBalanceService.toJsonSafeKobo(
+      input.maximumAllowedKobo,
+    ),
+    reasonCode: REDEMPTION_APPROVAL_REASON_CODE,
   };
 }

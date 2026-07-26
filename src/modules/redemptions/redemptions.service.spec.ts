@@ -127,6 +127,29 @@ describe('RedemptionsService', () => {
     expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
   });
 
+  it('creates a pending approval for high-value redemption without financial effects', async () => {
+    const tx = transactionClient();
+    const service = redemptionService({
+      tx,
+      policy: policyService({ requiresApproval: true }),
+    });
+
+    await expect(redeemRequest(service)).resolves.toMatchObject({
+      transactionId: null,
+      redemptionId: 'redemption-1',
+      receiptId: 'receipt-1',
+      approvalId: 'approval-1',
+      state: 'PENDING_APPROVAL',
+      requestedAmountKobo: 250_000,
+      maximumAllowedKobo: 270_000,
+      reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+    });
+    expect(tx.approval.create).toHaveBeenCalledTimes(1);
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+  });
+
   it('rejects redemptions below the configured minimum without writes', async () => {
     const tx = transactionClient();
     const service = redemptionService({
@@ -349,6 +372,9 @@ function transactionClient({
     redemption: {
       create: jest.fn().mockResolvedValue({ id: 'redemption-1' }),
       update: jest.fn().mockResolvedValue({}),
+    },
+    approval: {
+      create: jest.fn().mockResolvedValue({ id: 'approval-1' }),
     },
     loyaltyLedgerEntry: {
       create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),
