@@ -98,8 +98,10 @@ describe('auth and readiness flows (int)', () => {
     const supabaseService = app.get(SupabaseServiceToken);
     jest
       .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
-      .mockImplementation(({ email }: { email: string }) =>
-        Promise.resolve({
+      .mockImplementation((credentials) => {
+        const email = 'email' in credentials ? credentials.email : '';
+
+        return Promise.resolve({
           data: {
             user: {
               id:
@@ -110,8 +112,8 @@ describe('auth and readiness flows (int)', () => {
             session: null,
           },
           error: null,
-        } as never),
-      );
+        } as never);
+      });
   }, 120000);
 
   beforeEach(async () => {
