@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../database/prisma.module';
+import { ActiveBalanceModule } from '../../common/balance/active-balance.module';
 import { AuditModule } from '../audit/audit.module';
-import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 
 @Module({
-  imports: [PrismaModule, AuditModule, LoyaltyModule],
+  imports: [PrismaModule, AuditModule, ActiveBalanceModule],
   controllers: [CustomersController],
   providers: [CustomersService],
   exports: [CustomersService],

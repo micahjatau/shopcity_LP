@@ -8,7 +8,7 @@ import { CardStatus, CustomerStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
-import { ActiveBalanceService } from '../loyalty/active-balance.service';
+import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 
 @Injectable()
 export class CardsService {

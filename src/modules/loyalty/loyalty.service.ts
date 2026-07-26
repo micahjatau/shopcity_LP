@@ -29,7 +29,7 @@ import {
   encodeCursor,
   pageMeta,
 } from '../../common/pagination/cursor-pagination';
-import { ActiveBalanceService } from './active-balance.service';
+import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 import { EarnTransactionDto } from './loyalty.dto';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
