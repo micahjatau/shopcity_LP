@@ -39,3 +39,9 @@ export function buildRedeemThrottleKey(request: AuthenticatedRequest): string {
   const deviceId = request.authContext?.session.deviceId ?? 'unknown-device';
   return `redeem:${tenantId}:${userId}:${deviceId}`;
 }
+
+export function buildReverseThrottleKey(request: AuthenticatedRequest): string {
+  const tenantId = request.authContext?.user.tenantId ?? 'unknown-tenant';
+  const userId = request.authContext?.user.id ?? 'unknown-user';
+  return `reverse:${tenantId}:${userId}:${request.ip || 'unknown'}`;
+}

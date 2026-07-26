@@ -25,6 +25,7 @@ import { RequestThrottleGuard } from './common/throttle/request-throttle.guard';
 import { RequestThrottleService } from './common/throttle/request-throttle.service';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { RedemptionsModule } from './modules/redemptions/redemptions.module';
+import { ReversalsModule } from './modules/reversals/reversals.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { RedemptionsModule } from './modules/redemptions/redemptions.module';
     ReceiptsModule,
     LoyaltyModule,
     RedemptionsModule,
+    ReversalsModule,
     ApprovalsModule,
     AuditModule,
     ConfigurationModule,

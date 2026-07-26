@@ -43,7 +43,7 @@
 
 ## 6. Reversals
 
-- [ ] 6.1 Add reversals module, DTOs, service, controller route `POST /api/v1/transactions/{transactionId}/reverse`, RBAC, reason validation, and idempotency.
+- [x] 6.1 Add reversals module, DTOs, service, controller route `POST /api/v1/transactions/{transactionId}/reverse`, RBAC, reason validation, and idempotency.
 - [ ] 6.2 Implement safe earn reversal for fully unconsumed eligible lots using a debit reversal ledger entry and allocation-backed lot consumption.
 - [ ] 6.3 Implement safe redemption reversal using a credit reversal ledger entry, immutable restoration rows, original-lot restoration, audit, outbox, and SMS intent.
 - [ ] 6.4 Implement adjustment reversal support for safe credit and debit adjustment cases.
