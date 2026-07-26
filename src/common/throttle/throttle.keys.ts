@@ -32,3 +32,10 @@ export function buildEarnThrottleKey(request: AuthenticatedRequest): string {
   const deviceId = request.authContext?.session.deviceId ?? 'unknown-device';
   return `earn:${tenantId}:${userId}:${deviceId}`;
 }
+
+export function buildRedeemThrottleKey(request: AuthenticatedRequest): string {
+  const tenantId = request.authContext?.user.tenantId ?? 'unknown-tenant';
+  const userId = request.authContext?.user.id ?? 'unknown-user';
+  const deviceId = request.authContext?.session.deviceId ?? 'unknown-device';
+  return `redeem:${tenantId}:${userId}:${deviceId}`;
+}

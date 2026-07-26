@@ -75,6 +75,11 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(0)
     .default(500000),
+  ADJUSTMENT_CREDIT_EXPIRY_MONTHS: Joi.number()
+    .integer()
+    .min(1)
+    .max(120)
+    .default(12),
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),

@@ -24,6 +24,7 @@ import { RolesGuard } from './common/auth/roles.guard';
 import { RequestThrottleGuard } from './common/throttle/request-throttle.guard';
 import { RequestThrottleService } from './common/throttle/request-throttle.service';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { RedemptionsModule } from './modules/redemptions/redemptions.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module';
     CardsModule,
     ReceiptsModule,
     LoyaltyModule,
+    RedemptionsModule,
     ApprovalsModule,
     AuditModule,
     ConfigurationModule,

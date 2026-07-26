@@ -1,0 +1,14 @@
+import { Module } from '@nestjs/common';
+import { ActiveBalanceModule } from '../../common/balance/active-balance.module';
+import { PrismaModule } from '../../database/prisma.module';
+import { RedemptionPolicyService } from './redemption-policy.service';
+import { RedemptionsController } from './redemptions.controller';
+import { RedemptionsService } from './redemptions.service';
+
+@Module({
+  imports: [PrismaModule, ActiveBalanceModule],
+  controllers: [RedemptionsController],
+  providers: [RedemptionsService, RedemptionPolicyService],
+  exports: [RedemptionsService, RedemptionPolicyService],
+})
+export class RedemptionsModule {}

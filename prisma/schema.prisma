@@ -75,10 +75,14 @@ enum LedgerEntryStatus {
 
 enum LedgerEntryType {
   EARN
+  REDEEM
+  REVERSAL
+  ADJUSTMENT
 }
 
 enum LedgerEntryDirection {
   CREDIT
+  DEBIT
 }
 
 enum ApprovalStatus {
@@ -87,6 +91,24 @@ enum ApprovalStatus {
   EXECUTED
   REJECTED
   EXPIRED
+}
+
+enum RedemptionStatus {
+  PENDING_APPROVAL
+  CONFIRMED
+  REJECTED
+  EXPIRED
+  REVERSED
+}
+
+enum AdjustmentKind {
+  CREDIT
+  DEBIT
+}
+
+enum ApprovalTargetType {
+  EARN
+  REDEEM
 }
 
 enum OutboxEventStatus {
@@ -118,6 +140,10 @@ model Tenant {
   receipts  Receipt[]
   ledgerEntries LoyaltyLedgerEntry[]
   creditLots CreditLot[]
+  redemptions Redemption[]
+  redemptionAllocations RedemptionAllocation[]
+  allocationRestorations AllocationRestoration[]
+  adjustments Adjustment[]
   approvals Approval[]
   outboxEvents OutboxEvent[]
   smsMessages SmsMessage[]
@@ -139,6 +165,7 @@ model Branch {
   users               User[]
   customers           Customer[]
   receipts            Receipt[]
+  redemptions         Redemption[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -158,6 +185,7 @@ model Device {
   branch          Branch       @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   sessions        Session[]
   receipts        Receipt[]
+  redemptions     Redemption[]
 
   @@index([tenantId, branchId])
   @@unique([tenantId, id])
@@ -186,6 +214,8 @@ model User {
   approvalsRequested  Approval[] @relation("ApprovalRequestedBy")
   approvalsDecided    Approval[] @relation("ApprovalDecisionBy")
   ledgerEntriesCreated LoyaltyLedgerEntry[] @relation("LoyaltyLedgerEntryCreatedBy")
+  redemptionsRequested Redemption[] @relation("RedemptionRequestedBy")
+  adjustmentsCreated  Adjustment[] @relation("AdjustmentCreatedBy")
   auditLogs           AuditLog[]
 
   @@unique([tenantId, username])
@@ -233,6 +263,8 @@ model Customer {
   receipts             Receipt[]
   ledgerEntries        LoyaltyLedgerEntry[]
   creditLots           CreditLot[]
+  redemptions          Redemption[]
+  adjustments          Adjustment[]
 
   @@unique([tenantId, phoneE164])
   @@unique([tenantId, email])
@@ -261,6 +293,7 @@ model Card {
   replacedByCard   Card?      @relation("CardReplacement", fields: [tenantId, replacedByCardId], references: [tenantId, id], onDelete: Restrict)
   replacedCards    Card[]     @relation("CardReplacement")
   receipts         Receipt[]
+  redemptions      Redemption[]
 
   @@unique([tenantId, barcodeValue])
   @@unique([tenantId, id])
@@ -304,6 +337,7 @@ model Receipt {
   ledgerEntries            LoyaltyLedgerEntry[]
   approvals                Approval[]
   smsMessages              SmsMessage[]
+  redemption               Redemption?
 
   @@unique([tenantId, branchId, receiptWeekStart, normalizedPosReceiptNumber])
   @@unique([tenantId, id])
@@ -318,7 +352,7 @@ model LoyaltyLedgerEntry {
   id             String               @id @default(uuid())
   tenantId       String
   customerId     String
-  receiptId      String               @unique
+  receiptId      String?              @unique
   type           LedgerEntryType
   direction      LedgerEntryDirection
   amountKobo     BigInt
@@ -332,11 +366,15 @@ model LoyaltyLedgerEntry {
   updatedAt      DateTime             @updatedAt
   tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customer       Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  receipt        Receipt               @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  receipt        Receipt?              @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
   createdByUser  User                  @relation("LoyaltyLedgerEntryCreatedBy", fields: [createdByTenantId, createdBy], references: [tenantId, id], onDelete: Restrict)
   reversesEntry  LoyaltyLedgerEntry?   @relation("LedgerReversal", fields: [tenantId, reversesEntryId], references: [tenantId, id], onDelete: Restrict)
   reversedByEntries LoyaltyLedgerEntry[] @relation("LedgerReversal")
   creditLot      CreditLot?
+  redemption     Redemption?           @relation("RedemptionLedgerEntry")
+  adjustment     Adjustment?           @relation("AdjustmentLedgerEntry")
+  redemptionAllocations RedemptionAllocation[] @relation("RedemptionAllocationLedgerEntry")
+  allocationRestorations AllocationRestoration[] @relation("AllocationRestorationReversalLedgerEntry")
 
   @@index([tenantId, customerId, effectiveAt])
   @@index([tenantId, createdAt])
@@ -357,15 +395,126 @@ model CreditLot {
   tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customer          Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   earnLedgerEntry   LoyaltyLedgerEntry @relation(fields: [tenantId, earnLedgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  redemptionAllocations RedemptionAllocation[]
 
   @@index([tenantId, customerId, expiresAt])
+  @@unique([tenantId, id])
   @@unique([tenantId, earnLedgerEntryId])
+}
+
+model Redemption {
+  id                       String           @id @default(uuid())
+  tenantId                 String
+  branchId                 String
+  customerId               String
+  cardId                   String
+  deviceId                 String
+  receiptId                String           @unique
+  requestedByTenantId      String
+  requestedBy              String
+  requestedAmountKobo      BigInt
+  basketAmountKobo         BigInt
+  maximumAllowedKobo       BigInt
+  confirmedAmountKobo      BigInt?
+  status                   RedemptionStatus
+  policyVersion            String
+  ledgerEntryId            String?          @unique
+  requestedAt              DateTime         @default(now())
+  confirmedAt              DateTime?
+  rejectedAt               DateTime?
+  reversedAt               DateTime?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  tenant                   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                   Branch           @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  customer                 Customer         @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  card                     Card             @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
+  device                   Device           @relation(fields: [tenantId, branchId, deviceId], references: [tenantId, branchId, id], onDelete: Restrict)
+  receipt                  Receipt          @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  requestedByUser          User             @relation("RedemptionRequestedBy", fields: [requestedByTenantId, requestedBy], references: [tenantId, id], onDelete: Restrict)
+  ledgerEntry              LoyaltyLedgerEntry? @relation("RedemptionLedgerEntry", fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  allocations              RedemptionAllocation[]
+  approval                 Approval?
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, receiptId])
+  @@unique([tenantId, ledgerEntryId])
+  @@index([tenantId, customerId, requestedAt])
+  @@index([tenantId, status, requestedAt])
+}
+
+model RedemptionAllocation {
+  id                       String   @id @default(uuid())
+  tenantId                 String
+  redemptionId             String?
+  adjustmentId             String?
+  redemptionLedgerEntryId  String
+  creditLotId              String
+  amountKobo               BigInt
+  allocationOrder          Int
+  createdAt                DateTime @default(now())
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  redemption               Redemption? @relation(fields: [tenantId, redemptionId], references: [tenantId, id], onDelete: Restrict)
+  adjustment               Adjustment? @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Restrict)
+  redemptionLedgerEntry    LoyaltyLedgerEntry @relation("RedemptionAllocationLedgerEntry", fields: [tenantId, redemptionLedgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  creditLot                CreditLot @relation(fields: [tenantId, creditLotId], references: [tenantId, id], onDelete: Restrict)
+  restorations             AllocationRestoration[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, redemptionId, creditLotId])
+  @@unique([tenantId, redemptionId, allocationOrder])
+  @@unique([tenantId, adjustmentId, creditLotId])
+  @@unique([tenantId, adjustmentId, allocationOrder])
+  @@index([tenantId, adjustmentId])
+  @@index([tenantId, creditLotId])
+  @@index([tenantId, redemptionLedgerEntryId])
+}
+
+model AllocationRestoration {
+  id                       String   @id @default(uuid())
+  tenantId                 String
+  allocationId             String
+  reversalLedgerEntryId    String
+  amountKobo               BigInt
+  createdAt                DateTime @default(now())
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  allocation               RedemptionAllocation @relation(fields: [tenantId, allocationId], references: [tenantId, id], onDelete: Restrict)
+  reversalLedgerEntry      LoyaltyLedgerEntry @relation("AllocationRestorationReversalLedgerEntry", fields: [tenantId, reversalLedgerEntryId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, allocationId, reversalLedgerEntryId])
+  @@index([tenantId, reversalLedgerEntryId])
+}
+
+model Adjustment {
+  id                       String         @id @default(uuid())
+  tenantId                 String
+  customerId               String
+  kind                     AdjustmentKind
+  amountKobo               BigInt
+  reason                   String
+  createdByTenantId        String
+  createdBy                String
+  ledgerEntryId            String?        @unique
+  effectiveAt              DateTime
+  createdAt                DateTime       @default(now())
+  tenant                   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer                 Customer       @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser            User           @relation("AdjustmentCreatedBy", fields: [createdByTenantId, createdBy], references: [tenantId, id], onDelete: Restrict)
+  ledgerEntry              LoyaltyLedgerEntry? @relation("AdjustmentLedgerEntry", fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  allocations              RedemptionAllocation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, ledgerEntryId])
+  @@index([tenantId, customerId, effectiveAt])
 }
 
 model Approval {
   id                 String         @id @default(uuid())
   tenantId           String
-  receiptId          String         @unique
+  receiptId          String?        @unique
+  redemptionId       String?        @unique
+  targetType         ApprovalTargetType
   status             ApprovalStatus @default(PENDING)
   requestedByTenantId String
   requestedBy        String
@@ -381,13 +530,15 @@ model Approval {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  receipt           Receipt        @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  receipt           Receipt?       @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  redemption        Redemption?    @relation(fields: [tenantId, redemptionId], references: [tenantId, id], onDelete: Restrict)
   requestedByUser    User           @relation("ApprovalRequestedBy", fields: [requestedByTenantId, requestedBy], references: [tenantId, id], onDelete: Restrict)
   decisionByUser     User?          @relation("ApprovalDecisionBy", fields: [decisionByTenantId, decisionBy], references: [tenantId, id], onDelete: SetNull)
 
   @@index([tenantId, status, requestedAt])
   @@index([requestedByTenantId, requestedBy])
   @@index([decisionByTenantId, decisionBy])
+  @@unique([tenantId, redemptionId])
 }
 
 model OutboxEvent {

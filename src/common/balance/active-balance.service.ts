@@ -27,8 +27,36 @@ type ActiveBalancePrismaClient = {
         _sum: { remainingAmountKobo: bigint | null };
       }>
     >;
+    findMany: (args: {
+      where: {
+        tenantId: string;
+        customerId: string;
+        remainingAmountKobo: { gt: number };
+        expiresAt: { gt: Date };
+      };
+      orderBy: [{ expiresAt: 'asc' }, { earnedAt: 'asc' }, { id: 'asc' }];
+      select: {
+        id: true;
+        tenantId: true;
+        customerId: true;
+        originalAmountKobo: true;
+        remainingAmountKobo: true;
+        earnedAt: true;
+        expiresAt: true;
+      };
+    }) => Promise<ActiveCreditLot[]>;
   };
 };
+
+export interface ActiveCreditLot {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  originalAmountKobo: bigint;
+  remainingAmountKobo: bigint;
+  earnedAt: Date;
+  expiresAt: Date;
+}
 
 @Injectable()
 export class ActiveBalanceService {
@@ -79,6 +107,35 @@ export class ActiveBalanceService {
     }
 
     return balances;
+  }
+
+  async getActiveCreditLots(
+    tenantId: string,
+    customerId: string,
+    now = new Date(),
+    prisma: ActiveBalancePrismaClient = this.prismaService,
+  ): Promise<ActiveCreditLot[]> {
+    return prisma.creditLot.findMany({
+      where: activeCreditLotWhere(tenantId, customerId, now),
+      orderBy: [{ expiresAt: 'asc' }, { earnedAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        tenantId: true,
+        customerId: true,
+        originalAmountKobo: true,
+        remainingAmountKobo: true,
+        earnedAt: true,
+        expiresAt: true,
+      },
+    });
+  }
+
+  toJsonSafeKobo(amount: bigint): number {
+    if (amount > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new RangeError('kobo amount exceeds JSON-safe integer range');
+    }
+
+    return Number(amount);
   }
 }
 

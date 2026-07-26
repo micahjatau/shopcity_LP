@@ -75,16 +75,87 @@ describe('ActiveBalanceService', () => {
 
     expect(prisma.creditLot.groupBy).not.toHaveBeenCalled();
   });
+
+  it('loads active credit lots in FIFO allocation order', async () => {
+    const earnedAt = new Date('2026-01-15T10:00:00.000Z');
+    const expiresAt = new Date('2027-01-15T10:00:00.000Z');
+    const prisma = prismaStub({
+      activeLots: [
+        {
+          id: 'lot-1',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          originalAmountKobo: 1_000n,
+          remainingAmountKobo: 750n,
+          earnedAt,
+          expiresAt,
+        },
+      ],
+    });
+    const service = new ActiveBalanceService(prisma as never);
+    const now = new Date('2026-07-26T12:00:00.000Z');
+
+    await expect(
+      service.getActiveCreditLots('tenant-id', 'customer-id', now),
+    ).resolves.toEqual([
+      {
+        id: 'lot-1',
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        originalAmountKobo: 1_000n,
+        remainingAmountKobo: 750n,
+        earnedAt,
+        expiresAt,
+      },
+    ]);
+    expect(prisma.creditLot.findMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        remainingAmountKobo: { gt: 0 },
+        expiresAt: { gt: now },
+      },
+      orderBy: [{ expiresAt: 'asc' }, { earnedAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        tenantId: true,
+        customerId: true,
+        originalAmountKobo: true,
+        remainingAmountKobo: true,
+        earnedAt: true,
+        expiresAt: true,
+      },
+    });
+  });
+
+  it('converts kobo bigint values only when they are JSON-safe', () => {
+    const service = new ActiveBalanceService(prismaStub() as never);
+
+    expect(service.toJsonSafeKobo(1_500n)).toBe(1_500);
+    expect(() =>
+      service.toJsonSafeKobo(BigInt(Number.MAX_SAFE_INTEGER) + 1n),
+    ).toThrow(RangeError);
+  });
 });
 
 function prismaStub({
   aggregateBalance = 0n,
   groupRows = [],
+  activeLots = [],
 }: {
   aggregateBalance?: bigint | null;
   groupRows?: Array<{
     customerId: string;
     _sum: { remainingAmountKobo: bigint | null };
+  }>;
+  activeLots?: Array<{
+    id: string;
+    tenantId: string;
+    customerId: string;
+    originalAmountKobo: bigint;
+    remainingAmountKobo: bigint;
+    earnedAt: Date;
+    expiresAt: Date;
   }>;
 } = {}) {
   return {
@@ -93,6 +164,7 @@ function prismaStub({
         _sum: { remainingAmountKobo: aggregateBalance },
       }),
       groupBy: jest.fn().mockResolvedValue(groupRows),
+      findMany: jest.fn().mockResolvedValue(activeLots),
     },
   };
 }

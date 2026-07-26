@@ -379,6 +379,7 @@ export class LoyaltyService {
                 data: {
                   tenantId,
                   receiptId: receipt.id,
+                  targetType: 'EARN',
                   status: ApprovalStatus.PENDING,
                   requestedByTenantId: actor.user.tenantId,
                   requestedBy: actor.user.id,
@@ -685,6 +686,14 @@ export class LoyaltyService {
     }
 
     const receipt = ledgerEntry.receipt;
+    if (!receipt || !ledgerEntry.receiptId) {
+      throw new DomainHttpException(
+        422,
+        'UNSUPPORTED_TRANSACTION_TYPE',
+        'This transaction type is not available through the earn transaction read model yet',
+      );
+    }
+
     const approval = receipt.approvals[0] ?? null;
     const smsMessage = await this.prismaService.smsMessage.findFirst({
       where: {
@@ -800,7 +809,7 @@ export class LoyaltyService {
   async listApprovals(tenantId: string, page?: CursorPageRequest) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const approvals = await this.prismaService.approval.findMany({
-      where: { tenantId },
+      where: { tenantId, targetType: 'EARN' },
       orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
       include: {
         receipt: {
@@ -828,23 +837,31 @@ export class LoyaltyService {
     );
 
     return {
-      items: pageItems.map((approval) => ({
-        id: approval.id,
-        receiptId: approval.receiptId,
-        status: approval.status,
-        reasonCode: approval.reasonCode,
-        requestedAt: approval.requestedAt.toISOString(),
-        expiresAt: approval.expiresAt.toISOString(),
-        decidedAt: approval.decidedAt?.toISOString() ?? null,
-        executedAt: approval.executedAt?.toISOString() ?? null,
-        receipt: {
-          id: approval.receipt.id,
-          posReceiptNumber: approval.receipt.posReceiptNumber,
-          purchaseAmountKobo: Number(approval.receipt.purchaseAmountKobo),
-          captureStatus: approval.receipt.captureStatus,
-          reviewStatus: approval.receipt.reviewStatus,
-        },
-      })),
+      items: pageItems.flatMap((approval) => {
+        if (!approval.receipt || !approval.receiptId) {
+          return [];
+        }
+
+        return [
+          {
+            id: approval.id,
+            receiptId: approval.receiptId,
+            status: approval.status,
+            reasonCode: approval.reasonCode,
+            requestedAt: approval.requestedAt.toISOString(),
+            expiresAt: approval.expiresAt.toISOString(),
+            decidedAt: approval.decidedAt?.toISOString() ?? null,
+            executedAt: approval.executedAt?.toISOString() ?? null,
+            receipt: {
+              id: approval.receipt.id,
+              posReceiptNumber: approval.receipt.posReceiptNumber,
+              purchaseAmountKobo: Number(approval.receipt.purchaseAmountKobo),
+              captureStatus: approval.receipt.captureStatus,
+              reviewStatus: approval.receipt.reviewStatus,
+            },
+          },
+        ];
+      }),
       nextCursor: hasMore
         ? encodeCursor(pageItems.at(-1)!.id, pageItems.at(-1)!.requestedAt)
         : null,
@@ -914,6 +931,13 @@ export class LoyaltyService {
         }
 
         const receipt = approval.receipt;
+        if (approval.targetType !== 'EARN' || !receipt || !approval.receiptId) {
+          throw new DomainHttpException(
+            422,
+            'UNSUPPORTED_APPROVAL_TARGET',
+            'This approval target is not available through the earn approval workflow yet',
+          );
+        }
 
         const now = new Date();
 

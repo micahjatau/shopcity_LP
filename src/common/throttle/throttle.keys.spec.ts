@@ -1,6 +1,7 @@
 import {
   buildCardLookupThrottleKey,
   buildEarnThrottleKey,
+  buildRedeemThrottleKey,
   buildLoginThrottleKey,
   normalizeThrottleIdentity,
 } from './throttle.keys';
@@ -78,5 +79,23 @@ describe('throttle keys', () => {
 
     expect(first).toBe('earn:tenant-id:user-id:device-1');
     expect(second).toBe('earn:tenant-id:user-id:device-2');
+  });
+
+  it('keys redemption throttling by tenant, staff user, and session device', () => {
+    const request = {
+      authContext: {
+        user: {
+          tenantId: 'tenant-id',
+          id: 'user-id',
+        },
+        session: {
+          deviceId: 'device-1',
+        },
+      },
+    };
+
+    expect(buildRedeemThrottleKey(request as never)).toBe(
+      'redeem:tenant-id:user-id:device-1',
+    );
   });
 });
