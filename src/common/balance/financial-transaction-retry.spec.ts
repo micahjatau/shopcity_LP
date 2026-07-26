@@ -33,7 +33,7 @@ describe('financial transaction retry helpers', () => {
         conflictCode: 'REDEMPTION_TRANSACTION_CONFLICT',
         conflictMessage: 'Try again',
         jitterMs: 0,
-        onConflict: async () => 'replay',
+        onConflict: () => Promise.resolve('replay'),
       }),
     ).resolves.toBe('replay');
     expect(operation).toHaveBeenCalledTimes(1);
@@ -42,9 +42,7 @@ describe('financial transaction retry helpers', () => {
   it('maps exhausted conflicts to configured domain error', async () => {
     await expect(
       runWithBoundedFinancialRetries(
-        async () => {
-          throw prismaKnownRequestError('P2034');
-        },
+        () => Promise.reject(prismaKnownRequestError('P2034')),
         {
           attempts: 1,
           conflictCode: 'REDEMPTION_TRANSACTION_CONFLICT',

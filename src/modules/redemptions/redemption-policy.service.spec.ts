@@ -8,7 +8,7 @@ describe('RedemptionPolicyService', () => {
         MIN_REDEMPTION_KOBO: 50_000,
         MAX_REDEMPTION_BASKET_PERCENT: 30,
         REDEMPTION_APPROVAL_THRESHOLD_KOBO: 500_000,
-      }) as ConfigService,
+      }),
     );
 
     const result = service.evaluate({
@@ -31,7 +31,7 @@ describe('RedemptionPolicyService', () => {
     const service = new RedemptionPolicyService(
       configService({
         MAX_REDEMPTION_BASKET_PERCENT: 30,
-      }) as ConfigService,
+      }),
     );
 
     expect(
@@ -44,8 +44,8 @@ describe('RedemptionPolicyService', () => {
   });
 });
 
-function configService(values: Record<string, number>) {
+function configService(values: Record<string, number>): ConfigService {
   return {
     get: jest.fn((key: string) => values[key]),
-  };
+  } as unknown as ConfigService;
 }
