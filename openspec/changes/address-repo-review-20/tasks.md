@@ -51,8 +51,8 @@
 ## 7. Release Evidence And Verification
 
 - [x] 7.1 Run unit, integration, e2e, OpenAPI, lint/typecheck, architecture, and build gates required for Sprint 2 closeout.
-- [ ] 7.2 Push or manually dispatch visible GitHub CI for the target closeout commit.
-- [ ] 7.3 Record commit SHA, workflow run, static job, E2E job, integration job, OpenAPI generation result, and build confirmation.
-- [ ] 7.4 Update `docs/database/migration-tracker.md` with CI or remote verification evidence for the latest migrations.
-- [ ] 7.5 Close or unblock Issue #1 only after all required Sprint 2 exit-gate evidence is recorded.
+- [x] 7.2 Push or manually dispatch visible GitHub CI for the target closeout commit.
+- [x] 7.3 Record commit SHA, workflow run, static job, E2E job, integration job, OpenAPI generation result, and build confirmation.
+- [x] 7.4 Update `docs/database/migration-tracker.md` with CI or remote verification evidence for the latest migrations.
+- [x] 7.5 Close or unblock Issue #1 only after all required Sprint 2 exit-gate evidence is recorded.
 - [x] 7.6 Run `openspec validate --change address-repo-review-20` and resolve any artifact or spec issues before implementation is marked complete.
