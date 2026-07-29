@@ -878,9 +878,21 @@ export class LoyaltyService {
         redemption: {
           select: {
             id: true,
+            receiptId: true,
             requestedAmountKobo: true,
             maximumAllowedKobo: true,
             status: true,
+            receipt: {
+              select: {
+                id: true,
+                customerId: true,
+                cardId: true,
+                posReceiptNumber: true,
+                purchaseAmountKobo: true,
+                captureStatus: true,
+                reviewStatus: true,
+              },
+            },
           },
         },
       },
@@ -900,11 +912,11 @@ export class LoyaltyService {
 
     return {
       items: pageItems.flatMap<ApprovalListItem>((approval) => {
-        if (approval.targetType === 'EARN' && !approval.receipt) {
-          return [];
-        }
+        const receipt =
+          approval.receipt ?? approval.redemption?.receipt ?? null;
+        const receiptId = approval.receiptId ?? approval.redemption?.receiptId;
 
-        if (approval.targetType === 'REDEEM' && !approval.redemption) {
+        if (!receipt || !receiptId) {
           return [];
         }
 
@@ -912,7 +924,7 @@ export class LoyaltyService {
           {
             id: approval.id,
             targetType: approval.targetType,
-            receiptId: approval.receiptId,
+            receiptId,
             redemptionId: approval.redemptionId,
             status: approval.status,
             reasonCode: approval.reasonCode,
@@ -920,19 +932,15 @@ export class LoyaltyService {
             expiresAt: approval.expiresAt.toISOString(),
             decidedAt: approval.decidedAt?.toISOString() ?? null,
             executedAt: approval.executedAt?.toISOString() ?? null,
-            receipt: approval.receipt
-              ? {
-                  id: approval.receipt.id,
-                  customerId: approval.receipt.customerId,
-                  cardId: approval.receipt.cardId,
-                  posReceiptNumber: approval.receipt.posReceiptNumber,
-                  purchaseAmountKobo: Number(
-                    approval.receipt.purchaseAmountKobo,
-                  ),
-                  captureStatus: approval.receipt.captureStatus,
-                  reviewStatus: approval.receipt.reviewStatus,
-                }
-              : null,
+            receipt: {
+              id: receipt.id,
+              customerId: receipt.customerId,
+              cardId: receipt.cardId,
+              posReceiptNumber: receipt.posReceiptNumber,
+              purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
+              captureStatus: receipt.captureStatus,
+              reviewStatus: receipt.reviewStatus,
+            },
             redemption: approval.redemption
               ? {
                   id: approval.redemption.id,
@@ -994,6 +1002,14 @@ export class LoyaltyService {
                     card: true,
                     customer: true,
                     device: true,
+                    receipt: {
+                      include: {
+                        branch: true,
+                        card: { include: { customer: true } },
+                        customer: true,
+                        device: true,
+                      },
+                    },
                   },
                 },
               },
@@ -1026,10 +1042,9 @@ export class LoyaltyService {
               );
             }
 
-            const receipt = approval.receipt;
-
             if (approval.targetType === 'REDEEM') {
               const redemption = approval.redemption;
+              const receipt = redemption?.receipt;
 
               if (!redemption || !approval.redemptionId || !receipt) {
                 throw new DomainHttpException(
@@ -1068,7 +1083,7 @@ export class LoyaltyService {
                 actor,
                 approval: {
                   id: approval.id,
-                  receiptId: approval.receiptId,
+                  receiptId: receipt.id,
                   policyVersion: approval.policyVersion,
                   redemption,
                 },
@@ -1076,6 +1091,8 @@ export class LoyaltyService {
                 reason: normalizedReason,
               });
             }
+
+            const receipt = approval.receipt;
 
             if (
               approval.targetType !== 'EARN' ||
@@ -1596,6 +1613,8 @@ export class LoyaltyService {
         tenantId,
         receiptId: receipt.id,
         outboxEventId: outboxEvent.id,
+        ledgerEntryId: ledgerEntry.id,
+        redemptionId: redemption.id,
         phoneE164: redemption.customer.phoneE164,
         template: 'redemption-confirmed',
         payload: {

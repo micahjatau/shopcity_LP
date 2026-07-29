@@ -39,10 +39,16 @@ describe('outbox migration deploy (int)', () => {
       expect(indexRows.map((row) => row.indexname)).toEqual(
         expect.arrayContaining([
           'SmsMessage_pkey',
-          'SmsMessage_tenantId_receiptId_key',
           'SmsMessage_tenantId_outboxEventId_key',
           'SmsMessage_tenantId_status_queuedAt_idx',
+          'SmsMessage_tenantId_receiptId_idx',
+          'SmsMessage_tenantId_ledgerEntryId_idx',
+          'SmsMessage_tenantId_redemptionId_idx',
+          'SmsMessage_tenantId_adjustmentId_idx',
         ]),
+      );
+      expect(indexRows.map((row) => row.indexname)).not.toContain(
+        'SmsMessage_tenantId_receiptId_key',
       );
       expect(indexRows.map((row) => row.indexname)).not.toContain(
         'SmsMessage_outboxEventId_key',

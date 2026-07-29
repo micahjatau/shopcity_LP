@@ -451,7 +451,9 @@ describe('immutable earn ledger (int)', () => {
         where: { id: creditLot.id },
         data: { remainingAmountKobo: creditLot.remainingAmountKobo - 1n },
       }),
-    ).rejects.toThrow(/credit lot remaining balance is temporarily immutable/i);
+    ).rejects.toThrow(
+      /credit lot remaining balance (is temporarily immutable|must match immutable allocation and restoration evidence)/i,
+    );
 
     await expect(
       prisma.creditLot.delete({ where: { id: creditLot.id } }),

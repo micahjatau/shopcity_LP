@@ -85,14 +85,11 @@ describe('outbox worker recovery (int)', () => {
         where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
         orderBy: { createdAt: 'desc' },
       });
-      const smsMessage = await prisma.smsMessage.findUnique({
-        where: {
-          tenantId_receiptId: {
-            tenantId: fixture.tenant.id,
-            receiptId: response.receiptId,
-          },
-        },
-      });
+      const smsMessage = await findSmsMessageByReceipt(
+        prisma,
+        fixture.tenant.id,
+        response.receiptId,
+      );
 
       expect(outboxEvent?.status).toBe('PENDING');
       expect(smsMessage?.status).toBe('QUEUED');
@@ -130,14 +127,11 @@ describe('outbox worker recovery (int)', () => {
       );
 
       await waitFor(async () => {
-        const smsMessage = await prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        });
+        const smsMessage = await findSmsMessageByReceipt(
+          prisma,
+          fixture.tenant.id,
+          response.receiptId,
+        );
 
         const outboxEvent = await prisma.outboxEvent.findFirst({
           where: {
@@ -153,14 +147,11 @@ describe('outbox worker recovery (int)', () => {
         );
       });
 
-      const smsMessage = await prisma.smsMessage.findUnique({
-        where: {
-          tenantId_receiptId: {
-            tenantId: fixture.tenant.id,
-            receiptId: response.receiptId,
-          },
-        },
-      });
+      const smsMessage = await findSmsMessageByReceipt(
+        prisma,
+        fixture.tenant.id,
+        response.receiptId,
+      );
 
       const outboxEvent = await prisma.outboxEvent.findFirst({
         where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
@@ -195,14 +186,11 @@ describe('outbox worker recovery (int)', () => {
       );
 
       await waitFor(async () => {
-        const smsMessage = await prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        });
+        const smsMessage = await findSmsMessageByReceipt(
+          prisma,
+          fixture.tenant.id,
+          response.receiptId,
+        );
 
         const outboxEvent = await prisma.outboxEvent.findFirst({
           where: {
@@ -232,14 +220,11 @@ describe('outbox worker recovery (int)', () => {
       await recoveryRuntime.start();
 
       await waitFor(async () => {
-        const smsMessage = await prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        });
+        const smsMessage = await findSmsMessageByReceipt(
+          prisma,
+          fixture.tenant.id,
+          response.receiptId,
+        );
 
         const outboxEvent = await prisma.outboxEvent.findFirst({
           where: {
@@ -256,14 +241,7 @@ describe('outbox worker recovery (int)', () => {
       }, 20000);
 
       const [smsMessage, outboxEvent] = await Promise.all([
-        prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        }),
+        findSmsMessageByReceipt(prisma, fixture.tenant.id, response.receiptId),
         prisma.outboxEvent.findFirst({
           where: {
             tenantId: fixture.tenant.id,
@@ -306,13 +284,8 @@ describe('outbox worker recovery (int)', () => {
         },
       );
 
-      await prisma.smsMessage.delete({
-        where: {
-          tenantId_receiptId: {
-            tenantId: fixture.tenant.id,
-            receiptId: response.receiptId,
-          },
-        },
+      await prisma.smsMessage.deleteMany({
+        where: { tenantId: fixture.tenant.id, receiptId: response.receiptId },
       });
 
       await prisma.outboxEvent.updateMany({
@@ -327,26 +300,20 @@ describe('outbox worker recovery (int)', () => {
       await runtime.start();
 
       await waitFor(async () => {
-        const smsMessage = await prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        });
+        const smsMessage = await findSmsMessageByReceipt(
+          prisma,
+          fixture.tenant.id,
+          response.receiptId,
+        );
 
         return smsMessage?.status === 'DELIVERED';
       });
 
-      const smsMessage = await prisma.smsMessage.findUnique({
-        where: {
-          tenantId_receiptId: {
-            tenantId: fixture.tenant.id,
-            receiptId: response.receiptId,
-          },
-        },
-      });
+      const smsMessage = await findSmsMessageByReceipt(
+        prisma,
+        fixture.tenant.id,
+        response.receiptId,
+      );
 
       expect(smsMessage?.outboxEventId).toBeDefined();
       expect(smsMessage?.status).toBe('DELIVERED');
@@ -393,14 +360,11 @@ describe('outbox worker recovery (int)', () => {
       );
 
       await waitFor(async () => {
-        const smsMessage = await prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        });
+        const smsMessage = await findSmsMessageByReceipt(
+          prisma,
+          fixture.tenant.id,
+          response.receiptId,
+        );
 
         return smsMessage?.status === 'DELIVERED';
       });
@@ -456,26 +420,20 @@ describe('outbox worker recovery (int)', () => {
       );
 
       await waitFor(async () => {
-        const smsMessage = await prisma.smsMessage.findUnique({
-          where: {
-            tenantId_receiptId: {
-              tenantId: fixture.tenant.id,
-              receiptId: response.receiptId,
-            },
-          },
-        });
+        const smsMessage = await findSmsMessageByReceipt(
+          prisma,
+          fixture.tenant.id,
+          response.receiptId,
+        );
 
         return smsMessage?.status === 'FAILED';
       });
 
-      const smsMessage = await prisma.smsMessage.findUnique({
-        where: {
-          tenantId_receiptId: {
-            tenantId: fixture.tenant.id,
-            receiptId: response.receiptId,
-          },
-        },
-      });
+      const smsMessage = await findSmsMessageByReceipt(
+        prisma,
+        fixture.tenant.id,
+        response.receiptId,
+      );
 
       expect(smsMessage?.status).toBe('FAILED');
       expect(smsMessage?.lastError).toContain('provider offline');
@@ -485,6 +443,17 @@ describe('outbox worker recovery (int)', () => {
     }
   }, 120000);
 });
+
+async function findSmsMessageByReceipt(
+  prismaService: PrismaService,
+  tenantId: string,
+  receiptId: string,
+) {
+  return prismaService.smsMessage.findFirst({
+    where: { tenantId, receiptId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 
 async function createEarnFixture(prismaService: PrismaService, suffix: string) {
   const tenant = await prismaService.tenant.create({

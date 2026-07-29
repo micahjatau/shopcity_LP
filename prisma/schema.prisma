@@ -375,6 +375,7 @@ model LoyaltyLedgerEntry {
   adjustment     Adjustment?           @relation("AdjustmentLedgerEntry")
   redemptionAllocations RedemptionAllocation[] @relation("RedemptionAllocationLedgerEntry")
   allocationRestorations AllocationRestoration[] @relation("AllocationRestorationReversalLedgerEntry")
+  smsMessages              SmsMessage[]
 
   @@index([tenantId, customerId, effectiveAt])
   @@index([tenantId, createdAt])
@@ -435,6 +436,7 @@ model Redemption {
   ledgerEntry              LoyaltyLedgerEntry? @relation("RedemptionLedgerEntry", fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
   allocations              RedemptionAllocation[]
   approval                 Approval?
+  smsMessages              SmsMessage[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, receiptId])
@@ -503,6 +505,7 @@ model Adjustment {
   createdByUser            User           @relation("AdjustmentCreatedBy", fields: [createdByTenantId, createdBy], references: [tenantId, id], onDelete: Restrict)
   ledgerEntry              LoyaltyLedgerEntry? @relation("AdjustmentLedgerEntry", fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
   allocations              RedemptionAllocation[]
+  smsMessages              SmsMessage[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, ledgerEntryId])
@@ -566,8 +569,11 @@ model OutboxEvent {
 model SmsMessage {
   id               String           @id @default(uuid())
   tenantId         String
-  receiptId        String
+  receiptId        String?
   outboxEventId    String
+  ledgerEntryId    String?
+  redemptionId     String?
+  adjustmentId     String?
   phoneE164        String
   template         String
   payload          Json
@@ -587,12 +593,18 @@ model SmsMessage {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  receipt          Receipt          @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  receipt          Receipt?         @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
   outboxEvent      OutboxEvent      @relation(fields: [tenantId, outboxEventId], references: [tenantId, id], onDelete: Restrict)
+  ledgerEntry      LoyaltyLedgerEntry? @relation(fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  redemption       Redemption?      @relation(fields: [tenantId, redemptionId], references: [tenantId, id], onDelete: Restrict)
+  adjustment       Adjustment?      @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Restrict)
 
-  @@unique([tenantId, receiptId])
   @@unique([tenantId, outboxEventId])
   @@index([tenantId, status, queuedAt])
+  @@index([tenantId, receiptId])
+  @@index([tenantId, ledgerEntryId])
+  @@index([tenantId, redemptionId])
+  @@index([tenantId, adjustmentId])
 }
 
 model IdempotencyRecord {

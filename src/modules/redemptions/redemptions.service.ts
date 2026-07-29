@@ -335,7 +335,6 @@ export class RedemptionsService {
             const approval = await prisma.approval.create({
               data: {
                 tenantId,
-                receiptId: receipt.id,
                 redemptionId: redemption.id,
                 targetType: ApprovalTargetType.REDEEM,
                 status: ApprovalStatus.PENDING,

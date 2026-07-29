@@ -145,6 +145,8 @@ describe('RedemptionsService', () => {
       reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
     });
     expect(tx.approval.create).toHaveBeenCalledTimes(1);
+    const approvalCreateInput = tx.approval.create.mock.calls[0]?.[0];
+    expect(approvalCreateInput.data).not.toHaveProperty('receiptId');
     expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
@@ -374,7 +376,9 @@ function transactionClient({
       update: jest.fn().mockResolvedValue({}),
     },
     approval: {
-      create: jest.fn().mockResolvedValue({ id: 'approval-1' }),
+      create: jest
+        .fn<Promise<{ id: string }>, [{ data: Record<string, unknown> }]>()
+        .mockResolvedValue({ id: 'approval-1' }),
     },
     loyaltyLedgerEntry: {
       create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),

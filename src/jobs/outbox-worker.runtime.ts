@@ -368,9 +368,9 @@ export class OutboxWorkerRuntime {
 
         await this.prisma.smsMessage.update({
           where: {
-            tenantId_receiptId: {
+            tenantId_outboxEventId: {
               tenantId: resolvedSmsMessage.tenantId,
-              receiptId: resolvedSmsMessage.receiptId,
+              outboxEventId: resolvedSmsMessage.outboxEventId,
             },
           },
           data: {
@@ -410,9 +410,9 @@ export class OutboxWorkerRuntime {
 
       await this.prisma.smsMessage.update({
         where: {
-          tenantId_receiptId: {
+          tenantId_outboxEventId: {
             tenantId: resolvedSmsMessage.tenantId,
-            receiptId: resolvedSmsMessage.receiptId,
+            outboxEventId: resolvedSmsMessage.outboxEventId,
           },
         },
         data: mapSmsDispatchResult(result, now),
@@ -423,9 +423,9 @@ export class OutboxWorkerRuntime {
 
       await this.prisma.smsMessage.update({
         where: {
-          tenantId_receiptId: {
+          tenantId_outboxEventId: {
             tenantId: resolvedSmsMessage.tenantId,
-            receiptId: resolvedSmsMessage.receiptId,
+            outboxEventId: resolvedSmsMessage.outboxEventId,
           },
         },
         data: {
@@ -479,11 +479,23 @@ export class OutboxWorkerRuntime {
       throw new Error(`Unsupported SMS payload version for ${outboxEvent.id}`);
     }
 
-    const receiptId = readStringField(payload, 'receiptId').trim();
+    const receiptId = readStringField(payload, 'receiptId').trim() || null;
+    const ledgerEntryId =
+      readStringField(payload, 'ledgerEntryId').trim() ||
+      readStringField(payload, 'transactionId').trim() ||
+      null;
+    const redemptionId =
+      readStringField(payload, 'redemptionId').trim() || null;
+    const adjustmentId =
+      readStringField(payload, 'adjustmentId').trim() || null;
     const phoneE164 = readStringField(payload, 'phoneE164').trim();
     const template = readStringField(payload, 'template').trim();
 
-    if (!receiptId || !phoneE164 || !template) {
+    if (
+      (!receiptId && !ledgerEntryId && !redemptionId && !adjustmentId) ||
+      !phoneE164 ||
+      !template
+    ) {
       throw new Error(
         `SmsMessage payload missing required fields for ${outboxEvent.id}`,
       );
@@ -499,6 +511,9 @@ export class OutboxWorkerRuntime {
       create: {
         tenantId: outboxEvent.tenantId,
         receiptId,
+        ledgerEntryId,
+        redemptionId,
+        adjustmentId,
         outboxEventId: outboxEvent.id,
         phoneE164,
         template,

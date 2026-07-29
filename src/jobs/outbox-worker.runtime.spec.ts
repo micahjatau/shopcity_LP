@@ -282,6 +282,81 @@ describe('OutboxWorkerRuntime', () => {
     });
   });
 
+  it('reconstructs receipt-less SMS messages from transaction references', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-adjustment',
+        tenantId: 'tenant-1',
+        aggregateType: 'adjustment',
+        aggregateId: 'adjustment-1',
+        eventType: 'sms.send',
+        payload: {
+          version: 1,
+          transactionId: 'ledger-1',
+          adjustmentId: 'adjustment-1',
+          phoneE164: '+2348000000000',
+          template: 'adjustment-confirmed',
+        },
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    prisma.smsMessageUpsert.mockResolvedValueOnce({
+      id: 'sms-adjustment',
+      tenantId: 'tenant-1',
+      receiptId: null,
+      ledgerEntryId: 'ledger-1',
+      adjustmentId: 'adjustment-1',
+      outboxEventId: 'outbox-adjustment',
+      phoneE164: '+2348000000000',
+      template: 'adjustment-confirmed',
+      payload: {},
+      status: 'QUEUED',
+      attempts: 0,
+    });
+    const smsProvider = {
+      send: jest.fn().mockResolvedValue({ status: 'SENT' }),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithHandleJob(runtime).handleJob({
+      data: { id: 'outbox-adjustment', tenantId: 'tenant-1' },
+    });
+
+    expect(prisma.smsMessageUpsert).toHaveBeenCalledWith({
+      where: {
+        tenantId_outboxEventId: {
+          tenantId: 'tenant-1',
+          outboxEventId: 'outbox-adjustment',
+        },
+      },
+      create: expect.objectContaining({
+        receiptId: null,
+        ledgerEntryId: 'ledger-1',
+        adjustmentId: 'adjustment-1',
+      }) as Record<string, unknown>,
+      update: {},
+    });
+    expect(smsProvider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        receiptId: null,
+        outboxEventId: 'outbox-adjustment',
+      }),
+    );
+    expect(prisma.smsMessageUpdateCalls[0]).toMatchObject({
+      where: {
+        tenantId_outboxEventId: {
+          tenantId: 'tenant-1',
+          outboxEventId: 'outbox-adjustment',
+        },
+      },
+    });
+  });
+
   it('waits for active recovery before disconnecting during shutdown', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -372,7 +447,10 @@ type PrismaStubOverrides = {
     smsMessage: {
       id: string;
       tenantId: string;
-      receiptId: string;
+      receiptId: string | null;
+      ledgerEntryId?: string | null;
+      redemptionId?: string | null;
+      adjustmentId?: string | null;
       outboxEventId: string;
       phoneE164: string;
       template: string;
@@ -388,10 +466,11 @@ type PrismaStubOverrides = {
 };
 
 type SmsMessageUpdateArgs = {
+  where?: unknown;
   data: {
-    deadLetteredAt: Date;
-    failureCategory: string;
-    nextAttemptAt: null;
+    deadLetteredAt?: Date;
+    failureCategory?: string;
+    nextAttemptAt?: null;
   };
 };
 

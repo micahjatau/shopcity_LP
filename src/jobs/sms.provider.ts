@@ -2,7 +2,7 @@ export type SmsDeliveryOutcome = 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED';
 
 export interface SmsSendInput {
   tenantId: string;
-  receiptId: string;
+  receiptId: string | null;
   outboxEventId: string;
   phoneE164: string;
   template: string;

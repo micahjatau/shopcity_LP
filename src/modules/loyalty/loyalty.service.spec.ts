@@ -487,7 +487,7 @@ function approvalRows() {
     {
       id: 'approval-redeem',
       targetType: 'REDEEM',
-      receiptId: 'receipt-redeem',
+      receiptId: null,
       redemptionId: 'redemption-1',
       status: 'PENDING',
       reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
@@ -495,20 +495,22 @@ function approvalRows() {
       expiresAt: new Date('2026-07-27T11:00:00.000Z'),
       decidedAt: null,
       executedAt: null,
-      receipt: {
-        id: 'receipt-redeem',
-        customerId: 'customer-1',
-        cardId: 'card-1',
-        posReceiptNumber: 'POS-REDEEM',
-        purchaseAmountKobo: 2_000_000n,
-        captureStatus: 'CAPTURED',
-        reviewStatus: 'APPROVED',
-      },
+      receipt: null,
       redemption: {
         id: 'redemption-1',
+        receiptId: 'receipt-redeem',
         requestedAmountKobo: 600_000n,
         maximumAllowedKobo: 600_000n,
         status: 'PENDING_APPROVAL',
+        receipt: {
+          id: 'receipt-redeem',
+          customerId: 'customer-1',
+          cardId: 'card-1',
+          posReceiptNumber: 'POS-REDEEM',
+          purchaseAmountKobo: 2_000_000n,
+          captureStatus: 'CAPTURED',
+          reviewStatus: 'APPROVED',
+        },
       },
     },
   ];
@@ -596,7 +598,7 @@ function redemptionApprovalRow({
   return {
     id: 'approval-redeem',
     tenantId: 'tenant-1',
-    receiptId: 'receipt-redeem',
+    receiptId: null,
     redemptionId: 'redemption-1',
     targetType: 'REDEEM',
     status,
@@ -606,10 +608,7 @@ function redemptionApprovalRow({
     policyVersion:
       '900e3cb1e11c958ddfad2d8665d39a2a0683b20320ebadebdbc5775ce1488b4c',
     expiresAt,
-    receipt: {
-      id: 'receipt-redeem',
-      occurredAt: new Date('2026-07-26T12:00:00.000Z'),
-    },
+    receipt: null,
     redemption: {
       id: 'redemption-1',
       customerId: 'customer-1',
@@ -626,6 +625,10 @@ function redemptionApprovalRow({
         status: 'ACTIVE',
         isStaff: false,
         phoneE164: '+2348000000000',
+      },
+      receipt: {
+        id: 'receipt-redeem',
+        occurredAt: new Date('2026-07-26T12:00:00.000Z'),
       },
     },
   };
