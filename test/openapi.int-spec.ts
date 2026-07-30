@@ -175,7 +175,8 @@ describe('OpenAPI contract (int)', () => {
           properties?: Record<string, unknown>;
         }
       | undefined;
-    const ledgerItemsSchema = transactionLedgerSchema?.properties?.allocations as
+    const ledgerItemsSchema = transactionLedgerSchema?.properties
+      ?.allocations as
       | {
           items?: {
             properties?: Record<string, unknown>;
@@ -190,18 +191,23 @@ describe('OpenAPI contract (int)', () => {
     expect(customerLedgerSchema?.properties?.items).toBeDefined();
     expect(customerLedgerSchema?.properties?.nextCursor).toBeDefined();
     expect(customerLedgerSchema?.properties?.hasMore).toBeDefined();
-    const customerLedgerItemSchema =
-      customerLedgerSchema?.properties?.items as
-        | {
-            items?: {
-              properties?: Record<string, unknown>;
-            };
-          }
-        | undefined;
+    const customerLedgerItemSchema = customerLedgerSchema?.properties?.items as
+      | {
+          items?: {
+            properties?: Record<string, unknown>;
+          };
+        }
+      | undefined;
 
-    expect(customerLedgerItemSchema?.items?.properties?.redemptionId).toBeDefined();
-    expect(customerLedgerItemSchema?.items?.properties?.adjustmentId).toBeDefined();
-    expect(customerLedgerItemSchema?.items?.properties?.allocations).toBeDefined();
+    expect(
+      customerLedgerItemSchema?.items?.properties?.redemptionId,
+    ).toBeDefined();
+    expect(
+      customerLedgerItemSchema?.items?.properties?.adjustmentId,
+    ).toBeDefined();
+    expect(
+      customerLedgerItemSchema?.items?.properties?.allocations,
+    ).toBeDefined();
     expect(approvalsSchema?.properties?.items).toBeDefined();
     expect(approvalsSchema?.properties?.nextCursor).toBeDefined();
     expect(approvalsSchema?.properties?.hasMore).toBeDefined();

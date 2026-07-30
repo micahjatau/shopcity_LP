@@ -59,9 +59,7 @@ describe('redemption approval lifecycle (int)', () => {
       activeBalanceService,
       lotAllocationService,
     );
-    approvalsService = new ApprovalsService(
-      loyaltyService,
-    );
+    approvalsService = new ApprovalsService(loyaltyService);
     fixture = await createFixture(prisma);
   }, 120000);
 
@@ -160,20 +158,13 @@ describe('redemption approval lifecycle (int)', () => {
       fixture.tenantId,
       decision.ledgerEntryId!,
     );
-    expect(transaction).toMatchObject({
-      transactionId: decision.ledgerEntryId,
-      redemptionId: pending.redemptionId,
-      redeemedAmountKobo: 6_000,
-      ledger: {
-        allocations: [
-          expect.objectContaining({
-            creditLotId: expect.any(String),
-            amountKobo: 6_000,
-            restorations: [],
-          }),
-        ],
-      },
-    });
+    expect(transaction.transactionId).toBe(decision.ledgerEntryId);
+    expect(transaction.redemptionId).toBe(pending.redemptionId);
+    expect(transaction.redeemedAmountKobo).toBe(6_000);
+    const allocation = transaction.ledger?.allocations?.[0];
+    expect(allocation?.creditLotId).toEqual(expect.any(String));
+    expect(allocation?.amountKobo).toBe(6_000);
+    expect(allocation?.restorations).toEqual([]);
 
     const ledger = await loyaltyService.listCustomerLedger(
       fixture.tenantId,

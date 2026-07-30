@@ -124,7 +124,7 @@ describe('LoyaltyService redemption approvals', () => {
               status: ApprovalStatus.PENDING,
               reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
               requestedAt: new Date('2026-07-26T12:00:00.000Z'),
-         expiresAt: new Date('2127-07-30T12:00:00.000Z'),
+              expiresAt: new Date('2127-07-30T12:00:00.000Z'),
               decidedAt: null,
               executedAt: null,
               receipt: null,

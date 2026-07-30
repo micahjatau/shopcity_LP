@@ -3,17 +3,6 @@ import { Prisma } from '@prisma/client';
 import { DomainHttpException } from '../errors/domain.exception';
 import { LotAllocationService } from './lot-allocation.service';
 
-type PrismaStub = {
-  $queryRaw: jest.Mock;
-  redemptionAllocation: {
-    createMany: jest.Mock;
-    findMany: jest.Mock;
-  };
-  creditLot: {
-    updateMany: jest.Mock;
-  };
-};
-
 describe('LotAllocationService', () => {
   it('persists FIFO allocations and conditionally decrements lots', async () => {
     const expiresAt = new Date('2027-01-15T10:00:00.000Z');
