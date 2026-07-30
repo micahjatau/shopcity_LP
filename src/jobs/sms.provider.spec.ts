@@ -90,6 +90,100 @@ describe('sms provider selection', () => {
     }
   });
 
+  it('renders redemption-confirmed SMS messages', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+
+      return {
+        statusCode: 200,
+        body: { response: { status: 'SUCCESS', batch_id: 'sms-2' } },
+      };
+    });
+
+    const provider = newEbulkSmsProvider(server.url);
+
+    try {
+      await expect(
+        provider.send({
+          ...smsInput(),
+          template: 'redemption-confirmed',
+          payload: {
+            redeemedKobo: '5000',
+            remainingBalanceKobo: '125050',
+            redemptionId: 'redemption-1',
+            transactionId: 'ledger-1',
+          },
+        }),
+      ).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'sms-2',
+      });
+
+      expect(requests[0]?.body).toMatchObject({
+        SMS: {
+          message: {
+            messagetext:
+              'ShopCity: Redeemed NGN 50.00 from receipt receipt-1. Remaining balance NGN 1250.50.',
+          },
+        },
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('renders transaction-reversed SMS messages without a receipt id', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+
+      return {
+        statusCode: 200,
+        body: { response: { status: 'SUCCESS', batch_id: 'sms-3' } },
+      };
+    });
+
+    const provider = newEbulkSmsProvider(server.url);
+
+    try {
+      await expect(
+        provider.send({
+          ...smsInput(),
+          receiptId: null,
+          template: 'transaction-reversed',
+          payload: { transactionId: 'ledger-9' },
+        }),
+      ).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'sms-3',
+      });
+
+      expect(requests[0]?.body).toMatchObject({
+        SMS: {
+          message: {
+            messagetext: 'ShopCity: Your transaction unknown was reversed.',
+          },
+        },
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('rejects incomplete redemption-confirmed payloads', async () => {
+    await expect(
+      newEbulkSmsProvider().send({
+        ...smsInput(),
+        template: 'redemption-confirmed',
+        payload: { redeemedKobo: '5000' },
+      }),
+    ).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'terminal',
+    });
+  });
+
   it('maps terminal eBulkSMS failures', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -273,6 +367,32 @@ describe('sms provider selection', () => {
 
     fetchSpy.mockRestore();
   });
+
+  it('keeps duplicate outbox sends idempotent at the provider boundary', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+
+      return {
+        statusCode: 200,
+        body: { response: { status: 'SUCCESS', batch_id: 'sms-4' } },
+      };
+    });
+
+    const provider = newEbulkSmsProvider(server.url);
+
+    try {
+      await provider.send(smsInput());
+      await provider.send(smsInput());
+
+      expect(requests).toHaveLength(2);
+      expect(requests[0]?.headers['idempotency-key']).toBe('outbox-1');
+      expect(requests[1]?.headers['idempotency-key']).toBe('outbox-1');
+      expect(requests[0]?.body).toEqual(requests[1]?.body);
+    } finally {
+      await server.close();
+    }
+  });
 });
 
 function smsInput() {
@@ -281,7 +401,7 @@ function smsInput() {
     receiptId: 'receipt-1',
     outboxEventId: 'outbox-1',
     phoneE164: '+2348000000000',
-    template: 'earn-confirmed',
+    template: 'earn-confirmed' as const,
     payload: { creditKobo: '125050' },
   };
 }

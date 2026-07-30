@@ -4,6 +4,8 @@ import { DomainHttpException } from '../errors/domain.exception';
 
 export const FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+  maxWait: 5_000,
+  timeout: 15_000,
 };
 
 export interface AllocateDebitInput {
@@ -109,11 +111,14 @@ export class LotAllocationService {
       );
     }
 
-    if (!input.redemptionId && !input.adjustmentId) {
+    const targetCount =
+      Number(Boolean(input.redemptionId)) + Number(Boolean(input.adjustmentId));
+
+    if (targetCount !== 1) {
       throw new DomainHttpException(
         HttpStatus.BAD_REQUEST,
         'VALIDATION_ERROR',
-        'Debit allocation must target a redemption or adjustment',
+        'Debit allocation must target exactly one redemption or adjustment',
       );
     }
 

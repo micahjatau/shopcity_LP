@@ -32,6 +32,9 @@
     "openapi:export": "node -r ts-node/register -r tsconfig-paths/register scripts/export-openapi.ts",
     "openapi:lint": "npm run openapi:export && spectral lint docs/api/openapi.json",
     "openapi:diff": "npm run openapi:export && oasdiff diff docs/api/openapi.base.json docs/api/openapi.json",
+    "client:generate": "orval --input docs/api/openapi.json --output client/shopcity-client.ts --client fetch --mode single --prettier",
+    "client:typecheck": "tsc --noEmit -p tsconfig.client.json",
+    "bruno:test": "cd bruno && bru run -r --tests-only --env-var baseUrl=${BRUNO_BASE_URL:-http://127.0.0.1:3000}",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -117,6 +120,20 @@
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
+    "coverageThreshold": {
+      "src/modules/redemptions/redemptions.service.ts": {
+        "branches": 55
+      },
+      "src/modules/approvals/approvals.service.ts": {
+        "branches": 15
+      },
+      "src/common/balance/lot-allocation.service.ts": {
+        "branches": 80
+      },
+      "src/jobs/outbox-worker.runtime.ts": {
+        "branches": 40
+      }
+    },
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }

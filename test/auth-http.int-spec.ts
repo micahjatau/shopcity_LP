@@ -815,61 +815,63 @@ async function createCreditLotFixture(
   const occurredAt = data.earnedAt;
   const originalAmountKobo =
     data.originalAmountKobo ?? data.remainingAmountKobo;
-  const receipt = await prisma.receipt.create({
-    data: {
-      tenantId: seedData.tenant.id,
-      branchId: seedData.branch.id,
-      customerId: data.customerId,
-      cardId: data.cardId,
-      posReceiptNumber: `READ-${data.suffix}`,
-      normalizedPosReceiptNumber: `read-${data.suffix}`,
-      receiptWeekStart: new Date(
-        Date.UTC(
-          occurredAt.getUTCFullYear(),
-          occurredAt.getUTCMonth(),
-          occurredAt.getUTCDate(),
+  return prisma.$transaction(async (tx) => {
+    const receipt = await tx.receipt.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        customerId: data.customerId,
+        cardId: data.cardId,
+        posReceiptNumber: `READ-${data.suffix}`,
+        normalizedPosReceiptNumber: `read-${data.suffix}`,
+        receiptWeekStart: new Date(
+          Date.UTC(
+            occurredAt.getUTCFullYear(),
+            occurredAt.getUTCMonth(),
+            occurredAt.getUTCDate(),
+          ),
         ),
-      ),
-      purchaseAmountKobo: Math.max(originalAmountKobo, 1),
-      occurredAt,
-      capturedByTenantId: seedData.tenant.id,
-      capturedBy: seedData.user.id,
-      captureStatus: ReceiptCaptureStatus.CAPTURED,
-      reviewStatus: ReceiptReviewStatus.APPROVED,
-      reviewedAt: occurredAt,
-      reviewedByTenantId: seedData.tenant.id,
-      reviewedBy: seedData.user.id,
-      approvedByTenantId: seedData.tenant.id,
-      approvedBy: seedData.user.id,
-      approvedAt: occurredAt,
-    },
-  });
-  const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-    data: {
-      tenantId: seedData.tenant.id,
-      customerId: data.customerId,
-      receiptId: receipt.id,
-      type: LedgerEntryType.EARN,
-      direction: LedgerEntryDirection.CREDIT,
-      amountKobo: originalAmountKobo,
-      status: LedgerEntryStatus.CONFIRMED,
-      correlationId: `read-model-${data.suffix}`,
-      createdByTenantId: seedData.tenant.id,
-      createdBy: seedData.user.id,
-      effectiveAt: occurredAt,
-    },
-  });
+        purchaseAmountKobo: Math.max(originalAmountKobo, 1),
+        occurredAt,
+        capturedByTenantId: seedData.tenant.id,
+        capturedBy: seedData.user.id,
+        captureStatus: ReceiptCaptureStatus.CAPTURED,
+        reviewStatus: ReceiptReviewStatus.APPROVED,
+        reviewedAt: occurredAt,
+        reviewedByTenantId: seedData.tenant.id,
+        reviewedBy: seedData.user.id,
+        approvedByTenantId: seedData.tenant.id,
+        approvedBy: seedData.user.id,
+        approvedAt: occurredAt,
+      },
+    });
+    const ledgerEntry = await tx.loyaltyLedgerEntry.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: data.customerId,
+        receiptId: receipt.id,
+        type: LedgerEntryType.EARN,
+        direction: LedgerEntryDirection.CREDIT,
+        amountKobo: originalAmountKobo,
+        status: LedgerEntryStatus.CONFIRMED,
+        correlationId: `read-model-${data.suffix}`,
+        createdByTenantId: seedData.tenant.id,
+        createdBy: seedData.user.id,
+        effectiveAt: occurredAt,
+      },
+    });
 
-  return prisma.creditLot.create({
-    data: {
-      tenantId: seedData.tenant.id,
-      customerId: data.customerId,
-      earnLedgerEntryId: ledgerEntry.id,
-      originalAmountKobo,
-      remainingAmountKobo: data.remainingAmountKobo,
-      earnedAt: data.earnedAt,
-      expiresAt: addUtcYears(data.earnedAt, 1),
-    },
+    return tx.creditLot.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: data.customerId,
+        earnLedgerEntryId: ledgerEntry.id,
+        originalAmountKobo,
+        remainingAmountKobo: data.remainingAmountKobo,
+        earnedAt: data.earnedAt,
+        expiresAt: addUtcYears(data.earnedAt, 1),
+      },
+    });
   });
 }
 

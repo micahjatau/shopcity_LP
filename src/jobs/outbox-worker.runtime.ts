@@ -7,6 +7,7 @@ import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
 import type { SmsProvider } from './sms.provider';
+import type { SmsTemplate } from './sms.templates';
 
 export interface WorkerConfig {
   redisUrl: string;
@@ -355,7 +356,7 @@ export class OutboxWorkerRuntime {
         receiptId: resolvedSmsMessage.receiptId,
         outboxEventId: outboxEvent.id,
         phoneE164: resolvedSmsMessage.phoneE164,
-        template: resolvedSmsMessage.template,
+        template: resolvedSmsMessage.template as SmsTemplate,
         payload: normalizeJsonPayload(resolvedSmsMessage.payload),
       });
 

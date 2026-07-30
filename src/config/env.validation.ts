@@ -19,16 +19,25 @@ export const envValidationSchema = Joi.object({
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
-  MIN_REDEMPTION_KOBO: Joi.number().integer().min(0).default(50000),
+  MIN_REDEMPTION_KOBO: Joi.number()
+    .integer()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(50000),
   MAX_REDEMPTION_BASKET_PERCENT: Joi.number()
     .integer()
     .min(1)
     .max(100)
     .default(30),
-  PURCHASE_FLAG_THRESHOLD_KOBO: Joi.number().integer().min(0).default(10000000),
+  PURCHASE_FLAG_THRESHOLD_KOBO: Joi.number()
+    .integer()
+    .min(0)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(10000000),
   PURCHASE_APPROVAL_THRESHOLD_KOBO: Joi.number()
     .integer()
     .min(0)
+    .max(Number.MAX_SAFE_INTEGER)
     .default(20000000),
   PURCHASE_AMOUNT_CEILING_KOBO: Joi.number()
     .integer()
@@ -73,7 +82,8 @@ export const envValidationSchema = Joi.object({
     .default(false),
   REDEMPTION_APPROVAL_THRESHOLD_KOBO: Joi.number()
     .integer()
-    .min(0)
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
     .default(500000),
   ADJUSTMENT_CREDIT_EXPIRY_MONTHS: Joi.number()
     .integer()
@@ -96,4 +106,20 @@ export const envValidationSchema = Joi.object({
   SUPABASE_URL: requiredString('http://127.0.0.1:54321'),
   SUPABASE_ANON_KEY: requiredString('test-anon-key'),
   SUPABASE_SERVICE_ROLE_KEY: requiredString('test-service-role-key'),
-}).unknown(true);
+})
+  .custom((value: unknown, helpers) => {
+    const env = value as Record<string, number>;
+
+    if (env.REDEMPTION_APPROVAL_THRESHOLD_KOBO < env.MIN_REDEMPTION_KOBO) {
+      return helpers.error('any.invalid');
+    }
+
+    if (
+      env.PURCHASE_APPROVAL_THRESHOLD_KOBO < env.PURCHASE_FLAG_THRESHOLD_KOBO
+    ) {
+      return helpers.error('any.invalid');
+    }
+
+    return env;
+  })
+  .unknown(true);

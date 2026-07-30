@@ -478,17 +478,21 @@ describe('immutable earn ledger (int)', () => {
     );
 
     await expect(
-      prisma.creditLot.create({
-        data: {
-          tenantId: tenant.id,
-          customerId: fixture.customer.id,
-          earnLedgerEntryId: direct.ledgerEntry.id,
+      createDirectEarnLedgerFixture(
+        prisma,
+        tenant.id,
+        branch.id,
+        cashier.id,
+        fixture.device.id,
+        fixture.customer.id,
+        fixture.card.id,
+        'POS-LEDGER-LOT-MISMATCH-2',
+        direct.ledgerEntry.effectiveAt,
+        {
           originalAmountKobo: direct.ledgerEntry.amountKobo + 1n,
           remainingAmountKobo: direct.ledgerEntry.amountKobo + 1n,
-          earnedAt: direct.ledgerEntry.effectiveAt,
-          expiresAt: addMonthsUtc(direct.ledgerEntry.effectiveAt, 12),
         },
-      }),
+      ),
     ).rejects.toThrow(/credit lot must match its earn ledger entry/i);
   }, 120000);
 
@@ -519,47 +523,24 @@ describe('immutable earn ledger (int)', () => {
         earnedAt,
       );
 
-      await expect(
-        prisma.creditLot.create({
-          data: {
-            tenantId: tenant.id,
-            customerId: fixture.customer.id,
-            earnLedgerEntryId: direct.ledgerEntry.id,
-            originalAmountKobo: direct.ledgerEntry.amountKobo,
-            remainingAmountKobo: direct.ledgerEntry.amountKobo,
-            earnedAt: direct.ledgerEntry.effectiveAt,
-            expiresAt: addMonthsUtc(direct.ledgerEntry.effectiveAt, 12),
-          },
-        }),
-      ).resolves.toMatchObject({
-        expiresAt: addMonthsUtc(earnedAt, 12),
-      });
+      expect(direct.creditLot.expiresAt).toEqual(addMonthsUtc(earnedAt, 12));
     }
 
-    const invalid = await createDirectEarnLedgerFixture(
-      prisma,
-      tenant.id,
-      branch.id,
-      cashier.id,
-      fixture.device.id,
-      fixture.customer.id,
-      fixture.card.id,
-      'POS-LEDGER-LOT-EXPIRY-BAD',
-      new Date('2024-02-29T10:30:45.123Z'),
-    );
-
     await expect(
-      prisma.creditLot.create({
-        data: {
-          tenantId: tenant.id,
-          customerId: fixture.customer.id,
-          earnLedgerEntryId: invalid.ledgerEntry.id,
-          originalAmountKobo: invalid.ledgerEntry.amountKobo,
-          remainingAmountKobo: invalid.ledgerEntry.amountKobo,
-          earnedAt: invalid.ledgerEntry.effectiveAt,
+      createDirectEarnLedgerFixture(
+        prisma,
+        tenant.id,
+        branch.id,
+        cashier.id,
+        fixture.device.id,
+        fixture.customer.id,
+        fixture.card.id,
+        'POS-LEDGER-LOT-EXPIRY-BAD',
+        new Date('2024-02-29T10:30:45.123Z'),
+        {
           expiresAt: new Date('2025-03-01T10:30:45.123Z'),
         },
-      }),
+      ),
     ).rejects.toThrow(
       /credit lot expiry must be derived from earned timestamp/i,
     );
@@ -807,56 +788,83 @@ async function createDirectEarnLedgerFixture(
   cardId: string,
   receiptNumber: string,
   occurredAt = new Date(),
+  creditLotOverrides: {
+    originalAmountKobo?: bigint;
+    remainingAmountKobo?: bigint;
+    expiresAt?: Date;
+  } = {},
 ) {
-  const receipt = await prisma.receipt.create({
-    data: {
-      id: randomUUID(),
-      tenantId,
-      branchId,
-      customerId,
-      cardId,
-      deviceId,
-      posReceiptNumber: receiptNumber,
-      normalizedPosReceiptNumber: receiptNumber,
-      receiptWeekStart: new Date(
-        Date.UTC(
-          occurredAt.getUTCFullYear(),
-          occurredAt.getUTCMonth(),
-          occurredAt.getUTCDate(),
+  return prisma.$transaction(async (tx) => {
+    const receipt = await tx.receipt.create({
+      data: {
+        id: randomUUID(),
+        tenantId,
+        branchId,
+        customerId,
+        cardId,
+        deviceId,
+        posReceiptNumber: receiptNumber,
+        normalizedPosReceiptNumber: receiptNumber,
+        receiptWeekStart: new Date(
+          Date.UTC(
+            occurredAt.getUTCFullYear(),
+            occurredAt.getUTCMonth(),
+            occurredAt.getUTCDate(),
+          ),
         ),
-      ),
-      purchaseAmountKobo: 1_000_000,
-      occurredAt,
-      capturedByTenantId: tenantId,
-      capturedBy: cashierId,
-      captureStatus: ReceiptCaptureStatus.CAPTURED,
-      reviewStatus: ReceiptReviewStatus.APPROVED,
-      reviewedAt: occurredAt,
-      reviewedByTenantId: tenantId,
-      reviewedBy: cashierId,
-      approvedAt: occurredAt,
-      approvedByTenantId: tenantId,
-      approvedBy: cashierId,
-    },
-  });
-  const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-    data: {
-      id: randomUUID(),
-      tenantId,
-      customerId,
-      receiptId: receipt.id,
-      type: LedgerEntryType.EARN,
-      direction: LedgerEntryDirection.CREDIT,
-      amountKobo: 20_000,
-      status: LedgerEntryStatus.CONFIRMED,
-      correlationId: `direct-${receiptNumber}`,
-      createdByTenantId: tenantId,
-      createdBy: cashierId,
-      effectiveAt: occurredAt,
-    },
-  });
+        purchaseAmountKobo: 1_000_000,
+        occurredAt,
+        capturedByTenantId: tenantId,
+        capturedBy: cashierId,
+        captureStatus: ReceiptCaptureStatus.CAPTURED,
+        reviewStatus: ReceiptReviewStatus.APPROVED,
+        reviewedAt: occurredAt,
+        reviewedByTenantId: tenantId,
+        reviewedBy: cashierId,
+        approvedAt: occurredAt,
+        approvedByTenantId: tenantId,
+        approvedBy: cashierId,
+      },
+    });
+    const ledgerEntry = await tx.loyaltyLedgerEntry.create({
+      data: {
+        id: randomUUID(),
+        tenantId,
+        customerId,
+        receiptId: receipt.id,
+        type: LedgerEntryType.EARN,
+        direction: LedgerEntryDirection.CREDIT,
+        amountKobo: 20_000,
+        status: LedgerEntryStatus.CONFIRMED,
+        correlationId: `direct-${receiptNumber}`,
+        createdByTenantId: tenantId,
+        createdBy: cashierId,
+        effectiveAt: occurredAt,
+      },
+    });
 
-  return { receipt, ledgerEntry };
+    const originalAmountKobo =
+      creditLotOverrides.originalAmountKobo ?? ledgerEntry.amountKobo;
+    const remainingAmountKobo =
+      creditLotOverrides.remainingAmountKobo ?? ledgerEntry.amountKobo;
+    const expiresAt =
+      creditLotOverrides.expiresAt ?? addMonthsUtc(ledgerEntry.effectiveAt, 12);
+
+    const creditLot = await tx.creditLot.create({
+      data: {
+        id: randomUUID(),
+        tenantId,
+        customerId,
+        earnLedgerEntryId: ledgerEntry.id,
+        originalAmountKobo,
+        remainingAmountKobo,
+        earnedAt: occurredAt,
+        expiresAt,
+      },
+    });
+
+    return { receipt, ledgerEntry, creditLot };
+  });
 }
 
 function makeContext(

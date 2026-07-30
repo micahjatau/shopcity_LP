@@ -21887,6 +21887,8 @@
                       "required": [
                         "id",
                         "transactionId",
+                        "type",
+                        "direction",
                         "tenantId",
                         "branchId",
                         "customerId",
@@ -21903,6 +21905,8 @@
                         "approvalStatus",
                         "ledgerEntryId",
                         "creditKobo",
+                        "redeemedAmountKobo",
+                        "redemptionId",
                         "availableBalanceKobo",
                         "expiresAt",
                         "smsStatus",
@@ -21916,6 +21920,22 @@
                         "transactionId": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "EARN",
+                            "REDEEM",
+                            "ADJUSTMENT",
+                            "REVERSAL"
+                          ]
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "CREDIT",
+                            "DEBIT"
+                          ]
                         },
                         "tenantId": {
                           "type": "string",
@@ -21979,6 +21999,15 @@
                         "creditKobo": {
                           "type": "integer"
                         },
+                        "redeemedAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "redemptionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
                         "availableBalanceKobo": {
                           "type": "integer"
                         },
@@ -22001,6 +22030,7 @@
                             "amountKobo",
                             "status",
                             "effectiveAt",
+                            "smsStatus",
                             "creditLot"
                           ],
                           "properties": {
@@ -22011,6 +22041,16 @@
                             "receiptId": {
                               "type": "string",
                               "format": "uuid"
+                            },
+                            "redemptionId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "adjustmentId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
                             },
                             "type": {
                               "type": "string",
@@ -22030,6 +22070,68 @@
                             "effectiveAt": {
                               "type": "string",
                               "format": "date-time"
+                            },
+                            "smsStatus": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "allocations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "creditLotId",
+                                  "amountKobo",
+                                  "allocationOrder",
+                                  "expiresAt",
+                                  "restorations"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "creditLotId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "amountKobo": {
+                                    "type": "integer"
+                                  },
+                                  "allocationOrder": {
+                                    "type": "integer"
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "restorations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": [
+                                        "id",
+                                        "amountKobo",
+                                        "reversalLedgerEntryId"
+                                      ],
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        "amountKobo": {
+                                          "type": "integer"
+                                        },
+                                        "reversalLedgerEntryId": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
                             },
                             "creditLot": {
                               "type": "object",
@@ -22736,6 +22838,7 @@
                               "amountKobo",
                               "status",
                               "effectiveAt",
+                              "smsStatus",
                               "creditLot"
                             ],
                             "properties": {
@@ -22746,6 +22849,16 @@
                               "receiptId": {
                                 "type": "string",
                                 "format": "uuid"
+                              },
+                              "redemptionId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              },
+                              "adjustmentId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
                               },
                               "type": {
                                 "type": "string",
@@ -22765,6 +22878,68 @@
                               "effectiveAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              },
+                              "smsStatus": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "allocations": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "creditLotId",
+                                    "amountKobo",
+                                    "allocationOrder",
+                                    "expiresAt",
+                                    "restorations"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "creditLotId": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "amountKobo": {
+                                      "type": "integer"
+                                    },
+                                    "allocationOrder": {
+                                      "type": "integer"
+                                    },
+                                    "expiresAt": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "restorations": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "required": [
+                                          "id",
+                                          "amountKobo",
+                                          "reversalLedgerEntryId"
+                                        ],
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                          },
+                                          "amountKobo": {
+                                            "type": "integer"
+                                          },
+                                          "reversalLedgerEntryId": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
                               },
                               "creditLot": {
                                 "type": "object",
@@ -23433,10 +23608,372 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "Confirmed redemption",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "transactionId",
+                        "redemptionId",
+                        "receiptId",
+                        "approvalId",
+                        "state",
+                        "tenantId",
+                        "branchId",
+                        "deviceId",
+                        "customerId",
+                        "cardSerialNumber",
+                        "posReceiptNumber",
+                        "basketAmountKobo",
+                        "requestedRedemptionKobo",
+                        "redeemedAmountKobo",
+                        "maximumAllowedKobo",
+                        "remainingBalanceKobo",
+                        "allocations",
+                        "smsStatus",
+                        "occurredAt",
+                        "requestedAt",
+                        "policyVersion"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "transactionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "redemptionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "receiptId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "approvalId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "CONFIRMED",
+                            "PENDING_APPROVAL"
+                          ]
+                        },
+                        "tenantId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "customerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "cardSerialNumber": {
+                          "type": "string"
+                        },
+                        "posReceiptNumber": {
+                          "type": "string"
+                        },
+                        "basketAmountKobo": {
+                          "type": "integer"
+                        },
+                        "requestedRedemptionKobo": {
+                          "type": "integer"
+                        },
+                        "redeemedAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "maximumAllowedKobo": {
+                          "type": "integer"
+                        },
+                        "remainingBalanceKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "allocations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "creditLotId",
+                              "amountKobo",
+                              "allocationOrder",
+                              "expiresAt"
+                            ],
+                            "properties": {
+                              "creditLotId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "amountKobo": {
+                                "type": "integer"
+                              },
+                              "allocationOrder": {
+                                "type": "integer"
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "smsStatus": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "occurredAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "requestedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "policyVersion": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Pending redemption approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "transactionId",
+                        "redemptionId",
+                        "receiptId",
+                        "approvalId",
+                        "state",
+                        "tenantId",
+                        "branchId",
+                        "deviceId",
+                        "customerId",
+                        "cardSerialNumber",
+                        "posReceiptNumber",
+                        "basketAmountKobo",
+                        "requestedRedemptionKobo",
+                        "redeemedAmountKobo",
+                        "maximumAllowedKobo",
+                        "remainingBalanceKobo",
+                        "allocations",
+                        "smsStatus",
+                        "occurredAt",
+                        "requestedAt",
+                        "policyVersion"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "transactionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "redemptionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "receiptId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "approvalId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "CONFIRMED",
+                            "PENDING_APPROVAL"
+                          ]
+                        },
+                        "tenantId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "customerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "cardSerialNumber": {
+                          "type": "string"
+                        },
+                        "posReceiptNumber": {
+                          "type": "string"
+                        },
+                        "basketAmountKobo": {
+                          "type": "integer"
+                        },
+                        "requestedRedemptionKobo": {
+                          "type": "integer"
+                        },
+                        "redeemedAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "maximumAllowedKobo": {
+                          "type": "integer"
+                        },
+                        "remainingBalanceKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "allocations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "creditLotId",
+                              "amountKobo",
+                              "allocationOrder",
+                              "expiresAt"
+                            ],
+                            "properties": {
+                              "creditLotId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "amountKobo": {
+                                "type": "integer"
+                              },
+                              "allocationOrder": {
+                                "type": "integer"
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "smsStatus": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "occurredAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "requestedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "policyVersion": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "timestamp",
+                        "path",
+                        "requestId"
+                      ],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -23501,9 +24038,42 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "validationError": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "VALIDATION_ERROR",
+                        "message": "Validation failed"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "sessionDeviceRequired": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "SESSION_DEVICE_REQUIRED",
+                        "message": "Session device is required"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "401": {
             "description": "",
@@ -23716,7 +24286,6 @@
             }
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -23781,12 +24350,44 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "receiptAlreadyUsed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "RECEIPT_ALREADY_USED",
+                        "message": "Physical receipt already captured"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "idempotencyConflict": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "IDEMPOTENCY_CONFLICT",
+                        "message": "Idempotency key reused with different payload"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -23851,9 +24452,57 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "offlineRedemptionNotAllowed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 422,
+                        "code": "OFFLINE_REDEMPTION_NOT_ALLOWED",
+                        "message": "Redemption occurredAt is outside the allowed clock skew"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "basketCapExceeded": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 422,
+                        "code": "REDEMPTION_BASKET_CAP_EXCEEDED",
+                        "message": "Requested redemption exceeds the basket cap"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "insufficientBalance": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 422,
+                        "code": "INSUFFICIENT_BALANCE",
+                        "message": "Active balance is lower than requested redemption amount"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "429": {
             "description": "",

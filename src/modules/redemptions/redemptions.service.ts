@@ -22,12 +22,15 @@ import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { RedemptionPolicyService } from './redemption-policy.service';
+import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { RedeemTransactionDto } from './redemptions.dto';
 
 const REDEEM_ENDPOINT = 'POST /api/v1/transactions/redeem';
+const MAX_POS_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const MAX_POS_PAST_SKEW_MS = 12 * 60 * 60 * 1000;
 const IDP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const APPROVAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const MAX_BOUNDED_TEXT_LENGTH = 128;
 
 export interface RedeemTransactionResponse {
   id: string;
@@ -85,10 +88,14 @@ export class RedemptionsService {
     dto: RedeemTransactionDto,
   ): Promise<RedeemTransactionResponse> {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
-    const posReceiptNumber = normalizeReceiptNumber(dto.posReceiptNumber);
+    const posReceiptNumber = normalizeBoundedText(
+      dto.posReceiptNumber,
+      'posReceiptNumber',
+    );
     const normalizedPosReceiptNumber =
       normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(dto.occurredAt, 'occurredAt');
+    assertRedemptionTimestampAllowed(occurredAt);
     const requestedAmountKobo = toSafePositiveBigInt(
       dto.requestedRedemptionKobo,
       'requestedRedemptionKobo',
@@ -101,7 +108,10 @@ export class RedemptionsService {
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
-      cardSerialNumber: dto.cardSerialNumber.trim(),
+      cardSerialNumber: normalizeBoundedText(
+        dto.cardSerialNumber,
+        'cardSerialNumber',
+      ),
       posReceiptNumber: normalizedPosReceiptNumber,
       basketAmountKobo: dto.basketAmountKobo,
       requestedRedemptionKobo: dto.requestedRedemptionKobo,
@@ -132,7 +142,13 @@ export class RedemptionsService {
             include: { branch: true },
           }),
           prisma.card.findFirst({
-            where: { tenantId, barcodeValue: dto.cardSerialNumber.trim() },
+            where: {
+              tenantId,
+              barcodeValue: normalizeBoundedText(
+                dto.cardSerialNumber,
+                'cardSerialNumber',
+              ),
+            },
             include: { customer: true },
           }),
         ]);
@@ -311,15 +327,11 @@ export class RedemptionsService {
             requestedAmountKobo,
             basketAmountKobo,
             maximumAllowedKobo: policy.maximumAllowedKobo,
-            confirmedAmountKobo: policy.requiresApproval
-              ? null
-              : requestedAmountKobo,
-            status: policy.requiresApproval
-              ? RedemptionStatus.PENDING_APPROVAL
-              : RedemptionStatus.CONFIRMED,
+            confirmedAmountKobo: null,
+            status: RedemptionStatus.PENDING_APPROVAL,
             policyVersion: policy.policyVersion,
             requestedAt: now,
-            confirmedAt: policy.requiresApproval ? null : now,
+            confirmedAt: null,
           },
         });
 
@@ -402,7 +414,12 @@ export class RedemptionsService {
 
         await prisma.redemption.update({
           where: { tenantId_id: { tenantId, id: redemption.id } },
-          data: { ledgerEntryId: ledgerEntry.id },
+          data: {
+            ledgerEntryId: ledgerEntry.id,
+            confirmedAmountKobo: requestedAmountKobo,
+            confirmedAt: now,
+            status: RedemptionStatus.CONFIRMED,
+          },
         });
 
         const allocations = await this.lotAllocationService.allocateDebit(
@@ -612,16 +629,32 @@ function normalizeIdempotencyKey(key: string | undefined): string {
     );
   }
 
+  if (normalized.length > MAX_BOUNDED_TEXT_LENGTH) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'Idempotency-Key header is too long',
+    );
+  }
+
   return normalized;
 }
 
-function normalizeReceiptNumber(value: string): string {
+function normalizeBoundedText(value: string, fieldName: string): string {
   const normalized = value.trim();
   if (!normalized) {
     throw new DomainHttpException(
       HttpStatus.BAD_REQUEST,
       'VALIDATION_ERROR',
-      'posReceiptNumber is required',
+      `${fieldName} is required`,
+    );
+  }
+
+  if (normalized.length > MAX_BOUNDED_TEXT_LENGTH) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      `${fieldName} is too long`,
     );
   }
 
@@ -643,6 +676,17 @@ function parseDate(value: string, fieldName: string): Date {
   }
 
   return date;
+}
+
+function assertRedemptionTimestampAllowed(occurredAt: Date): void {
+  const skewMs = occurredAt.getTime() - Date.now();
+  if (skewMs > MAX_POS_FUTURE_SKEW_MS || skewMs < -MAX_POS_PAST_SKEW_MS) {
+    throw new DomainHttpException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'OFFLINE_REDEMPTION_NOT_ALLOWED',
+      'Redemption occurredAt is outside the allowed clock skew',
+    );
+  }
 }
 
 function toSafePositiveBigInt(value: number, fieldName: string): bigint {
@@ -905,10 +949,22 @@ function isUniqueReceiptConflict(error: unknown): boolean {
 
 function isUniqueRedemptionTransactionConflict(error: unknown): boolean {
   return (
-    p2002Target(error, ['receiptId']) ||
-    p2002Target(error, ['ledgerEntryId']) ||
-    p2002Target(error, ['redemptionId'])
+    isUniqueRedemptionReceiptConflict(error) ||
+    isUniqueRedemptionLedgerEntryConflict(error) ||
+    isUniqueApprovalTargetConflict(error)
   );
+}
+
+function isUniqueRedemptionReceiptConflict(error: unknown): boolean {
+  return p2002Target(error, ['receiptId']);
+}
+
+function isUniqueRedemptionLedgerEntryConflict(error: unknown): boolean {
+  return p2002Target(error, ['ledgerEntryId']);
+}
+
+function isUniqueApprovalTargetConflict(error: unknown): boolean {
+  return p2002Target(error, ['redemptionId']);
 }
 
 function p2002Target(error: unknown, requiredParts: string[]): boolean {

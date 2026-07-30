@@ -1,13 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsString, Max, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class RedeemTransactionDto {
   @ApiProperty()
   @IsString()
+  @MinLength(1)
+  @MaxLength(128)
   cardSerialNumber!: string;
 
   @ApiProperty()
   @IsString()
+  @MinLength(1)
+  @MaxLength(128)
   posReceiptNumber!: string;
 
   @ApiProperty({ minimum: 1 })

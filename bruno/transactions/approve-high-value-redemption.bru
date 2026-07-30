@@ -1,0 +1,21 @@
+meta {
+  name: Approve High-Value Redemption
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/approvals/{{approvalId}}/decision
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "decision": "APPROVED",
+    "reason": "verified high-value redemption"
+  }
+}

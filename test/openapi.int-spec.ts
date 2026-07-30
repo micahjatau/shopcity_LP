@@ -153,7 +153,7 @@ describe('OpenAPI contract (int)', () => {
       document,
       document.paths['/api/v1/transactions/{id}']?.get?.responses?.['200'],
     );
-    const ledgerSchema = resolveResponseDataSchema(
+    const customerLedgerSchema = resolveResponseDataSchema(
       document,
       document.paths['/api/v1/customers/{id}/ledger']?.get?.responses?.['200'],
     );
@@ -168,9 +168,40 @@ describe('OpenAPI contract (int)', () => {
 
     expect(transactionSchema?.properties?.ledger).toBeDefined();
     expect(transactionSchema?.properties?.approvalStatus).toBeDefined();
-    expect(ledgerSchema?.properties?.items).toBeDefined();
-    expect(ledgerSchema?.properties?.nextCursor).toBeDefined();
-    expect(ledgerSchema?.properties?.hasMore).toBeDefined();
+    expect(transactionSchema?.properties?.redeemedAmountKobo).toBeDefined();
+    expect(transactionSchema?.properties?.redemptionId).toBeDefined();
+    const transactionLedgerSchema = transactionSchema?.properties?.ledger as
+      | {
+          properties?: Record<string, unknown>;
+        }
+      | undefined;
+    const ledgerItemsSchema = transactionLedgerSchema?.properties?.allocations as
+      | {
+          items?: {
+            properties?: Record<string, unknown>;
+          };
+        }
+      | undefined;
+
+    expect(transactionLedgerSchema?.properties?.allocations).toBeDefined();
+    expect(transactionLedgerSchema?.properties?.redemptionId).toBeDefined();
+    expect(transactionLedgerSchema?.properties?.adjustmentId).toBeDefined();
+    expect(ledgerItemsSchema?.items?.properties?.restorations).toBeDefined();
+    expect(customerLedgerSchema?.properties?.items).toBeDefined();
+    expect(customerLedgerSchema?.properties?.nextCursor).toBeDefined();
+    expect(customerLedgerSchema?.properties?.hasMore).toBeDefined();
+    const customerLedgerItemSchema =
+      customerLedgerSchema?.properties?.items as
+        | {
+            items?: {
+              properties?: Record<string, unknown>;
+            };
+          }
+        | undefined;
+
+    expect(customerLedgerItemSchema?.items?.properties?.redemptionId).toBeDefined();
+    expect(customerLedgerItemSchema?.items?.properties?.adjustmentId).toBeDefined();
+    expect(customerLedgerItemSchema?.items?.properties?.allocations).toBeDefined();
     expect(approvalsSchema?.properties?.items).toBeDefined();
     expect(approvalsSchema?.properties?.nextCursor).toBeDefined();
     expect(approvalsSchema?.properties?.hasMore).toBeDefined();

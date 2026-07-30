@@ -7,6 +7,16 @@ import { RedemptionsService } from './redemptions.service';
 const REQUEST_OCCURRED_AT = '2026-07-26T12:00:00.000Z';
 
 describe('RedemptionsService', () => {
+  beforeEach(() => {
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-07-26T12:00:00.000Z').getTime());
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('creates pending REDEEM approvals with redemptionId only', async () => {
     const tx = transactionClient();
     const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
@@ -110,6 +120,47 @@ describe('RedemptionsService', () => {
     expect(tx.approval.create).not.toHaveBeenCalled();
   });
 
+  it('rejects stale or future redemption timestamps before writes', async () => {
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-07-26T12:00:00.000Z').getTime());
+
+    const tx = transactionClient();
+    const service = serviceWith({
+      transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-stale', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-STALE',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: '2026-07-25T23:59:59.000Z',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'OFFLINE_REDEMPTION_NOT_ALLOWED' },
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-future', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-FUTURE',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: '2026-07-26T12:10:00.000Z',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'OFFLINE_REDEMPTION_NOT_ALLOWED' },
+    });
+
+    expect(tx.receipt.create).not.toHaveBeenCalled();
+    expect(tx.redemption.create).not.toHaveBeenCalled();
+    expect(tx.approval.create).not.toHaveBeenCalled();
+  });
+
   it('replays completed response after idempotency P2002', async () => {
     const replay = { state: 'CONFIRMED', redemptionId: 'redemption-1' };
     const service = serviceWith({
@@ -179,9 +230,9 @@ describe('RedemptionsService', () => {
     });
   });
 
-  it('maps redemption one-to-one P2002 to REDEMPTION_TRANSACTION_CONFLICT', async () => {
+  it('maps redemption receipt P2002 to REDEMPTION_TRANSACTION_CONFLICT', async () => {
     const service = serviceWith({
-      transaction: jest.fn().mockRejectedValue(p2002(['redemptionId'])),
+      transaction: jest.fn().mockRejectedValue(p2002(['receiptId'])),
       replay: null,
     });
 
@@ -189,6 +240,44 @@ describe('RedemptionsService', () => {
       service.redeem('tenant-1', authContext(), 'idem-6', {
         cardSerialNumber: 'CARD-1',
         posReceiptNumber: 'POS-REDEEM-6',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_TRANSACTION_CONFLICT' },
+    });
+  });
+
+  it('maps redemption ledger-entry P2002 to REDEMPTION_TRANSACTION_CONFLICT', async () => {
+    const service = serviceWith({
+      transaction: jest.fn().mockRejectedValue(p2002(['ledgerEntryId'])),
+      replay: null,
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-7', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-7',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_TRANSACTION_CONFLICT' },
+    });
+  });
+
+  it('maps approval-target P2002 to REDEMPTION_TRANSACTION_CONFLICT', async () => {
+    const service = serviceWith({
+      transaction: jest.fn().mockRejectedValue(p2002(['redemptionId'])),
+      replay: null,
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-8', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-8',
         basketAmountKobo: 30_000,
         requestedRedemptionKobo: 6_000,
         occurredAt: REQUEST_OCCURRED_AT,

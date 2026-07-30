@@ -1,3 +1,9 @@
+import {
+  SmsPayloadError,
+  type SmsTemplate,
+  renderSmsMessage,
+} from './sms.templates';
+
 export type SmsDeliveryOutcome = 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED';
 
 export interface SmsSendInput {
@@ -5,7 +11,7 @@ export interface SmsSendInput {
   receiptId: string | null;
   outboxEventId: string;
   phoneE164: string;
-  template: string;
+  template: SmsTemplate;
   payload: Record<string, unknown>;
 }
 
@@ -80,10 +86,13 @@ export class EbulkSmsProvider implements SmsProvider {
         status: 'FAILED',
         errorMessage: isAbortError(error)
           ? `SMS provider request timed out after ${this.config.timeoutMs}ms`
-          : error instanceof Error
+          : error instanceof SmsPayloadError
             ? error.message
-            : 'eBulkSMS request failed',
-        failureCategory: 'retryable',
+            : error instanceof Error
+              ? error.message
+              : 'eBulkSMS request failed',
+        failureCategory:
+          error instanceof SmsPayloadError ? 'terminal' : 'retryable',
       };
     } finally {
       clearTimeout(timeout);
@@ -134,34 +143,6 @@ function buildEbulkSmsRequest(
       },
     },
   };
-}
-
-function renderSmsMessage(input: SmsSendInput): string {
-  if (input.template === 'earn-confirmed') {
-    const creditKobo = readPayloadString(input.payload, 'creditKobo');
-    const creditNaira = creditKobo
-      ? formatKoboAsNaira(BigInt(creditKobo))
-      : 'store credit';
-
-    return `ShopCity: Your receipt ${input.receiptId} earned ${creditNaira}.`;
-  }
-
-  return `ShopCity notification for receipt ${input.receiptId}.`;
-}
-
-function readPayloadString(
-  payload: Record<string, unknown>,
-  key: string,
-): string | undefined {
-  const value = payload[key];
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-function formatKoboAsNaira(kobo: bigint): string {
-  const naira = kobo / 100n;
-  const remainder = kobo % 100n;
-
-  return `NGN ${naira.toString()}.${remainder.toString().padStart(2, '0')}`;
 }
 
 function classifyHttpFailure(status: number): 'retryable' | 'terminal' {

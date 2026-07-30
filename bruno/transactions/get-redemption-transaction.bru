@@ -1,0 +1,13 @@
+meta {
+  name: Get Redemption Transaction
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/transactions/{{transactionId}}
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}

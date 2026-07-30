@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DomainHttpException } from '../errors/domain.exception';
 import { LotAllocationService } from './lot-allocation.service';
 
@@ -123,6 +124,19 @@ describe('LotAllocationService', () => {
     ).rejects.toMatchObject({
       response: { code: 'VALIDATION_ERROR' },
     });
+
+    await expect(
+      service.allocateDebit(prismaStub(), {
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        debitLedgerEntryId: 'ledger-id',
+        redemptionId: 'redemption-id',
+        adjustmentId: 'adjustment-id',
+        amountKobo: 100n,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'VALIDATION_ERROR' },
+    });
   });
 
   it('maps conditional lot update miss to a transaction conflict', async () => {
@@ -220,6 +234,38 @@ describe('LotAllocationService', () => {
       status: HttpStatus.UNPROCESSABLE_ENTITY,
       response: { code: 'REVERSAL_REVIEW_REQUIRED' },
     });
+  });
+
+  it('locks eligible lots with FIFO ordering and positive-balance filtering', async () => {
+    const prisma = prismaStub({
+      lots: [
+        {
+          id: 'lot-1',
+          remainingAmountKobo: 300n,
+          expiresAt: new Date('2027-01-15T10:00:00.000Z'),
+        },
+      ],
+    });
+    const service = new LotAllocationService();
+
+    await service.allocateDebit(prisma, {
+      tenantId: 'tenant-id',
+      customerId: 'customer-id',
+      debitLedgerEntryId: 'ledger-id',
+      adjustmentId: 'adjustment-id',
+      amountKobo: 100n,
+    });
+
+    const queryRawMock = prisma.$queryRaw as unknown as {
+      mock: { calls: Array<[Prisma.Sql]> };
+    };
+    const queryText = queryRawMock.mock.calls[0][0].strings.join(' ');
+
+    expect(queryText).toContain('"remainingAmountKobo" > 0');
+    expect(queryText).toContain(
+      'ORDER BY "expiresAt" ASC, "earnedAt" ASC, "id" ASC',
+    );
+    expect(queryText).toContain('FOR UPDATE');
   });
 });
 

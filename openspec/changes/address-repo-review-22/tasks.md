@@ -47,7 +47,7 @@
 
 - [x] 7.1 Update transaction lookup to return confirmed redemption debit details, receipt evidence, ledger entry, and allocation summaries instead of `UNSUPPORTED_TRANSACTION_TYPE`.
 - [x] 7.2 Update customer ledger or transaction read responses where needed to expose redemption allocation summaries and reversal/adjustment-compatible references.
-- [ ] 7.3 Update OpenAPI artifacts, generated client validation, and Bruno examples for high-value redemption approval and redemption transaction lookup changes.
+- [x] 7.3 Update OpenAPI artifacts, generated client validation, and Bruno examples for high-value redemption approval and redemption transaction lookup changes.
 - [x] 7.4 Add or update public configuration documentation for frontend-safe redemption policy values if affected by validation-order changes.
 
 ## 8. PostgreSQL Concurrency Coverage

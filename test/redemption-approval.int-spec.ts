@@ -25,6 +25,7 @@ describe('redemption approval lifecycle (int)', () => {
   let prisma: PrismaService;
   let redemptionsService: RedemptionsService;
   let approvalsService: ApprovalsService;
+  let loyaltyService: LoyaltyService;
   let fixture: Awaited<ReturnType<typeof createFixture>>;
 
   beforeAll(async () => {
@@ -51,14 +52,15 @@ describe('redemption approval lifecycle (int)', () => {
       new RedemptionPolicyService(configService),
       auditService,
     );
+    loyaltyService = new LoyaltyService(
+      prisma,
+      auditService,
+      configService,
+      activeBalanceService,
+      lotAllocationService,
+    );
     approvalsService = new ApprovalsService(
-      new LoyaltyService(
-        prisma,
-        auditService,
-        configService,
-        activeBalanceService,
-        lotAllocationService,
-      ),
+      loyaltyService,
     );
     fixture = await createFixture(prisma);
   }, 120000);
@@ -153,6 +155,40 @@ describe('redemption approval lifecycle (int)', () => {
     expect(allocationCount).toBe(1);
     expect(smsCount).toBe(1);
     expect(remainingBalance._sum.remainingAmountKobo).toBe(14_000n);
+
+    const transaction = await loyaltyService.getTransaction(
+      fixture.tenantId,
+      decision.ledgerEntryId!,
+    );
+    expect(transaction).toMatchObject({
+      transactionId: decision.ledgerEntryId,
+      redemptionId: pending.redemptionId,
+      redeemedAmountKobo: 6_000,
+      ledger: {
+        allocations: [
+          expect.objectContaining({
+            creditLotId: expect.any(String),
+            amountKobo: 6_000,
+            restorations: [],
+          }),
+        ],
+      },
+    });
+
+    const ledger = await loyaltyService.listCustomerLedger(
+      fixture.tenantId,
+      fixture.customerId,
+    );
+    expect(ledger.items[0]).toMatchObject({
+      redemptionId: pending.redemptionId,
+      adjustmentId: null,
+      allocations: [
+        expect.objectContaining({
+          amountKobo: 6_000,
+          restorations: [],
+        }),
+      ],
+    });
   }, 120000);
 
   it('returns the same response for concurrent same-key redemption requests', async () => {
@@ -277,6 +313,22 @@ describe('redemption approval lifecycle (int)', () => {
 
   it('allows only one supervisor to execute a redemption approval', async () => {
     const localFixture = await createFixture(prisma);
+    const backupSupervisor = {
+      id: randomUUID(),
+      tenantId: localFixture.tenantId,
+      branchId: localFixture.branchId,
+      role: UserRole.SUPERVISOR,
+    };
+    await prisma.user.create({
+      data: {
+        id: backupSupervisor.id,
+        tenantId: backupSupervisor.tenantId,
+        branchId: backupSupervisor.branchId,
+        username: 'supervisor-2@redemption.local',
+        role: backupSupervisor.role,
+        status: 'ACTIVE',
+      },
+    });
     const pending = await redemptionsService.redeem(
       localFixture.tenantId,
       makeContext(localFixture.cashier, localFixture.deviceId),
@@ -300,7 +352,7 @@ describe('redemption approval lifecycle (int)', () => {
       ),
       approvalsService.decideApproval(
         localFixture.tenantId,
-        makeContext(localFixture.supervisor, localFixture.deviceId),
+        makeContext(backupSupervisor, localFixture.deviceId),
         pending.approvalId!,
         'APPROVED',
         'second supervisor approval',
@@ -310,6 +362,12 @@ describe('redemption approval lifecycle (int)', () => {
     expect(
       settled.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
+    const rejected = settled.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected?.reason).toMatchObject({
+      response: { code: 'APPROVAL_ALREADY_DECIDED' },
+    });
     expect(
       await prisma.redemptionAllocation.count({
         where: {
@@ -494,59 +552,61 @@ async function createEarnLot(
   },
 ) {
   const now = new Date(Date.now() - 120_000);
-  const receipt = await prisma.receipt.create({
-    data: {
-      id: randomUUID(),
-      tenantId: input.tenantId,
-      branchId: input.branchId,
-      customerId: input.customerId,
-      cardId: input.cardId,
-      deviceId: input.deviceId,
-      posReceiptNumber: 'POS-EARN-SEED',
-      normalizedPosReceiptNumber: 'POS-EARN-SEED',
-      receiptWeekStart: new Date(Date.UTC(2026, 6, 20)),
-      purchaseAmountKobo: 1_000_000n,
-      occurredAt: now,
-      capturedByTenantId: input.tenantId,
-      capturedBy: input.userId,
-      captureStatus: ReceiptCaptureStatus.CAPTURED,
-      reviewStatus: ReceiptReviewStatus.APPROVED,
-      reviewedAt: now,
-      reviewedByTenantId: input.tenantId,
-      reviewedBy: input.userId,
-      approvedAt: now,
-      approvedByTenantId: input.tenantId,
-      approvedBy: input.userId,
-    },
-  });
-  const ledger = await prisma.loyaltyLedgerEntry.create({
-    data: {
-      id: randomUUID(),
-      tenantId: input.tenantId,
-      customerId: input.customerId,
-      receiptId: receipt.id,
-      type: LedgerEntryType.EARN,
-      direction: LedgerEntryDirection.CREDIT,
-      amountKobo: input.amountKobo,
-      status: LedgerEntryStatus.CONFIRMED,
-      correlationId: `earn-seed-${randomUUID()}`,
-      createdByTenantId: input.tenantId,
-      createdBy: input.userId,
-      effectiveAt: now,
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    const receipt = await tx.receipt.create({
+      data: {
+        id: randomUUID(),
+        tenantId: input.tenantId,
+        branchId: input.branchId,
+        customerId: input.customerId,
+        cardId: input.cardId,
+        deviceId: input.deviceId,
+        posReceiptNumber: 'POS-EARN-SEED',
+        normalizedPosReceiptNumber: 'POS-EARN-SEED',
+        receiptWeekStart: new Date(Date.UTC(2026, 6, 20)),
+        purchaseAmountKobo: 1_000_000n,
+        occurredAt: now,
+        capturedByTenantId: input.tenantId,
+        capturedBy: input.userId,
+        captureStatus: ReceiptCaptureStatus.CAPTURED,
+        reviewStatus: ReceiptReviewStatus.APPROVED,
+        reviewedAt: now,
+        reviewedByTenantId: input.tenantId,
+        reviewedBy: input.userId,
+        approvedAt: now,
+        approvedByTenantId: input.tenantId,
+        approvedBy: input.userId,
+      },
+    });
+    const ledger = await tx.loyaltyLedgerEntry.create({
+      data: {
+        id: randomUUID(),
+        tenantId: input.tenantId,
+        customerId: input.customerId,
+        receiptId: receipt.id,
+        type: LedgerEntryType.EARN,
+        direction: LedgerEntryDirection.CREDIT,
+        amountKobo: input.amountKobo,
+        status: LedgerEntryStatus.CONFIRMED,
+        correlationId: `earn-seed-${randomUUID()}`,
+        createdByTenantId: input.tenantId,
+        createdBy: input.userId,
+        effectiveAt: now,
+      },
+    });
 
-  await prisma.creditLot.create({
-    data: {
-      id: randomUUID(),
-      tenantId: input.tenantId,
-      customerId: input.customerId,
-      earnLedgerEntryId: ledger.id,
-      originalAmountKobo: input.amountKobo,
-      remainingAmountKobo: input.amountKobo,
-      earnedAt: now,
-      expiresAt: addMonthsUtc(now, 12),
-    },
+    await tx.creditLot.create({
+      data: {
+        id: randomUUID(),
+        tenantId: input.tenantId,
+        customerId: input.customerId,
+        earnLedgerEntryId: ledger.id,
+        originalAmountKobo: input.amountKobo,
+        remainingAmountKobo: input.amountKobo,
+        earnedAt: now,
+        expiresAt: addMonthsUtc(now, 12),
+      },
+    });
   });
 }
 
