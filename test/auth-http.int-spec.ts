@@ -467,6 +467,73 @@ describe('auth and readiness flows (int)', () => {
     expect(body.data.customer).not.toHaveProperty('creditLots');
   }, 120000);
 
+  it('returns 201 for confirmed redemption and 202 for pending approval redemption', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'redeem-http',
+    );
+    await createCreditLotFixture(prisma, seedData, {
+      customerId: fixture.customer.id,
+      cardId: fixture.card.id,
+      suffix: 'redeem-http-topup',
+      remainingAmountKobo: 1_000_000,
+      originalAmountKobo: 1_000_000,
+      earnedAt: new Date(Date.now() - 60_000),
+    });
+
+    const device = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-redeem-http',
+        fingerprintHash: 'device-fingerprint-redeem-http',
+        status: DeviceStatus.ACTIVE,
+      },
+    });
+    const bearerToken = await loginCashierBearerToken(
+      device.id,
+      device.fingerprintHash,
+    );
+    const occurredAt = new Date(Date.now() - 60_000).toISOString();
+
+    await request(httpServer)
+      .post('/api/v1/transactions/redeem')
+      .set('Authorization', `Bearer ${bearerToken}`)
+      .set('Idempotency-Key', 'redeem-http-pending')
+      .send({
+        cardSerialNumber: fixture.card.barcodeValue,
+        posReceiptNumber: 'POS-REDEEM-HTTP-PENDING',
+        basketAmountKobo: 2_000_000,
+        requestedRedemptionKobo: 600_000,
+        occurredAt,
+      })
+      .expect(202)
+      .expect((response) => {
+        const body = response.body as { data: { state: string } };
+
+        expect(body.data.state).toBe('PENDING_APPROVAL');
+      });
+
+    await request(httpServer)
+      .post('/api/v1/transactions/redeem')
+      .set('Authorization', `Bearer ${bearerToken}`)
+      .set('Idempotency-Key', 'redeem-http-confirmed')
+      .send({
+        cardSerialNumber: fixture.card.barcodeValue,
+        posReceiptNumber: 'POS-REDEEM-HTTP-CONFIRMED',
+        basketAmountKobo: 1_000_000,
+        requestedRedemptionKobo: 100_000,
+        occurredAt,
+      })
+      .expect(201)
+      .expect((response) => {
+        const body = response.body as { data: { state: string } };
+
+        expect(body.data.state).toBe('CONFIRMED');
+      });
+  }, 120000);
+
   it('returns RATE_LIMITED when earn throttling is exhausted', async () => {
     const sessionCookie = await loginSessionCookie(cashierUser.username);
     const bearerToken = cookieToken(sessionCookie);
@@ -601,6 +668,28 @@ describe('auth and readiness flows (int)', () => {
       .expect(200);
 
     return cookieValue(response.headers['set-cookie'], 'shopcity_session');
+  }
+
+  async function loginCashierBearerToken(
+    deviceId: string,
+    fingerprintHash: string,
+  ): Promise<string> {
+    const response = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('x-device-id', deviceId)
+      .set(
+        'x-device-attestation',
+        buildDeviceAttestation(deviceId, fingerprintHash),
+      )
+      .send({
+        username: cashierUser.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+
+    return cookieToken(
+      cookieValue(response.headers['set-cookie'], 'shopcity_session'),
+    );
   }
 });
 

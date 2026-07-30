@@ -1,4 +1,12 @@
-import { Body, Controller, Headers, Post, Req, Version } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  Post,
+  Req,
+  Res,
+  Version,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -14,6 +22,7 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+import type { FastifyReply } from 'fastify';
 import { RedeemTransactionDto } from './redemptions.dto';
 import { RedemptionsService } from './redemptions.service';
 
@@ -151,16 +160,20 @@ export class RedemptionsController {
     },
   })
   @ApiOperation({ summary: 'Redeem store credit' })
-  redeem(
+  async redeem(
     @Req() request: AuthenticatedRequest,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() dto: RedeemTransactionDto,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.redemptionsService.redeem(
+    const response = await this.redemptionsService.redeem(
       request.authContext!.user.tenantId,
       request.authContext!,
       idempotencyKey,
       dto,
     );
+
+    reply.code(response.state === 'PENDING_APPROVAL' ? 202 : 201);
+    return response;
   }
 }

@@ -19,6 +19,7 @@ import { ApprovalsService } from '../src/modules/approvals/approvals.service';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
 import { RedemptionPolicyService } from '../src/modules/redemptions/redemption-policy.service';
 import { RedemptionsService } from '../src/modules/redemptions/redemptions.service';
+import { renderSmsMessage } from '../src/jobs/sms.templates';
 
 describe('redemption approval lifecycle (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -153,6 +154,22 @@ describe('redemption approval lifecycle (int)', () => {
     expect(allocationCount).toBe(1);
     expect(smsCount).toBe(1);
     expect(remainingBalance._sum.remainingAmountKobo).toBe(14_000n);
+
+    const smsMessage = await prisma.smsMessage.findFirstOrThrow({
+      where: {
+        tenantId: fixture.tenantId,
+        redemptionId: pending.redemptionId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const renderedSms = renderSmsMessage({
+      receiptId: pending.receiptId,
+      template: smsMessage.template as 'redemption-confirmed',
+      payload: smsMessage.payload as Record<string, unknown>,
+    });
+
+    expect(renderedSms).toContain('Redeemed NGN 60.00');
+    expect(renderedSms).toContain('Remaining balance NGN 140.00');
 
     const transaction = await loyaltyService.getTransaction(
       fixture.tenantId,

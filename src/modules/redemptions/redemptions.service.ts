@@ -24,6 +24,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { RedeemTransactionDto } from './redemptions.dto';
+import { buildRedemptionConfirmedSmsPayload } from '../../jobs/sms.templates';
 
 const REDEEM_ENDPOINT = 'POST /api/v1/transactions/redeem';
 const MAX_POS_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -434,16 +435,22 @@ export class RedemptionsService {
           },
         );
 
-        const outboxPayload = {
-          version: 1,
+        const remainingBalanceKobo =
+          await this.activeBalanceService.getActiveBalanceKobo(
+            tenantId,
+            transactionCard.customerId,
+            now,
+            prisma,
+          );
+        const outboxPayload = buildRedemptionConfirmedSmsPayload({
           receiptId: receipt.id,
           transactionId: ledgerEntry.id,
           redemptionId: redemption.id,
           customerId: transactionCard.customerId,
           phoneE164: transactionCard.customer.phoneE164,
-          template: 'redemption-confirmed',
-          redeemedAmountKobo: requestedAmountKobo.toString(),
-        };
+          redeemedKobo: requestedAmountKobo,
+          remainingBalanceKobo,
+        });
         const outboxEvent = await prisma.outboxEvent.create({
           data: {
             tenantId,
@@ -469,13 +476,6 @@ export class RedemptionsService {
             queuedAt: now,
           },
         });
-        const remainingBalanceKobo =
-          await this.activeBalanceService.getActiveBalanceKobo(
-            tenantId,
-            transactionCard.customerId,
-            now,
-            prisma,
-          );
         const response = buildRedeemResponse({
           tenantId,
           branchId,

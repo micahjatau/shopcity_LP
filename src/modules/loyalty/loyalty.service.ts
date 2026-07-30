@@ -35,6 +35,7 @@ import { ActiveBalanceService } from '../../common/balance/active-balance.servic
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { EarnTransactionDto } from './loyalty.dto';
+import { buildRedemptionConfirmedSmsPayload } from '../../jobs/sms.templates';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
@@ -693,7 +694,11 @@ export class LoyaltyService {
       where: { tenantId, id: transactionId },
       include: {
         creditLot: true,
-        redemption: true,
+        redemption: {
+          include: {
+            approval: true,
+          },
+        },
         redemptionAllocations: {
           include: {
             creditLot: { select: { expiresAt: true } },
@@ -729,7 +734,8 @@ export class LoyaltyService {
       );
     }
 
-    const approval = receipt.approvals[0] ?? null;
+    const approval =
+      ledgerEntry.redemption?.approval ?? receipt.approvals[0] ?? null;
     const smsMessage = await findTransactionSmsMessage(this.prismaService, {
       tenantId,
       ledgerEntryId: ledgerEntry.id,
@@ -1653,16 +1659,22 @@ export class LoyaltyService {
       redemptionId: redemption.id,
     });
 
-    const outboxPayload = {
-      version: 1,
+    const remainingBalanceKobo =
+      await this.activeBalanceService.getActiveBalanceKobo(
+        tenantId,
+        redemption.customerId,
+        now,
+        prisma,
+      );
+    const outboxPayload = buildRedemptionConfirmedSmsPayload({
       receiptId: receipt.id,
       transactionId: ledgerEntry.id,
       redemptionId: redemption.id,
       customerId: redemption.customerId,
       phoneE164: receipt.customer.phoneE164,
-      template: 'redemption-confirmed',
-      redeemedAmountKobo: redemption.requestedAmountKobo.toString(),
-    };
+      redeemedKobo: redemption.requestedAmountKobo,
+      remainingBalanceKobo,
+    });
     const outboxEvent = await prisma.outboxEvent.create({
       data: {
         tenantId,

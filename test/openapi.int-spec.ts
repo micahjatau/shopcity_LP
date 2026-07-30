@@ -15,7 +15,7 @@ describe('OpenAPI contract (int)', () => {
   it('does not double-prefix versioned routes', () => {
     const document = buildOpenApiDocument(app);
 
-    expect(document.servers).toBeUndefined();
+    expect(document.servers).toEqual([{ url: '/' }]);
     expect(document.paths['/api/v1']).toBeDefined();
     expect(document.paths['/api/v1/auth/login']).toBeDefined();
   });
@@ -145,6 +145,17 @@ describe('OpenAPI contract (int)', () => {
     expect(
       responseExampleCodes(approvalDecisionOperation?.responses?.['422']),
     ).toEqual(['APPROVAL_POLICY_CHANGED']);
+  });
+
+  it('keeps the public reversal boundary unavailable', () => {
+    const document = buildOpenApiDocument(app);
+    const reversalOperation =
+      document.paths['/api/v1/transactions/{transactionId}/reverse']?.post;
+
+    expect(reversalOperation?.responses?.['201']).toBeUndefined();
+    expect(responseExampleCodes(reversalOperation?.responses?.['422'])).toEqual(
+      ['REVERSAL_REVIEW_REQUIRED'],
+    );
   });
 
   it('documents the transaction, ledger, and approval list payloads', () => {

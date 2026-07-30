@@ -192,6 +192,11 @@ export interface RedeemTransactionDto {
   occurredAt: string;
 }
 
+export interface ReverseTransactionDto {
+  /** @maxLength 500 */
+  reason: string;
+}
+
 export type AppControllerGetHelloV1200Meta = {
   timestamp: string;
   path: string;
@@ -8092,6 +8097,22 @@ export const LoyaltyControllerGetTransactionV1200DataDirection = {
   DEBIT: 'DEBIT',
 } as const;
 
+export type LoyaltyControllerGetTransactionV1200DataLedgerAllocationsItemRestorationsItem =
+  {
+    id: string;
+    amountKobo: number;
+    reversalLedgerEntryId: string;
+  };
+
+export type LoyaltyControllerGetTransactionV1200DataLedgerAllocationsItem = {
+  id: string;
+  creditLotId: string;
+  amountKobo: number;
+  allocationOrder: number;
+  expiresAt: string;
+  restorations: LoyaltyControllerGetTransactionV1200DataLedgerAllocationsItemRestorationsItem[];
+};
+
 /**
  * @nullable
  */
@@ -8106,6 +8127,10 @@ export type LoyaltyControllerGetTransactionV1200DataLedgerCreditLot = {
 export type LoyaltyControllerGetTransactionV1200DataLedger = {
   id: string;
   receiptId: string;
+  /** @nullable */
+  redemptionId?: string | null;
+  /** @nullable */
+  adjustmentId?: string | null;
   type: string;
   direction: string;
   amountKobo: number;
@@ -8113,6 +8138,7 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   effectiveAt: string;
   /** @nullable */
   smsStatus: string | null;
+  allocations?: LoyaltyControllerGetTransactionV1200DataLedgerAllocationsItem[];
   /** @nullable */
   creditLot: LoyaltyControllerGetTransactionV1200DataLedgerCreditLot;
 };
@@ -8141,6 +8167,10 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   approvalStatus: string | null;
   ledgerEntryId: string;
   creditKobo: number;
+  /** @nullable */
+  redeemedAmountKobo: number | null;
+  /** @nullable */
+  redemptionId: string | null;
   availableBalanceKobo: number;
   /** @nullable */
   expiresAt: string | null;
@@ -8382,6 +8412,23 @@ export type LoyaltyControllerGetCustomerLedgerV1Params = {
   cursor: string;
 };
 
+export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemAllocationsItemRestorationsItem =
+  {
+    id: string;
+    amountKobo: number;
+    reversalLedgerEntryId: string;
+  };
+
+export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemAllocationsItem =
+  {
+    id: string;
+    creditLotId: string;
+    amountKobo: number;
+    allocationOrder: number;
+    expiresAt: string;
+    restorations: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemAllocationsItemRestorationsItem[];
+  };
+
 /**
  * @nullable
  */
@@ -8396,6 +8443,10 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemCreditLot = {
 export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   id: string;
   receiptId: string;
+  /** @nullable */
+  redemptionId?: string | null;
+  /** @nullable */
+  adjustmentId?: string | null;
   type: string;
   direction: string;
   amountKobo: number;
@@ -8403,6 +8454,7 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   effectiveAt: string;
   /** @nullable */
   smsStatus: string | null;
+  allocations?: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemAllocationsItem[];
   /** @nullable */
   creditLot: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemCreditLot;
 };
@@ -8975,6 +9027,236 @@ export type RedemptionsControllerRedeemV1503 = {
   meta: RedemptionsControllerRedeemV1503Meta;
 };
 
+export type ReversalsControllerReverseV1201Data = { [key: string]: unknown };
+
+export type ReversalsControllerReverseV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1201 = {
+  success: boolean;
+  data: ReversalsControllerReverseV1201Data;
+  meta: ReversalsControllerReverseV1201Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1400ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1400 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1400Error;
+  meta: ReversalsControllerReverseV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1401ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1401 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1401Error;
+  meta: ReversalsControllerReverseV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1403ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1403 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1403Error;
+  meta: ReversalsControllerReverseV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1404ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1404 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1404Error;
+  meta: ReversalsControllerReverseV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1409ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1409 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1409Error;
+  meta: ReversalsControllerReverseV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1422ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1422 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1422Error;
+  meta: ReversalsControllerReverseV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1429ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1429 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1429Error;
+  meta: ReversalsControllerReverseV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1503ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1503 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1503Error;
+  meta: ReversalsControllerReverseV1503Meta;
+};
+
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
   id: string;
   name: string;
@@ -9510,6 +9792,7 @@ export const healthControllerReady = async (
 };
 
 /**
+ * Create authenticated session
  * @summary Create authenticated session
  */
 export type authControllerLoginV1Response200 = {
@@ -9605,6 +9888,7 @@ export const authControllerLoginV1 = async (
 };
 
 /**
+ * Rotate authenticated session
  * @summary Rotate authenticated session
  */
 export type authControllerRefreshV1Response200 = {
@@ -9697,6 +9981,7 @@ export const authControllerRefreshV1 = async (
 };
 
 /**
+ * End authenticated session
  * @summary End authenticated session
  */
 export type authControllerLogoutV1Response200 = {
@@ -9789,6 +10074,7 @@ export const authControllerLogoutV1 = async (
 };
 
 /**
+ * Read current authenticated user
  * @summary Read current authenticated user
  */
 export type authControllerMeV1Response200 = {
@@ -9879,6 +10165,7 @@ export const authControllerMeV1 = async (
 };
 
 /**
+ * List audit log entries
  * @summary List audit log entries
  */
 export type auditControllerListV1Response200 = {
@@ -9985,6 +10272,9 @@ export const auditControllerListV1 = async (
   } as auditControllerListV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type usersControllerListUsersV1Response200 = {
   data: UsersControllerListUsersV1200;
   status: 200;
@@ -10076,6 +10366,7 @@ export const usersControllerListUsersV1 = async (
 };
 
 /**
+ * Create staff user
  * @summary Create staff user
  */
 export type usersControllerCreateUserV1Response201 = {
@@ -10171,6 +10462,9 @@ export const usersControllerCreateUserV1 = async (
   } as usersControllerCreateUserV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type usersControllerUpdateRoleV1Response200 = {
   data: UsersControllerUpdateRoleV1200;
   status: 200;
@@ -10265,6 +10559,9 @@ export const usersControllerUpdateRoleV1 = async (
   } as usersControllerUpdateRoleV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type usersControllerUpdateStatusV1Response200 = {
   data: UsersControllerUpdateStatusV1200;
   status: 200;
@@ -10360,6 +10657,7 @@ export const usersControllerUpdateStatusV1 = async (
 };
 
 /**
+ * List branches
  * @summary List branches
  */
 export type branchesControllerListBranchesV1Response200 = {
@@ -10452,6 +10750,9 @@ export const branchesControllerListBranchesV1 = async (
   } as branchesControllerListBranchesV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type branchesControllerCreateBranchV1Response201 = {
   data: BranchesControllerCreateBranchV1201;
   status: 201;
@@ -10545,6 +10846,9 @@ export const branchesControllerCreateBranchV1 = async (
   } as branchesControllerCreateBranchV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type branchesControllerUpdateBranchV1Response200 = {
   data: BranchesControllerUpdateBranchV1200;
   status: 200;
@@ -10639,6 +10943,9 @@ export const branchesControllerUpdateBranchV1 = async (
   } as branchesControllerUpdateBranchV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type branchesControllerListDevicesV1Response200 = {
   data: BranchesControllerListDevicesV1200;
   status: 200;
@@ -10729,6 +11036,9 @@ export const branchesControllerListDevicesV1 = async (
   } as branchesControllerListDevicesV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type branchesControllerCreateDeviceV1Response201 = {
   data: BranchesControllerCreateDeviceV1201;
   status: 201;
@@ -10822,6 +11132,9 @@ export const branchesControllerCreateDeviceV1 = async (
   } as branchesControllerCreateDeviceV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type branchesControllerUpdateDeviceV1Response200 = {
   data: BranchesControllerUpdateDeviceV1200;
   status: 200;
@@ -10916,6 +11229,9 @@ export const branchesControllerUpdateDeviceV1 = async (
   } as branchesControllerUpdateDeviceV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type customersControllerListCustomersV1Response200 = {
   data: CustomersControllerListCustomersV1200;
   status: 200;
@@ -11022,6 +11338,7 @@ export const customersControllerListCustomersV1 = async (
 };
 
 /**
+ * Register customer
  * @summary Register customer
  */
 export type customersControllerCreateCustomerV1Response201 = {
@@ -11117,6 +11434,9 @@ export const customersControllerCreateCustomerV1 = async (
   } as customersControllerCreateCustomerV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type customersControllerGetCustomerV1Response200 = {
   data: CustomersControllerGetCustomerV1200;
   status: 200;
@@ -11208,6 +11528,9 @@ export const customersControllerGetCustomerV1 = async (
   } as customersControllerGetCustomerV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type customersControllerUpdateCustomerV1Response200 = {
   data: CustomersControllerUpdateCustomerV1200;
   status: 200;
@@ -11302,6 +11625,9 @@ export const customersControllerUpdateCustomerV1 = async (
   } as customersControllerUpdateCustomerV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type customersControllerUpdateStatusV1Response200 = {
   data: CustomersControllerUpdateStatusV1200;
   status: 200;
@@ -11396,6 +11722,9 @@ export const customersControllerUpdateStatusV1 = async (
   } as customersControllerUpdateStatusV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type cardsControllerLookupCardV1Response200 = {
   data: CardsControllerLookupCardV1200;
   status: 200;
@@ -11488,6 +11817,7 @@ export const cardsControllerLookupCardV1 = async (
 };
 
 /**
+ * Assign card
  * @summary Assign card
  */
 export type cardsControllerCreateCardV1Response201 = {
@@ -11583,6 +11913,9 @@ export const cardsControllerCreateCardV1 = async (
   } as cardsControllerCreateCardV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type cardsControllerReplaceCardV1Response201 = {
   data: CardsControllerReplaceCardV1201;
   status: 201;
@@ -11677,6 +12010,9 @@ export const cardsControllerReplaceCardV1 = async (
   } as cardsControllerReplaceCardV1Response;
 };
 
+/**
+ * ShopCity API operation
+ */
 export type cardsControllerUpdateStatusV1Response200 = {
   data: CardsControllerUpdateStatusV1200;
   status: 200;
@@ -12069,6 +12405,7 @@ export const receiptsControllerRejectReceiptV1 = async (
 };
 
 /**
+ * List approvals
  * @summary List approvals
  */
 export type approvalsControllerListApprovalsV1Response200 = {
@@ -12177,6 +12514,7 @@ export const approvalsControllerListApprovalsV1 = async (
 };
 
 /**
+ * Decide approval
  * @summary Decide approval
  */
 export type approvalsControllerDecideApprovalV1Response200 = {
@@ -12274,6 +12612,7 @@ export const approvalsControllerDecideApprovalV1 = async (
 };
 
 /**
+ * Record an earn transaction
  * @summary Record an earn transaction
  */
 export type loyaltyControllerEarnV1Response201 = {
@@ -12375,6 +12714,7 @@ export const loyaltyControllerEarnV1 = async (
 };
 
 /**
+ * Get transaction details
  * @summary Get transaction details
  */
 export type loyaltyControllerGetTransactionV1Response200 = {
@@ -12469,6 +12809,7 @@ export const loyaltyControllerGetTransactionV1 = async (
 };
 
 /**
+ * Get customer ledger
  * @summary Get customer ledger
  */
 export type loyaltyControllerGetCustomerLedgerV1Response200 = {
@@ -12582,6 +12923,7 @@ export const loyaltyControllerGetCustomerLedgerV1 = async (
 };
 
 /**
+ * Redeem store credit
  * @summary Redeem store credit
  */
 export type redemptionsControllerRedeemV1Response201 = {
@@ -12685,6 +13027,105 @@ export const redemptionsControllerRedeemV1 = async (
 };
 
 /**
+ * Reverse a confirmed transaction
+ * @summary Reverse a confirmed transaction
+ */
+export type reversalsControllerReverseV1Response201 = {
+  data: ReversalsControllerReverseV1201;
+  status: 201;
+};
+
+export type reversalsControllerReverseV1Response400 = {
+  data: ReversalsControllerReverseV1400;
+  status: 400;
+};
+
+export type reversalsControllerReverseV1Response401 = {
+  data: ReversalsControllerReverseV1401;
+  status: 401;
+};
+
+export type reversalsControllerReverseV1Response403 = {
+  data: ReversalsControllerReverseV1403;
+  status: 403;
+};
+
+export type reversalsControllerReverseV1Response404 = {
+  data: ReversalsControllerReverseV1404;
+  status: 404;
+};
+
+export type reversalsControllerReverseV1Response409 = {
+  data: ReversalsControllerReverseV1409;
+  status: 409;
+};
+
+export type reversalsControllerReverseV1Response422 = {
+  data: ReversalsControllerReverseV1422;
+  status: 422;
+};
+
+export type reversalsControllerReverseV1Response429 = {
+  data: ReversalsControllerReverseV1429;
+  status: 429;
+};
+
+export type reversalsControllerReverseV1Response503 = {
+  data: ReversalsControllerReverseV1503;
+  status: 503;
+};
+
+export type reversalsControllerReverseV1ResponseSuccess =
+  reversalsControllerReverseV1Response201 & {
+    headers: Headers;
+  };
+export type reversalsControllerReverseV1ResponseError = (
+  | reversalsControllerReverseV1Response400
+  | reversalsControllerReverseV1Response401
+  | reversalsControllerReverseV1Response403
+  | reversalsControllerReverseV1Response404
+  | reversalsControllerReverseV1Response409
+  | reversalsControllerReverseV1Response422
+  | reversalsControllerReverseV1Response429
+  | reversalsControllerReverseV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reversalsControllerReverseV1Response =
+  | reversalsControllerReverseV1ResponseSuccess
+  | reversalsControllerReverseV1ResponseError;
+
+export const getReversalsControllerReverseV1Url = (transactionId: string) => {
+  return `/api/v1/transactions/${transactionId}/reverse`;
+};
+
+export const reversalsControllerReverseV1 = async (
+  transactionId: string,
+  reverseTransactionDto: ReverseTransactionDto,
+  options?: RequestInit,
+): Promise<reversalsControllerReverseV1Response> => {
+  const res = await fetch(getReversalsControllerReverseV1Url(transactionId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reverseTransactionDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reversalsControllerReverseV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reversalsControllerReverseV1Response;
+};
+
+/**
+ * Get public configuration
  * @summary Get public configuration
  */
 export type configurationControllerGetPublicConfigV1Response200 = {

@@ -16,10 +16,7 @@ import {
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
-import {
-  apiErrorEnvelopeResponses,
-  apiSuccessEnvelopeResponse,
-} from '../../common/openapi-envelope';
+import { apiErrorEnvelopeResponses } from '../../common/openapi-envelope';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildReverseThrottleKey } from '../../common/throttle/throttle.keys';
 import { ReverseTransactionDto } from './reversals.dto';
@@ -41,10 +38,6 @@ export class ReversalsController {
     keyFactory: buildReverseThrottleKey,
   })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
-  @apiSuccessEnvelopeResponse({
-    description: 'Transaction reversal processed',
-    status: 201,
-  })
   @apiErrorEnvelopeResponses({
     badRequest: {
       validationError: {
