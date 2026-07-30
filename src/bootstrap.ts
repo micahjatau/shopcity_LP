@@ -66,7 +66,30 @@ export function buildOpenApiDocument(app: INestApplication) {
       .build(),
   );
 
-  delete document.servers;
+  document.servers = [{ url: '/' }];
+
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    for (const method of [
+      'get',
+      'put',
+      'post',
+      'delete',
+      'options',
+      'head',
+      'patch',
+      'trace',
+    ] as const) {
+      const operation = pathItem?.[method];
+      if (!operation) {
+        continue;
+      }
+
+      if (!operation.description?.trim()) {
+        operation.description =
+          operation.summary?.trim() || 'ShopCity API operation';
+      }
+    }
+  }
 
   return document;
 }

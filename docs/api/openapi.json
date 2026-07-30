@@ -2552,7 +2552,8 @@
         "summary": "Create authenticated session",
         "tags": [
           "auth"
-        ]
+        ],
+        "description": "Create authenticated session"
       }
     },
     "/api/v1/auth/refresh": {
@@ -3221,7 +3222,8 @@
         "summary": "Rotate authenticated session",
         "tags": [
           "auth"
-        ]
+        ],
+        "description": "Rotate authenticated session"
       }
     },
     "/api/v1/auth/logout": {
@@ -3839,7 +3841,8 @@
         "summary": "End authenticated session",
         "tags": [
           "auth"
-        ]
+        ],
+        "description": "End authenticated session"
       }
     },
     "/api/v1/auth/me": {
@@ -4508,7 +4511,8 @@
         "summary": "Read current authenticated user",
         "tags": [
           "auth"
-        ]
+        ],
+        "description": "Read current authenticated user"
       }
     },
     "/api/v1/audit-logs": {
@@ -5143,7 +5147,8 @@
         "summary": "List audit log entries",
         "tags": [
           "audit"
-        ]
+        ],
+        "description": "List audit log entries"
       }
     },
     "/api/v1/users": {
@@ -5768,7 +5773,8 @@
         ],
         "tags": [
           "users"
-        ]
+        ],
+        "description": "ShopCity API operation"
       },
       "post": {
         "operationId": "UsersController_createUser_v1",
@@ -6399,7 +6405,8 @@
         "summary": "Create staff user",
         "tags": [
           "users"
-        ]
+        ],
+        "description": "Create staff user"
       }
     },
     "/api/v1/users/{id}/role": {
@@ -7040,7 +7047,8 @@
         ],
         "tags": [
           "users"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/users/{id}/status": {
@@ -7681,7 +7689,8 @@
         ],
         "tags": [
           "users"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/branches": {
@@ -8307,7 +8316,8 @@
         "summary": "List branches",
         "tags": [
           "branches"
-        ]
+        ],
+        "description": "List branches"
       },
       "post": {
         "operationId": "BranchesController_createBranch_v1",
@@ -8937,7 +8947,8 @@
         ],
         "tags": [
           "branches"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/branches/{id}": {
@@ -9578,7 +9589,8 @@
         ],
         "tags": [
           "branches"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/devices": {
@@ -10203,7 +10215,8 @@
         ],
         "tags": [
           "branches"
-        ]
+        ],
+        "description": "ShopCity API operation"
       },
       "post": {
         "operationId": "BranchesController_createDevice_v1",
@@ -10833,7 +10846,8 @@
         ],
         "tags": [
           "branches"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/devices/{id}": {
@@ -11474,7 +11488,8 @@
         ],
         "tags": [
           "branches"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/customers": {
@@ -12141,7 +12156,8 @@
         ],
         "tags": [
           "customers"
-        ]
+        ],
+        "description": "ShopCity API operation"
       },
       "post": {
         "operationId": "CustomersController_createCustomer_v1",
@@ -12772,7 +12788,8 @@
         "summary": "Register customer",
         "tags": [
           "customers"
-        ]
+        ],
+        "description": "Register customer"
       }
     },
     "/api/v1/customers/{id}": {
@@ -13403,7 +13420,8 @@
         ],
         "tags": [
           "customers"
-        ]
+        ],
+        "description": "ShopCity API operation"
       },
       "patch": {
         "operationId": "CustomersController_updateCustomer_v1",
@@ -14042,7 +14060,8 @@
         ],
         "tags": [
           "customers"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/customers/{id}/status": {
@@ -14683,7 +14702,8 @@
         ],
         "tags": [
           "customers"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/cards/lookup/{serialNumber}": {
@@ -15314,7 +15334,8 @@
         ],
         "tags": [
           "cards"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/cards": {
@@ -15947,7 +15968,8 @@
         "summary": "Assign card",
         "tags": [
           "cards"
-        ]
+        ],
+        "description": "Assign card"
       }
     },
     "/api/v1/cards/{id}/replace": {
@@ -16588,7 +16610,8 @@
         ],
         "tags": [
           "cards"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/cards/{id}/status": {
@@ -17229,7 +17252,8 @@
         ],
         "tags": [
           "cards"
-        ]
+        ],
+        "description": "ShopCity API operation"
       }
     },
     "/api/v1/receipts": {
@@ -20095,7 +20119,8 @@
         "summary": "List approvals",
         "tags": [
           "approvals"
-        ]
+        ],
+        "description": "List approvals"
       }
     },
     "/api/v1/approvals/{id}/decision": {
@@ -20805,7 +20830,8 @@
         "summary": "Decide approval",
         "tags": [
           "approvals"
-        ]
+        ],
+        "description": "Decide approval"
       }
     },
     "/api/v1/transactions/earn": {
@@ -21849,7 +21875,8 @@
         "summary": "Record an earn transaction",
         "tags": [
           "transactions"
-        ]
+        ],
+        "description": "Record an earn transaction"
       }
     },
     "/api/v1/transactions/{id}": {
@@ -22764,7 +22791,8 @@
         "summary": "Get transaction details",
         "tags": [
           "transactions"
-        ]
+        ],
+        "description": "Get transaction details"
       }
     },
     "/api/v1/customers/{id}/ledger": {
@@ -23580,7 +23608,8 @@
         "summary": "Get customer ledger",
         "tags": [
           "transactions"
-        ]
+        ],
+        "description": "Get customer ledger"
       }
     },
     "/api/v1/transactions/redeem": {
@@ -24653,7 +24682,8 @@
         "summary": "Redeem store credit",
         "tags": [
           "transactions"
-        ]
+        ],
+        "description": "Redeem store credit"
       }
     },
     "/api/v1/transactions/{transactionId}/reverse": {
@@ -25371,7 +25401,8 @@
         "summary": "Reverse a confirmed transaction",
         "tags": [
           "transactions"
-        ]
+        ],
+        "description": "Reverse a confirmed transaction"
       }
     },
     "/api/v1/config/public": {
@@ -26067,7 +26098,8 @@
         "summary": "Get public configuration",
         "tags": [
           "configuration"
-        ]
+        ],
+        "description": "Get public configuration"
       }
     }
   },
@@ -26125,6 +26157,11 @@
     {
       "name": "configuration",
       "description": ""
+    }
+  ],
+  "servers": [
+    {
+      "url": "/"
     }
   ],
   "components": {
