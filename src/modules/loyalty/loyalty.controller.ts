@@ -403,6 +403,7 @@ export class LoyaltyController {
   ) {
     return this.loyaltyService.getTransaction(
       request.authContext!.user.tenantId,
+      request.authContext!,
       transactionId,
     );
   }

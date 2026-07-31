@@ -173,6 +173,7 @@ describe('redemption approval lifecycle (int)', () => {
 
     const transaction = await loyaltyService.getTransaction(
       fixture.tenantId,
+      makeContext(fixture.supervisor, fixture.deviceId),
       decision.ledgerEntryId!,
     );
     expect(transaction.transactionId).toBe(decision.ledgerEntryId);

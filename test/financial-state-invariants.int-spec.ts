@@ -125,6 +125,27 @@ describe('financial state invariants (int)', () => {
     );
   }, 120000);
 
+  it('rejects unsupported ledger type and direction pairs', async () => {
+    await expect(
+      prisma.loyaltyLedgerEntry.create({
+        data: {
+          id: randomUUID(),
+          tenantId: fixture.tenantId,
+          customerId: fixture.customerId,
+          receiptId: fixture.receiptId,
+          type: LedgerEntryType.EARN,
+          direction: LedgerEntryDirection.DEBIT,
+          amountKobo: 6_000n,
+          status: LedgerEntryStatus.CONFIRMED,
+          correlationId: `ledger-${randomUUID()}`,
+          createdByTenantId: fixture.tenantId,
+          createdBy: fixture.userId,
+          effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+        },
+      }),
+    ).rejects.toThrow(/unsupported ledger type\/direction combination/i);
+  }, 120000);
+
   it('prevents redemption evidence mutation', async () => {
     const receiptId = randomUUID();
     await prisma.receipt.create({

@@ -223,6 +223,40 @@ export class LoyaltyService {
       normalizedKey,
     );
 
+    const existingIdempotency =
+      await this.prismaService.idempotencyRecord.findUnique({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint: EARN_ENDPOINT,
+            idempotencyKey: normalizedKey,
+          },
+        },
+      });
+
+    if (
+      existingIdempotency &&
+      existingIdempotency.requestHash !== requestHash
+    ) {
+      throw new DomainHttpException(
+        409,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
+    }
+
+    if (
+      existingIdempotency?.requestHash === requestHash &&
+      existingIdempotency.responseJson
+    ) {
+      return existingIdempotency.responseJson as unknown as EarnTransactionResponse;
+    }
+
+    if (existingIdempotency) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
     for (
       let attempt = 1;
       attempt <= EARN_SERIALIZATION_RETRY_ATTEMPTS;
@@ -292,44 +326,6 @@ export class LoyaltyService {
               transactionDevice.branch.timezone,
               transactionDevice.branch.receiptWeekStartDay,
             );
-
-            const existing = await prisma.idempotencyRecord.findUnique({
-              where: {
-                tenantId_actorId_endpoint_idempotencyKey: {
-                  tenantId,
-                  actorId: actor.user.id,
-                  endpoint: EARN_ENDPOINT,
-                  idempotencyKey: normalizedKey,
-                },
-              },
-            });
-
-            if (existing?.expiresAt && existing.expiresAt <= new Date()) {
-              await prisma.idempotencyRecord.deleteMany({
-                where: {
-                  tenantId,
-                  actorId: actor.user.id,
-                  endpoint: EARN_ENDPOINT,
-                  idempotencyKey: normalizedKey,
-                },
-              });
-            } else if (existing) {
-              if (existing.requestHash !== requestHash) {
-                throw new DomainHttpException(
-                  409,
-                  'IDEMPOTENCY_CONFLICT',
-                  'Idempotency key reused with different payload',
-                );
-              }
-
-              if (existing.responseJson && existing.status === 'COMPLETED') {
-                return existing.responseJson as unknown as EarnTransactionResponse;
-              }
-
-              throw new ConflictException(
-                'Idempotency key is still being processed',
-              );
-            }
 
             const duplicateReceipt = await prisma.receipt.findFirst({
               where: {
@@ -688,6 +684,7 @@ export class LoyaltyService {
 
   async getTransaction(
     tenantId: string,
+    actor: AuthContext,
     transactionId: string,
   ): Promise<TransactionResponse> {
     const ledgerEntry = await this.prismaService.loyaltyLedgerEntry.findFirst({
@@ -731,6 +728,14 @@ export class LoyaltyService {
         422,
         'UNSUPPORTED_TRANSACTION_TYPE',
         'This transaction type is not available through the earn transaction read model yet',
+      );
+    }
+
+    if (!isTransactionWithinReadScope(actor, receipt.branchId)) {
+      throw new DomainHttpException(
+        404,
+        'TRANSACTION_NOT_FOUND',
+        'Transaction not found',
       );
     }
 
@@ -910,8 +915,6 @@ export class LoyaltyService {
   }
 
   async listApprovals(tenantId: string, page?: CursorPageRequest) {
-    await expireOverdueApprovals(this.prismaService, tenantId);
-
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const approvals = await this.prismaService.approval.findMany({
       where: { tenantId },
@@ -2084,66 +2087,6 @@ async function findTransactionSmsMessage(
   return null;
 }
 
-async function expireOverdueApprovals(
-  prismaService: PrismaService,
-  tenantId: string,
-): Promise<void> {
-  if (typeof prismaService.$transaction !== 'function') {
-    return;
-  }
-
-  const now = new Date();
-  await prismaService.$transaction(async (tx) => {
-    const overdue = await tx.$queryRaw<
-      Array<{ id: string; redemptionId: string | null }>
-    >(Prisma.sql`
-      SELECT "id", "redemptionId"
-      FROM "Approval"
-      WHERE "tenantId" = ${tenantId}
-        AND "status" = 'PENDING'
-        AND "expiresAt" <= ${now}
-      ORDER BY "expiresAt" ASC, "requestedAt" ASC, "id" ASC
-      FOR UPDATE SKIP LOCKED
-    `);
-
-    if (overdue.length === 0) {
-      return;
-    }
-
-    for (const approval of overdue) {
-      const updated = await tx.approval.updateMany({
-        where: {
-          tenantId,
-          id: approval.id,
-          status: ApprovalStatus.PENDING,
-        },
-        data: {
-          status: ApprovalStatus.EXPIRED,
-          decidedAt: now,
-          decisionReason: 'approval expired',
-        },
-      });
-
-      if (updated.count !== 1 || !approval.redemptionId) {
-        continue;
-      }
-
-      await tx.redemption.updateMany({
-        where: {
-          tenantId,
-          id: approval.redemptionId,
-          status: RedemptionStatus.PENDING_APPROVAL,
-        },
-        data: {
-          status: RedemptionStatus.EXPIRED,
-          confirmedAt: null,
-          rejectedAt: null,
-        },
-      });
-    }
-  });
-}
-
 async function lockApprovalExecutionRows(
   prisma: Prisma.TransactionClient,
   approval: {
@@ -2313,6 +2256,17 @@ function isUniqueReceiptConflict(error: unknown): boolean {
     target.includes('receiptWeekStart') &&
     target.includes('normalizedPosReceiptNumber')
   );
+}
+
+function isTransactionWithinReadScope(
+  actor: AuthContext,
+  branchId: string,
+): boolean {
+  if (actor.user.role === UserRole.ADMIN) {
+    return true;
+  }
+
+  return Boolean(actor.user.branchId && actor.user.branchId === branchId);
 }
 
 function isTransactionConflict(error: unknown): boolean {

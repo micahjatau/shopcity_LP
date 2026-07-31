@@ -1,8 +1,10 @@
 import { PrismaService } from './database/prisma.service';
+import { AuditService } from './modules/audit/audit.service';
 import {
   loadWorkerConfig,
   OutboxWorkerRuntime,
 } from './jobs/outbox-worker.runtime';
+import { ApprovalExpiryWorkerRuntime } from './jobs/approval-expiry.worker';
 import { createSmsProvider } from './jobs/sms.provider.factory';
 
 export async function bootstrap() {
@@ -10,9 +12,13 @@ export async function bootstrap() {
   const smsProvider = createSmsProvider(process.env);
   const prisma = new PrismaService();
   const runtime = new OutboxWorkerRuntime(prisma, config, smsProvider);
+  const approvalExpiryRuntime = new ApprovalExpiryWorkerRuntime(
+    prisma,
+    new AuditService(prisma),
+  );
 
   const shutdown = async () => {
-    await runtime.stop();
+    await Promise.allSettled([runtime.stop(), approvalExpiryRuntime.stop()]);
   };
 
   process.once('SIGINT', () => {
@@ -24,6 +30,7 @@ export async function bootstrap() {
 
   try {
     await runtime.start();
+    await approvalExpiryRuntime.start();
   } catch (error) {
     await shutdown();
     throw error;

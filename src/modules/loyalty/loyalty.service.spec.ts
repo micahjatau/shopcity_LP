@@ -112,6 +112,15 @@ describe('LoyaltyService earn transaction retries', () => {
 
 describe('LoyaltyService redemption approvals', () => {
   it('lists REDEEM approvals with receipt evidence through redemption.receipt', async () => {
+    const tx = {
+      $queryRaw: jest.fn(),
+      approval: {
+        updateMany: jest.fn(),
+      },
+      redemption: {
+        updateMany: jest.fn(),
+      },
+    };
     const service = new LoyaltyService(
       {
         approval: {
@@ -158,6 +167,49 @@ describe('LoyaltyService redemption approvals', () => {
         },
       ],
     });
+
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+    expect(tx.approval.updateMany).not.toHaveBeenCalled();
+    expect(tx.redemption.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('replays completed earn responses before mutable validation', async () => {
+    const nowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date(FIXED_OCCURRED_AT).getTime());
+    const transaction = jest.fn();
+    const replay = { state: 'CONFIRMED', receiptId: 'receipt-1' };
+    const requestHash = expectedEarnHash();
+    try {
+      const service = new LoyaltyService(
+        prismaService({
+          transaction,
+          idempotencyRecord: {
+            findUnique: jest.fn().mockResolvedValue({
+              requestHash,
+              responseJson: replay,
+              status: 'COMPLETED',
+            }),
+          },
+        }),
+        auditService(),
+        configService(),
+        activeBalanceService(20_000n),
+      );
+
+      await expect(
+        service.earn('tenant-1', authContext(), 'idem-replay', {
+          posReceiptNumber: 'POS-REPLAY',
+          cardSerialNumber: 'CARD-1',
+          purchaseAmountKobo: 1_000_000,
+          occurredAt: FIXED_OCCURRED_AT,
+        }),
+      ).resolves.toBe(replay);
+
+      expect(transaction).not.toHaveBeenCalled();
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('executes REDEEM approval using redemption receipt evidence', async () => {
@@ -359,10 +411,10 @@ describe('LoyaltyService redemption approvals', () => {
       ],
     });
 
-    expect(transaction).toHaveBeenCalledTimes(1);
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(tx.approval.updateMany).toHaveBeenCalledTimes(1);
-    expect(tx.redemption.updateMany).toHaveBeenCalledTimes(1);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+    expect(tx.approval.updateMany).not.toHaveBeenCalled();
+    expect(tx.redemption.updateMany).not.toHaveBeenCalled();
     expect(approvalFindMany).toHaveBeenCalledTimes(1);
   });
 
@@ -384,7 +436,7 @@ describe('LoyaltyService redemption approvals', () => {
     );
 
     await expect(
-      service.getTransaction('tenant-1', 'ledger-1'),
+      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-1'),
     ).resolves.toMatchObject({
       transactionId: 'ledger-1',
       ledgerEntryId: 'ledger-1',
@@ -423,7 +475,7 @@ describe('LoyaltyService redemption approvals', () => {
     );
 
     await expect(
-      service.getTransaction('tenant-1', 'ledger-1'),
+      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-1'),
     ).resolves.toMatchObject({
       transactionId: 'ledger-1',
       redemptionId: 'redemption-1',
@@ -441,6 +493,67 @@ describe('LoyaltyService redemption approvals', () => {
       },
     });
   });
+
+  it('rejects cashier transaction reads outside branch scope', async () => {
+    const ledgerEntry = redemptionLedgerEntryFixture();
+    const receipt = ledgerEntry.receipt as unknown as {
+      branchId: string;
+      capturedBy: string;
+    };
+    receipt.branchId = 'branch-2';
+    receipt.capturedBy = 'cashier-1';
+
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(ledgerEntry),
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue({ status: 'QUEUED' }),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(94_000n),
+    );
+
+    await expect(
+      service.getTransaction('tenant-1', authContext(), 'ledger-1'),
+    ).rejects.toMatchObject({
+      response: { code: 'TRANSACTION_NOT_FOUND' },
+    });
+  });
+
+  it('allows admin transaction reads across branch scope', async () => {
+    const ledgerEntry = redemptionLedgerEntryFixture();
+    const receipt = ledgerEntry.receipt as unknown as {
+      branchId: string;
+      capturedBy: string;
+    };
+    receipt.branchId = 'branch-2';
+    receipt.capturedBy = 'cashier-2';
+
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(ledgerEntry),
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue({ status: 'QUEUED' }),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(94_000n),
+    );
+
+    await expect(
+      service.getTransaction('tenant-1', adminAuthContext(), 'ledger-1'),
+    ).resolves.toMatchObject({
+      transactionId: 'ledger-1',
+      ledgerEntryId: 'ledger-1',
+    });
+  });
 });
 
 function serializationConflict() {
@@ -454,14 +567,63 @@ function prismaKnownRequestError(code: string) {
   });
 }
 
-function prismaService({ transaction }: { transaction: jest.Mock }) {
+function prismaService({
+  transaction,
+  idempotencyRecord,
+}: {
+  transaction: jest.Mock;
+  idempotencyRecord?: {
+    deleteMany?: jest.Mock;
+    findUnique?: jest.Mock;
+  };
+}) {
   return {
     $transaction: transaction,
     idempotencyRecord: {
-      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-      findUnique: jest.fn().mockResolvedValue(null),
+      deleteMany:
+        idempotencyRecord?.deleteMany ??
+        jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique:
+        idempotencyRecord?.findUnique ?? jest.fn().mockResolvedValue(null),
     },
   } as never;
+}
+
+function expectedEarnHash() {
+  return createHash('sha256')
+    .update(
+      stableStringify({
+        tenantId: 'tenant-1',
+        actorId: 'user-1',
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REPLAY',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: FIXED_OCCURRED_AT,
+        deviceId: 'device-1',
+        overrideReason: undefined,
+      }),
+    )
+    .digest('hex');
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+  return `{${entries
+    .map(
+      ([key, entryValue]) =>
+        `${JSON.stringify(key)}:${stableStringify(entryValue)}`,
+    )
+    .join(',')}}`;
 }
 
 function redemptionApprovalTransactionClient() {
@@ -741,6 +903,18 @@ function supervisorAuthContext(): AuthContext {
       ...authContext().user,
       id: 'supervisor-1',
       role: UserRole.SUPERVISOR,
+    },
+  };
+}
+
+function adminAuthContext(): AuthContext {
+  return {
+    ...authContext(),
+    user: {
+      ...authContext().user,
+      id: 'admin-1',
+      role: UserRole.ADMIN,
+      branchId: 'branch-2',
     },
   };
 }

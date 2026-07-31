@@ -166,6 +166,7 @@ describe('immutable earn ledger (int)', () => {
 
     const transaction = await loyaltyService.getTransaction(
       tenant.id,
+      fixture.actor,
       first.transactionId!,
     );
     expect(transaction.state).toBe('CONFIRMED');
@@ -301,6 +302,7 @@ describe('immutable earn ledger (int)', () => {
 
     const transaction = await loyaltyService.getTransaction(
       tenant.id,
+      fixture.actor,
       decision?.value.ledgerEntryId ?? pending.transactionId!,
     );
     expect(transaction.state).toBe('CONFIRMED');

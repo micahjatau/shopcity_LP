@@ -120,6 +120,24 @@ describe('RedemptionsService', () => {
     expect(tx.approval.create).not.toHaveBeenCalled();
   });
 
+  it('replays completed redemption responses before mutable validation', async () => {
+    const transaction = jest.fn();
+    const replay = { state: 'CONFIRMED', redemptionId: 'redemption-1' };
+    const service = serviceWith({ transaction, replay });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-3', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-3',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).resolves.toBe(replay);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects stale or future redemption timestamps before writes', async () => {
     jest
       .spyOn(Date, 'now')
@@ -200,6 +218,51 @@ describe('RedemptionsService', () => {
     ).rejects.toMatchObject({
       response: { code: 'IDEMPOTENCY_CONFLICT' },
     });
+  });
+
+  it('retries redemption serialization conflicts within the bounded budget', async () => {
+    const transaction = jest
+      .fn()
+      .mockRejectedValueOnce(serializationConflict())
+      .mockImplementationOnce(
+        (callback: (client: ReturnType<typeof transactionClient>) => unknown) =>
+          callback(transactionClient()),
+      );
+    const service = serviceWith({ transaction });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-9', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-9',
+        basketAmountKobo: 20_000,
+        requestedRedemptionKobo: 1_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).resolves.toMatchObject({
+      state: 'CONFIRMED',
+      redemptionId: 'redemption-1',
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('surfaces redemption transaction conflicts after exhausting retries', async () => {
+    const transaction = jest.fn().mockRejectedValue(serializationConflict());
+    const service = serviceWith({ transaction });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-10', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-10',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'REDEMPTION_TRANSACTION_CONFLICT' },
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(3);
   });
 
   it('maps duplicate receipt P2002 to RECEIPT_ALREADY_USED', async () => {
@@ -307,7 +370,7 @@ function serviceWith({
           replay === undefined
             ? null
             : replay === null
-              ? { requestHash: 'different-hash', responseJson: null }
+              ? null
               : { requestHash: expectedHash('idem-3'), responseJson: replay },
         ),
     },
@@ -318,10 +381,26 @@ function serviceWith({
     {
       getActiveBalanceKobo: jest.fn().mockResolvedValue(activeBalanceKobo),
     } as never,
-    { allocateDebit: jest.fn() } as never,
+    {
+      allocateDebit: jest.fn().mockResolvedValue([
+        {
+          creditLotId: 'lot-1',
+          amountKobo: 1_000n,
+          allocationOrder: 1,
+          expiresAt: new Date('2027-07-26T12:00:00.000Z'),
+        },
+      ]),
+    } as never,
     new RedemptionPolicyService(configService()),
     { recordWithClient: jest.fn().mockResolvedValue(undefined) } as never,
   );
+}
+
+function serializationConflict() {
+  return new Prisma.PrismaClientKnownRequestError('serialization conflict', {
+    code: 'P2034',
+    clientVersion: 'test',
+  });
 }
 
 function transactionClient() {
