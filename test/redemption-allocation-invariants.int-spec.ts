@@ -181,6 +181,118 @@ describe('redemption allocation invariants (int)', () => {
       }),
     ).rejects.toThrow(/remaining balance must match allocation/i);
   }, 120000);
+
+  it('rejects restorations that point to the wrong original debit', async () => {
+    const scenario = await createRedemptionScenario(prisma, fixture);
+
+    const committedAllocation = await prisma.$transaction(async (tx) => {
+      const firstRedemption = await createConfirmedRedemption(
+        tx,
+        fixture,
+        6_000n,
+      );
+      const allocationId = randomUUID();
+
+      await tx.redemptionAllocation.create({
+        data: {
+          id: allocationId,
+          tenantId: fixture.tenantId,
+          redemptionId: firstRedemption.redemptionId,
+          redemptionLedgerEntryId: firstRedemption.debitLedgerEntryId,
+          creditLotId: scenario.creditLotId,
+          amountKobo: 6_000n,
+          allocationOrder: 1,
+        },
+      });
+
+      await tx.creditLot.update({
+        where: {
+          tenantId_id: {
+            tenantId: fixture.tenantId,
+            id: scenario.creditLotId,
+          },
+        },
+        data: { remainingAmountKobo: { decrement: 6_000n } },
+      });
+
+      return { allocationId };
+    });
+
+    const wrongScenario = await createRedemptionScenario(prisma, fixture);
+
+    const wrongDebitLedgerEntryId = await prisma.$transaction(async (tx) => {
+      const wrongRedemption = await createConfirmedRedemption(
+        tx,
+        fixture,
+        6_000n,
+      );
+
+      await tx.redemptionAllocation.create({
+        data: {
+          id: randomUUID(),
+          tenantId: fixture.tenantId,
+          redemptionId: wrongRedemption.redemptionId,
+          redemptionLedgerEntryId: wrongRedemption.debitLedgerEntryId,
+          creditLotId: wrongScenario.creditLotId,
+          amountKobo: 6_000n,
+          allocationOrder: 1,
+        },
+      });
+
+      await tx.creditLot.update({
+        where: {
+          tenantId_id: {
+            tenantId: fixture.tenantId,
+            id: wrongScenario.creditLotId,
+          },
+        },
+        data: { remainingAmountKobo: { decrement: 6_000n } },
+      });
+
+      return wrongRedemption.debitLedgerEntryId;
+    });
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        const wrongReversalLedger = await tx.loyaltyLedgerEntry.create({
+          data: {
+            id: randomUUID(),
+            tenantId: fixture.tenantId,
+            customerId: fixture.customerId,
+            type: LedgerEntryType.REVERSAL,
+            direction: LedgerEntryDirection.CREDIT,
+            amountKobo: 6_000n,
+            status: LedgerEntryStatus.CONFIRMED,
+            correlationId: `reversal-${randomUUID()}`,
+            createdByTenantId: fixture.tenantId,
+            createdBy: fixture.userId,
+            reversesEntryId: wrongDebitLedgerEntryId,
+            effectiveAt: new Date(),
+          },
+        });
+
+        await tx.allocationRestoration.create({
+          data: {
+            id: randomUUID(),
+            tenantId: fixture.tenantId,
+            allocationId: committedAllocation.allocationId,
+            reversalLedgerEntryId: wrongReversalLedger.id,
+            amountKobo: 6_000n,
+          },
+        });
+
+        await tx.creditLot.update({
+          where: {
+            tenantId_id: {
+              tenantId: fixture.tenantId,
+              id: scenario.creditLotId,
+            },
+          },
+          data: { remainingAmountKobo: { increment: 6_000n } },
+        });
+      }),
+    ).rejects.toThrow(/original debit/i);
+  }, 120000);
 });
 
 async function createBaseFixture(prisma: PrismaClient) {

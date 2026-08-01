@@ -146,6 +146,81 @@ describe('financial state invariants (int)', () => {
     ).rejects.toThrow(/unsupported ledger type\/direction combination/i);
   }, 120000);
 
+  it('verifies the financial SQL guards are present after migration deploy', async () => {
+    const functions = await prisma.$queryRaw<{ proname: string }[]>`
+      SELECT p.proname
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname IN (
+          'validate_credit_lot_source',
+          'prevent_credit_lot_source_mutation',
+          'validate_allocation_restoration_commit_state',
+          'validate_ledger_entry_commit_state'
+        )
+      ORDER BY p.proname
+    `;
+    const triggers = await prisma.$queryRaw<{ tgname: string }[]>`
+      SELECT tgname
+      FROM pg_trigger
+      WHERE tgname IN (
+        'validate_credit_lot_source_insert',
+        'validate_credit_lot_source_update',
+        'prevent_credit_lot_source_update',
+        'validate_allocation_restoration_commit_state_insert',
+        'validate_ledger_entry_commit_state_insert'
+      )
+      ORDER BY tgname
+    `;
+    const ledgerValidation = await prisma.$queryRaw<{ definition: string }[]>`
+      SELECT pg_get_functiondef(p.oid) AS definition
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'validate_ledger_entry_commit_state'
+      LIMIT 1
+    `;
+    const restorationValidation = await prisma.$queryRaw<
+      {
+        definition: string;
+      }[]
+    >`
+      SELECT pg_get_functiondef(p.oid) AS definition
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'validate_allocation_restoration_commit_state'
+      LIMIT 1
+    `;
+
+    expect(functions.map((row) => row.proname)).toEqual(
+      expect.arrayContaining([
+        'prevent_credit_lot_source_mutation',
+        'validate_allocation_restoration_commit_state',
+        'validate_credit_lot_source',
+        'validate_ledger_entry_commit_state',
+      ]),
+    );
+    expect(triggers.map((row) => row.tgname)).toEqual(
+      expect.arrayContaining([
+        'prevent_credit_lot_source_update',
+        'validate_allocation_restoration_commit_state_insert',
+        'validate_credit_lot_source_insert',
+        'validate_credit_lot_source_update',
+        'validate_ledger_entry_commit_state_insert',
+      ]),
+    );
+    expect(ledgerValidation[0].definition).toContain(
+      'unsupported ledger type/direction combination',
+    );
+    expect(ledgerValidation[0].definition).toContain(
+      'credit adjustment ledger entry must have exactly one credit lot',
+    );
+    expect(restorationValidation[0].definition).toContain(
+      'allocation restoration must reference the original debit entry',
+    );
+  }, 120000);
+
   it('prevents redemption evidence mutation', async () => {
     const receiptId = randomUUID();
     await prisma.receipt.create({

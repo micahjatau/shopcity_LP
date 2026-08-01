@@ -499,7 +499,101 @@ describe('immutable earn ledger (int)', () => {
           remainingAmountKobo: direct.ledgerEntry.amountKobo + 1n,
         },
       ),
-    ).rejects.toThrow(/credit lot must match its earn ledger entry/i);
+    ).rejects.toThrow(/credit lot must match its credit ledger entry/i);
+  }, 120000);
+
+  it('accepts adjustment credit lots and rejects unsupported source pairs', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-LOT-ADJUSTMENT',
+    );
+    const occurredAt = recentOccurredAt();
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        const ledgerEntry = await tx.loyaltyLedgerEntry.create({
+          data: {
+            id: randomUUID(),
+            tenantId: tenant.id,
+            customerId: fixture.customer.id,
+            type: LedgerEntryType.ADJUSTMENT,
+            direction: LedgerEntryDirection.CREDIT,
+            amountKobo: 4_000n,
+            status: LedgerEntryStatus.CONFIRMED,
+            correlationId: `adjustment-credit-${randomUUID()}`,
+            createdByTenantId: tenant.id,
+            createdBy: cashier.id,
+            effectiveAt: new Date(occurredAt),
+          },
+        });
+
+        await tx.adjustment.create({
+          data: {
+            id: randomUUID(),
+            tenantId: tenant.id,
+            customerId: fixture.customer.id,
+            kind: 'CREDIT',
+            amountKobo: 4_000n,
+            reason: 'Adjustment credit lot',
+            createdByTenantId: tenant.id,
+            createdBy: cashier.id,
+            ledgerEntryId: ledgerEntry.id,
+            effectiveAt: new Date(occurredAt),
+          },
+        });
+
+        await tx.creditLot.create({
+          data: {
+            id: randomUUID(),
+            tenantId: tenant.id,
+            customerId: fixture.customer.id,
+            earnLedgerEntryId: ledgerEntry.id,
+            originalAmountKobo: 4_000n,
+            remainingAmountKobo: 4_000n,
+            earnedAt: new Date(occurredAt),
+            expiresAt: addMonthsUtc(new Date(occurredAt), 12),
+          },
+        });
+      }),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      prisma.$transaction(async (tx) => {
+        const ledgerEntry = await tx.loyaltyLedgerEntry.create({
+          data: {
+            id: randomUUID(),
+            tenantId: tenant.id,
+            customerId: fixture.customer.id,
+            type: LedgerEntryType.REDEEM,
+            direction: LedgerEntryDirection.DEBIT,
+            amountKobo: 4_000n,
+            status: LedgerEntryStatus.CONFIRMED,
+            correlationId: `unsupported-source-${randomUUID()}`,
+            createdByTenantId: tenant.id,
+            createdBy: cashier.id,
+            effectiveAt: new Date(occurredAt),
+          },
+        });
+
+        await tx.creditLot.create({
+          data: {
+            id: randomUUID(),
+            tenantId: tenant.id,
+            customerId: fixture.customer.id,
+            earnLedgerEntryId: ledgerEntry.id,
+            originalAmountKobo: 4_000n,
+            remainingAmountKobo: 4_000n,
+            earnedAt: new Date(occurredAt),
+            expiresAt: addMonthsUtc(new Date(occurredAt), 12),
+          },
+        });
+      }),
+    ).rejects.toThrow(
+      /credit lot must match its credit ledger entry|credit lot must reference an existing earn ledger entry/i,
+    );
   }, 120000);
 
   it('enforces derived credit lot expiry on insert', async () => {

@@ -153,6 +153,7 @@ describe('OpenAPI contract (int)', () => {
       document.paths['/api/v1/transactions/{transactionId}/reverse']?.post;
 
     expect(reversalOperation?.responses?.['201']).toBeUndefined();
+    expect(reversalOperation?.responses?.['202']).toBeUndefined();
     expect(responseExampleCodes(reversalOperation?.responses?.['422'])).toEqual(
       ['REVERSAL_REVIEW_REQUIRED'],
     );
