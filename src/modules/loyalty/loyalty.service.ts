@@ -36,6 +36,7 @@ import { LotAllocationService } from '../../common/balance/lot-allocation.servic
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { EarnTransactionDto } from './loyalty.dto';
 import { buildRedemptionConfirmedSmsPayload } from '../../jobs/sms.templates';
+import { expireApproval } from './approval-expiry';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
@@ -164,6 +165,87 @@ export interface ApprovalListItem {
   };
 }
 
+function requireBranchScope(actor: AuthContext): string | undefined {
+  if (actor.user.role === UserRole.ADMIN) {
+    return undefined;
+  }
+
+  if (!actor.user.branchId) {
+    throw new DomainHttpException(
+      403,
+      'BRANCH_SCOPE_REQUIRED',
+      'Branch scope is required',
+    );
+  }
+
+  return actor.user.branchId;
+}
+
+function buildApprovalScopeWhere(
+  tenantId: string,
+  approvalId: string,
+  actor: AuthContext,
+) {
+  const branchId = requireBranchScope(actor);
+
+  return {
+    tenantId,
+    id: approvalId,
+    ...(branchId
+      ? {
+          OR: [
+            { receipt: { is: { branchId } } },
+            { redemption: { is: { receipt: { is: { branchId } } } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+function buildApprovalListWhere(tenantId: string, actor: AuthContext) {
+  const branchId = requireBranchScope(actor);
+
+  return {
+    tenantId,
+    ...(branchId
+      ? {
+          OR: [
+            { receipt: { is: { branchId } } },
+            { redemption: { is: { receipt: { is: { branchId } } } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+function buildCustomerLedgerWhere(tenantId: string, actor: AuthContext, customerId: string) {
+  const branchId = requireBranchScope(actor);
+
+  return {
+    tenantId,
+    customerId,
+    ...(branchId ? { receipt: { is: { branchId } } } : {}),
+  };
+}
+
+function toApprovalExpiryRecord(approval: {
+  id: string;
+  tenantId: string;
+  targetType: ApprovalTargetType;
+  receiptId: string | null;
+  redemptionId: string | null;
+  redemption?: { receiptId: string | null } | null;
+}) {
+  return {
+    id: approval.id,
+    tenantId: approval.tenantId,
+    targetType: approval.targetType,
+    receiptId: approval.receiptId,
+    redemptionId: approval.redemptionId,
+    redemptionReceiptId: approval.redemption?.receiptId ?? null,
+  };
+}
+
 @Injectable()
 export class LoyaltyService {
   constructor(
@@ -199,22 +281,6 @@ export class LoyaltyService {
       deviceId: sessionDeviceId,
       overrideReason,
     });
-
-    assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
-
-    if (!sessionDeviceId) {
-      throw new DomainHttpException(
-        400,
-        'SESSION_DEVICE_REQUIRED',
-        'Session device is required',
-      );
-    }
-
-    const overrideApplied = assertReceiptTimestampAllowed(
-      actor.user.role,
-      occurredAt,
-      overrideReason,
-    );
 
     await cleanupExpiredIdempotencyRecords(
       this.prismaService,
@@ -256,6 +322,22 @@ export class LoyaltyService {
     if (existingIdempotency) {
       throw new ConflictException('Idempotency key is still being processed');
     }
+
+    if (!sessionDeviceId) {
+      throw new DomainHttpException(
+        400,
+        'SESSION_DEVICE_REQUIRED',
+        'Session device is required',
+      );
+    }
+
+    assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
+
+    const overrideApplied = assertReceiptTimestampAllowed(
+      actor.user.role,
+      occurredAt,
+      overrideReason,
+    );
 
     for (
       let attempt = 1;
@@ -824,12 +906,13 @@ export class LoyaltyService {
 
   async listCustomerLedger(
     tenantId: string,
+    actor: AuthContext,
     customerId: string,
     page?: CursorPageRequest,
   ) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const entries = await this.prismaService.loyaltyLedgerEntry.findMany({
-      where: { tenantId, customerId },
+      where: buildCustomerLedgerWhere(tenantId, actor, customerId),
       orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
       include: {
         creditLot: true,
@@ -914,10 +997,14 @@ export class LoyaltyService {
     };
   }
 
-  async listApprovals(tenantId: string, page?: CursorPageRequest) {
+  async listApprovals(
+    tenantId: string,
+    actor: AuthContext,
+    page?: CursorPageRequest,
+  ) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const approvals = await this.prismaService.approval.findMany({
-      where: { tenantId },
+      where: buildApprovalListWhere(tenantId, actor),
       orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
       include: {
         receipt: {
@@ -1021,7 +1108,7 @@ export class LoyaltyService {
       const decisionResult = await this.prismaService.$transaction(
         async (prisma) => {
           const approval = await prisma.approval.findFirst({
-            where: { tenantId, id: approvalId },
+            where: buildApprovalScopeWhere(tenantId, approvalId, actor),
             include: {
               receipt: {
                 include: {
@@ -1102,28 +1189,13 @@ export class LoyaltyService {
           const now = new Date();
 
           if (approval.expiresAt <= now) {
-            const expired = await prisma.approval.updateMany({
-              where: {
-                tenantId,
-                id: approvalId,
-                status: ApprovalStatus.PENDING,
-              },
-              data: {
-                status: ApprovalStatus.EXPIRED,
-                decidedAt: now,
-                decisionByTenantId: actor.user.tenantId,
-                decisionBy: actor.user.id,
-                decisionReason: 'approval expired',
-              },
-            });
-
-            if (expired.count !== 1) {
-              throw new DomainHttpException(
-                409,
-                'APPROVAL_ALREADY_DECIDED',
-                'Approval has already been decided',
-              );
-            }
+            await expireApproval(
+              prisma,
+              this.auditService,
+              toApprovalExpiryRecord(approval),
+              now,
+              { tenantId: actor.user.tenantId, id: actor.user.id },
+            );
 
             return { expired: true } as const;
           }
@@ -1481,29 +1553,22 @@ export class LoyaltyService {
     const now = new Date();
 
     if (approval.expiresAt <= now) {
-      const expired = await prisma.approval.updateMany({
-        where: { tenantId, id: approval.id, status: ApprovalStatus.PENDING },
-        data: {
-          status: ApprovalStatus.EXPIRED,
-          decidedAt: now,
-          decisionByTenantId: actor.user.tenantId,
-          decisionBy: actor.user.id,
-          decisionReason: 'approval expired',
-        },
-      });
-
-      if (expired.count !== 1) {
-        throw new DomainHttpException(
-          409,
-          'APPROVAL_ALREADY_DECIDED',
-          'Approval has already been decided',
-        );
-      }
-
-      await prisma.redemption.update({
-        where: { tenantId_id: { tenantId, id: redemption.id } },
-        data: { status: RedemptionStatus.EXPIRED, rejectedAt: now },
-      });
+      await expireApproval(
+        prisma,
+        this.auditService,
+        toApprovalExpiryRecord({
+          id: approval.id,
+          tenantId,
+          targetType: ApprovalTargetType.REDEEM,
+          receiptId: approval.receiptId,
+          redemptionId: approval.redemptionId,
+          redemption: approval.redemption
+            ? { receiptId: approval.redemption.receiptId }
+            : null,
+        }),
+        now,
+        { tenantId: actor.user.tenantId, id: actor.user.id },
+      );
 
       return { expired: true } as never;
     }

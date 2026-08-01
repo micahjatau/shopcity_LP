@@ -62,8 +62,6 @@ export class OutboxWorkerRuntime {
       return;
     }
 
-    await this.prisma.$connect();
-
     this.queue = createOutboxQueue(this.config.redisUrl);
     this.worker = createOutboxWorker(this.config.redisUrl, (job) =>
       this.handleJob(job),
@@ -128,7 +126,6 @@ export class OutboxWorkerRuntime {
       });
     }
 
-    await this.prisma.$disconnect();
     this.queue = undefined;
     this.worker = undefined;
     this.activeRecovery = undefined;

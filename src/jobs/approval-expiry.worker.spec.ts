@@ -11,16 +11,17 @@ describe('expireOverdueApprovals', () => {
           targetType: ApprovalTargetType.REDEEM,
           receiptId: null,
           redemptionId: 'redemption-1',
+          redemptionReceiptId: 'receipt-1',
         },
       ]),
       approval: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      redemption: {
+      receipt: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      receipt: {
-        updateMany: jest.fn(),
+      redemption: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
     const prisma = {
@@ -83,6 +84,14 @@ describe('expireOverdueApprovals', () => {
       },
     });
     expect(redemptionUpdateArgs.data.rejectedAt).toBeInstanceOf(Date);
+    expect(tx.receipt.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant-1',
+          id: 'receipt-1',
+        },
+      }),
+    );
     expect(auditService.recordWithClient).toHaveBeenCalledWith(
       tx,
       expect.objectContaining({

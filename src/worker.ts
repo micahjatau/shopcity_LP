@@ -8,6 +8,11 @@ import { ApprovalExpiryWorkerRuntime } from './jobs/approval-expiry.worker';
 import { createSmsProvider } from './jobs/sms.provider.factory';
 
 export async function bootstrap() {
+  if (process.argv.includes('--approval-expiry-only')) {
+    await bootstrapApprovalExpiryOnly();
+    return;
+  }
+
   const config = loadWorkerConfig(process.env);
   const smsProvider = createSmsProvider(process.env);
   const prisma = new PrismaService();
@@ -19,6 +24,7 @@ export async function bootstrap() {
 
   const shutdown = async () => {
     await Promise.allSettled([runtime.stop(), approvalExpiryRuntime.stop()]);
+    await prisma.$disconnect().catch(() => undefined);
   };
 
   process.once('SIGINT', () => {
@@ -29,7 +35,36 @@ export async function bootstrap() {
   });
 
   try {
+    await prisma.$connect();
     await runtime.start();
+    await approvalExpiryRuntime.start();
+  } catch (error) {
+    await shutdown();
+    throw error;
+  }
+}
+
+async function bootstrapApprovalExpiryOnly() {
+  const prisma = new PrismaService();
+  const approvalExpiryRuntime = new ApprovalExpiryWorkerRuntime(
+    prisma,
+    new AuditService(prisma),
+  );
+
+  const shutdown = async () => {
+    await approvalExpiryRuntime.stop();
+    await prisma.$disconnect().catch(() => undefined);
+  };
+
+  process.once('SIGINT', () => {
+    void shutdown();
+  });
+  process.once('SIGTERM', () => {
+    void shutdown();
+  });
+
+  try {
+    await prisma.$connect();
     await approvalExpiryRuntime.start();
   } catch (error) {
     await shutdown();
@@ -39,7 +74,9 @@ export async function bootstrap() {
 
 if (require.main === module) {
   if (process.argv.includes('--help')) {
-    process.stdout.write('Usage: node dist/src/worker.js [--help]\n');
+    process.stdout.write(
+      'Usage: node dist/src/worker.js [--help] [--approval-expiry-only]\n',
+    );
     process.exit(0);
   }
 

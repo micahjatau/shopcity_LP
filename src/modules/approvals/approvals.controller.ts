@@ -99,6 +99,7 @@ export class ApprovalsController {
   ) {
     return this.approvalsService.listApprovals(
       context.user.tenantId,
+      context,
       parseCursorPageRequest(limit, cursor),
     );
   }

@@ -96,15 +96,6 @@ export class RedemptionsService {
     const normalizedPosReceiptNumber =
       normalizeReceiptIdentity(posReceiptNumber);
     const occurredAt = parseDate(dto.occurredAt, 'occurredAt');
-    assertRedemptionTimestampAllowed(occurredAt);
-    const requestedAmountKobo = toSafePositiveBigInt(
-      dto.requestedRedemptionKobo,
-      'requestedRedemptionKobo',
-    );
-    const basketAmountKobo = toSafePositiveBigInt(
-      dto.basketAmountKobo,
-      'basketAmountKobo',
-    );
     const sessionDeviceId = actor.session.deviceId;
     const requestHash = hashRequest({
       tenantId,
@@ -165,6 +156,25 @@ export class RedemptionsService {
         'Idempotency key is still being processed',
       );
     }
+
+    if (!sessionDeviceId) {
+      throw new DomainHttpException(
+        HttpStatus.BAD_REQUEST,
+        'SESSION_DEVICE_REQUIRED',
+        'Session device is required',
+      );
+    }
+
+    const requestedAmountKobo = toSafePositiveBigInt(
+      dto.requestedRedemptionKobo,
+      'requestedRedemptionKobo',
+    );
+    const basketAmountKobo = toSafePositiveBigInt(
+      dto.basketAmountKobo,
+      'basketAmountKobo',
+    );
+
+    assertRedemptionTimestampAllowed(occurredAt);
 
     try {
       return await runWithBoundedFinancialRetries(

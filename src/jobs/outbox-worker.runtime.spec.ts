@@ -384,7 +384,7 @@ describe('OutboxWorkerRuntime', () => {
     recovery.resolve();
     await stopPromise;
 
-    expect(prisma.prismaDisconnect).toHaveBeenCalledTimes(1);
+    expect(prisma.prismaDisconnect).not.toHaveBeenCalled();
   });
 });
 

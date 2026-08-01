@@ -424,6 +424,7 @@ export class LoyaltyController {
   ) {
     return this.loyaltyService.listCustomerLedger(
       request.authContext!.user.tenantId,
+      request.authContext!,
       customerId,
       parseCursorPageRequest(limit, cursor),
     );

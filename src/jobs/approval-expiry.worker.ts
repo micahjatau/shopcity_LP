@@ -1,24 +1,13 @@
 import { Logger } from '@nestjs/common';
-import {
-  ApprovalStatus,
-  ApprovalTargetType,
-  Prisma,
-  RedemptionStatus,
-  ReceiptReviewStatus,
-} from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AuditService } from '../modules/audit/audit.service';
+import { expireApproval, type ApprovalExpiryRecord } from '../modules/loyalty/approval-expiry';
 
 const APPROVAL_EXPIRY_SWEEP_BATCH_SIZE = 50;
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
 
-type OverdueApprovalRow = {
-  id: string;
-  tenantId: string;
-  targetType: ApprovalTargetType;
-  receiptId: string | null;
-  redemptionId: string | null;
-};
+type OverdueApprovalRow = ApprovalExpiryRecord;
 
 export class ApprovalExpiryWorkerRuntime {
   private readonly logger = new Logger(ApprovalExpiryWorkerRuntime.name);
@@ -38,8 +27,6 @@ export class ApprovalExpiryWorkerRuntime {
     if (this.started) {
       return;
     }
-
-    await this.prisma.$connect();
 
     const initialSweep = this.runSweep();
     this.activeSweep = initialSweep;
@@ -70,8 +57,6 @@ export class ApprovalExpiryWorkerRuntime {
     }
 
     await this.activeSweep?.catch(() => undefined);
-    await this.prisma.$disconnect();
-
     this.activeSweep = undefined;
     this.started = false;
     this.stopping = false;
@@ -125,78 +110,26 @@ export async function expireOverdueApprovals(
 
   return prisma.$transaction(async (tx) => {
     const overdue = await tx.$queryRaw<OverdueApprovalRow[]>(Prisma.sql`
-      SELECT "id", "tenantId", "targetType", "receiptId", "redemptionId"
-      FROM "Approval"
-      WHERE "status" = 'PENDING'
-        AND "expiresAt" <= ${now}
-      ORDER BY "expiresAt" ASC, "requestedAt" ASC, "id" ASC
+      SELECT
+        a."id",
+        a."tenantId",
+        a."targetType",
+        a."receiptId",
+        a."redemptionId",
+        r."receiptId" AS "redemptionReceiptId"
+      FROM "Approval" a
+      LEFT JOIN "Redemption" r
+        ON r."tenantId" = a."tenantId"
+       AND r."id" = a."redemptionId"
+      WHERE a."status" = 'PENDING'
+        AND a."expiresAt" <= ${now}
+      ORDER BY a."expiresAt" ASC, a."requestedAt" ASC, a."id" ASC
       LIMIT ${batchSize}
-      FOR UPDATE SKIP LOCKED
+      FOR UPDATE OF a SKIP LOCKED
     `);
 
     for (const approval of overdue) {
-      const updated = await tx.approval.updateMany({
-        where: {
-          tenantId: approval.tenantId,
-          id: approval.id,
-          status: ApprovalStatus.PENDING,
-        },
-        data: {
-          status: ApprovalStatus.EXPIRED,
-          decidedAt: now,
-          decisionReason: 'approval expired',
-        },
-      });
-
-      if (updated.count !== 1) {
-        continue;
-      }
-
-      if (approval.receiptId) {
-        await tx.receipt.updateMany({
-          where: {
-            tenantId: approval.tenantId,
-            id: approval.receiptId,
-          },
-          data: {
-            reviewStatus: ReceiptReviewStatus.REJECTED,
-            reviewedAt: now,
-            reviewedByTenantId: null,
-            reviewedBy: null,
-            approvedAt: null,
-            approvedByTenantId: null,
-            approvedBy: null,
-          },
-        });
-      }
-
-      if (approval.redemptionId) {
-        await tx.redemption.updateMany({
-          where: {
-            tenantId: approval.tenantId,
-            id: approval.redemptionId,
-            status: RedemptionStatus.PENDING_APPROVAL,
-          },
-          data: {
-            status: RedemptionStatus.EXPIRED,
-            rejectedAt: now,
-          },
-        });
-      }
-
-      await auditService.recordWithClient(tx, {
-        tenantId: approval.tenantId,
-        actorId: null,
-        action: 'approval.expire',
-        entityType: 'approval',
-        entityId: approval.id,
-        metadata: {
-          expiredAt: now.toISOString(),
-          targetType: approval.targetType,
-          receiptId: approval.receiptId,
-          redemptionId: approval.redemptionId,
-        },
-      });
+      await expireApproval(tx, auditService, approval, now);
     }
 
     return overdue.length;

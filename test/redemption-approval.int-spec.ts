@@ -96,7 +96,10 @@ describe('redemption approval lifecycle (int)', () => {
       status: ApprovalStatus.PENDING,
     });
 
-    const approvals = await approvalsService.listApprovals(fixture.tenantId);
+    const approvals = await approvalsService.listApprovals(
+      fixture.tenantId,
+      makeContext(fixture.supervisor, fixture.deviceId),
+    );
     expect(approvals.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -186,6 +189,7 @@ describe('redemption approval lifecycle (int)', () => {
 
     const ledger = await loyaltyService.listCustomerLedger(
       fixture.tenantId,
+      makeContext(fixture.supervisor, fixture.deviceId),
       fixture.customerId,
     );
     expect(ledger.items[0]).toMatchObject({

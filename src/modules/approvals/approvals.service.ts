@@ -8,8 +8,12 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 export class ApprovalsService {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
-  listApprovals(tenantId: string, page?: CursorPageRequest) {
-    return this.loyaltyService.listApprovals(tenantId, page);
+  listApprovals(
+    tenantId: string,
+    actor: AuthContext,
+    page?: CursorPageRequest,
+  ) {
+    return this.loyaltyService.listApprovals(tenantId, actor, page);
   }
 
   async approveReceipt(

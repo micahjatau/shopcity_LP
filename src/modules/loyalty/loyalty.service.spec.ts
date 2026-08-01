@@ -121,42 +121,45 @@ describe('LoyaltyService redemption approvals', () => {
         updateMany: jest.fn(),
       },
     };
+    const approvalFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'approval-1',
+        receiptId: null,
+        redemptionId: 'redemption-1',
+        targetType: ApprovalTargetType.REDEEM,
+        status: ApprovalStatus.PENDING,
+        reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+        requestedAt: new Date('2026-07-26T12:00:00.000Z'),
+        expiresAt: new Date('2127-07-30T12:00:00.000Z'),
+        decidedAt: null,
+        executedAt: null,
+        receipt: null,
+        redemption: {
+          id: 'redemption-1',
+          receiptId: 'receipt-1',
+          receipt: {
+            id: 'receipt-1',
+            posReceiptNumber: 'POS-REDEEM-1',
+            purchaseAmountKobo: 30_000n,
+            captureStatus: 'PENDING_APPROVAL',
+            reviewStatus: ReceiptReviewStatus.PENDING,
+          },
+        },
+      },
+    ]);
     const service = new LoyaltyService(
       {
         approval: {
-          findMany: jest.fn().mockResolvedValue([
-            {
-              id: 'approval-1',
-              receiptId: null,
-              redemptionId: 'redemption-1',
-              targetType: ApprovalTargetType.REDEEM,
-              status: ApprovalStatus.PENDING,
-              reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
-              requestedAt: new Date('2026-07-26T12:00:00.000Z'),
-              expiresAt: new Date('2127-07-30T12:00:00.000Z'),
-              decidedAt: null,
-              executedAt: null,
-              receipt: null,
-              redemption: {
-                id: 'redemption-1',
-                receiptId: 'receipt-1',
-                receipt: {
-                  id: 'receipt-1',
-                  posReceiptNumber: 'POS-REDEEM-1',
-                  purchaseAmountKobo: 30_000n,
-                  captureStatus: 'PENDING_APPROVAL',
-                  reviewStatus: ReceiptReviewStatus.PENDING,
-                },
-              },
-            },
-          ]),
+          findMany: approvalFindMany,
         },
       } as never,
       auditService(),
       configService(),
     );
 
-    await expect(service.listApprovals('tenant-1')).resolves.toMatchObject({
+    await expect(
+      service.listApprovals('tenant-1', supervisorAuthContext()),
+    ).resolves.toMatchObject({
       items: [
         {
           id: 'approval-1',
@@ -168,6 +171,11 @@ describe('LoyaltyService redemption approvals', () => {
       ],
     });
 
+    expect(approvalFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: 'tenant-1' }),
+      }),
+    );
     expect(tx.$queryRaw).not.toHaveBeenCalled();
     expect(tx.approval.updateMany).not.toHaveBeenCalled();
     expect(tx.redemption.updateMany).not.toHaveBeenCalled();
@@ -210,6 +218,39 @@ describe('LoyaltyService redemption approvals', () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  it('replays completed earn responses even after timestamp windows close', async () => {
+    const staleOccurredAt = '2026-07-25T23:59:59.000Z';
+    const transaction = jest.fn();
+    const replay = { state: 'CONFIRMED', receiptId: 'receipt-1' };
+    const requestHash = expectedEarnHash(staleOccurredAt);
+    const service = new LoyaltyService(
+      prismaService({
+        transaction,
+        idempotencyRecord: {
+          findUnique: jest.fn().mockResolvedValue({
+            requestHash,
+            responseJson: replay,
+            status: 'COMPLETED',
+          }),
+        },
+      }),
+      auditService(),
+      configService(),
+      activeBalanceService(20_000n),
+    );
+
+    await expect(
+      service.earn('tenant-1', authContext(), 'idem-stale-replay', {
+        posReceiptNumber: 'POS-REPLAY',
+        cardSerialNumber: 'CARD-1',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: staleOccurredAt,
+      }),
+    ).resolves.toBe(replay);
+
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('executes REDEEM approval using redemption receipt evidence', async () => {
@@ -401,7 +442,9 @@ describe('LoyaltyService redemption approvals', () => {
       configService(),
     );
 
-    await expect(service.listApprovals('tenant-1')).resolves.toMatchObject({
+    await expect(
+      service.listApprovals('tenant-1', supervisorAuthContext()),
+    ).resolves.toMatchObject({
       items: [
         {
           id: 'approval-1',
@@ -589,7 +632,7 @@ function prismaService({
   } as never;
 }
 
-function expectedEarnHash() {
+function expectedEarnHash(occurredAt = FIXED_OCCURRED_AT) {
   return createHash('sha256')
     .update(
       stableStringify({
@@ -598,7 +641,7 @@ function expectedEarnHash() {
         cardSerialNumber: 'CARD-1',
         posReceiptNumber: 'POS-REPLAY',
         purchaseAmountKobo: 1_000_000,
-        occurredAt: FIXED_OCCURRED_AT,
+        occurredAt,
         deviceId: 'device-1',
         overrideReason: undefined,
       }),

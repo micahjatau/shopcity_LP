@@ -177,6 +177,7 @@ describe('immutable earn ledger (int)', () => {
 
     const ledger = await loyaltyService.listCustomerLedger(
       tenant.id,
+      fixture.actor,
       fixture.customer.id,
     );
     expect(ledger.items).toHaveLength(1);
@@ -244,7 +245,10 @@ describe('immutable earn ledger (int)', () => {
     expect(pending.availableBalanceKobo).toBeNull();
     expect(pending.smsStatus).toBeNull();
 
-    const approvalsBefore = await approvalsService.listApprovals(tenant.id);
+    const approvalsBefore = await approvalsService.listApprovals(
+      tenant.id,
+      makeContext(approver),
+    );
     expect(approvalsBefore.items).toHaveLength(1);
     expect(approvalsBefore.items[0]?.status).toBe(ApprovalStatus.PENDING);
 

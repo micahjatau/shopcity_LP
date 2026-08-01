@@ -539,6 +539,7 @@ model Approval {
   decisionByUser     User?          @relation("ApprovalDecisionBy", fields: [decisionByTenantId, decisionBy], references: [tenantId, id], onDelete: SetNull)
 
   @@index([tenantId, status, requestedAt])
+  @@index([status, expiresAt, requestedAt, id])
   @@index([requestedByTenantId, requestedBy])
   @@index([decisionByTenantId, decisionBy])
   @@unique([tenantId, redemptionId])

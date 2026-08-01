@@ -199,6 +199,29 @@ describe('RedemptionsService', () => {
     ).resolves.toBe(replay);
   });
 
+  it('replays completed responses even after the timestamp window closes', async () => {
+    const staleOccurredAt = '2026-07-25T23:59:59.000Z';
+    const replay = { state: 'CONFIRMED', redemptionId: 'redemption-1' };
+    const transaction = jest.fn();
+    const service = serviceWith({
+      transaction,
+      replay,
+      replayRequestHash: expectedHash('idem-stale', staleOccurredAt),
+    });
+
+    await expect(
+      service.redeem('tenant-1', authContext(), 'idem-stale', {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-REDEEM-stale',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 6_000,
+        occurredAt: staleOccurredAt,
+      }),
+    ).resolves.toBe(replay);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('maps idempotency P2002 without matching replay to IDEMPOTENCY_CONFLICT', async () => {
     const service = serviceWith({
       transaction: jest
@@ -354,10 +377,12 @@ describe('RedemptionsService', () => {
 function serviceWith({
   transaction,
   replay,
+  replayRequestHash,
   activeBalanceKobo = 100_000n,
 }: {
   transaction: jest.Mock;
   replay?: unknown;
+  replayRequestHash?: string;
   activeBalanceKobo?: bigint;
 }) {
   const prisma = {
@@ -371,7 +396,10 @@ function serviceWith({
             ? null
             : replay === null
               ? null
-              : { requestHash: expectedHash('idem-3'), responseJson: replay },
+              : {
+                  requestHash: replayRequestHash ?? expectedHash('idem-3'),
+                  responseJson: replay,
+                },
         ),
     },
   } as never;
@@ -483,7 +511,7 @@ function p2002(target: string[]) {
   });
 }
 
-function expectedHash(idempotencyKey: string) {
+function expectedHash(idempotencyKey: string, occurredAt = REQUEST_OCCURRED_AT) {
   const suffix = idempotencyKey.replace('idem-', '');
 
   return createHash('sha256')
@@ -492,10 +520,10 @@ function expectedHash(idempotencyKey: string) {
         tenantId: 'tenant-1',
         actorId: 'user-1',
         cardSerialNumber: 'CARD-1',
-        posReceiptNumber: `POS-REDEEM-${suffix}`,
+        posReceiptNumber: `POS-REDEEM-${suffix.toUpperCase()}`,
         basketAmountKobo: 30_000,
         requestedRedemptionKobo: 6_000,
-        occurredAt: REQUEST_OCCURRED_AT,
+        occurredAt,
         deviceId: 'device-1',
       }),
     )
