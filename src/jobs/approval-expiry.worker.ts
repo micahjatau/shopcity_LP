@@ -2,7 +2,10 @@ import { Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AuditService } from '../modules/audit/audit.service';
-import { expireApproval, type ApprovalExpiryRecord } from '../modules/loyalty/approval-expiry';
+import {
+  expireApproval,
+  type ApprovalExpiryRecord,
+} from '../modules/loyalty/approval-expiry';
 
 const APPROVAL_EXPIRY_SWEEP_BATCH_SIZE = 50;
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;

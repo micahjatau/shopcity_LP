@@ -121,32 +121,35 @@ describe('LoyaltyService redemption approvals', () => {
         updateMany: jest.fn(),
       },
     };
-    const approvalFindMany = jest.fn().mockResolvedValue([
-      {
-        id: 'approval-1',
-        receiptId: null,
-        redemptionId: 'redemption-1',
-        targetType: ApprovalTargetType.REDEEM,
-        status: ApprovalStatus.PENDING,
-        reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
-        requestedAt: new Date('2026-07-26T12:00:00.000Z'),
-        expiresAt: new Date('2127-07-30T12:00:00.000Z'),
-        decidedAt: null,
-        executedAt: null,
-        receipt: null,
-        redemption: {
-          id: 'redemption-1',
-          receiptId: 'receipt-1',
-          receipt: {
-            id: 'receipt-1',
-            posReceiptNumber: 'POS-REDEEM-1',
-            purchaseAmountKobo: 30_000n,
-            captureStatus: 'PENDING_APPROVAL',
-            reviewStatus: ReceiptReviewStatus.PENDING,
+    type ApprovalFindManyArgs = { where: { tenantId: string } };
+    const approvalFindMany = jest
+      .fn<Promise<unknown>, [ApprovalFindManyArgs]>()
+      .mockResolvedValue([
+        {
+          id: 'approval-1',
+          receiptId: null,
+          redemptionId: 'redemption-1',
+          targetType: ApprovalTargetType.REDEEM,
+          status: ApprovalStatus.PENDING,
+          reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+          requestedAt: new Date('2026-07-26T12:00:00.000Z'),
+          expiresAt: new Date('2127-07-30T12:00:00.000Z'),
+          decidedAt: null,
+          executedAt: null,
+          receipt: null,
+          redemption: {
+            id: 'redemption-1',
+            receiptId: 'receipt-1',
+            receipt: {
+              id: 'receipt-1',
+              posReceiptNumber: 'POS-REDEEM-1',
+              purchaseAmountKobo: 30_000n,
+              captureStatus: 'PENDING_APPROVAL',
+              reviewStatus: ReceiptReviewStatus.PENDING,
+            },
           },
         },
-      },
-    ]);
+      ]);
     const service = new LoyaltyService(
       {
         approval: {
@@ -171,11 +174,10 @@ describe('LoyaltyService redemption approvals', () => {
       ],
     });
 
-    expect(approvalFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ tenantId: 'tenant-1' }),
-      }),
-    );
+    const approvalFindManyArgs = approvalFindMany.mock.calls[0]?.[0] as
+      { where?: { tenantId?: string } } | undefined;
+
+    expect(approvalFindManyArgs?.where?.tenantId).toBe('tenant-1');
     expect(tx.$queryRaw).not.toHaveBeenCalled();
     expect(tx.approval.updateMany).not.toHaveBeenCalled();
     expect(tx.redemption.updateMany).not.toHaveBeenCalled();

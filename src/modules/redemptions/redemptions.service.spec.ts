@@ -389,18 +389,16 @@ function serviceWith({
     $transaction: transaction,
     idempotencyRecord: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-      findUnique: jest
-        .fn()
-        .mockResolvedValue(
-          replay === undefined
+      findUnique: jest.fn().mockResolvedValue(
+        replay === undefined
+          ? null
+          : replay === null
             ? null
-            : replay === null
-              ? null
-              : {
-                  requestHash: replayRequestHash ?? expectedHash('idem-3'),
-                  responseJson: replay,
-                },
-        ),
+            : {
+                requestHash: replayRequestHash ?? expectedHash('idem-3'),
+                responseJson: replay,
+              },
+      ),
     },
   } as never;
 
@@ -511,7 +509,10 @@ function p2002(target: string[]) {
   });
 }
 
-function expectedHash(idempotencyKey: string, occurredAt = REQUEST_OCCURRED_AT) {
+function expectedHash(
+  idempotencyKey: string,
+  occurredAt = REQUEST_OCCURRED_AT,
+) {
   const suffix = idempotencyKey.replace('idem-', '');
 
   return createHash('sha256')

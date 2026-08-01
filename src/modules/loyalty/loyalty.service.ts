@@ -218,7 +218,11 @@ function buildApprovalListWhere(tenantId: string, actor: AuthContext) {
   };
 }
 
-function buildCustomerLedgerWhere(tenantId: string, actor: AuthContext, customerId: string) {
+function buildCustomerLedgerWhere(
+  tenantId: string,
+  actor: AuthContext,
+  customerId: string,
+) {
   const branchId = requireBranchScope(actor);
 
   return {
