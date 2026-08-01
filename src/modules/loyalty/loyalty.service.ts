@@ -33,10 +33,14 @@ import {
 } from '../../common/pagination/cursor-pagination';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
+import {
+  ApprovalExpiryActor,
+  ApprovalExpiryRecord,
+  expireApproval,
+} from '../../common/approval-expiry';
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { EarnTransactionDto } from './loyalty.dto';
 import { buildRedemptionConfirmedSmsPayload } from '../../jobs/sms.templates';
-import { expireApproval } from './approval-expiry';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
@@ -239,7 +243,7 @@ function toApprovalExpiryRecord(approval: {
   receiptId: string | null;
   redemptionId: string | null;
   redemption?: { receiptId: string | null } | null;
-}) {
+}): ApprovalExpiryRecord {
   return {
     id: approval.id,
     tenantId: approval.tenantId,
@@ -1198,7 +1202,7 @@ export class LoyaltyService {
               this.auditService,
               toApprovalExpiryRecord(approval),
               now,
-              { tenantId: actor.user.tenantId, id: actor.user.id },
+              { tenantId: actor.user.tenantId, id: actor.user.id } as ApprovalExpiryActor,
             );
 
             return { expired: true } as const;
@@ -1571,7 +1575,7 @@ export class LoyaltyService {
             : null,
         }),
         now,
-        { tenantId: actor.user.tenantId, id: actor.user.id },
+        { tenantId: actor.user.tenantId, id: actor.user.id } as ApprovalExpiryActor,
       );
 
       return { expired: true } as never;

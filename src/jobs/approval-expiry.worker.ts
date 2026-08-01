@@ -5,7 +5,7 @@ import { AuditService } from '../modules/audit/audit.service';
 import {
   expireApproval,
   type ApprovalExpiryRecord,
-} from '../modules/loyalty/approval-expiry';
+} from '../common/approval-expiry';
 
 const APPROVAL_EXPIRY_SWEEP_BATCH_SIZE = 50;
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;

@@ -5,8 +5,7 @@ import {
   RedemptionStatus,
   ReceiptReviewStatus,
 } from '@prisma/client';
-import { DomainHttpException } from '../../common/errors/domain.exception';
-import { AuditService } from '../audit/audit.service';
+import { DomainHttpException } from './errors/domain.exception';
 
 export interface ApprovalExpiryRecord {
   id: string;
@@ -17,6 +16,20 @@ export interface ApprovalExpiryRecord {
   redemptionReceiptId: string | null;
 }
 
+export interface ApprovalExpiryAuditWriter {
+  recordWithClient: (
+    tx: Prisma.TransactionClient,
+    entry: {
+      tenantId: string;
+      actorId: string | null;
+      action: string;
+      entityType: string;
+      entityId: string;
+      metadata: Record<string, unknown>;
+    },
+  ) => Promise<void>;
+}
+
 export interface ApprovalExpiryActor {
   tenantId: string;
   id: string;
@@ -24,7 +37,7 @@ export interface ApprovalExpiryActor {
 
 export async function expireApproval(
   tx: Prisma.TransactionClient,
-  auditService: AuditService,
+  auditWriter: ApprovalExpiryAuditWriter,
   approval: ApprovalExpiryRecord,
   now: Date,
   actor?: ApprovalExpiryActor | null,
@@ -86,7 +99,7 @@ export async function expireApproval(
     });
   }
 
-  await auditService.recordWithClient(tx, {
+  await auditWriter.recordWithClient(tx, {
     tenantId: approval.tenantId,
     actorId: actor?.id ?? null,
     action: 'approval.expire',
