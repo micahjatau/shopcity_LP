@@ -75,4 +75,5 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y redis-server
       - run: npm ci --ignore-scripts
       - run: npm run prisma:generate
+      - run: npm run test:integration:prime
       - run: npm run test:integration
