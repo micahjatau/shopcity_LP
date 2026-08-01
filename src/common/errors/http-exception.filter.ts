@@ -55,7 +55,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       },
     };
 
-    this.logger.error(exception);
+    if (status >= 500 || !(exception instanceof HttpException)) {
+      this.logger.error(exception);
+    } else {
+      this.logger.warn(exception);
+    }
 
     void response.status(status).send(error);
   }

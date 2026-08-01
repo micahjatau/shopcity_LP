@@ -1,8 +1,10 @@
-import { HttpException } from '@nestjs/common';
+import { HttpException, Logger } from '@nestjs/common';
 import { HttpExceptionFilter } from './http-exception.filter';
 
 describe('HttpExceptionFilter', () => {
   it('preserves domain error codes and request IDs', () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const filter = new HttpExceptionFilter();
     const response = {
       status: jest.fn().mockReturnThis(),
@@ -44,5 +46,10 @@ describe('HttpExceptionFilter', () => {
     expect(payload.error.message).toBe('Duplicate receipt');
     expect(payload.error.statusCode).toBe(409);
     expect(payload.meta.requestId).toBe('req-123');
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });
