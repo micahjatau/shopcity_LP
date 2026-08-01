@@ -27,7 +27,7 @@ export interface ApprovalExpiryAuditWriter {
       entityId: string;
       metadata: Record<string, unknown>;
     },
-  ) => Promise<void>;
+  ) => Promise<unknown>;
 }
 
 export interface ApprovalExpiryActor {

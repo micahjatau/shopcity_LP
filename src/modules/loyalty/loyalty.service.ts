@@ -34,7 +34,6 @@ import {
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
 import {
-  ApprovalExpiryActor,
   ApprovalExpiryRecord,
   expireApproval,
 } from '../../common/approval-expiry';
@@ -1202,7 +1201,10 @@ export class LoyaltyService {
               this.auditService,
               toApprovalExpiryRecord(approval),
               now,
-              { tenantId: actor.user.tenantId, id: actor.user.id } as ApprovalExpiryActor,
+              {
+                tenantId: actor.user.tenantId,
+                id: actor.user.id,
+              },
             );
 
             return { expired: true } as const;
@@ -1575,7 +1577,10 @@ export class LoyaltyService {
             : null,
         }),
         now,
-        { tenantId: actor.user.tenantId, id: actor.user.id } as ApprovalExpiryActor,
+        {
+          tenantId: actor.user.tenantId,
+          id: actor.user.id,
+        },
       );
 
       return { expired: true } as never;
