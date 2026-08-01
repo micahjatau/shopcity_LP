@@ -22,23 +22,25 @@ describe('financial repair restore verification (int)', () => {
     });
 
     try {
-      await migrateDeploy(sourceUrl);
+      migrateDeploy(sourceUrl);
       await sourcePrisma.$connect();
-      const fixture = await seedAdjustmentFixture(sourcePrisma);
+      await seedAdjustmentFixture(sourcePrisma);
 
       const sourceMigrations = await readMigrationInventory(sourcePrisma);
       expect(sourceMigrations.map((row) => row.migration_name)).toEqual(
         readCommittedMigrationFolders(),
       );
 
-      const restore = await new PostgreSqlContainer('postgres:16-alpine').start();
+      const restore = await new PostgreSqlContainer(
+        'postgres:16-alpine',
+      ).start();
       const restoreUrl = restore.getConnectionUri();
       const restorePrisma = new PrismaClient({
         datasources: { db: { url: restoreUrl } },
       });
 
       try {
-        await migrateDeploy(restoreUrl);
+        migrateDeploy(restoreUrl);
 
         await restorePrisma.$connect();
         const restoredFixture = await seedAdjustmentFixture(restorePrisma);
@@ -61,7 +63,12 @@ describe('financial repair restore verification (int)', () => {
           ORDER BY p.proname
         `;
         const triggers = await restorePrisma.$queryRaw<
-          { tgname: string; tgenabled: string; tgdeferrable: boolean; tginitdeferred: boolean }[]
+          {
+            tgname: string;
+            tgenabled: string;
+            tgdeferrable: boolean;
+            tginitdeferred: boolean;
+          }[]
         >`
           SELECT tgname, tgenabled, tgdeferrable, tginitdeferred
           FROM pg_trigger
@@ -75,7 +82,9 @@ describe('financial repair restore verification (int)', () => {
           )
           ORDER BY tgname
         `;
-        const constraints = await restorePrisma.$queryRaw<{ conname: string }[]>`
+        const constraints = await restorePrisma.$queryRaw<
+          { conname: string }[]
+        >`
           SELECT conname
           FROM pg_constraint
           WHERE conname = 'RedemptionAllocation_target_xor_check'
@@ -111,13 +120,21 @@ describe('financial repair restore verification (int)', () => {
             'validate_ledger_entry_commit_state_insert',
           ]),
         );
-        expect(triggers.find((row) => row.tgname === 'validate_ledger_entry_commit_state_insert')).toMatchObject({
+        expect(
+          triggers.find(
+            (row) => row.tgname === 'validate_ledger_entry_commit_state_insert',
+          ),
+        ).toMatchObject({
           tgenabled: 'O',
           tgdeferrable: true,
           tginitdeferred: true,
         });
         expect(
-          triggers.find((row) => row.tgname === 'validate_allocation_restoration_commit_state_insert'),
+          triggers.find(
+            (row) =>
+              row.tgname ===
+              'validate_allocation_restoration_commit_state_insert',
+          ),
         ).toMatchObject({
           tgenabled: 'O',
           tgdeferrable: true,
@@ -142,14 +159,15 @@ describe('financial repair restore verification (int)', () => {
             },
           },
         });
-        const restoredLedger = await restorePrisma.loyaltyLedgerEntry.findUnique({
-          where: {
-            tenantId_id: {
-              tenantId: restoredFixture.tenantId,
-              id: restoredFixture.ledgerEntry.id,
+        const restoredLedger =
+          await restorePrisma.loyaltyLedgerEntry.findUnique({
+            where: {
+              tenantId_id: {
+                tenantId: restoredFixture.tenantId,
+                id: restoredFixture.ledgerEntry.id,
+              },
             },
-          },
-        });
+          });
         const restoredCreditLot = await restorePrisma.creditLot.findUnique({
           where: {
             tenantId_id: {
@@ -187,14 +205,16 @@ describe('financial repair restore verification (int)', () => {
   }, 180000);
 
   it('rejects adjustment evidence mismatches and immutable-field updates', async () => {
-    const container = await new PostgreSqlContainer('postgres:16-alpine').start();
+    const container = await new PostgreSqlContainer(
+      'postgres:16-alpine',
+    ).start();
     const databaseUrl = container.getConnectionUri();
     const prisma = new PrismaClient({
       datasources: { db: { url: databaseUrl } },
     });
 
     try {
-      await migrateDeploy(databaseUrl);
+      migrateDeploy(databaseUrl);
       await prisma.$connect();
       const fixture = await seedAdjustmentFixture(prisma);
 
@@ -326,7 +346,7 @@ describe('financial repair restore verification (int)', () => {
   }, 180000);
 });
 
-async function migrateDeploy(databaseUrl: string) {
+function migrateDeploy(databaseUrl: string) {
   execSync('npx prisma migrate deploy', {
     stdio: 'inherit',
     env: { ...process.env, DATABASE_URL: databaseUrl },
@@ -334,7 +354,9 @@ async function migrateDeploy(databaseUrl: string) {
 }
 
 async function readMigrationInventory(prisma: PrismaClient) {
-  const rows = await prisma.$queryRaw<{ migration_name: string; checksum: string }[]>`
+  const rows = await prisma.$queryRaw<
+    { migration_name: string; checksum: string }[]
+  >`
     SELECT migration_name, checksum
     FROM "_prisma_migrations"
     ORDER BY migration_name
@@ -514,7 +536,9 @@ function addMonthsUtc(date: Date, months: number) {
   const copy = new Date(date.getTime());
   const originalDay = copy.getUTCDate();
   copy.setUTCMonth(copy.getUTCMonth() + months, 1);
-  const lastDay = new Date(Date.UTC(copy.getUTCFullYear(), copy.getUTCMonth() + 1, 0)).getUTCDate();
+  const lastDay = new Date(
+    Date.UTC(copy.getUTCFullYear(), copy.getUTCMonth() + 1, 0),
+  ).getUTCDate();
   copy.setUTCDate(Math.min(originalDay, lastDay));
   return copy;
 }
