@@ -55,11 +55,19 @@ describe('lot allocation ordering (int)', () => {
         },
       });
 
-      await tx.adjustment.update({
-        where: {
-          tenantId_id: { tenantId: fixture.tenantId, id: fixture.adjustmentId },
+      await tx.adjustment.create({
+        data: {
+          id: fixture.adjustmentId,
+          tenantId: fixture.tenantId,
+          customerId: fixture.customerId,
+          kind: AdjustmentKind.DEBIT,
+          amountKobo: 420n,
+          reason: 'FIFO test adjustment',
+          createdByTenantId: fixture.tenantId,
+          createdBy: fixture.userId,
+          ledgerEntryId: ledgerEntry.id,
+          effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
         },
-        data: { ledgerEntryId: ledgerEntry.id },
       });
 
       return service.allocateDebit(tx, {
@@ -322,20 +330,6 @@ async function createFixture(prisma: PrismaClient) {
   });
 
   await prisma.$transaction(async (tx) => {
-    await tx.adjustment.create({
-      data: {
-        id: adjustmentId,
-        tenantId,
-        customerId,
-        kind: AdjustmentKind.DEBIT,
-        amountKobo: 420n,
-        reason: 'FIFO test adjustment',
-        createdByTenantId: tenantId,
-        createdBy: userId,
-        effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
-      },
-    });
-
     const seedLots = [
       eligibleLots[1],
       laterExpiryLot,
