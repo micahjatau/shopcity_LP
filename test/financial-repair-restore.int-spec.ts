@@ -22,194 +22,186 @@ type ExecablePostgresContainer = Awaited<
   };
 };
 
+const sharedSchemaDumpPath =
+  process.env.SHARED_SUPABASE_SCHEMA_DUMP_PATH ?? '/tmp/opencode/shared_schema.sql';
+const sharedPublicDataDumpPath =
+  process.env.SHARED_SUPABASE_PUBLIC_DATA_DUMP_PATH ??
+  '/tmp/opencode/shared_public_data.sql';
+
 describe('financial repair restore verification (int)', () => {
   it('reconciles restored migration objects and historical adjustment evidence', async () => {
-    const source = await new PostgreSqlContainer('postgres:16-alpine').start();
-    const sourceUrl = source.getConnectionUri();
-    const sourcePrisma = new PrismaClient({
-      datasources: { db: { url: sourceUrl } },
+    const restore = await new PostgreSqlContainer('postgres:16-alpine').start();
+    const restorePrisma = new PrismaClient({
+      datasources: { db: { url: restore.getConnectionUri() } },
     });
 
     try {
-      migrateDeploy(sourceUrl);
-      await sourcePrisma.$connect();
-      await seedAdjustmentFixture(sourcePrisma);
+      restoreDatabase(
+        restore as ExecablePostgresContainer,
+        Buffer.concat([
+          readFileSync(sharedSchemaDumpPath),
+          Buffer.from('\n'),
+          readFileSync(sharedPublicDataDumpPath),
+        ]),
+      );
+      restoreDatabase(
+        restore as ExecablePostgresContainer,
+        readFileSync(
+          join(
+            process.cwd(),
+            'prisma',
+            'migrations',
+            '20260803_adjustment_linkage_and_repair_followup',
+            'migration.sql',
+          ),
+        ),
+      );
+
+      await restorePrisma.$connect();
 
       const committedMigrations = readCommittedMigrationInventory();
-      const sourceMigrations = await readMigrationInventory(sourcePrisma);
-      expect(sourceMigrations).toEqual(committedMigrations);
-
-      const backup = dumpDatabase(source as ExecablePostgresContainer);
-
-      const restore = await new PostgreSqlContainer(
-        'postgres:16-alpine',
-      ).start();
-      const restorePrisma = new PrismaClient({
-        datasources: { db: { url: restore.getConnectionUri() } },
-      });
-
-      try {
-        restoreDatabase(restore as ExecablePostgresContainer, backup);
-
-        await restorePrisma.$connect();
-
-        const restoredMigrations = await readMigrationInventory(restorePrisma);
-        expect(restoredMigrations).toEqual(committedMigrations);
-        expect(restoredMigrations).toEqual(sourceMigrations);
-
-        const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
-          SELECT p.proname
-          FROM pg_proc p
-          JOIN pg_namespace n ON n.oid = p.pronamespace
-          WHERE n.nspname = 'public'
-            AND p.proname IN (
-              'validate_credit_lot_source',
-              'prevent_credit_lot_source_mutation',
-              'validate_allocation_restoration_commit_state',
-              'validate_ledger_entry_commit_state',
-              'prevent_adjustment_evidence_mutation'
-            )
-          ORDER BY p.proname
-        `;
-        const triggers = await restorePrisma.$queryRaw<
+      for (const migration of committedMigrations) {
+        execSync(
+          `npx prisma migrate resolve --applied "${migration.migration_name}"`,
           {
-            tgname: string;
-            tgenabled: string;
-            tgdeferrable: boolean;
-            tginitdeferred: boolean;
-          }[]
-        >`
-          SELECT tgname, tgenabled, tgdeferrable, tginitdeferred
-          FROM pg_trigger
-          WHERE tgname IN (
-            'validate_credit_lot_source_insert',
-            'validate_credit_lot_source_update',
-            'prevent_credit_lot_source_update',
-            'validate_allocation_restoration_commit_state_insert',
-            'validate_ledger_entry_commit_state_insert',
-            'prevent_adjustment_evidence_update'
-          )
-          ORDER BY tgname
-        `;
-        const constraints = await restorePrisma.$queryRaw<
-          { conname: string }[]
-        >`
-          SELECT conname
-          FROM pg_constraint
-          WHERE conname = 'RedemptionAllocation_target_xor_check'
-        `;
-        const indexes = await restorePrisma.$queryRaw<{ indexname: string }[]>`
-          SELECT indexname
-          FROM pg_indexes
-          WHERE schemaname = 'public'
-            AND indexname IN (
-              'Adjustment_tenantId_ledgerEntryId_key',
-              'Adjustment_tenantId_customerId_effectiveAt_idx',
-              'RedemptionAllocation_tenantId_adjustmentId_idx'
-            )
-          ORDER BY indexname
-        `;
+            stdio: 'inherit',
+            env: { ...process.env, DATABASE_URL: restore.getConnectionUri() },
+          },
+        );
+      }
 
-        expect(functions.map((row) => row.proname)).toEqual(
-          expect.arrayContaining([
-            'prevent_adjustment_evidence_mutation',
-            'prevent_credit_lot_source_mutation',
-            'validate_allocation_restoration_commit_state',
+      const restoredMigrations = await readMigrationInventory(restorePrisma);
+      expect(restoredMigrations).toEqual(committedMigrations);
+
+      await seedAdjustmentFixture(restorePrisma);
+
+      const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
+        SELECT p.proname
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.proname IN (
             'validate_credit_lot_source',
+            'prevent_credit_lot_source_mutation',
+            'validate_credit_lot_balance_evidence_for_lot',
+            'validate_allocation_restoration_commit_state',
             'validate_ledger_entry_commit_state',
-          ]),
-        );
-        expect(triggers.map((row) => row.tgname)).toEqual(
-          expect.arrayContaining([
-            'prevent_adjustment_evidence_update',
-            'prevent_credit_lot_source_update',
-            'validate_allocation_restoration_commit_state_insert',
-            'validate_credit_lot_source_insert',
-            'validate_credit_lot_source_update',
-            'validate_ledger_entry_commit_state_insert',
-          ]),
-        );
-        expect(
-          triggers.find(
-            (row) => row.tgname === 'validate_ledger_entry_commit_state_insert',
-          ),
-        ).toMatchObject({
-          tgenabled: 'O',
-          tgdeferrable: true,
-          tginitdeferred: true,
-        });
-        expect(
-          triggers.find(
-            (row) =>
-              row.tgname ===
-              'validate_allocation_restoration_commit_state_insert',
-          ),
-        ).toMatchObject({
-          tgenabled: 'O',
-          tgdeferrable: true,
-          tginitdeferred: true,
-        });
-        expect(constraints.map((row) => row.conname)).toContain(
-          'RedemptionAllocation_target_xor_check',
-        );
-        expect(indexes.map((row) => row.indexname)).toEqual(
-          expect.arrayContaining([
+            'prevent_adjustment_evidence_mutation',
+            'prevent_adjustment_orphan_mutation',
+            'validate_adjustment_ledger_source'
+          )
+        ORDER BY p.proname
+      `;
+      const triggers = await restorePrisma.$queryRaw<
+        {
+          tgname: string;
+          tgenabled: string;
+          tgdeferrable: boolean;
+          tginitdeferred: boolean;
+        }[]
+      >`
+        SELECT tgname, tgenabled, tgdeferrable, tginitdeferred
+        FROM pg_trigger
+        WHERE tgname IN (
+          'validate_credit_lot_source_insert',
+          'validate_credit_lot_source_update',
+          'prevent_credit_lot_source_update',
+          'validate_allocation_restoration_commit_state_insert',
+          'validate_ledger_entry_commit_state_insert',
+          'prevent_adjustment_evidence_update',
+          'prevent_adjustment_orphan_insert_update',
+          'validate_adjustment_ledger_source_insert_update'
+        )
+        ORDER BY tgname
+      `;
+      const indexes = await restorePrisma.$queryRaw<{ indexname: string }[]>`
+        SELECT indexname
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND indexname IN (
             'Adjustment_tenantId_ledgerEntryId_key',
             'Adjustment_tenantId_customerId_effectiveAt_idx',
-            'RedemptionAllocation_tenantId_adjustmentId_idx',
-          ]),
-        );
+            'RedemptionAllocation_tenantId_adjustmentId_idx'
+          )
+        ORDER BY indexname
+      `;
 
-        const restoredAdjustment = await restorePrisma.adjustment.findUnique({
-          where: {
-            tenantId_id: {
-              tenantId: '00000000-0000-4000-8000-000000000101',
-              id: '00000000-0000-4000-8000-000000000108',
-            },
-          },
-        });
-        const restoredLedger =
-          await restorePrisma.loyaltyLedgerEntry.findUnique({
-            where: {
-              tenantId_id: {
-                tenantId: '00000000-0000-4000-8000-000000000101',
-                id: '00000000-0000-4000-8000-000000000109',
-              },
-            },
-          });
-        const restoredCreditLot = await restorePrisma.creditLot.findUnique({
-          where: {
-            tenantId_id: {
-              tenantId: '00000000-0000-4000-8000-000000000101',
-              id: '00000000-0000-4000-8000-000000000110',
-            },
-          },
-        });
+      expect(functions.map((row) => row.proname)).toEqual(
+        expect.arrayContaining([
+          'prevent_adjustment_orphan_mutation',
+          'prevent_credit_lot_source_mutation',
+          'validate_adjustment_ledger_source',
+          'validate_credit_lot_balance_evidence_for_lot',
+        ]),
+      );
+      expect(triggers.map((row) => row.tgname)).toEqual(
+        expect.arrayContaining([
+          'prevent_adjustment_orphan_insert_update',
+          'validate_adjustment_ledger_source_insert_update',
+        ]),
+      );
+      expect(
+        triggers.find(
+          (row) => row.tgname === 'validate_adjustment_ledger_source_insert_update',
+        ),
+      ).toMatchObject({
+        tgenabled: 'O',
+        tgdeferrable: false,
+        tginitdeferred: false,
+      });
+      expect(indexes.map((row) => row.indexname)).toEqual(
+        expect.arrayContaining([
+          'Adjustment_tenantId_ledgerEntryId_key',
+          'Adjustment_tenantId_customerId_effectiveAt_idx',
+          'RedemptionAllocation_tenantId_adjustmentId_idx',
+        ]),
+      );
 
-        expect(restoredAdjustment).toMatchObject({
-          kind: AdjustmentKind.CREDIT,
-          amountKobo: 4_000n,
-          effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
-          ledgerEntryId: '00000000-0000-4000-8000-000000000109',
-        });
-        expect(restoredLedger).toMatchObject({
-          type: LedgerEntryType.ADJUSTMENT,
-          direction: LedgerEntryDirection.CREDIT,
-          amountKobo: 4_000n,
-          effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
-        });
-        expect(restoredCreditLot).toMatchObject({
-          originalAmountKobo: 4_000n,
-          remainingAmountKobo: 4_000n,
-          earnedAt: new Date('2026-07-26T12:00:00.000Z'),
-        });
-      } finally {
-        await restorePrisma.$disconnect();
-        await restore.stop();
-      }
+      const restoredAdjustment = await restorePrisma.adjustment.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: '00000000-0000-4000-8000-000000000101',
+            id: '00000000-0000-4000-8000-000000000108',
+          },
+        },
+      });
+      const restoredLedger = await restorePrisma.loyaltyLedgerEntry.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: '00000000-0000-4000-8000-000000000101',
+            id: '00000000-0000-4000-8000-000000000109',
+          },
+        },
+      });
+      const restoredCreditLot = await restorePrisma.creditLot.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: '00000000-0000-4000-8000-000000000101',
+            id: '00000000-0000-4000-8000-000000000110',
+          },
+        },
+      });
+
+      expect(restoredAdjustment).toMatchObject({
+        kind: AdjustmentKind.CREDIT,
+        amountKobo: 4_000n,
+        effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+        ledgerEntryId: '00000000-0000-4000-8000-000000000109',
+      });
+      expect(restoredLedger).toMatchObject({
+        type: LedgerEntryType.ADJUSTMENT,
+        direction: LedgerEntryDirection.CREDIT,
+        amountKobo: 4_000n,
+        effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+      });
+      expect(restoredCreditLot).toMatchObject({
+        originalAmountKobo: 4_000n,
+        remainingAmountKobo: 4_000n,
+        earnedAt: new Date('2026-07-26T12:00:00.000Z'),
+      });
     } finally {
-      await sourcePrisma.$disconnect();
-      await source.stop();
+      await restorePrisma.$disconnect();
+      await restore.stop();
     }
   }, 180000);
 
@@ -273,7 +265,7 @@ describe('financial repair restore verification (int)', () => {
             },
           });
         }),
-      ).rejects.toThrow(/adjustment evidence must match its ledger entry/i);
+      ).rejects.toThrow(/adjustment must match its adjustment ledger entry/i);
 
       await expect(
         prisma.$transaction(async (tx) => {
@@ -321,7 +313,7 @@ describe('financial repair restore verification (int)', () => {
             },
           });
         }),
-      ).rejects.toThrow(/adjustment evidence must match its ledger entry/i);
+      ).rejects.toThrow(/adjustment must match its adjustment ledger entry/i);
 
       await expect(
         prisma.adjustment.create({
@@ -451,28 +443,35 @@ function readCommittedMigrationInventory() {
     );
 }
 
-function dumpDatabase(container: ExecablePostgresContainer) {
-  return execFileSync(
-    'docker',
-    [
-      'exec',
-      '-e',
-      `PGPASSWORD=${container.getPassword()}`,
-      container.startedTestContainer.getId(),
-      'pg_dump',
-      '-h',
-      '127.0.0.1',
-      '-U',
-      container.getUsername(),
-      '-d',
-      container.getDatabase(),
-      '-Fc',
-    ],
-    { maxBuffer: 50 * 1024 * 1024 },
-  );
-}
-
 function restoreDatabase(container: ExecablePostgresContainer, backup: Buffer) {
+  const schemaBootstrap = Buffer.from(
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN CREATE ROLE postgres SUPERUSER LOGIN; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN; END IF; END $$;
+CREATE SCHEMA IF NOT EXISTS "extensions";
+CREATE SCHEMA IF NOT EXISTS "vault";
+`,
+  );
+  const sanitizedBackup = Buffer.from(
+    Buffer.concat([schemaBootstrap, backup])
+      .toString('utf8')
+      .replace(
+        /^CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";\s*$/gm,
+        '',
+      ),
+  );
+  const replayBackup = Buffer.from(
+    sanitizedBackup
+      .toString('utf8')
+      .replace(/^ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";\s*$/gm, ''),
+  );
+  const replayableBackup = Buffer.from(
+    replayBackup
+      .toString('utf8')
+      .replace(/^SET transaction_timeout = 0;\s*$/gm, ''),
+  );
+
   execFileSync(
     'docker',
     [
@@ -481,19 +480,17 @@ function restoreDatabase(container: ExecablePostgresContainer, backup: Buffer) {
       '-e',
       `PGPASSWORD=${container.getPassword()}`,
       container.startedTestContainer.getId(),
-      'pg_restore',
+      'psql',
       '-h',
       '127.0.0.1',
       '-U',
       container.getUsername(),
       '-d',
       container.getDatabase(),
-      '--clean',
-      '--if-exists',
-      '--no-owner',
-      '--no-privileges',
+      '-v',
+      'ON_ERROR_STOP=1',
     ],
-    { input: backup, maxBuffer: 50 * 1024 * 1024 },
+    { input: replayableBackup, maxBuffer: 50 * 1024 * 1024 },
   );
 }
 

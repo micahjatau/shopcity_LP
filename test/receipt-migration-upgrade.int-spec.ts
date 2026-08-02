@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import {
   mkdtempSync,
   cpSync,
@@ -6,6 +6,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  readFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -67,11 +68,26 @@ async function prepareReceiptMigrationFixture(): Promise<ReceiptMigrationFixture
     tempMigrationsRoot,
     tempSchemaPath,
     executeSql: (sql: string) => {
-      execSync(`npx prisma db execute --schema "${tempSchemaPath}" --stdin`, {
-        env,
-        input: sql,
-        stdio: ['pipe', 'inherit', 'inherit'],
-      });
+      execFileSync(
+        'docker',
+        [
+          'exec',
+          '-i',
+          '-e',
+          `PGPASSWORD=${container.getPassword()}`,
+          container.startedTestContainer.getId(),
+          'psql',
+          '-h',
+          '127.0.0.1',
+          '-U',
+          container.getUsername(),
+          '-d',
+          container.getDatabase(),
+          '-v',
+          'ON_ERROR_STOP=1',
+        ],
+        { env, input: sql, stdio: ['pipe', 'inherit', 'inherit'] },
+      );
     },
     applyPatchedMigration: () => {
       cpSync(
@@ -399,6 +415,113 @@ describe('receipt integrity migration upgrade', () => {
       );
 
       expect(() => fixture.applyPatchedMigration()).toThrow();
+    } finally {
+      await fixture.cleanup();
+    }
+  }, 120000);
+
+  it('keeps unapproved duplicate rows untouched during staged quarantine', async () => {
+    const fixture = await prepareReceiptMigrationFixture();
+    const ids = {
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      branchId: '22222222-2222-2222-2222-222222222222',
+      deviceId: '33333333-3333-3333-3333-333333333333',
+      userId: '44444444-4444-4444-4444-444444444444',
+      customerId: '55555555-5555-5555-5555-555555555555',
+      cardId: '66666666-6666-6666-6666-666666666666',
+      originalReceiptId: '77777777-7777-7777-7777-777777777777',
+      approvedReceiptId: '88888888-8888-8888-8888-888888888888',
+      unapprovedReceiptId: '99999999-9999-9999-9999-999999999999',
+    };
+
+    const reportSql = readFileSync(
+      join(repoRoot, 'docs/runbooks/report-duplicate-legacy-receipts.sql'),
+      'utf8',
+    );
+    const stageSql = readFileSync(
+      join(repoRoot, 'docs/runbooks/stage-approved-receipt-quarantine.sql'),
+      'utf8',
+    );
+    const executeSql = readFileSync(
+      join(repoRoot, 'docs/runbooks/execute-approved-receipt-quarantine.sql'),
+      'utf8',
+    );
+
+    try {
+      fixture.executeSql(
+        buildLegacyReceiptSeedSql({
+          ...ids,
+          receiptId: ids.originalReceiptId,
+          receiptNumber: 'LEGACY-RECEIPT-0001',
+          externalReceiptNumber: 'POS-DUP-0001',
+        }),
+      );
+      fixture.executeSql(
+        buildLegacyReceiptInsertSql({
+          ...ids,
+          receiptId: ids.approvedReceiptId,
+          receiptNumber: 'LEGACY-RECEIPT-0002',
+          externalReceiptNumber: ' pos-dup-0001 ',
+        }),
+      );
+      fixture.executeSql(
+        buildLegacyReceiptInsertSql({
+          ...ids,
+          receiptId: ids.unapprovedReceiptId,
+          receiptNumber: 'LEGACY-RECEIPT-0003',
+          externalReceiptNumber: 'POS-DUP-0001',
+        }),
+      );
+
+      fixture.executeSql(reportSql);
+      fixture.executeSql(`
+        CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineApproval" (
+          "id" TEXT PRIMARY KEY,
+          "reconciliationPlan" TEXT,
+          "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW()
+        );
+      `);
+      fixture.executeSql(`
+        INSERT INTO "ReceiptLegacyIdentityQuarantineApproval" (
+          "id",
+          "reconciliationPlan"
+        ) VALUES (
+          '${ids.approvedReceiptId}',
+          NULL
+        );
+      `);
+      fixture.executeSql(stageSql);
+      fixture.executeSql(executeSql);
+
+      const prisma = new PrismaClient({
+        datasources: { db: { url: fixture.databaseUrl } },
+      });
+
+      try {
+        await prisma.$connect();
+
+        const remainingReceipts = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT "id"
+          FROM "Receipt"
+          ORDER BY "id"
+        `;
+
+        const quarantinedRows = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT "id"
+          FROM "ReceiptLegacyIdentityQuarantine"
+          ORDER BY "id"
+        `;
+
+        expect(remainingReceipts.map((row) => row.id)).toEqual([
+          ids.originalReceiptId,
+          ids.unapprovedReceiptId,
+        ]);
+        expect(quarantinedRows.map((row) => row.id)).toEqual([
+          ids.approvedReceiptId,
+        ]);
+      } finally {
+        await prisma.$disconnect();
+      }
     } finally {
       await fixture.cleanup();
     }

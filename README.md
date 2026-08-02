@@ -78,7 +78,7 @@ Receipt capture now requires a physical POS receipt number and an active device.
 - Local database URL: `postgresql://postgres:postgres@127.0.0.1:55422/postgres`
 - Local API URL: `http://127.0.0.1:55421`
 - Linked remote project: `nmuedccamqacgszvosvm`
-- Remote push: `npx supabase db push --linked`
+- Remote deploy workflow: back up the linked database, restore into an isolated Postgres instance, validate migration history and SQL objects, then run `npx prisma migrate deploy`
 
 ## Common Commands
 
