@@ -1,7 +1,17 @@
 import { execFileSync, execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   AdjustmentKind,
   LedgerEntryDirection,
@@ -28,6 +38,8 @@ const sharedSchemaDumpPath =
 const sharedPublicDataDumpPath =
   process.env.SHARED_SUPABASE_PUBLIC_DATA_DUMP_PATH ??
   '/tmp/opencode/shared_public_data.sql';
+const restoreBackupCutoffMigration =
+  '20260803_adjustment_linkage_and_repair_followup';
 
 describe('financial repair restore verification (int)', () => {
   it('reconciles restored migration objects and historical adjustment evidence', async () => {
@@ -39,11 +51,7 @@ describe('financial repair restore verification (int)', () => {
     try {
       restoreDatabase(
         restore as ExecablePostgresContainer,
-        Buffer.concat([
-          readFileSync(sharedSchemaDumpPath),
-          Buffer.from('\n'),
-          readFileSync(sharedPublicDataDumpPath),
-        ]),
+        await loadRestoreBackupDump(),
       );
       restoreDatabase(
         restore as ExecablePostgresContainer,
@@ -417,6 +425,122 @@ async function readMigrationInventory(prisma: PrismaClient) {
     ORDER BY migration_name
   `;
   return rows;
+}
+
+async function loadRestoreBackupDump(): Promise<Buffer> {
+  if (
+    existsSync(sharedSchemaDumpPath) &&
+    existsSync(sharedPublicDataDumpPath)
+  ) {
+    return Buffer.concat([
+      readFileSync(sharedSchemaDumpPath),
+      Buffer.from('\n'),
+      readFileSync(sharedPublicDataDumpPath),
+    ]);
+  }
+
+  return buildLocalRestoreBackupDump();
+}
+
+async function buildLocalRestoreBackupDump(): Promise<Buffer> {
+  const source = await new PostgreSqlContainer('postgres:16-alpine').start();
+  const sourcePrisma = new PrismaClient({
+    datasources: { db: { url: source.getConnectionUri() } },
+  });
+
+  const tempRoot = mkdtempSync(join(tmpdir(), 'financial-repair-restore-'));
+  const tempPrismaRoot = join(tempRoot, 'prisma');
+  const tempMigrationsRoot = join(tempPrismaRoot, 'migrations');
+  const tempSchemaPath = join(tempPrismaRoot, 'schema.prisma');
+
+  try {
+    mkdirSync(tempMigrationsRoot, { recursive: true });
+    cpSync(join(process.cwd(), 'prisma', 'schema.prisma'), tempSchemaPath);
+
+    for (const entry of readdirSync(
+      join(process.cwd(), 'prisma', 'migrations'),
+    ).sort()) {
+      if (entry === restoreBackupCutoffMigration) {
+        break;
+      }
+
+      const sourcePath = join(process.cwd(), 'prisma', 'migrations', entry);
+      if (!statSync(sourcePath).isDirectory()) {
+        continue;
+      }
+
+      cpSync(sourcePath, join(tempMigrationsRoot, entry), { recursive: true });
+    }
+
+    await sourcePrisma.$connect();
+    execSync(`npx prisma migrate deploy --schema "${tempSchemaPath}"`, {
+      env: { ...process.env, DATABASE_URL: source.getConnectionUri() },
+      stdio: 'inherit',
+    });
+
+    await seedAdjustmentFixture(sourcePrisma);
+
+    const sourceId = (
+      source as ExecablePostgresContainer
+    ).startedTestContainer.getId();
+    const dumpEnv = {
+      ...process.env,
+      PGPASSWORD: source.getPassword(),
+    };
+
+    const schemaDump = execFileSync(
+      'docker',
+      [
+        'exec',
+        '-i',
+        '-e',
+        `PGPASSWORD=${source.getPassword()}`,
+        sourceId,
+        'pg_dump',
+        '--schema-only',
+        '--no-owner',
+        '--no-privileges',
+        '--exclude-table=_prisma_migrations',
+        '-h',
+        '127.0.0.1',
+        '-U',
+        source.getUsername(),
+        '-d',
+        source.getDatabase(),
+      ],
+      { env: dumpEnv, maxBuffer: 50 * 1024 * 1024 },
+    );
+
+    const dataDump = execFileSync(
+      'docker',
+      [
+        'exec',
+        '-i',
+        '-e',
+        `PGPASSWORD=${source.getPassword()}`,
+        sourceId,
+        'pg_dump',
+        '--data-only',
+        '--column-inserts',
+        '--no-owner',
+        '--no-privileges',
+        '--exclude-table=_prisma_migrations',
+        '-h',
+        '127.0.0.1',
+        '-U',
+        source.getUsername(),
+        '-d',
+        source.getDatabase(),
+      ],
+      { env: dumpEnv, maxBuffer: 50 * 1024 * 1024 },
+    );
+
+    return Buffer.concat([schemaDump, Buffer.from('\n'), dataDump]);
+  } finally {
+    await sourcePrisma.$disconnect();
+    await source.stop();
+    rmSync(tempRoot, { force: true, recursive: true });
+  }
 }
 
 function readCommittedMigrationInventory() {
