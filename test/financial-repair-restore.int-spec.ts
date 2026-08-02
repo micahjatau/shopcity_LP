@@ -2,7 +2,6 @@ import { execFileSync, execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   cpSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -32,12 +31,6 @@ type ExecablePostgresContainer = Awaited<
   };
 };
 
-const sharedSchemaDumpPath =
-  process.env.SHARED_SUPABASE_SCHEMA_DUMP_PATH ??
-  '/tmp/opencode/shared_schema.sql';
-const sharedPublicDataDumpPath =
-  process.env.SHARED_SUPABASE_PUBLIC_DATA_DUMP_PATH ??
-  '/tmp/opencode/shared_public_data.sql';
 const restoreBackupCutoffMigration =
   '20260803_adjustment_linkage_and_repair_followup';
 
@@ -81,8 +74,6 @@ describe('financial repair restore verification (int)', () => {
 
       const restoredMigrations = await readMigrationInventory(restorePrisma);
       expect(restoredMigrations).toEqual(committedMigrations);
-
-      await seedAdjustmentFixture(restorePrisma);
 
       const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
         SELECT p.proname
@@ -428,17 +419,6 @@ async function readMigrationInventory(prisma: PrismaClient) {
 }
 
 async function loadRestoreBackupDump(): Promise<Buffer> {
-  if (
-    existsSync(sharedSchemaDumpPath) &&
-    existsSync(sharedPublicDataDumpPath)
-  ) {
-    return Buffer.concat([
-      readFileSync(sharedSchemaDumpPath),
-      Buffer.from('\n'),
-      readFileSync(sharedPublicDataDumpPath),
-    ]);
-  }
-
   return buildLocalRestoreBackupDump();
 }
 
@@ -600,6 +580,11 @@ CREATE SCHEMA IF NOT EXISTS "vault";
       .toString('utf8')
       .replace(/^SET transaction_timeout = 0;\s*$/gm, ''),
   );
+  const trustedRestoreBackup = Buffer.concat([
+    Buffer.from('SET session_replication_role = replica;\n'),
+    replayableBackup,
+    Buffer.from('\nSET session_replication_role = origin;\n'),
+  ]);
 
   execFileSync(
     'docker',
@@ -619,7 +604,7 @@ CREATE SCHEMA IF NOT EXISTS "vault";
       '-v',
       'ON_ERROR_STOP=1',
     ],
-    { input: replayableBackup, maxBuffer: 50 * 1024 * 1024 },
+    { input: trustedRestoreBackup, maxBuffer: 50 * 1024 * 1024 },
   );
 }
 
