@@ -20,6 +20,7 @@ const migrationName = '20260720_receipt_integrity_gate';
 interface ReceiptMigrationFixture {
   databaseUrl: string;
   tempRoot: string;
+  tempMigrationsRoot: string;
   tempSchemaPath: string;
   executeSql: (sql: string) => void;
   applyPatchedMigration: () => void;
@@ -63,6 +64,7 @@ async function prepareReceiptMigrationFixture(): Promise<ReceiptMigrationFixture
   return {
     databaseUrl,
     tempRoot,
+    tempMigrationsRoot,
     tempSchemaPath,
     executeSql: (sql: string) => {
       execSync(`npx prisma db execute --schema "${tempSchemaPath}" --stdin`, {
@@ -256,6 +258,31 @@ async function runReceiptMigrationUpgrade(options: {
 }
 
 describe('receipt integrity migration upgrade', () => {
+  it('copies only migrations before the receipt integrity target', async () => {
+    const fixture = await prepareReceiptMigrationFixture();
+
+    try {
+      const copiedMigrations = readdirSync(fixture.tempMigrationsRoot)
+        .filter((entry) =>
+          statSync(join(fixture.tempMigrationsRoot, entry)).isDirectory(),
+        )
+        .sort();
+
+      expect(copiedMigrations).toContain(
+        '20260719_phase_1_integrity_hardening',
+      );
+      expect(copiedMigrations).toContain('20260720_receipt_capture_endpoint');
+      expect(copiedMigrations).not.toContain(
+        '20260721_receipt_review_workflow',
+      );
+      expect(copiedMigrations.every((entry) => entry < migrationName)).toBe(
+        true,
+      );
+    } finally {
+      await fixture.cleanup();
+    }
+  }, 120000);
+
   it('preserves trimmed legacy identity and drops legacy receipt columns', async () => {
     const { fixture, ids } = await runReceiptMigrationUpgrade({
       externalReceiptNumber: '  POS-LEGACY-0001  ',
