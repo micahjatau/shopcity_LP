@@ -1,5 +1,6 @@
-import { execSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { execFileSync, execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   AdjustmentKind,
@@ -26,26 +27,26 @@ describe('financial repair restore verification (int)', () => {
       await sourcePrisma.$connect();
       await seedAdjustmentFixture(sourcePrisma);
 
+      const committedMigrations = readCommittedMigrationInventory();
       const sourceMigrations = await readMigrationInventory(sourcePrisma);
-      expect(sourceMigrations.map((row) => row.migration_name)).toEqual(
-        readCommittedMigrationFolders(),
-      );
+      expect(sourceMigrations).toEqual(committedMigrations);
+
+      const backup = dumpDatabase(source);
 
       const restore = await new PostgreSqlContainer(
         'postgres:16-alpine',
       ).start();
-      const restoreUrl = restore.getConnectionUri();
       const restorePrisma = new PrismaClient({
-        datasources: { db: { url: restoreUrl } },
+        datasources: { db: { url: restore.getConnectionUri() } },
       });
 
       try {
-        migrateDeploy(restoreUrl);
+        restoreDatabase(restore, backup);
 
         await restorePrisma.$connect();
-        const restoredFixture = await seedAdjustmentFixture(restorePrisma);
 
         const restoredMigrations = await readMigrationInventory(restorePrisma);
+        expect(restoredMigrations).toEqual(committedMigrations);
         expect(restoredMigrations).toEqual(sourceMigrations);
 
         const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
@@ -154,8 +155,8 @@ describe('financial repair restore verification (int)', () => {
         const restoredAdjustment = await restorePrisma.adjustment.findUnique({
           where: {
             tenantId_id: {
-              tenantId: restoredFixture.tenantId,
-              id: restoredFixture.adjustment.id,
+              tenantId: '00000000-0000-4000-8000-000000000101',
+              id: '00000000-0000-4000-8000-000000000108',
             },
           },
         });
@@ -163,16 +164,16 @@ describe('financial repair restore verification (int)', () => {
           await restorePrisma.loyaltyLedgerEntry.findUnique({
             where: {
               tenantId_id: {
-                tenantId: restoredFixture.tenantId,
-                id: restoredFixture.ledgerEntry.id,
+                tenantId: '00000000-0000-4000-8000-000000000101',
+                id: '00000000-0000-4000-8000-000000000109',
               },
             },
           });
         const restoredCreditLot = await restorePrisma.creditLot.findUnique({
           where: {
             tenantId_id: {
-              tenantId: restoredFixture.tenantId,
-              id: restoredFixture.creditLot.id,
+              tenantId: '00000000-0000-4000-8000-000000000101',
+              id: '00000000-0000-4000-8000-000000000110',
             },
           },
         });
@@ -180,19 +181,19 @@ describe('financial repair restore verification (int)', () => {
         expect(restoredAdjustment).toMatchObject({
           kind: AdjustmentKind.CREDIT,
           amountKobo: 4_000n,
-          effectiveAt: restoredFixture.effectiveAt,
-          ledgerEntryId: restoredFixture.ledgerEntry.id,
+          effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+          ledgerEntryId: '00000000-0000-4000-8000-000000000109',
         });
         expect(restoredLedger).toMatchObject({
           type: LedgerEntryType.ADJUSTMENT,
           direction: LedgerEntryDirection.CREDIT,
           amountKobo: 4_000n,
-          effectiveAt: restoredFixture.effectiveAt,
+          effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
         });
         expect(restoredCreditLot).toMatchObject({
           originalAmountKobo: 4_000n,
           remainingAmountKobo: 4_000n,
-          earnedAt: restoredFixture.effectiveAt,
+          earnedAt: new Date('2026-07-26T12:00:00.000Z'),
         });
       } finally {
         await restorePrisma.$disconnect();
@@ -314,19 +315,71 @@ describe('financial repair restore verification (int)', () => {
         }),
       ).rejects.toThrow(/adjustment evidence must match its ledger entry/i);
 
-      const adjustment = await prisma.adjustment.create({
-        data: {
-          id: fixture.mutableAdjustmentId,
-          tenantId: fixture.tenantId,
-          customerId: fixture.customerId,
-          kind: AdjustmentKind.CREDIT,
-          amountKobo: 4_000n,
-          reason: 'Immutable adjustment',
-          createdByTenantId: fixture.tenantId,
-          createdBy: fixture.userId,
-          ledgerEntryId: null,
-          effectiveAt: fixture.effectiveAt,
-        },
+      await expect(
+        prisma.adjustment.create({
+          data: {
+            id: fixture.mutableAdjustmentId,
+            tenantId: fixture.tenantId,
+            customerId: fixture.customerId,
+            kind: AdjustmentKind.CREDIT,
+            amountKobo: 4_000n,
+            reason: 'Orphan adjustment',
+            createdByTenantId: fixture.tenantId,
+            createdBy: fixture.userId,
+            ledgerEntryId: null,
+            effectiveAt: fixture.effectiveAt,
+          },
+        }),
+      ).rejects.toThrow(/adjustment must reference a ledger entry/i);
+
+      const mutableLedgerId = '00000000-0000-4000-8000-000000000116';
+
+      const adjustment = await prisma.$transaction(async (tx) => {
+        await tx.loyaltyLedgerEntry.create({
+          data: {
+            id: mutableLedgerId,
+            tenantId: fixture.tenantId,
+            customerId: fixture.customerId,
+            type: LedgerEntryType.ADJUSTMENT,
+            direction: LedgerEntryDirection.CREDIT,
+            amountKobo: 4_000n,
+            status: LedgerEntryStatus.CONFIRMED,
+            correlationId: `adjustment-mutable-${mutableLedgerId}`,
+            createdByTenantId: fixture.tenantId,
+            createdBy: fixture.userId,
+            effectiveAt: fixture.effectiveAt,
+          },
+        });
+
+        const createdAdjustment = await tx.adjustment.create({
+          data: {
+            id: fixture.mutableAdjustmentId,
+            tenantId: fixture.tenantId,
+            customerId: fixture.customerId,
+            kind: AdjustmentKind.CREDIT,
+            amountKobo: 4_000n,
+            reason: 'Immutable adjustment',
+            createdByTenantId: fixture.tenantId,
+            createdBy: fixture.userId,
+            ledgerEntryId: mutableLedgerId,
+            effectiveAt: fixture.effectiveAt,
+          },
+        });
+
+        await tx.creditLot.create({
+          data: {
+            id: '00000000-0000-4000-8000-000000000117',
+            tenantId: fixture.tenantId,
+            customerId: fixture.customerId,
+            earnLedgerEntryId: mutableLedgerId,
+            originalAmountKobo: 4_000n,
+            remainingAmountKobo: 4_000n,
+            earnedAt: fixture.effectiveAt,
+            expiresAt: addMonthsUtc(fixture.effectiveAt, 12),
+          },
+        });
+
+        return createdAdjustment;
       });
 
       await expect(
@@ -364,13 +417,73 @@ async function readMigrationInventory(prisma: PrismaClient) {
   return rows;
 }
 
-function readCommittedMigrationFolders() {
+function readCommittedMigrationInventory() {
   return readdirSync(join(process.cwd(), 'prisma', 'migrations'), {
     withFileTypes: true,
   })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
+    .map((entry) => ({
+      migration_name: entry.name,
+      checksum: createHash('sha256')
+        .update(
+          readFileSync(
+            join(process.cwd(), 'prisma', 'migrations', entry.name, 'migration.sql'),
+          ),
+        )
+        .digest('hex'),
+    }))
+    .sort((left, right) => left.migration_name.localeCompare(right.migration_name));
+}
+
+function dumpDatabase(
+  container: Awaited<ReturnType<PostgreSqlContainer['start']>>,
+) {
+  return execFileSync(
+    'docker',
+    [
+      'exec',
+      '-e',
+      `PGPASSWORD=${container.getPassword()}`,
+      container.startedTestContainer.getId(),
+      'pg_dump',
+      '-h',
+      '127.0.0.1',
+      '-U',
+      container.getUsername(),
+      '-d',
+      container.getDatabase(),
+      '-Fc',
+    ],
+    { maxBuffer: 50 * 1024 * 1024 },
+  );
+}
+
+function restoreDatabase(
+  container: Awaited<ReturnType<PostgreSqlContainer['start']>>,
+  backup: Buffer,
+) {
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      '-e',
+      `PGPASSWORD=${container.getPassword()}`,
+      container.startedTestContainer.getId(),
+      'pg_restore',
+      '-h',
+      '127.0.0.1',
+      '-U',
+      container.getUsername(),
+      '-d',
+      container.getDatabase(),
+      '--clean',
+      '--if-exists',
+      '--no-owner',
+      '--no-privileges',
+    ],
+    { input: backup, maxBuffer: 50 * 1024 * 1024 },
+  );
 }
 
 async function seedAdjustmentFixture(prisma: PrismaClient) {
