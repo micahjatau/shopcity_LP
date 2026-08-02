@@ -14,6 +14,14 @@ import {
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
+type ExecablePostgresContainer = Awaited<
+  ReturnType<PostgreSqlContainer['start']>
+> & {
+  startedTestContainer: {
+    getId(): string;
+  };
+};
+
 describe('financial repair restore verification (int)', () => {
   it('reconciles restored migration objects and historical adjustment evidence', async () => {
     const source = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -31,7 +39,7 @@ describe('financial repair restore verification (int)', () => {
       const sourceMigrations = await readMigrationInventory(sourcePrisma);
       expect(sourceMigrations).toEqual(committedMigrations);
 
-      const backup = dumpDatabase(source);
+      const backup = dumpDatabase(source as ExecablePostgresContainer);
 
       const restore = await new PostgreSqlContainer(
         'postgres:16-alpine',
@@ -41,7 +49,7 @@ describe('financial repair restore verification (int)', () => {
       });
 
       try {
-        restoreDatabase(restore, backup);
+        restoreDatabase(restore as ExecablePostgresContainer, backup);
 
         await restorePrisma.$connect();
 
@@ -427,17 +435,23 @@ function readCommittedMigrationInventory() {
       checksum: createHash('sha256')
         .update(
           readFileSync(
-            join(process.cwd(), 'prisma', 'migrations', entry.name, 'migration.sql'),
+            join(
+              process.cwd(),
+              'prisma',
+              'migrations',
+              entry.name,
+              'migration.sql',
+            ),
           ),
         )
         .digest('hex'),
     }))
-    .sort((left, right) => left.migration_name.localeCompare(right.migration_name));
+    .sort((left, right) =>
+      left.migration_name.localeCompare(right.migration_name),
+    );
 }
 
-function dumpDatabase(
-  container: Awaited<ReturnType<PostgreSqlContainer['start']>>,
-) {
+function dumpDatabase(container: ExecablePostgresContainer) {
   return execFileSync(
     'docker',
     [
@@ -458,10 +472,7 @@ function dumpDatabase(
   );
 }
 
-function restoreDatabase(
-  container: Awaited<ReturnType<PostgreSqlContainer['start']>>,
-  backup: Buffer,
-) {
+function restoreDatabase(container: ExecablePostgresContainer, backup: Buffer) {
   execFileSync(
     'docker',
     [
