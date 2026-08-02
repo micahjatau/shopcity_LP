@@ -13,6 +13,14 @@ import { tmpdir } from 'node:os';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
+type ExecablePostgresContainer = Awaited<
+  ReturnType<PostgreSqlContainer['start']>
+> & {
+  startedTestContainer: {
+    getId(): string;
+  };
+};
+
 const repoRoot = join(__dirname, '..');
 const prismaRoot = join(repoRoot, 'prisma');
 const migrationsRoot = join(prismaRoot, 'migrations');
@@ -75,7 +83,7 @@ async function prepareReceiptMigrationFixture(): Promise<ReceiptMigrationFixture
           '-i',
           '-e',
           `PGPASSWORD=${container.getPassword()}`,
-          container.startedTestContainer.getId(),
+          (container as ExecablePostgresContainer).startedTestContainer.getId(),
           'psql',
           '-h',
           '127.0.0.1',

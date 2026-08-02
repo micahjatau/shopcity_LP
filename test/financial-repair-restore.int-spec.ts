@@ -23,7 +23,8 @@ type ExecablePostgresContainer = Awaited<
 };
 
 const sharedSchemaDumpPath =
-  process.env.SHARED_SUPABASE_SCHEMA_DUMP_PATH ?? '/tmp/opencode/shared_schema.sql';
+  process.env.SHARED_SUPABASE_SCHEMA_DUMP_PATH ??
+  '/tmp/opencode/shared_schema.sql';
 const sharedPublicDataDumpPath =
   process.env.SHARED_SUPABASE_PUBLIC_DATA_DUMP_PATH ??
   '/tmp/opencode/shared_public_data.sql';
@@ -142,7 +143,8 @@ describe('financial repair restore verification (int)', () => {
       );
       expect(
         triggers.find(
-          (row) => row.tgname === 'validate_adjustment_ledger_source_insert_update',
+          (row) =>
+            row.tgname === 'validate_adjustment_ledger_source_insert_update',
         ),
       ).toMatchObject({
         tgenabled: 'O',
@@ -464,7 +466,10 @@ CREATE SCHEMA IF NOT EXISTS "vault";
   const replayBackup = Buffer.from(
     sanitizedBackup
       .toString('utf8')
-      .replace(/^ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";\s*$/gm, ''),
+      .replace(
+        /^ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";\s*$/gm,
+        '',
+      ),
   );
   const replayableBackup = Buffer.from(
     replayBackup
