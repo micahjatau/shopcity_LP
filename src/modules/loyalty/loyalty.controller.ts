@@ -66,7 +66,6 @@ const transactionLedgerItemSchema = {
     id: { type: 'string', format: 'uuid' },
     receiptId: { type: 'string', format: 'uuid' },
     redemptionId: { type: 'string', format: 'uuid', nullable: true },
-    adjustmentId: { type: 'string', format: 'uuid', nullable: true },
     type: { type: 'string', example: 'EARN' },
     direction: { type: 'string', example: 'CREDIT' },
     amountKobo: { type: 'integer' },
@@ -145,7 +144,7 @@ const transactionResponseSchema = {
     transactionId: { type: 'string', format: 'uuid' },
     type: {
       type: 'string',
-      enum: ['EARN', 'REDEEM', 'ADJUSTMENT', 'REVERSAL'],
+      enum: ['EARN', 'REDEEM'],
     },
     direction: { type: 'string', enum: ['CREDIT', 'DEBIT'] },
     tenantId: { type: 'string', format: 'uuid' },
@@ -393,10 +392,10 @@ export class LoyaltyController {
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
-    description: 'Transaction details',
+    description: 'Receipt-backed transaction details',
     dataSchema: transactionResponseSchema,
   })
-  @ApiOperation({ summary: 'Get transaction details' })
+  @ApiOperation({ summary: 'Get receipt-backed transaction details' })
   getTransaction(
     @Req() request: AuthenticatedRequest,
     @Param('id') transactionId: string,
@@ -412,10 +411,10 @@ export class LoyaltyController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
-    description: 'Customer ledger',
+    description: 'Customer ledger for receipt-backed transactions',
     dataSchema: customerLedgerResponseSchema,
   })
-  @ApiOperation({ summary: 'Get customer ledger' })
+  @ApiOperation({ summary: 'Get receipt-backed customer ledger' })
   getCustomerLedger(
     @Req() request: AuthenticatedRequest,
     @Param('id') customerId: string,

@@ -1,66 +1,64 @@
-import { loadAuthContext } from './session.guard';
+import { UserRole, UserStatus } from '@prisma/client';
+import { isSessionDeviceEligible } from './session.guard';
 
-describe('loadAuthContext', () => {
-  const configService = {
-    get: (key: string) =>
-      key === 'SESSION_SECRET' ? 'test-secret' : undefined,
-  } as never;
-
-  it('rejects suspended tenants', async () => {
-    const prismaService = {
-      session: {
-        findUnique: jest.fn().mockResolvedValue({
+describe('isSessionDeviceEligible', () => {
+  it('rejects a linked device on an inactive branch', () => {
+    expect(
+      isSessionDeviceEligible({
+        deviceId: 'device-id',
+        user: activeUser(),
+        device: {
+          tenantId: 'tenant-id',
           status: 'ACTIVE',
-          expiresAt: new Date(Date.now() + 1000),
-          user: {
-            status: 'ACTIVE',
-            branchId: 'branch-id',
-            tenant: { status: 'SUSPENDED' },
-            branch: { status: 'ACTIVE' },
-          },
-        }),
-      },
-    } as never;
-
-    const context = await loadAuthContext(
-      {
-        headers: {
-          cookie: 'shopcity_session=session-token',
+          branchId: 'branch-id',
+          branch: { status: 'INACTIVE' },
         },
-      } as never,
-      prismaService,
-      configService,
-    );
-
-    expect(context).toBeNull();
+      }),
+    ).toBe(false);
   });
 
-  it('rejects inactive branches', async () => {
-    const prismaService = {
-      session: {
-        findUnique: jest.fn().mockResolvedValue({
+  it('rejects a linked device moved away from the user branch', () => {
+    expect(
+      isSessionDeviceEligible({
+        deviceId: 'device-id',
+        user: activeUser(),
+        device: {
+          tenantId: 'tenant-id',
           status: 'ACTIVE',
-          expiresAt: new Date(Date.now() + 1000),
-          user: {
-            status: 'ACTIVE',
-            branchId: 'branch-id',
-            tenant: { status: 'ACTIVE' },
-            branch: { status: 'INACTIVE' },
-          },
-        }),
-      },
-    } as never;
-
-    const context = await loadAuthContext(
-      {
-        headers: {
-          cookie: 'shopcity_session=session-token',
+          branchId: 'other-branch-id',
+          branch: { status: 'ACTIVE' },
         },
-      } as never,
-      prismaService,
-      configService,
-    );
+      }),
+    ).toBe(false);
+  });
 
-    expect(context).toBeNull();
+  it('rejects a linked device from another tenant', () => {
+    expect(
+      isSessionDeviceEligible({
+        deviceId: 'device-id',
+        user: activeUser(),
+        device: {
+          tenantId: 'other-tenant-id',
+          status: 'ACTIVE',
+          branchId: 'branch-id',
+          branch: { status: 'ACTIVE' },
+        },
+      }),
+    ).toBe(false);
   });
 });
+
+function activeUser() {
+  return {
+    id: 'user-id',
+    tenantId: 'tenant-id',
+    branchId: 'branch-id',
+    username: 'cashier@shopcity.local',
+    supabaseAuthId: 'supabase-id',
+    role: UserRole.CASHIER,
+    status: UserStatus.ACTIVE,
+    lastLoginAt: null,
+    createdAt: new Date('2026-08-03T00:00:00.000Z'),
+    updatedAt: new Date('2026-08-03T00:00:00.000Z'),
+  };
+}

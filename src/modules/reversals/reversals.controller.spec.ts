@@ -15,7 +15,10 @@ describe('ReversalsController', () => {
 
   it('delegates transaction reversal requests to the reversals service', async () => {
     const reversalsService = {
-      reverse: jest.fn().mockRejectedValue(new Error('review-required')),
+      reverse: jest.fn().mockResolvedValue({
+        code: 'REVERSAL_REVIEW_REQUIRED',
+        transactionId: 'transaction-1',
+      }),
     };
     const controller = new ReversalsController(reversalsService as never);
     const request = {
@@ -28,7 +31,10 @@ describe('ReversalsController', () => {
 
     await expect(
       controller.reverse(request as never, 'transaction-1', 'idem-1', dto),
-    ).rejects.toThrow('review-required');
+    ).resolves.toMatchObject({
+      code: 'REVERSAL_REVIEW_REQUIRED',
+      transactionId: 'transaction-1',
+    });
 
     expect(reversalsService.reverse).toHaveBeenCalledWith(
       'tenant-1',

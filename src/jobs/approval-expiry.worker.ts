@@ -132,7 +132,10 @@ export async function expireOverdueApprovals(
     `);
 
     for (const approval of overdue) {
-      await expireApproval(tx, auditService, approval, now);
+      await expireApproval(tx, auditService, approval, now, null, {
+        tenantId: approval.tenantId,
+        id: 'approval-expiry-worker',
+      });
     }
 
     return overdue.length;

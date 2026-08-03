@@ -39,7 +39,10 @@ import {
 } from '../../common/approval-expiry';
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { EarnTransactionDto } from './loyalty.dto';
-import { buildRedemptionConfirmedSmsPayload } from '../../jobs/sms.templates';
+import {
+  buildEarnConfirmedSmsPayload,
+  buildRedemptionConfirmedSmsPayload,
+} from '../../jobs/sms.templates';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
@@ -231,7 +234,7 @@ function buildCustomerLedgerWhere(
   return {
     tenantId,
     customerId,
-    ...(branchId ? { receipt: { is: { branchId } } } : {}),
+    ...(branchId ? { customer: { is: { branchId } } } : {}),
   };
 }
 
@@ -583,20 +586,21 @@ export class LoyaltyService {
               },
             });
 
+            const outboxPayload = buildEarnConfirmedSmsPayload({
+              receiptId: receipt.id,
+              transactionId: ledgerEntry.id,
+              customerId: transactionCard.customerId,
+              phoneE164: transactionCard.customer.phoneE164,
+              creditKobo,
+            });
+
             const outboxEvent = await prisma.outboxEvent.create({
               data: {
                 tenantId,
                 aggregateType: 'receipt',
                 aggregateId: receipt.id,
                 eventType: 'sms.send',
-                payload: {
-                  receiptId: receipt.id,
-                  transactionId: ledgerEntry.id,
-                  customerId: transactionCard.customerId,
-                  phoneE164: transactionCard.customer.phoneE164,
-                  template: 'earn-confirmed',
-                  creditKobo: creditKobo.toString(),
-                },
+                payload: outboxPayload,
                 status: 'PENDING',
                 nextAttemptAt: now,
               },
@@ -608,14 +612,7 @@ export class LoyaltyService {
                 outboxEventId: outboxEvent.id,
                 phoneE164: transactionCard.customer.phoneE164,
                 template: 'earn-confirmed',
-                payload: {
-                  receiptId: receipt.id,
-                  transactionId: ledgerEntry.id,
-                  customerId: transactionCard.customerId,
-                  phoneE164: transactionCard.customer.phoneE164,
-                  template: 'earn-confirmed',
-                  creditKobo: creditKobo.toString(),
-                },
+                payload: outboxPayload,
                 status: SmsMessageStatus.QUEUED,
                 queuedAt: now,
               },
@@ -792,6 +789,7 @@ export class LoyaltyService {
           },
           orderBy: { allocationOrder: 'asc' },
         },
+        customer: true,
         receipt: {
           include: {
             card: true,
@@ -812,19 +810,22 @@ export class LoyaltyService {
     }
 
     const receipt = ledgerEntry.receipt;
+    const transactionBranchId =
+      receipt?.branchId ?? ledgerEntry.customer.branchId;
+
+    if (!isTransactionWithinReadScope(actor, transactionBranchId)) {
+      throw new DomainHttpException(
+        404,
+        'TRANSACTION_NOT_FOUND',
+        'Transaction not found',
+      );
+    }
+
     if (!receipt || !ledgerEntry.receiptId) {
       throw new DomainHttpException(
         422,
         'UNSUPPORTED_TRANSACTION_TYPE',
         'This transaction type is not available through the earn transaction read model yet',
-      );
-    }
-
-    if (!isTransactionWithinReadScope(actor, receipt.branchId)) {
-      throw new DomainHttpException(
-        404,
-        'TRANSACTION_NOT_FOUND',
-        'Transaction not found',
       );
     }
 
@@ -919,12 +920,14 @@ export class LoyaltyService {
   ) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const entries = await this.prismaService.loyaltyLedgerEntry.findMany({
-      where: buildCustomerLedgerWhere(tenantId, actor, customerId),
+      where: {
+        ...buildCustomerLedgerWhere(tenantId, actor, customerId),
+        receiptId: { not: null },
+      },
       orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
       include: {
         creditLot: true,
         redemption: true,
-        adjustment: true,
         redemptionAllocations: {
           include: {
             creditLot: { select: { expiresAt: true } },
@@ -942,9 +945,10 @@ export class LoyaltyService {
           }
         : {}),
     });
+    const receiptLinkedEntries = entries.filter((entry) => entry.receiptId);
     const { pageItems, hasMore } = pageMeta(
-      entries,
-      page?.limit ?? entries.length,
+      receiptLinkedEntries,
+      page?.limit ?? receiptLinkedEntries.length,
     );
 
     const items = await Promise.all(
@@ -965,7 +969,6 @@ export class LoyaltyService {
           status: entry.status,
           effectiveAt: entry.effectiveAt.toISOString(),
           redemptionId: entry.redemption?.id ?? null,
-          adjustmentId: entry.adjustment?.id ?? null,
           smsStatus: smsMessage?.status ?? null,
           allocations: entry.redemptionAllocations.map((allocation) => ({
             id: allocation.id,
@@ -1116,27 +1119,18 @@ export class LoyaltyService {
         async (prisma) => {
           const approval = await prisma.approval.findFirst({
             where: buildApprovalScopeWhere(tenantId, approvalId, actor),
-            include: {
-              receipt: {
-                include: {
-                  branch: true,
-                  card: { include: { customer: true } },
-                  customer: true,
-                  device: true,
-                },
-              },
-              redemption: {
-                include: {
-                  receipt: {
-                    include: {
-                      branch: true,
-                      card: { include: { customer: true } },
-                      customer: true,
-                      device: true,
-                    },
-                  },
-                },
-              },
+            select: {
+              id: true,
+              tenantId: true,
+              receiptId: true,
+              redemptionId: true,
+              targetType: true,
+              status: true,
+              requestedByTenantId: true,
+              requestedBy: true,
+              expiresAt: true,
+              policyVersion: true,
+              redemption: { select: { receiptId: true } },
             },
           });
 
@@ -1169,22 +1163,64 @@ export class LoyaltyService {
 
           await lockApprovalExecutionRows(prisma, approval);
 
-          if (approval.targetType === ApprovalTargetType.REDEEM) {
+          const freshApproval = await prisma.approval.findFirst({
+            where: { tenantId, id: approval.id },
+            include: {
+              receipt: {
+                include: {
+                  branch: true,
+                  card: { include: { customer: true } },
+                  customer: true,
+                  device: true,
+                },
+              },
+              redemption: {
+                include: {
+                  receipt: {
+                    include: {
+                      branch: true,
+                      card: { include: { customer: true } },
+                      customer: true,
+                      device: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!freshApproval) {
+            throw new DomainHttpException(
+              404,
+              'APPROVAL_NOT_FOUND',
+              'Approval not found',
+            );
+          }
+
+          if (freshApproval.status !== ApprovalStatus.PENDING) {
+            throw new DomainHttpException(
+              409,
+              'APPROVAL_ALREADY_DECIDED',
+              'Approval has already been decided',
+            );
+          }
+
+          if (freshApproval.targetType === ApprovalTargetType.REDEEM) {
             return this.decideRedemptionApproval(
               prisma,
               tenantId,
               actor,
-              approval,
+              freshApproval,
               decision,
               normalizedReason,
             );
           }
 
-          const receipt = approval.receipt;
+          const receipt = freshApproval.receipt;
           if (
-            approval.targetType !== 'EARN' ||
+            freshApproval.targetType !== 'EARN' ||
             !receipt ||
-            !approval.receiptId
+            !freshApproval.receiptId
           ) {
             throw new DomainHttpException(
               422,
@@ -1195,12 +1231,16 @@ export class LoyaltyService {
 
           const now = new Date();
 
-          if (approval.expiresAt <= now) {
+          if (freshApproval.expiresAt <= now) {
             await expireApproval(
               prisma,
               this.auditService,
-              toApprovalExpiryRecord(approval),
+              toApprovalExpiryRecord(freshApproval),
               now,
+              {
+                tenantId: actor.user.tenantId,
+                id: actor.user.id,
+              },
               {
                 tenantId: actor.user.tenantId,
                 id: actor.user.id,
@@ -1235,7 +1275,7 @@ export class LoyaltyService {
             }
 
             await prisma.receipt.update({
-              where: { tenantId_id: { tenantId, id: approval.receiptId } },
+              where: { tenantId_id: { tenantId, id: freshApproval.receiptId } },
               data: {
                 reviewStatus: ReceiptReviewStatus.REJECTED,
                 reviewedAt: now,
@@ -1259,7 +1299,7 @@ export class LoyaltyService {
             return {
               id: approvalId,
               status: ApprovalStatus.REJECTED,
-              receiptId: approval.receiptId,
+              receiptId: freshApproval.receiptId,
               reason: normalizedReason,
               decidedAt: now.toISOString(),
               executedAt: null,
@@ -1305,7 +1345,7 @@ export class LoyaltyService {
           assertApprovalPolicyStillPermitsExecution(
             Number(receipt.purchaseAmountKobo),
             this.configService,
-            approval.policyVersion,
+            freshApproval.policyVersion,
           );
 
           const approved = await prisma.approval.updateMany({
@@ -1333,7 +1373,7 @@ export class LoyaltyService {
           );
 
           const existingLedger = await prisma.loyaltyLedgerEntry.findUnique({
-            where: { receiptId: approval.receiptId },
+              where: { receiptId: freshApproval.receiptId },
           });
 
           if (existingLedger) {
@@ -1353,7 +1393,7 @@ export class LoyaltyService {
               direction: LedgerEntryDirection.CREDIT,
               amountKobo: creditKobo,
               status: LedgerEntryStatus.CONFIRMED,
-              correlationId: `approval:${approval.id}`,
+              correlationId: `approval:${freshApproval.id}`,
               createdByTenantId: actor.user.tenantId,
               createdBy: actor.user.id,
               effectiveAt: receipt.occurredAt,
@@ -1462,7 +1502,7 @@ export class LoyaltyService {
           return {
             id: approvalId,
             status: ApprovalStatus.EXECUTED,
-            receiptId: approval.receiptId,
+            receiptId: receipt.id,
             ledgerEntryId: ledgerEntry.id,
             creditKobo: Number(creditKobo),
             reason: normalizedReason,
@@ -1577,6 +1617,10 @@ export class LoyaltyService {
             : null,
         }),
         now,
+        {
+          tenantId: actor.user.tenantId,
+          id: actor.user.id,
+        },
         {
           tenantId: actor.user.tenantId,
           id: actor.user.id,

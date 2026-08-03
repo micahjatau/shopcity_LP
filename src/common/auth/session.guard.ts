@@ -76,7 +76,10 @@ export async function loadAuthContext(
   );
   const session = await prismaService.session.findUnique({
     where: { sessionTokenHash },
-    include: { user: { include: { tenant: true, branch: true } } },
+    include: {
+      user: { include: { tenant: true, branch: true } },
+      device: { include: { branch: true } },
+    },
   });
 
   if (
@@ -88,6 +91,10 @@ export async function loadAuthContext(
   }
 
   if (!isAuthUserEligible(session.user)) {
+    return null;
+  }
+
+  if (!isSessionDeviceEligible(session)) {
     return null;
   }
 
@@ -123,6 +130,39 @@ export function isAuthUserEligible(user: AuthUser): boolean {
   }
 
   if (user.branchId && user.branch?.status !== BranchStatus.ACTIVE) {
+    return false;
+  }
+
+  return true;
+}
+
+export function isSessionDeviceEligible(session: {
+  deviceId: string | null;
+  user: AuthUser;
+  device?: {
+    tenantId: string;
+    status: string;
+    branchId: string;
+    branch?: { status: string };
+  } | null;
+}): boolean {
+  if (!session.deviceId) {
+    return true;
+  }
+
+  if (
+    !session.device ||
+    session.device.tenantId !== session.user.tenantId ||
+    session.device.status !== 'ACTIVE' ||
+    session.device.branch?.status !== 'ACTIVE'
+  ) {
+    return false;
+  }
+
+  if (
+    session.user.branchId &&
+    session.user.branchId !== session.device.branchId
+  ) {
     return false;
   }
 

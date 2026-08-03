@@ -97,6 +97,8 @@ export const UpdateDeviceDtoStatus = {
 export interface UpdateDeviceDto {
   name?: string;
   status?: UpdateDeviceDtoStatus;
+  /** Rotate the device attestation secret */
+  rotateAttestationSecret?: boolean;
 }
 
 export interface CreateCustomerDto {
@@ -8084,8 +8086,6 @@ export type LoyaltyControllerGetTransactionV1200DataType =
 export const LoyaltyControllerGetTransactionV1200DataType = {
   EARN: 'EARN',
   REDEEM: 'REDEEM',
-  ADJUSTMENT: 'ADJUSTMENT',
-  REVERSAL: 'REVERSAL',
 } as const;
 
 export type LoyaltyControllerGetTransactionV1200DataDirection =
@@ -8129,8 +8129,6 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   receiptId: string;
   /** @nullable */
   redemptionId?: string | null;
-  /** @nullable */
-  adjustmentId?: string | null;
   type: string;
   direction: string;
   amountKobo: number;
@@ -8445,8 +8443,6 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   receiptId: string;
   /** @nullable */
   redemptionId?: string | null;
-  /** @nullable */
-  adjustmentId?: string | null;
   type: string;
   direction: string;
   amountKobo: number;
@@ -9025,6 +9021,23 @@ export type RedemptionsControllerRedeemV1503 = {
   success: boolean;
   error: RedemptionsControllerRedeemV1503Error;
   meta: RedemptionsControllerRedeemV1503Meta;
+};
+
+export type ReversalsControllerReverseV1202Data = {
+  code: string;
+  transactionId: string;
+};
+
+export type ReversalsControllerReverseV1202Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1202 = {
+  success: boolean;
+  data: ReversalsControllerReverseV1202Data;
+  meta: ReversalsControllerReverseV1202Meta;
 };
 
 /**
@@ -12700,8 +12713,8 @@ export const loyaltyControllerEarnV1 = async (
 };
 
 /**
- * Get transaction details
- * @summary Get transaction details
+ * Get receipt-backed transaction details
+ * @summary Get receipt-backed transaction details
  */
 export type loyaltyControllerGetTransactionV1Response200 = {
   data: LoyaltyControllerGetTransactionV1200;
@@ -12795,8 +12808,8 @@ export const loyaltyControllerGetTransactionV1 = async (
 };
 
 /**
- * Get customer ledger
- * @summary Get customer ledger
+ * Get receipt-backed customer ledger
+ * @summary Get receipt-backed customer ledger
  */
 export type loyaltyControllerGetCustomerLedgerV1Response200 = {
   data: LoyaltyControllerGetCustomerLedgerV1200;
@@ -13013,9 +13026,14 @@ export const redemptionsControllerRedeemV1 = async (
 };
 
 /**
- * Reverse a confirmed transaction
- * @summary Reverse a confirmed transaction
+ * Returns REVERSAL_REVIEW_REQUIRED for manual processing.
+ * @summary Request a transaction reversal review
  */
+export type reversalsControllerReverseV1Response202 = {
+  data: ReversalsControllerReverseV1202;
+  status: 202;
+};
+
 export type reversalsControllerReverseV1Response400 = {
   data: ReversalsControllerReverseV1400;
   status: 400;
@@ -13056,6 +13074,10 @@ export type reversalsControllerReverseV1Response503 = {
   status: 503;
 };
 
+export type reversalsControllerReverseV1ResponseSuccess =
+  reversalsControllerReverseV1Response202 & {
+    headers: Headers;
+  };
 export type reversalsControllerReverseV1ResponseError = (
   | reversalsControllerReverseV1Response400
   | reversalsControllerReverseV1Response401
@@ -13070,7 +13092,8 @@ export type reversalsControllerReverseV1ResponseError = (
 };
 
 export type reversalsControllerReverseV1Response =
-  reversalsControllerReverseV1ResponseError;
+  | reversalsControllerReverseV1ResponseSuccess
+  | reversalsControllerReverseV1ResponseError;
 
 export const getReversalsControllerReverseV1Url = (transactionId: string) => {
   return `/api/v1/transactions/${transactionId}/reverse`;

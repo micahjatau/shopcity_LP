@@ -10,6 +10,12 @@ import {
   SandboxSmsProvider,
 } from './sms.provider';
 import { createSmsProvider } from './sms.provider.factory';
+import {
+  buildBalanceAdjustedSmsPayload,
+  buildEarnConfirmedSmsPayload,
+  buildRedemptionConfirmedSmsPayload,
+  buildTransactionReversedSmsPayload,
+} from './sms.templates';
 
 describe('sms provider selection', () => {
   it('maps deterministic mode to a fake delivery id for tests', async () => {
@@ -108,12 +114,15 @@ describe('sms provider selection', () => {
         provider.send({
           ...smsInput(),
           template: 'redemption-confirmed',
-          payload: {
-            redeemedKobo: '5000',
-            remainingBalanceKobo: '125050',
-            redemptionId: 'redemption-1',
+          payload: buildRedemptionConfirmedSmsPayload({
+            receiptId: 'receipt-1',
             transactionId: 'ledger-1',
-          },
+            redemptionId: 'redemption-1',
+            customerId: 'customer-1',
+            phoneE164: '+2348000000000',
+            redeemedKobo: 5000n,
+            remainingBalanceKobo: 125050n,
+          }),
         }),
       ).resolves.toEqual({
         status: 'SENT',
@@ -152,7 +161,10 @@ describe('sms provider selection', () => {
           ...smsInput(),
           receiptId: null,
           template: 'transaction-reversed',
-          payload: { transactionId: 'ledger-9' },
+          payload: buildTransactionReversedSmsPayload({
+            transactionId: 'ledger-9',
+            phoneE164: '+2348000000000',
+          }),
         }),
       ).resolves.toEqual({
         status: 'SENT',
@@ -162,7 +174,52 @@ describe('sms provider selection', () => {
       expect(requests[0]?.body).toMatchObject({
         SMS: {
           message: {
-            messagetext: 'ShopCity: Your transaction unknown was reversed.',
+            messagetext: 'ShopCity: Your transaction ledger-9 was reversed.',
+          },
+        },
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('renders balance-adjusted SMS messages', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+
+      return {
+        statusCode: 200,
+        body: { response: { status: 'SUCCESS', batch_id: 'sms-4' } },
+      };
+    });
+
+    const provider = newEbulkSmsProvider(server.url);
+
+    try {
+      await expect(
+        provider.send({
+          ...smsInput(),
+          receiptId: null,
+          template: 'balance-adjusted',
+          payload: buildBalanceAdjustedSmsPayload({
+            transactionId: 'ledger-10',
+            adjustmentId: 'adjustment-10',
+            phoneE164: '+2348000000000',
+            amountKobo: 1200n,
+            remainingBalanceKobo: 124000n,
+          }),
+        }),
+      ).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'sms-4',
+      });
+
+      expect(requests[0]?.body).toMatchObject({
+        SMS: {
+          message: {
+            messagetext:
+              'ShopCity: Your balance was adjusted by NGN 12.00 for transaction ledger-10. Remaining balance NGN 1240.00.',
           },
         },
       });
@@ -177,6 +234,57 @@ describe('sms provider selection', () => {
         ...smsInput(),
         template: 'redemption-confirmed',
         payload: { redeemedKobo: '5000' },
+      }),
+    ).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'terminal',
+    });
+  });
+
+  it('rejects incomplete earn-confirmed payloads', async () => {
+    await expect(
+      newEbulkSmsProvider().send({
+        ...smsInput(),
+        template: 'earn-confirmed',
+        payload: {},
+      }),
+    ).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'terminal',
+    });
+  });
+
+  it('rejects invalid numeric earn-confirmed payloads', async () => {
+    await expect(
+      newEbulkSmsProvider().send({
+        ...smsInput(),
+        payload: {
+          version: 1,
+          receiptId: 'receipt-1',
+          transactionId: 'ledger-1',
+          customerId: 'customer-1',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          creditKobo: '12.5',
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'terminal',
+    });
+  });
+
+  it('rejects incomplete transaction-reversed payloads', async () => {
+    await expect(
+      newEbulkSmsProvider().send({
+        ...smsInput(),
+        receiptId: null,
+        template: 'transaction-reversed',
+        payload: {
+          version: 1,
+          phoneE164: '+2348000000000',
+          template: 'transaction-reversed',
+        },
       }),
     ).resolves.toMatchObject({
       status: 'FAILED',
@@ -402,7 +510,13 @@ function smsInput() {
     outboxEventId: 'outbox-1',
     phoneE164: '+2348000000000',
     template: 'earn-confirmed' as const,
-    payload: { creditKobo: '125050' },
+    payload: buildEarnConfirmedSmsPayload({
+      receiptId: 'receipt-1',
+      transactionId: 'ledger-1',
+      customerId: 'customer-1',
+      phoneE164: '+2348000000000',
+      creditKobo: 125050n,
+    }),
   };
 }
 

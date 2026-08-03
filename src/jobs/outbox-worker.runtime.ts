@@ -474,17 +474,14 @@ export class OutboxWorkerRuntime {
     }
 
     const payload = normalizeJsonPayload(outboxEvent.payload);
-    const version = readNumberField(payload, 'version', 1);
+    const version = readNumberField(payload, 'version', 0);
 
     if (version !== 1) {
       throw new Error(`Unsupported SMS payload version for ${outboxEvent.id}`);
     }
 
     const receiptId = readStringField(payload, 'receiptId').trim() || null;
-    const ledgerEntryId =
-      readStringField(payload, 'ledgerEntryId').trim() ||
-      readStringField(payload, 'transactionId').trim() ||
-      null;
+    const transactionId = readStringField(payload, 'transactionId').trim();
     const redemptionId =
       readStringField(payload, 'redemptionId').trim() || null;
     const adjustmentId =
@@ -492,15 +489,13 @@ export class OutboxWorkerRuntime {
     const phoneE164 = readStringField(payload, 'phoneE164').trim();
     const template = readStringField(payload, 'template').trim();
 
-    if (
-      (!receiptId && !ledgerEntryId && !redemptionId && !adjustmentId) ||
-      !phoneE164 ||
-      !template
-    ) {
+    if (!transactionId || !phoneE164 || !template) {
       throw new Error(
         `SmsMessage payload missing required fields for ${outboxEvent.id}`,
       );
     }
+
+    validateSmsIntent(template as SmsTemplate, payload);
 
     return this.prisma.smsMessage.upsert({
       where: {
@@ -512,7 +507,7 @@ export class OutboxWorkerRuntime {
       create: {
         tenantId: outboxEvent.tenantId,
         receiptId,
-        ledgerEntryId,
+        ledgerEntryId: transactionId,
         redemptionId,
         adjustmentId,
         outboxEventId: outboxEvent.id,

@@ -9,15 +9,10 @@ import { ReverseTransactionDto } from './reversals.dto';
 const REVERSE_ENDPOINT = 'POST /api/v1/transactions/:transactionId/reverse';
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
-export class ReversalReviewRequiredException extends DomainHttpException {
-  constructor() {
-    super(
-      HttpStatus.UNPROCESSABLE_ENTITY,
-      'REVERSAL_REVIEW_REQUIRED',
-      'Automatic reversal requires manual review',
-    );
-  }
-}
+export type ReversalReviewRequiredResponse = {
+  code: 'REVERSAL_REVIEW_REQUIRED';
+  transactionId: string;
+};
 
 @Injectable()
 export class ReversalsService {
@@ -29,9 +24,13 @@ export class ReversalsService {
     transactionId: string,
     idempotencyKey: string | undefined,
     dto: ReverseTransactionDto,
-  ): Promise<never> {
+  ): Promise<ReversalReviewRequiredResponse> {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const reason = normalizeReason(dto.reason);
+    const response: ReversalReviewRequiredResponse = {
+      code: 'REVERSAL_REVIEW_REQUIRED',
+      transactionId,
+    };
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
@@ -68,8 +67,16 @@ export class ReversalsService {
       );
     }
 
+    if (existing?.requestHash === requestHash && existing.responseJson) {
+      return existing.responseJson as ReversalReviewRequiredResponse;
+    }
+
     if (existing) {
-      throw new ReversalReviewRequiredException();
+      throw new DomainHttpException(
+        HttpStatus.CONFLICT,
+        'IDEMPOTENCY_IN_PROGRESS',
+        'Idempotency key is still being processed',
+      );
     }
 
     await this.prismaService.idempotencyRecord.create({
@@ -79,16 +86,13 @@ export class ReversalsService {
         endpoint: REVERSE_ENDPOINT,
         idempotencyKey: normalizedKey,
         requestHash,
-        responseJson: {
-          code: 'REVERSAL_REVIEW_REQUIRED',
-          transactionId,
-        },
+        responseJson: response,
         status: IdempotencyRecordStatus.COMPLETED,
         expiresAt: new Date(Date.now() + IDEMPOTENCY_TTL_MS),
       },
     });
 
-    throw new ReversalReviewRequiredException();
+    return response;
   }
 }
 

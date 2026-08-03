@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Headers,
+  HttpCode,
   Param,
   Post,
   Req,
@@ -16,11 +17,23 @@ import {
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
-import { apiErrorEnvelopeResponses } from '../../common/openapi-envelope';
+import {
+  apiErrorEnvelopeResponses,
+  apiSuccessEnvelopeResponse,
+} from '../../common/openapi-envelope';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildReverseThrottleKey } from '../../common/throttle/throttle.keys';
 import { ReverseTransactionDto } from './reversals.dto';
 import { ReversalsService } from './reversals.service';
+
+const reversalReviewResponseSchema = {
+  type: 'object',
+  required: ['code', 'transactionId'],
+  properties: {
+    code: { type: 'string', example: 'REVERSAL_REVIEW_REQUIRED' },
+    transactionId: { type: 'string', format: 'uuid' },
+  },
+} as const;
 
 @ApiTags('transactions')
 @ApiBearerAuth()
@@ -38,6 +51,12 @@ export class ReversalsController {
     keyFactory: buildReverseThrottleKey,
   })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @HttpCode(202)
+  @apiSuccessEnvelopeResponse({
+    status: 202,
+    description: 'Reversal review accepted',
+    dataSchema: reversalReviewResponseSchema,
+  })
   @apiErrorEnvelopeResponses({
     badRequest: {
       validationError: {
@@ -52,6 +71,11 @@ export class ReversalsController {
         code: 'IDEMPOTENCY_CONFLICT',
         message: 'Idempotency key reused with different payload',
       },
+      idempotencyInProgress: {
+        statusCode: 409,
+        code: 'IDEMPOTENCY_IN_PROGRESS',
+        message: 'Idempotency key is still being processed',
+      },
     },
     tooManyRequests: {
       rateLimited: {
@@ -60,15 +84,11 @@ export class ReversalsController {
         message: 'Too many requests',
       },
     },
-    unprocessableEntity: {
-      reviewRequired: {
-        statusCode: 422,
-        code: 'REVERSAL_REVIEW_REQUIRED',
-        message: 'Automatic reversal requires manual review',
-      },
-    },
   })
-  @ApiOperation({ summary: 'Reverse a confirmed transaction' })
+  @ApiOperation({
+    summary: 'Request a transaction reversal review',
+    description: 'Returns REVERSAL_REVIEW_REQUIRED for manual processing.',
+  })
   reverse(
     @Req() request: AuthenticatedRequest,
     @Param('transactionId') transactionId: string,

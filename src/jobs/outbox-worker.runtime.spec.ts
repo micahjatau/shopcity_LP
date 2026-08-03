@@ -148,7 +148,15 @@ describe('OutboxWorkerRuntime', () => {
           outboxEventId: 'outbox-1',
           phoneE164: '+2348000000000',
           template: 'earn-confirmed',
-          payload: {},
+          payload: {
+            version: 1,
+            receiptId: 'receipt-1',
+            transactionId: 'ledger-1',
+            customerId: 'customer-1',
+            phoneE164: '+2348000000000',
+            template: 'earn-confirmed',
+            creditKobo: '125050',
+          },
           status: 'FAILED',
           attempts: 4,
         },
@@ -231,9 +239,8 @@ describe('OutboxWorkerRuntime', () => {
         smsMessage: null,
       },
     });
-    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
-      send: jest.fn(),
-    });
+    const smsProvider = { send: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), smsProvider);
     const job: TestJob = {
       data: { id: 'outbox-invalid', tenantId: 'tenant-1' },
       discard: jest.fn(),
@@ -242,6 +249,7 @@ describe('OutboxWorkerRuntime', () => {
     await runtimeWithHandleJob(runtime).handleJob(job);
 
     expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(smsProvider.send).not.toHaveBeenCalled();
     expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
@@ -254,16 +262,17 @@ describe('OutboxWorkerRuntime', () => {
         aggregateId: 'receipt-1',
         eventType: 'sms.send',
         payload: {
+          version: 1,
           phoneE164: '+2348000000000',
+          transactionId: 'ledger-1',
           template: 'earn-confirmed',
         },
         publishedAt: null,
         smsMessage: null,
       },
     });
-    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
-      send: jest.fn(),
-    });
+    const smsProvider = { send: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), smsProvider);
     const job: TestJob = {
       data: { id: 'outbox-missing-receipt', tenantId: 'tenant-1' },
       discard: jest.fn(),
@@ -273,6 +282,7 @@ describe('OutboxWorkerRuntime', () => {
 
     expect(job.discard).toHaveBeenCalledTimes(1);
     expect(prisma.smsMessageUpsert).not.toHaveBeenCalled();
+    expect(smsProvider.send).not.toHaveBeenCalled();
     expect(prisma.outboxEventUpdateCalls[1]).toMatchObject({
       data: {
         status: 'FAILED',
@@ -295,7 +305,8 @@ describe('OutboxWorkerRuntime', () => {
           transactionId: 'ledger-1',
           adjustmentId: 'adjustment-1',
           phoneE164: '+2348000000000',
-          template: 'adjustment-confirmed',
+          template: 'balance-adjusted',
+          amountKobo: '1200',
         },
         publishedAt: null,
         smsMessage: null,
@@ -309,8 +320,16 @@ describe('OutboxWorkerRuntime', () => {
       adjustmentId: 'adjustment-1',
       outboxEventId: 'outbox-adjustment',
       phoneE164: '+2348000000000',
-      template: 'adjustment-confirmed',
-      payload: {},
+      template: 'balance-adjusted',
+      payload: {
+        version: 1,
+        receiptId: null,
+        transactionId: 'ledger-1',
+        adjustmentId: 'adjustment-1',
+        phoneE164: '+2348000000000',
+        template: 'balance-adjusted',
+        amountKobo: '1200',
+      },
       status: 'QUEUED',
       attempts: 0,
     });
@@ -334,11 +353,12 @@ describe('OutboxWorkerRuntime', () => {
           outboxEventId: 'outbox-adjustment',
         },
       },
-      create: expect.objectContaining({
-        receiptId: null,
-        ledgerEntryId: 'ledger-1',
-        adjustmentId: 'adjustment-1',
-      }) as Record<string, unknown>,
+        create: expect.objectContaining({
+          receiptId: null,
+          ledgerEntryId: 'ledger-1',
+          adjustmentId: 'adjustment-1',
+          template: 'balance-adjusted',
+        }) as Record<string, unknown>,
       update: {},
     });
     expect(smsProvider.send).toHaveBeenCalledWith(

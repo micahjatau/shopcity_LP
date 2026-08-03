@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -14,8 +15,14 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditService } from '../audit/audit.service';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 import { AuthContext } from '../../common/auth/session.types';
-import { hashToken, isAuthUserEligible } from '../../common/auth/session.guard';
+import {
+  hashToken,
+  isAuthUserEligible,
+  isSessionDeviceEligible,
+} from '../../common/auth/session.guard';
+import { decryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
 
 const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
 
@@ -81,40 +88,69 @@ export class AuthService {
       throw new BadRequestException('Device is not active');
     }
 
-    if (deviceId) {
-      if (!deviceAttestation) {
-        throw new BadRequestException('Device attestation is required');
-      }
-
-      assertDeviceAttestationValid(
-        deviceId,
-        deviceAttestation,
-        sessionDevice!.fingerprintHash,
-      );
+    if (deviceId && !deviceAttestation) {
+      throw new BadRequestException('Device attestation is required');
     }
 
-    return this.prismaService.$transaction((prisma) =>
-      this.issueSession(
+    const attestation = deviceId
+      ? assertDeviceAttestationValid(
+          deviceId,
+          deviceAttestation!,
+          resolveDeviceAttestationSecret(
+            sessionDevice!,
+            this.configService.get<string>('SESSION_SECRET') ?? '',
+          ),
+        )
+      : null;
+
+    return this.prismaService.$transaction(async (prisma) => {
+      let attestationId: string | null = null;
+      if (sessionDevice && attestation) {
+        attestationId = await recordDeviceAttestation(prisma, {
+          tenantId: user.tenantId,
+          deviceId: sessionDevice.id,
+          nonce: attestation.nonce,
+          attestationTimestamp: new Date(attestation.timestamp),
+          expiresAt: new Date(
+            attestation.timestamp + MAX_DEVICE_ATTESTATION_SKEW_MS,
+          ),
+        });
+      }
+
+      const issued = await this.issueSession(
         prisma,
         user.id,
         user.tenantId,
         'auth.login',
         sessionDevice?.id ?? null,
-      ),
-    );
+      );
+
+      if (attestationId) {
+        await prisma.deviceAttestation.update({
+          where: { id: attestationId },
+          data: { issuedSessionId: issued.context.session.id },
+        });
+      }
+
+      return issued;
+    });
   }
 
   async refresh(sessionId: string): Promise<IssuedSession> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
-      include: { user: { include: { tenant: true, branch: true } } },
+      include: {
+        user: { include: { tenant: true, branch: true } },
+        device: { include: { branch: true } },
+      },
     });
 
     if (
       !session ||
       session.status !== 'ACTIVE' ||
       session.expiresAt <= new Date() ||
-      !isAuthUserEligible(session.user)
+      !isAuthUserEligible(session.user) ||
+      !isSessionDeviceEligible(session)
     ) {
       throw new UnauthorizedException('Session expired or revoked');
     }
@@ -133,12 +169,37 @@ export class AuthService {
         throw new UnauthorizedException('Session already rotated');
       }
 
+      if (session.deviceId) {
+        await prisma.$queryRaw(Prisma.sql`
+          SELECT "id"
+          FROM "Device"
+          WHERE "id" = ${session.deviceId}
+          FOR UPDATE
+        `);
+      }
+
+      const currentSession = await prisma.session.findUnique({
+        where: { id: session.id },
+        include: {
+          user: { include: { tenant: true, branch: true } },
+          device: { include: { branch: true } },
+        },
+      });
+
+      if (
+        !currentSession ||
+        !isAuthUserEligible(currentSession.user) ||
+        !isSessionDeviceEligible(currentSession)
+      ) {
+        throw new UnauthorizedException('Session expired or revoked');
+      }
+
       return this.issueSession(
         prisma,
-        session.userId,
-        session.user.tenantId,
+        currentSession.userId,
+        currentSession.user.tenantId,
         'auth.refresh',
-        session.deviceId ?? null,
+        currentSession.deviceId ?? null,
       );
     });
   }
@@ -221,13 +282,17 @@ export class AuthService {
   async resolveCurrentSession(sessionId: string): Promise<AuthContext> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
-      include: { user: { include: { tenant: true, branch: true } } },
+      include: {
+        user: { include: { tenant: true, branch: true } },
+        device: { include: { branch: true } },
+      },
     });
 
     if (
       !session ||
       session.status !== 'ACTIVE' ||
-      !isAuthUserEligible(session.user)
+      !isAuthUserEligible(session.user) ||
+      !isSessionDeviceEligible(session)
     ) {
       throw new UnauthorizedException('User is not active');
     }
@@ -240,7 +305,7 @@ function assertDeviceAttestationValid(
   deviceId: string,
   attestation: string,
   fingerprintHash: string,
-): void {
+): { timestamp: number; nonce: string } {
   const parts = attestation.split('.');
   if (parts.length !== 3) {
     throw new BadRequestException('Device attestation is invalid');
@@ -269,4 +334,71 @@ function assertDeviceAttestationValid(
   ) {
     throw new BadRequestException('Device attestation is invalid');
   }
+
+  return { timestamp, nonce };
+}
+
+function resolveDeviceAttestationSecret(
+  device: {
+    attestationSecretCiphertext?: string | null;
+    fingerprintHash: string;
+  },
+  keyMaterial: string,
+): string {
+  if (device.attestationSecretCiphertext) {
+    return decryptDeviceAttestationSecret(
+      device.attestationSecretCiphertext,
+      keyMaterial,
+    );
+  }
+
+  return device.fingerprintHash;
+}
+
+async function recordDeviceAttestation(
+  prisma: Prisma.TransactionClient,
+  input: {
+    tenantId: string;
+    deviceId: string;
+    nonce: string;
+    attestationTimestamp: Date;
+    expiresAt: Date;
+  },
+): Promise<string> {
+  await prisma.deviceAttestation.deleteMany({
+    where: { deviceId: input.deviceId, expiresAt: { lt: new Date() } },
+  });
+
+  try {
+    const attestation = await prisma.deviceAttestation.create({
+      data: {
+        tenantId: input.tenantId,
+        deviceId: input.deviceId,
+        nonce: input.nonce,
+        nonceHash: hashDeviceAttestationNonce(input.nonce),
+        attestationTimestamp: input.attestationTimestamp,
+        acceptedAt: new Date(),
+        expiresAt: input.expiresAt,
+      },
+    });
+
+    return attestation.id;
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new DomainHttpException(
+        HttpStatus.CONFLICT,
+        'DEVICE_ATTESTATION_REPLAYED',
+        'Device attestation has already been used',
+      );
+    }
+
+    throw error;
+  }
+}
+
+function hashDeviceAttestationNonce(nonce: string): string {
+  return createHash('sha256').update(nonce).digest('hex');
 }

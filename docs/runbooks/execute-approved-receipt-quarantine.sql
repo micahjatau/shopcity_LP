@@ -2,13 +2,33 @@ BEGIN;
 
 DO $$
 DECLARE
+  batch_id TEXT;
+  expected_count INTEGER;
+  insert_count INTEGER;
+  delete_count INTEGER;
   has_conflicting_dependency BOOLEAN := FALSE;
-  conflict_sql TEXT := 'SELECT EXISTS (SELECT 1 FROM "ReceiptLegacyIdentityQuarantineStage" s WHERE COALESCE(NULLIF(BTRIM(s."reconciliationPlan"), ''''), '''') = '''' AND (';
+  conflict_sql TEXT := 'SELECT EXISTS (SELECT 1 FROM "ReceiptLegacyIdentityQuarantineStage" s WHERE s."batchId" = $1 AND COALESCE(NULLIF(BTRIM(s."reconciliationPlan"), ''''), '''') = '''' AND (';
   needs_or BOOLEAN := FALSE;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM "ReceiptLegacyIdentityQuarantineStage"
-  ) THEN
+  SELECT b."id"
+  INTO batch_id
+  FROM "ReceiptLegacyIdentityQuarantineBatch" b
+  WHERE b."status" = 'STAGED'
+  ORDER BY COALESCE(b."approvedAt", b."createdAt") DESC, b."createdAt" DESC, b."id" ASC
+  LIMIT 1;
+
+  IF batch_id IS NULL THEN
+    RAISE EXCEPTION 'staged approved receipt batch is empty';
+  END IF;
+
+  PERFORM 1
+  FROM "ReceiptLegacyIdentityQuarantineStage" s
+  WHERE s."batchId" = batch_id
+  FOR UPDATE;
+
+  GET DIAGNOSTICS expected_count = ROW_COUNT;
+
+  IF expected_count = 0 THEN
     RAISE EXCEPTION 'staged approved receipt list is empty';
   END IF;
 
@@ -46,7 +66,8 @@ BEGIN
       FROM ranked
       WHERE duplicate_rank > 1
     ) d ON d."id" = s."id"
-    WHERE d."id" IS NULL
+    WHERE s."batchId" = batch_id
+      AND d."id" IS NULL
   ) THEN
     RAISE EXCEPTION 'staged receipt IDs must exist in the duplicate report';
   END IF;
@@ -66,49 +87,84 @@ BEGIN
 
   IF needs_or THEN
     conflict_sql := conflict_sql || '))';
-    EXECUTE conflict_sql INTO has_conflicting_dependency;
+    EXECUTE conflict_sql INTO has_conflicting_dependency USING batch_id;
 
     IF has_conflicting_dependency THEN
       RAISE EXCEPTION 'staged receipt requires a reconciliation plan';
     END IF;
   END IF;
+
+  INSERT INTO "ReceiptLegacyIdentityQuarantine" (
+    "batchId",
+    "id",
+    "tenantId",
+    "branchId",
+    "receiptWeekStart",
+    "normalizedLegacyPosReceiptNumber",
+    "duplicateRank",
+    "duplicateGroupSize",
+    "reconciliationPlan",
+    "reason",
+    "receiptRow",
+    "quarantinedAt"
+  )
+  SELECT
+    s."batchId",
+    s."id",
+    s."tenantId",
+    s."branchId",
+    s."receiptWeekStart",
+    s."normalizedLegacyPosReceiptNumber",
+    s."duplicateRank",
+    s."duplicateGroupSize",
+    s."reconciliationPlan",
+    'Duplicate legacy POS receipt identity quarantined after explicit approval',
+    to_jsonb(r),
+    NOW()
+  FROM "ReceiptLegacyIdentityQuarantineStage" s
+  JOIN "Receipt" r
+    ON r."id" = s."id"
+  WHERE s."batchId" = batch_id
+  ON CONFLICT ("id") DO UPDATE
+  SET
+    "batchId" = EXCLUDED."batchId",
+    "tenantId" = EXCLUDED."tenantId",
+    "branchId" = EXCLUDED."branchId",
+    "receiptWeekStart" = EXCLUDED."receiptWeekStart",
+    "normalizedLegacyPosReceiptNumber" = EXCLUDED."normalizedLegacyPosReceiptNumber",
+    "duplicateRank" = EXCLUDED."duplicateRank",
+    "duplicateGroupSize" = EXCLUDED."duplicateGroupSize",
+    "reconciliationPlan" = EXCLUDED."reconciliationPlan",
+    "reason" = EXCLUDED."reason",
+    "receiptRow" = EXCLUDED."receiptRow",
+    "quarantinedAt" = EXCLUDED."quarantinedAt";
+
+  GET DIAGNOSTICS insert_count = ROW_COUNT;
+
+  IF insert_count <> expected_count THEN
+    RAISE EXCEPTION 'quarantine write count did not match staged row count';
+  END IF;
+
+  DELETE FROM "Receipt"
+  WHERE "id" IN (
+    SELECT s."id"
+    FROM "ReceiptLegacyIdentityQuarantineStage" s
+    WHERE s."batchId" = batch_id
+  );
+
+  GET DIAGNOSTICS delete_count = ROW_COUNT;
+
+  IF delete_count <> expected_count THEN
+    RAISE EXCEPTION 'receipt delete count did not match staged row count';
+  END IF;
+
+  UPDATE "ReceiptLegacyIdentityQuarantineBatch"
+  SET
+    "status" = 'EXECUTED',
+    "executedBy" = CURRENT_USER,
+    "executedAt" = NOW()
+  WHERE "id" = batch_id;
 END;
 $$;
-
-INSERT INTO "ReceiptLegacyIdentityQuarantine" (
-  "id",
-  "tenantId",
-  "branchId",
-  "receiptWeekStart",
-  "normalizedLegacyPosReceiptNumber",
-  "duplicateRank",
-  "duplicateGroupSize",
-  "reconciliationPlan",
-  "reason",
-  "receiptRow",
-  "quarantinedAt"
-)
-SELECT
-  s."id",
-  s."tenantId",
-  s."branchId",
-  s."receiptWeekStart",
-  s."normalizedLegacyPosReceiptNumber",
-  s."duplicateRank",
-  s."duplicateGroupSize",
-  s."reconciliationPlan",
-  'Duplicate legacy POS receipt identity quarantined after explicit approval',
-  to_jsonb(r),
-  NOW()
-FROM "ReceiptLegacyIdentityQuarantineStage" s
-JOIN "Receipt" r
-  ON r."id" = s."id"
-ON CONFLICT ("id") DO NOTHING;
-
-DELETE FROM "Receipt"
-WHERE "id" IN (
-  SELECT "id"
-  FROM "ReceiptLegacyIdentityQuarantineStage"
-);
 
 COMMIT;

@@ -440,6 +440,7 @@ describe('receipt integrity migration upgrade', () => {
       originalReceiptId: '77777777-7777-7777-7777-777777777777',
       approvedReceiptId: '88888888-8888-8888-8888-888888888888',
       unapprovedReceiptId: '99999999-9999-9999-9999-999999999999',
+      batchId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     };
 
     const reportSql = readFileSync(
@@ -483,17 +484,53 @@ describe('receipt integrity migration upgrade', () => {
 
       fixture.executeSql(reportSql);
       fixture.executeSql(`
+        CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineBatch" (
+          "id" TEXT PRIMARY KEY,
+          "incidentReferenceId" TEXT NOT NULL,
+          "createdBy" TEXT NOT NULL,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+          "approvedBy" TEXT,
+          "approvedAt" TIMESTAMP(3),
+          "executedBy" TEXT,
+          "executedAt" TIMESTAMP(3),
+          "status" TEXT NOT NULL DEFAULT 'DRAFT',
+          "notes" TEXT
+        );
+      `);
+      fixture.executeSql(`
         CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineApproval" (
+          "batchId" TEXT NOT NULL,
           "id" TEXT PRIMARY KEY,
           "reconciliationPlan" TEXT,
           "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW()
         );
       `);
       fixture.executeSql(`
+        INSERT INTO "ReceiptLegacyIdentityQuarantineBatch" (
+          "id",
+          "incidentReferenceId",
+          "createdBy",
+          "approvedBy",
+          "approvedAt",
+          "status",
+          "notes"
+        ) VALUES (
+          '${ids.batchId}',
+          'INCIDENT-123',
+          '${ids.userId}',
+          '${ids.userId}',
+          NOW(),
+          'APPROVED',
+          'Receipt duplicate remediation batch'
+        );
+      `);
+      fixture.executeSql(`
         INSERT INTO "ReceiptLegacyIdentityQuarantineApproval" (
+          "batchId",
           "id",
           "reconciliationPlan"
         ) VALUES (
+          '${ids.batchId}',
           '${ids.approvedReceiptId}',
           NULL
         );

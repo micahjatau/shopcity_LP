@@ -13,6 +13,7 @@ Repository review follow-ups still show several live mismatches between runtime 
 ## Capabilities
 
 ### New Capabilities
+
 - `repo-review-33-hardening-guardrails`: cross-cutting release hardening for auth/session safety, loyalty read visibility, migration evidence, API contract truthfulness, formatting coverage, and SMS payload validation.
 
 ### Modified Capabilities

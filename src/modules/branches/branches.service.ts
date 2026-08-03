@@ -3,6 +3,10 @@ import { DeviceStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
+import {
+  encryptDeviceAttestationSecret,
+  generateDeviceAttestationSecret,
+} from '../../common/auth/device-attestation-secret';
 
 @Injectable()
 export class BranchesService {
@@ -76,7 +80,20 @@ export class BranchesService {
   }
 
   listDevices(tenantId: string) {
-    return this.prismaService.device.findMany({ where: { tenantId } });
+    return this.prismaService.device.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        tenantId: true,
+        branchId: true,
+        name: true,
+        fingerprintHash: true,
+        status: true,
+        lastSeenAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async createDevice(
@@ -92,12 +109,17 @@ export class BranchesService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      const attestationSecret = generateDeviceAttestationSecret();
       const device = await prisma.device.create({
         data: {
           tenantId,
           branchId: data.branchId,
           name: data.name,
           fingerprintHash: data.fingerprintHash,
+          attestationSecretCiphertext: encryptDeviceAttestationSecret(
+            attestationSecret,
+            this.attestationSecretKey(),
+          ),
         },
       });
 
@@ -107,10 +129,18 @@ export class BranchesService {
         action: 'device.create',
         entityType: 'device',
         entityId: device.id,
-        metadata: device,
+        metadata: {
+          id: device.id,
+          tenantId: device.tenantId,
+          branchId: device.branchId,
+          name: device.name,
+          fingerprintHash: device.fingerprintHash,
+          status: device.status,
+        },
       });
 
-      return device;
+      const { attestationSecretCiphertext: _attestationSecretCiphertext, ...safeDevice } = device;
+      return { ...safeDevice, attestationSecret };
     });
   }
 
@@ -118,7 +148,7 @@ export class BranchesService {
     tenantId: string,
     actor: AuthContext,
     deviceId: string,
-    data: { name?: string; status?: string },
+    data: { name?: string; status?: string; rotateAttestationSecret?: boolean },
   ) {
     const device = await this.prismaService.device.findFirst({
       where: { id: deviceId, tenantId },
@@ -128,6 +158,7 @@ export class BranchesService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      let attestationSecret: string | null = null;
       const updated = await prisma.device.update({
         where: { id: deviceId },
         data: {
@@ -135,6 +166,41 @@ export class BranchesService {
           ...(data.status ? { status: data.status as DeviceStatus } : {}),
         },
       });
+
+      if (data.rotateAttestationSecret) {
+        attestationSecret = generateDeviceAttestationSecret();
+        await prisma.device.update({
+          where: { id: deviceId },
+          data: {
+            attestationSecretCiphertext: encryptDeviceAttestationSecret(
+              attestationSecret,
+              this.attestationSecretKey(),
+            ),
+          },
+        });
+      }
+
+      if (data.status && data.status !== DeviceStatus.ACTIVE) {
+        const revoked = await prisma.session.updateMany({
+          where: { deviceId, status: 'ACTIVE' },
+          data: { status: 'REVOKED', revokedAt: new Date() },
+        });
+
+        if (revoked.count > 0) {
+          await this.auditService.recordWithClient(prisma, {
+            tenantId,
+            actorId: actor.user.id,
+            action: 'device.sessions.revoke',
+            entityType: 'device',
+            entityId: updated.id,
+            metadata: {
+              reason: 'device_status_ineligible',
+              status: data.status,
+              revokedSessionCount: revoked.count,
+            },
+          });
+        }
+      }
 
       await this.auditService.recordWithClient(prisma, {
         tenantId,
@@ -145,7 +211,12 @@ export class BranchesService {
         metadata: data,
       });
 
-      return updated;
+      const { attestationSecretCiphertext: _attestationSecretCiphertext, ...safeUpdated } = updated;
+      return attestationSecret ? { ...safeUpdated, attestationSecret } : safeUpdated;
     });
+  }
+
+  private attestationSecretKey(): string {
+    return process.env.SESSION_SECRET ?? '';
   }
 }

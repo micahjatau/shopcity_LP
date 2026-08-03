@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
   IsInt,
+  IsBoolean,
   IsOptional,
   IsString,
   Min,
@@ -72,4 +73,9 @@ export class UpdateDeviceDto {
   @IsOptional()
   @IsEnum(DeviceStatus)
   status?: DeviceStatus;
+
+  @ApiPropertyOptional({ description: 'Rotate the device attestation secret' })
+  @IsOptional()
+  @IsBoolean()
+  rotateAttestationSecret?: boolean;
 }

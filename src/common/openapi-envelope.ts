@@ -68,23 +68,28 @@ export function apiErrorEnvelopeResponses(
   options: ErrorEnvelopeResponseOptions = {},
 ) {
   return applyDecorators(
-    ApiBadRequestResponse(errorResponseOptions(options.badRequest)),
-    ApiUnauthorizedResponse(errorResponseOptions(options.unauthorized)),
-    ApiForbiddenResponse(errorResponseOptions(options.forbidden)),
-    ApiNotFoundResponse(errorResponseOptions(options.notFound)),
-    ApiConflictResponse(errorResponseOptions(options.conflict)),
-    ApiTooManyRequestsResponse(errorResponseOptions(options.tooManyRequests)),
+    ApiBadRequestResponse(errorResponseOptions(400, options.badRequest)),
+    ApiUnauthorizedResponse(errorResponseOptions(401, options.unauthorized)),
+    ApiForbiddenResponse(errorResponseOptions(403, options.forbidden)),
+    ApiNotFoundResponse(errorResponseOptions(404, options.notFound)),
+    ApiConflictResponse(errorResponseOptions(409, options.conflict)),
+    ApiTooManyRequestsResponse(
+      errorResponseOptions(429, options.tooManyRequests),
+    ),
     ApiUnprocessableEntityResponse(
-      errorResponseOptions(options.unprocessableEntity),
+      errorResponseOptions(422, options.unprocessableEntity),
     ),
     ApiServiceUnavailableResponse(
-      errorResponseOptions(options.serviceUnavailable),
+      errorResponseOptions(503, options.serviceUnavailable),
     ),
   );
 }
 
-function errorResponseOptions(examples?: ErrorEnvelopeResponseExamples) {
-  const schema = errorEnvelopeSchema();
+function errorResponseOptions(
+  status: number,
+  examples?: ErrorEnvelopeResponseExamples,
+) {
+  const schema = errorEnvelopeSchema(status);
 
   if (!examples) {
     return { schema };
@@ -129,7 +134,9 @@ function envelopeSchema(dataSchema: EnvelopeDataSchema) {
   };
 }
 
-function errorEnvelopeSchema() {
+function errorEnvelopeSchema(statusCode: number) {
+  const example = errorExampleForStatus(statusCode);
+
   return {
     type: 'object',
     required: ['success', 'error', 'meta'],
@@ -139,9 +146,9 @@ function errorEnvelopeSchema() {
         type: 'object',
         required: ['statusCode', 'code', 'message'],
         properties: {
-          statusCode: { type: 'integer', example: 400 },
-          code: { type: 'string', example: 'VALIDATION_ERROR' },
-          message: { type: 'string', example: 'Validation failed' },
+          statusCode: { type: 'integer', example: example.statusCode },
+          code: { type: 'string', example: example.code },
+          message: { type: 'string', example: example.message },
           details: {
             type: 'object',
             nullable: true,
@@ -152,6 +159,65 @@ function errorEnvelopeSchema() {
       meta: metaSchema(),
     },
   };
+}
+
+function errorExampleForStatus(statusCode: number): ErrorEnvelopeExample {
+  switch (statusCode) {
+    case 400:
+      return {
+        statusCode,
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+      };
+    case 401:
+      return {
+        statusCode,
+        code: 'AUTH_REQUIRED',
+        message: 'Authentication required',
+      };
+    case 403:
+      return {
+        statusCode,
+        code: 'FORBIDDEN',
+        message: 'Forbidden',
+      };
+    case 404:
+      return {
+        statusCode,
+        code: 'NOT_FOUND',
+        message: 'Not found',
+      };
+    case 409:
+      return {
+        statusCode,
+        code: 'CONFLICT',
+        message: 'Conflict',
+      };
+    case 422:
+      return {
+        statusCode,
+        code: 'POLICY_VIOLATION',
+        message: 'Policy violation',
+      };
+    case 429:
+      return {
+        statusCode,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+      };
+    case 503:
+      return {
+        statusCode,
+        code: 'DEPENDENCY_UNAVAILABLE',
+        message: 'Required dependency is unavailable',
+      };
+    default:
+      return {
+        statusCode,
+        code: `HTTP_${statusCode}`,
+        message: 'Request failed',
+      };
+  }
 }
 
 function metaSchema() {

@@ -394,6 +394,65 @@ describe('LoyaltyService redemption approvals', () => {
     });
   });
 
+  it('re-reads the approval after locking and rejects stale post-lock state', async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      approval: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'approval-1',
+            tenantId: 'tenant-1',
+            receiptId: 'receipt-1',
+            redemptionId: null,
+            targetType: ApprovalTargetType.EARN,
+            status: ApprovalStatus.PENDING,
+            requestedByTenantId: 'tenant-1',
+            requestedBy: 'cashier-1',
+            expiresAt: new Date('2127-07-30T12:00:00.000Z'),
+            policyVersion: 'policy-version',
+            redemption: null,
+          })
+          .mockResolvedValueOnce({
+            id: 'approval-1',
+            tenantId: 'tenant-1',
+            receiptId: 'receipt-1',
+            redemptionId: null,
+            targetType: ApprovalTargetType.EARN,
+            status: ApprovalStatus.APPROVED,
+            requestedByTenantId: 'tenant-1',
+            requestedBy: 'cashier-1',
+            expiresAt: new Date('2127-07-30T12:00:00.000Z'),
+            policyVersion: 'policy-version',
+            receipt: null,
+            redemption: null,
+          }),
+      },
+    };
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(100_000n),
+      { allocateDebit: jest.fn() } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        supervisorAuthContext(),
+        'approval-1',
+        'APPROVED',
+        'approved after lock',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'APPROVAL_ALREADY_DECIDED' },
+    });
+  });
+
   it('expires overdue approvals before listing approvals', async () => {
     const overdueApproval = {
       id: 'approval-expired',
@@ -598,6 +657,59 @@ describe('LoyaltyService redemption approvals', () => {
       transactionId: 'ledger-1',
       ledgerEntryId: 'ledger-1',
     });
+  });
+
+  it('filters receiptless adjustment rows from the customer ledger', async () => {
+    const ledgerEntry = {
+      id: 'ledger-2',
+      receiptId: null,
+      type: 'ADJUSTMENT',
+      direction: 'CREDIT',
+      amountKobo: 4_000n,
+      status: 'CONFIRMED',
+      effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+      redemption: null,
+      adjustment: { id: 'adjustment-1' },
+      creditLot: null,
+      redemptionAllocations: [],
+    };
+
+    const findMany = jest.fn().mockResolvedValue([ledgerEntry]);
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findMany,
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(94_000n),
+    );
+
+    await expect(
+      service.listCustomerLedger(
+        'tenant-1',
+        supervisorAuthContext(),
+        'customer-1',
+      ),
+    ).resolves.toMatchObject({
+      customerId: 'customer-1',
+      items: [],
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant-1',
+          customerId: 'customer-1',
+          customer: { is: { branchId: 'branch-1' } },
+          receiptId: { not: null },
+        },
+      }),
+    );
   });
 });
 

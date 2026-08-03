@@ -5,6 +5,7 @@ The repo review follow-ups are cross-cutting: auth/session safety, loyalty read 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make session refresh and guarded auth sensitive to device revocation.
 - Prevent replay of accepted device attestations.
 - Expose receiptless adjustment/reversal rows through the intended scoped loyalty reads.
@@ -12,6 +13,7 @@ The repo review follow-ups are cross-cutting: auth/session safety, loyalty read 
 - Validate SMS payloads consistently before rendering.
 
 **Non-Goals:**
+
 - No new customer-facing financial workflow.
 - No API versioning or route redesign.
 - No migration rewrite or backfill beyond the minimal fixes needed for the hardening pass.

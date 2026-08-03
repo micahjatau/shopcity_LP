@@ -272,6 +272,111 @@ describe('financial repair restore verification (int)', () => {
         prisma.$transaction(async (tx) => {
           await tx.loyaltyLedgerEntry.create({
             data: {
+              id: fixture.mismatchCustomerLedgerId,
+              tenantId: fixture.tenantId,
+              customerId: fixture.customerId,
+              type: LedgerEntryType.ADJUSTMENT,
+              direction: LedgerEntryDirection.CREDIT,
+              amountKobo: 4_000n,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: `adjustment-customer-mismatch-${fixture.mismatchCustomerLedgerId}`,
+              createdByTenantId: fixture.tenantId,
+              createdBy: fixture.userId,
+              effectiveAt: fixture.effectiveAt,
+            },
+          });
+
+          await tx.adjustment.create({
+            data: {
+              id: fixture.mismatchCustomerAdjustmentId,
+              tenantId: fixture.tenantId,
+              customerId: fixture.otherCustomerId,
+              kind: AdjustmentKind.CREDIT,
+              amountKobo: 4_000n,
+              reason: 'Customer mismatch',
+              createdByTenantId: fixture.tenantId,
+              createdBy: fixture.userId,
+              ledgerEntryId: fixture.mismatchCustomerLedgerId,
+              effectiveAt: fixture.effectiveAt,
+            },
+          });
+        }),
+      ).rejects.toThrow(/adjustment must match its adjustment ledger entry/i);
+
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.loyaltyLedgerEntry.create({
+            data: {
+              id: fixture.mismatchEffectiveAtLedgerId,
+              tenantId: fixture.tenantId,
+              customerId: fixture.customerId,
+              type: LedgerEntryType.ADJUSTMENT,
+              direction: LedgerEntryDirection.CREDIT,
+              amountKobo: 4_000n,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: `adjustment-effective-at-mismatch-${fixture.mismatchEffectiveAtLedgerId}`,
+              createdByTenantId: fixture.tenantId,
+              createdBy: fixture.userId,
+              effectiveAt: fixture.effectiveAt,
+            },
+          });
+
+          await tx.adjustment.create({
+            data: {
+              id: fixture.mismatchEffectiveAtAdjustmentId,
+              tenantId: fixture.tenantId,
+              customerId: fixture.customerId,
+              kind: AdjustmentKind.CREDIT,
+              amountKobo: 4_000n,
+              reason: 'Effective-at mismatch',
+              createdByTenantId: fixture.tenantId,
+              createdBy: fixture.userId,
+              ledgerEntryId: fixture.mismatchEffectiveAtLedgerId,
+              effectiveAt: new Date('2026-07-26T12:15:00.000Z'),
+            },
+          });
+        }),
+      ).rejects.toThrow(/adjustment must match its adjustment ledger entry/i);
+
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.loyaltyLedgerEntry.create({
+            data: {
+              id: fixture.mismatchLedgerKindId,
+              tenantId: fixture.tenantId,
+              customerId: fixture.customerId,
+              type: LedgerEntryType.EARN,
+              direction: LedgerEntryDirection.CREDIT,
+              amountKobo: 4_000n,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: `adjustment-kind-source-${fixture.mismatchLedgerKindId}`,
+              createdByTenantId: fixture.tenantId,
+              createdBy: fixture.userId,
+              effectiveAt: fixture.effectiveAt,
+            },
+          });
+
+          await tx.adjustment.create({
+            data: {
+              id: fixture.mismatchLedgerKindAdjustmentId,
+              tenantId: fixture.tenantId,
+              customerId: fixture.customerId,
+              kind: AdjustmentKind.CREDIT,
+              amountKobo: 4_000n,
+              reason: 'Unsupported ledger kind',
+              createdByTenantId: fixture.tenantId,
+              createdBy: fixture.userId,
+              ledgerEntryId: fixture.mismatchLedgerKindId,
+              effectiveAt: fixture.effectiveAt,
+            },
+          });
+        }),
+      ).rejects.toThrow(/adjustment must match its adjustment ledger entry/i);
+
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.loyaltyLedgerEntry.create({
+            data: {
               id: fixture.mismatchAmountLedgerId,
               tenantId: fixture.tenantId,
               customerId: fixture.customerId,
@@ -317,20 +422,31 @@ describe('financial repair restore verification (int)', () => {
       ).rejects.toThrow(/adjustment must match its adjustment ledger entry/i);
 
       await expect(
-        prisma.adjustment.create({
-          data: {
-            id: fixture.mutableAdjustmentId,
-            tenantId: fixture.tenantId,
-            customerId: fixture.customerId,
-            kind: AdjustmentKind.CREDIT,
-            amountKobo: 4_000n,
-            reason: 'Orphan adjustment',
-            createdByTenantId: fixture.tenantId,
-            createdBy: fixture.userId,
-            ledgerEntryId: null,
-            effectiveAt: fixture.effectiveAt,
-          },
-        }),
+        prisma.$executeRawUnsafe(
+          `INSERT INTO "Adjustment" (
+            "id",
+            "tenantId",
+            "customerId",
+            "kind",
+            "amountKobo",
+            "reason",
+            "createdByTenantId",
+            "createdBy",
+            "ledgerEntryId",
+            "effectiveAt"
+          ) VALUES (
+            '${fixture.mutableAdjustmentId}',
+            '${fixture.tenantId}',
+            '${fixture.customerId}',
+            'CREDIT',
+            4000,
+            'Orphan adjustment',
+            '${fixture.tenantId}',
+            '${fixture.userId}',
+            NULL,
+            '${fixture.effectiveAt.toISOString()}'
+          )`,
+        ),
       ).rejects.toThrow(/adjustment must reference a ledger entry/i);
 
       const mutableLedgerId = '00000000-0000-4000-8000-000000000116';
@@ -613,6 +729,7 @@ async function seedAdjustmentFixture(prisma: PrismaClient) {
   const branchId = '00000000-0000-4000-8000-000000000102';
   const userId = '00000000-0000-4000-8000-000000000103';
   const customerId = '00000000-0000-4000-8000-000000000104';
+  const otherCustomerId = '00000000-0000-4000-8000-00000000010a';
   const cardId = '00000000-0000-4000-8000-000000000105';
   const deviceId = '00000000-0000-4000-8000-000000000106';
   const receiptId = '00000000-0000-4000-8000-000000000107';
@@ -651,6 +768,19 @@ async function seedAdjustmentFixture(prisma: PrismaClient) {
       branchId,
       fullName: 'Repair Fixture Customer',
       phoneE164: '+2348000000101',
+      isStaff: false,
+      status: 'ACTIVE',
+      registeredByTenantId: tenantId,
+      registeredBy: userId,
+    },
+  });
+  await prisma.customer.create({
+    data: {
+      id: otherCustomerId,
+      tenantId,
+      branchId,
+      fullName: 'Repair Fixture Alternate Customer',
+      phoneE164: '+2348000000102',
       isStaff: false,
       status: 'ACTIVE',
       registeredByTenantId: tenantId,
@@ -764,6 +894,13 @@ async function seedAdjustmentFixture(prisma: PrismaClient) {
     mismatchAmountAdjustmentId: '00000000-0000-4000-8000-000000000113',
     mismatchAmountLedgerId: '00000000-0000-4000-8000-000000000114',
     mutableAdjustmentId: '00000000-0000-4000-8000-000000000115',
+    mismatchCustomerAdjustmentId: '00000000-0000-4000-8000-000000000116',
+    mismatchCustomerLedgerId: '00000000-0000-4000-8000-000000000117',
+    mismatchEffectiveAtAdjustmentId: '00000000-0000-4000-8000-000000000118',
+    mismatchEffectiveAtLedgerId: '00000000-0000-4000-8000-000000000119',
+    mismatchLedgerKindAdjustmentId: '00000000-0000-4000-8000-000000000120',
+    mismatchLedgerKindId: '00000000-0000-4000-8000-000000000121',
+    otherCustomerId,
   };
 }
 

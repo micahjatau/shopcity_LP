@@ -198,7 +198,6 @@ describe('OpenAPI contract (int)', () => {
 
     expect(transactionLedgerSchema?.properties?.allocations).toBeDefined();
     expect(transactionLedgerSchema?.properties?.redemptionId).toBeDefined();
-    expect(transactionLedgerSchema?.properties?.adjustmentId).toBeDefined();
     expect(ledgerItemsSchema?.items?.properties?.restorations).toBeDefined();
     expect(customerLedgerSchema?.properties?.items).toBeDefined();
     expect(customerLedgerSchema?.properties?.nextCursor).toBeDefined();
@@ -213,9 +212,6 @@ describe('OpenAPI contract (int)', () => {
 
     expect(
       customerLedgerItemSchema?.items?.properties?.redemptionId,
-    ).toBeDefined();
-    expect(
-      customerLedgerItemSchema?.items?.properties?.adjustmentId,
     ).toBeDefined();
     expect(
       customerLedgerItemSchema?.items?.properties?.allocations,

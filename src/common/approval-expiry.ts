@@ -41,6 +41,7 @@ export async function expireApproval(
   approval: ApprovalExpiryRecord,
   now: Date,
   actor?: ApprovalExpiryActor | null,
+  detectedBy?: ApprovalExpiryActor | null,
 ): Promise<void> {
   const expired = await tx.approval.updateMany({
     where: {
@@ -66,12 +67,16 @@ export async function expireApproval(
   }
 
   const receiptId = approval.receiptId ?? approval.redemptionReceiptId;
+  const expectedReceiptUpdateCount = receiptId ? 1 : 0;
+  const expectedRedemptionUpdateCount = approval.redemptionId ? 1 : 0;
 
   if (receiptId) {
-    await tx.receipt.updateMany({
+    const receiptUpdate = await tx.receipt.updateMany({
       where: {
         tenantId: approval.tenantId,
         id: receiptId,
+        captureStatus: 'PENDING_APPROVAL',
+        reviewStatus: ReceiptReviewStatus.PENDING,
       },
       data: {
         reviewStatus: ReceiptReviewStatus.REJECTED,
@@ -83,10 +88,18 @@ export async function expireApproval(
         approvedBy: null,
       },
     });
+
+    if (receiptUpdate.count !== expectedReceiptUpdateCount) {
+      throw new DomainHttpException(
+        409,
+        'APPROVAL_ALREADY_DECIDED',
+        'Approval has already been decided',
+      );
+    }
   }
 
   if (approval.redemptionId) {
-    await tx.redemption.updateMany({
+    const redemptionUpdate = await tx.redemption.updateMany({
       where: {
         tenantId: approval.tenantId,
         id: approval.redemptionId,
@@ -97,6 +110,14 @@ export async function expireApproval(
         rejectedAt: now,
       },
     });
+
+    if (redemptionUpdate.count !== expectedRedemptionUpdateCount) {
+      throw new DomainHttpException(
+        409,
+        'APPROVAL_ALREADY_DECIDED',
+        'Approval has already been decided',
+      );
+    }
   }
 
   await auditWriter.recordWithClient(tx, {
@@ -110,6 +131,8 @@ export async function expireApproval(
       targetType: approval.targetType,
       receiptId,
       redemptionId: approval.redemptionId,
+      detectedByTenantId: detectedBy?.tenantId ?? null,
+      detectedBy: detectedBy?.id ?? null,
     },
   });
 }

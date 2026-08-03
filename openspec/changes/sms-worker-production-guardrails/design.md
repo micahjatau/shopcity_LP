@@ -36,11 +36,13 @@ Alternatives considered:
 - Rejecting deterministic mode in the schema for every environment. Rejected because it blocks local and test usage.
 - Requiring a separate production-only schema. Rejected because it adds complexity without improving the guard.
 
+The real provider rollout also treats the provider token as required configuration, alongside the connection URL, so production cannot start with a half-configured HTTP provider.
+
 ### 3. Make persisted retry state the source of truth for send eligibility
 
 The worker will check `deadLetteredAt` and `attempts` on the persisted SMS row before any provider call. If the record is terminal, the job will not call the provider and will stop further BullMQ retries.
 
-After a message becomes dead-lettered, the runtime will use BullMQ discard/unrecoverable semantics so remaining queue attempts cannot keep the same message alive beyond the persisted budget.
+After a message becomes dead-lettered, the runtime will call BullMQ `discard()` directly so remaining queue attempts cannot keep the same message alive beyond the persisted budget.
 
 Alternatives considered:
 - Trusting BullMQ's retry count alone. Rejected because recovered jobs can outlive the original queue budget.
@@ -75,5 +77,4 @@ Rollback strategy:
 
 ## Open Questions
 
-- Should the real-provider token be required or optional for the first rollout?
-- Should the terminal retry path use BullMQ's discard API directly or an unrecoverable error helper if the library version changes?
+- None.

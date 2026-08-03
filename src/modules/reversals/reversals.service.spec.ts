@@ -78,12 +78,9 @@ describe('ReversalsService', () => {
       service.reverse('tenant-1', actor as never, 'transaction-1', ' idem-1 ', {
         reason: ' Customer refund ',
       }),
-    ).rejects.toMatchObject({
-      response: {
-        code: 'REVERSAL_REVIEW_REQUIRED',
-        message: 'Automatic reversal requires manual review',
-      },
-      status: HttpStatus.UNPROCESSABLE_ENTITY,
+    ).resolves.toMatchObject({
+      code: 'REVERSAL_REVIEW_REQUIRED',
+      transactionId: 'transaction-1',
     });
 
     const createCall = prisma.idempotencyRecord.create.mock.calls[0][0];
@@ -128,12 +125,16 @@ describe('ReversalsService', () => {
       service.reverse('tenant-1', actor as never, 'transaction-1', 'idem-1', {
         reason: 'Customer refund',
       }),
-    ).rejects.toBeInstanceOf(DomainHttpException);
+    ).resolves.toMatchObject({
+      code: 'REVERSAL_REVIEW_REQUIRED',
+      transactionId: 'transaction-1',
+    });
 
     const createCall = prisma.idempotencyRecord.create.mock.calls[0][0];
 
     prisma.idempotencyRecord.findUnique.mockResolvedValue({
       requestHash: createCall.data.requestHash,
+      responseJson: createCall.data.responseJson,
     });
     prisma.idempotencyRecord.create.mockClear();
 
@@ -141,9 +142,9 @@ describe('ReversalsService', () => {
       service.reverse('tenant-1', actor as never, 'transaction-1', 'idem-1', {
         reason: 'Customer refund',
       }),
-    ).rejects.toMatchObject({
-      response: { code: 'REVERSAL_REVIEW_REQUIRED' },
-      status: HttpStatus.UNPROCESSABLE_ENTITY,
+    ).resolves.toMatchObject({
+      code: 'REVERSAL_REVIEW_REQUIRED',
+      transactionId: 'transaction-1',
     });
     expect(prisma.idempotencyRecord.create).not.toHaveBeenCalled();
   });
