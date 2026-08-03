@@ -137,7 +137,7 @@ describe('AuthService', () => {
     );
 
     await expect(service.refresh('session-id')).rejects.toThrow(
-      'Session expired or revoked',
+      'Device session is no longer valid',
     );
   });
 
@@ -195,7 +195,9 @@ describe('AuthService', () => {
             },
           }),
         },
-        $transaction: jest.fn().mockImplementation((callback) => callback(tx)),
+        $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+          callback(tx),
+        ),
       } as never,
       {} as never,
       { get: () => 'secret' } as never,
@@ -203,7 +205,7 @@ describe('AuthService', () => {
     );
 
     await expect(service.refresh('session-id')).rejects.toThrow(
-      'Session expired or revoked',
+      'Device session is no longer valid',
     );
     expect(tx.session.create).not.toHaveBeenCalled();
   });
@@ -337,10 +339,16 @@ describe('AuthService', () => {
     const nonce = 'nonce';
     const deviceOneSecret = 'device-one-secret';
     const deviceTwoSecret = 'device-two-secret';
-    const deviceOneAttestation = `${timestamp}.${nonce}.${createHmac('sha256', deviceOneSecret)
+    const deviceOneAttestation = `${timestamp}.${nonce}.${createHmac(
+      'sha256',
+      deviceOneSecret,
+    )
       .update(`device-one.${timestamp}.${nonce}`)
       .digest('base64url')}`;
-    const deviceTwoAttestation = `${timestamp}.${nonce}.${createHmac('sha256', deviceTwoSecret)
+    const deviceTwoAttestation = `${timestamp}.${nonce}.${createHmac(
+      'sha256',
+      deviceTwoSecret,
+    )
       .update(`device-two.${timestamp}.${nonce}`)
       .digest('base64url')}`;
 
@@ -403,22 +411,26 @@ describe('AuthService', () => {
 
     const transaction = jest
       .fn()
-      .mockImplementationOnce((callback: (tx: ReturnType<typeof createTransaction>) => unknown) =>
-        callback(
-          createTransaction(jest.fn().mockResolvedValue({ id: 'attestation-id' })),
-        ),
-      )
-      .mockImplementationOnce((callback: (tx: ReturnType<typeof createTransaction>) => unknown) =>
-        callback(
-          createTransaction(
-            jest.fn().mockRejectedValue(
-              new Prisma.PrismaClientKnownRequestError('unique', {
-                code: 'P2002',
-                clientVersion: 'test',
-              }),
+      .mockImplementationOnce(
+        (callback: (tx: ReturnType<typeof createTransaction>) => unknown) =>
+          callback(
+            createTransaction(
+              jest.fn().mockResolvedValue({ id: 'attestation-id' }),
             ),
           ),
-        ),
+      )
+      .mockImplementationOnce(
+        (callback: (tx: ReturnType<typeof createTransaction>) => unknown) =>
+          callback(
+            createTransaction(
+              jest.fn().mockRejectedValue(
+                new Prisma.PrismaClientKnownRequestError('unique', {
+                  code: 'P2002',
+                  clientVersion: 'test',
+                }),
+              ),
+            ),
+          ),
       );
 
     const service = new AuthService(
@@ -439,7 +451,10 @@ describe('AuthService', () => {
             tenantId: 'tenant-id',
             branchId: 'branch-id',
             fingerprintHash: 'fingerprint-hash',
-            attestationSecretCiphertext: encryptDeviceAttestationSecret(secret, 'secret'),
+            attestationSecretCiphertext: encryptDeviceAttestationSecret(
+              secret,
+              'secret',
+            ),
             status: 'ACTIVE',
             branch: { status: 'ACTIVE' },
           }),
@@ -473,12 +488,26 @@ describe('AuthService', () => {
     );
 
     const results = await Promise.allSettled([
-      service.login('admin@shopcity.local', 'password', 'device-id', attestation),
-      service.login('admin@shopcity.local', 'password', 'device-id', attestation),
+      service.login(
+        'admin@shopcity.local',
+        'password',
+        'device-id',
+        attestation,
+      ),
+      service.login(
+        'admin@shopcity.local',
+        'password',
+        'device-id',
+        attestation,
+      ),
     ]);
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
   });
 
   it('rejects expired device attestations', async () => {
@@ -495,7 +524,12 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.login('admin@shopcity.local', 'password', 'device-id', attestation),
+      service.login(
+        'admin@shopcity.local',
+        'password',
+        'device-id',
+        attestation,
+      ),
     ).rejects.toThrow('Device attestation is invalid');
   });
 
@@ -509,7 +543,12 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.login('admin@shopcity.local', 'password', 'device-id', attestation),
+      service.login(
+        'admin@shopcity.local',
+        'password',
+        'device-id',
+        attestation,
+      ),
     ).rejects.toThrow('Device attestation is invalid');
   });
 
@@ -528,7 +567,12 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.login('admin@shopcity.local', 'password', 'device-id', attestation),
+      service.login(
+        'admin@shopcity.local',
+        'password',
+        'device-id',
+        attestation,
+      ),
     ).rejects.toThrow('Device attestation is invalid');
   });
 });
@@ -539,13 +583,18 @@ function buildDevice(secret: string, deviceId: string = 'device-id') {
     tenantId: 'tenant-id',
     branchId: 'branch-id',
     fingerprintHash: 'fingerprint-hash',
-    attestationSecretCiphertext: encryptDeviceAttestationSecret(secret, 'secret'),
+    attestationSecretCiphertext: encryptDeviceAttestationSecret(
+      secret,
+      'secret',
+    ),
     status: 'ACTIVE',
     branch: { status: 'ACTIVE' },
   };
 }
 
-function buildLoginService(overrides: { device: ReturnType<typeof buildDevice> }) {
+function buildLoginService(overrides: {
+  device: ReturnType<typeof buildDevice>;
+}) {
   const transaction = {
     deviceAttestation: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -589,7 +638,11 @@ function buildLoginService(overrides: { device: ReturnType<typeof buildDevice> }
         create: jest.fn(),
       },
       deviceAttestation: transaction.deviceAttestation,
-      $transaction: jest.fn().mockImplementation((callback) => callback(transaction)),
+      $transaction: jest.fn(
+        (callback: (client: typeof transaction) => unknown) => {
+          return callback(transaction);
+        },
+      ),
     } as never,
     {
       publicClient: {

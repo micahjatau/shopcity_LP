@@ -147,16 +147,21 @@ describe('OpenAPI contract (int)', () => {
     ).toEqual(['APPROVAL_POLICY_CHANGED']);
   });
 
-  it('keeps the public reversal boundary unavailable', () => {
+  it('documents the public reversal review contract', () => {
     const document = buildOpenApiDocument(app);
     const reversalOperation =
       document.paths['/api/v1/transactions/{transactionId}/reverse']?.post;
 
     expect(reversalOperation?.responses?.['201']).toBeUndefined();
-    expect(reversalOperation?.responses?.['202']).toBeUndefined();
-    expect(responseExampleCodes(reversalOperation?.responses?.['422'])).toEqual(
-      ['REVERSAL_REVIEW_REQUIRED'],
-    );
+    expect(reversalOperation?.responses?.['202']).toBeDefined();
+    expect(
+      resolveResponseDataSchema(document, reversalOperation?.responses?.['202'])
+        ?.properties?.code,
+    ).toBeDefined();
+    expect(
+      resolveResponseDataSchema(document, reversalOperation?.responses?.['202'])
+        ?.properties?.transactionId,
+    ).toBeDefined();
   });
 
   it('documents the transaction, ledger, and approval list payloads', () => {

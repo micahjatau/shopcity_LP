@@ -194,7 +194,6 @@ describe('redemption approval lifecycle (int)', () => {
     );
     expect(ledger.items[0]).toMatchObject({
       redemptionId: pending.redemptionId,
-      adjustmentId: null,
       allocations: [
         expect.objectContaining({
           amountKobo: 6_000,

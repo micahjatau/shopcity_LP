@@ -1373,7 +1373,7 @@ export class LoyaltyService {
           );
 
           const existingLedger = await prisma.loyaltyLedgerEntry.findUnique({
-              where: { receiptId: freshApproval.receiptId },
+            where: { receiptId: freshApproval.receiptId },
           });
 
           if (existingLedger) {

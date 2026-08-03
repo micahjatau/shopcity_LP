@@ -383,10 +383,25 @@ describe('sms provider selection', () => {
     expect(provider).toBeInstanceOf(SandboxSmsProvider);
   });
 
+  it('allows real mode in production when provider secrets are present', () => {
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      NODE_ENV: 'production',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_URL: 'https://sms.example.test',
+      SMS_PROVIDER_USERNAME: 'shopcity-user',
+      SMS_PROVIDER_API_KEY: 'api-key',
+      SMS_PROVIDER_SENDER_ID: 'ShopCity',
+    });
+
+    expect(provider).toBeInstanceOf(EbulkSmsProvider);
+  });
+
   it('requires a provider URL for real mode', () => {
     expect(() =>
       createSmsProvider({
         ...baseEnv(),
+        NODE_ENV: 'production',
         SMS_PROVIDER_MODE: 'real',
         SMS_PROVIDER_USERNAME: 'shopcity-user',
         SMS_PROVIDER_API_KEY: 'api-key',
@@ -401,6 +416,7 @@ describe('sms provider selection', () => {
     expect(() =>
       createSmsProvider({
         ...baseEnv(),
+        NODE_ENV: 'production',
         SMS_PROVIDER_MODE: 'real',
         SMS_PROVIDER_URL: 'https://sms.example.test',
       }),

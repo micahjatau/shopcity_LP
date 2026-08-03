@@ -139,7 +139,8 @@ export class BranchesService {
         },
       });
 
-      const { attestationSecretCiphertext: _attestationSecretCiphertext, ...safeDevice } = device;
+      const { attestationSecretCiphertext, ...safeDevice } = device;
+      void attestationSecretCiphertext;
       return { ...safeDevice, attestationSecret };
     });
   }
@@ -211,8 +212,11 @@ export class BranchesService {
         metadata: data,
       });
 
-      const { attestationSecretCiphertext: _attestationSecretCiphertext, ...safeUpdated } = updated;
-      return attestationSecret ? { ...safeUpdated, attestationSecret } : safeUpdated;
+      const { attestationSecretCiphertext, ...safeUpdated } = updated;
+      void attestationSecretCiphertext;
+      return attestationSecret
+        ? { ...safeUpdated, attestationSecret }
+        : safeUpdated;
     });
   }
 

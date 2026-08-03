@@ -1,0 +1,67 @@
+{
+  "functions": [
+    "prevent_adjustment_evidence_mutation",
+    "prevent_adjustment_orphan_mutation",
+    "prevent_credit_lot_source_mutation",
+    "validate_adjustment_ledger_source",
+    "validate_allocation_restoration_commit_state",
+    "validate_credit_lot_balance_evidence_for_lot",
+    "validate_credit_lot_source",
+    "validate_ledger_entry_commit_state"
+  ],
+  "triggers": [
+    {
+      "name": "prevent_adjustment_evidence_update",
+      "enabled": "O",
+      "deferrable": false,
+      "initDeferred": false
+    },
+    {
+      "name": "prevent_adjustment_orphan_insert_update",
+      "enabled": "O",
+      "deferrable": false,
+      "initDeferred": false
+    },
+    {
+      "name": "prevent_credit_lot_source_update",
+      "enabled": "O",
+      "deferrable": false,
+      "initDeferred": false
+    },
+    {
+      "name": "validate_adjustment_ledger_source_insert_update",
+      "enabled": "O",
+      "deferrable": false,
+      "initDeferred": false
+    },
+    {
+      "name": "validate_allocation_restoration_commit_state_insert",
+      "enabled": "O",
+      "deferrable": true,
+      "initDeferred": true
+    },
+    {
+      "name": "validate_credit_lot_source_insert",
+      "enabled": "O",
+      "deferrable": false,
+      "initDeferred": false
+    },
+    {
+      "name": "validate_credit_lot_source_update",
+      "enabled": "O",
+      "deferrable": false,
+      "initDeferred": false
+    },
+    {
+      "name": "validate_ledger_entry_commit_state_insert",
+      "enabled": "O",
+      "deferrable": true,
+      "initDeferred": true
+    }
+  ],
+  "indexes": [
+    "Adjustment_tenantId_customerId_effectiveAt_idx",
+    "Adjustment_tenantId_ledgerEntryId_key",
+    "RedemptionAllocation_tenantId_adjustmentId_idx"
+  ]
+}

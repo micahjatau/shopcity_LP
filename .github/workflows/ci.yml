@@ -29,6 +29,13 @@ jobs:
       - run: npm run openapi:diff
       - run: npm run client:generate
       - run: npm run client:typecheck
+      - run: npm run verify:release-artifacts
+      - run: npm run validate:scope
+      - name: Upload release evidence artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-review-34-release-evidence
+          path: docs/release-evidence/repo-review-34/**
       - run: git diff --exit-code -- docs/api/openapi.json
       - run: git diff --exit-code -- client/shopcity-client.ts
 
@@ -45,7 +52,6 @@ jobs:
       - run: npm ci
       - run: npm run gitnexus:smoke
       - name: Run GitNexus analysis
-        continue-on-error: ${{ vars.GITNEXUS_ALLOW_FAILURE == 'true' }}
         run: npm run gitnexus:analyze
 
   e2e:

@@ -1,6 +1,4 @@
-import {
-  ApprovalTargetType,
-} from '@prisma/client';
+import { ApprovalTargetType } from '@prisma/client';
 import { expireApproval } from './approval-expiry';
 
 describe('expireApproval', () => {
@@ -104,23 +102,29 @@ describe('expireApproval', () => {
       { tenantId: 'tenant-1', id: 'approval-expiry-worker' },
     );
 
-    expect(tx.approval.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          decisionByTenantId: null,
-          decisionBy: null,
-        }),
-      }),
-    );
-    expect(auditWriter.recordWithClient).toHaveBeenCalledWith(
-      tx,
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          detectedByTenantId: 'tenant-1',
-          detectedBy: 'approval-expiry-worker',
-        }),
-      }),
-    );
+    expect(tx.approval.updateMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        id: 'approval-1',
+        status: 'PENDING',
+      },
+      data: {
+        status: 'EXPIRED',
+        decisionByTenantId: null,
+        decisionBy: null,
+      },
+    });
+    expect(auditWriter.recordWithClient).toHaveBeenCalledWith(tx, {
+      tenantId: 'tenant-1',
+      actorId: 'user-1',
+      action: 'approval.expire',
+      entityType: 'approval',
+      entityId: 'approval-1',
+      metadata: {
+        detectedByTenantId: 'tenant-1',
+        detectedBy: 'approval-expiry-worker',
+      },
+    });
   });
 
   it('rejects replayed expiry attempts', async () => {

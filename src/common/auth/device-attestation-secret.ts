@@ -38,12 +38,21 @@ export function decryptDeviceAttestationSecret(
 ): string {
   const [prefix, ivRaw, authTagRaw, dataRaw] = ciphertext.split(':');
 
-  if (prefix !== DEVICE_ATTESTATION_SECRET_PREFIX || !ivRaw || !authTagRaw || !dataRaw) {
+  if (
+    prefix !== DEVICE_ATTESTATION_SECRET_PREFIX ||
+    !ivRaw ||
+    !authTagRaw ||
+    !dataRaw
+  ) {
     throw new Error('Device attestation secret is invalid');
   }
 
   const { key, iv } = deriveSecretCipherMaterial(keyMaterial, ivRaw);
-  const decipher = createDecipheriv(DEVICE_ATTESTATION_SECRET_ALGORITHM, key, iv);
+  const decipher = createDecipheriv(
+    DEVICE_ATTESTATION_SECRET_ALGORITHM,
+    key,
+    iv,
+  );
   decipher.setAuthTag(Buffer.from(authTagRaw, 'base64url'));
 
   return Buffer.concat([

@@ -149,10 +149,17 @@ export class AuthService {
       !session ||
       session.status !== 'ACTIVE' ||
       session.expiresAt <= new Date() ||
-      !isAuthUserEligible(session.user) ||
-      !isSessionDeviceEligible(session)
+      !isAuthUserEligible(session.user)
     ) {
       throw new UnauthorizedException('Session expired or revoked');
+    }
+
+    if (!isSessionDeviceEligible(session)) {
+      throw new DomainHttpException(
+        HttpStatus.UNAUTHORIZED,
+        'DEVICE_REVOKED',
+        'Device session is no longer valid',
+      );
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -186,12 +193,16 @@ export class AuthService {
         },
       });
 
-      if (
-        !currentSession ||
-        !isAuthUserEligible(currentSession.user) ||
-        !isSessionDeviceEligible(currentSession)
-      ) {
+      if (!currentSession || !isAuthUserEligible(currentSession.user)) {
         throw new UnauthorizedException('Session expired or revoked');
+      }
+
+      if (!isSessionDeviceEligible(currentSession)) {
+        throw new DomainHttpException(
+          HttpStatus.UNAUTHORIZED,
+          'DEVICE_REVOKED',
+          'Device session is no longer valid',
+        );
       }
 
       return this.issueSession(

@@ -31,10 +31,11 @@ export type EarnConfirmedSmsPayload = SmsPayloadBase<'earn-confirmed'> & {
   creditKobo: string;
 };
 
-export type TransactionReversedSmsPayload = SmsPayloadBase<'transaction-reversed'> & {
-  transactionId: string;
-  receiptId?: string | null;
-};
+export type TransactionReversedSmsPayload =
+  SmsPayloadBase<'transaction-reversed'> & {
+    transactionId: string;
+    receiptId?: string | null;
+  };
 
 export type BalanceAdjustedSmsPayload = SmsPayloadBase<'balance-adjusted'> & {
   transactionId: string;

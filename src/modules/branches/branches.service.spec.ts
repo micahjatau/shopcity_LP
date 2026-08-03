@@ -1,4 +1,9 @@
-import { DeviceStatus, SessionStatus, UserRole, UserStatus } from '@prisma/client';
+import {
+  DeviceStatus,
+  SessionStatus,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 import { BranchesService } from './branches.service';
 
 describe('BranchesService', () => {
@@ -26,11 +31,16 @@ describe('BranchesService', () => {
       branch: {
         findFirst: jest.fn().mockResolvedValue({ id: 'branch-id' }),
       },
-      $transaction: jest.fn().mockImplementation((callback) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
     };
-    const service = new BranchesService(prisma as never, {
-      recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
-    } as never);
+    const service = new BranchesService(
+      prisma as never,
+      {
+        recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
+      } as never,
+    );
 
     const created = await service.createDevice('tenant-id', actorStub(), {
       branchId: 'branch-id',
@@ -41,9 +51,9 @@ describe('BranchesService', () => {
     expect(created).toEqual(
       expect.objectContaining({
         id: 'device-id',
-        attestationSecret: expect.any(String),
       }),
     );
+    expect(typeof created.attestationSecret).toBe('string');
     expect(created).not.toHaveProperty('attestationSecretCiphertext');
   });
 
@@ -71,7 +81,9 @@ describe('BranchesService', () => {
           status: DeviceStatus.ACTIVE,
         }),
       },
-      $transaction: jest.fn().mockImplementation((callback) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
     };
     const auditService = {
       recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
@@ -82,10 +94,20 @@ describe('BranchesService', () => {
       status: DeviceStatus.INACTIVE,
     });
 
-    expect(tx.session.updateMany).toHaveBeenCalledWith({
+    type SessionUpdateArgs = {
+      where: { deviceId: string; status: string };
+      data: { status: string; revokedAt: Date };
+    };
+
+    const sessionUpdateMany = tx.session.updateMany as jest.MockedFunction<
+      (args: SessionUpdateArgs) => Promise<{ count: number }>
+    >;
+    const sessionUpdateArgs = sessionUpdateMany.mock.calls[0]?.[0];
+    expect(sessionUpdateArgs).toMatchObject({
       where: { deviceId: 'device-id', status: 'ACTIVE' },
-      data: { status: 'REVOKED', revokedAt: expect.any(Date) },
+      data: { status: 'REVOKED' },
     });
+    expect(sessionUpdateArgs.data.revokedAt).toBeInstanceOf(Date);
     expect(auditService.recordWithClient).toHaveBeenCalledWith(
       tx,
       expect.objectContaining({
@@ -127,7 +149,9 @@ describe('BranchesService', () => {
           status: DeviceStatus.INACTIVE,
         }),
       },
-      $transaction: jest.fn().mockImplementation((callback) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
     };
     const auditService = {
       recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
@@ -174,37 +198,47 @@ describe('BranchesService', () => {
           status: DeviceStatus.ACTIVE,
         }),
       },
-      $transaction: jest.fn().mockImplementation((callback) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
     };
-    const service = new BranchesService(prisma as never, {
-      recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
-    } as never);
+    const service = new BranchesService(
+      prisma as never,
+      {
+        recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
+      } as never,
+    );
 
-    const updated = await service.updateDevice('tenant-id', actorStub(), 'device-id', {
-      rotateAttestationSecret: true,
-    });
+    const updated = await service.updateDevice(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+      {
+        rotateAttestationSecret: true,
+      },
+    );
 
     expect(updated).toEqual(
       expect.objectContaining({
         id: 'device-id',
-        attestationSecret: expect.any(String),
       }),
     );
+    expect(typeof updated.attestationSecret).toBe('string');
   });
 });
 
 function actorStub() {
   return {
-      session: {
-        id: 'session-id',
-        userId: 'user-id',
-        deviceId: null,
-        sessionTokenHash: 'session-hash',
-        csrfTokenHash: 'csrf-hash',
-        status: SessionStatus.ACTIVE,
-        expiresAt: new Date('2026-08-03T00:00:00.000Z'),
-        revokedAt: null,
-        lastUsedAt: null,
+    session: {
+      id: 'session-id',
+      userId: 'user-id',
+      deviceId: null,
+      sessionTokenHash: 'session-hash',
+      csrfTokenHash: 'csrf-hash',
+      status: SessionStatus.ACTIVE,
+      expiresAt: new Date('2026-08-03T00:00:00.000Z'),
+      revokedAt: null,
+      lastUsedAt: null,
       createdAt: new Date('2026-08-03T00:00:00.000Z'),
       updatedAt: new Date('2026-08-03T00:00:00.000Z'),
     },

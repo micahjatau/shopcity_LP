@@ -1,0 +1,246 @@
+{
+  "restoredMigrations": [
+    {
+      "migration_name": "20260719_phase_1_integrity_hardening",
+      "checksum": "9d285431a7ce979d54814b203e160001f847290ef9147a063052ffa3780cdae1"
+    },
+    {
+      "migration_name": "20260719_phase_1_trust_and_integrity_hardening",
+      "checksum": "279610534feeb8f6aff406d07b026aef37cbde30dfb4b584aa4e597a9d79e115"
+    },
+    {
+      "migration_name": "20260720_fix_audit_actor_fk_name",
+      "checksum": "68bfa9d2ed20862b9835fabef555fce068bc2cbbcc6506dcaf7660ba1f6bb493"
+    },
+    {
+      "migration_name": "20260720_phase_1_5_foundation_hardening",
+      "checksum": "61442da62b52c7477934d7e5d78b5362d750e3a7943c58749a3d2dcc2e091f53"
+    },
+    {
+      "migration_name": "20260720_phase_1_6_tenant_ownership_alignment",
+      "checksum": "2771b421e752a70b709682ed6ad471cff61f2772702a22753c909356838431fe"
+    },
+    {
+      "migration_name": "20260720_receipt_capture_endpoint",
+      "checksum": "b98d4a81b918b6949dd7a94efd0962c1540ce75434c9fb6f3752fcf581a16455"
+    },
+    {
+      "migration_name": "20260720_receipt_integrity_gate",
+      "checksum": "3a87b947de7336334b12b06097814e1aaff0c232f5547155ad6b877a8ec32a39"
+    },
+    {
+      "migration_name": "20260721_pre_ledger_hardening",
+      "checksum": "c7140b63a183553c6d01732e3f6689ed9771b1f80154caa38265103493beaa7e"
+    },
+    {
+      "migration_name": "20260721_receipt_review_workflow",
+      "checksum": "f8116cddb334117bf9f252983803b57e476e63967eaeeecf12e00db19a9d7e30"
+    },
+    {
+      "migration_name": "20260722_immutable_earn_ledger",
+      "checksum": "2fd255a2cf814fe5b8539bc53bb38884613611ddbba1312a673a406a166ecd41"
+    },
+    {
+      "migration_name": "20260722_immutable_earn_ledger_hardening",
+      "checksum": "82a096658d36c052d5320e18e4dc566a014da8e0ade4b3bd7d45f9b359b91efe"
+    },
+    {
+      "migration_name": "20260722_outbox_worker_recovery",
+      "checksum": "3c81b2b7065a58c25270771695cbb02aa0f7f0f5ed8cd68b59ec416ed754c997"
+    },
+    {
+      "migration_name": "20260722_sms_delivery_reliability",
+      "checksum": "ace0cb92b36138d9b606b277c92091d52a2fb733577a37fe178b2a5f9d257e46"
+    },
+    {
+      "migration_name": "20260724_approval_policy_and_outbox_terminalization",
+      "checksum": "73f04712e05348eb242f38cd29ba5965ab04a0201609bf94eed14f163a558758"
+    },
+    {
+      "migration_name": "20260725_sprint_2_financial_integrity_closure",
+      "checksum": "02cebbe2875cccb8c26f577085092fa045f3973527dfa86dcf6f19d6ae46d56b"
+    },
+    {
+      "migration_name": "20260725_sprint_2_financial_integrity_lifecycle_closure",
+      "checksum": "f2befb96ecd5a4f9d7d434e7cf8b5defdc93a47e7a0330f22f84d69c0cd2daa1"
+    },
+    {
+      "migration_name": "20260726_sprint_3_redemption_foundation",
+      "checksum": "0147f024132db7e8750b63b5ccb5866f444e6c6ea725e322eac6d3b1632ff9ec"
+    },
+    {
+      "migration_name": "20260727_redemption_allocation_invariant_hardening",
+      "checksum": "333826db84d36a24fd2e2d2c80123a1875cae503fb915efab26d1654c8c22b0a"
+    },
+    {
+      "migration_name": "20260728_sms_transaction_ownership",
+      "checksum": "8fc40daf362792028115f65fd7f705fe6e1337c9f9417875ec17993466d912bd"
+    },
+    {
+      "migration_name": "20260729_redeem_approval_receipt_nullable",
+      "checksum": "c4d61a9bcd164e0fcb00afbb28fa73478d52878a1d0c8b71ec7469913eaaed2c"
+    },
+    {
+      "migration_name": "20260730_financial_state_invariants",
+      "checksum": "2ec1a7f6e446d12c9a9cb90c82a0402f7f5e8564b551d2257939c17d558d244f"
+    },
+    {
+      "migration_name": "20260731_approval_expiry_index",
+      "checksum": "6ea65989684fc08f7d314a727b036021e155b2507636e74f08889e1d9fbc4de5"
+    },
+    {
+      "migration_name": "20260731_financial_ledger_pair_guard",
+      "checksum": "bf21f8a55a9afc3406305403aeb5fdbe69d3229a6cca38e7953c651dc8f773bb"
+    },
+    {
+      "migration_name": "20260731_sms_reference_backfill",
+      "checksum": "be09a502aeba9a90a54b7f3bf48946812108c55018ed5f160cb55abeededd956"
+    },
+    {
+      "migration_name": "20260801_financial_guardrail_updates",
+      "checksum": "e8b7c556d503514a610f0e6e7d12bf999b65633f7caf7a8d15b94d37f0980229"
+    },
+    {
+      "migration_name": "20260802_financial_guardrail_repair",
+      "checksum": "688d77d60dd85f3749a661711c758a48cc6545346106e992c8761dc8bfa451e5"
+    },
+    {
+      "migration_name": "20260803_adjustment_ledger_entry_required",
+      "checksum": "766f76abddfb95315227f6dad833804a8683d2ce086ff78628bbc72a12e82e69"
+    },
+    {
+      "migration_name": "20260803_adjustment_linkage_and_repair_followup",
+      "checksum": "8820b257ba82628460d50893fa9f44b794b1efe587d7125f3993dc135e220e66"
+    },
+    {
+      "migration_name": "20260804_auth_device_attestation_replay_guard",
+      "checksum": "31f71f7466863926370f6c8d029f510d6d7f4983f8b10a91edb4747ae09ec38e"
+    },
+    {
+      "migration_name": "20260804_device_attestation_metadata",
+      "checksum": "fdbb58727a87bf748d7171d4cbffa1d82b583fed86e62a18d4f2dcbcc617325f"
+    }
+  ],
+  "committedMigrations": [
+    {
+      "migration_name": "20260719_phase_1_integrity_hardening",
+      "checksum": "9d285431a7ce979d54814b203e160001f847290ef9147a063052ffa3780cdae1"
+    },
+    {
+      "migration_name": "20260719_phase_1_trust_and_integrity_hardening",
+      "checksum": "279610534feeb8f6aff406d07b026aef37cbde30dfb4b584aa4e597a9d79e115"
+    },
+    {
+      "migration_name": "20260720_fix_audit_actor_fk_name",
+      "checksum": "68bfa9d2ed20862b9835fabef555fce068bc2cbbcc6506dcaf7660ba1f6bb493"
+    },
+    {
+      "migration_name": "20260720_phase_1_5_foundation_hardening",
+      "checksum": "61442da62b52c7477934d7e5d78b5362d750e3a7943c58749a3d2dcc2e091f53"
+    },
+    {
+      "migration_name": "20260720_phase_1_6_tenant_ownership_alignment",
+      "checksum": "2771b421e752a70b709682ed6ad471cff61f2772702a22753c909356838431fe"
+    },
+    {
+      "migration_name": "20260720_receipt_capture_endpoint",
+      "checksum": "b98d4a81b918b6949dd7a94efd0962c1540ce75434c9fb6f3752fcf581a16455"
+    },
+    {
+      "migration_name": "20260720_receipt_integrity_gate",
+      "checksum": "3a87b947de7336334b12b06097814e1aaff0c232f5547155ad6b877a8ec32a39"
+    },
+    {
+      "migration_name": "20260721_pre_ledger_hardening",
+      "checksum": "c7140b63a183553c6d01732e3f6689ed9771b1f80154caa38265103493beaa7e"
+    },
+    {
+      "migration_name": "20260721_receipt_review_workflow",
+      "checksum": "f8116cddb334117bf9f252983803b57e476e63967eaeeecf12e00db19a9d7e30"
+    },
+    {
+      "migration_name": "20260722_immutable_earn_ledger",
+      "checksum": "2fd255a2cf814fe5b8539bc53bb38884613611ddbba1312a673a406a166ecd41"
+    },
+    {
+      "migration_name": "20260722_immutable_earn_ledger_hardening",
+      "checksum": "82a096658d36c052d5320e18e4dc566a014da8e0ade4b3bd7d45f9b359b91efe"
+    },
+    {
+      "migration_name": "20260722_outbox_worker_recovery",
+      "checksum": "3c81b2b7065a58c25270771695cbb02aa0f7f0f5ed8cd68b59ec416ed754c997"
+    },
+    {
+      "migration_name": "20260722_sms_delivery_reliability",
+      "checksum": "ace0cb92b36138d9b606b277c92091d52a2fb733577a37fe178b2a5f9d257e46"
+    },
+    {
+      "migration_name": "20260724_approval_policy_and_outbox_terminalization",
+      "checksum": "73f04712e05348eb242f38cd29ba5965ab04a0201609bf94eed14f163a558758"
+    },
+    {
+      "migration_name": "20260725_sprint_2_financial_integrity_closure",
+      "checksum": "02cebbe2875cccb8c26f577085092fa045f3973527dfa86dcf6f19d6ae46d56b"
+    },
+    {
+      "migration_name": "20260725_sprint_2_financial_integrity_lifecycle_closure",
+      "checksum": "f2befb96ecd5a4f9d7d434e7cf8b5defdc93a47e7a0330f22f84d69c0cd2daa1"
+    },
+    {
+      "migration_name": "20260726_sprint_3_redemption_foundation",
+      "checksum": "0147f024132db7e8750b63b5ccb5866f444e6c6ea725e322eac6d3b1632ff9ec"
+    },
+    {
+      "migration_name": "20260727_redemption_allocation_invariant_hardening",
+      "checksum": "333826db84d36a24fd2e2d2c80123a1875cae503fb915efab26d1654c8c22b0a"
+    },
+    {
+      "migration_name": "20260728_sms_transaction_ownership",
+      "checksum": "8fc40daf362792028115f65fd7f705fe6e1337c9f9417875ec17993466d912bd"
+    },
+    {
+      "migration_name": "20260729_redeem_approval_receipt_nullable",
+      "checksum": "c4d61a9bcd164e0fcb00afbb28fa73478d52878a1d0c8b71ec7469913eaaed2c"
+    },
+    {
+      "migration_name": "20260730_financial_state_invariants",
+      "checksum": "2ec1a7f6e446d12c9a9cb90c82a0402f7f5e8564b551d2257939c17d558d244f"
+    },
+    {
+      "migration_name": "20260731_approval_expiry_index",
+      "checksum": "6ea65989684fc08f7d314a727b036021e155b2507636e74f08889e1d9fbc4de5"
+    },
+    {
+      "migration_name": "20260731_financial_ledger_pair_guard",
+      "checksum": "bf21f8a55a9afc3406305403aeb5fdbe69d3229a6cca38e7953c651dc8f773bb"
+    },
+    {
+      "migration_name": "20260731_sms_reference_backfill",
+      "checksum": "be09a502aeba9a90a54b7f3bf48946812108c55018ed5f160cb55abeededd956"
+    },
+    {
+      "migration_name": "20260801_financial_guardrail_updates",
+      "checksum": "e8b7c556d503514a610f0e6e7d12bf999b65633f7caf7a8d15b94d37f0980229"
+    },
+    {
+      "migration_name": "20260802_financial_guardrail_repair",
+      "checksum": "688d77d60dd85f3749a661711c758a48cc6545346106e992c8761dc8bfa451e5"
+    },
+    {
+      "migration_name": "20260803_adjustment_ledger_entry_required",
+      "checksum": "766f76abddfb95315227f6dad833804a8683d2ce086ff78628bbc72a12e82e69"
+    },
+    {
+      "migration_name": "20260803_adjustment_linkage_and_repair_followup",
+      "checksum": "8820b257ba82628460d50893fa9f44b794b1efe587d7125f3993dc135e220e66"
+    },
+    {
+      "migration_name": "20260804_auth_device_attestation_replay_guard",
+      "checksum": "31f71f7466863926370f6c8d029f510d6d7f4983f8b10a91edb4747ae09ec38e"
+    },
+    {
+      "migration_name": "20260804_device_attestation_metadata",
+      "checksum": "fdbb58727a87bf748d7171d4cbffa1d82b583fed86e62a18d4f2dcbcc617325f"
+    }
+  ]
+}

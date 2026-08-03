@@ -33,7 +33,27 @@ import {
 
 @ApiTags('auth')
 @Controller('auth')
-@apiErrorEnvelopeResponses()
+@apiErrorEnvelopeResponses({
+  unauthorized: {
+    authRequired: {
+      statusCode: 401,
+      code: 'AUTH_REQUIRED',
+      message: 'Authentication required',
+    },
+    deviceRevoked: {
+      statusCode: 401,
+      code: 'DEVICE_REVOKED',
+      message: 'Device session is no longer valid',
+    },
+  },
+  conflict: {
+    deviceAttestationReplayed: {
+      statusCode: 409,
+      code: 'DEVICE_ATTESTATION_REPLAYED',
+      message: 'Device attestation has already been used',
+    },
+  },
+})
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

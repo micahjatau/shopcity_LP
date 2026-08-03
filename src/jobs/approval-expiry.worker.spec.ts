@@ -89,6 +89,8 @@ describe('expireOverdueApprovals', () => {
         where: {
           tenantId: 'tenant-1',
           id: 'receipt-1',
+          captureStatus: 'PENDING_APPROVAL',
+          reviewStatus: 'PENDING',
         },
       }),
     );

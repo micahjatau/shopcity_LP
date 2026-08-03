@@ -45,52 +45,52 @@
 
 ## 6. Financial Read Models And Adjustment Invariants
 
-- [ ] 6.1 If receiptless capabilities are enabled, add immutable tenant-safe branch provenance and backfill receipt-linked ledger rows from Receipt branch.
-- [ ] 6.2 Define explicit provenance or rejection handling for historical receiptless entries whose branch cannot be established.
-- [ ] 6.3 Update customer-ledger lists, transaction detail, and approval lists to include authorized receiptless entries without cross-branch exposure.
-- [ ] 6.4 If receiptless capabilities are deferred, disable application execution paths and remove unsupported production capability claims from API/UI-facing contracts.
-- [ ] 6.5 Align the Prisma Adjustment model with committed-only ledger linkage or implement a formal draft lifecycle decision.
-- [ ] 6.6 Add the forward migration, regenerate Prisma Client, update fixtures/services, and retain database triggers as defence in depth.
-- [ ] 6.7 Add Adjustment regression tests for unsupported ledger kinds, cross-customer, cross-tenant, wrong direction, wrong amount, wrong effective date, missing ledger, invalid historical preflight variants, and valid credit/debit variants.
+- [x] 6.1 If receiptless capabilities are enabled, add immutable tenant-safe branch provenance and backfill receipt-linked ledger rows from Receipt branch. Deferred by design because receiptless execution remains out of scope.
+- [x] 6.2 Define explicit provenance or rejection handling for historical receiptless entries whose branch cannot be established. Deferred by design with the receiptless branch removed from the active contract.
+- [x] 6.3 Update customer-ledger lists, transaction detail, and approval lists to include authorized receiptless entries without cross-branch exposure. Deferred by design; read models now stay receipt-backed only.
+- [x] 6.4 If receiptless capabilities are deferred, disable application execution paths and remove unsupported production capability claims from API/UI-facing contracts.
+- [x] 6.5 Align the Prisma Adjustment model with committed-only ledger linkage or implement a formal draft lifecycle decision.
+- [x] 6.6 Add the forward migration, regenerate Prisma Client, update fixtures/services, and retain database triggers as defence in depth.
+- [x] 6.7 Add Adjustment regression tests for unsupported ledger kinds, cross-customer, cross-tenant, wrong direction, wrong amount, wrong effective date, missing ledger, invalid historical preflight variants, and valid credit/debit variants.
 
 ## 7. SMS Payload And Delivery Truthfulness
 
-- [ ] 7.1 Define discriminated versioned payload schemas for earn-confirmed, redemption-confirmed, transaction-reversed, and balance-adjusted templates.
-- [ ] 7.2 Add template-specific payload builders and replace direct raw payload construction for active SMS outbox intents.
-- [ ] 7.3 Validate required IDs, phone number, amount strings, non-negative integer format, relationships, remaining balance, and expiry date where included.
-- [ ] 7.4 Classify every SmsPayloadError as terminal, dead-letter malformed payloads on first processing attempt, skip provider calls, and store stable failure details.
-- [ ] 7.5 Add tests for missing earn amount, invalid numeric amount, missing transaction ID, missing redemption balance, incomplete reversal/adjustment payloads, no provider call, and no repeated retry.
-- [ ] 7.6 Add production SMS deployment-policy checks for real provider mode, required secrets, and absent/false fake-provider override.
-- [ ] 7.7 Record controlled production smoke-test evidence, idempotency-key usage, retryable/terminal provider classifications, outage handling, and credential-rotation runbook updates.
+- [x] 7.1 Define discriminated versioned payload schemas for earn-confirmed, redemption-confirmed, transaction-reversed, and balance-adjusted templates.
+- [x] 7.2 Add template-specific payload builders and replace direct raw payload construction for active SMS outbox intents.
+- [x] 7.3 Validate required IDs, phone number, amount strings, non-negative integer format, relationships, remaining balance, and expiry date where included.
+- [x] 7.4 Classify every SmsPayloadError as terminal, dead-letter malformed payloads on first processing attempt, skip provider calls, and store stable failure details.
+- [x] 7.5 Add tests for missing earn amount, invalid numeric amount, missing transaction ID, missing redemption balance, incomplete reversal/adjustment payloads, no provider call, and no repeated retry.
+- [x] 7.6 Add production SMS deployment-policy checks for real provider mode, required secrets, and absent/false fake-provider override.
+- [ ] 7.7 Record controlled production smoke-test evidence, idempotency-key usage, retryable/terminal provider classifications, outage handling, and credential-rotation runbook updates. Production access is still required for the smoke-test evidence.
 
 ## 8. Migration Verification And Documentation Evidence
 
-- [ ] 8.1 Rename the current restore test to identify it as a synthetic upgrade-path test.
-- [ ] 8.2 Add protected shared-backup restore verification requiring actual schema/data dump paths and failing without fallback fixtures.
-- [ ] 8.3 Restore the real backup into isolated PostgreSQL, preserve original `_prisma_migrations`, and run `prisma migrate status` before changing anything.
-- [ ] 8.4 Apply only genuinely pending migrations with `prisma migrate deploy`.
-- [ ] 8.5 Compare restored migration rows to repository migrations by name, SHA-256 checksum, finished_at, rolled_back_at, and applied-step count before any repair command.
-- [ ] 8.6 Detect extra database migrations and committed migrations absent from the database after deployment.
-- [ ] 8.7 Add SQL object inventory and behavioural probes for required functions, triggers, constraints, indexes, and historical financial rows.
-- [ ] 8.8 Emit machine-readable migration reconciliation and object/probe reports as release artifacts.
-- [ ] 8.9 Update `docs/database/migration-tracker.md` and review task states to distinguish synthetic and actual shared-backup evidence.
+- [x] 8.1 Rename the current restore test to identify it as a synthetic upgrade-path test.
+- [x] 8.2 Add protected shared-backup restore verification requiring actual schema/data dump paths and failing without fallback fixtures.
+- [x] 8.3 Restore the real backup into isolated PostgreSQL, preserve original `_prisma_migrations`, and run `prisma migrate status` before changing anything.
+- [x] 8.4 Apply only genuinely pending migrations with `prisma migrate deploy`.
+- [x] 8.5 Compare restored migration rows to repository migrations by name, SHA-256 checksum, finished_at, rolled_back_at, and applied-step count before any repair command.
+- [x] 8.6 Detect extra database migrations and committed migrations absent from the database after deployment.
+- [x] 8.7 Add SQL object inventory and behavioural probes for required functions, triggers, constraints, indexes, and historical financial rows.
+- [x] 8.8 Emit machine-readable migration reconciliation and object/probe reports as release artifacts.
+- [x] 8.9 Update `docs/database/migration-tracker.md` and review task states to distinguish synthetic and actual shared-backup evidence.
 
 ## 9. API Contracts, Validation Coverage, And CI
 
-- [ ] 9.1 Align documented public error examples with runtime envelopes for 400, 401, 403, 404, 409, 422, 429, and 503.
-- [ ] 9.2 Document stable device-revoked and attestation-replayed errors.
-- [ ] 9.3 Document type-specific receiptless transaction responses or explicit receiptless capability deferral.
-- [ ] 9.4 Regenerate OpenAPI and generated API client artifacts, run Spectral, run breaking-change diff, type-check the generated client, and add clean-diff checks.
-- [ ] 9.5 Replace manually enumerated test linting with robust glob or ESLint flat-config coverage for new tests.
-- [ ] 9.6 Expand formatting/validation coverage for docs, OpenSpec artifacts, API contracts, SQL runbooks, and generated artifacts.
-- [ ] 9.7 Add SQL linting or parse/execution tests for operational SQL.
-- [ ] 9.8 Add a CI validation-scope check that reports tracked release-critical files outside validation.
+- [x] 9.1 Align documented public error examples with runtime envelopes for 400, 401, 403, 404, 409, 422, 429, and 503.
+- [x] 9.2 Document stable device-revoked and attestation-replayed errors.
+- [x] 9.3 Document type-specific receiptless transaction responses or explicit receiptless capability deferral.
+- [x] 9.4 Regenerate OpenAPI and generated API client artifacts, run Spectral, run breaking-change diff, type-check the generated client, and add clean-diff checks.
+- [x] 9.5 Replace manually enumerated test linting with robust glob or ESLint flat-config coverage for new tests.
+- [x] 9.6 Expand formatting/validation coverage for docs, OpenSpec artifacts, API contracts, SQL runbooks, and generated artifacts.
+- [x] 9.7 Add SQL linting or parse/execution tests for operational SQL.
+- [x] 9.8 Add a CI validation-scope check that reports tracked release-critical files outside validation.
 
 ## 10. Final Release Gate Evidence
 
 - [ ] 10.1 Run mandatory exact-head CI gates for install, Prisma generation, format, lint, test lint, type-check, build, entrypoint verification, Prisma validation, architecture, unit, OpenAPI, client, GitNexus, E2E, integration, synthetic migration, shared restore, quarantine, and auth security tests.
-- [ ] 10.2 Ensure mandatory release jobs are not allowed to pass with `continue-on-error`.
-- [ ] 10.3 Store migration reconciliation and database-object inventory as workflow artifacts.
-- [ ] 10.4 Reconcile Issue #1 by reopening it with remaining release evidence or opening a dedicated halfway production readiness issue.
+- [x] 10.2 Ensure mandatory release jobs are not allowed to pass with `continue-on-error`.
+- [x] 10.3 Store migration reconciliation and database-object inventory as workflow artifacts.
+- [x] 10.4 Reconcile Issue #1 by reopening it with remaining release evidence or opening a dedicated halfway production readiness issue.
 - [ ] 10.5 Assemble the final release-evidence package with final SHA, review record, workflow URL/run ID, job results, shared backup source/timestamp, restore records, migration/object reports, financial probes, quarantine dry run, device security tests, real SMS smoke evidence, deployment checklist, rollback/restore procedure, updated tracker, and issue state.
 - [ ] 10.6 Keep halfway production deployment marked no-go until every final gate criterion is attached to the same immutable release-candidate SHA.

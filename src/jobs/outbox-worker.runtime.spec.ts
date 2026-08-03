@@ -240,7 +240,11 @@ describe('OutboxWorkerRuntime', () => {
       },
     });
     const smsProvider = { send: jest.fn() };
-    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), smsProvider);
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      smsProvider,
+    );
     const job: TestJob = {
       data: { id: 'outbox-invalid', tenantId: 'tenant-1' },
       discard: jest.fn(),
@@ -272,7 +276,11 @@ describe('OutboxWorkerRuntime', () => {
       },
     });
     const smsProvider = { send: jest.fn() };
-    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), smsProvider);
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      smsProvider,
+    );
     const job: TestJob = {
       data: { id: 'outbox-missing-receipt', tenantId: 'tenant-1' },
       discard: jest.fn(),
@@ -353,12 +361,12 @@ describe('OutboxWorkerRuntime', () => {
           outboxEventId: 'outbox-adjustment',
         },
       },
-        create: expect.objectContaining({
-          receiptId: null,
-          ledgerEntryId: 'ledger-1',
-          adjustmentId: 'adjustment-1',
-          template: 'balance-adjusted',
-        }) as Record<string, unknown>,
+      create: expect.objectContaining({
+        receiptId: null,
+        ledgerEntryId: 'ledger-1',
+        adjustmentId: 'adjustment-1',
+        template: 'balance-adjusted',
+      }) as Record<string, unknown>,
       update: {},
     });
     expect(smsProvider.send).toHaveBeenCalledWith(

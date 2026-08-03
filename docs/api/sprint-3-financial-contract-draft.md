@@ -204,24 +204,31 @@ Redemption lookup example:
 
 All errors use the API error envelope and stable machine-readable codes.
 
-| Status | Code |
-| ---: | --- |
-| 400 | `SESSION_DEVICE_REQUIRED` |
-| 400 | `DEVICE_NOT_ACTIVE` |
-| 400 | `DEVICE_BRANCH_MISMATCH` |
-| 400 | `VALIDATION_ERROR` |
-| 403 | role or approval-policy authorization failures |
-| 404 | `CARD_NOT_FOUND` under the documented anti-enumeration policy |
-| 409 | `RECEIPT_ALREADY_USED` |
-| 409 | `IDEMPOTENCY_CONFLICT` |
-| 409 | duplicate reversal conflict |
-| 422 | `REDEMPTION_BELOW_MINIMUM` |
-| 422 | `REDEMPTION_EXCEEDS_BASKET_CAP` |
-| 422 | `INSUFFICIENT_BALANCE` |
-| 422 | `SAME_PURCHASE_REDEMPTION_NOT_ALLOWED` |
-| 422 | `OFFLINE_REDEMPTION_NOT_ALLOWED` |
-| 422 | `REDEMPTION_POLICY_CHANGED` |
-| 422 | `REVERSAL_REVIEW_REQUIRED` |
-| 429 | `RATE_LIMITED` |
-| 503 | `REDEMPTION_TRANSACTION_CONFLICT` |
-| 503 | `DEPENDENCY_UNAVAILABLE` |
+Auth endpoints also document the stable device/session failures used by the auth controller: `AUTH_REQUIRED`, `DEVICE_REVOKED`, and `DEVICE_ATTESTATION_REPLAYED`.
+
+Receiptless Adjustment/Reversal execution is deferred for the halfway release, so this draft only documents receipt-backed success responses and explicit deferral.
+
+| Status | Code                                                          |
+| -----: | ------------------------------------------------------------- |
+|    401 | `AUTH_REQUIRED`                                               |
+|    401 | `DEVICE_REVOKED`                                              |
+|    400 | `SESSION_DEVICE_REQUIRED`                                     |
+|    400 | `DEVICE_NOT_ACTIVE`                                           |
+|    400 | `DEVICE_BRANCH_MISMATCH`                                      |
+|    400 | `VALIDATION_ERROR`                                            |
+|    403 | role or approval-policy authorization failures                |
+|    404 | `CARD_NOT_FOUND` under the documented anti-enumeration policy |
+|    409 | `RECEIPT_ALREADY_USED`                                        |
+|    409 | `IDEMPOTENCY_CONFLICT`                                        |
+|    409 | `DEVICE_ATTESTATION_REPLAYED`                                 |
+|    409 | duplicate reversal conflict                                   |
+|    422 | `REDEMPTION_BELOW_MINIMUM`                                    |
+|    422 | `REDEMPTION_EXCEEDS_BASKET_CAP`                               |
+|    422 | `INSUFFICIENT_BALANCE`                                        |
+|    422 | `SAME_PURCHASE_REDEMPTION_NOT_ALLOWED`                        |
+|    422 | `OFFLINE_REDEMPTION_NOT_ALLOWED`                              |
+|    422 | `REDEMPTION_POLICY_CHANGED`                                   |
+|    422 | `REVERSAL_REVIEW_REQUIRED`                                    |
+|    429 | `RATE_LIMITED`                                                |
+|    503 | `REDEMPTION_TRANSACTION_CONFLICT`                             |
+|    503 | `DEPENDENCY_UNAVAILABLE`                                      |

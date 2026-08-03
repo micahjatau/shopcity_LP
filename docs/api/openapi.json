@@ -2059,7 +2059,6 @@
             }
           },
           "401": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2124,9 +2123,42 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "authRequired": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "AUTH_REQUIRED",
+                        "message": "Authentication required"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "deviceRevoked": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "DEVICE_REVOKED",
+                        "message": "Device session is no longer valid"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "403": {
             "description": "",
@@ -2269,7 +2301,6 @@
             }
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2334,9 +2365,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "deviceAttestationReplayed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "DEVICE_ATTESTATION_REPLAYED",
+                        "message": "Device attestation has already been used"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
             "description": "",
@@ -2729,7 +2778,6 @@
             }
           },
           "401": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2794,9 +2842,42 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "authRequired": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "AUTH_REQUIRED",
+                        "message": "Authentication required"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "deviceRevoked": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "DEVICE_REVOKED",
+                        "message": "Device session is no longer valid"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "403": {
             "description": "",
@@ -2939,7 +3020,6 @@
             }
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -3004,9 +3084,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "deviceAttestationReplayed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "DEVICE_ATTESTATION_REPLAYED",
+                        "message": "Device attestation has already been used"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
             "description": "",
@@ -3348,7 +3446,6 @@
             }
           },
           "401": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -3413,9 +3510,42 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "authRequired": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "AUTH_REQUIRED",
+                        "message": "Authentication required"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "deviceRevoked": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "DEVICE_REVOKED",
+                        "message": "Device session is no longer valid"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "403": {
             "description": "",
@@ -3558,7 +3688,6 @@
             }
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -3623,9 +3752,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "deviceAttestationReplayed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "DEVICE_ATTESTATION_REPLAYED",
+                        "message": "Device attestation has already been used"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
             "description": "",
@@ -4018,7 +4165,6 @@
             }
           },
           "401": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -4083,9 +4229,42 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "authRequired": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "AUTH_REQUIRED",
+                        "message": "Authentication required"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "deviceRevoked": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 401,
+                        "code": "DEVICE_REVOKED",
+                        "message": "Device session is no longer valid"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "403": {
             "description": "",
@@ -4228,7 +4407,6 @@
             }
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -4293,9 +4471,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "deviceAttestationReplayed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "DEVICE_ATTESTATION_REPLAYED",
+                        "message": "Device attestation has already been used"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
             "description": "",

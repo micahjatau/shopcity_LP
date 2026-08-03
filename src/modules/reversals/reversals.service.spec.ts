@@ -1,6 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
 import { IdempotencyRecordStatus } from '@prisma/client';
-import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { ReversalsService } from './reversals.service';
 
