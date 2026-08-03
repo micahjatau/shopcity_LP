@@ -223,7 +223,9 @@ describe('BranchesService', () => {
         id: 'device-id',
       }),
     );
-    expect(typeof updated.attestationSecret).toBe('string');
+    expect(
+      typeof (updated as { attestationSecret: string }).attestationSecret,
+    ).toBe('string');
   });
 });
 
