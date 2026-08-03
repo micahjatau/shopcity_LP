@@ -110,19 +110,25 @@ describe('expireApproval', () => {
       },
       data: {
         status: 'EXPIRED',
+        decidedAt: new Date('2026-08-03T00:00:00.000Z'),
         decisionByTenantId: null,
         decisionBy: null,
+        decisionReason: 'approval expired',
       },
     });
     expect(auditWriter.recordWithClient).toHaveBeenCalledWith(tx, {
       tenantId: 'tenant-1',
-      actorId: 'user-1',
+      actorId: null,
       action: 'approval.expire',
       entityType: 'approval',
       entityId: 'approval-1',
       metadata: {
         detectedByTenantId: 'tenant-1',
         detectedBy: 'approval-expiry-worker',
+        expiredAt: '2026-08-03T00:00:00.000Z',
+        targetType: 'EARN',
+        receiptId: 'receipt-1',
+        redemptionId: null,
       },
     });
   });
