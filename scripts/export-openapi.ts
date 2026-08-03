@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import prettier from 'prettier';
 async function main(): Promise<void> {
   process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';
   process.env.DATABASE_URL =
@@ -23,7 +24,11 @@ async function main(): Promise<void> {
   const document = buildOpenApiDocument(app);
   const outputPath = resolve(process.cwd(), 'docs', 'api', 'openapi.json');
 
-  await writeFile(outputPath, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
+  const formatted = await prettier.format(JSON.stringify(document, null, 2), {
+    parser: 'json',
+  });
+
+  await writeFile(outputPath, formatted, 'utf8');
   await app.close();
 }
 
