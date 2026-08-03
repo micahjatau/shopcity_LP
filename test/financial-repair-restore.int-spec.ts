@@ -516,30 +516,40 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
     }
   }, 180000);
 
-  it('reconciles protected shared-backup migration objects and historical adjustment evidence', async () => {
-    const restore = await new PostgreSqlContainer('postgres:16-alpine').start();
-    const restorePrisma = new PrismaClient({
-      datasources: { db: { url: restore.getConnectionUri() } },
-    });
+  const itIfSharedBackup =
+    process.env.SHOPCITY_SHARED_SCHEMA_DUMP_PATH &&
+    process.env.SHOPCITY_SHARED_DATA_DUMP_PATH
+      ? it
+      : it.skip;
 
-    try {
-      restoreDatabase(
-        restore as ExecablePostgresContainer,
-        loadSharedRestoreBackupDump(),
-      );
-
-      await restorePrisma.$connect();
-
-      const restoredMigrations = await readMigrationInventory(restorePrisma);
-      const committedMigrations = readCommittedMigrationInventory();
-      expect(restoredMigrations).toEqual(committedMigrations);
-
-      execSync('npx prisma migrate status', {
-        stdio: 'inherit',
-        env: { ...process.env, DATABASE_URL: restore.getConnectionUri() },
+  itIfSharedBackup(
+    'reconciles protected shared-backup migration objects and historical adjustment evidence',
+    async () => {
+      const restore = await new PostgreSqlContainer(
+        'postgres:16-alpine',
+      ).start();
+      const restorePrisma = new PrismaClient({
+        datasources: { db: { url: restore.getConnectionUri() } },
       });
 
-      const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
+      try {
+        restoreDatabase(
+          restore as ExecablePostgresContainer,
+          loadSharedRestoreBackupDump(),
+        );
+
+        await restorePrisma.$connect();
+
+        const restoredMigrations = await readMigrationInventory(restorePrisma);
+        const committedMigrations = readCommittedMigrationInventory();
+        expect(restoredMigrations).toEqual(committedMigrations);
+
+        execSync('npx prisma migrate status', {
+          stdio: 'inherit',
+          env: { ...process.env, DATABASE_URL: restore.getConnectionUri() },
+        });
+
+        const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
         SELECT p.proname
         FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -556,14 +566,14 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
           )
         ORDER BY p.proname
       `;
-      const triggers = await restorePrisma.$queryRaw<
-        {
-          tgname: string;
-          tgenabled: string;
-          tgdeferrable: boolean;
-          tginitdeferred: boolean;
-        }[]
-      >`
+        const triggers = await restorePrisma.$queryRaw<
+          {
+            tgname: string;
+            tgenabled: string;
+            tgdeferrable: boolean;
+            tginitdeferred: boolean;
+          }[]
+        >`
         SELECT tgname, tgenabled, tgdeferrable, tginitdeferred
         FROM pg_trigger
         WHERE tgname IN (
@@ -578,7 +588,7 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
         )
         ORDER BY tgname
       `;
-      const indexes = await restorePrisma.$queryRaw<{ indexname: string }[]>`
+        const indexes = await restorePrisma.$queryRaw<{ indexname: string }[]>`
         SELECT indexname
         FROM pg_indexes
         WHERE schemaname = 'public'
@@ -590,71 +600,73 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
         ORDER BY indexname
       `;
 
-      expect(functions.map((row) => row.proname)).toEqual(
-        expect.arrayContaining([
-          'prevent_adjustment_orphan_mutation',
-          'prevent_credit_lot_source_mutation',
-          'validate_adjustment_ledger_source',
-          'validate_credit_lot_balance_evidence_for_lot',
-        ]),
-      );
-      expect(triggers.map((row) => row.tgname)).toEqual(
-        expect.arrayContaining([
-          'prevent_adjustment_orphan_insert_update',
-          'validate_adjustment_ledger_source_insert_update',
-        ]),
-      );
-      expect(
-        triggers.find(
-          (row) =>
-            row.tgname === 'validate_adjustment_ledger_source_insert_update',
-        ),
-      ).toMatchObject({
-        tgenabled: 'O',
-        tgdeferrable: false,
-        tginitdeferred: false,
-      });
-      expect(indexes.map((row) => row.indexname)).toEqual(
-        expect.arrayContaining([
-          'Adjustment_tenantId_ledgerEntryId_key',
-          'Adjustment_tenantId_customerId_effectiveAt_idx',
-          'RedemptionAllocation_tenantId_adjustmentId_idx',
-        ]),
-      );
+        expect(functions.map((row) => row.proname)).toEqual(
+          expect.arrayContaining([
+            'prevent_adjustment_orphan_mutation',
+            'prevent_credit_lot_source_mutation',
+            'validate_adjustment_ledger_source',
+            'validate_credit_lot_balance_evidence_for_lot',
+          ]),
+        );
+        expect(triggers.map((row) => row.tgname)).toEqual(
+          expect.arrayContaining([
+            'prevent_adjustment_orphan_insert_update',
+            'validate_adjustment_ledger_source_insert_update',
+          ]),
+        );
+        expect(
+          triggers.find(
+            (row) =>
+              row.tgname === 'validate_adjustment_ledger_source_insert_update',
+          ),
+        ).toMatchObject({
+          tgenabled: 'O',
+          tgdeferrable: false,
+          tginitdeferred: false,
+        });
+        expect(indexes.map((row) => row.indexname)).toEqual(
+          expect.arrayContaining([
+            'Adjustment_tenantId_ledgerEntryId_key',
+            'Adjustment_tenantId_customerId_effectiveAt_idx',
+            'RedemptionAllocation_tenantId_adjustmentId_idx',
+          ]),
+        );
 
-      writeFileSync(
-        '/tmp/opencode/repo-review-34-migration-reconciliation.json',
-        JSON.stringify(
-          {
-            restoredMigrations,
-            committedMigrations,
-          },
-          null,
-          2,
-        ),
-      );
-      writeFileSync(
-        '/tmp/opencode/repo-review-34-object-probes.json',
-        JSON.stringify(
-          {
-            functions: functions.map((row) => row.proname),
-            triggers: triggers.map((row) => ({
-              name: row.tgname,
-              enabled: row.tgenabled,
-              deferrable: row.tgdeferrable,
-              initDeferred: row.tginitdeferred,
-            })),
-            indexes: indexes.map((row) => row.indexname),
-          },
-          null,
-          2,
-        ),
-      );
-    } finally {
-      await restorePrisma.$disconnect();
-      await restore.stop();
-    }
-  }, 240000);
+        writeFileSync(
+          '/tmp/opencode/repo-review-34-migration-reconciliation.json',
+          JSON.stringify(
+            {
+              restoredMigrations,
+              committedMigrations,
+            },
+            null,
+            2,
+          ),
+        );
+        writeFileSync(
+          '/tmp/opencode/repo-review-34-object-probes.json',
+          JSON.stringify(
+            {
+              functions: functions.map((row) => row.proname),
+              triggers: triggers.map((row) => ({
+                name: row.tgname,
+                enabled: row.tgenabled,
+                deferrable: row.tgdeferrable,
+                initDeferred: row.tginitdeferred,
+              })),
+              indexes: indexes.map((row) => row.indexname),
+            },
+            null,
+            2,
+          ),
+        );
+      } finally {
+        await restorePrisma.$disconnect();
+        await restore.stop();
+      }
+    },
+    240000,
+  );
 });
 
 function migrateDeploy(databaseUrl: string) {
