@@ -7,6 +7,7 @@ The implementation must stay within the repo-local, backend-first architecture a
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Freeze the halfway scope into explicit contracts and release gates.
 - Remove misleading reversal availability and keep deferred execution paths unavailable.
 - Complete the device attestation secret cutover without coupling it to session secrets.
@@ -16,6 +17,7 @@ The implementation must stay within the repo-local, backend-first architecture a
 - Keep receiptless read and execution capabilities out of the halfway release surface.
 
 **Non-Goals:**
+
 - Implementing actual transaction reversals or manual balance adjustments.
 - Introducing new architectural layers beyond the current modular monolith.
 - Reworking unrelated financial workflows that do not participate in the blocker set.

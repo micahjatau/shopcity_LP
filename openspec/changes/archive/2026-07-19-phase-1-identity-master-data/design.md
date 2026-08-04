@@ -5,12 +5,14 @@ Phase 1 is the trust foundation for the platform. The repo already has NestJS, P
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Establish backend-owned auth/session handling on top of Supabase identity verification.
 - Define the minimum master-data model for users, branches, devices, customers, cards, and audit logs.
 - Expose the first stable API surface for onboarding and lookup flows.
 - Keep all sensitive decisions server-side and auditable.
 
 **Non-Goals:**
+
 - Ledger earning, redemption, approvals, expiry, or SMS processing.
 - Offline sync behavior.
 - Full reporting beyond basic audit/query support.
@@ -52,16 +54,16 @@ Sensitive writes append audit rows
 
 ### Minimum data model
 
-| Entity | Purpose |
-|---|---|
-| tenants | ownership boundary, future-ready |
-| branches | branch policy and receipt context |
-| devices | browser/POS attribution |
-| users | staff identity and role |
-| sessions | backend-owned application session state |
-| customers | normalized customer identity |
-| cards | barcode lifecycle and replacement history |
-| audit_logs | immutable action trail |
+| Entity     | Purpose                                   |
+| ---------- | ----------------------------------------- |
+| tenants    | ownership boundary, future-ready          |
+| branches   | branch policy and receipt context         |
+| devices    | browser/POS attribution                   |
+| users      | staff identity and role                   |
+| sessions   | backend-owned application session state   |
+| customers  | normalized customer identity              |
+| cards      | barcode lifecycle and replacement history |
+| audit_logs | immutable action trail                    |
 
 ## Risks / Trade-offs
 

@@ -5,11 +5,13 @@ The CI failure in `docs/ci_review_2.md` shows the generated OpenAPI document and
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep the committed OpenAPI artifact identical to the generated document.
 - Make drift fail in CI before release checks pass.
 - Preserve the current API contract as documented by the controllers and tests.
 
 **Non-Goals:**
+
 - Change runtime API behavior.
 - Redesign the OpenAPI generation pipeline.
 - Add new external dependencies or contract formats.

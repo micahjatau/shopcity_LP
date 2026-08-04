@@ -5,12 +5,14 @@ The backend is a NestJS/Fastify monolith with Prisma-backed persistence, receipt
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make receipt persistence authoritative at commit time.
 - Add a clear approve/reject path for receipts that need review.
 - Prevent expired idempotency records from blocking or replaying requests.
 - Keep the change aligned with the existing modular backend layout.
 
 **Non-Goals:**
+
 - Implementing the immutable earnings ledger itself.
 - Device attestation, hardware enrollment, or certificate-based terminal identity.
 - Broader fraud review tooling or purchase ceiling changes.

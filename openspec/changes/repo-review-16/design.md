@@ -7,6 +7,7 @@ This change is intentionally broad because the remaining blockers span CI, API c
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Restore visible static verification in CI without removing the release gates already added.
 - Make the public OpenAPI contract reflect the actual HTTP payloads returned by the system.
 - Stop SMS recovery from looping forever on poison or exhausted work.
@@ -15,6 +16,7 @@ This change is intentionally broad because the remaining blockers span CI, API c
 - Require visible migration evidence before the tracker claims verification.
 
 **Non-Goals:**
+
 - Redesign the full approval model or introduce new approval states.
 - Replace BullMQ or redesign the entire worker architecture.
 - Add new product features beyond the review-driven contract and safety fixes.

@@ -12,10 +12,12 @@ The worker recovery tests still leave noisy background activity behind when Redi
 ## Capabilities
 
 ### New Capabilities
+
 - `worker-shutdown-hygiene`: deterministic worker teardown, bounded Redis test lifecycle, and clean test-process exit for worker recovery coverage.
 
 ### Modified Capabilities
-- 
+
+-
 
 ## Impact
 

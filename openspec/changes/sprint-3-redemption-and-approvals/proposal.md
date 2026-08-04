@@ -16,6 +16,7 @@ Sprint 2 established the authoritative earn-only ledger, credit lots, approval e
 ## Capabilities
 
 ### New Capabilities
+
 - `redemption-allocation`: Deterministic FIFO debit allocation, immutable allocation records, controlled lot-balance mutation, and concurrency safety.
 - `redemption-workflow`: Immediate and approval-dependent redemption command behavior, policy enforcement, idempotency, audit, SMS/outbox, and stable errors.
 - `generic-approval-targets`: Strongly referenced earn and redemption approval targets with current-state revalidation before execution.
@@ -23,6 +24,7 @@ Sprint 2 established the authoritative earn-only ledger, credit lots, approval e
 - `manual-adjustments`: Admin-only credit/debit adjustments that use the same ledger, lot, allocation, audit, idempotency, and SMS guarantees.
 
 ### Modified Capabilities
+
 - `financial-workflow-contracts`: Expand the public financial workflow contract from earn-only to earn, redeem, reversal, and adjustment transaction types.
 - `credit-lot-lifecycle-integrity`: Replace temporary lot-balance immutability with controlled allocation/restoration-backed balance transitions.
 - `canonical-receipt-orchestration`: Add redemption receipt evidence and duplicate protection while preserving existing earn receipt invariants.

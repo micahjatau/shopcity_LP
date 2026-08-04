@@ -13,6 +13,7 @@ Phase 1 is the first trust boundary for the platform: staff identity, backend-ow
 ## Capabilities
 
 ### New Capabilities
+
 - `identity-master-data`: staff auth/session lifecycle, RBAC, branch/device records, customer registration, card assignment/replacement, and audit logging.
 
 ### Modified Capabilities

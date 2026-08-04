@@ -5,12 +5,14 @@ The receipt integrity gate already protects upgrade correctness by failing close
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep the receipt integrity gate fail-closed.
 - Provide a documented repair/preflight path for legacy receipt data.
 - Make the upgrade harness stop at the intended target migration.
 - Keep migration evidence and operational guidance aligned.
 
 **Non-Goals:**
+
 - No change to the receipt domain model.
 - No automatic data healing inside the migration itself.
 - No new external tooling or service dependency.

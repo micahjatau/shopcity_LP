@@ -5,6 +5,7 @@ Review-35 leaves several release blockers across runtime correctness, audit trut
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prevent approval execution from using stale eligibility data.
 - Make deadline-driven expiry ownership auditable and truthful.
 - Terminally fail malformed persisted SMS work on the first attempt.
@@ -13,6 +14,7 @@ Review-35 leaves several release blockers across runtime correctness, audit trut
 - Upgrade restore verification to compare real migration ledger state and historical data integrity.
 
 **Non-Goals:**
+
 - Implementing the deferred reversal review-request workflow.
 - Reworking approval, SMS, or quarantine schemas beyond what is required for the gate.
 - Changing product UX beyond hiding the reversal route from operator-facing surfaces.

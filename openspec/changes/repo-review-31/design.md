@@ -7,6 +7,7 @@ This change stays inside the existing backend-first modular monolith. Money rema
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prove shared-database migration state against a restored database, not only against a clean migration run.
 - Make repair migrations fail closed unless every prerequisite SQL object is present or recreated.
 - Enforce adjustment-to-ledger consistency for committed records and reject historical mismatches before integrity migrations land.
@@ -14,6 +15,7 @@ This change stays inside the existing backend-first modular monolith. Money rema
 - Keep release and repo-review evidence open until proof is linked.
 
 **Non-Goals:**
+
 - Redesigning the full adjustment workflow UI.
 - Changing the meaning of confirmed ledger history.
 - Editing already-applied migrations in place.

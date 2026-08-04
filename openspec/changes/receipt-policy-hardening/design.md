@@ -5,12 +5,14 @@ The current receipt path has four related gaps: one config convention mismatch, 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make receipt-week configuration deterministic across validation and capture.
 - Add a finite purchase ceiling that rejects absurd values early.
 - Require cryptographic proof of device possession before a session can be tied to a device.
 - Keep migration-tracker hygiene part of the schema-change workflow.
 
 **Non-Goals:**
+
 - Redesigning the entire auth stack.
 - Introducing a new frontend flow beyond the minimum required for device attestation.
 - Reworking existing approval thresholds or review states beyond the hard maximum check.

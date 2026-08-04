@@ -5,12 +5,14 @@ CI is failing for multiple independent reasons: typed ESLint violations in worke
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make the repository verification path reproducible after `npm ci`.
 - Fail fast on static checks before slower jobs start.
 - Cancel superseded runs on the same branch or PR update.
 - Align repository guidance with actual `lint` and `lint:fix` behavior.
 
 **Non-Goals:**
+
 - Change product features or runtime application behavior.
 - Replace the existing CI platform or add a new test framework.
 - Broaden the verification scope beyond the current format, lint, typecheck, and GitNexus needs.

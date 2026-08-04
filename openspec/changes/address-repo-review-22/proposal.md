@@ -16,12 +16,14 @@ Sprint 3 redemption work has release-blocking correctness gaps identified in `do
 ## Capabilities
 
 ### New Capabilities
+
 - `redemption-approval-integrity`: REDEEM approval persistence, pending validation order, approval receipt loading, and pending receipt audit semantics.
 - `redemption-concurrency-stability`: stable API behavior for concurrent redemption idempotency, duplicate receipt, ledger, and approval target uniqueness races.
 - `redemption-allocation-invariants`: database-enforced allocation, restoration, ledger-linkage, ownership, and lot-balance invariants for debit financial effects.
 - `transaction-notification-ownership`: generalized SMS delivery intent ownership for receipt-backed and non-receipt financial transactions.
 
 ### Modified Capabilities
+
 - `financial-workflow-contracts`: Extend stable financial workflow behavior to Sprint 3 redemption approval execution and lookup contracts.
 - `sms-delivery-truthfulness`: Preserve outbox-event idempotency while allowing multiple truthful SMS records to relate to one receipt or no receipt.
 

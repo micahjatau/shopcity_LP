@@ -14,6 +14,7 @@ The current SMS worker path still leaves production safety gaps: startup can byp
 ## Capabilities
 
 ### New Capabilities
+
 - `sms-worker-production-guardrails`: production-safe SMS provider bootstrap and persisted retry-budget enforcement.
 
 ### Modified Capabilities

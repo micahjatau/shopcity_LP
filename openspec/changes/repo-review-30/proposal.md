@@ -11,9 +11,11 @@ Repo review 30 shows the halfway gate is still blocked because shared-database t
 ## Capabilities
 
 ### New Capabilities
+
 - `adjustment-evidence-integrity`: adjustment ledger entries must match the corresponding adjustment record and the adjustment evidence fields must be immutable.
 
 ### Modified Capabilities
+
 - `migration-safety`: shared-database verification must prove custom SQL objects, triggers, and historical effects on a restored database, not only migration ledger state.
 - `sprint-2-release-evidence`: tracker entries and repo-review completion claims must remain unproven until visible evidence exists.
 

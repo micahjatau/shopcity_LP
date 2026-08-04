@@ -12,9 +12,11 @@ The latest review still blocks shared-database rollout because the receipt migra
 ## Capabilities
 
 ### New Capabilities
+
 - None.
 
 ### Modified Capabilities
+
 - `receipt-integrity-gate`: legacy receipt migration must reject blank or whitespace-only POS references and must be verified through an upgrade-path migration test before shared deployment.
 
 ## Impact

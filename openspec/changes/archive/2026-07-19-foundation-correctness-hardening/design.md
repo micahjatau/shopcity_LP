@@ -5,12 +5,14 @@ The repo now has a working API foundation and phase-1 business modules, but the 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make generated API contracts match runtime behavior.
 - Make health/readiness behavior accurate and failure-visible.
 - Make request tracing and error codes stable for frontend mapping.
 - Enforce module boundaries and CI hygiene so regressions are caught early.
 
 **Non-Goals:**
+
 - Add new business workflows.
 - Change phase-1 resource semantics.
 - Introduce new infrastructure beyond what is needed for verification and boundary enforcement.

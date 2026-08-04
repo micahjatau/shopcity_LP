@@ -16,6 +16,7 @@ The current Sprint 2 implementation still has release-blocking gaps: production 
 ## Capabilities
 
 ### New Capabilities
+
 - `sms-delivery-truthfulness`: SMS dispatch must use a real provider contract in production and persist only truthful delivery states.
 - `outbox-recovery-resilience`: The worker must recover historical, published, failed, and Redis-lost outbox work without stranding SMS delivery records.
 - `financial-workflow-contracts`: Earn and approval flows must expose stable identifiers, revalidate policy at execution time, and stop relying on legacy bypass behavior.

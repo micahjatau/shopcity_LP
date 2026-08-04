@@ -5,12 +5,14 @@ The review shows the current SMS path is close but still unsafe for production: 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make production SMS provider selection explicit and environment-driven.
 - Ensure valid provider modes are accepted by config validation.
 - Stop delivery attempts after dead-lettering or retry exhaustion.
 - Keep retries replay-safe so provider side effects do not duplicate.
 
 **Non-Goals:**
+
 - Change the SMS vendor integration contract beyond what is needed for safety.
 - Rework unrelated worker scheduling or queue topology.
 - Modify product behavior outside the SMS delivery path.

@@ -15,9 +15,11 @@ Phase 1 is functionally large, but several integrity gaps still make the backend
 ## Capabilities
 
 ### New Capabilities
+
 - `phase-1-integrity-hardening`: cross-cutting hardening for policy defaults, migrations, auth/session safety, contract quality, integration realism, domain invariants, and CI gates.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

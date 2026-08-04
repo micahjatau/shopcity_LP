@@ -5,11 +5,13 @@ The repo already has a functioning backend and a typed bootstrap path, but a sub
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make the failing integration harnesses type-safe.
 - Ensure integration suites tear down cleanly.
 - Restore a reliable validation baseline for CI and local runs.
 
 **Non-Goals:**
+
 - No API contract changes.
 - No product feature changes.
 - No new dependencies or architectural changes.

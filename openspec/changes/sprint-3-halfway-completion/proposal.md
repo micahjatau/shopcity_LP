@@ -17,6 +17,7 @@ Sprint 3 is halfway implemented, but the release is still not trustworthy becaus
 ## Capabilities
 
 ### New Capabilities
+
 - `reversal-capability-boundary`: Defines the halfway release contract for reversal-related behavior, including the unavailable response and the explicit deferral of executable reversal and manual adjustment flows.
 - `device-attestation-cutover`: Covers dedicated attestation secret storage, KEK-based encryption, backfill, rotation, and removal of fingerprint-based signing fallback.
 - `branch-scoped-device-administration`: Restricts device listing, creation, and updates to the actor's authorized branch unless the actor has tenant-wide admin access.
@@ -27,6 +28,7 @@ Sprint 3 is halfway implemented, but the release is still not trustworthy becaus
 - `receiptless-capability-boundary`: Keeps receiptless transaction details and customer-ledger behavior formally unavailable in the halfway release.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

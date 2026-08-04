@@ -13,6 +13,7 @@ The current backend is close, but the pre-ledger gate still has production block
 ## Capabilities
 
 ### New Capabilities
+
 - `redis-throttling-production-safe`: production-capable Redis-backed throttling with secure connection handling and stable request buckets.
 - `bootstrap-password-hardening`: explicit bootstrap password policy that rejects repository placeholders and weak values.
 - `audit-system-actor-safety`: audit writes that support both human actors and system-generated events without violating database constraints.
@@ -20,6 +21,7 @@ The current backend is close, but the pre-ledger gate still has production block
 - `receipt-record-finalization`: a clear pre-ledger receipt record shape with idempotency and optional external receipt reference semantics.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

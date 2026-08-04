@@ -14,9 +14,11 @@ Phase 1 is runnable, but the foundation still has gaps in session correctness, t
 ## Capabilities
 
 ### New Capabilities
+
 - `foundation-integrity-hardening`: session lifecycle correctness, tenant/branch availability checks, tenant-safe identity resolution, card invariants, bootstrap usability, and configuration consistency before ledger work begins.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

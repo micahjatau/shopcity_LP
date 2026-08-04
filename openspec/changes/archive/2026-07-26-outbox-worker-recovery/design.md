@@ -5,6 +5,7 @@ The current earn and approval flows already persist outbox intent, but publicati
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Publish queue work only after the financial transaction commits.
 - Add a dedicated worker runtime for outbox publication, retry, and SMS delivery.
 - Persist delivery state separately from financial state.
@@ -12,6 +13,7 @@ The current earn and approval flows already persist outbox intent, but publicati
 - Keep shutdown behavior safe for both the API and worker process.
 
 **Non-Goals:**
+
 - Redesigning the earn or approval business rules.
 - Introducing a new queue backend or replacing BullMQ.
 - Building a full SMS campaign or templating platform.

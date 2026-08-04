@@ -9,6 +9,7 @@ The main stakeholders are cashier checkout, supervisor/admin approval and revers
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Implement server-authoritative online redemption with configured minimum, basket cap, high-value approval threshold, same-purchase exclusion, and offline rejection.
 - Persist redemption intent before confirmed financial execution so pending approvals are replayable and auditable without balance effects.
 - Consume credit lots by deterministic earliest-expiry-first allocation under transaction-level locking and database constraints.
@@ -18,6 +19,7 @@ The main stakeholders are cashier checkout, supervisor/admin approval and revers
 - Prove no concurrent redemption can consume more than active balance.
 
 **Non-Goals:**
+
 - Offline redemption or POS offline sync.
 - Scheduled credit expiry, expiry reminders, or expiry ledger execution.
 - Fraud dashboards, fraud-review queues, executive reporting, or materialized report views.
@@ -77,8 +79,9 @@ The main stakeholders are cashier checkout, supervisor/admin approval and revers
    - Alternative considered: a new queue system. Rejected because the existing outbox is intentionally generic and recoverable.
 
 10. Publish contract changes before controller work.
-   - OpenAPI, Bruno, examples, and generated-client checks must cover 201 confirmed redemption, 202 pending approval, approval decisions, reversals, adjustments, stable errors, and discriminated reads.
-   - Alternative considered: implement endpoints first and document afterward. Rejected because frontend/POS integration needs the state machine and error contract early.
+
+- OpenAPI, Bruno, examples, and generated-client checks must cover 201 confirmed redemption, 202 pending approval, approval decisions, reversals, adjustments, stable errors, and discriminated reads.
+- Alternative considered: implement endpoints first and document afterward. Rejected because frontend/POS integration needs the state machine and error contract early.
 
 ## Risks / Trade-offs
 

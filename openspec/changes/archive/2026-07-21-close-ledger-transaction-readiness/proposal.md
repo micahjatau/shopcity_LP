@@ -12,10 +12,12 @@ Receipt capture is closer to production-safe, but it still writes against precom
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-ledger-readiness`: authoritative receipt capture, approval workflow, and idempotency expiry needed before ledger posting can safely build on receipts.
 
 ### Modified Capabilities
-- 
+
+-
 
 ## Impact
 

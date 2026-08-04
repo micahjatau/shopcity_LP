@@ -106,19 +106,19 @@ Sprint 3 closes only when all of the following are true:
 
 The implementation should make policy configurable and use the TRD-recommended defaults until ShopCity confirms alternatives.
 
-| Policy | Initial default | Enforcement point |
-|---|---:|---|
-| Minimum redemption | NGN 500 | Redemption policy service inside the financial transaction |
-| Maximum redemption | 30% of basket amount | Redemption policy service inside the financial transaction |
-| High-value redemption approval | Above NGN 5,000 | Redemption command before financial execution |
-| Same-purchase redemption | Prohibited | Receipt/lot eligibility query |
-| Offline redemption | Prohibited | API and application policy |
-| Redemption amount | Smaller of requested amount, active balance and basket cap | Server calculation |
-| FIFO order | Earliest `expiresAt`, then `earnedAt`, then lot ID | Locked database query |
-| Reversal role | Supervisor/Admin | RBAC and application policy |
-| Manual adjustment role | Admin only | RBAC and application policy |
-| Manual credit adjustment expiry | 12 months from adjustment by default | Adjustment policy |
-| Decision reason | Required | DTO validation and database non-null fields |
+| Policy                          |                                            Initial default | Enforcement point                                          |
+| ------------------------------- | ---------------------------------------------------------: | ---------------------------------------------------------- |
+| Minimum redemption              |                                                    NGN 500 | Redemption policy service inside the financial transaction |
+| Maximum redemption              |                                       30% of basket amount | Redemption policy service inside the financial transaction |
+| High-value redemption approval  |                                            Above NGN 5,000 | Redemption command before financial execution              |
+| Same-purchase redemption        |                                                 Prohibited | Receipt/lot eligibility query                              |
+| Offline redemption              |                                                 Prohibited | API and application policy                                 |
+| Redemption amount               | Smaller of requested amount, active balance and basket cap | Server calculation                                         |
+| FIFO order                      |         Earliest `expiresAt`, then `earnedAt`, then lot ID | Locked database query                                      |
+| Reversal role                   |                                           Supervisor/Admin | RBAC and application policy                                |
+| Manual adjustment role          |                                                 Admin only | RBAC and application policy                                |
+| Manual credit adjustment expiry |                       12 months from adjustment by default | Adjustment policy                                          |
+| Decision reason                 |                                                   Required | DTO validation and database non-null fields                |
 
 Required environment/configuration keys:
 
@@ -1370,18 +1370,18 @@ Acceptance:
 
 ## 20. Risks and mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Two requests consume the same lots | Negative balance/double spend | Row locks, serializable transaction, conditional updates and concurrency tests |
-| Application lot updates commit without allocations | Unreconstructable liability | Deferred DB invariant checks and immutable allocation records |
-| Approval holds stale balance | Overdraw at execution | Do not reserve lots indefinitely; fully revalidate and lock at execution |
-| Reversal restores expired or already-reallocated funds | Incorrect liability | Restoration records, original-expiry preservation and review-required fallback |
-| Generalising approvals breaks earn approvals | Sprint 2 regression | Additive fields, backfill, upgrade tests and existing approval regression suite |
-| Ledger `receiptId` migration weakens evidence linkage | Orphan transaction records | Type-specific relation checks and database constraints |
-| Debit adjustment bypasses lot accounting | Balance/lot mismatch | Reuse the same FIFO engine as redemption |
-| API contract changes block frontend | Integration delay | Publish contract first, run oasdiff and compile generated client |
-| Long-running locks hurt checkout latency | Poor user experience | Lock only eligible customer lots, deterministic query, bounded retries and performance test |
-| SMS changes regress delivery | Customer confusion | Reuse existing outbox/provider path and add template-specific tests |
+| Risk                                                   | Impact                        | Mitigation                                                                                  |
+| ------------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------- |
+| Two requests consume the same lots                     | Negative balance/double spend | Row locks, serializable transaction, conditional updates and concurrency tests              |
+| Application lot updates commit without allocations     | Unreconstructable liability   | Deferred DB invariant checks and immutable allocation records                               |
+| Approval holds stale balance                           | Overdraw at execution         | Do not reserve lots indefinitely; fully revalidate and lock at execution                    |
+| Reversal restores expired or already-reallocated funds | Incorrect liability           | Restoration records, original-expiry preservation and review-required fallback              |
+| Generalising approvals breaks earn approvals           | Sprint 2 regression           | Additive fields, backfill, upgrade tests and existing approval regression suite             |
+| Ledger `receiptId` migration weakens evidence linkage  | Orphan transaction records    | Type-specific relation checks and database constraints                                      |
+| Debit adjustment bypasses lot accounting               | Balance/lot mismatch          | Reuse the same FIFO engine as redemption                                                    |
+| API contract changes block frontend                    | Integration delay             | Publish contract first, run oasdiff and compile generated client                            |
+| Long-running locks hurt checkout latency               | Poor user experience          | Lock only eligible customer lots, deterministic query, bounded retries and performance test |
+| SMS changes regress delivery                           | Customer confusion            | Reuse existing outbox/provider path and add template-specific tests                         |
 
 ---
 

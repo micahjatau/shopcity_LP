@@ -7,11 +7,13 @@ This change is scoped to test/CI infrastructure. It should not alter application
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make integration test execution resilient to transient Docker Hub availability issues.
 - Ensure CI has a deterministic image hydration path before integration tests start.
 - Improve diagnostics when required images are unavailable.
 
 **Non-Goals:**
+
 - No product API or database schema changes.
 - No change to the developer-facing `npm run test:integration` command.
 - No attempt to mask real integration failures unrelated to image retrieval.

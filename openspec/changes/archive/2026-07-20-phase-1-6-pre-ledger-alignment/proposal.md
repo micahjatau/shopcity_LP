@@ -12,6 +12,7 @@ Phase 1.5 closed several important foundation gaps, but the latest review still 
 ## Capabilities
 
 ### New Capabilities
+
 - `redis-throttling`: distributed rate limits for sensitive routes using Redis.
 - `tenant-ownership-completeness`: tenant-safe actor, audit, and child-entity ownership relations.
 - `bootstrap-credential-hardening`: safe bootstrap password rules and Supabase setup guidance.

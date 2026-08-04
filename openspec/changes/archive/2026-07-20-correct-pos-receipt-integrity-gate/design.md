@@ -5,6 +5,7 @@ The repository is past the broad foundation work, but the review still identifie
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make physical POS receipt identity the enforced uniqueness boundary.
 - Require active device attribution and derive branch context from authenticated tenant data.
 - Bound POS timestamps and preserve an explicit override path for exceptions.
@@ -12,6 +13,7 @@ The repository is past the broad foundation work, but the review still identifie
 - Make Redis-backed tests self-contained and Redis failures observable and recoverable.
 
 **Non-Goals:**
+
 - Implement loyalty earning, redemptions, balances, or approvals.
 - Introduce new queue topology or background job workflows.
 - Redesign unrelated customer, card, or audit contracts beyond what receipt integrity needs.
@@ -19,22 +21,27 @@ The repository is past the broad foundation work, but the review still identifie
 ## Decisions
 
 1. Make the physical receipt number first-class, remove the generated business `receiptNumber`, and keep the internal UUID separate.
+
 - Why: the physical printed receipt is the business identity that prevents duplicate earning, while an internal UUID still gives the application a stable row identifier.
 - Alternatives considered: keep a generated business receipt UUID as the uniqueness key. Rejected because it cannot prevent reuse of the same physical POS receipt.
 
 2. Compute the receipt week and normalized uniqueness key on the server.
+
 - Why: week assignment must be consistent, timezone-aware, and not trust client-provided values.
 - Alternatives considered: accept week data from the client. Rejected because it lets callers move the same sale between weeks.
 
 3. Require device-bound cashier context for receipt capture.
+
 - Why: receipt capture is a checkout action and should be attributable to a valid device and branch, not an arbitrary branch identifier from the request body.
 - Alternatives considered: keep branch as a free-form field with later validation. Rejected because the trust boundary would remain too loose.
 
 4. Keep timestamps split between POS occurrence time and server capture time.
+
 - Why: the business needs to know when the sale happened, but the server needs its own trusted capture timestamp and a tolerance window for late or future entries.
 - Alternatives considered: use one client timestamp for everything. Rejected because it is easy to abuse and hard to audit.
 
 5. Use Testcontainers or equivalent for Redis-backed tests and add bounded reconnect/reset logic in the Redis client.
+
 - Why: CI should not depend on ambient host services, and a transient Redis outage should not leave the process permanently wedged.
 - Alternatives considered: rely on a manually started local Redis and disable reconnects. Rejected because it is brittle in CI and unsafe in production operations.
 

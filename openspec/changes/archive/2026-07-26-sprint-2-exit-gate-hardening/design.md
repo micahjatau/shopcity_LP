@@ -7,6 +7,7 @@ This change hardens the release boundary rather than changing the core product m
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make SMS delivery truthful in production.
 - Recover historical and Redis-lost outbox work without manual database repair.
 - Remove receipt-only approval bypasses and expose a real transaction identifier.
@@ -14,6 +15,7 @@ This change hardens the release boundary rather than changing the core product m
 - Keep the changes small enough to ship as a single hardening release.
 
 **Non-Goals:**
+
 - Selecting or integrating a new third-party SMS vendor in this change.
 - Redesigning the full receipt or ledger domain model.
 - Changing the outbox event contract beyond what is required for SMS recovery.
@@ -26,6 +28,7 @@ This change hardens the release boundary rather than changing the core product m
 The worker entrypoint will stop instantiating `DeterministicSmsProvider` directly. Instead, a small factory will resolve the provider from validated environment and runtime mode.
 
 The factory will support three modes:
+
 - `real` for production-like delivery using provider credentials.
 - `sandbox` for non-production testing that can report `SENT` or `SUPPRESSED` but never fake delivery.
 - `deterministic` for unit/integration tests only.
@@ -33,6 +36,7 @@ The factory will support three modes:
 In production, the factory will reject `deterministic` and fail startup before the worker processes messages.
 
 Alternatives considered:
+
 - Injecting provider instances directly from `worker.ts`. Rejected because it scatters the production safety check.
 - Keeping deterministic mode in production and changing the status mapping. Rejected because the review explicitly calls out false delivery evidence as a P0 issue.
 
@@ -43,6 +47,7 @@ The worker runtime will own recovery for both new and historical rows. When a re
 Recovery will also consider `PUBLISHED` outbox rows when the linked SMS row is still non-terminal and `publishedAt` is older than the recovery threshold. This closes the Redis-loss hole without changing the outbox job ID strategy.
 
 Alternatives considered:
+
 - One-time data migration only. Rejected because it leaves future restore/replay paths dependent on perfect migration completion.
 - Treating missing SMS rows as terminal failures. Rejected because it strands recoverable historical work.
 
@@ -51,12 +56,14 @@ Alternatives considered:
 The legacy approval fallback will not remain a runtime path. Approval decisions will either execute through the current financial workflow or fail with a documented, stable error until the missing data is backfilled.
 
 The preferred rollout is:
+
 - backfill any legacy approval state into modern approval records before cutover,
 - then remove the review-only fallback from `ApprovalsService`.
 
 This preserves auditability and prevents receipt review state from becoming a silent substitute for ledger/outbox/SMS execution.
 
 Alternatives considered:
+
 - Keep the fallback and patch only the side effects. Rejected because it still mixes legacy review semantics with current financial execution.
 - Leave the fallback in place indefinitely. Rejected because it conflicts with the verified exit-gate goal.
 
@@ -65,6 +72,7 @@ Alternatives considered:
 `transactionId` will be treated as the canonical financial lookup identifier and will map to the ledger entry identity for confirmed earn flows. Responses can continue to include receipt fields, but the API contract will expose `transactionId` so callers do not have to infer the transaction from receipt identity.
 
 Alternatives considered:
+
 - Reusing `receiptId` as the canonical lookup key. Rejected because it keeps the domain model ambiguous.
 - Introducing a brand-new synthetic transaction table. Rejected because it adds schema and migration cost without solving a current ambiguity.
 
@@ -73,6 +81,7 @@ Alternatives considered:
 The expiry helper will clamp to the last valid day of the target month when a source date does not exist in the target month. That makes February 29 behavior deterministic and testable.
 
 Alternatives considered:
+
 - Keeping `setUTCMonth` rollover semantics. Rejected because it is not obvious to operators and produces surprising leap-day results.
 
 ### 6. Normalize error reporting for the financial workflow
@@ -80,6 +89,7 @@ Alternatives considered:
 The loyalty and approval services will return stable machine-readable codes for common rejection classes while keeping human-readable messages. A shared domain error helper will map known cases such as idempotency conflict, inactive card, receipt conflict, ineligible customer, and approval policy mismatch.
 
 Alternatives considered:
+
 - Leaving all existing `BadRequestException` and `ConflictException` messages as-is. Rejected because the review shows the frontend cannot safely distinguish classes of failure.
 
 ### 7. Align Prisma schema and migration output
@@ -89,6 +99,7 @@ The SMS model will use one consistent uniqueness strategy. The design will keep 
 This is the smallest safe fix because the worker always resolves SMS rows through tenant-scoped keys.
 
 Alternatives considered:
+
 - Add a new single-column unique index to the migration. Rejected because it creates an extra rule that is not needed for current lookups.
 
 ## Risks / Trade-offs
@@ -109,6 +120,7 @@ Alternatives considered:
 6. Remove the obsolete worker bootstrap once the runtime path is covered by tests.
 
 Rollback strategy:
+
 - Revert the application image if provider or recovery behavior regresses; the database changes are additive and the worker can continue to read existing rows.
 - If the approval backfill is incomplete, keep the legacy compatibility path disabled only after the backfill passes.
 

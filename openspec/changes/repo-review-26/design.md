@@ -5,12 +5,14 @@ Repo review 26 identifies an artifact-consistency problem rather than a runtime 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep the generated client aligned with the committed OpenAPI contract.
 - Make client-generation drift fail fast in CI.
 - Record current-head hardening evidence instead of relying on tracker intent.
 - Preserve deployable migration-history and backup/restore evidence requirements.
 
 **Non-Goals:**
+
 - Do not change runtime reversal behavior.
 - Do not expand manual-adjustment execution.
 - Do not edit already-applied shared migrations in place.

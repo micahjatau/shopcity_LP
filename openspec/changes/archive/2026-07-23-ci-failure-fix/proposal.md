@@ -13,9 +13,11 @@ CI is repeatedly failing for unrelated infrastructure reasons rather than produc
 ## Capabilities
 
 ### New Capabilities
+
 - `ci-failure-fix`: CI verification should be fast, reproducible, and self-contained.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

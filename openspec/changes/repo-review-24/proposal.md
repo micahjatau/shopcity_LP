@@ -14,9 +14,11 @@ Repo review 24 shows Sprint 3 still has cross-layer contradictions even after th
 ## Capabilities
 
 ### New Capabilities
+
 - `sprint-3b-hardening`: Coordinates the remaining hardening freeze, exit gates, and release-evidence requirements for closing the last Sprint 3 contradictions.
 
 ### Modified Capabilities
+
 - `financial-workflow-contracts`: Redemption status codes, approval/runtime truthfulness, transaction-read fidelity, and reversal-boundary requirements become stricter.
 - `sms-delivery-truthfulness`: Redemption-confirmed SMS payload structure and validation requirements expand to enforce complete, typed payloads.
 - `migration-safety`: Migration history, deploy verification, and backup/restore evidence requirements expand to cover the remaining shared-environment risk.

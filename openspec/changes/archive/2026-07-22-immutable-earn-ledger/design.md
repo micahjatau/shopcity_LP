@@ -5,12 +5,14 @@ The repository now has trustworthy receipt capture, idempotency, and approval-th
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a transaction-first earn flow that can confirm or defer a purchase without losing auditability.
 - Preserve append-only financial history in PostgreSQL.
 - Make approval and execution separate concerns with one-time financial side effects.
 - Commit notification intent with the transaction and deliver SMS asynchronously.
 
 **Non-Goals:**
+
 - Replacing PostgreSQL or Prisma.
 - Introducing event sourcing or microservices.
 - Redesigning the receipt integrity work already in place.
@@ -52,6 +54,7 @@ The repository now has trustworthy receipt capture, idempotency, and approval-th
 5. Add concurrency and exit-gate tests for duplicate earns and one-time approval execution.
 
 Rollback strategy:
+
 - If schema rollout fails, stop before switching consumers to the new API.
 - If worker deployment fails, keep the outbox rows durable and retry after fixing the worker image.
 - If a financial write path is unstable, revert the new API routing while preserving the append-only database state.

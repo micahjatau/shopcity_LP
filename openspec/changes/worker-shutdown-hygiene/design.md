@@ -7,11 +7,13 @@ This change targets lifecycle hygiene, not recovery semantics. The main stakehol
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make worker shutdown deterministic and idempotent.
 - Ensure integration tests can simulate Redis outage and restart without leaving orphaned background work.
 - Remove the need for force-exit behavior in the targeted worker recovery suite.
 
 **Non-Goals:**
+
 - Change outbox recovery rules or SMS delivery semantics.
 - Introduce new queueing infrastructure or external services.
 - Rework unrelated integration test suites unless they share the same lifecycle helper.

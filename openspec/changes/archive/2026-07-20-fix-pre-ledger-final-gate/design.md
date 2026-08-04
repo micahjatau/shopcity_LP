@@ -7,6 +7,7 @@ This change is a final gate before ledger work. It should remove those contradic
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make throttling safe for real Redis deployments and stable across instances.
 - Enforce a strict bootstrap password policy that rejects repository placeholders and weak values.
 - Allow audit events without a human actor while preserving tenant-local actor safety.
@@ -14,6 +15,7 @@ This change is a final gate before ledger work. It should remove those contradic
 - Define a receipt input record with explicit idempotency and operational context.
 
 **Non-Goals:**
+
 - Implement loyalty earning, redemptions, wallet balances, or approval workflows.
 - Introduce new queues or a new service topology.
 - Rename every internal persistence column immediately if a boundary adapter can preserve the public contract.
@@ -21,26 +23,32 @@ This change is a final gate before ledger work. It should remove those contradic
 ## Decisions
 
 1. Use an official Redis client with one shared application-managed connection.
+
 - Why: the current raw TCP implementation only covers the unsecured local Redis case and does not handle auth, TLS, reconnects, or connection reuse.
 - Alternatives considered: keep the bespoke RESP socket client. Rejected because it is not production-safe and creates a new TCP connection for every request.
 
 2. Make login throttling multi-dimensional.
+
 - Why: one bucket for IP plus username is easy to evade with account rotation or IP rotation.
 - Alternatives considered: keep the current single combined bucket. Rejected because it leaves obvious spray patterns under-protected.
 
 3. Reject bootstrap placeholder passwords explicitly and require a stronger minimum policy.
+
 - Why: the repository example value must never be accepted as a working administrator password.
 - Alternatives considered: allow placeholders in local/dev and warn. Rejected because bootstrap credentials are part of the trust boundary.
 
 4. Allow audit records with both actor fields null, and only populate actor tenant/id together for human actors.
+
 - Why: background jobs, system reversals, and reconciliation tasks need audit history even when no person initiated the event.
 - Alternatives considered: keep actorTenantId populated even when actorId is null. Rejected because it violates the database invariant and breaks system events.
 
 5. Expose `serialNumber` publicly while preserving internal storage names if needed during migration.
+
 - Why: the public contract must stop contradicting the spec, but renaming every storage column immediately is unnecessary churn.
 - Alternatives considered: keep `barcodeValue` public. Rejected because it preserves the current specification drift.
 
 6. Model receipts as idempotent capture records, not weekly unique POS references.
+
 - Why: ledger inputs need a stable retry key and clear operational context, but an external receipt number is not guaranteed to be authoritative and should remain informational.
 - Alternatives considered: keep branch/week/receipt-number uniqueness as the main contract. Rejected because it does not express idempotent retries or optional informational references.
 

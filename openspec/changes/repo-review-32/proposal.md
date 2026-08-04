@@ -13,10 +13,10 @@ Repository review 32 shows the release gate is still blocked by a few safety gap
 ## Capabilities
 
 ### New Capabilities
+
 - `release-hardening-guardrails`: release-readiness safeguards for migration history, adjustment linkage, receipt quarantine, and restore verification.
 
 ### Modified Capabilities
-
 
 ## Impact
 

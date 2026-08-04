@@ -3,6 +3,7 @@
 The backend must treat the client as untrusted for money, roles, and approvals.
 
 ## Controls
+
 - Supabase-backed staff identity verification.
 - Backend-owned application sessions, CSRF defense, and role-aware access control.
 - Role-aware API access.
@@ -11,6 +12,7 @@ The backend must treat the client as untrusted for money, roles, and approvals.
 - Audit events for sensitive actions, including auth events.
 
 ## Invariants
+
 - Frontend-submitted balances are never trusted.
 - Confirmed ledger entries are never edited or deleted.
 - Stale balances must not authorize redemptions.

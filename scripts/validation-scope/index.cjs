@@ -2,9 +2,7 @@ const { execFileSync } = require('node:child_process');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const yaml = require('js-yaml');
-const {
-  isReleaseCriticalFile,
-} = require('./release-critical-files.cjs');
+const { isReleaseCriticalFile } = require('./release-critical-files.cjs');
 const { COVERAGE_RULES } = require('./coverage-rules.cjs');
 
 function listGitFiles() {
@@ -19,8 +17,13 @@ function resolveCoverage(files = listGitFiles()) {
   const coverageByFile = new Map();
 
   for (const file of criticalFiles) {
-    const matchedRules = COVERAGE_RULES.filter((rule) => rule.pattern.test(file));
-    coverageByFile.set(file, matchedRules.flatMap((rule) => rule.validators));
+    const matchedRules = COVERAGE_RULES.filter((rule) =>
+      rule.pattern.test(file),
+    );
+    coverageByFile.set(
+      file,
+      matchedRules.flatMap((rule) => rule.validators),
+    );
   }
 
   const uncovered = criticalFiles.filter((file) => {
@@ -32,8 +35,10 @@ function resolveCoverage(files = listGitFiles()) {
 }
 
 function loadPackageScripts() {
-  return JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'))
-    .scripts ?? {};
+  return (
+    JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'))
+      .scripts ?? {}
+  );
 }
 
 function collectWorkflowJobs() {
@@ -71,11 +76,22 @@ function validatePackageScripts(scripts = loadPackageScripts()) {
 
 function validateWorkflowCommands() {
   const jobs = collectWorkflowJobs();
-  const requiredCommands = [...new Set(COVERAGE_RULES.flatMap((rule) => rule.validators))];
+  const requiredCommands = [
+    ...new Set(COVERAGE_RULES.flatMap((rule) => rule.validators)),
+  ];
   const missing = requiredCommands.filter(
-    (command) => !jobs.some((job) => job.steps.some((step) => step.includes(`npm run ${command}`))),
+    (command) =>
+      !jobs.some((job) =>
+        job.steps.some((step) => step.includes(`npm run ${command}`)),
+      ),
   );
-  const optionalized = jobs.filter((job) => job.continueOnError && job.steps.some((step) => requiredCommands.some((command) => step.includes(`npm run ${command}`))));
+  const optionalized = jobs.filter(
+    (job) =>
+      job.continueOnError &&
+      job.steps.some((step) =>
+        requiredCommands.some((command) => step.includes(`npm run ${command}`)),
+      ),
+  );
 
   return { missing, optionalized, jobs };
 }
@@ -90,7 +106,9 @@ function formatReport({ uncovered, coverageByFile }) {
   }
 
   const files = uncovered.map((file) => `- ${file}`);
-  const validators = [...new Set(uncovered.flatMap((file) => coverageByFile.get(file) ?? []))];
+  const validators = [
+    ...new Set(uncovered.flatMap((file) => coverageByFile.get(file) ?? [])),
+  ];
 
   return [
     'Release-critical files outside validation:',

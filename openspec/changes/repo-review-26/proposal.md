@@ -13,10 +13,12 @@ Repo review 26 shows the latest OpenAPI fix is still only partial hardening: the
 ## Capabilities
 
 ### New Capabilities
+
 - `repo-review-26-hardening`: Tracks the remaining Sprint 3B release gate, current-head evidence, and tracker truthfulness needed to close the hardening gap.
 - `openapi-client-consistency`: Keeps the generated TypeScript client aligned with the committed OpenAPI contract and fails CI on drift.
 
 ### Modified Capabilities
+
 - `migration-safety`: Shared-environment migration completion must continue to require deployable migration history plus recorded evidence, not schema shape alone.
 
 ## Impact

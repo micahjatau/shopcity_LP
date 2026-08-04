@@ -11,9 +11,11 @@ The receipt integrity gate now fails closed on dirty historical data, but the re
 ## Capabilities
 
 ### New Capabilities
-- 
+
+-
 
 ### Modified Capabilities
+
 - `migration-safety`: the upgrade contract now includes receipt legacy-data preflight, repair guidance, and targeted upgrade-test coverage for the receipt integrity gate.
 
 ## Impact

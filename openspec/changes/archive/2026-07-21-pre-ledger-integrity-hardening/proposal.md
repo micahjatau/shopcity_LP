@@ -16,11 +16,11 @@ The system still has a few release-blocking trust gaps before immutable earning-
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-processing-readiness`: receipt migration safety, atomic capture, concurrency protection, high-value review workflow, session-bound device identity, device history preservation, and idempotency ownership/cleanup.
 - `api-auth-contract`: transport-specific CSRF behavior and documented auth expectations for unsafe requests.
 
 ### Modified Capabilities
-
 
 ## Impact
 

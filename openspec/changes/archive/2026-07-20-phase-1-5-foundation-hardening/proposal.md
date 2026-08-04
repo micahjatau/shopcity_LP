@@ -12,6 +12,7 @@ The backend is solid on auth, sessions, and core customer/card flows, but the re
 ## Capabilities
 
 ### New Capabilities
+
 - `ownership-integrity`: database constraints that enforce tenant ownership across branch-linked entities.
 - `card-state-safety`: concurrency-safe card transitions, terminal replaced-card handling, and activation eligibility checks.
 - `bootstrap-safety`: explicit, safe administrator bootstrap and a documented local Supabase startup flow.

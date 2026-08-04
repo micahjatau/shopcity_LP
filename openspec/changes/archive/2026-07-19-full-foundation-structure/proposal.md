@@ -12,10 +12,12 @@ The repository already has the beginnings of a modular NestJS foundation, but th
 ## Capabilities
 
 ### New Capabilities
+
 - `foundation-documentation`: repository documentation structure, standards, and maintenance rules that mirror the TRD and stay beside the code.
 
 ### Modified Capabilities
-- 
+
+-
 
 ## Impact
 

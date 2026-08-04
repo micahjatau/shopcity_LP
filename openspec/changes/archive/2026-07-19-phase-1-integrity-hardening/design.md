@@ -5,6 +5,7 @@ Phase 1 already ships real backend modules for auth, users, branches, customers,
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Align money policy defaults, sample env values, and runtime public config.
 - Make the Prisma schema deployable and seedable.
 - Make browser auth, CSRF, and session renewal internally consistent and safer to expose.
@@ -14,6 +15,7 @@ Phase 1 already ships real backend modules for auth, users, branches, customers,
 - Restore the repo’s baseline CI quality gates.
 
 **Non-Goals:**
+
 - Build the loyalty ledger, receipt engine, or earnings/redemption workflow.
 - Re-architect the backend into services or split the monolith.
 - Introduce new public product areas beyond the Phase 1 integrity layer.

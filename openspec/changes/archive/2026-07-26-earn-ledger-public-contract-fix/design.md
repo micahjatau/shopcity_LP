@@ -5,12 +5,14 @@ The repo now has the immutable ledger core, but it also still exposes a legacy r
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make one earn workflow authoritative for public clients.
 - Express confirmed versus pending approval outcomes in the HTTP contract.
 - Surface transaction identity, balance, and expiry data consistently.
 - Close the main database and outbox safety gaps around the new ledger.
 
 **Non-Goals:**
+
 - Reworking redemption or FIFO allocation.
 - Introducing a new messaging provider.
 - Redesigning the overall auth/session model.

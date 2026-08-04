@@ -15,10 +15,12 @@ The latest review still blocks ledger work because receipt identity, timestamp h
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-integrity-gate`: required POS receipt identity, migration correction, device/branch attribution, timestamp bounds, tenant-safe persistence, and safe money limits.
 - `redis-operability-hardening`: disposable Redis test provisioning, fail-closed coverage, and bounded reconnect/recovery handling.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

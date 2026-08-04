@@ -16,6 +16,7 @@ Repo review 20 confirms Sprint 2's core financial-integrity implementation is co
 ## Capabilities
 
 ### New Capabilities
+
 - `production-entrypoint-verification`: Production API and worker entrypoints are aligned with build output and smoke-tested after build.
 - `canonical-receipt-orchestration`: Receipt capture and review use only the canonical loyalty and approval orchestration path, without stale duplicate financial logic.
 - `financial-endpoint-rate-limiting`: Financial write endpoints, starting with earn, enforce explicit Redis-backed rate limits and document `429 RATE_LIMITED` errors.

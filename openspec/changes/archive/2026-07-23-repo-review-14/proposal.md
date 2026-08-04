@@ -13,9 +13,11 @@ The latest SMS reliability review still shows critical production gaps: the prod
 ## Capabilities
 
 ### New Capabilities
+
 - `sms-delivery-reliability`: production provider selection, bounded retries, and replay-safe SMS delivery.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

@@ -14,9 +14,11 @@ Repo review 21 found that the post-Sprint-2 read/API layer can return raw Prisma
 ## Capabilities
 
 ### New Capabilities
+
 - `active-balance-read-model`: Defines the authoritative active-balance read model used by customer, card, earn, and future redemption reads.
 
 ### Modified Capabilities
+
 - `cashier-data-minimization`: Require all customer/card read DTOs to avoid raw Prisma entities, raw `bigint`, and nested PII while preserving audited privileged full-contact reads.
 - `bounded-list-endpoints`: Require customer list endpoints to return aggregate balances without unbounded nested credit-lot collections.
 - `financial-endpoint-rate-limiting`: Require runtime throttling failures to return the documented `RATE_LIMITED` envelope.

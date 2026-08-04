@@ -14,6 +14,7 @@ Sprint 2 still cannot close because the latest head regressed core release gates
 ## Capabilities
 
 ### New Capabilities
+
 - `ci-gate-restoration`: restore the missing static verification gates in CI and keep them visible ahead of release checks.
 - `api-contract-completeness`: fully describe the current transaction, ledger, approval, and earn HTTP responses in OpenAPI.
 - `sms-terminal-failure-handling`: make SMS recovery stop at terminal failure states and dead-letter poison or exhausted messages.

@@ -14,10 +14,12 @@ Review 28 shows the repo is still not safe to treat as production-ready: migrati
 ## Capabilities
 
 ### New Capabilities
+
 - `approval-expiry-consistency`: shared atomic expiry flow for approval-driven workflows, including REDEEM receipt settlement and expiry audit recording.
 - `supervisor-read-authorization`: actor-aware branch-scoped approval listing, approval decisions, and customer-ledger reads.
 
 ### Modified Capabilities
+
 - `migration-safety`: require the actual shared migration history to match committed migrations and be verified by backup/restore rehearsal.
 - `financial-workflow-contracts`: resolve completed idempotency replays before timestamp or policy checks for new execution.
 - `credit-lot-lifecycle-integrity`: allow approved adjustment-credit sources and require restorations to stay tied to the original debit.

@@ -12,6 +12,7 @@ Receipt policy is split across config, validation, and runtime checks in a way t
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-policy-hardening`: receipt-week consistency, purchase ceiling enforcement, device attestation, and migration-tracker hygiene.
 
 ### Modified Capabilities

@@ -5,6 +5,7 @@ Review 27 confirms the repo is improving on client parity and CI, but the next r
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prove shared database migrations are safe to restore and deploy.
 - Make redemption replay authoritative before mutable eligibility checks.
 - Enforce bounded retry behavior for serializable redemption conflicts.
@@ -13,6 +14,7 @@ Review 27 confirms the repo is improving on client parity and CI, but the next r
 - Enforce branch-scoped transaction reads for cashiers and wider scopes for privileged roles.
 
 **Non-Goals:**
+
 - Add reversal or adjustment user flows beyond the contracts needed for validation.
 - Redesign public response payloads beyond the scope of the hardening requirements.
 - Replace Prisma, the approval model, or the existing audit/outbox infrastructure.
@@ -20,21 +22,27 @@ Review 27 confirms the repo is improving on client parity and CI, but the next r
 ## Decisions
 
 ### Release evidence is part of the migration contract
+
 The shared database must be verified with both a migration-ledger comparison and a restore-based deploy rehearsal before the change is treated as release-ready. This is preferable to trusting `db push` output alone because `db push` does not prove that restore, migration history, or future deploy behavior are safe.
 
 ### Redemption replay happens before mutable checks
+
 The redemption service should normalize the request, check for a completed idempotency response, and return that result before consulting mutable state such as card status or branch eligibility. This keeps retries authoritative and prevents a completed transaction from being rejected because the world changed after the first success.
 
 ### Serializable conflicts get bounded retries only
+
 Redemption transactions should retry only serialization failures, with a small bounded backoff policy and jitter. Broader retrying would blur business rejections with infrastructure contention and could hide real validation failures.
 
 ### Credit sources are generalized, but invariants stay strict
+
 Credit lots should accept any valid credit-producing source that the model explicitly allows, including adjustment credits, while keeping source references immutable and restoration mappings anchored to the original debit. This avoids an earn-only source model that blocks adjustments without weakening auditability.
 
 ### Approval expiry becomes a worker concern
+
 Approval expiry should run in a scheduled bounded worker using lock-based batch selection instead of piggybacking on queue reads. That removes hidden writes from GET paths, makes processing deterministic, and gives us a place to attach expiry audits.
 
 ### Transaction reads enforce authorization in the service boundary
+
 Transaction read access should be checked with the caller's auth context inside the read service, not only in the controller. That keeps branch/tenant scope rules consistent across all call sites and avoids accidental bypasses.
 
 ## Risks / Trade-offs

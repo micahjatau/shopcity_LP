@@ -7,12 +7,14 @@ The current codebase already uses feature modules and shared infrastructure fold
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep the repository modular and scalable in the TRD sense.
 - Make the docs tree mirror the TRD's major concern areas.
 - Preserve a small number of stable entry documents (`README.md`, `AGENTS.md`, migration tracker) that point to deeper docs.
 - Keep migration and backup discipline explicit and local to the repo.
 
 **Non-Goals:**
+
 - Splitting the repository into `apps/` and `packages/` immediately.
 - Adding product-specific feature documentation beyond the foundation set.
 - Rewriting the runtime architecture or introducing new business behavior.
@@ -20,49 +22,61 @@ The current codebase already uses feature modules and shared infrastructure fold
 ## Decisions
 
 ### 1. Keep the codebase as a modular monolith in one repo for now
+
 The repo should retain the current root Nest application and feature-module layout instead of being prematurely split into multiple workspaces.
 
 Alternatives considered:
+
 - Move immediately to `apps/api` and `apps/worker`
 - Keep a flat controller/service structure
 
 Why this choice:
+
 - The TRD explicitly favors a modular monolith for the MVP.
 - The existing module boundaries already support future extraction.
 - A premature workspace split would add complexity before the domain boundaries are fully earned.
 
 ### 2. Mirror the TRD documentation categories under `docs/`
+
 The documentation tree should be organized by concern area: architecture, API, ADRs, runbooks, development, and database.
 
 Alternatives considered:
+
 - Keep one large `docs/README.md`
 - Scatter notes near the code without a structured docs tree
 
 Why this choice:
+
 - The TRD names concrete documentation locations.
 - Separate docs by concern area make ownership and review clearer.
 - A structured tree reduces drift and makes the repo navigable for future contributors.
 
 ### 3. Treat `AGENTS.md` and `README.md` as entrypoint documents
+
 These files should stay concise and point readers to the deeper docs instead of duplicating all content.
 
 Alternatives considered:
+
 - Move all guidance into `README.md`
 - Encode repo guidance only in OpenSpec artifacts
 
 Why this choice:
+
 - `AGENTS.md` is the operating guide for future agents.
 - `README.md` is the human-facing entrypoint.
 - Keeping both short forces the deeper docs to carry the durable detail.
 
 ### 4. Keep the migration tracker as the local audit trail
+
 The database migration tracker stays in `docs/database/migration-tracker.md` and is updated alongside schema work and restore checks.
 
 Alternatives considered:
+
 - Track migration notes only in commit messages
 - Leave backup/restore evidence outside the repo
 
 Why this choice:
+
 - The TRD requires a local tracker.
 - Schema and backup history need to be easy to review in one place.
 

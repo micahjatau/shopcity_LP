@@ -21,6 +21,7 @@ The halfway production gate remains a no-go because review 34 identified unresol
 ## Capabilities
 
 ### New Capabilities
+
 - `device-session-security`: Device-bound sessions and attestations are continuously validated, replay-protected, revoked on device ineligibility, and audited.
 - `approval-aggregate-safety`: Approval decisions and expiry operate on locked, freshly re-read aggregates and transition related financial records atomically.
 - `receipt-quarantine-safety`: Receipt quarantine uses durable batches, actor-attributed approval/execution, audited snapshots, dependency reconciliation, and transactional count checks.
@@ -29,6 +30,7 @@ The halfway production gate remains a no-go because review 34 identified unresol
 - `repository-validation-coverage`: Lint, formatting, SQL, contract, generated-artifact, and CI validation scopes cover all tracked release-critical sources and evidence.
 
 ### Modified Capabilities
+
 - `migration-safety`: Shared backup restore verification and checksum reconciliation must use the original restored `_prisma_migrations` rows before any repair command, plus database-object and behavioural probes.
 - `financial-workflow-contracts`: Adjustment model nullability, Adjustment regression coverage, approval state handling, and receiptless transaction responses must align with database invariants and release scope.
 - `sms-delivery-truthfulness`: Production SMS readiness must prove real-provider configuration, no production fake-provider bypass, delivery smoke evidence, idempotency, retry classification, and outage handling.

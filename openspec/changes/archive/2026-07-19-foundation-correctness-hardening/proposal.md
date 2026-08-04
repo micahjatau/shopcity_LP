@@ -16,6 +16,7 @@ The backend foundation is functional, but several correctness and contract gaps 
 ## Capabilities
 
 ### New Capabilities
+
 - `foundation-correctness`: API contract hygiene, health correctness, request tracing, error semantics, CI drift checks, and module-boundary enforcement.
 
 ### Modified Capabilities

@@ -7,12 +7,14 @@ The repo is still in a backend-first MVP phase, so the safest change is to harde
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Ensure public configuration only returns a tenant/branch pair that belongs together.
 - Prevent replaced cards from being reactivated through status updates.
 - Preserve the existing card replacement flow and its one-active-card invariant.
 - Add tests that lock in the new integrity behavior.
 
 **Non-Goals:**
+
 - Reworking the full tenant data model.
 - Introducing new services, queues, or external dependencies.
 - Changing the public API shape for cards or configuration.
@@ -20,18 +22,22 @@ The repo is still in a backend-first MVP phase, so the safest change is to harde
 ## Decisions
 
 1. Validate tenant/branch consistency in the configuration service.
+
 - Why: the mismatch is a runtime trust issue that can be fixed at the service boundary with minimal surface area.
 - Alternatives considered: composite tenant foreign keys, or a separate bootstrap table. Rejected for this change because they require broader schema work and are unnecessary for the current scope.
 
 2. Treat `REPLACED` as terminal in card status updates.
+
 - Why: the TRD expects replaced cards to remain inactive, and the current status endpoint allows a replaced card to be reactivated.
 - Alternatives considered: remove `ACTIVE` from the status endpoint entirely, or add a separate state machine module. Rejected because the endpoint already serves a valid operational need for toggling between active and blocked cards.
 
 3. Keep replacement logic centralized in the cards service.
+
 - Why: replacement already owns the active-card uniqueness check and the audit trail. Keeping the new guard there avoids splitting card state rules across controller and service layers.
 - Alternatives considered: enforce the rule in the controller or DTO validation. Rejected because business invariants belong in the service layer.
 
 4. Add focused tests instead of expanding the change into schema migration coverage.
+
 - Why: the behavior change is deterministic and can be covered with existing integration and service-level tests.
 - Alternatives considered: full database constraint redesign. Rejected for this change because it is larger than the immediate bug fix.
 

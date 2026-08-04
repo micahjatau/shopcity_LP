@@ -5,12 +5,14 @@ The repository already has a split CI workflow with static, GitNexus, e2e, and i
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep CI verification runnable from a clean checkout without ambient tooling.
 - Remove unsafe type escapes from verification-support code.
 - Keep repo guidance aligned with the actual scripts and workflow entrypoints.
 - Preserve the existing CI job split and concurrency behavior.
 
 **Non-Goals:**
+
 - No product feature work.
 - No schema or migration changes.
 - No new external CI dependency.

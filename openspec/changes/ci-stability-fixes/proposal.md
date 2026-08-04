@@ -12,10 +12,12 @@ CI is still fragile because the repository’s verification path depends on inco
 ## Capabilities
 
 ### New Capabilities
+
 - `ci-verification-stability`: deterministic lint, documentation, and GitNexus-backed verification behavior in clean local and CI environments.
 
 ### Modified Capabilities
-- 
+
+-
 
 ## Impact
 

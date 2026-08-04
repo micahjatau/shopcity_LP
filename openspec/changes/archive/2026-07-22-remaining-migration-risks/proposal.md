@@ -12,6 +12,7 @@ The receipt migration is now functionally correct, but two deployment risks rema
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-migration-safety`: protects receipt schema upgrades by validating legacy receipt identities and keeping migration replay tests aligned with the intended upgrade path.
 
 ### Modified Capabilities

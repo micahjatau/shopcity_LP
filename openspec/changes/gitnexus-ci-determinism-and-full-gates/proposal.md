@@ -12,9 +12,11 @@ CI is still not a trustworthy release gate: GitNexus analysis is non-reproducibl
 ## Capabilities
 
 ### New Capabilities
+
 - `ci-verification-gates`: CI verification must be reproducible, deterministic, and comprehensive enough to prove build health, contract freshness, and test coverage.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

@@ -12,6 +12,7 @@ The backend still has a few trust-boundary gaps that can surface incorrect tenan
 ## Capabilities
 
 ### New Capabilities
+
 - `tenant-card-integrity`: public config must not mix tenant/branch context, and replaced cards must remain terminal.
 
 ### Modified Capabilities

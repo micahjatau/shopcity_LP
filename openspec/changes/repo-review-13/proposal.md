@@ -12,6 +12,7 @@ The current outbox/SMS path still allows a fake provider mode to look production
 ## Capabilities
 
 ### New Capabilities
+
 - `sms-delivery-reliability`: production SMS mode safety, replay-safe outbox retries, and bounded failure handling.
 
 ### Modified Capabilities

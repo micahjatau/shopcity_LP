@@ -5,6 +5,7 @@ The current CI path is not a reliable release gate. GitNexus can succeed or fail
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make GitNexus execution deterministic in CI.
 - Fail GitNexus closed by default, with only an explicit emergency bypass.
 - Restore the full repository verification matrix in GitHub Actions.
@@ -12,6 +13,7 @@ The current CI path is not a reliable release gate. GitNexus can succeed or fail
 - Catch generated-file and contract drift before merge.
 
 **Non-Goals:**
+
 - Change product behavior or business rules.
 - Rework the integration test harness beyond what CI setup requires.
 - Introduce new application features.

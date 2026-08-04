@@ -14,10 +14,12 @@ Review 27 shows the repo is in better shape on client parity and CI, but the rel
 ## Capabilities
 
 ### New Capabilities
+
 - `approval-expiry-worker`: scheduled bounded expiry processing with atomic state transitions.
 - `transaction-read-authorization`: role-aware transaction access control with branch scope for cashiers and tenant scope for privileged roles.
 
 ### Modified Capabilities
+
 - `migration-safety`: require backup/restore proof and migration ledger reconciliation.
 - `financial-workflow-contracts`: require authoritative replay ordering, bounded retries, and unsupported financial combination rejection.
 - `credit-lot-lifecycle-integrity`: require adjustment-compatible credit sources and original-debit restoration linkage.

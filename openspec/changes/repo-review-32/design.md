@@ -5,6 +5,7 @@ Review 32 confirmed that the repo is improving, but the release gate is still bl
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Preserve forward-only migration history.
 - Make Adjustment source validation explicit and total.
 - Replace destructive receipt cleanup with an approval-based flow.
@@ -12,6 +13,7 @@ Review 32 confirmed that the repo is improving, but the release gate is still bl
 - Keep release evidence aligned with the verified state.
 
 **Non-Goals:**
+
 - No API redesign.
 - No new user-facing financial flows.
 - No migration backfills beyond the safety checks needed for the new guards.

@@ -7,12 +7,14 @@ This change is a final alignment pass before the financial core. It should remov
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Move throttling from process memory to Redis so limits are stable across restarts and instances.
 - Close the remaining tenant ownership gaps around actor and audit references.
 - Make bootstrap credentials explicit, safe, and fully documented for local setup.
 - Resolve customer, card, and record naming so the ledger phase starts from a clear contract.
 
 **Non-Goals:**
+
 - Implement the ledger, wallet, redemption, or approval workflows.
 - Introduce a new service topology or queue system.
 - Redesign the entire customer domain beyond the pre-ledger alignment decisions.
@@ -20,22 +22,27 @@ This change is a final alignment pass before the financial core. It should remov
 ## Decisions
 
 1. Use Redis as the rate-limit backing store.
+
 - Why: throttling counters must survive restarts and coordinate across instances.
 - Alternatives considered: in-memory maps and PostgreSQL counters. Rejected because neither fits high-frequency request protection.
 
 2. Key login and lookup limits by stable client context, not by the submitted serial number.
+
 - Why: serial-based keys can be evaded by rotating values and can inflate memory/counter cardinality.
 - Alternatives considered: using the card serial itself, or only IP address. Rejected because the serial is the abuse target and IP-only is too coarse for authenticated usage.
 
 3. Complete tenant ownership for actor/audit relations before introducing financial records.
+
 - Why: audit trails and actor links must not cross tenant boundaries once money-like records exist.
 - Alternatives considered: leave actor references as application-only checks until ledger work. Rejected because financial auditability requires stronger invariants first.
 
 4. Reject placeholder bootstrap passwords rather than trying to infer operator intent.
+
 - Why: a placeholder that looks like a strong password is still unsafe if it ships unchanged.
 - Alternatives considered: silently accepting and warning. Rejected because bootstrap credentials are part of the trust boundary.
 
 5. Resolve record naming now, before ledger tables exist.
+
 - Why: receipt/sale-record semantics and serial-number terminology affect schema, APIs, and tests more cheaply before the ledger phase.
 - Alternatives considered: defer until the first ledger migration. Rejected because ambiguity would propagate into the financial contract.
 

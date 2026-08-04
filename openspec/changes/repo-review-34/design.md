@@ -7,6 +7,7 @@ The architecture remains a backend-first Nest modular monolith backed by Supabas
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make active device sessions continuously dependent on linked device eligibility.
 - Prevent replayed device attestations from issuing additional sessions.
 - Ensure approval decisions and expiry use post-lock state and atomic aggregate transitions.
@@ -18,6 +19,7 @@ The architecture remains a backend-first Nest modular monolith backed by Supabas
 - Ensure OpenAPI, generated clients, CI, tracker, issue state, and release evidence all describe the same exact release candidate.
 
 **Non-Goals:**
+
 - Introducing GraphQL, microservices, or frontend-owned financial authority.
 - Editing or deleting confirmed ledger history.
 - Treating synthetic migration tests as proof that the real shared database is restorable.

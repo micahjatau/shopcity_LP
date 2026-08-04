@@ -12,6 +12,7 @@ The repository still has persistent CI pain points: lint fails on the Redis fail
 ## Capabilities
 
 ### New Capabilities
+
 - `ci-validation-stability`: repository validation SHALL complete with typed test harnesses, deterministic bootstrap/teardown, and no unsafe integration-test escape hatches.
 
 ### Modified Capabilities

@@ -12,6 +12,7 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `integration-test-runtime-resilience`: integration validation can complete in CI without depending on live Docker Hub availability during the test phase.
 
 ### Modified Capabilities

@@ -13,10 +13,12 @@ The latest review still flags two P0 blockers before ledger work can start: phys
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-integrity-gate`: required POS receipt identity, removal of the generated business receipt number, device/branch attribution, timestamp bounds, and tenant-safe receipt persistence.
 - `redis-operability-hardening`: self-contained Redis test provisioning, reconnect recovery, and observable failure handling.
 
 ### Modified Capabilities
+
 - None.
 
 ## Impact

@@ -14,6 +14,7 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `immutable-earn-ledger`: defines the earn, approval, outbox, and SMS behaviors needed for the TRD Phase 2 earning engine.
 
 ### Modified Capabilities

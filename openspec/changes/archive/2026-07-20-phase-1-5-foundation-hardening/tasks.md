@@ -9,7 +9,7 @@
 - [x] 2.2 Require active customer ownership before reactivating a blocked card.
 - [x] 2.3 Add race and transition tests for replacement, blocking, and reactivation.
 
-## 3. Bootstrap and Local Supabase Safety 
+## 3. Bootstrap and Local Supabase Safety
 
 - [x] 3.1 Require an explicit administrator bootstrap password in non-test environments and reject weak defaults.
 - [x] 3.2 Ensure bootstrap updates or verifies the Supabase administrator credential explicitly.

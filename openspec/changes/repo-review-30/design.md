@@ -7,11 +7,13 @@ This change stays inside the existing backend-first modular monolith. Money rema
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prove shared-database migration state against restored objects, not only against migration ledger metadata.
 - Keep release and repo-review evidence open until visible proof exists.
 - Enforce adjustment-to-ledger consistency and immutability for adjustment evidence fields.
 
 **Non-Goals:**
+
 - Do not introduce a new workflow for approving adjustments.
 - Do not change the public reversal contract in this change.
 - Do not rewrite already-applied migrations.

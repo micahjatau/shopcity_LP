@@ -11,6 +11,7 @@ CI is failing because the committed `docs/api/openapi.json` is out of sync with 
 ## Capabilities
 
 ### New Capabilities
+
 - `openapi-contract-cleanliness`: keep the committed OpenAPI artifact synchronized with the generated API contract and fail CI on drift.
 
 ### Modified Capabilities

@@ -13,6 +13,7 @@ Phase 1 is functionally close, but the foundation is still split across service-
 ## Capabilities
 
 ### New Capabilities
+
 - `auth-session-lifecycle`: authenticated session issuance, rotation, revocation, and request validation.
 - `environment-bootstrap`: deterministic project bootstrap, baseline seed state, and readiness verification.
 

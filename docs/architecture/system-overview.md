@@ -3,6 +3,7 @@
 ShopCity is a backend-first modular monolith that provides a controlled store-credit ledger beside the existing POS. The API owns the source of truth for balances, approvals, fraud checks, and audit history.
 
 ## Structure
+
 - `src/modules/` holds domain boundaries.
 - `src/common/` holds shared framework helpers.
 - `src/config/` holds validated configuration.
@@ -11,12 +12,14 @@ ShopCity is a backend-first modular monolith that provides a controlled store-cr
 - `src/jobs/` holds background work.
 
 ## Principles
+
 - Keep business rules server-side.
 - Keep money as integer kobo.
 - Keep financial history append-only.
 - Keep API contracts explicit and versioned.
 
 ## Module Boundaries
+
 - Feature code lives in `src/modules/<feature>/`.
 - Shared policy and helpers live in `src/common/`.
 - Configuration lives in `src/config/`.
@@ -28,6 +31,7 @@ ShopCity is a backend-first modular monolith that provides a controlled store-cr
 - Shared layers must not import feature modules.
 
 ## Scalability View
+
 ```text
 HTTP/API -> feature module -> application logic -> Prisma/Supabase/queue
                           \

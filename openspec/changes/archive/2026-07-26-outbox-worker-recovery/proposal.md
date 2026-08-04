@@ -13,10 +13,12 @@ The current earning flow still publishes queue work from inside the financial tr
 ## Capabilities
 
 ### New Capabilities
+
 - `outbox-worker-recovery`: committed outbox publication, asynchronous SMS delivery, retry/recovery, and operational delivery-state tracking.
 
 ### Modified Capabilities
-- 
+
+-
 
 ## Impact
 

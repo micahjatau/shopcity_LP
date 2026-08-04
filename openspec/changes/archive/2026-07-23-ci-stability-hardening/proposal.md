@@ -13,6 +13,7 @@ CI is repeatedly failing for reasons that are not addressed by the current produ
 ## Capabilities
 
 ### New Capabilities
+
 - `ci-stability-hardening`: CI, lint, and repository verification must be reproducible, fast to fail, and free of avoidable environment assumptions.
 
 ### Modified Capabilities

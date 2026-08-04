@@ -15,7 +15,10 @@ const localBinary = path.join(
 const timeoutMs = 10 * 60 * 1000;
 
 function run(command, commandArgs) {
-  return spawnSync(command, commandArgs, { stdio: 'inherit', timeout: timeoutMs });
+  return spawnSync(command, commandArgs, {
+    stdio: 'inherit',
+    timeout: timeoutMs,
+  });
 }
 
 if (existsSync(localRunner)) {

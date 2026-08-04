@@ -15,6 +15,7 @@ The current earn implementation has a parallel legacy receipt path that can rese
 ## Capabilities
 
 ### New Capabilities
+
 - `earn-ledger-public-contract-fix`: authoritative earn routing, public contract completeness, balance visibility, ledger integrity, and outbox readiness.
 
 ### Modified Capabilities

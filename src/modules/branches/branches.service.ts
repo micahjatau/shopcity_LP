@@ -194,7 +194,8 @@ export class BranchesService {
 
       if (data.rotateAttestationSecret) {
         attestationSecret = generateDeviceAttestationSecret();
-        const attestationSecretVersion = (updated.attestationSecretVersion ?? 0) + 1;
+        const attestationSecretVersion =
+          (updated.attestationSecretVersion ?? 0) + 1;
         updated = await prisma.device.update({
           where: { id: deviceId },
           data: {
@@ -285,7 +286,9 @@ export class BranchesService {
   }
 }
 
-function resolveDeviceManagementScope(actor: AuthContext): DeviceManagementScope {
+function resolveDeviceManagementScope(
+  actor: AuthContext,
+): DeviceManagementScope {
   if (actor.user.role === UserRole.ADMIN) {
     return { tenantWide: true, branchId: null };
   }

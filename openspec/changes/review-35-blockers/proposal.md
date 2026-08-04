@@ -14,6 +14,7 @@ The review gate still has several production-blocking gaps across approval execu
 ## Capabilities
 
 ### New Capabilities
+
 - `review-35-blockers`: release-readiness hardening across approval locking, expiry attribution, SMS terminal failure handling, quarantine safety, reversal truthfulness, and restore verification.
 
 ### Modified Capabilities

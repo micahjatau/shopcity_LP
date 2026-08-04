@@ -7,12 +7,14 @@ This change is intentionally a final foundation-hardening phase. It should close
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Enforce tenant ownership in the database for the core branch-linked entities.
 - Make card status transitions safe under concurrency and keep replaced cards terminal.
 - Require explicit, safe administrator bootstrap credentials and a local Supabase startup path.
 - Add throttling and public-config active-state checks for sensitive endpoints.
 
 **Non-Goals:**
+
 - Implement the ledger, wallet, approvals, or outbox systems.
 - Rework customer/card naming or receipt semantics beyond what is needed for this phase.
 - Introduce a new distributed architecture or separate service.
@@ -20,22 +22,27 @@ This change is intentionally a final foundation-hardening phase. It should close
 ## Decisions
 
 1. Use composite ownership keys instead of app-only tenant checks.
+
 - Why: the review identified cross-tenant reference risk that cannot be fully eliminated in service code.
 - Alternatives considered: leaving the current app-level checks in place, or adding validation triggers only. Rejected because database constraints provide the strongest invariant with the least runtime ambiguity.
 
 2. Make card status updates conditional inside the transaction.
+
 - Why: a pre-read guard still allows stale reads to overwrite a replacement in a race.
 - Alternatives considered: adding a separate state machine module or relying on optimistic checks in the controller. Rejected because the write itself must be conditional to be concurrency-safe.
 
 3. Require an explicit bootstrap password and treat weak defaults as invalid.
+
 - Why: the current fallback password is unsafe and makes the seed path look safer than it is.
 - Alternatives considered: keeping the fallback for convenience, or silently generating a password. Rejected because bootstrap credentials must be deliberate and operator-visible.
 
 4. Keep local Supabase bootstrap as an explicit operator step.
+
 - Why: the app already depends on Supabase for identity flows, so local setup must show that dependency instead of implying it is bundled.
 - Alternatives considered: hiding the dependency behind a stub or changing the app to avoid Supabase locally. Rejected because that would diverge from the production model.
 
 5. Add request throttling at the API edge using the existing Redis-backed stack.
+
 - Why: the protected endpoints are public enough to be enumerated and should not rely on business logic alone.
 - Alternatives considered: implementing ad hoc counters in each service, or deferring throttling entirely. Rejected because a shared edge guard is simpler and more consistent.
 

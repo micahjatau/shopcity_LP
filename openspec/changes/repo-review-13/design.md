@@ -5,12 +5,14 @@ The review shows the worker is close, but not production-safe yet: `createSmsPro
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prevent fake delivery claims in production.
 - Make SMS recovery bounded and observable.
 - Preserve provider idempotency across retries and replays.
 - Keep retry behavior testable in integration coverage.
 
 **Non-Goals:**
+
 - Redesign the full SMS provider ecosystem.
 - Add new frontend or operator UI flows.
 - Replace BullMQ with a different queue.

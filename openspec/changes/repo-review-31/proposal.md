@@ -13,11 +13,13 @@ Repo review 31 shows the project is still blocked on evidence gaps, not just imp
 ## Capabilities
 
 ### New Capabilities
+
 - `migration-restore-verification`: restore-based migration validation, checksum comparison, and dependency inventory checks for repair migrations.
 - `adjustment-ledger-linkage`: adjustment rows must be linked to their source ledger entry or remain in an explicit non-committed state, and historical mismatches must fail preflight.
 - `receipt-quarantine-safety`: receipt duplicate review must use an approved-ID staging flow before any quarantine or delete action.
 
 ### Modified Capabilities
+
 - `migration-safety`: shared-database verification must compare restored database objects, committed migration checksums, and historical effects, not only a clean migration run.
 - `sprint-2-release-evidence`: migration and repo-review completion claims must stay unproven until linked evidence exists.
 

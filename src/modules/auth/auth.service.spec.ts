@@ -597,10 +597,10 @@ function buildDevice(secret: string, deviceId: string = 'device-id') {
     tenantId: 'tenant-id',
     branchId: 'branch-id',
     fingerprintHash: 'fingerprint-hash',
-      attestationSecretCiphertext: encryptDeviceAttestationSecret(
-        secret,
-        'device-kek',
-      ),
+    attestationSecretCiphertext: encryptDeviceAttestationSecret(
+      secret,
+      'device-kek',
+    ),
     status: 'ACTIVE',
     branch: { status: 'ACTIVE' },
   };

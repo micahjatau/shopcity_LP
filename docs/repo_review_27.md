@@ -60,12 +60,12 @@ That is the correct long-term fix. A future OpenAPI change can no longer silentl
 
 The migration tracker records local execution of:
 
-* Lint and build.
-* Targeted unit tests.
-* Redemption approval integration tests.
-* Immutable ledger integration tests.
-* OpenAPI integration tests.
-* Client generation and typechecking.
+- Lint and build.
+- Targeted unit tests.
+- Redemption approval integration tests.
+- Immutable ledger integration tests.
+- OpenAPI integration tests.
+- Client generation and typechecking.
 
 The tracker also correctly states that the halfway gate remains blocked until external CI/deployment and migration evidence are available.
 
@@ -91,13 +91,13 @@ The new `repo-review-26` tracker marks all of its documentation, client and veri
 
 But the earlier `repo-review-24` tracker remains entirely unchecked, including items that are demonstrably implemented:
 
-* Runtime `201`/`202`.
-* HTTP integration tests.
-* Shared SMS builder.
-* Worker-side SMS validation.
-* Persisted SMS rendering.
-* Redemption transaction-read improvements.
-* Reversal contract parity.
+- Runtime `201`/`202`.
+- HTTP integration tests.
+- Shared SMS builder.
+- Worker-side SMS validation.
+- Persisted SMS rendering.
+- Redemption transaction-read improvements.
+- Reversal contract parity.
 
 This leaves multiple contradictory planning documents.
 
@@ -105,10 +105,10 @@ This leaves multiple contradictory planning documents.
 
 Mark each completed `repo-review-24` item truthfully and leave only these open:
 
-* Shared migration-history reconciliation.
-* Backup/restore or forward-fix rehearsal.
-* Complete release-gate verification.
-* Bruno and any remaining full-suite evidence.
+- Shared migration-history reconciliation.
+- Backup/restore or forward-fix rehearsal.
+- Complete release-gate verification.
+- Bruno and any remaining full-suite evidence.
 
 Alternatively, explicitly mark review 24 as **superseded by review 26**, with a link to the successor tracker.
 
@@ -130,11 +130,11 @@ This remains the largest release blocker.
 
 A schema that appears correct after `db push` does not prove that:
 
-* `_prisma_migrations` matches the repository.
-* Future `prisma migrate deploy` will succeed.
-* Triggers and constraints match migration files.
-* A restored database can be upgraded.
-* Production data can survive a forward correction.
+- `_prisma_migrations` matches the repository.
+- Future `prisma migrate deploy` will succeed.
+- Triggers and constraints match migration files.
+- A restored database can be upgraded.
+- Production data can survive a forward correction.
 
 ### Required evidence
 
@@ -159,12 +159,12 @@ The local commands are useful, and the CI definition is stronger, but a configur
 
 The gate should require visible current-head evidence for:
 
-* Static checks.
-* E2E.
-* Integration.
-* Client generation.
-* GitNexus or recorded exception.
-* Migration verification where applicable.
+- Static checks.
+- E2E.
+- Integration.
+- Client generation.
+- GitNexus or recorded exception.
+- Migration verification where applicable.
 
 ---
 
@@ -174,14 +174,14 @@ The gate should require visible current-head evidence for:
 
 The redemption workflow remains strong:
 
-* Immediate and approval-required paths.
-* Correct `201`/`202` runtime status.
-* FIFO allocation.
-* Remaining-balance calculation.
-* Typed SMS payload.
-* Audit, outbox and SMS persistence.
-* Serializable database transaction.
-* Duplicate receipt and idempotency controls.
+- Immediate and approval-required paths.
+- Correct `201`/`202` runtime status.
+- FIFO allocation.
+- Remaining-balance calculation.
+- Typed SMS payload.
+- Audit, outbox and SMS persistence.
+- Serializable database transaction.
+- Duplicate receipt and idempotency controls.
 
 ### Completed replay is checked too late
 
@@ -208,10 +208,10 @@ This contradicts the broad claim that shared bounded financial retry handling is
 
 The normal duplicate check correctly uses:
 
-* Tenant.
-* Branch.
-* Receipt week.
-* Normalised receipt number.
+- Tenant.
+- Branch.
+- Receipt week.
+- Normalised receipt number.
 
 But after a serialization conflict, the fallback query uses only tenant and normalised receipt number.
 
@@ -229,11 +229,11 @@ The approval execution path remains functional and concurrency-aware, but its li
 
 The helper:
 
-* Selects every overdue approval without a batch limit.
-* Mutates state during a read operation.
-* Depends on someone opening the approval queue.
-* Does not create an expiry audit event.
-* Updates redemption state but not the corresponding receipt state.
+- Selects every overdue approval without a batch limit.
+- Mutates state during a read operation.
+- Depends on someone opening the approval queue.
+- Does not create an expiry audit event.
+- Updates redemption state but not the corresponding receipt state.
 
 This should be replaced with a scheduled expiry worker using bounded batches:
 
@@ -245,10 +245,10 @@ FOR UPDATE SKIP LOCKED
 
 Each expiry should atomically update:
 
-* Approval.
-* Redemption.
-* Receipt.
-* Audit log.
+- Approval.
+- Redemption.
+- Receipt.
+- Audit log.
 
 ### Approval aggregate is still read before locking
 
@@ -271,19 +271,19 @@ The current conditional `updateMany` calls prevent most double execution, but th
 
 The commit-time ledger validation handles only selected combinations:
 
-* `EARN/CREDIT`
-* `REDEEM/DEBIT`
-* `ADJUSTMENT/CREDIT`
-* `ADJUSTMENT/DEBIT`
-* `REVERSAL/CREDIT`
+- `EARN/CREDIT`
+- `REDEEM/DEBIT`
+- `ADJUSTMENT/CREDIT`
+- `ADJUSTMENT/DEBIT`
+- `REVERSAL/CREDIT`
 
 There is no final `ELSE` that rejects every other combination.
 
 Consequently, combinations such as:
 
-* `EARN/DEBIT`
-* `REDEEM/CREDIT`
-* `REVERSAL/DEBIT`
+- `EARN/DEBIT`
+- `REDEEM/CREDIT`
+- `REVERSAL/DEBIT`
 
 can bypass the type-specific evidence validation.
 
@@ -309,17 +309,17 @@ sourceLedgerEntryId
 
 and permit:
 
-* `EARN/CREDIT`
-* `ADJUSTMENT/CREDIT`
+- `EARN/CREDIT`
+- `ADJUSTMENT/CREDIT`
 
 ## P1 — Reversal restoration evidence is not tied to the original debit
 
 The reversal trigger checks:
 
-* Original entry exists.
-* Original entry is a debit.
-* Customer matches.
-* Restoration sum equals reversal amount.
+- Original entry exists.
+- Original entry is a debit.
+- Customer matches.
+- Restoration sum equals reversal amount.
 
 It does not prove that every restored allocation belongs to the debit identified by `reversesEntryId`.
 
@@ -351,9 +351,9 @@ It does not enforce the cashier’s branch.
 
 A cashier who obtains a transaction UUID from another branch may be able to read it. Pass `AuthContext` into the read service and enforce:
 
-* Cashier: own branch.
-* Supervisor: assigned branch scope.
-* Admin: tenant-wide.
+- Cashier: own branch.
+- Supervisor: assigned branch scope.
+- Admin: tenant-wide.
 
 ## P2 — Transaction response is still not truly discriminated
 
@@ -383,16 +383,16 @@ For a 50-row page, that can become roughly 150 SMS queries. Batch-load all relev
 
 The current workflow now protects:
 
-* Formatting and lint.
-* Typecheck and build.
-* Unit tests.
-* OpenAPI lint and diff.
-* OpenAPI artifact cleanliness.
-* Generated client regeneration.
-* Client typechecking.
-* Client artifact cleanliness.
-* E2E.
-* Integration tests.
+- Formatting and lint.
+- Typecheck and build.
+- Unit tests.
+- OpenAPI lint and diff.
+- OpenAPI artifact cleanliness.
+- Generated client regeneration.
+- Client typechecking.
+- Client artifact cleanliness.
+- E2E.
+- Integration tests.
 
 ## Remaining gaps
 
@@ -449,11 +449,11 @@ The repository is improving in the right order. The newest commit fully closes t
 
 The first-half redemption and approval implementation now deserves **86/100**. What prevents a higher grade is no longer basic feature incompleteness; it is the integrity and operational layer:
 
-* Ambiguous shared migration history.
-* Missing restore evidence.
-* Financial constraints that are not ready for reversal or adjustment.
-* Request-driven approval expiry.
-* Incomplete read authorization.
-* Release evidence that is not yet fully reproducible.
+- Ambiguous shared migration history.
+- Missing restore evidence.
+- Financial constraints that are not ready for reversal or adjustment.
+- Request-driven approval expiry.
+- Incomplete read authorization.
+- Release evidence that is not yet fully reproducible.
 
 The codebase is ready for another **hardening iteration**, not yet for Sprint 3’s reversal and manual-adjustment half.

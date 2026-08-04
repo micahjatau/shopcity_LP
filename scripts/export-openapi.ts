@@ -12,9 +12,12 @@ async function main(): Promise<void> {
   process.env.CSRF_SECRET =
     process.env.CSRF_SECRET ?? 'test-csrf-secret-test-csrf-secret';
   process.env.CORS_ORIGIN_ALLOWLIST =
-    process.env.CORS_ORIGIN_ALLOWLIST ?? 'http://localhost:3000,http://127.0.0.1:3000';
-  process.env.SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
-  process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? 'test-anon-key';
+    process.env.CORS_ORIGIN_ALLOWLIST ??
+    'http://localhost:3000,http://127.0.0.1:3000';
+  process.env.SUPABASE_URL =
+    process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
+  process.env.SUPABASE_ANON_KEY =
+    process.env.SUPABASE_ANON_KEY ?? 'test-anon-key';
   process.env.SUPABASE_SERVICE_ROLE_KEY =
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'test-service-role-key';
 

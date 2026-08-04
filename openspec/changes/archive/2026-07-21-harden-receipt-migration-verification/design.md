@@ -5,12 +5,14 @@ The repository’s receipt-integrity work is close, but the latest review still 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Reject blank or whitespace-only legacy receipt references during the receipt-integrity migration.
 - Preserve only trustworthy legacy POS references by trimming them before backfill.
 - Prove the migration on a populated pre-change schema, not just on a clean install.
 - Record verification in the migration tracker so deployment readiness is explicit.
 
 **Non-Goals:**
+
 - Change receipt capture behavior beyond the migration/backfill safety fix.
 - Add new ledger, approval, or card lifecycle behavior.
 - Redesign the broader receipt model or create a new data migration framework.
@@ -18,18 +20,22 @@ The repository’s receipt-integrity work is close, but the latest review still 
 ## Decisions
 
 1. Patch the existing receipt-integrity migration instead of adding a second follow-up migration.
+
 - Why: the migration has not been proven in a shared environment yet, so hardening the current artifact keeps the rollout story simple and avoids leaving an unsafe migration behind.
 - Alternatives considered: add a new expand-only migration. Rejected because it would preserve the flawed original backfill logic and make verification harder to reason about.
 
 2. Treat blank and whitespace-only legacy receipt references as invalid migration inputs.
+
 - Why: a physical POS receipt identity cannot be reconstructed from empty text, and trimming is the minimal safe normalization for retained rows.
 - Alternatives considered: preserve whitespace as-is or synthesize a replacement identity. Rejected because either option fabricates or obscures the true receipt identity.
 
 3. Add a dedicated upgrade-path integration test that exercises the actual migration boundary.
+
 - Why: fresh-database receipt tests do not prove that a populated database can be upgraded safely.
 - Alternatives considered: rely on the existing receipt capture suite. Rejected because it validates runtime behavior after migration, not the migration itself.
 
 4. Update the migration tracker only after the upgrade-path test passes.
+
 - Why: the tracker is the operational source of truth for schema safety, and it should reflect verified deployability instead of intent.
 - Alternatives considered: leave the tracker unchanged until a later release note. Rejected because that keeps the deployment risk opaque.
 

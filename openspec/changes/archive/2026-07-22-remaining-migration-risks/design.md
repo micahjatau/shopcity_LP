@@ -5,11 +5,13 @@ The receipt migration is already functionally corrected, but the deployment path
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prevent destructive receipt migration execution when legacy physical receipt identities collide.
 - Make upgrade verification replay only the schema history that belongs before the target migration.
 - Keep the safety checks testable and explicit.
 
 **Non-Goals:**
+
 - Redesigning receipt storage or the ledger model.
 - Adding application-level receipt deduplication.
 - Changing the business rules for receipt identity generation.
@@ -47,6 +49,7 @@ The receipt migration is already functionally corrected, but the deployment path
 5. Deploy the migration only after confirming no populated database contains duplicate normalized identities.
 
 Rollback strategy:
+
 - If validation fails pre-migration, stop deployment and resolve the duplicates.
 - If the migration has already been applied in a lower environment and needs to be undone, restore the database from backup instead of attempting a partial reverse migration.
 

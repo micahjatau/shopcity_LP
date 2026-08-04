@@ -7,12 +7,14 @@ This change stays inside the existing backend-first modular monolith. Money rema
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Keep the public reversal boundary honest until real reversal workflow exists.
 - Allow adjustment-credit lots while preserving original-debit restoration evidence.
 - Verify shared migration state against restored database objects, not just the migration ledger.
 - Record release and tracker state only when it is backed by visible evidence.
 
 **Non-Goals:**
+
 - Do not implement a real reversal review queue or execution workflow.
 - Do not broaden adjustment behavior beyond the invariants needed for credit-lot integrity.
 - Do not replace Prisma, the current worker model, or the existing release-tracking format.

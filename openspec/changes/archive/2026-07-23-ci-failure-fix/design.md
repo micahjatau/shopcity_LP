@@ -5,12 +5,14 @@ The current CI review shows three recurring failure sources: type-aware lint vio
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make the verification path reproducible after `npm ci`.
 - Fail fast on static checks before slower jobs begin.
 - Cancel superseded runs for the same branch or PR.
 - Align repository guidance with actual `lint` and `lint:fix` behavior.
 
 **Non-Goals:**
+
 - Change application features or runtime behavior.
 - Replace the CI platform.
 - Expand scope beyond format, lint, typecheck, and GitNexus reliability.

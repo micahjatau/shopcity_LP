@@ -5,11 +5,13 @@ The current codebase already has a backend session model, CSRF cookies, a health
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make session authentication and rotation behavior explicit and stable.
 - Ensure bootstrap steps produce a working baseline environment consistently.
 - Add HTTP-level coverage for the auth boundary and readiness behavior.
 
 **Non-Goals:**
+
 - Reworking the overall ledger domain.
 - Introducing new auth providers or external identity flows.
 - Designing a new deployment pipeline.
