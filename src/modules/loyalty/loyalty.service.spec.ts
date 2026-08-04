@@ -454,8 +454,18 @@ describe('LoyaltyService redemption approvals', () => {
   });
 
   it('records request-discovered expiry with system ownership and separate detector metadata', async () => {
-    const now = new Date('2026-07-26T12:00:00.000Z');
-    const auditWriter = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
+    type AuditEntry = {
+      tenantId: string;
+      actorId: string | null;
+      action: string;
+      entityType: string;
+      entityId: string;
+      metadata: Record<string, unknown>;
+    };
+    const recordWithClient = jest
+      .fn<Promise<unknown>, [unknown, AuditEntry]>()
+      .mockResolvedValue(undefined);
+    const auditWriter = { recordWithClient };
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([]),
       approval: {
@@ -511,16 +521,15 @@ describe('LoyaltyService redemption approvals', () => {
       response: { code: 'APPROVAL_EXPIRED' },
     });
 
-    expect(auditWriter.recordWithClient).toHaveBeenCalledWith(
-      tx,
-      expect.objectContaining({
-        actorId: null,
-        metadata: expect.objectContaining({
-          detectedByTenantId: 'tenant-1',
-          detectedBy: 'supervisor-1',
-        }),
-      }),
-    );
+    const auditCall = recordWithClient.mock.calls[0]?.[1];
+
+    expect(auditCall).toMatchObject({
+      actorId: null,
+      metadata: {
+        detectedByTenantId: 'tenant-1',
+        detectedBy: 'supervisor-1',
+      },
+    });
   });
 
   it('expires overdue approvals before listing approvals', async () => {

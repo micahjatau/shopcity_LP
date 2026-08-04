@@ -302,14 +302,12 @@ describe('OutboxWorkerRuntime', () => {
 
     expect(job.discard).toHaveBeenCalledTimes(1);
     expect(smsProvider.send).not.toHaveBeenCalled();
-    expect(prisma.smsMessageUpdateCalls[0]).toMatchObject({
-      data: expect.objectContaining({
-        status: 'FAILED',
-        nextAttemptAt: null,
-        deadLetteredAt: expect.any(Date),
-        failureCategory: 'invalid-payload',
-      }),
-    });
+    const invalidPayloadUpdate = prisma.smsMessageUpdateCalls[0];
+
+    expect(invalidPayloadUpdate?.data.status).toBe('FAILED');
+    expect(invalidPayloadUpdate?.data.nextAttemptAt).toBeNull();
+    expect(invalidPayloadUpdate?.data.deadLetteredAt).toBeInstanceOf(Date);
+    expect(invalidPayloadUpdate?.data.failureCategory).toBe('invalid-payload');
     expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
@@ -552,6 +550,7 @@ type PrismaStubOverrides = {
 type SmsMessageUpdateArgs = {
   where?: unknown;
   data: {
+    status?: string;
     deadLetteredAt?: Date;
     failureCategory?: string;
     nextAttemptAt?: null;

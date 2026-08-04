@@ -2269,7 +2269,12 @@ async function lockApprovalExecutionRows(
     approval.targetType === ApprovalTargetType.REDEEM &&
     approval.redemptionId
   ) {
-    await lockSingleRow(prisma, 'Redemption', approval.tenantId, approval.redemptionId);
+    await lockSingleRow(
+      prisma,
+      'Redemption',
+      approval.tenantId,
+      approval.redemptionId,
+    );
 
     if (approval.redemption) {
       receiptIds.add(approval.redemption.receiptId);

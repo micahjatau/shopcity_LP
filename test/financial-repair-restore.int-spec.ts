@@ -74,7 +74,10 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
       }
 
       const restoredMigrations = await readMigrationInventory(restorePrisma);
-      expectMigrationInventoryIntegrity(restoredMigrations, committedMigrations);
+      expectMigrationInventoryIntegrity(
+        restoredMigrations,
+        committedMigrations,
+      );
 
       const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
         SELECT p.proname
@@ -542,7 +545,10 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
 
         const restoredMigrations = await readMigrationInventory(restorePrisma);
         const committedMigrations = readCommittedMigrationInventory();
-        expectMigrationInventoryIntegrity(restoredMigrations, committedMigrations);
+        expectMigrationInventoryIntegrity(
+          restoredMigrations,
+          committedMigrations,
+        );
 
         execSync('npx prisma migrate status', {
           stdio: 'inherit',
