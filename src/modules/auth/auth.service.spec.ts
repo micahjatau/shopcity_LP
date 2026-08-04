@@ -213,7 +213,7 @@ describe('AuthService', () => {
   it('rejects replayed device attestations during login', async () => {
     const timestamp = Date.now();
     const nonce = 'nonce';
-    const signature = createHmac('sha256', 'fingerprint-hash')
+    const signature = createHmac('sha256', 'device-secret')
       .update(`device-id.${timestamp}.${nonce}`)
       .digest('base64url');
     const attestation = `${timestamp}.${nonce}.${signature}`;
@@ -284,6 +284,10 @@ describe('AuthService', () => {
             tenantId: 'tenant-id',
             branchId: 'branch-id',
             fingerprintHash: 'fingerprint-hash',
+            attestationSecretCiphertext: encryptDeviceAttestationSecret(
+              'device-secret',
+              'device-kek',
+            ),
             status: 'ACTIVE',
             branch: { status: 'ACTIVE' },
           }),
@@ -308,7 +312,12 @@ describe('AuthService', () => {
         },
       } as never,
       {
-        get: (key: string) => (key === 'SESSION_SECRET' ? 'secret' : 'csrf'),
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK'
+            ? 'device-kek'
+            : key === 'SESSION_SECRET'
+              ? 'secret'
+              : 'csrf',
       } as never,
       {
         recordWithClient: jest.fn().mockResolvedValue(undefined),
@@ -453,7 +462,7 @@ describe('AuthService', () => {
             fingerprintHash: 'fingerprint-hash',
             attestationSecretCiphertext: encryptDeviceAttestationSecret(
               secret,
-              'secret',
+              'device-kek',
             ),
             status: 'ACTIVE',
             branch: { status: 'ACTIVE' },
@@ -480,7 +489,12 @@ describe('AuthService', () => {
         },
       } as never,
       {
-        get: (key: string) => (key === 'SESSION_SECRET' ? 'secret' : 'csrf'),
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK'
+            ? 'device-kek'
+            : key === 'SESSION_SECRET'
+              ? 'secret'
+              : 'csrf',
       } as never,
       {
         recordWithClient: jest.fn().mockResolvedValue(undefined),
@@ -583,10 +597,10 @@ function buildDevice(secret: string, deviceId: string = 'device-id') {
     tenantId: 'tenant-id',
     branchId: 'branch-id',
     fingerprintHash: 'fingerprint-hash',
-    attestationSecretCiphertext: encryptDeviceAttestationSecret(
-      secret,
-      'secret',
-    ),
+      attestationSecretCiphertext: encryptDeviceAttestationSecret(
+        secret,
+        'device-kek',
+      ),
     status: 'ACTIVE',
     branch: { status: 'ACTIVE' },
   };
@@ -655,7 +669,12 @@ function buildLoginService(overrides: {
       },
     } as never,
     {
-      get: (key: string) => (key === 'SESSION_SECRET' ? 'secret' : 'csrf'),
+      get: (key: string) =>
+        key === 'DEVICE_ATTESTATION_KEK'
+          ? 'device-kek'
+          : key === 'SESSION_SECRET'
+            ? 'secret'
+            : 'csrf',
     } as never,
     {
       recordWithClient: jest.fn().mockResolvedValue(undefined),

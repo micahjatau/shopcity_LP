@@ -74,6 +74,7 @@ describe('receipt quarantine sql runbooks (int)', () => {
             "createdAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
             "approvedBy" TEXT,
             "approvedAt" TIMESTAMP(3),
+            "approvalReason" TEXT,
             "executedBy" TEXT,
             "executedAt" TIMESTAMP(3),
             "status" TEXT NOT NULL DEFAULT 'DRAFT',
@@ -82,9 +83,13 @@ describe('receipt quarantine sql runbooks (int)', () => {
 
           CREATE TABLE "ReceiptLegacyIdentityQuarantineApproval" (
             "batchId" TEXT NOT NULL,
-            "id" TEXT PRIMARY KEY,
+            "id" TEXT NOT NULL,
+            "approvedBy" TEXT NOT NULL,
+            "approvalReason" TEXT NOT NULL,
             "reconciliationPlan" TEXT,
-            "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW()
+            "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+            PRIMARY KEY ("batchId", "id"),
+            FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
           );
 
           INSERT INTO "ReceiptLegacyIdentityQuarantineBatch" (
@@ -93,6 +98,7 @@ describe('receipt quarantine sql runbooks (int)', () => {
             "createdBy",
             "approvedBy",
             "approvedAt",
+            "approvalReason",
             "status",
             "notes"
           ) VALUES (
@@ -101,6 +107,7 @@ describe('receipt quarantine sql runbooks (int)', () => {
             'admin-1',
             'admin-2',
             '2026-07-21T00:00:00.000Z',
+            'reconciliation plan approval',
             'APPROVED',
             'duplicate receipt review'
           );
@@ -108,10 +115,14 @@ describe('receipt quarantine sql runbooks (int)', () => {
           INSERT INTO "ReceiptLegacyIdentityQuarantineApproval" (
             "batchId",
             "id",
+            "approvedBy",
+            "approvalReason",
             "reconciliationPlan"
           ) VALUES (
             'batch-1',
             'receipt-2',
+            'admin-2',
+            'reconciliation plan approval',
             'quarantine duplicate and preserve audit trail'
           );
         `,
@@ -143,7 +154,12 @@ describe('receipt quarantine sql runbooks (int)', () => {
       runSqlFile(
         container,
         'docs/runbooks/execute-approved-receipt-quarantine.sql',
-        { __BATCH_ID__: 'batch-1' },
+        {
+          __BATCH_ID__: 'batch-1',
+          __EXECUTED_BY__: 'admin-3',
+          __INCIDENT_REFERENCE_ID__: 'incident-1',
+          __APPROVAL_REASON__: 'reconciliation plan approval',
+        },
       );
 
       expect(

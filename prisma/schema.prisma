@@ -173,22 +173,24 @@ model Branch {
 }
 
 model Device {
-  id                String              @id @default(uuid())
-  tenantId          String
-  branchId          String
-  name              String
-  fingerprintHash   String              @unique
-  attestationSecretCiphertext String?
-  status            DeviceStatus        @default(ACTIVE)
-  lastSeenAt        DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch            Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  sessions          Session[]
-  attestationNonces DeviceAttestation[]
-  receipts          Receipt[]
-  redemptions       Redemption[]
+  id                          String              @id @default(uuid())
+  tenantId                    String
+  branchId                    String
+  name                        String
+  fingerprintHash             String              @unique
+  attestationSecretCiphertext  String?
+  attestationSecretVersion     Int                 @default(0)
+  attestationSecretRotatedAt   DateTime?
+  status                      DeviceStatus        @default(ACTIVE)
+  lastSeenAt                  DateTime?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+  tenant                      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                      Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  sessions                    Session[]
+  attestationNonces           DeviceAttestation[]
+  receipts                    Receipt[]
+  redemptions                 Redemption[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, branchId, id])

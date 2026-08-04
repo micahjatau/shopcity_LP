@@ -1,0 +1,41 @@
+name: halfway-release-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact immutable release commit SHA
+        required: true
+        type: string
+      backup_reference:
+        description: Approved backup artifact reference
+        required: true
+        type: string
+
+jobs:
+  protected-restore:
+    name: Protected shared-backup restore
+    runs-on: ubuntu-latest
+    environment: halfway-production-release
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_sha }}
+      - name: Verify exact release SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ inputs.release_sha }}"
+      - name: Download approved backup artifacts
+        run: |
+          test -n "${{ inputs.backup_reference }}"
+          test -s "${SHOPCITY_SHARED_SCHEMA_DUMP_PATH}"
+          test -s "${SHOPCITY_SHARED_DATA_DUMP_PATH}"
+      - name: Run protected shared-backup restore
+        run: |
+          npx jest test/financial-repair-restore.int-spec.ts --config ./test/jest-int.json --runInBand -t "protected shared-backup"
+      - name: Upload restore evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: halfway-release-evidence-${{ inputs.release_sha }}
+          path: |
+            docs/release-evidence/sprint-3-halfway/**
+            test-results/**

@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DeviceStatus } from '@prisma/client';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { DeviceStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -8,11 +13,16 @@ import {
   generateDeviceAttestationSecret,
 } from '../../common/auth/device-attestation-secret';
 
+type DeviceManagementScope =
+  | { tenantWide: true; branchId: null }
+  | { tenantWide: false; branchId: string };
+
 @Injectable()
 export class BranchesService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
+    private readonly configService: ConfigService,
   ) {}
 
   listBranches(tenantId: string) {
@@ -79,15 +89,18 @@ export class BranchesService {
     });
   }
 
-  listDevices(tenantId: string) {
+  listDevices(tenantId: string, actor: AuthContext) {
+    const scope = resolveDeviceManagementScope(actor);
+
     return this.prismaService.device.findMany({
-      where: { tenantId },
+      where: scope.tenantWide
+        ? { tenantId }
+        : { tenantId, branchId: scope.branchId },
       select: {
         id: true,
         tenantId: true,
         branchId: true,
         name: true,
-        fingerprintHash: true,
         status: true,
         lastSeenAt: true,
         createdAt: true,
@@ -101,6 +114,11 @@ export class BranchesService {
     actor: AuthContext,
     data: { branchId: string; name: string; fingerprintHash: string },
   ) {
+    const scope = resolveDeviceManagementScope(actor);
+    if (!scope.tenantWide && scope.branchId !== data.branchId) {
+      throw new NotFoundException('Branch not found');
+    }
+
     const branch = await this.prismaService.branch.findFirst({
       where: { id: data.branchId, tenantId },
     });
@@ -120,6 +138,8 @@ export class BranchesService {
             attestationSecret,
             this.attestationSecretKey(),
           ),
+          attestationSecretVersion: 1,
+          attestationSecretRotatedAt: new Date(),
         },
       });
 
@@ -134,13 +154,14 @@ export class BranchesService {
           tenantId: device.tenantId,
           branchId: device.branchId,
           name: device.name,
-          fingerprintHash: device.fingerprintHash,
           status: device.status,
         },
       });
 
-      const { attestationSecretCiphertext, ...safeDevice } = device;
+      const { attestationSecretCiphertext, fingerprintHash, ...safeDevice } =
+        device;
       void attestationSecretCiphertext;
+      void fingerprintHash;
       return { ...safeDevice, attestationSecret };
     });
   }
@@ -151,8 +172,11 @@ export class BranchesService {
     deviceId: string,
     data: { name?: string; status?: string; rotateAttestationSecret?: boolean },
   ) {
+    const scope = resolveDeviceManagementScope(actor);
     const device = await this.prismaService.device.findFirst({
-      where: { id: deviceId, tenantId },
+      where: scope.tenantWide
+        ? { id: deviceId, tenantId }
+        : { id: deviceId, tenantId, branchId: scope.branchId },
     });
     if (!device) {
       throw new NotFoundException('Device not found');
@@ -160,7 +184,7 @@ export class BranchesService {
 
     return this.prismaService.$transaction(async (prisma) => {
       let attestationSecret: string | null = null;
-      const updated = await prisma.device.update({
+      let updated = await prisma.device.update({
         where: { id: deviceId },
         data: {
           ...(data.name ? { name: data.name } : {}),
@@ -170,13 +194,47 @@ export class BranchesService {
 
       if (data.rotateAttestationSecret) {
         attestationSecret = generateDeviceAttestationSecret();
-        await prisma.device.update({
+        const attestationSecretVersion = (updated.attestationSecretVersion ?? 0) + 1;
+        updated = await prisma.device.update({
           where: { id: deviceId },
           data: {
             attestationSecretCiphertext: encryptDeviceAttestationSecret(
               attestationSecret,
               this.attestationSecretKey(),
             ),
+            attestationSecretVersion,
+            attestationSecretRotatedAt: new Date(),
+          },
+        });
+
+        const revoked = await prisma.session.updateMany({
+          where: { deviceId, status: 'ACTIVE' },
+          data: { status: 'REVOKED', revokedAt: new Date() },
+        });
+
+        if (revoked.count > 0) {
+          await this.auditService.recordWithClient(prisma, {
+            tenantId,
+            actorId: actor.user.id,
+            action: 'device.sessions.revoke',
+            entityType: 'device',
+            entityId: updated.id,
+            metadata: {
+              reason: 'device_attestation_rotated',
+              revokedSessionCount: revoked.count,
+            },
+          });
+        }
+
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'device.attestation-secret.rotate',
+          entityType: 'device',
+          entityId: updated.id,
+          metadata: {
+            attestationSecretVersion,
+            rotatedAt: updated.attestationSecretRotatedAt,
           },
         });
       }
@@ -212,8 +270,10 @@ export class BranchesService {
         metadata: data,
       });
 
-      const { attestationSecretCiphertext, ...safeUpdated } = updated;
+      const { attestationSecretCiphertext, fingerprintHash, ...safeUpdated } =
+        updated;
       void attestationSecretCiphertext;
+      void fingerprintHash;
       return attestationSecret
         ? { ...safeUpdated, attestationSecret }
         : safeUpdated;
@@ -221,6 +281,18 @@ export class BranchesService {
   }
 
   private attestationSecretKey(): string {
-    return process.env.SESSION_SECRET ?? '';
+    return this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '';
   }
+}
+
+function resolveDeviceManagementScope(actor: AuthContext): DeviceManagementScope {
+  if (actor.user.role === UserRole.ADMIN) {
+    return { tenantWide: true, branchId: null };
+  }
+
+  if (actor.user.role !== UserRole.SUPERVISOR || !actor.user.branchId) {
+    throw new ForbiddenException('Device administration is branch-scoped');
+  }
+
+  return { tenantWide: false, branchId: actor.user.branchId };
 }

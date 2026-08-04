@@ -5,6 +5,9 @@ BEGIN;
 DO $$
 DECLARE
   batch_id TEXT;
+  executed_by TEXT;
+  incident_reference_id TEXT;
+  approval_reason TEXT;
   expected_count INTEGER;
   insert_count INTEGER;
   delete_count INTEGER;
@@ -13,6 +16,9 @@ DECLARE
   needs_or BOOLEAN := FALSE;
 BEGIN
   batch_id := '__BATCH_ID__';
+  executed_by := '__EXECUTED_BY__';
+  incident_reference_id := '__INCIDENT_REFERENCE_ID__';
+  approval_reason := '__APPROVAL_REASON__';
 
   IF NOT EXISTS (
     SELECT 1
@@ -21,6 +27,16 @@ BEGIN
       AND b."status" = 'STAGED'
   ) THEN
     RAISE EXCEPTION 'staged approved receipt batch is missing or not staged';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM "ReceiptLegacyIdentityQuarantineBatch" b
+    WHERE b."id" = batch_id
+      AND b."incidentReferenceId" = incident_reference_id
+      AND COALESCE(b."approvalReason", '') = approval_reason
+  ) THEN
+    RAISE EXCEPTION 'quarantine batch metadata does not match the supplied operator context';
   END IF;
 
   PERFORM 1
@@ -127,7 +143,7 @@ BEGIN
   JOIN "Receipt" r
     ON r."id" = s."id"
   WHERE s."batchId" = batch_id
-  ON CONFLICT ("id") DO UPDATE
+  ON CONFLICT ("batchId", "id") DO UPDATE
   SET
     "batchId" = EXCLUDED."batchId",
     "tenantId" = EXCLUDED."tenantId",
@@ -163,7 +179,8 @@ BEGIN
   UPDATE "ReceiptLegacyIdentityQuarantineBatch"
   SET
     "status" = 'EXECUTED',
-    "executedBy" = CURRENT_USER,
+    "approvalReason" = approval_reason,
+    "executedBy" = executed_by,
     "executedAt" = NOW()
   WHERE "id" = batch_id
     AND "status" = 'STAGED';

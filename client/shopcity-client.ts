@@ -9023,21 +9023,220 @@ export type RedemptionsControllerRedeemV1503 = {
   meta: RedemptionsControllerRedeemV1503Meta;
 };
 
-export type ReversalsControllerReverseV1202Data = {
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1400Error = {
+  statusCode: number;
   code: string;
-  transactionId: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1400ErrorDetails;
 };
 
-export type ReversalsControllerReverseV1202Meta = {
+export type ReversalsControllerReverseV1400Meta = {
   timestamp: string;
   path: string;
   requestId: string;
 };
 
-export type ReversalsControllerReverseV1202 = {
+export type ReversalsControllerReverseV1400 = {
   success: boolean;
-  data: ReversalsControllerReverseV1202Data;
-  meta: ReversalsControllerReverseV1202Meta;
+  error: ReversalsControllerReverseV1400Error;
+  meta: ReversalsControllerReverseV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1401ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1401 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1401Error;
+  meta: ReversalsControllerReverseV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1403ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1403 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1403Error;
+  meta: ReversalsControllerReverseV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1404ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1404 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1404Error;
+  meta: ReversalsControllerReverseV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1409ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1409 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1409Error;
+  meta: ReversalsControllerReverseV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1422ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1422 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1422Error;
+  meta: ReversalsControllerReverseV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1429ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1429 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1429Error;
+  meta: ReversalsControllerReverseV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReversalsControllerReverseV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReversalsControllerReverseV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReversalsControllerReverseV1503ErrorDetails;
+};
+
+export type ReversalsControllerReverseV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1503 = {
+  success: boolean;
+  error: ReversalsControllerReverseV1503Error;
+  meta: ReversalsControllerReverseV1503Meta;
 };
 
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
@@ -12810,20 +13009,64 @@ export const redemptionsControllerRedeemV1 = async (
 };
 
 /**
- * Reversal is unavailable for this release.
- * @summary Deferred transaction reversal
+ * Reversal execution is deferred for this release and no reversal request is queued.
+ * @summary Unavailable transaction reversal
  */
-export type reversalsControllerReverseV1Response202 = {
-  data: ReversalsControllerReverseV1202;
-  status: 202;
+export type reversalsControllerReverseV1Response400 = {
+  data: ReversalsControllerReverseV1400;
+  status: 400;
 };
 
-export type reversalsControllerReverseV1ResponseSuccess =
-  reversalsControllerReverseV1Response202 & {
-    headers: Headers;
-  };
+export type reversalsControllerReverseV1Response401 = {
+  data: ReversalsControllerReverseV1401;
+  status: 401;
+};
+
+export type reversalsControllerReverseV1Response403 = {
+  data: ReversalsControllerReverseV1403;
+  status: 403;
+};
+
+export type reversalsControllerReverseV1Response404 = {
+  data: ReversalsControllerReverseV1404;
+  status: 404;
+};
+
+export type reversalsControllerReverseV1Response409 = {
+  data: ReversalsControllerReverseV1409;
+  status: 409;
+};
+
+export type reversalsControllerReverseV1Response422 = {
+  data: ReversalsControllerReverseV1422;
+  status: 422;
+};
+
+export type reversalsControllerReverseV1Response429 = {
+  data: ReversalsControllerReverseV1429;
+  status: 429;
+};
+
+export type reversalsControllerReverseV1Response503 = {
+  data: ReversalsControllerReverseV1503;
+  status: 503;
+};
+
+export type reversalsControllerReverseV1ResponseError = (
+  | reversalsControllerReverseV1Response400
+  | reversalsControllerReverseV1Response401
+  | reversalsControllerReverseV1Response403
+  | reversalsControllerReverseV1Response404
+  | reversalsControllerReverseV1Response409
+  | reversalsControllerReverseV1Response422
+  | reversalsControllerReverseV1Response429
+  | reversalsControllerReverseV1Response503
+) & {
+  headers: Headers;
+};
+
 export type reversalsControllerReverseV1Response =
-  reversalsControllerReverseV1ResponseSuccess;
+  reversalsControllerReverseV1ResponseError;
 
 export const getReversalsControllerReverseV1Url = (transactionId: string) => {
   return `/api/v1/transactions/${transactionId}/reverse`;

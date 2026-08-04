@@ -17,6 +17,8 @@ describe('BranchesService', () => {
           name: 'Front desk tablet',
           fingerprintHash: 'fingerprint-hash',
           attestationSecretCiphertext: 'ciphertext',
+          attestationSecretVersion: 1,
+          attestationSecretRotatedAt: new Date('2026-08-03T00:00:00.000Z'),
           status: DeviceStatus.ACTIVE,
           lastSeenAt: null,
           createdAt: new Date('2026-08-03T00:00:00.000Z'),
@@ -40,6 +42,10 @@ describe('BranchesService', () => {
       {
         recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
       } as never,
+      {
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK' ? 'device-kek' : undefined,
+      } as never,
     );
 
     const created = await service.createDevice('tenant-id', actorStub(), {
@@ -51,10 +57,12 @@ describe('BranchesService', () => {
     expect(created).toEqual(
       expect.objectContaining({
         id: 'device-id',
+        attestationSecretVersion: 1,
       }),
     );
     expect(typeof created.attestationSecret).toBe('string');
     expect(created).not.toHaveProperty('attestationSecretCiphertext');
+    expect(created).not.toHaveProperty('fingerprintHash');
   });
 
   it('revokes active sessions when a device becomes inactive', async () => {
@@ -64,6 +72,9 @@ describe('BranchesService', () => {
           id: 'device-id',
           tenantId: 'tenant-id',
           status: DeviceStatus.INACTIVE,
+          attestationSecretVersion: 1,
+          attestationSecretRotatedAt: null,
+          attestationSecretCiphertext: 'ciphertext',
         }),
       },
       session: {
@@ -78,6 +89,7 @@ describe('BranchesService', () => {
         findFirst: jest.fn().mockResolvedValue({
           id: 'device-id',
           tenantId: 'tenant-id',
+          branchId: 'branch-id',
           status: DeviceStatus.ACTIVE,
         }),
       },
@@ -88,7 +100,14 @@ describe('BranchesService', () => {
     const auditService = {
       recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
     };
-    const service = new BranchesService(prisma as never, auditService as never);
+    const service = new BranchesService(
+      prisma as never,
+      auditService as never,
+      {
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK' ? 'device-kek' : undefined,
+      } as never,
+    );
 
     await service.updateDevice('tenant-id', actorStub(), 'device-id', {
       status: DeviceStatus.INACTIVE,
@@ -132,6 +151,9 @@ describe('BranchesService', () => {
           id: 'device-id',
           tenantId: 'tenant-id',
           status: DeviceStatus.ACTIVE,
+          attestationSecretVersion: 1,
+          attestationSecretRotatedAt: null,
+          attestationSecretCiphertext: 'ciphertext',
         }),
       },
       session: {
@@ -146,6 +168,7 @@ describe('BranchesService', () => {
         findFirst: jest.fn().mockResolvedValue({
           id: 'device-id',
           tenantId: 'tenant-id',
+          branchId: 'branch-id',
           status: DeviceStatus.INACTIVE,
         }),
       },
@@ -156,7 +179,14 @@ describe('BranchesService', () => {
     const auditService = {
       recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
     };
-    const service = new BranchesService(prisma as never, auditService as never);
+    const service = new BranchesService(
+      prisma as never,
+      auditService as never,
+      {
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK' ? 'device-kek' : undefined,
+      } as never,
+    );
 
     await service.updateDevice('tenant-id', actorStub(), 'device-id', {
       status: DeviceStatus.ACTIVE,
@@ -175,16 +205,20 @@ describe('BranchesService', () => {
             tenantId: 'tenant-id',
             status: DeviceStatus.ACTIVE,
             attestationSecretCiphertext: 'ciphertext-before-rotation',
+            attestationSecretVersion: 1,
+            attestationSecretRotatedAt: null,
           })
           .mockResolvedValueOnce({
             id: 'device-id',
             tenantId: 'tenant-id',
             status: DeviceStatus.ACTIVE,
             attestationSecretCiphertext: 'ciphertext-after-rotation',
+            attestationSecretVersion: 2,
+            attestationSecretRotatedAt: new Date(),
           }),
       },
       session: {
-        updateMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       auditLog: {
         create: jest.fn().mockResolvedValue({ id: 'audit-id' }),
@@ -195,6 +229,7 @@ describe('BranchesService', () => {
         findFirst: jest.fn().mockResolvedValue({
           id: 'device-id',
           tenantId: 'tenant-id',
+          branchId: 'branch-id',
           status: DeviceStatus.ACTIVE,
         }),
       },
@@ -202,10 +237,15 @@ describe('BranchesService', () => {
         callback(tx),
       ),
     };
+    const auditService = {
+      recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
+    };
     const service = new BranchesService(
       prisma as never,
+      auditService as never,
       {
-        recordWithClient: jest.fn().mockResolvedValue({ id: 'audit-id' }),
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK' ? 'device-kek' : undefined,
       } as never,
     );
 
@@ -226,6 +266,18 @@ describe('BranchesService', () => {
     expect(
       typeof (updated as { attestationSecret: string }).attestationSecret,
     ).toBe('string');
+    expect(auditService.recordWithClient).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        action: 'device.attestation-secret.rotate',
+        entityType: 'device',
+        entityId: 'device-id',
+      }),
+    );
+    expect(tx.session.updateMany).toHaveBeenCalledWith({
+      where: { deviceId: 'device-id', status: 'ACTIVE' },
+      data: { status: 'REVOKED', revokedAt: expect.any(Date) },
+    });
   });
 });
 

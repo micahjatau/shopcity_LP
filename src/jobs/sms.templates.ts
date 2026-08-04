@@ -4,6 +4,8 @@ export type SmsTemplate =
   | 'transaction-reversed'
   | 'balance-adjusted';
 
+export type AdjustmentKind = 'CREDIT' | 'DEBIT';
+
 type SmsPayloadVersion = 1;
 
 type SmsPayloadBase<TTemplate extends SmsTemplate> = {
@@ -40,6 +42,7 @@ export type TransactionReversedSmsPayload =
 export type BalanceAdjustedSmsPayload = SmsPayloadBase<'balance-adjusted'> & {
   transactionId: string;
   adjustmentId: string;
+  kind: AdjustmentKind;
   receiptId?: string | null;
   amountKobo: string;
   remainingBalanceKobo?: string;
@@ -129,6 +132,7 @@ export function buildTransactionReversedSmsPayload(input: {
 export function buildBalanceAdjustedSmsPayload(input: {
   transactionId: string;
   adjustmentId: string;
+  kind: AdjustmentKind;
   phoneE164: string;
   receiptId?: string | null;
   amountKobo: bigint;
@@ -139,10 +143,11 @@ export function buildBalanceAdjustedSmsPayload(input: {
     receiptId: input.receiptId ?? null,
     transactionId: input.transactionId,
     adjustmentId: input.adjustmentId,
+    kind: input.kind,
     phoneE164: input.phoneE164,
     template: 'balance-adjusted',
     amountKobo: input.amountKobo.toString(),
-    ...(input.remainingBalanceKobo
+    ...(input.remainingBalanceKobo !== undefined
       ? { remainingBalanceKobo: input.remainingBalanceKobo.toString() }
       : {}),
   };
@@ -246,6 +251,7 @@ function renderBalanceAdjusted(input: {
   const transactionId = readPayloadString(input.payload, 'transactionId');
   const amountKobo = requirePayloadAmount(input.payload, 'amountKobo');
   const amount = formatKoboAsNaira(BigInt(amountKobo));
+  const kind = readPayloadString(input.payload, 'kind');
   const remainingBalanceKobo = readPayloadString(
     input.payload,
     'remainingBalanceKobo',
@@ -253,8 +259,9 @@ function renderBalanceAdjusted(input: {
   const remainingBalance = remainingBalanceKobo
     ? ` Remaining balance ${formatKoboAsNaira(BigInt(remainingBalanceKobo))}.`
     : '';
+  const verb = kind === 'CREDIT' ? 'increased' : 'reduced';
 
-  return `ShopCity: Your balance was adjusted by ${amount} for transaction ${transactionId ?? input.receiptId ?? 'unknown'}.${remainingBalance}`;
+  return `ShopCity: Your balance was ${verb} by ${amount} for transaction ${transactionId ?? input.receiptId ?? 'unknown'}.${remainingBalance}`;
 }
 
 function assertTransactionReversedPayload(
@@ -274,6 +281,10 @@ function assertBalanceAdjustedPayload(payload: Record<string, unknown>): void {
   requirePayloadTemplate(payload, 'balance-adjusted');
   requirePayloadString(payload, 'transactionId');
   requirePayloadString(payload, 'adjustmentId');
+  const kind = requirePayloadString(payload, 'kind');
+  if (kind !== 'CREDIT' && kind !== 'DEBIT') {
+    throw new SmsPayloadError('balance-adjusted payload has an invalid kind');
+  }
   requirePayloadPhone(payload);
   requirePayloadAmount(payload, 'amountKobo');
   const remainingBalanceKobo = payload.remainingBalanceKobo;

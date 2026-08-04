@@ -1,64 +1,51 @@
 import {
   Body,
   Controller,
-  Headers,
   HttpCode,
+  Headers,
   Param,
   Post,
   Req,
   Version,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiHeader,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildReverseThrottleKey } from '../../common/throttle/throttle.keys';
+import { apiErrorEnvelopeResponses } from '../../common/openapi-envelope';
 import { ReverseTransactionDto } from './reversals.dto';
 import { ReversalsService } from './reversals.service';
 
-const reversalDeferredResponseSchema = {
-  type: 'object',
-  required: ['code', 'transactionId'],
-  properties: {
-    code: { type: 'string', example: 'REVERSAL_DEFERRED' },
-    transactionId: { type: 'string', format: 'uuid' },
-  },
-} as const;
-
-const reversalDeferredEnvelopeSchema = {
-  type: 'object',
-  required: ['success', 'data', 'meta'],
-  properties: {
-    success: { type: 'boolean', example: false },
-    data: reversalDeferredResponseSchema,
-    meta: {
-      type: 'object',
-      required: ['timestamp', 'path', 'requestId'],
-      properties: {
-        timestamp: { type: 'string', example: '2026-07-19T00:00:00.000Z' },
-        path: { type: 'string', example: '/api/v1/transactions/123/reverse' },
-        requestId: { type: 'string', example: 'req-123' },
-      },
-    },
-  },
-} as const;
-
 @ApiTags('transactions')
 @ApiBearerAuth()
+@apiErrorEnvelopeResponses({
+  serviceUnavailable: {
+    REVERSAL_UNAVAILABLE: {
+      statusCode: 503,
+      code: 'REVERSAL_UNAVAILABLE',
+      message: 'Transaction reversal is not available in this release',
+    },
+  },
+})
 @Controller('transactions')
 export class ReversalsController {
   constructor(private readonly reversalsService: ReversalsService) {}
 
   @Post(':transactionId/reverse')
+  @HttpCode(503)
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @apiErrorEnvelopeResponses({
+    serviceUnavailable: {
+      REVERSAL_UNAVAILABLE: {
+        statusCode: 503,
+        code: 'REVERSAL_UNAVAILABLE',
+        message: 'Transaction reversal is not available in this release',
+      },
+    },
+  })
   @Throttle({
     bucket: 'transactions.reverse',
     limit: 20,
@@ -66,19 +53,10 @@ export class ReversalsController {
     keyFactory: buildReverseThrottleKey,
   })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
-  @HttpCode(202)
-  @ApiResponse({
-    status: 202,
-    description: 'Reversal is deferred for this release',
-    content: {
-      'application/json': {
-        schema: reversalDeferredEnvelopeSchema as never,
-      },
-    },
-  })
   @ApiOperation({
-    summary: 'Deferred transaction reversal',
-    description: 'Reversal is unavailable for this release.',
+    summary: 'Unavailable transaction reversal',
+    description:
+      'Reversal execution is deferred for this release and no reversal request is queued.',
   })
   reverse(
     @Req() request: AuthenticatedRequest,

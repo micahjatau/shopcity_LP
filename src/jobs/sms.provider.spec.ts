@@ -205,6 +205,7 @@ describe('sms provider selection', () => {
           payload: buildBalanceAdjustedSmsPayload({
             transactionId: 'ledger-10',
             adjustmentId: 'adjustment-10',
+            kind: 'CREDIT',
             phoneE164: '+2348000000000',
             amountKobo: 1200n,
             remainingBalanceKobo: 124000n,
@@ -219,13 +220,29 @@ describe('sms provider selection', () => {
         SMS: {
           message: {
             messagetext:
-              'ShopCity: Your balance was adjusted by NGN 12.00 for transaction ledger-10. Remaining balance NGN 1240.00.',
+              'ShopCity: Your balance was increased by NGN 12.00 for transaction ledger-10. Remaining balance NGN 1240.00.',
           },
         },
       });
     } finally {
       await server.close();
     }
+  });
+
+  it('preserves zero remaining balances in balance-adjusted payloads', () => {
+    expect(
+      buildBalanceAdjustedSmsPayload({
+        transactionId: 'ledger-11',
+        adjustmentId: 'adjustment-11',
+        kind: 'DEBIT',
+        phoneE164: '+2348000000000',
+        amountKobo: 1200n,
+        remainingBalanceKobo: 0n,
+      }),
+    ).toMatchObject({
+      remainingBalanceKobo: '0',
+      kind: 'DEBIT',
+    });
   });
 
   it('rejects incomplete redemption-confirmed payloads', async () => {

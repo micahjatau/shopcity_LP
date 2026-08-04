@@ -16,6 +16,7 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: requiredString('redis://127.0.0.1:6379'),
   SESSION_SECRET: requiredString('test-session-secret-test-session-secret'),
   CSRF_SECRET: requiredString('test-csrf-secret-test-csrf-secret'),
+  DEVICE_ATTESTATION_KEK: requiredString('test-device-attestation-kek'),
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineBatch" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
   "approvedBy" TEXT,
   "approvedAt" TIMESTAMP(3),
+  "approvalReason" TEXT,
   "executedBy" TEXT,
   "executedAt" TIMESTAMP(3),
   "status" TEXT NOT NULL DEFAULT 'DRAFT',
@@ -17,9 +18,13 @@ CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineBatch" (
 
 CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineApproval" (
   "batchId" TEXT NOT NULL,
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT NOT NULL,
+  "approvedBy" TEXT NOT NULL,
+  "approvalReason" TEXT NOT NULL,
   "reconciliationPlan" TEXT,
-  "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW()
+  "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("batchId", "id"),
+  FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
 );
 
 CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineStage" (
@@ -31,14 +36,17 @@ CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineStage" (
   "normalizedLegacyPosReceiptNumber" TEXT NOT NULL,
   "duplicateRank" INTEGER NOT NULL,
   "duplicateGroupSize" INTEGER NOT NULL,
+  "approvedBy" TEXT NOT NULL,
+  "approvalReason" TEXT NOT NULL,
   "reconciliationPlan" TEXT,
   "stagedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("batchId", "id")
+  PRIMARY KEY ("batchId", "id"),
+  FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
 );
 
 CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantine" (
   "batchId" TEXT NOT NULL,
-  "id" TEXT PRIMARY KEY,
+  "id" TEXT NOT NULL,
   "tenantId" TEXT NOT NULL,
   "branchId" TEXT NOT NULL,
   "receiptWeekStart" TIMESTAMP(3) NOT NULL,
@@ -48,7 +56,9 @@ CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantine" (
   "reconciliationPlan" TEXT,
   "reason" TEXT NOT NULL,
   "receiptRow" JSONB NOT NULL,
-  "quarantinedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW()
+  "quarantinedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("batchId", "id"),
+  FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
 );
 
 DO $$
@@ -158,6 +168,8 @@ WITH approved_batch AS (
     d.normalized_legacy_pos_receipt_number,
     d.duplicate_rank,
     d.duplicate_group_size,
+    a."approvedBy",
+    a."approvalReason",
     a."reconciliationPlan"
   FROM duplicates d
   JOIN "ReceiptLegacyIdentityQuarantineApproval" a
@@ -173,6 +185,8 @@ INSERT INTO "ReceiptLegacyIdentityQuarantineStage" (
   "normalizedLegacyPosReceiptNumber",
   "duplicateRank",
   "duplicateGroupSize",
+  "approvedBy",
+  "approvalReason",
   "reconciliationPlan",
   "stagedAt"
 )
@@ -185,6 +199,8 @@ SELECT
   a.normalized_legacy_pos_receipt_number,
   a.duplicate_rank,
   a.duplicate_group_size,
+  a."approvedBy",
+  a."approvalReason",
   a."reconciliationPlan",
   NOW()
 FROM approved a
@@ -196,6 +212,8 @@ SET
   "normalizedLegacyPosReceiptNumber" = EXCLUDED."normalizedLegacyPosReceiptNumber",
   "duplicateRank" = EXCLUDED."duplicateRank",
   "duplicateGroupSize" = EXCLUDED."duplicateGroupSize",
+  "approvedBy" = EXCLUDED."approvedBy",
+  "approvalReason" = EXCLUDED."approvalReason",
   "reconciliationPlan" = EXCLUDED."reconciliationPlan",
   "stagedAt" = EXCLUDED."stagedAt";
 

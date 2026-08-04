@@ -98,7 +98,7 @@ export class AuthService {
           deviceAttestation!,
           resolveDeviceAttestationSecret(
             sessionDevice!,
-            this.configService.get<string>('SESSION_SECRET') ?? '',
+            this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '',
           ),
         )
       : null;
@@ -352,7 +352,6 @@ function assertDeviceAttestationValid(
 function resolveDeviceAttestationSecret(
   device: {
     attestationSecretCiphertext?: string | null;
-    fingerprintHash: string;
   },
   keyMaterial: string,
 ): string {
@@ -363,7 +362,11 @@ function resolveDeviceAttestationSecret(
     );
   }
 
-  return device.fingerprintHash;
+  throw new DomainHttpException(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    'DEVICE_ATTESTATION_SECRET_UNAVAILABLE',
+    'Device attestation secret is unavailable',
+  );
 }
 
 async function recordDeviceAttestation(

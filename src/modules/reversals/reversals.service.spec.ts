@@ -1,48 +1,13 @@
 import { HttpStatus } from '@nestjs/common';
-import { IdempotencyRecordStatus } from '@prisma/client';
-import { PrismaService } from '../../database/prisma.service';
+import { SessionStatus, UserRole, UserStatus } from '@prisma/client';
 import { ReversalsService } from './reversals.service';
 
 describe('ReversalsService', () => {
-  type IdempotencyCreateInput = {
-    data: {
-      actorId: string;
-      endpoint: string;
-      idempotencyKey: string;
-      requestHash: string;
-      responseJson: unknown;
-      status: IdempotencyRecordStatus;
-      tenantId: string;
-    };
-  };
-
-  const actor = {
-    user: { id: 'user-1', tenantId: 'tenant-1' },
-    session: {},
-  };
-
-  function buildService(existing: unknown = null) {
-    const prisma = {
-      idempotencyRecord: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-        findUnique: jest.fn().mockResolvedValue(existing),
-        create: jest
-          .fn<Promise<unknown>, [IdempotencyCreateInput]>()
-          .mockResolvedValue({}),
-      },
-    };
-
-    return {
-      prisma,
-      service: new ReversalsService(prisma as unknown as PrismaService),
-    };
-  }
+  const service = new ReversalsService();
 
   it('requires an idempotency key', async () => {
-    const { service } = buildService();
-
     await expect(
-      service.reverse('tenant-1', actor as never, 'transaction-1', undefined, {
+      service.reverse('tenant-1', actor(), 'transaction-1', undefined, {
         reason: 'Customer refund',
       }),
     ).rejects.toMatchObject({
@@ -55,10 +20,8 @@ describe('ReversalsService', () => {
   });
 
   it('requires a non-empty reason', async () => {
-    const { service } = buildService();
-
     await expect(
-      service.reverse('tenant-1', actor as never, 'transaction-1', 'idem-1', {
+      service.reverse('tenant-1', actor(), 'transaction-1', 'idem-1', {
         reason: '   ',
       }),
     ).rejects.toMatchObject({
@@ -70,81 +33,47 @@ describe('ReversalsService', () => {
     });
   });
 
-  it('records an idempotent review-required reversal boundary', async () => {
-    const { prisma, service } = buildService();
-
+  it('returns the unavailable boundary for valid reversal requests', async () => {
     await expect(
-      service.reverse('tenant-1', actor as never, 'transaction-1', ' idem-1 ', {
-        reason: ' Customer refund ',
-      }),
-    ).resolves.toMatchObject({
-      code: 'REVERSAL_DEFERRED',
-      transactionId: 'transaction-1',
-    });
-
-    const createCall = prisma.idempotencyRecord.create.mock.calls[0][0];
-
-    expect(createCall.data).toMatchObject({
-      actorId: 'user-1',
-      endpoint: 'POST /api/v1/transactions/:transactionId/reverse',
-      idempotencyKey: 'idem-1',
-      responseJson: {
-        code: 'REVERSAL_DEFERRED',
-        transactionId: 'transaction-1',
-      },
-      status: IdempotencyRecordStatus.COMPLETED,
-      tenantId: 'tenant-1',
-    });
-  });
-
-  it('rejects conflicting idempotency payloads', async () => {
-    const { prisma, service } = buildService({
-      requestHash: 'different-request-hash',
-    });
-
-    await expect(
-      service.reverse('tenant-1', actor as never, 'transaction-1', 'idem-1', {
+      service.reverse('tenant-1', actor(), 'transaction-1', 'idem-1', {
         reason: 'Customer refund',
       }),
     ).rejects.toMatchObject({
       response: {
-        code: 'IDEMPOTENCY_CONFLICT',
-        message: 'Idempotency key reused with different payload',
+        code: 'REVERSAL_UNAVAILABLE',
+        message: 'Transaction reversal is not available in this release',
       },
-      status: HttpStatus.CONFLICT,
+      status: HttpStatus.SERVICE_UNAVAILABLE,
     });
-
-    expect(prisma.idempotencyRecord.create).not.toHaveBeenCalled();
-  });
-
-  it('replays the review-required outcome for matching idempotency payloads', async () => {
-    const { prisma, service } = buildService();
-
-    await expect(
-      service.reverse('tenant-1', actor as never, 'transaction-1', 'idem-1', {
-        reason: 'Customer refund',
-      }),
-    ).resolves.toMatchObject({
-      code: 'REVERSAL_DEFERRED',
-      transactionId: 'transaction-1',
-    });
-
-    const createCall = prisma.idempotencyRecord.create.mock.calls[0][0];
-
-    prisma.idempotencyRecord.findUnique.mockResolvedValue({
-      requestHash: createCall.data.requestHash,
-      responseJson: createCall.data.responseJson,
-    });
-    prisma.idempotencyRecord.create.mockClear();
-
-    await expect(
-      service.reverse('tenant-1', actor as never, 'transaction-1', 'idem-1', {
-        reason: 'Customer refund',
-      }),
-    ).resolves.toMatchObject({
-      code: 'REVERSAL_DEFERRED',
-      transactionId: 'transaction-1',
-    });
-    expect(prisma.idempotencyRecord.create).not.toHaveBeenCalled();
   });
 });
+
+function actor() {
+  return {
+    user: {
+      id: 'user-1',
+      tenantId: 'tenant-1',
+      branchId: null,
+      username: 'supervisor-1',
+      supabaseAuthId: null,
+      role: UserRole.SUPERVISOR,
+      status: UserStatus.ACTIVE,
+      lastLoginAt: null,
+      createdAt: new Date('2026-08-04T00:00:00.000Z'),
+      updatedAt: new Date('2026-08-04T00:00:00.000Z'),
+    },
+    session: {
+      id: 'session-1',
+      userId: 'user-1',
+      deviceId: null,
+      sessionTokenHash: 'session-token-hash',
+      csrfTokenHash: 'csrf-token-hash',
+      status: SessionStatus.ACTIVE,
+      expiresAt: new Date('2026-08-04T00:00:00.000Z'),
+      revokedAt: null,
+      lastUsedAt: null,
+      createdAt: new Date('2026-08-04T00:00:00.000Z'),
+      updatedAt: new Date('2026-08-04T00:00:00.000Z'),
+    },
+  };
+}

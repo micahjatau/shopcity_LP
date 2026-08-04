@@ -84,7 +84,10 @@ export class BranchesController {
     dataSchema: { type: 'array', items: { type: 'object' } },
   })
   listDevices(@Req() request: AuthenticatedRequest) {
-    return this.branchesService.listDevices(request.authContext!.user.tenantId);
+    return this.branchesService.listDevices(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+    );
   }
 
   @Post('devices')

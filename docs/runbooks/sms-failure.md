@@ -17,3 +17,5 @@ Handle SMS provider outages without breaking financial consistency.
 1. Use the outbox event ID as the provider idempotency key when verifying delivery.
 2. Treat 4xx validation and auth failures as terminal; treat 429 and 5xx responses as retryable.
 3. If rotating credentials, update the SMS_PROVIDER_* secrets, confirm the real provider mode is still enabled, and verify fake-provider override stays off in production.
+4. Rotate provider credentials before sender-ID changes, restart the worker after the secret update, and confirm the outbox queue drains without duplicate sends.
+5. Keep provider credentials, phone numbers, and message bodies out of evidence artifacts unless they are redacted.

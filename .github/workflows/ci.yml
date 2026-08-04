@@ -20,15 +20,20 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run prisma:generate
-      - run: npm run verify:fast
+      - run: npm run format:check
+      - run: npm run lint:src
+      - run: npm run lint:test
+      - run: npm run typecheck
       - run: npm run build
       - run: npm run prisma:validate
       - run: npm run architecture:check
-      - run: npm test -- --runInBand
+      - run: npm run test -- --runInBand
+      - run: npm run test:coverage:critical
       - run: npm run openapi:lint
       - run: npm run openapi:diff
       - run: npm run client:generate
       - run: npm run client:typecheck
+      - run: npm run openspec:validate
       - run: npm run verify:release-artifacts
       - run: npm run validate:scope
       - name: Upload release evidence artifacts

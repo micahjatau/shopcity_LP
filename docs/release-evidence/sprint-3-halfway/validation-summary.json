@@ -1,0 +1,46 @@
+{
+  "releaseSha": "3563492bef654d4fad4eb51efadb3e48e0ade631",
+  "reviewer": "OpenCode",
+  "reviewDate": "2026-08-04",
+  "localValidation": [
+    {
+      "command": "npx jest test/openapi.int-spec.ts --config ./test/jest-int.json --runInBand",
+      "status": "passed"
+    },
+    {
+      "command": "npx jest src/modules/reversals/reversals.controller.spec.ts src/modules/reversals/reversals.service.spec.ts --runInBand",
+      "status": "passed"
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "npm run build",
+      "status": "passed"
+    },
+    {
+      "command": "npm run client:typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "npx jest test/receipt-quarantine-sql.int-spec.ts --config ./test/jest-int.json --runInBand",
+      "status": "passed"
+    },
+    {
+      "command": "node scripts/validation-scope.cjs",
+      "status": "passed"
+    }
+  ],
+  "pendingExternalEvidence": [
+    "Protected shared-backup restore workflow run",
+    "Migration reconciliation report",
+    "Object inventory report",
+    "Financial-row probes",
+    "Device-secret backfill counts",
+    "SMS smoke evidence",
+    "Quarantine dry-run evidence",
+    "Deployment checklist evidence",
+    "Rollback checklist evidence"
+  ]
+}
