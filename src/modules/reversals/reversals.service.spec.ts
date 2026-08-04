@@ -78,7 +78,7 @@ describe('ReversalsService', () => {
         reason: ' Customer refund ',
       }),
     ).resolves.toMatchObject({
-      code: 'REVERSAL_REVIEW_REQUIRED',
+      code: 'REVERSAL_DEFERRED',
       transactionId: 'transaction-1',
     });
 
@@ -89,7 +89,7 @@ describe('ReversalsService', () => {
       endpoint: 'POST /api/v1/transactions/:transactionId/reverse',
       idempotencyKey: 'idem-1',
       responseJson: {
-        code: 'REVERSAL_REVIEW_REQUIRED',
+        code: 'REVERSAL_DEFERRED',
         transactionId: 'transaction-1',
       },
       status: IdempotencyRecordStatus.COMPLETED,
@@ -125,7 +125,7 @@ describe('ReversalsService', () => {
         reason: 'Customer refund',
       }),
     ).resolves.toMatchObject({
-      code: 'REVERSAL_REVIEW_REQUIRED',
+      code: 'REVERSAL_DEFERRED',
       transactionId: 'transaction-1',
     });
 
@@ -142,7 +142,7 @@ describe('ReversalsService', () => {
         reason: 'Customer refund',
       }),
     ).resolves.toMatchObject({
-      code: 'REVERSAL_REVIEW_REQUIRED',
+      code: 'REVERSAL_DEFERRED',
       transactionId: 'transaction-1',
     });
     expect(prisma.idempotencyRecord.create).not.toHaveBeenCalled();

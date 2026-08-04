@@ -1130,7 +1130,25 @@ export class LoyaltyService {
               requestedBy: true,
               expiresAt: true,
               policyVersion: true,
-              redemption: { select: { receiptId: true } },
+              receipt: {
+                select: {
+                  id: true,
+                  tenantId: true,
+                  customerId: true,
+                  cardId: true,
+                  deviceId: true,
+                },
+              },
+              redemption: {
+                select: {
+                  id: true,
+                  tenantId: true,
+                  customerId: true,
+                  cardId: true,
+                  deviceId: true,
+                  receiptId: true,
+                },
+              },
             },
           });
 
@@ -1237,10 +1255,7 @@ export class LoyaltyService {
               this.auditService,
               toApprovalExpiryRecord(freshApproval),
               now,
-              {
-                tenantId: actor.user.tenantId,
-                id: actor.user.id,
-              },
+              null,
               {
                 tenantId: actor.user.tenantId,
                 id: actor.user.id,
@@ -1617,10 +1632,7 @@ export class LoyaltyService {
             : null,
         }),
         now,
-        {
-          tenantId: actor.user.tenantId,
-          id: actor.user.id,
-        },
+        null,
         {
           tenantId: actor.user.tenantId,
           id: actor.user.id,
@@ -2217,49 +2229,174 @@ async function lockApprovalExecutionRows(
     receiptId: string | null;
     redemptionId: string | null;
     targetType: ApprovalTargetType;
-    redemption?: { receiptId: string | null } | null;
+    receipt?: {
+      id: string;
+      tenantId: string;
+      customerId: string;
+      cardId: string;
+      deviceId: string | null;
+    } | null;
+    redemption?: {
+      id: string;
+      tenantId: string;
+      customerId: string;
+      cardId: string;
+      deviceId: string;
+      receiptId: string;
+    } | null;
   },
 ): Promise<void> {
-  await prisma.$queryRaw(Prisma.sql`
-    SELECT 1
-    FROM "Approval"
-    WHERE "tenantId" = ${approval.tenantId}
-      AND "id" = ${approval.id}
-    FOR UPDATE
-  `);
+  await lockSingleRow(prisma, 'Approval', approval.tenantId, approval.id);
+
+  const receiptIds = new Set<string>();
+  const customerIds = new Set<string>();
+  const cardIds = new Set<string>();
+  const deviceIds = new Set<string>();
 
   if (approval.receiptId) {
-    await prisma.$queryRaw(Prisma.sql`
-      SELECT 1
-      FROM "Receipt"
-      WHERE "tenantId" = ${approval.tenantId}
-        AND "id" = ${approval.receiptId}
-      FOR UPDATE
-    `);
+    receiptIds.add(approval.receiptId);
+  }
+
+  if (approval.receipt) {
+    customerIds.add(approval.receipt.customerId);
+    cardIds.add(approval.receipt.cardId);
+    if (approval.receipt.deviceId) {
+      deviceIds.add(approval.receipt.deviceId);
+    }
   }
 
   if (
     approval.targetType === ApprovalTargetType.REDEEM &&
     approval.redemptionId
   ) {
-    await prisma.$queryRaw(Prisma.sql`
-      SELECT 1
-      FROM "Redemption"
-      WHERE "tenantId" = ${approval.tenantId}
-        AND "id" = ${approval.redemptionId}
-      FOR UPDATE
-    `);
+    await lockSingleRow(prisma, 'Redemption', approval.tenantId, approval.redemptionId);
 
-    if (approval.redemption?.receiptId) {
+    if (approval.redemption) {
+      receiptIds.add(approval.redemption.receiptId);
+      customerIds.add(approval.redemption.customerId);
+      cardIds.add(approval.redemption.cardId);
+      deviceIds.add(approval.redemption.deviceId);
+
+      await lockEligibleCreditLots(
+        prisma,
+        approval.tenantId,
+        approval.redemption.customerId,
+      );
+      await lockRedemptionAllocations(
+        prisma,
+        approval.tenantId,
+        approval.redemption.id,
+      );
+    }
+  }
+
+  await lockRowsByIds(prisma, 'Receipt', approval.tenantId, receiptIds);
+  await lockRowsByIds(prisma, 'Customer', approval.tenantId, customerIds);
+  await lockRowsByIds(prisma, 'Card', approval.tenantId, cardIds);
+  await lockRowsByIds(prisma, 'Device', approval.tenantId, deviceIds);
+}
+
+async function lockRowsByIds(
+  prisma: Prisma.TransactionClient,
+  table: 'Receipt' | 'Customer' | 'Card' | 'Device',
+  tenantId: string,
+  ids: Set<string>,
+): Promise<void> {
+  const orderedIds = [...ids].sort();
+
+  if (orderedIds.length === 0) {
+    return;
+  }
+
+  switch (table) {
+    case 'Receipt':
       await prisma.$queryRaw(Prisma.sql`
         SELECT 1
         FROM "Receipt"
-        WHERE "tenantId" = ${approval.tenantId}
-          AND "id" = ${approval.redemption.receiptId}
+        WHERE "tenantId" = ${tenantId}
+          AND "id" IN (${Prisma.join(orderedIds)})
+        ORDER BY "id" ASC
         FOR UPDATE
       `);
-    }
+      return;
+    case 'Customer':
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT 1
+        FROM "Customer"
+        WHERE "tenantId" = ${tenantId}
+          AND "id" IN (${Prisma.join(orderedIds)})
+        ORDER BY "id" ASC
+        FOR UPDATE
+      `);
+      return;
+    case 'Card':
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT 1
+        FROM "Card"
+        WHERE "tenantId" = ${tenantId}
+          AND "id" IN (${Prisma.join(orderedIds)})
+        ORDER BY "id" ASC
+        FOR UPDATE
+      `);
+      return;
+    case 'Device':
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT 1
+        FROM "Device"
+        WHERE "tenantId" = ${tenantId}
+          AND "id" IN (${Prisma.join(orderedIds)})
+        ORDER BY "id" ASC
+        FOR UPDATE
+      `);
+      return;
   }
+}
+
+async function lockSingleRow(
+  prisma: Prisma.TransactionClient,
+  table: 'Approval' | 'Redemption',
+  tenantId: string,
+  id: string,
+): Promise<void> {
+  await prisma.$queryRaw(Prisma.sql`
+    SELECT 1
+    FROM ${Prisma.raw(`"${table}"`)}
+    WHERE "tenantId" = ${tenantId}
+      AND "id" = ${id}
+    FOR UPDATE
+  `);
+}
+
+async function lockEligibleCreditLots(
+  prisma: Prisma.TransactionClient,
+  tenantId: string,
+  customerId: string,
+): Promise<void> {
+  await prisma.$queryRaw(Prisma.sql`
+    SELECT 1
+    FROM "CreditLot"
+    WHERE "tenantId" = ${tenantId}
+      AND "customerId" = ${customerId}
+      AND "remainingAmountKobo" > 0
+      AND "expiresAt" > NOW()
+    ORDER BY "expiresAt" ASC, "earnedAt" ASC, "id" ASC
+    FOR UPDATE
+  `);
+}
+
+async function lockRedemptionAllocations(
+  prisma: Prisma.TransactionClient,
+  tenantId: string,
+  redemptionId: string,
+): Promise<void> {
+  await prisma.$queryRaw(Prisma.sql`
+    SELECT 1
+    FROM "RedemptionAllocation"
+    WHERE "tenantId" = ${tenantId}
+      AND "redemptionId" = ${redemptionId}
+    ORDER BY "allocationOrder" ASC, "id" ASC
+    FOR UPDATE
+  `);
 }
 
 function addMonths(date: Date, months: number): Date {

@@ -10,7 +10,7 @@ const REVERSE_ENDPOINT = 'POST /api/v1/transactions/:transactionId/reverse';
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type ReversalReviewRequiredResponse = {
-  code: 'REVERSAL_REVIEW_REQUIRED';
+  code: 'REVERSAL_DEFERRED';
   transactionId: string;
 };
 
@@ -28,7 +28,7 @@ export class ReversalsService {
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const reason = normalizeReason(dto.reason);
     const response: ReversalReviewRequiredResponse = {
-      code: 'REVERSAL_REVIEW_REQUIRED',
+      code: 'REVERSAL_DEFERRED',
       transactionId,
     };
     const requestHash = hashRequest({

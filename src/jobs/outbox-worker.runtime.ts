@@ -7,7 +7,11 @@ import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
 import type { SmsProvider } from './sms.provider';
-import { validateSmsIntent, type SmsTemplate } from './sms.templates';
+import {
+  SmsPayloadError,
+  validateSmsIntent,
+  type SmsTemplate,
+} from './sms.templates';
 
 export interface WorkerConfig {
   redisUrl: string;
@@ -347,10 +351,27 @@ export class OutboxWorkerRuntime {
     }
 
     const now = new Date();
-    try {
-      const payload = normalizeJsonPayload(resolvedSmsMessage.payload);
-      validateSmsIntent(resolvedSmsMessage.template as SmsTemplate, payload);
+    let payload: Record<string, Prisma.JsonValue>;
 
+    try {
+      payload = normalizeJsonPayload(resolvedSmsMessage.payload);
+      validateSmsIntent(resolvedSmsMessage.template as SmsTemplate, payload);
+    } catch (error) {
+      if (error instanceof SmsPayloadError) {
+        await this.markSmsMessageInvalidPayload(resolvedSmsMessage, now, error);
+        await this.markOutboxEventDeadLettered(
+          outboxEvent,
+          'invalid-payload',
+          error.message,
+        );
+        job.discard();
+        return;
+      }
+
+      throw error;
+    }
+
+    try {
       const result = await this.smsProvider.send({
         tenantId: outboxEvent.tenantId,
         receiptId: resolvedSmsMessage.receiptId,
@@ -547,6 +568,34 @@ export class OutboxWorkerRuntime {
         `Dead-lettered outbox event ${outboxEvent.id}: ${lastError}`,
       );
     }
+  }
+
+  private async markSmsMessageInvalidPayload(
+    smsMessage: {
+      tenantId: string;
+      outboxEventId: string;
+    },
+    now: Date,
+    error: SmsPayloadError,
+  ): Promise<void> {
+    await this.prisma.smsMessage.update({
+      where: {
+        tenantId_outboxEventId: {
+          tenantId: smsMessage.tenantId,
+          outboxEventId: smsMessage.outboxEventId,
+        },
+      },
+      data: {
+        status: 'FAILED',
+        attempts: { increment: 1 },
+        failedAt: now,
+        lastAttemptAt: now,
+        nextAttemptAt: null,
+        deadLetteredAt: now,
+        failureCategory: 'invalid-payload',
+        lastError: error.message,
+      },
+    });
   }
 
   private async markOutboxEventFailure(

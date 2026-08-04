@@ -153,13 +153,14 @@ describe('OpenAPI contract (int)', () => {
       document.paths['/api/v1/transactions/{transactionId}/reverse']?.post;
 
     expect(reversalOperation?.responses?.['201']).toBeUndefined();
-    expect(reversalOperation?.responses?.['202']).toBeDefined();
+    expect(reversalOperation?.responses?.['202']).toBeUndefined();
+    expect(reversalOperation?.responses?.['503']).toBeDefined();
     expect(
-      resolveResponseDataSchema(document, reversalOperation?.responses?.['202'])
+      resolveResponseDataSchema(document, reversalOperation?.responses?.['503'])
         ?.properties?.code,
     ).toBeDefined();
     expect(
-      resolveResponseDataSchema(document, reversalOperation?.responses?.['202'])
+      resolveResponseDataSchema(document, reversalOperation?.responses?.['503'])
         ?.properties?.transactionId,
     ).toBeDefined();
   });

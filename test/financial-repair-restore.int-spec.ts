@@ -74,7 +74,7 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
       }
 
       const restoredMigrations = await readMigrationInventory(restorePrisma);
-      expect(restoredMigrations).toEqual(committedMigrations);
+      expectMigrationInventoryIntegrity(restoredMigrations, committedMigrations);
 
       const functions = await restorePrisma.$queryRaw<{ proname: string }[]>`
         SELECT p.proname
@@ -542,7 +542,7 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
 
         const restoredMigrations = await readMigrationInventory(restorePrisma);
         const committedMigrations = readCommittedMigrationInventory();
-        expect(restoredMigrations).toEqual(committedMigrations);
+        expectMigrationInventoryIntegrity(restoredMigrations, committedMigrations);
 
         execSync('npx prisma migrate status', {
           stdio: 'inherit',
@@ -678,9 +678,16 @@ function migrateDeploy(databaseUrl: string) {
 
 async function readMigrationInventory(prisma: PrismaClient) {
   const rows = await prisma.$queryRaw<
-    { migration_name: string; checksum: string }[]
+    {
+      migration_name: string;
+      checksum: string;
+      finished_at: Date | null;
+      rolled_back_at: Date | null;
+      applied_steps_count: number;
+      logs: string | null;
+    }[]
   >`
-    SELECT migration_name, checksum
+    SELECT migration_name, checksum, finished_at, rolled_back_at, applied_steps_count, logs
     FROM "_prisma_migrations"
     ORDER BY migration_name
   `;
@@ -839,6 +846,34 @@ function readCommittedMigrationInventory() {
     .sort((left, right) =>
       left.migration_name.localeCompare(right.migration_name),
     );
+}
+
+function expectMigrationInventoryIntegrity(
+  restoredMigrations: Array<{
+    migration_name: string;
+    checksum: string;
+    finished_at: Date | null;
+    rolled_back_at: Date | null;
+    applied_steps_count: number;
+    logs: string | null;
+  }>,
+  committedMigrations: Array<{ migration_name: string; checksum: string }>,
+) {
+  expect(
+    restoredMigrations.map(({ migration_name, checksum }) => ({
+      migration_name,
+      checksum,
+    })),
+  ).toEqual(committedMigrations);
+  expect(
+    new Set(restoredMigrations.map((row) => row.migration_name)).size,
+  ).toBe(restoredMigrations.length);
+  for (const row of restoredMigrations) {
+    expect(row.finished_at).not.toBeNull();
+    expect(row.rolled_back_at).toBeNull();
+    expect(row.applied_steps_count).toBeGreaterThanOrEqual(0);
+    expect(row.logs).toBeFalsy();
+  }
 }
 
 function restoreDatabase(container: ExecablePostgresContainer, backup: Buffer) {

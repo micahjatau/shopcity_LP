@@ -1,5 +1,7 @@
 BEGIN;
 
+-- Replace __BATCH_ID__ with the approved batch id before execution.
+
 CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineBatch" (
   "id" TEXT PRIMARY KEY,
   "incidentReferenceId" TEXT NOT NULL,
@@ -52,25 +54,16 @@ CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantine" (
 DO $$
 DECLARE
   approved_batch RECORD;
-  approved_batch_count INTEGER;
+  updated_count INTEGER;
 BEGIN
-  SELECT COUNT(*) INTO approved_batch_count
-  FROM "ReceiptLegacyIdentityQuarantineBatch"
-  WHERE "status" = 'APPROVED';
-
-  IF approved_batch_count <> 1 THEN
-    RAISE EXCEPTION 'expected exactly one approved quarantine batch';
-  END IF;
-
   SELECT *
   INTO approved_batch
   FROM "ReceiptLegacyIdentityQuarantineBatch"
-  WHERE "status" = 'APPROVED'
-  ORDER BY COALESCE("approvedAt", "createdAt") DESC, "createdAt" DESC, "id" ASC
-  LIMIT 1;
+  WHERE "id" = '__BATCH_ID__'
+    AND "status" = 'APPROVED';
 
-  IF approved_batch."id" IS NULL THEN
-    RAISE EXCEPTION 'approved quarantine batch is missing';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'approved quarantine batch is missing or not approved';
   END IF;
 
   IF NOT EXISTS (
@@ -124,9 +117,8 @@ $$;
 WITH approved_batch AS (
   SELECT "id"
   FROM "ReceiptLegacyIdentityQuarantineBatch"
-  WHERE "status" = 'APPROVED'
-  ORDER BY COALESCE("approvedAt", "createdAt") DESC, "createdAt" DESC, "id" ASC
-  LIMIT 1
+  WHERE "id" = '__BATCH_ID__'
+    AND "status" = 'APPROVED'
 ), ranked AS (
   SELECT
     r."id",
@@ -207,14 +199,21 @@ SET
   "reconciliationPlan" = EXCLUDED."reconciliationPlan",
   "stagedAt" = EXCLUDED."stagedAt";
 
-UPDATE "ReceiptLegacyIdentityQuarantineBatch"
-SET "status" = 'STAGED'
-WHERE "id" = (
-  SELECT "id"
-  FROM "ReceiptLegacyIdentityQuarantineBatch"
-  WHERE "status" = 'APPROVED'
-  ORDER BY COALESCE("approvedAt", "createdAt") DESC, "createdAt" DESC, "id" ASC
-  LIMIT 1
-);
+DO $$
+DECLARE
+  updated_count INTEGER;
+BEGIN
+  UPDATE "ReceiptLegacyIdentityQuarantineBatch"
+  SET "status" = 'STAGED'
+  WHERE "id" = '__BATCH_ID__'
+    AND "status" = 'APPROVED';
+
+  GET DIAGNOSTICS updated_count = ROW_COUNT;
+
+  IF updated_count <> 1 THEN
+    RAISE EXCEPTION 'approved quarantine batch transition did not update exactly one row';
+  END IF;
+END;
+$$;
 
 COMMIT;

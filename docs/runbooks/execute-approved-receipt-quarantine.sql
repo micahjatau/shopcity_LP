@@ -1,5 +1,7 @@
 BEGIN;
 
+-- Replace __BATCH_ID__ with the staged batch id before execution.
+
 DO $$
 DECLARE
   batch_id TEXT;
@@ -10,15 +12,15 @@ DECLARE
   conflict_sql TEXT := 'SELECT EXISTS (SELECT 1 FROM "ReceiptLegacyIdentityQuarantineStage" s WHERE s."batchId" = $1 AND COALESCE(NULLIF(BTRIM(s."reconciliationPlan"), ''''), '''') = '''' AND (';
   needs_or BOOLEAN := FALSE;
 BEGIN
-  SELECT b."id"
-  INTO batch_id
-  FROM "ReceiptLegacyIdentityQuarantineBatch" b
-  WHERE b."status" = 'STAGED'
-  ORDER BY COALESCE(b."approvedAt", b."createdAt") DESC, b."createdAt" DESC, b."id" ASC
-  LIMIT 1;
+  batch_id := '__BATCH_ID__';
 
-  IF batch_id IS NULL THEN
-    RAISE EXCEPTION 'staged approved receipt batch is empty';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM "ReceiptLegacyIdentityQuarantineBatch" b
+    WHERE b."id" = batch_id
+      AND b."status" = 'STAGED'
+  ) THEN
+    RAISE EXCEPTION 'staged approved receipt batch is missing or not staged';
   END IF;
 
   PERFORM 1
@@ -163,7 +165,14 @@ BEGIN
     "status" = 'EXECUTED',
     "executedBy" = CURRENT_USER,
     "executedAt" = NOW()
-  WHERE "id" = batch_id;
+  WHERE "id" = batch_id
+    AND "status" = 'STAGED';
+
+  GET DIAGNOSTICS insert_count = ROW_COUNT;
+
+  IF insert_count <> 1 THEN
+    RAISE EXCEPTION 'staged approved receipt batch transition did not update exactly one row';
+  END IF;
 END;
 $$;
 

@@ -124,6 +124,7 @@ describe('receipt quarantine sql runbooks (int)', () => {
       runSqlFile(
         container,
         'docs/runbooks/stage-approved-receipt-quarantine.sql',
+        { __BATCH_ID__: 'batch-1' },
       );
 
       expect(
@@ -142,6 +143,7 @@ describe('receipt quarantine sql runbooks (int)', () => {
       runSqlFile(
         container,
         'docs/runbooks/execute-approved-receipt-quarantine.sql',
+        { __BATCH_ID__: 'batch-1' },
       );
 
       expect(
@@ -188,8 +190,16 @@ function runSql(container: ExecablePostgresContainer, sql: string) {
   );
 }
 
-function runSqlFile(container: ExecablePostgresContainer, filePath: string) {
-  const sql = readFileSync(filePath, 'utf8');
+function runSqlFile(
+  container: ExecablePostgresContainer,
+  filePath: string,
+  variables: Record<string, string> = {},
+) {
+  const sql = Object.entries(variables).reduce(
+    (content, [key, value]) =>
+      content.replaceAll(key, value.replace(/'/g, "''")),
+    readFileSync(filePath, 'utf8'),
+  );
 
   execFileSync(
     'docker',

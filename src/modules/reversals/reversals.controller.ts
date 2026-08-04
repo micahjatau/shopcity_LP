@@ -12,26 +12,41 @@ import {
   ApiBearerAuth,
   ApiHeader,
   ApiOperation,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
-import {
-  apiErrorEnvelopeResponses,
-  apiSuccessEnvelopeResponse,
-} from '../../common/openapi-envelope';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildReverseThrottleKey } from '../../common/throttle/throttle.keys';
 import { ReverseTransactionDto } from './reversals.dto';
 import { ReversalsService } from './reversals.service';
 
-const reversalReviewResponseSchema = {
+const reversalDeferredResponseSchema = {
   type: 'object',
   required: ['code', 'transactionId'],
   properties: {
-    code: { type: 'string', example: 'REVERSAL_REVIEW_REQUIRED' },
+    code: { type: 'string', example: 'REVERSAL_DEFERRED' },
     transactionId: { type: 'string', format: 'uuid' },
+  },
+} as const;
+
+const reversalDeferredEnvelopeSchema = {
+  type: 'object',
+  required: ['success', 'data', 'meta'],
+  properties: {
+    success: { type: 'boolean', example: false },
+    data: reversalDeferredResponseSchema,
+    meta: {
+      type: 'object',
+      required: ['timestamp', 'path', 'requestId'],
+      properties: {
+        timestamp: { type: 'string', example: '2026-07-19T00:00:00.000Z' },
+        path: { type: 'string', example: '/api/v1/transactions/123/reverse' },
+        requestId: { type: 'string', example: 'req-123' },
+      },
+    },
   },
 } as const;
 
@@ -51,43 +66,19 @@ export class ReversalsController {
     keyFactory: buildReverseThrottleKey,
   })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
-  @HttpCode(202)
-  @apiSuccessEnvelopeResponse({
-    status: 202,
-    description: 'Reversal review accepted',
-    dataSchema: reversalReviewResponseSchema,
-  })
-  @apiErrorEnvelopeResponses({
-    badRequest: {
-      validationError: {
-        statusCode: 400,
-        code: 'VALIDATION_ERROR',
-        message: 'Validation failed',
-      },
-    },
-    conflict: {
-      idempotencyConflict: {
-        statusCode: 409,
-        code: 'IDEMPOTENCY_CONFLICT',
-        message: 'Idempotency key reused with different payload',
-      },
-      idempotencyInProgress: {
-        statusCode: 409,
-        code: 'IDEMPOTENCY_IN_PROGRESS',
-        message: 'Idempotency key is still being processed',
-      },
-    },
-    tooManyRequests: {
-      rateLimited: {
-        statusCode: 429,
-        code: 'RATE_LIMITED',
-        message: 'Too many requests',
+  @HttpCode(503)
+  @ApiResponse({
+    status: 503,
+    description: 'Reversal is deferred for this release',
+    content: {
+      'application/json': {
+        schema: reversalDeferredEnvelopeSchema as never,
       },
     },
   })
   @ApiOperation({
-    summary: 'Request a transaction reversal review',
-    description: 'Returns REVERSAL_REVIEW_REQUIRED for manual processing.',
+    summary: 'Deferred transaction reversal',
+    description: 'Reversal is unavailable for this release.',
   })
   reverse(
     @Req() request: AuthenticatedRequest,

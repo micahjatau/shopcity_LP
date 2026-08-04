@@ -535,8 +535,8 @@ describe('receipt integrity migration upgrade', () => {
           NULL
         );
       `);
-      fixture.executeSql(stageSql);
-      fixture.executeSql(executeSql);
+      fixture.executeSql(stageSql.replaceAll('__BATCH_ID__', ids.batchId));
+      fixture.executeSql(executeSql.replaceAll('__BATCH_ID__', ids.batchId));
 
       const prisma = new PrismaClient({
         datasources: { db: { url: fixture.databaseUrl } },

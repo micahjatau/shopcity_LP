@@ -257,6 +257,62 @@ describe('OutboxWorkerRuntime', () => {
     expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
+  it('dead-letters existing malformed SMS rows without retrying delivery', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-existing-invalid',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: {
+          id: 'sms-existing-invalid',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-1',
+          outboxEventId: 'outbox-existing-invalid',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          payload: {
+            version: 1,
+            receiptId: 'receipt-1',
+            transactionId: 'ledger-1',
+            customerId: 'customer-1',
+            phoneE164: '+2348000000000',
+            template: 'earn-confirmed',
+          },
+          status: 'FAILED',
+          attempts: 0,
+        },
+      },
+    });
+    const smsProvider = { send: jest.fn() };
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      smsProvider,
+    );
+    const job: TestJob = {
+      data: { id: 'outbox-existing-invalid', tenantId: 'tenant-1' },
+      discard: jest.fn(),
+    };
+
+    await runtimeWithHandleJob(runtime).handleJob(job);
+
+    expect(job.discard).toHaveBeenCalledTimes(1);
+    expect(smsProvider.send).not.toHaveBeenCalled();
+    expect(prisma.smsMessageUpdateCalls[0]).toMatchObject({
+      data: expect.objectContaining({
+        status: 'FAILED',
+        nextAttemptAt: null,
+        deadLetteredAt: expect.any(Date),
+        failureCategory: 'invalid-payload',
+      }),
+    });
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
+  });
+
   it('dead-letters reconstructed SMS payloads without receipt IDs', async () => {
     const prisma = prismaStub({
       outboxEvent: {

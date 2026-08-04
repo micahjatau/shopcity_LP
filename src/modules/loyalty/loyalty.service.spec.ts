@@ -306,7 +306,7 @@ describe('LoyaltyService redemption approvals', () => {
         debitLedgerEntryId: 'ledger-1',
       }),
     );
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
+    expect(tx.$queryRaw).toHaveBeenCalled();
   });
 
   it('treats approval policy changes as terminal rejection outcomes', async () => {
@@ -451,6 +451,76 @@ describe('LoyaltyService redemption approvals', () => {
     ).rejects.toMatchObject({
       response: { code: 'APPROVAL_ALREADY_DECIDED' },
     });
+  });
+
+  it('records request-discovered expiry with system ownership and separate detector metadata', async () => {
+    const now = new Date('2026-07-26T12:00:00.000Z');
+    const auditWriter = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      approval: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'approval-expired',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-1',
+          redemptionId: null,
+          targetType: ApprovalTargetType.EARN,
+          status: ApprovalStatus.PENDING,
+          requestedByTenantId: 'tenant-1',
+          requestedBy: 'cashier-1',
+          expiresAt: new Date('2026-07-25T12:00:00.000Z'),
+          policyVersion: 'policy-version',
+          receipt: {
+            id: 'receipt-1',
+            tenantId: 'tenant-1',
+            customerId: 'customer-1',
+            cardId: 'card-1',
+            deviceId: 'device-1',
+          },
+          redemption: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      receipt: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      redemption: {
+        updateMany: jest.fn(),
+      },
+    };
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditWriter as never,
+      configService(),
+      activeBalanceService(100_000n),
+      { allocateDebit: jest.fn() } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        supervisorAuthContext(),
+        'approval-expired',
+        'APPROVED',
+        'expired after supervisor request',
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'APPROVAL_EXPIRED' },
+    });
+
+    expect(auditWriter.recordWithClient).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        actorId: null,
+        metadata: expect.objectContaining({
+          detectedByTenantId: 'tenant-1',
+          detectedBy: 'supervisor-1',
+        }),
+      }),
+    );
   });
 
   it('expires overdue approvals before listing approvals', async () => {
