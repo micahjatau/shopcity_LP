@@ -20995,7 +20995,7 @@
           }
         },
         "responses": {
-          "503": {
+          "202": {
             "description": "Reversal is deferred for this release",
             "content": {
               "application/json": {

@@ -66,9 +66,9 @@ export class ReversalsController {
     keyFactory: buildReverseThrottleKey,
   })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
-  @HttpCode(503)
+  @HttpCode(202)
   @ApiResponse({
-    status: 503,
+    status: 202,
     description: 'Reversal is deferred for this release',
     content: {
       'application/json': {

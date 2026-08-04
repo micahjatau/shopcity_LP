@@ -9023,21 +9023,21 @@ export type RedemptionsControllerRedeemV1503 = {
   meta: RedemptionsControllerRedeemV1503Meta;
 };
 
-export type ReversalsControllerReverseV1503Data = {
+export type ReversalsControllerReverseV1202Data = {
   code: string;
   transactionId: string;
 };
 
-export type ReversalsControllerReverseV1503Meta = {
+export type ReversalsControllerReverseV1202Meta = {
   timestamp: string;
   path: string;
   requestId: string;
 };
 
-export type ReversalsControllerReverseV1503 = {
+export type ReversalsControllerReverseV1202 = {
   success: boolean;
-  data: ReversalsControllerReverseV1503Data;
-  meta: ReversalsControllerReverseV1503Meta;
+  data: ReversalsControllerReverseV1202Data;
+  meta: ReversalsControllerReverseV1202Meta;
 };
 
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
@@ -12813,18 +12813,17 @@ export const redemptionsControllerRedeemV1 = async (
  * Reversal is unavailable for this release.
  * @summary Deferred transaction reversal
  */
-export type reversalsControllerReverseV1Response503 = {
-  data: ReversalsControllerReverseV1503;
-  status: 503;
+export type reversalsControllerReverseV1Response202 = {
+  data: ReversalsControllerReverseV1202;
+  status: 202;
 };
 
-export type reversalsControllerReverseV1ResponseError =
-  reversalsControllerReverseV1Response503 & {
+export type reversalsControllerReverseV1ResponseSuccess =
+  reversalsControllerReverseV1Response202 & {
     headers: Headers;
   };
-
 export type reversalsControllerReverseV1Response =
-  reversalsControllerReverseV1ResponseError;
+  reversalsControllerReverseV1ResponseSuccess;
 
 export const getReversalsControllerReverseV1Url = (transactionId: string) => {
   return `/api/v1/transactions/${transactionId}/reverse`;
