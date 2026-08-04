@@ -5,8 +5,8 @@ Final release candidate SHA: `3563492bef654d4fad4eb51efadb3e48e0ade631`
 Reviewer: OpenCode
 Review date: 2026-08-04
 
-Workflow run URL: `TBD`
-Workflow run ID: `TBD`
+Workflow run URL: `https://github.com/micahjatau/shopcity_LP/actions/runs/30956455625`
+Workflow run ID: `30956455625`
 
 ## Available Evidence
 
@@ -22,7 +22,7 @@ Workflow run ID: `TBD`
 
 ## Pending External Evidence
 
-- Protected shared-backup restore workflow run
+- Protected shared-backup restore workflow run (failed: missing protected shared dump variables)
 - Migration reconciliation report
 - Object inventory report
 - Financial-row probes
