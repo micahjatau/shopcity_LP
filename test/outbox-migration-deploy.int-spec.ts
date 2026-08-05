@@ -64,5 +64,5 @@ describe('outbox migration deploy (int)', () => {
       await prisma.$disconnect();
       await container.stop();
     }
-  }, 120000);
+  }, 240000);
 });

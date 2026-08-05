@@ -25,12 +25,12 @@ describe('customer email identity', () => {
       datasources: { db: { url: databaseUrl } },
     });
     await prisma.$connect();
-  }, 120000);
+  }, 240000);
 
   afterAll(async () => {
     await prisma?.$disconnect();
     await container?.stop();
-  }, 120000);
+  }, 240000);
 
   it('stores and searches customers by email and card serial', async () => {
     const seed = await seedFoundation(prisma, {

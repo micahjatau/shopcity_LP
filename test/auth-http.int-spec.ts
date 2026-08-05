@@ -22,6 +22,7 @@ import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
 } from './support/redis-testcontainer';
+import { createAttestedDeviceData } from './support/device-attestation';
 import type { INestApplication } from '@nestjs/common';
 
 describe('auth and readiness flows (int)', () => {
@@ -229,13 +230,13 @@ describe('auth and readiness flows (int)', () => {
 
   it('binds login sessions to attested devices', async () => {
     const device = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-attested',
         fingerprintHash: 'device-fingerprint-attested',
         status: DeviceStatus.ACTIVE,
-      },
+      }),
     });
 
     const loginResponse = await request(httpServer)
@@ -264,13 +265,13 @@ describe('auth and readiness flows (int)', () => {
 
   it('rejects login when the device attestation is missing or invalid', async () => {
     const device = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-unattested',
         fingerprintHash: 'device-fingerprint-unattested',
         status: 'ACTIVE',
-      },
+      }),
     });
 
     await request(httpServer)
@@ -483,13 +484,13 @@ describe('auth and readiness flows (int)', () => {
     });
 
     const device = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-redeem-http',
         fingerprintHash: 'device-fingerprint-redeem-http',
         status: DeviceStatus.ACTIVE,
-      },
+      }),
     });
     const bearerToken = await loginCashierBearerToken(
       device.id,

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { PrismaClient, SmsMessageStatus, UserRole } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { createAttestedDeviceData } from './support/device-attestation';
 
 describe('sms reference backfill (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -130,14 +131,14 @@ async function createFixture(prisma: PrismaClient) {
     },
   });
   await prisma.device.create({
-    data: {
+    data: createAttestedDeviceData({
       id: deviceId,
       tenantId,
       branchId,
       name: 'Backfill Device',
       fingerprintHash: 'backfill-device-fingerprint',
       status: 'ACTIVE',
-    },
+    }),
   });
   await prisma.receipt.create({
     data: {

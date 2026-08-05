@@ -10,6 +10,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { createAttestedDeviceData } from './support/device-attestation';
 import { ActiveBalanceService } from '../src/common/balance/active-balance.service';
 import { LotAllocationService } from '../src/common/balance/lot-allocation.service';
 import type { AuthContext } from '../src/common/auth/session.types';
@@ -62,12 +63,16 @@ describe('redemption approval lifecycle (int)', () => {
     );
     approvalsService = new ApprovalsService(loyaltyService);
     fixture = await createFixture(prisma);
-  }, 120000);
+  }, 240000);
 
   afterAll(async () => {
     await prisma?.$disconnect();
-    await pgContainer?.stop();
-  }, 120000);
+    try {
+      await pgContainer?.stop();
+    } catch {
+      // Testcontainers can race teardown under the longer full-suite run.
+    }
+  }, 240000);
 
   it('creates, lists, and executes a real high-value redemption approval', async () => {
     const pending = await redemptionsService.redeem(
@@ -477,14 +482,14 @@ async function createFixture(prisma: PrismaService, lotAmountKobo = 20_000n) {
     },
   });
   await prisma.device.create({
-    data: {
+    data: createAttestedDeviceData({
       id: deviceId,
       tenantId,
       branchId,
       name: 'Redemption Device',
       fingerprintHash: `redemption-device-fingerprint-${deviceId}`,
       status: 'ACTIVE',
-    },
+    }),
   });
   await prisma.user.createMany({
     data: [

@@ -15,6 +15,7 @@ import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
 } from './support/redis-testcontainer';
+import { createAttestedDeviceData } from './support/device-attestation';
 import type { INestApplication } from '@nestjs/common';
 
 let prisma: PrismaClient;
@@ -222,13 +223,13 @@ describe('receipt capture flows (int)', () => {
       occurredAt: new Date(Date.now() - 60_000).toISOString(),
     });
     const cashierDevice = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-cashier-two',
         fingerprintHash: 'device-fingerprint-cashier-two',
         status: DeviceStatus.ACTIVE,
-      },
+      }),
     });
     const cashierHeaders = await loginAs(cashierTwo.username, cashierDevice.id);
 
@@ -509,13 +510,13 @@ describe('receipt capture flows (int)', () => {
       },
     });
     const otherBranchDevice = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: otherBranch.id,
         name: 'POS-other',
         fingerprintHash: 'device-fingerprint-other',
         status: DeviceStatus.ACTIVE,
-      },
+      }),
     });
 
     await request(httpServer)
@@ -538,13 +539,13 @@ describe('receipt capture flows (int)', () => {
     ).expect(400);
 
     const inactiveDevice = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-inactive',
         fingerprintHash: 'device-fingerprint-inactive',
         status: DeviceStatus.INACTIVE,
-      },
+      }),
     });
 
     await request(httpServer)
@@ -610,13 +611,13 @@ describe('receipt capture flows (int)', () => {
       occurredAt: new Date(Date.now() - 60_000).toISOString(),
     });
     const cashierDevice = await prisma.device.create({
-      data: {
+      data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-cashier-two-timecheck',
         fingerprintHash: 'device-fingerprint-cashier-two-timecheck',
         status: DeviceStatus.ACTIVE,
-      },
+      }),
     });
     const cashierHeaders = await loginAs(cashierTwo.username, cashierDevice.id);
 
@@ -967,13 +968,13 @@ async function prepareReceiptFixture(options: {
   });
 
   const device = await prisma.device.create({
-    data: {
+    data: createAttestedDeviceData({
       tenantId: seedData.tenant.id,
       branchId: seedData.branch.id,
       name: options.deviceName,
       fingerprintHash: options.fingerprintHash,
       status: DeviceStatus.ACTIVE,
-    },
+    }),
   });
 
   const authHeaders = await loginAs(

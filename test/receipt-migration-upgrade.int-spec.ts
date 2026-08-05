@@ -491,6 +491,7 @@ describe('receipt integrity migration upgrade', () => {
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
           "approvedBy" TEXT,
           "approvedAt" TIMESTAMP(3),
+          "approvalReason" TEXT,
           "executedBy" TEXT,
           "executedAt" TIMESTAMP(3),
           "status" TEXT NOT NULL DEFAULT 'DRAFT',
@@ -501,6 +502,8 @@ describe('receipt integrity migration upgrade', () => {
         CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantineApproval" (
           "batchId" TEXT NOT NULL,
           "id" TEXT PRIMARY KEY,
+          "approvedBy" TEXT NOT NULL,
+          "approvalReason" TEXT NOT NULL,
           "reconciliationPlan" TEXT,
           "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW()
         );
@@ -512,6 +515,7 @@ describe('receipt integrity migration upgrade', () => {
           "createdBy",
           "approvedBy",
           "approvedAt",
+          "approvalReason",
           "status",
           "notes"
         ) VALUES (
@@ -520,6 +524,7 @@ describe('receipt integrity migration upgrade', () => {
           '${ids.userId}',
           '${ids.userId}',
           NOW(),
+          'Receipt duplicate remediation batch',
           'APPROVED',
           'Receipt duplicate remediation batch'
         );
@@ -528,15 +533,28 @@ describe('receipt integrity migration upgrade', () => {
         INSERT INTO "ReceiptLegacyIdentityQuarantineApproval" (
           "batchId",
           "id",
+          "approvedBy",
+          "approvalReason",
           "reconciliationPlan"
         ) VALUES (
           '${ids.batchId}',
           '${ids.approvedReceiptId}',
+          '${ids.userId}',
+          'Receipt duplicate remediation batch',
           NULL
         );
       `);
       fixture.executeSql(stageSql.replaceAll('__BATCH_ID__', ids.batchId));
-      fixture.executeSql(executeSql.replaceAll('__BATCH_ID__', ids.batchId));
+      fixture.executeSql(
+        executeSql
+          .replaceAll('__BATCH_ID__', ids.batchId)
+          .replaceAll('__EXECUTED_BY__', ids.userId)
+          .replaceAll('__INCIDENT_REFERENCE_ID__', 'INCIDENT-123')
+          .replaceAll(
+            '__APPROVAL_REASON__',
+            'Receipt duplicate remediation batch',
+          ),
+      );
 
       const prisma = new PrismaClient({
         datasources: { db: { url: fixture.databaseUrl } },

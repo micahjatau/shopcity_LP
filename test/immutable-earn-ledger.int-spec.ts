@@ -10,6 +10,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { createAttestedDeviceData } from './support/device-attestation';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
 import { ApprovalsService } from '../src/modules/approvals/approvals.service';
@@ -823,14 +824,14 @@ async function createEarnFixture(
   receiptNumber: string,
 ) {
   const device = await prisma.device.create({
-    data: {
+    data: createAttestedDeviceData({
       id: randomUUID(),
       tenantId,
       branchId,
       name: `Device-${receiptNumber}`,
       fingerprintHash: `fingerprint-${receiptNumber}`,
       status: 'ACTIVE',
-    },
+    }),
   });
 
   const customer = await prisma.customer.create({

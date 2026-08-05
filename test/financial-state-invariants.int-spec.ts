@@ -11,6 +11,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { createAttestedDeviceData } from './support/device-attestation';
 
 describe('financial state invariants (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -331,14 +332,14 @@ async function createBaseFixture(prisma: PrismaClient) {
     },
   });
   await prisma.device.create({
-    data: {
+    data: createAttestedDeviceData({
       id: deviceId,
       tenantId,
       branchId,
       name: 'Invariant Device',
       fingerprintHash: 'invariant-device-fingerprint',
       status: 'ACTIVE',
-    },
+    }),
   });
   await prisma.receipt.create({
     data: {
