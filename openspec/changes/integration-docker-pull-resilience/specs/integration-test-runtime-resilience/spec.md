@@ -1,10 +1,6 @@
 # integration-test-runtime-resilience Specification
 
-## Purpose
-
-TBD - created by the integration-docker-pull-resilience change. Update Purpose after archive.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Integration image hydration is deterministic
 
