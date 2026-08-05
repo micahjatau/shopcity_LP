@@ -13012,11 +13012,6 @@ export const redemptionsControllerRedeemV1 = async (
  * Reversal execution is deferred for this release and no reversal request is queued.
  * @summary Unavailable transaction reversal
  */
-export type reversalsControllerReverseV1Response204 = {
-  data: void;
-  status: 204;
-};
-
 export type reversalsControllerReverseV1Response400 = {
   data: ReversalsControllerReverseV1400;
   status: 400;
@@ -13057,10 +13052,6 @@ export type reversalsControllerReverseV1Response503 = {
   status: 503;
 };
 
-export type reversalsControllerReverseV1ResponseSuccess =
-  reversalsControllerReverseV1Response204 & {
-    headers: Headers;
-  };
 export type reversalsControllerReverseV1ResponseError = (
   | reversalsControllerReverseV1Response400
   | reversalsControllerReverseV1Response401
@@ -13075,8 +13066,7 @@ export type reversalsControllerReverseV1ResponseError = (
 };
 
 export type reversalsControllerReverseV1Response =
-  | reversalsControllerReverseV1ResponseSuccess
-  | reversalsControllerReverseV1ResponseError;
+  reversalsControllerReverseV1ResponseError;
 
 export const getReversalsControllerReverseV1Url = (transactionId: string) => {
   return `/api/v1/transactions/${transactionId}/reverse`;

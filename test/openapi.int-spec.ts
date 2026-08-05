@@ -154,8 +154,19 @@ describe('OpenAPI contract (int)', () => {
 
     expect(reversalOperation?.responses?.['201']).toBeUndefined();
     expect(reversalOperation?.responses?.['202']).toBeUndefined();
-    expect(reversalOperation?.responses?.['204']).toBeDefined();
+    expect(reversalOperation?.responses?.['204']).toBeUndefined();
     expect(reversalOperation?.responses?.['503']).toBeDefined();
+  });
+
+  it('documents the receiptless unsupported transaction response', () => {
+    const document = buildOpenApiDocument(app);
+    const transactionOperation =
+      document.paths['/api/v1/transactions/{id}']?.get;
+
+    expect(transactionOperation?.responses?.['422']).toBeDefined();
+    expect(responseExampleCodes(transactionOperation?.responses?.['422'])).toEqual(
+      ['UNSUPPORTED_TRANSACTION_TYPE'],
+    );
   });
 
   it('documents the transaction, ledger, and approval list payloads', () => {

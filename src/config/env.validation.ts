@@ -5,6 +5,9 @@ const isTest = process.env.NODE_ENV === 'test';
 const requiredString = (fallback: string) =>
   isTest ? Joi.string().default(fallback) : Joi.string().min(1).required();
 
+const requiredKek = (fallback: string) =>
+  isTest ? Joi.string().default(fallback) : Joi.string().min(32).required();
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production', 'staging')
@@ -16,7 +19,10 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: requiredString('redis://127.0.0.1:6379'),
   SESSION_SECRET: requiredString('test-session-secret-test-session-secret'),
   CSRF_SECRET: requiredString('test-csrf-secret-test-csrf-secret'),
-  DEVICE_ATTESTATION_KEK: requiredString('test-device-attestation-kek'),
+  DEVICE_ATTESTATION_KEK: requiredKek(
+    'test-device-attestation-kek-test-device-attestation-kek',
+  ),
+  DEVICE_ATTESTATION_KEK_VERSION: Joi.number().integer().min(1).default(1),
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
@@ -110,6 +116,24 @@ export const envValidationSchema = Joi.object({
 })
   .custom((value: unknown, helpers) => {
     const env = value as Record<string, number>;
+    const attestationKek = String(env.DEVICE_ATTESTATION_KEK ?? '');
+    const secretValues = [
+      env.SESSION_SECRET,
+      env.CSRF_SECRET,
+      env.SMS_PROVIDER_USERNAME,
+      env.SMS_PROVIDER_API_KEY,
+      env.SMS_PROVIDER_SENDER_ID,
+    ]
+      .filter((secret) => typeof secret === 'string')
+      .map((secret) => String(secret));
+
+    if (attestationKek.trim().length < 32) {
+      return helpers.error('any.invalid');
+    }
+
+    if (secretValues.includes(attestationKek)) {
+      return helpers.error('any.invalid');
+    }
 
     if (env.REDEMPTION_APPROVAL_THRESHOLD_KOBO < env.MIN_REDEMPTION_KOBO) {
       return helpers.error('any.invalid');

@@ -12,6 +12,7 @@ import {
   encryptDeviceAttestationSecret,
   generateDeviceAttestationSecret,
 } from '../../common/auth/device-attestation-secret';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 
 type DeviceManagementScope =
   | { tenantWide: true; branchId: null }
@@ -182,32 +183,52 @@ export class BranchesService {
       throw new NotFoundException('Device not found');
     }
 
+    if (
+      data.status === DeviceStatus.ACTIVE &&
+      !data.rotateAttestationSecret &&
+      !hasActiveAttestationSecret(device)
+    ) {
+      throw new DomainHttpException(
+        400,
+        'VALIDATION_ERROR',
+        'Device attestation secret metadata is required before activation',
+      );
+    }
+
     return this.prismaService.$transaction(async (prisma) => {
       let attestationSecret: string | null = null;
-      let updated = await prisma.device.update({
-        where: { id: deviceId },
-        data: {
-          ...(data.name ? { name: data.name } : {}),
-          ...(data.status ? { status: data.status as DeviceStatus } : {}),
-        },
-      });
+      let attestationSecretVersion: number | undefined;
+      const updateData = {
+        ...(data.name ? { name: data.name } : {}),
+        ...(data.status ? { status: data.status as DeviceStatus } : {}),
+      };
 
       if (data.rotateAttestationSecret) {
         attestationSecret = generateDeviceAttestationSecret();
-        const attestationSecretVersion =
-          (updated.attestationSecretVersion ?? 0) + 1;
-        updated = await prisma.device.update({
-          where: { id: deviceId },
-          data: {
-            attestationSecretCiphertext: encryptDeviceAttestationSecret(
-              attestationSecret,
-              this.attestationSecretKey(),
-            ),
-            attestationSecretVersion,
-            attestationSecretRotatedAt: new Date(),
-          },
+        attestationSecretVersion = (device.attestationSecretVersion ?? 0) + 1;
+        Object.assign(updateData, {
+          attestationSecretCiphertext: encryptDeviceAttestationSecret(
+            attestationSecret,
+            this.attestationSecretKey(),
+          ),
+          attestationSecretVersion,
+          attestationSecretRotatedAt: new Date(),
         });
+      }
 
+      const updated = await prisma.device.update({
+        where: { id: deviceId },
+        data: updateData,
+      });
+
+      const shouldRevokeSessions =
+        data.rotateAttestationSecret ||
+        (data.status ? data.status !== DeviceStatus.ACTIVE : false);
+      const revokeReason = data.rotateAttestationSecret
+        ? 'device_attestation_rotated'
+        : 'device_status_ineligible';
+
+      if (shouldRevokeSessions) {
         const revoked = await prisma.session.updateMany({
           where: { deviceId, status: 'ACTIVE' },
           data: { status: 'REVOKED', revokedAt: new Date() },
@@ -221,42 +242,23 @@ export class BranchesService {
             entityType: 'device',
             entityId: updated.id,
             metadata: {
-              reason: 'device_attestation_rotated',
+              reason: revokeReason,
               revokedSessionCount: revoked.count,
+              ...(data.status ? { status: data.status } : {}),
             },
           });
         }
 
-        await this.auditService.recordWithClient(prisma, {
-          tenantId,
-          actorId: actor.user.id,
-          action: 'device.attestation-secret.rotate',
-          entityType: 'device',
-          entityId: updated.id,
-          metadata: {
-            attestationSecretVersion,
-            rotatedAt: updated.attestationSecretRotatedAt,
-          },
-        });
-      }
-
-      if (data.status && data.status !== DeviceStatus.ACTIVE) {
-        const revoked = await prisma.session.updateMany({
-          where: { deviceId, status: 'ACTIVE' },
-          data: { status: 'REVOKED', revokedAt: new Date() },
-        });
-
-        if (revoked.count > 0) {
+        if (data.rotateAttestationSecret && attestationSecretVersion) {
           await this.auditService.recordWithClient(prisma, {
             tenantId,
             actorId: actor.user.id,
-            action: 'device.sessions.revoke',
+            action: 'device.attestation-secret.rotate',
             entityType: 'device',
             entityId: updated.id,
             metadata: {
-              reason: 'device_status_ineligible',
-              status: data.status,
-              revokedSessionCount: revoked.count,
+              attestationSecretVersion,
+              rotatedAt: updated.attestationSecretRotatedAt,
             },
           });
         }
@@ -298,4 +300,16 @@ function resolveDeviceManagementScope(
   }
 
   return { tenantWide: false, branchId: actor.user.branchId };
+}
+
+function hasActiveAttestationSecret(device: {
+  attestationSecretCiphertext?: string | null;
+  attestationSecretVersion?: number | null;
+  attestationSecretRotatedAt?: Date | null;
+}) {
+  return Boolean(
+    device.attestationSecretCiphertext &&
+      (device.attestationSecretVersion ?? 0) > 0 &&
+      device.attestationSecretRotatedAt,
+  );
 }

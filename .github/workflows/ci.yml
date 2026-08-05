@@ -35,12 +35,13 @@ jobs:
       - run: npm run client:typecheck
       - run: npm run openspec:validate
       - run: npm run verify:release-artifacts
+      - run: npm run test:validation-scope
       - run: npm run validate:scope
       - name: Upload release evidence artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: repo-review-34-release-evidence
-          path: docs/release-evidence/repo-review-34/**
+          name: sprint-3-halfway-release-evidence
+          path: docs/release-evidence/sprint-3-halfway/**
       - run: git diff --exit-code -- docs/api/openapi.json
       - run: git diff --exit-code -- client/shopcity-client.ts
 

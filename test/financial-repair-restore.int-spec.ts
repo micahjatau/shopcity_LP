@@ -536,9 +536,14 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
       });
 
       try {
+        const sharedBackup = loadSharedRestoreBackupDump();
+        const backupChecksum = createHash('sha256')
+          .update(sharedBackup)
+          .digest('hex');
+
         restoreDatabase(
           restore as ExecablePostgresContainer,
-          loadSharedRestoreBackupDump(),
+          sharedBackup,
         );
 
         await restorePrisma.$connect();
@@ -550,8 +555,8 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
           committedMigrations,
         );
 
-        execSync('npx prisma migrate status', {
-          stdio: 'inherit',
+        const prismaStatus = execSync('npx prisma migrate status', {
+          encoding: 'utf8',
           env: { ...process.env, DATABASE_URL: restore.getConnectionUri() },
         });
 
@@ -661,6 +666,26 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
                 initDeferred: row.tginitdeferred,
               })),
               indexes: indexes.map((row) => row.indexname),
+            },
+            null,
+            2,
+          ),
+        );
+        writeFileSync(
+          '/tmp/opencode/repo-review-34-backup-checksum.txt',
+          `${backupChecksum}\n`,
+        );
+        writeFileSync(
+          '/tmp/opencode/repo-review-34-prisma-status.txt',
+          prismaStatus,
+        );
+        writeFileSync(
+          '/tmp/opencode/repo-review-34-final-outcome.json',
+          JSON.stringify(
+            {
+              backupChecksum,
+              prismaMigrateStatus: 'passed',
+              finalOutcome: 'passed',
             },
             null,
             2,

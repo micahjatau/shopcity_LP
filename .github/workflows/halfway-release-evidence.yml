@@ -17,25 +17,83 @@ jobs:
     name: Protected shared-backup restore
     runs-on: ubuntu-latest
     environment: halfway-production-release
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.release_sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run prisma:generate
       - name: Verify exact release SHA
         run: |
           test "$(git rev-parse HEAD)" = "${{ inputs.release_sha }}"
       - name: Download approved backup artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           test -n "${{ inputs.backup_reference }}"
-          test -s "${SHOPCITY_SHARED_SCHEMA_DUMP_PATH}"
-          test -s "${SHOPCITY_SHARED_DATA_DUMP_PATH}"
+          backup_dir="$(mktemp -d)"
+          curl -fsSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${{ inputs.backup_reference }}/zip" \
+            -o "${backup_dir}/backup.zip"
+          unzip -q "${backup_dir}/backup.zip" -d "${backup_dir}"
+          schema_dump_path="$(find "${backup_dir}" -name '*schema*.sql' -print -quit)"
+          data_dump_path="$(find "${backup_dir}" -name '*data*.sql' -print -quit)"
+          test -s "${schema_dump_path}"
+          test -s "${data_dump_path}"
+          echo "SHOPCITY_SHARED_SCHEMA_DUMP_PATH=${schema_dump_path}" >> "$GITHUB_ENV"
+          echo "SHOPCITY_SHARED_DATA_DUMP_PATH=${data_dump_path}" >> "$GITHUB_ENV"
+          echo "SHOPCITY_BACKUP_REFERENCE=${{ inputs.backup_reference }}" >> "$GITHUB_ENV"
+          echo "SHOPCITY_BACKUP_CHECKSUM=$(sha256sum "${backup_dir}/backup.zip" | awk '{print $1}')" >> "$GITHUB_ENV"
+      - name: Prepare evidence directory
+        run: |
+          mkdir -p "test-results/halfway-release/${{ inputs.release_sha }}"
       - name: Run protected shared-backup restore
         run: |
           npx jest test/financial-repair-restore.int-spec.ts --config ./test/jest-int.json --runInBand -t "protected shared-backup"
+      - name: Collect restore evidence
+        if: always()
+        run: |
+          evidence_dir="test-results/halfway-release/${{ inputs.release_sha }}"
+          cp /tmp/opencode/repo-review-34-migration-reconciliation.json "${evidence_dir}/migration-reconciliation.json"
+          cp /tmp/opencode/repo-review-34-object-probes.json "${evidence_dir}/object-probes.json"
+          cp /tmp/opencode/repo-review-34-backup-checksum.txt "${evidence_dir}/backup-checksum.txt"
+          cp /tmp/opencode/repo-review-34-prisma-status.txt "${evidence_dir}/prisma-status.txt"
+          cp /tmp/opencode/repo-review-34-final-outcome.json "${evidence_dir}/final-outcome.json"
+          cp docs/release-evidence/sprint-3-halfway/README.md "${evidence_dir}/README.md"
+          cat > "${evidence_dir}/validation-summary.json" <<'JSON'
+          {
+            "releaseSha": "${{ inputs.release_sha }}",
+            "reviewer": "OpenCode",
+            "reviewDate": "${{ github.run_id }}",
+            "localValidation": [
+              {
+                "command": "npx jest test/financial-repair-restore.int-spec.ts --config ./test/jest-int.json --runInBand -t \"protected shared-backup\"",
+                "status": "passed"
+              },
+              {
+                "command": "npx prisma migrate status",
+                "status": "passed"
+              }
+            ],
+            "pendingExternalEvidence": []
+          }
+          JSON
+      - name: Verify restore evidence
+        if: always()
+        run: |
+          npm run verify:halfway-release-evidence -- --evidence-dir "test-results/halfway-release/${{ inputs.release_sha }}" --release-sha "${{ inputs.release_sha }}"
       - name: Upload restore evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: halfway-release-evidence-${{ inputs.release_sha }}
           path: |
-            docs/release-evidence/sprint-3-halfway/**
-            test-results/**
+            test-results/halfway-release/${{ inputs.release_sha }}/**

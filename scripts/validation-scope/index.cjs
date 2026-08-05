@@ -41,8 +41,8 @@ function loadPackageScripts() {
   );
 }
 
-function collectWorkflowJobs() {
-  const workflowFiles = listGitFiles().filter((file) =>
+function collectWorkflowJobs(files = listGitFiles()) {
+  const workflowFiles = files.filter((file) =>
     /^\.github\/workflows\/.*\.ya?ml$/.test(file),
   );
 
@@ -58,8 +58,11 @@ function collectWorkflowJobs() {
       continueOnError: Boolean(job?.['continue-on-error']),
       steps: Array.isArray(job?.steps)
         ? job.steps
-            .map((step) => step?.run)
-            .filter((run) => typeof run === 'string')
+            .map((step) => ({
+              run: typeof step?.run === 'string' ? step.run : '',
+              continueOnError: Boolean(step?.['continue-on-error']),
+            }))
+            .filter((step) => step.run)
         : [],
     }));
   });
@@ -74,23 +77,37 @@ function validatePackageScripts(scripts = loadPackageScripts()) {
   return { missing };
 }
 
-function validateWorkflowCommands() {
-  const jobs = collectWorkflowJobs();
+function validateWorkflowCommands(jobs = collectWorkflowJobs()) {
   const requiredCommands = [
     ...new Set(COVERAGE_RULES.flatMap((rule) => rule.validators)),
   ];
+  const mandatoryWorkflowFile = '.github/workflows/ci.yml';
+  const mandatoryJobIds = new Set(['static', 'gitnexus', 'e2e', 'integration']);
   const missing = requiredCommands.filter(
     (command) =>
-      !jobs.some((job) =>
-        job.steps.some((step) => step.includes(`npm run ${command}`)),
+      !jobs.some(
+        (job) =>
+          job.workflowFile === mandatoryWorkflowFile &&
+          mandatoryJobIds.has(job.jobId) &&
+          job.steps.some(
+            (step) =>
+              step.run.includes(`npm run ${command}`) &&
+              !step.continueOnError &&
+              !job.continueOnError,
+          ),
       ),
   );
   const optionalized = jobs.filter(
     (job) =>
-      job.continueOnError &&
       job.steps.some((step) =>
-        requiredCommands.some((command) => step.includes(`npm run ${command}`)),
-      ),
+        requiredCommands.some(
+          (command) => step.run.includes(`npm run ${command}`),
+        ),
+      ) &&
+      (job.workflowFile !== mandatoryWorkflowFile ||
+        !mandatoryJobIds.has(job.jobId) ||
+        job.continueOnError ||
+        job.steps.some((step) => step.continueOnError)),
   );
 
   return { missing, optionalized, jobs };

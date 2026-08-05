@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import {
   PrismaClient,
   BranchStatus,
+  AdjustmentKind,
   CardStatus,
   CustomerStatus,
   LedgerEntryDirection,
@@ -226,6 +227,51 @@ describe('auth and readiness flows (int)', () => {
       .get('/api/v1/auth/me')
       .set('Cookie', refreshedSessionCookie)
       .expect(401);
+  }, 120000);
+
+  it('returns truthful reversal and receiptless transaction boundaries over HTTP', async () => {
+    const loginResponse = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+
+    const sessionCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const csrfCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+
+    const receiptlessFixture = await createReceiptlessTransactionFixture(
+      prisma,
+      seedData,
+    );
+
+    await request(httpServer)
+      .post('/api/v1/transactions/reversal-http-test/reverse')
+      .set('Cookie', `${sessionCookie}; ${csrfCookie}`)
+      .set('x-csrf-token', cookieToken(csrfCookie))
+      .set('Idempotency-Key', 'reverse-http-test')
+      .send({ reason: 'Customer refund' })
+      .expect(503)
+      .expect((response) => {
+        expect(response.body.success).toBe(false);
+        expect(response.body.error.code).toBe('REVERSAL_UNAVAILABLE');
+      });
+
+    await request(httpServer)
+      .get(`/api/v1/transactions/${receiptlessFixture.ledgerEntry.id}`)
+      .set('Cookie', sessionCookie)
+      .expect(422)
+      .expect((response) => {
+        expect(response.body.success).toBe(false);
+        expect(response.body.error.code).toBe('UNSUPPORTED_TRANSACTION_TYPE');
+      });
   }, 120000);
 
   it('binds login sessions to attested devices', async () => {
@@ -962,6 +1008,72 @@ async function createCreditLotFixture(
         expiresAt: addUtcYears(data.earnedAt, 1),
       },
     });
+  });
+}
+
+async function createReceiptlessTransactionFixture(
+  prisma: PrismaClient,
+  seedData: Awaited<ReturnType<typeof seedFoundation>>,
+) {
+  return prisma.$transaction(async (tx) => {
+    const effectiveAt = new Date();
+    const customer = await tx.customer.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        fullName: 'Receiptless Read Model',
+        email: 'receiptless-read-model@shopcity.local',
+        phoneE164: '+2348020000000',
+        isStaff: false,
+        status: CustomerStatus.ACTIVE,
+        registeredByTenantId: seedData.tenant.id,
+        registeredBy: seedData.user.id,
+      },
+    });
+
+    const ledgerEntry = await tx.loyaltyLedgerEntry.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: customer.id,
+        receiptId: null,
+        type: LedgerEntryType.ADJUSTMENT,
+        direction: LedgerEntryDirection.CREDIT,
+        amountKobo: 1_000n,
+        status: LedgerEntryStatus.CONFIRMED,
+        correlationId: `receiptless-${randomUUID()}`,
+        createdByTenantId: seedData.tenant.id,
+        createdBy: seedData.user.id,
+        effectiveAt,
+      },
+    });
+
+    await tx.adjustment.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: customer.id,
+        kind: AdjustmentKind.CREDIT,
+        amountKobo: 1_000n,
+        reason: 'Receiptless transaction boundary fixture',
+        createdByTenantId: seedData.tenant.id,
+        createdBy: seedData.user.id,
+        ledgerEntryId: ledgerEntry.id,
+        effectiveAt,
+      },
+    });
+
+    await tx.creditLot.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: customer.id,
+        earnLedgerEntryId: ledgerEntry.id,
+        originalAmountKobo: 1_000n,
+        remainingAmountKobo: 1_000n,
+        earnedAt: effectiveAt,
+        expiresAt: addUtcYears(effectiveAt, 1),
+      },
+    });
+
+    return { customer, ledgerEntry };
   });
 }
 

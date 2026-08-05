@@ -151,9 +151,9 @@ describe('BranchesService', () => {
           id: 'device-id',
           tenantId: 'tenant-id',
           status: DeviceStatus.ACTIVE,
-          attestationSecretVersion: 1,
-          attestationSecretRotatedAt: null,
-          attestationSecretCiphertext: 'ciphertext',
+          attestationSecretVersion: 2,
+          attestationSecretRotatedAt: new Date(),
+          attestationSecretCiphertext: 'ciphertext-rotated',
         }),
       },
       session: {
@@ -170,6 +170,9 @@ describe('BranchesService', () => {
           tenantId: 'tenant-id',
           branchId: 'branch-id',
           status: DeviceStatus.INACTIVE,
+          attestationSecretCiphertext: 'ciphertext',
+          attestationSecretVersion: 1,
+          attestationSecretRotatedAt: new Date('2026-08-03T00:00:00.000Z'),
         }),
       },
       $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
@@ -198,24 +201,14 @@ describe('BranchesService', () => {
   it('rotates the attestation secret when requested', async () => {
     const tx = {
       device: {
-        update: jest
-          .fn()
-          .mockResolvedValueOnce({
-            id: 'device-id',
-            tenantId: 'tenant-id',
-            status: DeviceStatus.ACTIVE,
-            attestationSecretCiphertext: 'ciphertext-before-rotation',
-            attestationSecretVersion: 1,
-            attestationSecretRotatedAt: null,
-          })
-          .mockResolvedValueOnce({
-            id: 'device-id',
-            tenantId: 'tenant-id',
-            status: DeviceStatus.ACTIVE,
-            attestationSecretCiphertext: 'ciphertext-after-rotation',
-            attestationSecretVersion: 2,
-            attestationSecretRotatedAt: new Date(),
-          }),
+        update: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          status: DeviceStatus.ACTIVE,
+          attestationSecretCiphertext: 'ciphertext-after-rotation',
+          attestationSecretVersion: 2,
+          attestationSecretRotatedAt: new Date(),
+        }),
       },
       session: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -275,6 +268,44 @@ describe('BranchesService', () => {
       }),
     );
     expect(tx.session.updateMany).toHaveBeenCalled();
+  });
+
+  it('rejects activating a device without attestation metadata', async () => {
+    const prisma = {
+      device: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: DeviceStatus.INACTIVE,
+          attestationSecretCiphertext: null,
+          attestationSecretVersion: 0,
+          attestationSecretRotatedAt: null,
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new BranchesService(
+      prisma as never,
+      {
+        recordWithClient: jest.fn(),
+      } as never,
+      {
+        get: (key: string) =>
+          key === 'DEVICE_ATTESTATION_KEK' ? 'device-kek' : undefined,
+      } as never,
+    );
+
+    await expect(
+      service.updateDevice('tenant-id', actorStub(), 'device-id', {
+        status: DeviceStatus.ACTIVE,
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'VALIDATION_ERROR',
+      },
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
 

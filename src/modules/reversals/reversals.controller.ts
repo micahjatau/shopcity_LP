@@ -11,7 +11,6 @@ import {
 import {
   ApiBearerAuth,
   ApiHeader,
-  ApiNoContentResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -63,9 +62,6 @@ export class ReversalsController {
     summary: 'Unavailable transaction reversal',
     description:
       'Reversal execution is deferred for this release and no reversal request is queued.',
-  })
-  @ApiNoContentResponse({
-    description: 'Deferred transaction reversal',
   })
   reverse(
     @Req() request: AuthenticatedRequest,

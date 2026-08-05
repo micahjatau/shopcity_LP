@@ -391,6 +391,16 @@ export class LoyaltyController {
   @Get('transactions/:id')
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @apiErrorEnvelopeResponses({
+    unprocessableEntity: {
+      UNSUPPORTED_TRANSACTION_TYPE: {
+        statusCode: 422,
+        code: 'UNSUPPORTED_TRANSACTION_TYPE',
+        message:
+          'This transaction type is not available through the earn transaction read model yet',
+      },
+    },
+  })
   @apiSuccessEnvelopeResponse({
     description: 'Receipt-backed transaction details',
     dataSchema: transactionResponseSchema,

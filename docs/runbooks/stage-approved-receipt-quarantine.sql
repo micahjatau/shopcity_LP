@@ -61,6 +61,13 @@ CREATE TABLE IF NOT EXISTS "ReceiptLegacyIdentityQuarantine" (
   FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
 );
 
+CREATE TABLE IF NOT EXISTS "ReceiptQuarantineClaim" (
+  "receiptId" TEXT PRIMARY KEY,
+  "batchId" TEXT NOT NULL,
+  "claimedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+  "releasedAt" TIMESTAMP(3)
+);
+
 DO $$
 DECLARE
   approved_batch RECORD;
@@ -81,6 +88,35 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'approved receipt list is empty';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM "ReceiptQuarantineClaim" c
+    JOIN "ReceiptLegacyIdentityQuarantineApproval" a ON a."id" = c."receiptId"
+    WHERE a."batchId" = approved_batch."id"
+      AND c."releasedAt" IS NULL
+      AND c."batchId" <> approved_batch."id"
+  ) THEN
+    RAISE EXCEPTION 'approved receipt IDs are already claimed by another batch';
+  END IF;
+
+  INSERT INTO "ReceiptQuarantineClaim" (
+    "receiptId",
+    "batchId",
+    "claimedAt"
+  )
+  SELECT
+    a."id",
+    approved_batch."id",
+    NOW()
+  FROM "ReceiptLegacyIdentityQuarantineApproval" a
+  WHERE a."batchId" = approved_batch."id"
+  ON CONFLICT ("receiptId") DO UPDATE
+  SET
+    "batchId" = EXCLUDED."batchId",
+    "claimedAt" = EXCLUDED."claimedAt",
+    "releasedAt" = NULL
+  WHERE "ReceiptQuarantineClaim"."releasedAt" IS NOT NULL;
 
   IF EXISTS (
     SELECT 1

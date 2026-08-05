@@ -19118,7 +19118,6 @@
             }
           },
           "422": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -19171,9 +19170,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "UNSUPPORTED_TRANSACTION_TYPE": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 422,
+                        "code": "UNSUPPORTED_TRANSACTION_TYPE",
+                        "message": "This transaction type is not available through the earn transaction read model yet"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "429": {
             "description": "",
@@ -20995,9 +21012,6 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "Deferred transaction reversal"
-          },
           "400": {
             "description": "",
             "content": {

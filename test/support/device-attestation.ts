@@ -14,7 +14,8 @@ export function createAttestedDeviceData(
     ...data,
     attestationSecretCiphertext: encryptDeviceAttestationSecret(
       attestationSecret,
-      process.env.DEVICE_ATTESTATION_KEK ?? 'test-device-attestation-kek',
+      process.env.DEVICE_ATTESTATION_KEK ??
+        'test-device-attestation-kek-test-device-attestation-kek',
     ),
     attestationSecretVersion: 1,
     attestationSecretRotatedAt: new Date(),

@@ -177,6 +177,314 @@ describe('receipt quarantine sql runbooks (int)', () => {
           `SELECT "status" FROM "ReceiptLegacyIdentityQuarantineBatch" WHERE "id" = 'batch-1';`,
         ),
       ).toBe('EXECUTED');
+      expect(
+        queryScalar(
+          container,
+          `SELECT COUNT(*) FROM "ReceiptQuarantineClaim" WHERE "batchId" = 'batch-1' AND "releasedAt" IS NOT NULL;`,
+        ),
+      ).toBe('1');
+    } finally {
+      await container.stop();
+    }
+  }, 120000);
+
+  it('rejects placeholder operator metadata without deleting receipts', async () => {
+    const container = (await new PostgreSqlContainer(
+      'postgres:16-alpine',
+    ).start()) as ExecablePostgresContainer;
+
+    try {
+      runSql(
+        container,
+        `
+          CREATE TABLE "Receipt" (
+            "id" TEXT PRIMARY KEY,
+            "tenantId" TEXT NOT NULL,
+            "branchId" TEXT NOT NULL,
+            "receiptWeekStart" TIMESTAMP(3) NOT NULL,
+            "externalReceiptNumber" TEXT,
+            "capturedAt" TIMESTAMP(3) NOT NULL,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+          );
+
+          INSERT INTO "Receipt" (
+            "id",
+            "tenantId",
+            "branchId",
+            "receiptWeekStart",
+            "externalReceiptNumber",
+            "capturedAt",
+            "updatedAt"
+          ) VALUES
+            (
+              'receipt-1',
+              'tenant-1',
+              'branch-1',
+              '2026-07-20T00:00:00.000Z',
+              'POS-DUP-1',
+              '2026-07-20T09:00:00.000Z',
+              '2026-07-20T09:00:00.000Z'
+            ),
+            (
+              'receipt-2',
+              'tenant-1',
+              'branch-1',
+              '2026-07-20T00:00:00.000Z',
+              'POS-DUP-1',
+              '2026-07-20T10:00:00.000Z',
+              '2026-07-20T10:00:00.000Z'
+            );
+
+          CREATE TABLE "ReceiptLegacyIdentityQuarantineBatch" (
+            "id" TEXT PRIMARY KEY,
+            "incidentReferenceId" TEXT NOT NULL,
+            "createdBy" TEXT NOT NULL,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+            "approvedBy" TEXT,
+            "approvedAt" TIMESTAMP(3),
+            "approvalReason" TEXT,
+            "executedBy" TEXT,
+            "executedAt" TIMESTAMP(3),
+            "status" TEXT NOT NULL DEFAULT 'DRAFT',
+            "notes" TEXT
+          );
+
+          CREATE TABLE "ReceiptLegacyIdentityQuarantineApproval" (
+            "batchId" TEXT NOT NULL,
+            "id" TEXT NOT NULL,
+            "approvedBy" TEXT NOT NULL,
+            "approvalReason" TEXT NOT NULL,
+            "reconciliationPlan" TEXT,
+            "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+            PRIMARY KEY ("batchId", "id"),
+            FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
+          );
+
+          INSERT INTO "ReceiptLegacyIdentityQuarantineBatch" (
+            "id",
+            "incidentReferenceId",
+            "createdBy",
+            "approvedBy",
+            "approvedAt",
+            "approvalReason",
+            "status",
+            "notes"
+          ) VALUES (
+            'batch-1',
+            'incident-1',
+            'admin-1',
+            'admin-2',
+            '2026-07-21T00:00:00.000Z',
+            'reconciliation plan approval',
+            'APPROVED',
+            'duplicate receipt review'
+          );
+
+          INSERT INTO "ReceiptLegacyIdentityQuarantineApproval" (
+            "batchId",
+            "id",
+            "approvedBy",
+            "approvalReason",
+            "reconciliationPlan"
+          ) VALUES (
+            'batch-1',
+            'receipt-2',
+            'admin-2',
+            'reconciliation plan approval',
+            'quarantine duplicate and preserve audit trail'
+          );
+        `,
+      );
+
+      runSqlFile(
+        container,
+        'docs/runbooks/stage-approved-receipt-quarantine.sql',
+        { __BATCH_ID__: 'batch-1' },
+      );
+
+      expect(() =>
+        runSqlFile(
+          container,
+          'docs/runbooks/execute-approved-receipt-quarantine.sql',
+          {
+            __BATCH_ID__: 'batch-1',
+            __EXECUTED_BY__: '__EXECUTED_BY__',
+            __INCIDENT_REFERENCE_ID__: '__INCIDENT_REFERENCE_ID__',
+            __APPROVAL_REASON__: '__APPROVAL_REASON__',
+          },
+        ),
+      ).toThrow();
+
+      expect(
+        queryScalar(
+          container,
+          `SELECT COUNT(*) FROM "Receipt";`,
+        ),
+      ).toBe('2');
+      expect(
+        queryScalar(
+          container,
+          `SELECT "status" FROM "ReceiptLegacyIdentityQuarantineBatch" WHERE "id" = 'batch-1';`,
+        ),
+      ).toBe('STAGED');
+    } finally {
+      await container.stop();
+    }
+  }, 120000);
+
+  it('rejects a second batch that races for the same receipt claim', async () => {
+    const container = (await new PostgreSqlContainer(
+      'postgres:16-alpine',
+    ).start()) as ExecablePostgresContainer;
+
+    try {
+      runSql(
+        container,
+        `
+          CREATE TABLE "Receipt" (
+            "id" TEXT PRIMARY KEY,
+            "tenantId" TEXT NOT NULL,
+            "branchId" TEXT NOT NULL,
+            "receiptWeekStart" TIMESTAMP(3) NOT NULL,
+            "externalReceiptNumber" TEXT,
+            "capturedAt" TIMESTAMP(3) NOT NULL,
+            "updatedAt" TIMESTAMP(3) NOT NULL
+          );
+
+          INSERT INTO "Receipt" (
+            "id",
+            "tenantId",
+            "branchId",
+            "receiptWeekStart",
+            "externalReceiptNumber",
+            "capturedAt",
+            "updatedAt"
+          ) VALUES
+            (
+              'receipt-1',
+              'tenant-1',
+              'branch-1',
+              '2026-07-20T00:00:00.000Z',
+              'POS-DUP-1',
+              '2026-07-20T09:00:00.000Z',
+              '2026-07-20T09:00:00.000Z'
+            ),
+            (
+              'receipt-2',
+              'tenant-1',
+              'branch-1',
+              '2026-07-20T00:00:00.000Z',
+              'POS-DUP-1',
+              '2026-07-20T10:00:00.000Z',
+              '2026-07-20T10:00:00.000Z'
+            );
+
+          CREATE TABLE "ReceiptLegacyIdentityQuarantineBatch" (
+            "id" TEXT PRIMARY KEY,
+            "incidentReferenceId" TEXT NOT NULL,
+            "createdBy" TEXT NOT NULL,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+            "approvedBy" TEXT,
+            "approvedAt" TIMESTAMP(3),
+            "approvalReason" TEXT,
+            "executedBy" TEXT,
+            "executedAt" TIMESTAMP(3),
+            "status" TEXT NOT NULL DEFAULT 'DRAFT',
+            "notes" TEXT
+          );
+
+          CREATE TABLE "ReceiptLegacyIdentityQuarantineApproval" (
+            "batchId" TEXT NOT NULL,
+            "id" TEXT NOT NULL,
+            "approvedBy" TEXT NOT NULL,
+            "approvalReason" TEXT NOT NULL,
+            "reconciliationPlan" TEXT,
+            "approvedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+            PRIMARY KEY ("batchId", "id"),
+            FOREIGN KEY ("batchId") REFERENCES "ReceiptLegacyIdentityQuarantineBatch"("id")
+          );
+
+          INSERT INTO "ReceiptLegacyIdentityQuarantineBatch" (
+            "id",
+            "incidentReferenceId",
+            "createdBy",
+            "approvedBy",
+            "approvedAt",
+            "approvalReason",
+            "status",
+            "notes"
+          ) VALUES
+            (
+              'batch-1',
+              'incident-1',
+              'admin-1',
+              'admin-2',
+              '2026-07-21T00:00:00.000Z',
+              'reconciliation plan approval',
+              'APPROVED',
+              'duplicate receipt review'
+            ),
+            (
+              'batch-2',
+              'incident-2',
+              'admin-1',
+              'admin-2',
+              '2026-07-21T00:00:00.000Z',
+              'reconciliation plan approval',
+              'APPROVED',
+              'duplicate receipt review'
+            );
+
+          INSERT INTO "ReceiptLegacyIdentityQuarantineApproval" (
+            "batchId",
+            "id",
+            "approvedBy",
+            "approvalReason",
+            "reconciliationPlan"
+          ) VALUES
+            (
+              'batch-1',
+              'receipt-2',
+              'admin-2',
+              'reconciliation plan approval',
+              'quarantine duplicate and preserve audit trail'
+            ),
+            (
+              'batch-2',
+              'receipt-2',
+              'admin-2',
+              'reconciliation plan approval',
+              'quarantine duplicate and preserve audit trail'
+            );
+        `,
+      );
+
+      runSqlFile(
+        container,
+        'docs/runbooks/stage-approved-receipt-quarantine.sql',
+        { __BATCH_ID__: 'batch-1' },
+      );
+
+      expect(() =>
+        runSqlFile(
+          container,
+          'docs/runbooks/stage-approved-receipt-quarantine.sql',
+          { __BATCH_ID__: 'batch-2' },
+        ),
+      ).toThrow('approved receipt IDs are already claimed by another batch');
+
+      expect(
+        queryScalar(
+          container,
+          `SELECT COUNT(*) FROM "ReceiptQuarantineClaim" WHERE "releasedAt" IS NULL;`,
+        ),
+      ).toBe('1');
+      expect(
+        queryScalar(
+          container,
+          `SELECT "status" FROM "ReceiptLegacyIdentityQuarantineBatch" WHERE "id" = 'batch-2';`,
+        ),
+      ).toBe('APPROVED');
     } finally {
       await container.stop();
     }

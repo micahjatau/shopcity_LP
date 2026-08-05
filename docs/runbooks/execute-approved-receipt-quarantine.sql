@@ -20,6 +20,18 @@ BEGIN
   incident_reference_id := '__INCIDENT_REFERENCE_ID__';
   approval_reason := '__APPROVAL_REASON__';
 
+  IF executed_by IS NULL OR BTRIM(executed_by) = '' OR executed_by ~ '^__.+__$' THEN
+    RAISE EXCEPTION 'executed_by must be a real operator identity';
+  END IF;
+
+  IF incident_reference_id IS NULL OR BTRIM(incident_reference_id) = '' OR incident_reference_id ~ '^__.+__$' THEN
+    RAISE EXCEPTION 'incident_reference_id must be a real incident reference';
+  END IF;
+
+  IF approval_reason IS NULL OR BTRIM(approval_reason) = '' OR approval_reason ~ '^__.+__$' THEN
+    RAISE EXCEPTION 'approval_reason must be a real approval reason';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
     FROM "ReceiptLegacyIdentityQuarantineBatch" b
@@ -190,6 +202,11 @@ BEGIN
   IF insert_count <> 1 THEN
     RAISE EXCEPTION 'staged approved receipt batch transition did not update exactly one row';
   END IF;
+
+  UPDATE "ReceiptQuarantineClaim"
+  SET "releasedAt" = NOW()
+  WHERE "batchId" = batch_id
+    AND "releasedAt" IS NULL;
 END;
 $$;
 
