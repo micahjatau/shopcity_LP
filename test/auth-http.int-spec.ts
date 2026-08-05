@@ -260,8 +260,13 @@ describe('auth and readiness flows (int)', () => {
       .send({ reason: 'Customer refund' })
       .expect(503)
       .expect((response) => {
-        expect(response.body.success).toBe(false);
-        expect(response.body.error.code).toBe('REVERSAL_UNAVAILABLE');
+        const body = response.body as {
+          success: false;
+          error: { code: string };
+        };
+
+        expect(body.success).toBe(false);
+        expect(body.error.code).toBe('REVERSAL_UNAVAILABLE');
       });
 
     await request(httpServer)
@@ -269,8 +274,13 @@ describe('auth and readiness flows (int)', () => {
       .set('Cookie', sessionCookie)
       .expect(422)
       .expect((response) => {
-        expect(response.body.success).toBe(false);
-        expect(response.body.error.code).toBe('UNSUPPORTED_TRANSACTION_TYPE');
+        const body = response.body as {
+          success: false;
+          error: { code: string };
+        };
+
+        expect(body.success).toBe(false);
+        expect(body.error.code).toBe('UNSUPPORTED_TRANSACTION_TYPE');
       });
   }, 120000);
 
