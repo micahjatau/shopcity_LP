@@ -34,7 +34,7 @@
     "openapi:diff": "npm run openapi:export && oasdiff diff docs/api/openapi.base.json docs/api/openapi.json",
     "client:generate": "orval --input docs/api/openapi.json --output client/shopcity-client.ts --client fetch --mode single --prettier",
     "client:typecheck": "tsc --noEmit -p tsconfig.client.json",
-    "openspec:validate": "npx openspec validate --changes",
+    "openspec:validate": "npx -y @fission-ai/openspec validate --changes",
     "test:coverage:critical": "jest --coverage --runInBand",
     "format:release": "prettier --check \"docs/database/migration-tracker.md\" \"docs/api/sprint-3-financial-contract-draft.md\" \"docs/runbooks/sms-failure.md\" \"openspec/changes/repo-review-34/tasks.md\"",
     "verify:sql-runbooks": "jest test/receipt-quarantine-sql.int-spec.ts --config ./test/jest-int.json --runInBand",
