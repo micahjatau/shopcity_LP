@@ -1,6 +1,7 @@
 import { UserRole } from '@prisma/client';
 import { ROLES_KEY } from '../../common/auth/auth.constants';
 import { THROTTLE_KEY } from '../../common/throttle/throttle.constants';
+import { ReversalsService } from './reversals.service';
 import { ReversalsController } from './reversals.controller';
 
 describe('ReversalsController', () => {
@@ -10,18 +11,22 @@ describe('ReversalsController', () => {
       'reverse',
     );
 
-    return descriptor!.value as object;
+    if (!descriptor || typeof descriptor.value !== 'function') {
+      throw new Error('reverse handler missing');
+    }
+
+    return descriptor.value as object;
   }
 
   it('delegates transaction reversal requests to the reversals service', async () => {
-    const reversalsService = {
+    const reversalsService: Pick<ReversalsService, 'reverse'> = {
       reverse: jest.fn().mockRejectedValue(new Error('not reached')),
     };
-    const controller = new ReversalsController(reversalsService as never);
+    const controller = new ReversalsController(reversalsService);
     const request = {
       authContext: {
         user: { id: 'user-1', tenantId: 'tenant-1' },
-        session: {},
+        session: undefined,
       },
     };
     const dto = { reason: 'Customer refund' };

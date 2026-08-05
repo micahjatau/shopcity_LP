@@ -19,6 +19,7 @@ export class ReversalsService {
     void transactionId;
     normalizeIdempotencyKey(idempotencyKey);
     normalizeReason(dto.reason);
+    await Promise.resolve();
 
     throw new DomainHttpException(
       HttpStatus.SERVICE_UNAVAILABLE,
