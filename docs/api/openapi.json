@@ -20995,6 +20995,9 @@
           }
         },
         "responses": {
+          "204": {
+            "description": "Deferred transaction reversal"
+          },
           "400": {
             "description": "",
             "content": {

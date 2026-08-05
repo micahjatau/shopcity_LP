@@ -154,6 +154,7 @@ describe('OpenAPI contract (int)', () => {
 
     expect(reversalOperation?.responses?.['201']).toBeUndefined();
     expect(reversalOperation?.responses?.['202']).toBeUndefined();
+    expect(reversalOperation?.responses?.['204']).toBeDefined();
     expect(reversalOperation?.responses?.['503']).toBeDefined();
   });
 
