@@ -5,6 +5,7 @@ Review 37 shows that the halfway release still has a mix of truthful-runtime gap
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make deferred or unavailable behavior explicit instead of fabricating success responses.
 - Enforce device cutover and quarantine safety at both application and database boundaries.
 - Tie release evidence to the exact release SHA and the actual workflow outputs.
@@ -12,6 +13,7 @@ Review 37 shows that the halfway release still has a mix of truthful-runtime gap
 - Make validation-scope checks real enough to catch workflow placement and optionalization bypasses.
 
 **Non-Goals:**
+
 - No product redesign beyond the release-hardening surface.
 - No new customer-facing financial workflows.
 - No change to the core ledger or allocation model.

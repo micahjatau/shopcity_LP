@@ -315,12 +315,9 @@ describe('receipt quarantine sql runbooks (int)', () => {
         ),
       ).toThrow();
 
-      expect(
-        queryScalar(
-          container,
-          `SELECT COUNT(*) FROM "Receipt";`,
-        ),
-      ).toBe('2');
+      expect(queryScalar(container, `SELECT COUNT(*) FROM "Receipt";`)).toBe(
+        '2',
+      );
       expect(
         queryScalar(
           container,

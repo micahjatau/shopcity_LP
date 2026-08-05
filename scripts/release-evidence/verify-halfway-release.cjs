@@ -4,7 +4,8 @@ const { readFileSync, existsSync } = require('node:fs');
 const { join } = require('node:path');
 
 const args = parseArgs(process.argv.slice(2));
-const evidenceDir = args['evidence-dir'] ?? 'docs/release-evidence/sprint-3-halfway';
+const evidenceDir =
+  args['evidence-dir'] ?? 'docs/release-evidence/sprint-3-halfway';
 const releaseSha = args['release-sha'];
 
 const requiredFiles = [
@@ -37,7 +38,9 @@ const validationSummary = readJson(
   join(process.cwd(), evidenceDir, 'validation-summary.json'),
 );
 if (releaseSha && validationSummary.releaseSha !== releaseSha) {
-  fail(`releaseSha mismatch: expected ${releaseSha}, got ${validationSummary.releaseSha}`);
+  fail(
+    `releaseSha mismatch: expected ${releaseSha}, got ${validationSummary.releaseSha}`,
+  );
 }
 
 if (evidenceDir.startsWith('test-results/')) {

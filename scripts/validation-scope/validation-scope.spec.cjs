@@ -31,7 +31,9 @@ test('requires mandatory CI workflow placement', () => {
       workflowFile: '.github/workflows/manual.yml',
       jobId: 'release',
       continueOnError: false,
-      steps: [{ run: 'npm run verify:release-artifacts', continueOnError: false }],
+      steps: [
+        { run: 'npm run verify:release-artifacts', continueOnError: false },
+      ],
     },
   ]);
 

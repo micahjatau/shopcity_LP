@@ -164,9 +164,9 @@ describe('OpenAPI contract (int)', () => {
       document.paths['/api/v1/transactions/{id}']?.get;
 
     expect(transactionOperation?.responses?.['422']).toBeDefined();
-    expect(responseExampleCodes(transactionOperation?.responses?.['422'])).toEqual(
-      ['UNSUPPORTED_TRANSACTION_TYPE'],
-    );
+    expect(
+      responseExampleCodes(transactionOperation?.responses?.['422']),
+    ).toEqual(['UNSUPPORTED_TRANSACTION_TYPE']);
   });
 
   it('documents the transaction, ledger, and approval list payloads', () => {

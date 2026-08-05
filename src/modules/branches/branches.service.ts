@@ -309,7 +309,7 @@ function hasActiveAttestationSecret(device: {
 }) {
   return Boolean(
     device.attestationSecretCiphertext &&
-      (device.attestationSecretVersion ?? 0) > 0 &&
-      device.attestationSecretRotatedAt,
+    (device.attestationSecretVersion ?? 0) > 0 &&
+    device.attestationSecretRotatedAt,
   );
 }

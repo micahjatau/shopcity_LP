@@ -17,7 +17,8 @@ async function main() {
 
   const provider = createSmsProvider(process.env);
   const correlationId = randomUUID();
-  const releaseSha = process.env.GITHUB_SHA ?? process.env.RELEASE_SHA ?? 'unknown';
+  const releaseSha =
+    process.env.GITHUB_SHA ?? process.env.RELEASE_SHA ?? 'unknown';
   const sentAt = new Date().toISOString();
 
   const result = await provider.send({
@@ -71,7 +72,7 @@ function requireEnv(name: string): string {
 
 void main().catch((error) => {
   process.stderr.write(
-    `${error instanceof Error ? error.stack ?? error.message : String(error)}\n`,
+    `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
   );
   process.exitCode = 1;
 });

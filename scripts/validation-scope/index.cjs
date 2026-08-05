@@ -100,8 +100,8 @@ function validateWorkflowCommands(jobs = collectWorkflowJobs()) {
   const optionalized = jobs.filter(
     (job) =>
       job.steps.some((step) =>
-        requiredCommands.some(
-          (command) => step.run.includes(`npm run ${command}`),
+        requiredCommands.some((command) =>
+          step.run.includes(`npm run ${command}`),
         ),
       ) &&
       (job.workflowFile !== mandatoryWorkflowFile ||

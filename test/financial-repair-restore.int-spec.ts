@@ -541,10 +541,7 @@ describe('financial repair synthetic upgrade-path verification (int)', () => {
           .update(sharedBackup)
           .digest('hex');
 
-        restoreDatabase(
-          restore as ExecablePostgresContainer,
-          sharedBackup,
-        );
+        restoreDatabase(restore as ExecablePostgresContainer, sharedBackup);
 
         await restorePrisma.$connect();
 

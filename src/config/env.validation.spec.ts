@@ -87,7 +87,8 @@ describe('envValidationSchema', () => {
       REDIS_URL: 'redis://127.0.0.1:6379',
       SESSION_SECRET: 'session-secret',
       CSRF_SECRET: 'csrf-secret',
-      DEVICE_ATTESTATION_KEK: 'test-device-attestation-kek-test-device-attestation-kek',
+      DEVICE_ATTESTATION_KEK:
+        'test-device-attestation-kek-test-device-attestation-kek',
       DEVICE_ATTESTATION_KEK_VERSION: 0,
       SUPABASE_URL: 'http://127.0.0.1:54321',
       SUPABASE_ANON_KEY: 'anon',
