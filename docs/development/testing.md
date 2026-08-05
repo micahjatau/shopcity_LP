@@ -15,6 +15,8 @@
 ## CI Notes
 
 - The integration workflow primes the required Testcontainers images before Jest starts so Docker pull failures surface earlier with clearer diagnostics.
+- For any commit/push sequence, verify the staged diff, commit only the intended files, push with `gh`, watch CI to completion, and fix any failures before marking the work done.
+- Treat the push as incomplete until GitHub Actions finishes green or you have explicitly resolved every failing check.
 
 ## Expectations
 
