@@ -43,6 +43,8 @@ describe('RedemptionsService', () => {
     });
     const firstCall = approvalCreate.mock.calls[0]?.[0];
     expect(firstCall.data).not.toHaveProperty('receiptId');
+    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 
   it('rejects invalid high-value requests before reserving receipt identity', async () => {
