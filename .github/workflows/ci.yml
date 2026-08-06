@@ -1,5 +1,7 @@
 name: ci
 
+# Touch to re-register the workflow after Actions delivery issues.
+
 on:
   push:
   pull_request:
