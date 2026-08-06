@@ -258,7 +258,7 @@ describe('auth and readiness flows (int)', () => {
       .set('x-csrf-token', cookieToken(csrfCookie))
       .set('Idempotency-Key', 'reverse-http-test')
       .send({ reason: 'Customer refund' })
-      .expect(503)
+      .expect(404)
       .expect((response) => {
         const body = response.body as {
           success: false;
@@ -266,21 +266,25 @@ describe('auth and readiness flows (int)', () => {
         };
 
         expect(body.success).toBe(false);
-        expect(body.error.code).toBe('REVERSAL_UNAVAILABLE');
+        expect(body.error.code).toBe('TRANSACTION_NOT_FOUND');
       });
 
     await request(httpServer)
       .get(`/api/v1/transactions/${receiptlessFixture.ledgerEntry.id}`)
       .set('Cookie', sessionCookie)
-      .expect(422)
+      .expect(200)
       .expect((response) => {
         const body = response.body as {
-          success: false;
-          error: { code: string };
+          success: true;
+          data: {
+            transactionId: string;
+            ledger: { receiptId: string | null };
+          };
         };
 
-        expect(body.success).toBe(false);
-        expect(body.error.code).toBe('UNSUPPORTED_TRANSACTION_TYPE');
+        expect(body.success).toBe(true);
+        expect(body.data.transactionId).toBe(receiptlessFixture.ledgerEntry.id);
+        expect(body.data.ledger.receiptId).toBeNull();
       });
   }, 120000);
 
