@@ -107,6 +107,13 @@ export interface TransactionLedgerItem {
     expiresAt: string;
   } | null;
   allocations?: TransactionAllocationItem[];
+  restorations?: Array<{
+    id: string;
+    allocationId: string;
+    creditLotId: string;
+    amountKobo: number;
+    reversalLedgerEntryId: string;
+  }>;
 }
 
 export interface TransactionAllocationItem {
@@ -153,22 +160,27 @@ export interface TransactionResponse {
 
 export interface ApprovalListItem {
   id: string;
-  receiptId: string;
+   receiptId: string | null;
   redemptionId: string | null;
   targetType: ApprovalTargetType;
   status: ApprovalStatus;
   reasonCode: string | null;
+  requestedAmountKobo: number | null;
   requestedAt: string;
   expiresAt: string;
   decidedAt: string | null;
   executedAt: string | null;
+  customer: {
+    id: string;
+    branchId: string | null;
+  };
   receipt: {
     id: string;
     posReceiptNumber: string;
     purchaseAmountKobo: number;
     captureStatus: string;
     reviewStatus: string;
-  };
+  } | null;
 }
 
 function requireBranchScope(actor: AuthContext): string | undefined {
@@ -777,9 +789,18 @@ export class LoyaltyService {
       where: { tenantId, id: transactionId },
       include: {
         creditLot: true,
+        adjustment: true,
         redemption: {
           include: {
             approval: true,
+            receipt: {
+              include: {
+                card: true,
+                customer: true,
+                device: true,
+                approvals: true,
+              },
+            },
           },
         },
         redemptionAllocations: {
@@ -788,6 +809,20 @@ export class LoyaltyService {
             restorations: true,
           },
           orderBy: { allocationOrder: 'asc' },
+        },
+        allocationRestorations: {
+          include: {
+            allocation: {
+              select: {
+                id: true,
+                creditLotId: true,
+                amountKobo: true,
+                allocationOrder: true,
+                creditLot: { select: { expiresAt: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
         },
         customer: true,
         receipt: {
@@ -821,45 +856,50 @@ export class LoyaltyService {
       );
     }
 
-    if (!receipt || !ledgerEntry.receiptId) {
-      throw new DomainHttpException(
-        422,
-        'UNSUPPORTED_TRANSACTION_TYPE',
-        'This transaction type is not available through the earn transaction read model yet',
-      );
-    }
-
+    const originalReceipt = receipt ?? ledgerEntry.redemption?.receipt ?? null;
     const approval =
-      ledgerEntry.redemption?.approval ?? receipt.approvals[0] ?? null;
+      ledgerEntry.redemption?.approval ?? originalReceipt?.approvals?.[0] ?? null;
     const smsMessage = await findTransactionSmsMessage(this.prismaService, {
       tenantId,
       ledgerEntryId: ledgerEntry.id,
       redemptionId: ledgerEntry.redemption?.id ?? null,
-      receiptId: receipt.id,
+      receiptId: originalReceipt?.id ?? null,
     });
     const availableBalanceKobo =
       await this.activeBalanceService.getActiveBalanceKobo(
         tenantId,
-        receipt.customerId,
+        ledgerEntry.customerId,
       );
+    const receiptId = originalReceipt?.id ?? ledgerEntry.id;
+    const cardSerialNumber = originalReceipt?.card?.barcodeValue ?? ledgerEntry.id;
+    const posReceiptNumber = originalReceipt?.posReceiptNumber ?? ledgerEntry.correlationId;
+    const purchaseAmountKobo = originalReceipt
+      ? Number(originalReceipt.purchaseAmountKobo)
+      : Number(ledgerEntry.amountKobo);
+    const occurredAt =
+      originalReceipt?.occurredAt?.toISOString() ?? ledgerEntry.effectiveAt.toISOString();
+    const capturedAt =
+      originalReceipt?.capturedAt?.toISOString() ?? ledgerEntry.createdAt.toISOString();
+    const captureStatus = originalReceipt?.captureStatus ?? 'CAPTURED';
+    const reviewStatus = originalReceipt?.reviewStatus ?? 'APPROVED';
 
     return {
-      id: receipt.id,
+      id: receiptId,
       transactionId: ledgerEntry.id,
       type: ledgerEntry.type,
       direction: ledgerEntry.direction,
-      tenantId: receipt.tenantId,
-      branchId: receipt.branchId,
-      customerId: receipt.customerId,
-      deviceId: receipt.deviceId,
-      cardSerialNumber: receipt.card.barcodeValue,
-      posReceiptNumber: receipt.posReceiptNumber,
-      purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
-      occurredAt: receipt.occurredAt.toISOString(),
-      capturedAt: receipt.capturedAt.toISOString(),
-      state: 'CONFIRMED',
-      captureStatus: receipt.captureStatus,
-      reviewStatus: receipt.reviewStatus,
+      tenantId,
+      branchId: originalReceipt?.branchId ?? ledgerEntry.customer.branchId,
+      customerId: ledgerEntry.customerId,
+      deviceId: originalReceipt?.deviceId ?? null,
+      cardSerialNumber,
+      posReceiptNumber,
+      purchaseAmountKobo,
+      occurredAt,
+      capturedAt,
+      state: ledgerEntry.status === LedgerEntryStatus.CONFIRMED ? 'CONFIRMED' : 'INVALID',
+      captureStatus,
+      reviewStatus,
       approvalId: approval?.id ?? null,
       approvalStatus: approval?.status ?? null,
       ledgerEntryId: ledgerEntry.id,
@@ -895,6 +935,13 @@ export class LoyaltyService {
             reversalLedgerEntryId: restoration.reversalLedgerEntryId,
           })),
         })),
+        restorations: ledgerEntry.allocationRestorations.map((restoration) => ({
+          id: restoration.id,
+          allocationId: restoration.allocationId,
+          creditLotId: restoration.allocation.creditLotId,
+          amountKobo: Number(restoration.amountKobo),
+          reversalLedgerEntryId: restoration.reversalLedgerEntryId,
+        })),
         creditLot: ledgerEntry.creditLot
           ? {
               id: ledgerEntry.creditLot.id,
@@ -922,12 +969,25 @@ export class LoyaltyService {
     const entries = await this.prismaService.loyaltyLedgerEntry.findMany({
       where: {
         ...buildCustomerLedgerWhere(tenantId, actor, customerId),
-        receiptId: { not: null },
       },
       orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
       include: {
         creditLot: true,
         redemption: true,
+        allocationRestorations: {
+          include: {
+            allocation: {
+              select: {
+                id: true,
+                creditLotId: true,
+                amountKobo: true,
+                allocationOrder: true,
+                creditLot: { select: { expiresAt: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
         redemptionAllocations: {
           include: {
             creditLot: { select: { expiresAt: true } },
@@ -945,11 +1005,7 @@ export class LoyaltyService {
           }
         : {}),
     });
-    const receiptLinkedEntries = entries.filter((entry) => entry.receiptId);
-    const { pageItems, hasMore } = pageMeta(
-      receiptLinkedEntries,
-      page?.limit ?? receiptLinkedEntries.length,
-    );
+    const { pageItems, hasMore } = pageMeta(entries, page?.limit ?? entries.length);
 
     const items = await Promise.all(
       pageItems.map(async (entry) => {
@@ -981,6 +1037,13 @@ export class LoyaltyService {
               amountKobo: Number(restoration.amountKobo),
               reversalLedgerEntryId: restoration.reversalLedgerEntryId,
             })),
+          })),
+          restorations: entry.allocationRestorations.map((restoration) => ({
+            id: restoration.id,
+            allocationId: restoration.allocationId,
+            creditLotId: restoration.allocation.creditLotId,
+            amountKobo: Number(restoration.amountKobo),
+            reversalLedgerEntryId: restoration.reversalLedgerEntryId,
           })),
           creditLot: entry.creditLot
             ? {
@@ -1020,27 +1083,33 @@ export class LoyaltyService {
         receipt: {
           select: {
             id: true,
+            customerId: true,
             posReceiptNumber: true,
             purchaseAmountKobo: true,
             captureStatus: true,
             reviewStatus: true,
+            branchId: true,
           },
         },
         redemption: {
           select: {
             id: true,
             receiptId: true,
-            receipt: {
-              select: {
-                id: true,
-                posReceiptNumber: true,
-                purchaseAmountKobo: true,
-                captureStatus: true,
-                reviewStatus: true,
+            requestedAmountKobo: true,
+            customerId: true,
+              receipt: {
+                select: {
+                  id: true,
+                  customerId: true,
+                  posReceiptNumber: true,
+                  purchaseAmountKobo: true,
+                  captureStatus: true,
+                  reviewStatus: true,
+                  branchId: true,
+                },
               },
             },
           },
-        },
       },
       ...(page
         ? {
@@ -1063,10 +1132,6 @@ export class LoyaltyService {
         const receiptId =
           approval.receiptId ?? approval.redemption?.receiptId ?? null;
 
-        if (!receipt || !receiptId) {
-          return [];
-        }
-
         return [
           {
             id: approval.id,
@@ -1075,17 +1140,29 @@ export class LoyaltyService {
             targetType: approval.targetType,
             status: approval.status,
             reasonCode: approval.reasonCode,
+            requestedAmountKobo:
+              approval.redemption?.requestedAmountKobo != null
+                ? Number(approval.redemption.requestedAmountKobo)
+                : receipt
+                  ? Number(receipt.purchaseAmountKobo)
+                  : null,
             requestedAt: approval.requestedAt.toISOString(),
             expiresAt: approval.expiresAt.toISOString(),
             decidedAt: approval.decidedAt?.toISOString() ?? null,
             executedAt: approval.executedAt?.toISOString() ?? null,
-            receipt: {
-              id: receipt.id,
-              posReceiptNumber: receipt.posReceiptNumber,
-              purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
-              captureStatus: receipt.captureStatus,
-              reviewStatus: receipt.reviewStatus,
+            customer: {
+              id:
+                approval.redemption?.customerId ??
+                approval.receipt?.customerId ??
+                receipt?.customerId ??
+                approval.id,
+              branchId:
+                approval.redemption?.receipt?.branchId ??
+                approval.receipt?.branchId ??
+                receipt?.branchId ??
+                null,
             },
+            receipt,
           },
         ];
       }),

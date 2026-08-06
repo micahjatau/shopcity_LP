@@ -71,6 +71,7 @@ export class ConfigurationService {
           this.configService.get<number>(
             'REDEMPTION_APPROVAL_THRESHOLD_KOBO',
           ) ?? 500000,
+        offlineRedemptionDisabled: true,
       },
     };
   }

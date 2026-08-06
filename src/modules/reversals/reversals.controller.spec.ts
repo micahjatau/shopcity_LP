@@ -20,20 +20,21 @@ describe('ReversalsController', () => {
 
   it('delegates transaction reversal requests to the reversals service', async () => {
     const reversalsService: Pick<ReversalsService, 'reverse'> = {
-      reverse: jest.fn().mockRejectedValue(new Error('not reached')),
+      reverse: jest.fn().mockResolvedValue({ id: 'reversal-1' }),
     };
-    const controller = new ReversalsController(reversalsService);
+    const controller = new ReversalsController(reversalsService as ReversalsService);
     const request = {
       authContext: {
         user: { id: 'user-1', tenantId: 'tenant-1' },
         session: undefined,
       },
     };
+    const reply = { code: jest.fn().mockReturnThis() };
     const dto = { reason: 'Customer refund' };
 
     await expect(
-      controller.reverse(request as never, 'transaction-1', 'idem-1', dto),
-    ).rejects.toThrow('not reached');
+      controller.reverse(request as never, 'transaction-1', 'idem-1', dto, reply as never),
+    ).resolves.toEqual({ id: 'reversal-1' });
 
     expect(reversalsService.reverse).toHaveBeenCalledWith(
       'tenant-1',
@@ -42,6 +43,7 @@ describe('ReversalsController', () => {
       'idem-1',
       dto,
     );
+    expect(reply.code).toHaveBeenCalledWith(201);
   });
 
   it('restricts reversal requests to supervisors and admins', () => {

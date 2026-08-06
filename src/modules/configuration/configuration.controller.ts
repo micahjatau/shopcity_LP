@@ -55,6 +55,7 @@ export class ConfigurationController {
             'purchaseFlagThresholdKobo',
             'purchaseApprovalThresholdKobo',
             'redemptionApprovalThresholdKobo',
+            'offlineRedemptionDisabled',
           ],
           properties: {
             defaultEarnRateBps: { type: 'integer' },
@@ -63,6 +64,7 @@ export class ConfigurationController {
             purchaseFlagThresholdKobo: { type: 'integer' },
             purchaseApprovalThresholdKobo: { type: 'integer' },
             redemptionApprovalThresholdKobo: { type: 'integer' },
+            offlineRedemptionDisabled: { type: 'boolean' },
           },
         },
       },

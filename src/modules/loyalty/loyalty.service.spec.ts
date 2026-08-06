@@ -132,6 +132,7 @@ describe('LoyaltyService redemption approvals', () => {
           targetType: ApprovalTargetType.REDEEM,
           status: ApprovalStatus.PENDING,
           reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+          requestedAmountKobo: 6_000n,
           requestedAt: new Date('2026-07-26T12:00:00.000Z'),
           expiresAt: new Date('2127-07-30T12:00:00.000Z'),
           decidedAt: null,
@@ -140,12 +141,16 @@ describe('LoyaltyService redemption approvals', () => {
           redemption: {
             id: 'redemption-1',
             receiptId: 'receipt-1',
+            requestedAmountKobo: 6_000n,
+            customerId: 'customer-1',
             receipt: {
               id: 'receipt-1',
+              customerId: 'customer-1',
               posReceiptNumber: 'POS-REDEEM-1',
               purchaseAmountKobo: 30_000n,
               captureStatus: 'PENDING_APPROVAL',
               reviewStatus: ReceiptReviewStatus.PENDING,
+              branchId: 'branch-1',
             },
           },
         },
@@ -169,6 +174,7 @@ describe('LoyaltyService redemption approvals', () => {
           receiptId: 'receipt-1',
           redemptionId: 'redemption-1',
           targetType: ApprovalTargetType.REDEEM,
+          requestedAmountKobo: 6_000,
           receipt: { posReceiptNumber: 'POS-REDEEM-1' },
         },
       ],
@@ -738,7 +744,7 @@ describe('LoyaltyService redemption approvals', () => {
     });
   });
 
-  it('filters receiptless adjustment rows from the customer ledger', async () => {
+  it('includes receiptless adjustment rows in the customer ledger', async () => {
     const ledgerEntry = {
       id: 'ledger-2',
       receiptId: null,
@@ -751,6 +757,7 @@ describe('LoyaltyService redemption approvals', () => {
       adjustment: { id: 'adjustment-1' },
       creditLot: null,
       redemptionAllocations: [],
+      allocationRestorations: [],
     };
 
     const findMany = jest.fn().mockResolvedValue([ledgerEntry]);
@@ -776,7 +783,16 @@ describe('LoyaltyService redemption approvals', () => {
       ),
     ).resolves.toMatchObject({
       customerId: 'customer-1',
-      items: [],
+      items: [
+        {
+          id: 'ledger-2',
+          receiptId: null,
+          type: 'ADJUSTMENT',
+          direction: 'CREDIT',
+          amountKobo: 4_000,
+          restorations: [],
+        },
+      ],
     });
 
     expect(findMany).toHaveBeenCalledWith(
@@ -785,10 +801,59 @@ describe('LoyaltyService redemption approvals', () => {
           tenantId: 'tenant-1',
           customerId: 'customer-1',
           customer: { is: { branchId: 'branch-1' } },
-          receiptId: { not: null },
         },
       }),
     );
+  });
+
+  it('returns receiptless adjustment transaction details', async () => {
+    const ledgerEntry = {
+      id: 'ledger-3',
+      tenantId: 'tenant-1',
+      customerId: 'customer-1',
+      receiptId: null,
+      type: 'ADJUSTMENT',
+      direction: 'DEBIT',
+      amountKobo: 2_000n,
+      status: 'CONFIRMED',
+      effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+      createdAt: new Date('2026-07-26T12:01:00.000Z'),
+      creditLot: null,
+      adjustment: { id: 'adjustment-3' },
+      redemption: null,
+      redemptionAllocations: [],
+      allocationRestorations: [],
+      customer: { branchId: 'branch-1' },
+      receipt: null,
+      reversesEntryId: null,
+    };
+
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(ledgerEntry),
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(92_000n),
+    );
+
+    await expect(
+      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-3'),
+    ).resolves.toMatchObject({
+      id: 'ledger-3',
+      transactionId: 'ledger-3',
+      type: 'ADJUSTMENT',
+      direction: 'DEBIT',
+      ledger: {
+        receiptId: null,
+        restorations: [],
+      },
+    });
   });
 });
 
@@ -970,6 +1035,7 @@ function redemptionLedgerEntryFixture() {
         restorations: [],
       },
     ],
+    allocationRestorations: [],
     receipt: {
       id: 'receipt-1',
       tenantId: 'tenant-1',

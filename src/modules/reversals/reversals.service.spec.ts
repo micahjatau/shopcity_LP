@@ -3,7 +3,27 @@ import { SessionStatus, UserRole, UserStatus } from '@prisma/client';
 import { ReversalsService } from './reversals.service';
 
 describe('ReversalsService', () => {
-  const service = new ReversalsService();
+  const prismaService = {
+    idempotencyRecord: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    $transaction: jest.fn().mockImplementation(
+      async (callback: (tx: never) => Promise<unknown>) =>
+        callback({
+          loyaltyLedgerEntry: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+        } as never),
+    ),
+  };
+
+  const service = new ReversalsService(
+    prismaService as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 
   it('requires an idempotency key', async () => {
     await expect(
@@ -33,17 +53,17 @@ describe('ReversalsService', () => {
     });
   });
 
-  it('returns the unavailable boundary for valid reversal requests', async () => {
+  it('returns transaction not found for unknown reversals', async () => {
     await expect(
       service.reverse('tenant-1', actor(), 'transaction-1', 'idem-1', {
         reason: 'Customer refund',
       }),
     ).rejects.toMatchObject({
       response: {
-        code: 'REVERSAL_UNAVAILABLE',
-        message: 'Transaction reversal is not available in this release',
+        code: 'TRANSACTION_NOT_FOUND',
+        message: 'Transaction not found',
       },
-      status: HttpStatus.SERVICE_UNAVAILABLE,
+      status: HttpStatus.NOT_FOUND,
     });
   });
 });
