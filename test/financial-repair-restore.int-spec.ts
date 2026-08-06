@@ -1053,7 +1053,7 @@ async function seedAdjustmentFixture(prisma: PrismaClient) {
       ${branchId},
       'Repair Fixture Device',
       'repair-fixture-device',
-      'ACTIVE',
+      'INACTIVE',
       ${effectiveAt},
       ${effectiveAt}
     )

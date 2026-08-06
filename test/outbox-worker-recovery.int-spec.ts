@@ -6,6 +6,7 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
 import type { AuthContext } from '../src/common/auth/session.types';
 import { PrismaService } from '../src/database/prisma.service';
+import { createAttestedDeviceData } from './support/device-attestation';
 import { createRedisTestEnvironment } from './support/redis-testcontainer';
 import {
   loadWorkerConfig,
@@ -487,14 +488,14 @@ async function createEarnFixture(prismaService: PrismaService, suffix: string) {
   });
 
   const device = await prismaService.device.create({
-    data: {
+    data: createAttestedDeviceData({
       id: randomUUID(),
       tenantId: tenant.id,
       branchId: branch.id,
       name: `Device ${suffix}`,
       fingerprintHash: `fingerprint-${suffix}`,
       status: 'ACTIVE',
-    },
+    }),
   });
 
   const customer = await prismaService.customer.create({
