@@ -1716,6 +1716,18 @@ export class LoyaltyService {
         },
       );
 
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'redemption.expired',
+        entityType: 'redemption',
+        entityId: redemption.id,
+        metadata: {
+          expiredAt: now,
+          approvalId: approval.id,
+        },
+      });
+
       return { expired: true } as never;
     }
 
@@ -1753,6 +1765,27 @@ export class LoyaltyService {
           approvedAt: null,
           approvedByTenantId: null,
           approvedBy: null,
+        },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'redemption.rejected',
+        entityType: 'redemption',
+        entityId: redemption.id,
+        metadata: { decision, reason: normalizedReason, decidedAt: now },
+      });
+
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'redemption.expired',
+        entityType: 'redemption',
+        entityId: redemption.id,
+        metadata: {
+          expiredAt: now,
+          approvalId: approval.id,
         },
       });
 

@@ -339,6 +339,20 @@ export class RedemptionsService {
               },
             });
 
+            await this.auditService.recordWithClient(prisma, {
+              tenantId,
+              actorId: actor.user.id,
+              action: 'redemption.requested',
+              entityType: 'redemption',
+              entityId: redemption.id,
+              metadata: {
+                requestedAmountKobo: Number(requestedAmountKobo),
+                basketAmountKobo: Number(basketAmountKobo),
+                maximumAllowedKobo: Number(policy.maximumAllowedKobo),
+                policyVersion: policy.policyVersion,
+              },
+            });
+
             if (policy.requiresApproval) {
               const approval = await prisma.approval.create({
                 data: {
@@ -391,7 +405,7 @@ export class RedemptionsService {
               await this.auditService.recordWithClient(prisma, {
                 tenantId,
                 actorId: actor.user.id,
-                action: 'redemption.request.approval_required',
+                action: 'redemption.approval_required',
                 entityType: 'redemption',
                 entityId: redemption.id,
                 metadata: response,
