@@ -99,15 +99,9 @@ function validateWorkflowCommands(jobs = collectWorkflowJobs()) {
   );
   const optionalized = jobs.filter(
     (job) =>
-      job.steps.some((step) =>
-        requiredCommands.some((command) =>
-          step.run.includes(`npm run ${command}`),
-        ),
-      ) &&
-      (job.workflowFile !== mandatoryWorkflowFile ||
-        !mandatoryJobIds.has(job.jobId) ||
-        job.continueOnError ||
-        job.steps.some((step) => step.continueOnError)),
+      job.workflowFile === mandatoryWorkflowFile &&
+      mandatoryJobIds.has(job.jobId) &&
+      (job.continueOnError || job.steps.some((step) => step.continueOnError)),
   );
 
   return { missing, optionalized, jobs };

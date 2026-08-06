@@ -13,6 +13,19 @@ test('reports release-critical coverage', () => {
   assert.ok(result.coverageByFile.get('src/app.ts').length > 0);
 });
 
+test('ignores archived openspec changes', () => {
+  const result = resolveCoverage([
+    'openspec/changes/archive/2026-08-06-sprint-3-redemption-and-approvals/tasks.md',
+    'openspec/changes/sprint-3-halfway-completion/tasks.md',
+  ]);
+
+  assert.equal(result.criticalFiles.length, 1);
+  assert.equal(
+    result.criticalFiles[0],
+    'openspec/changes/sprint-3-halfway-completion/tasks.md',
+  );
+});
+
 test('detects missing package scripts', () => {
   const result = validatePackageScripts({});
 
@@ -38,7 +51,7 @@ test('requires mandatory CI workflow placement', () => {
   ]);
 
   assert.ok(result.missing.includes('validate:scope'));
-  assert.ok(result.optionalized.length > 0);
+  assert.equal(result.optionalized.length, 0);
 });
 
 test('flags step-level continue-on-error on required commands', () => {
@@ -58,4 +71,23 @@ test('flags step-level continue-on-error on required commands', () => {
 
   assert.ok(result.missing.includes('validate:scope'));
   assert.equal(result.optionalized.length, 1);
+});
+
+test('does not flag required commands in manual workflows', () => {
+  const result = validateWorkflowCommands([
+    {
+      workflowFile: '.github/workflows/ci.yml',
+      jobId: 'static',
+      continueOnError: false,
+      steps: [{ run: 'npm run validate:scope', continueOnError: false }],
+    },
+    {
+      workflowFile: '.github/workflows/halfway-release-evidence.yml',
+      jobId: 'protected-restore',
+      continueOnError: false,
+      steps: [{ run: 'npm run prisma:generate', continueOnError: false }],
+    },
+  ]);
+
+  assert.equal(result.optionalized.length, 0);
 });

@@ -9,7 +9,7 @@ const RELEASE_CRITICAL_FILE_PATTERNS = [
   /^docs\/database\/.*$/,
   /^docs\/runbooks\/.*$/,
   /^docs\/release-evidence\/.*$/,
-  /^openspec\/changes\/.*$/,
+  /^openspec\/changes\/(?!archive\/).*$/,
   /^package\.json$/,
   /^tsconfig\.json$/,
   /^tsconfig\.client\.json$/,
