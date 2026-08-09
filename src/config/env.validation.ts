@@ -92,6 +92,11 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(Number.MAX_SAFE_INTEGER)
     .default(500000),
+  ADJUSTMENT_AMOUNT_CEILING_KOBO: Joi.number()
+    .integer()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(100000000),
   ADJUSTMENT_CREDIT_EXPIRY_MONTHS: Joi.number()
     .integer()
     .min(1)

@@ -55,6 +55,7 @@ export function buildOpenApiDocument(app: INestApplication) {
       .addTag('cards')
       .addTag('receipts')
       .addTag('transactions')
+      .addTag('adjustments')
       .addTag('approvals')
       .addTag('audit')
       .addTag('configuration')

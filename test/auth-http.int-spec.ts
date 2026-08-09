@@ -26,6 +26,8 @@ import {
 import { createAttestedDeviceData } from './support/device-attestation';
 import type { INestApplication } from '@nestjs/common';
 
+let receiptlessFixtureSeq = 0;
+
 describe('auth and readiness flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let redisEnv: RedisTestEnvironment;
@@ -278,14 +280,123 @@ describe('auth and readiness flows (int)', () => {
           success: true;
           data: {
             transactionId: string;
+            cardSerialNumber: string | null;
+            posReceiptNumber: string | null;
+            purchaseAmountKobo: number | null;
+            captureStatus: string | null;
+            reviewStatus: string | null;
+            adjustment: { id: string; kind: string; reason: string } | null;
             ledger: { receiptId: string | null };
           };
         };
 
         expect(body.success).toBe(true);
         expect(body.data.transactionId).toBe(receiptlessFixture.ledgerEntry.id);
+        expect(body.data.cardSerialNumber).toBeNull();
+        expect(body.data.posReceiptNumber).toBeNull();
+        expect(body.data.purchaseAmountKobo).toBeNull();
+        expect(body.data.captureStatus).toBeNull();
+        expect(body.data.reviewStatus).toBeNull();
+        expect(body.data.adjustment).toMatchObject({
+          kind: AdjustmentKind.CREDIT,
+          reason: 'Receiptless transaction boundary fixture',
+        });
+        expect(body.data.adjustment?.id).toBeTruthy();
         expect(body.data.ledger.receiptId).toBeNull();
       });
+  }, 120000);
+
+  it('replays concurrent same-key adjustment requests with the same response', async () => {
+    const loginResponse = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+
+    const sessionCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const csrfCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const fixture = await createReceiptlessTransactionFixture(prisma, seedData);
+
+    const payload = {
+      customerId: fixture.customer.id,
+      kind: 'CREDIT',
+      amountKobo: 1_000,
+      reason: 'Concurrent adjustment replay',
+      effectiveAt: fixture.ledgerEntry.effectiveAt.toISOString(),
+    };
+
+    const [first, second] = await Promise.all([
+      request(httpServer)
+        .post('/api/v1/adjustments')
+        .set('Cookie', `${sessionCookie}; ${csrfCookie}`)
+        .set('x-csrf-token', cookieToken(csrfCookie))
+        .set('Idempotency-Key', 'adjustment-concurrent-replay')
+        .send(payload)
+        .expect(201),
+      request(httpServer)
+        .post('/api/v1/adjustments')
+        .set('Cookie', `${sessionCookie}; ${csrfCookie}`)
+        .set('x-csrf-token', cookieToken(csrfCookie))
+        .set('Idempotency-Key', 'adjustment-concurrent-replay')
+        .send(payload)
+        .expect(201),
+    ]);
+
+    expect(first.body.data).toMatchObject(second.body.data);
+    expect(first.body.data.adjustmentId).toBeDefined();
+    expect(first.body.data.creditLot).toBeTruthy();
+  }, 120000);
+
+  it('replays concurrent same-key reversal requests with the same response', async () => {
+    const loginResponse = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+
+    const sessionCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const csrfCookie = cookieValue(
+      loginResponse.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const fixture = await createReceiptlessTransactionFixture(prisma, seedData);
+
+    const payload = { reason: 'Concurrent reversal replay' };
+    const idempotencyKey = `reversal-concurrent-replay-${Date.now()}`;
+
+    const [first, second] = await Promise.all([
+      request(httpServer)
+        .post(`/api/v1/transactions/${fixture.ledgerEntry.id}/reverse`)
+        .set('Cookie', `${sessionCookie}; ${csrfCookie}`)
+        .set('x-csrf-token', cookieToken(csrfCookie))
+        .set('Idempotency-Key', idempotencyKey)
+        .send(payload)
+        .expect(201),
+      request(httpServer)
+        .post(`/api/v1/transactions/${fixture.ledgerEntry.id}/reverse`)
+        .set('Cookie', `${sessionCookie}; ${csrfCookie}`)
+        .set('x-csrf-token', cookieToken(csrfCookie))
+        .set('Idempotency-Key', idempotencyKey)
+        .send(payload)
+        .expect(201),
+    ]);
+
+    expect(first.body.data).toMatchObject(second.body.data);
+    expect(first.body.data.originalTransactionId).toBe(fixture.ledgerEntry.id);
+    expect(first.body.data.smsStatus).toBe('QUEUED');
   }, 120000);
 
   it('binds login sessions to attested devices', async () => {
@@ -1031,13 +1142,14 @@ async function createReceiptlessTransactionFixture(
 ) {
   return prisma.$transaction(async (tx) => {
     const effectiveAt = new Date();
+    const uniqueSuffix = `${Date.now()}-${++receiptlessFixtureSeq}`;
     const customer = await tx.customer.create({
       data: {
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         fullName: 'Receiptless Read Model',
-        email: 'receiptless-read-model@shopcity.local',
-        phoneE164: '+2348020000000',
+        email: `receiptless-read-model-${uniqueSuffix}@shopcity.local`,
+        phoneE164: `+234802${String(uniqueSuffix).replace(/\D/g, '').padStart(7, '0').slice(-7)}`,
         isStaff: false,
         status: CustomerStatus.ACTIVE,
         registeredByTenantId: seedData.tenant.id,

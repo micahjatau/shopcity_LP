@@ -1,8 +1,16 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { LedgerEntryDirection, LedgerEntryStatus, LedgerEntryType, Prisma, RedemptionStatus, SmsMessageStatus } from '@prisma/client';
+import {
+  AdjustmentKind,
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  LedgerEntryType,
+  Prisma,
+  RedemptionStatus,
+  SmsMessageStatus,
+} from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
-import { FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS, LotAllocationService } from '../../common/balance/lot-allocation.service';
+import { FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS, LotAllocationService, type PersistedAllocation } from '../../common/balance/lot-allocation.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
@@ -92,14 +100,6 @@ export class ReversalsService {
       return existing.responseJson as unknown as ReversalResponse;
     }
 
-    if (existing) {
-      throw new DomainHttpException(
-        HttpStatus.CONFLICT,
-        'IDEMPOTENCY_IN_PROGRESS',
-        'Idempotency key is still being processed',
-      );
-    }
-
     return runReverseTransaction({
       prismaService: this.prismaService,
       activeBalanceService: this.activeBalanceService,
@@ -131,6 +131,60 @@ async function runReverseTransaction(input: {
     try {
       return await input.prismaService.$transaction(
         async (prisma) => {
+          const lockKey = buildReverseIdempotencyLockKey(
+            input.tenantId,
+            input.actor.user.id,
+            input.normalizedKey,
+          );
+
+          await prisma.$executeRaw(
+            Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+          );
+
+          const existing = await prisma.idempotencyRecord.findUnique({
+            where: {
+              tenantId_actorId_endpoint_idempotencyKey: {
+                tenantId: input.tenantId,
+                actorId: input.actor.user.id,
+                endpoint: REVERSE_ENDPOINT,
+                idempotencyKey: input.normalizedKey,
+              },
+            },
+          });
+
+          if (existing && existing.requestHash !== input.requestHash) {
+            throw new DomainHttpException(
+              HttpStatus.CONFLICT,
+              'IDEMPOTENCY_CONFLICT',
+              'Idempotency key reused with different payload',
+            );
+          }
+
+          if (existing?.requestHash === input.requestHash && existing.responseJson) {
+            return existing.responseJson as unknown as ReversalResponse;
+          }
+
+          if (existing) {
+            throw new DomainHttpException(
+              HttpStatus.CONFLICT,
+              'IDEMPOTENCY_IN_PROGRESS',
+              'Idempotency key is still being processed',
+            );
+          }
+
+          await prisma.idempotencyRecord.create({
+            data: {
+              tenantId: input.tenantId,
+              actorId: input.actor.user.id,
+              endpoint: REVERSE_ENDPOINT,
+              idempotencyKey: input.normalizedKey,
+              requestHash: input.requestHash,
+              responseJson: Prisma.JsonNull,
+              status: 'PENDING',
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+          });
+
           const original = await prisma.loyaltyLedgerEntry.findFirst({
             where: { tenantId: input.tenantId, id: input.transactionId },
             include: {
@@ -217,28 +271,104 @@ async function runReverseTransaction(input: {
             }
 
             reversedAmountKobo = original.creditLot.originalAmountKobo;
-            const updated = await prisma.creditLot.updateMany({
-              where: {
+
+            const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
+              data: {
                 tenantId: input.tenantId,
-                id: original.creditLot.id,
                 customerId: original.customerId,
-                remainingAmountKobo: { gte: reversedAmountKobo },
+                receiptId: null,
+                type: LedgerEntryType.ADJUSTMENT,
+                direction: LedgerEntryDirection.DEBIT,
+                amountKobo: reversedAmountKobo,
+                status: LedgerEntryStatus.CONFIRMED,
+                correlationId: input.requestHash,
+                reversesEntryId: original.id,
+                createdByTenantId: input.actor.user.tenantId,
+                createdBy: input.actor.user.id,
+                effectiveAt: now,
               },
-              data: { remainingAmountKobo: { decrement: reversedAmountKobo } },
             });
 
-            if (updated.count !== 1) {
-              throw reviewRequired('Original credit lot changed during reversal');
-            }
-
-            allocations = [
-              {
-                creditLotId: original.creditLot.id,
-                amountKobo: Number(reversedAmountKobo),
-                allocationOrder: 1,
-                expiresAt: original.creditLot.expiresAt.toISOString(),
+            const reversalAdjustment = await prisma.adjustment.create({
+              data: {
+                tenantId: input.tenantId,
+                customerId: original.customerId,
+                kind: AdjustmentKind.DEBIT,
+                amountKobo: reversedAmountKobo,
+                reason: input.reason,
+                createdByTenantId: input.actor.user.tenantId,
+                createdBy: input.actor.user.id,
+                ledgerEntryId: reversalLedgerEntry.id,
+                effectiveAt: now,
               },
-            ];
+            });
+
+            allocations = toReversalAllocations(
+              await input.lotAllocationService.allocateDebit(prisma, {
+                tenantId: input.tenantId,
+                customerId: original.customerId,
+                debitLedgerEntryId: reversalLedgerEntry.id,
+                amountKobo: reversedAmountKobo,
+                adjustmentId: reversalAdjustment.id,
+                now,
+              }),
+            );
+
+            const remainingBalanceKobo =
+              await input.activeBalanceService.getActiveBalanceKobo(
+                input.tenantId,
+                original.customerId,
+                now,
+                prisma,
+              );
+
+            await persistReverseNotification({
+              prisma,
+              tenantId: input.tenantId,
+              phoneE164: original.customer.phoneE164,
+              reversalLedgerEntryId: reversalLedgerEntry.id,
+              originalTransactionId: original.id,
+              receiptId: original.receiptId ?? null,
+              occurredAt: now,
+            });
+
+            await input.auditService.recordWithClient(prisma, {
+              tenantId: input.tenantId,
+              actorId: input.actor.user.id,
+              action: 'transaction.reversed',
+              entityType: 'ledger-entry',
+              entityId: original.id,
+              metadata: {
+                reason: input.reason,
+                reversalLedgerEntryId: reversalLedgerEntry.id,
+                reversedAmountKobo: Number(reversedAmountKobo),
+              },
+            });
+
+            const response: ReversalResponse = {
+              id: reversalLedgerEntry.id,
+              transactionId: reversalLedgerEntry.id,
+              originalTransactionId: original.id,
+              originalTransactionType: original.type,
+              reversedAmountKobo: Number(reversedAmountKobo),
+              newActiveBalanceKobo: Number(remainingBalanceKobo),
+              allocations,
+              restorations,
+              smsStatus: SmsMessageStatus.QUEUED,
+              occurredAt: now.toISOString(),
+              requestedAt: now.toISOString(),
+            };
+
+            await persistReverseIdempotency(
+              prisma,
+              input.tenantId,
+              input.actor.user.id,
+              input.normalizedKey,
+              input.requestHash,
+              response,
+            );
+
+            return response;
           } else if (
             original.type === LedgerEntryType.REDEEM &&
             original.direction === LedgerEntryDirection.DEBIT
@@ -386,26 +516,13 @@ async function runReverseTransaction(input: {
             }
 
             reversedAmountKobo = original.adjustment.amountKobo;
-            const updated = await prisma.creditLot.updateMany({
-              where: {
-                tenantId: input.tenantId,
-                id: original.creditLot.id,
-                customerId: original.customerId,
-                remainingAmountKobo: { gte: reversedAmountKobo },
-              },
-              data: { remainingAmountKobo: { decrement: reversedAmountKobo } },
-            });
-
-            if (updated.count !== 1) {
-              throw reviewRequired('Original credit lot changed during reversal');
-            }
 
             const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
               data: {
                 tenantId: input.tenantId,
                 customerId: original.customerId,
                 receiptId: null,
-                type: LedgerEntryType.REVERSAL,
+                type: LedgerEntryType.ADJUSTMENT,
                 direction: LedgerEntryDirection.DEBIT,
                 amountKobo: reversedAmountKobo,
                 status: LedgerEntryStatus.CONFIRMED,
@@ -417,14 +534,30 @@ async function runReverseTransaction(input: {
               },
             });
 
-            allocations = [
-              {
-                creditLotId: original.creditLot.id,
-                amountKobo: Number(reversedAmountKobo),
-                allocationOrder: 1,
-                expiresAt: original.creditLot.expiresAt.toISOString(),
+            const reversalAdjustment = await prisma.adjustment.create({
+              data: {
+                tenantId: input.tenantId,
+                customerId: original.customerId,
+                kind: AdjustmentKind.DEBIT,
+                amountKobo: reversedAmountKobo,
+                reason: input.reason,
+                createdByTenantId: input.actor.user.tenantId,
+                createdBy: input.actor.user.id,
+                ledgerEntryId: reversalLedgerEntry.id,
+                effectiveAt: now,
               },
-            ];
+            });
+
+            allocations = toReversalAllocations(
+              await input.lotAllocationService.allocateDebit(prisma, {
+                tenantId: input.tenantId,
+                customerId: original.customerId,
+                debitLedgerEntryId: reversalLedgerEntry.id,
+                amountKobo: reversedAmountKobo,
+                adjustmentId: reversalAdjustment.id,
+                now,
+              }),
+            );
 
             const remainingBalanceKobo =
               await input.activeBalanceService.getActiveBalanceKobo(
@@ -606,10 +739,30 @@ async function runReverseTransaction(input: {
         FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS,
       );
     } catch (error) {
-      if (isTransactionConflict(error) && attempt < REVERSAL_RETRY_ATTEMPTS) {
-        await waitForJitter();
-        continue;
+      if (
+        isTransactionConflict(error) ||
+        isIdempotencyConflict(error)
+      ) {
+        if (attempt < REVERSAL_RETRY_ATTEMPTS) {
+          await waitForJitter();
+          continue;
+        }
+
+        throw new DomainHttpException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          'REVERSAL_TRANSACTION_CONFLICT',
+          'Transaction reversal conflicted; retry the request',
+        );
       }
+
+      await input.prismaService.idempotencyRecord.deleteMany({
+        where: {
+          tenantId: input.tenantId,
+          actorId: input.actor.user.id,
+          endpoint: REVERSE_ENDPOINT,
+          idempotencyKey: input.normalizedKey,
+        },
+      });
 
       throw error;
     }
@@ -709,18 +862,33 @@ async function persistReverseIdempotency(
   requestHash: string,
   response: ReversalResponse,
 ) {
-  await prisma.idempotencyRecord.create({
+  await prisma.idempotencyRecord.update({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint: REVERSE_ENDPOINT,
+        idempotencyKey,
+      },
+    },
     data: {
-      tenantId,
-      actorId,
-      endpoint: REVERSE_ENDPOINT,
-      idempotencyKey,
       requestHash,
       responseJson: response as never,
       status: 'COMPLETED',
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
+}
+
+function toReversalAllocations(
+  allocations: PersistedAllocation[],
+): ReversalResponse['allocations'] {
+  return allocations.map((allocation) => ({
+    creditLotId: allocation.creditLotId,
+    amountKobo: Number(allocation.amountKobo),
+    allocationOrder: allocation.allocationOrder,
+    expiresAt: allocation.expiresAt.toISOString(),
+  }));
 }
 
 function reviewRequired(message: string): DomainHttpException {
@@ -732,8 +900,39 @@ function reviewRequired(message: string): DomainHttpException {
 }
 
 function isTransactionConflict(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+  const code = getPrismaErrorCode(error);
+
+  if (code === 'P2034') {
+    return true;
+  }
+
+  return /Response from the Engine was empty|Transaction failed due to a write conflict or a deadlock|Engine is not yet connected/i.test(
+    getErrorMessage(error),
+  );
 }
+
+function isIdempotencyConflict(error: unknown): boolean {
+  return getPrismaErrorCode(error) === 'P2002';
+}
+
+function getPrismaErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return undefined;
+  }
+
+  const code = (error as { code?: unknown }).code;
+
+  return typeof code === 'string' ? code : undefined;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return typeof error === 'string' ? error : '';
+}
+
 
 async function waitForJitter(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * REVERSAL_RETRY_JITTER_MS)));
@@ -751,6 +950,14 @@ function normalizeIdempotencyKey(value: string | undefined): string {
   }
 
   return normalized;
+}
+
+function buildReverseIdempotencyLockKey(
+  tenantId: string,
+  actorId: string,
+  idempotencyKey: string,
+): string {
+  return `${tenantId}:${actorId}:${REVERSE_ENDPOINT}:${idempotencyKey}`;
 }
 
 function normalizeReason(value: string): string {

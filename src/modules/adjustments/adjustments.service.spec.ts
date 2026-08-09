@@ -64,13 +64,18 @@ describe('AdjustmentsService', () => {
         amountKobo: 2_500,
         reason: 'Service recovery',
         effectiveAt: '2026-07-26T12:00:00.000Z',
-        expiryMonths: 12,
       }),
     ).resolves.toMatchObject({
       kind: 'CREDIT',
       amountKobo: 2_500,
       creditLot: { id: 'lot-1' },
       smsStatus: 'QUEUED',
+    });
+
+    expect(tx.creditLot.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        expiresAt: new Date('2027-07-26T12:00:00.000Z'),
+      }),
     });
 
     expect(tx.loyaltyLedgerEntry.create).toHaveBeenCalledTimes(1);
@@ -127,12 +132,37 @@ describe('AdjustmentsService', () => {
     expect(tx.smsMessage.create).toHaveBeenCalledTimes(1);
     expect(tx.idempotencyRecord.create).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects adjustments above the configured ceiling before writing', async () => {
+    const transaction = jest.fn();
+    const service = createService({
+      transaction,
+      config: {
+        ADJUSTMENT_AMOUNT_CEILING_KOBO: 1_000,
+        ADJUSTMENT_CREDIT_EXPIRY_MONTHS: 12,
+      },
+    });
+
+    await expect(
+      service.createAdjustment('tenant-1', actor(UserRole.ADMIN), 'idem-ceiling', {
+        customerId: 'customer-1',
+        kind: 'CREDIT',
+        amountKobo: 1_001,
+        reason: 'Service recovery',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'VALIDATION_ERROR' },
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });
 
 function createService(options?: {
   transaction?: jest.Mock;
   activeBalanceKobo?: bigint;
   lotAllocationService?: { allocateDebit: jest.Mock };
+  config?: Record<string, number>;
 }) {
   const tx = transactionClient();
   const transaction =
@@ -141,10 +171,11 @@ function createService(options?: {
   return new AdjustmentsService(
     {
       $transaction: transaction,
-      idempotencyRecord: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
+    idempotencyRecord: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({}),
+    },
     } as never,
     {
       getActiveBalanceKobo: jest.fn().mockResolvedValue(options?.activeBalanceKobo ?? 20_000n),
@@ -155,7 +186,11 @@ function createService(options?: {
       recordWithClient: jest.fn().mockResolvedValue(undefined),
     } as never,
     {
-      get: (key: string) => ({ ADJUSTMENT_CREDIT_EXPIRY_MONTHS: 12 })[key],
+      get: (key: string) =>
+        ({
+          ADJUSTMENT_CREDIT_EXPIRY_MONTHS: 12,
+          ADJUSTMENT_AMOUNT_CEILING_KOBO: options?.config?.ADJUSTMENT_AMOUNT_CEILING_KOBO ?? 100_000_000,
+        })[key],
     } as never,
   );
 }
@@ -191,6 +226,7 @@ function transactionClient() {
     },
     idempotencyRecord: {
       create: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
     },
   };
 }

@@ -3,7 +3,6 @@ import {
   IsDateString,
   IsIn,
   IsInt,
-  IsOptional,
   IsString,
   Max,
   MaxLength,
@@ -35,14 +34,6 @@ export class CreateAdjustmentDto {
   reason!: string;
 
   @ApiProperty({ format: 'date-time', required: false })
-  @IsOptional()
   @IsDateString()
   effectiveAt?: string;
-
-  @ApiProperty({ required: false, minimum: 1 })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(120)
-  expiryMonths?: number;
 }

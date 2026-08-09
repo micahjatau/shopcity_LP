@@ -138,14 +138,14 @@ export interface TransactionResponse {
   branchId: string;
   customerId: string;
   deviceId: string | null;
-  cardSerialNumber: string;
-  posReceiptNumber: string;
-  purchaseAmountKobo: number;
+  cardSerialNumber: string | null;
+  posReceiptNumber: string | null;
+  purchaseAmountKobo: number | null;
   occurredAt: string;
   capturedAt: string;
   state: 'CONFIRMED' | 'PENDING_APPROVAL' | 'REJECTED' | 'INVALID';
-  captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL';
-  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  captureStatus: 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL' | null;
+  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   approvalId: string | null;
   approvalStatus: ApprovalStatus | null;
   ledgerEntryId: string | null;
@@ -156,6 +156,22 @@ export interface TransactionResponse {
   expiresAt: string | null;
   smsStatus: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED' | null;
   ledger: TransactionLedgerItem | null;
+  adjustment: {
+    id: string;
+    kind: string;
+    reason: string;
+    createdBy: string;
+  } | null;
+  reversal: {
+    originalTransactionId: string | null;
+    restorations: Array<{
+      id: string;
+      allocationId: string;
+      creditLotId: string;
+      amountKobo: number;
+      reversalLedgerEntryId: string;
+    }>;
+  } | null;
 }
 
 export interface ApprovalListItem {
@@ -870,21 +886,43 @@ export class LoyaltyService {
         tenantId,
         ledgerEntry.customerId,
       );
-    const receiptId = originalReceipt?.id ?? ledgerEntry.id;
-    const cardSerialNumber = originalReceipt?.card?.barcodeValue ?? ledgerEntry.id;
-    const posReceiptNumber = originalReceipt?.posReceiptNumber ?? ledgerEntry.correlationId;
+    const receiptId = originalReceipt?.id ?? null;
+    const responseId = originalReceipt?.id ?? ledgerEntry.id;
+    const cardSerialNumber = originalReceipt?.card?.barcodeValue ?? null;
+    const posReceiptNumber = originalReceipt?.posReceiptNumber ?? null;
     const purchaseAmountKobo = originalReceipt
       ? Number(originalReceipt.purchaseAmountKobo)
-      : Number(ledgerEntry.amountKobo);
+      : null;
     const occurredAt =
       originalReceipt?.occurredAt?.toISOString() ?? ledgerEntry.effectiveAt.toISOString();
     const capturedAt =
       originalReceipt?.capturedAt?.toISOString() ?? ledgerEntry.createdAt.toISOString();
-    const captureStatus = originalReceipt?.captureStatus ?? 'CAPTURED';
-    const reviewStatus = originalReceipt?.reviewStatus ?? 'APPROVED';
+    const captureStatus = originalReceipt?.captureStatus ?? null;
+    const reviewStatus = originalReceipt?.reviewStatus ?? null;
+    const adjustment = ledgerEntry.adjustment
+      ? {
+          id: ledgerEntry.adjustment.id,
+          kind: ledgerEntry.adjustment.kind,
+          reason: ledgerEntry.adjustment.reason,
+          createdBy: ledgerEntry.adjustment.createdBy,
+        }
+      : null;
+    const reversal =
+      ledgerEntry.type === LedgerEntryType.REVERSAL
+        ? {
+            originalTransactionId: ledgerEntry.reversesEntryId,
+            restorations: ledgerEntry.allocationRestorations.map((restoration) => ({
+              id: restoration.id,
+              allocationId: restoration.allocationId,
+              creditLotId: restoration.allocation.creditLotId,
+              amountKobo: Number(restoration.amountKobo),
+              reversalLedgerEntryId: restoration.reversalLedgerEntryId,
+            })),
+          }
+        : null;
 
     return {
-      id: receiptId,
+      id: responseId,
       transactionId: ledgerEntry.id,
       type: ledgerEntry.type,
       direction: ledgerEntry.direction,
@@ -956,6 +994,8 @@ export class LoyaltyService {
             }
           : null,
       },
+      adjustment,
+      reversal,
     };
   }
 
@@ -1716,18 +1756,6 @@ export class LoyaltyService {
         },
       );
 
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'redemption.expired',
-        entityType: 'redemption',
-        entityId: redemption.id,
-        metadata: {
-          expiredAt: now,
-          approvalId: approval.id,
-        },
-      });
-
       return { expired: true } as never;
     }
 
@@ -1775,18 +1803,6 @@ export class LoyaltyService {
         entityType: 'redemption',
         entityId: redemption.id,
         metadata: { decision, reason: normalizedReason, decidedAt: now },
-      });
-
-      await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'redemption.expired',
-        entityType: 'redemption',
-        entityId: redemption.id,
-        metadata: {
-          expiredAt: now,
-          approvalId: approval.id,
-        },
       });
 
       await this.auditService.recordWithClient(prisma, {

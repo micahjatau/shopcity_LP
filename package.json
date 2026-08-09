@@ -29,7 +29,7 @@
     "prisma:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public} prisma generate",
     "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public} prisma validate",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "openapi:export": "node -r ts-node/register -r tsconfig-paths/register scripts/export-openapi.ts",
+    "openapi:export": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/export-openapi.ts",
     "openapi:lint": "npm run openapi:export && spectral lint docs/api/openapi.json",
     "openapi:diff": "npm run openapi:export && oasdiff diff docs/api/openapi.base.json docs/api/openapi.json",
     "client:generate": "orval --input docs/api/openapi.json --output client/shopcity-client.ts --client fetch --mode single --prettier",

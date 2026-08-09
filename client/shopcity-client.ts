@@ -199,6 +199,25 @@ export interface ReverseTransactionDto {
   reason: string;
 }
 
+export type CreateAdjustmentDtoKind =
+  (typeof CreateAdjustmentDtoKind)[keyof typeof CreateAdjustmentDtoKind];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const CreateAdjustmentDtoKind = {
+  CREDIT: 'CREDIT',
+  DEBIT: 'DEBIT',
+} as const;
+
+export interface CreateAdjustmentDto {
+  customerId: string;
+  kind: CreateAdjustmentDtoKind;
+  /** @minimum 1 */
+  amountKobo: number;
+  /** @maxLength 500 */
+  reason: string;
+  effectiveAt?: string;
+}
+
 export type AppControllerGetHelloV1200Meta = {
   timestamp: string;
   path: string;
@@ -7276,29 +7295,47 @@ export const ApprovalsControllerListApprovalsV1200DataItemsItemTargetType = {
   REDEEM: 'REDEEM',
 } as const;
 
+export type ApprovalsControllerListApprovalsV1200DataItemsItemCustomer = {
+  id: string;
+  /** @nullable */
+  branchId: string | null;
+};
+
+/**
+ * @nullable
+ */
 export type ApprovalsControllerListApprovalsV1200DataItemsItemReceipt = {
   id: string;
+  /** @nullable */
+  customerId: string | null;
   posReceiptNumber: string;
   purchaseAmountKobo: number;
   captureStatus: string;
   reviewStatus: string;
-};
+  /** @nullable */
+  branchId: string | null;
+} | null;
 
 export type ApprovalsControllerListApprovalsV1200DataItemsItem = {
   id: string;
-  receiptId: string;
+  /** @nullable */
+  receiptId: string | null;
   /** @nullable */
   redemptionId: string | null;
   targetType: ApprovalsControllerListApprovalsV1200DataItemsItemTargetType;
   status: string;
   /** @nullable */
   reasonCode?: string | null;
+  /** @nullable */
+  requestedAmountKobo: number | null;
   requestedAt: string;
   expiresAt: string;
   /** @nullable */
   decidedAt: string | null;
   /** @nullable */
   executedAt: string | null;
+  customer: ApprovalsControllerListApprovalsV1200DataItemsItemCustomer;
+  /** @nullable */
   receipt: ApprovalsControllerListApprovalsV1200DataItemsItemReceipt;
 };
 
@@ -8086,6 +8123,8 @@ export type LoyaltyControllerGetTransactionV1200DataType =
 export const LoyaltyControllerGetTransactionV1200DataType = {
   EARN: 'EARN',
   REDEEM: 'REDEEM',
+  REVERSAL: 'REVERSAL',
+  ADJUSTMENT: 'ADJUSTMENT',
 } as const;
 
 export type LoyaltyControllerGetTransactionV1200DataDirection =
@@ -8093,6 +8132,26 @@ export type LoyaltyControllerGetTransactionV1200DataDirection =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const LoyaltyControllerGetTransactionV1200DataDirection = {
+  CREDIT: 'CREDIT',
+  DEBIT: 'DEBIT',
+} as const;
+
+export type LoyaltyControllerGetTransactionV1200DataLedgerType =
+  (typeof LoyaltyControllerGetTransactionV1200DataLedgerType)[keyof typeof LoyaltyControllerGetTransactionV1200DataLedgerType];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const LoyaltyControllerGetTransactionV1200DataLedgerType = {
+  EARN: 'EARN',
+  REDEEM: 'REDEEM',
+  REVERSAL: 'REVERSAL',
+  ADJUSTMENT: 'ADJUSTMENT',
+} as const;
+
+export type LoyaltyControllerGetTransactionV1200DataLedgerDirection =
+  (typeof LoyaltyControllerGetTransactionV1200DataLedgerDirection)[keyof typeof LoyaltyControllerGetTransactionV1200DataLedgerDirection];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const LoyaltyControllerGetTransactionV1200DataLedgerDirection = {
   CREDIT: 'CREDIT',
   DEBIT: 'DEBIT',
 } as const;
@@ -8124,13 +8183,22 @@ export type LoyaltyControllerGetTransactionV1200DataLedgerCreditLot = {
   expiresAt: string;
 } | null;
 
+export type LoyaltyControllerGetTransactionV1200DataLedgerRestorationsItem = {
+  id: string;
+  allocationId: string;
+  creditLotId: string;
+  amountKobo: number;
+  reversalLedgerEntryId: string;
+};
+
 export type LoyaltyControllerGetTransactionV1200DataLedger = {
   id: string;
-  receiptId: string;
+  /** @nullable */
+  receiptId: string | null;
   /** @nullable */
   redemptionId?: string | null;
-  type: string;
-  direction: string;
+  type: LoyaltyControllerGetTransactionV1200DataLedgerType;
+  direction: LoyaltyControllerGetTransactionV1200DataLedgerDirection;
   amountKobo: number;
   status: string;
   effectiveAt: string;
@@ -8139,7 +8207,44 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   allocations?: LoyaltyControllerGetTransactionV1200DataLedgerAllocationsItem[];
   /** @nullable */
   creditLot: LoyaltyControllerGetTransactionV1200DataLedgerCreditLot;
+  restorations: LoyaltyControllerGetTransactionV1200DataLedgerRestorationsItem[];
 };
+
+export type LoyaltyControllerGetTransactionV1200DataAdjustmentKind =
+  (typeof LoyaltyControllerGetTransactionV1200DataAdjustmentKind)[keyof typeof LoyaltyControllerGetTransactionV1200DataAdjustmentKind];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const LoyaltyControllerGetTransactionV1200DataAdjustmentKind = {
+  CREDIT: 'CREDIT',
+  DEBIT: 'DEBIT',
+} as const;
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerGetTransactionV1200DataAdjustment = {
+  id: string;
+  kind: LoyaltyControllerGetTransactionV1200DataAdjustmentKind;
+  reason: string;
+  createdBy: string;
+} | null;
+
+export type LoyaltyControllerGetTransactionV1200DataReversalRestorationsItem = {
+  id: string;
+  allocationId: string;
+  creditLotId: string;
+  amountKobo: number;
+  reversalLedgerEntryId: string;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerGetTransactionV1200DataReversal = {
+  /** @nullable */
+  originalTransactionId: string | null;
+  restorations: LoyaltyControllerGetTransactionV1200DataReversalRestorationsItem[];
+} | null;
 
 export type LoyaltyControllerGetTransactionV1200Data = {
   id: string;
@@ -8151,14 +8256,19 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   customerId: string;
   /** @nullable */
   deviceId: string | null;
-  cardSerialNumber: string;
-  posReceiptNumber: string;
-  purchaseAmountKobo: number;
+  /** @nullable */
+  cardSerialNumber: string | null;
+  /** @nullable */
+  posReceiptNumber: string | null;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
   occurredAt: string;
   capturedAt: string;
   state: string;
-  captureStatus: string;
-  reviewStatus: string;
+  /** @nullable */
+  captureStatus: string | null;
+  /** @nullable */
+  reviewStatus: string | null;
   /** @nullable */
   approvalId: string | null;
   /** @nullable */
@@ -8175,6 +8285,10 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   /** @nullable */
   smsStatus: string | null;
   ledger: LoyaltyControllerGetTransactionV1200DataLedger;
+  /** @nullable */
+  adjustment?: LoyaltyControllerGetTransactionV1200DataAdjustment;
+  /** @nullable */
+  reversal?: LoyaltyControllerGetTransactionV1200DataReversal;
 };
 
 export type LoyaltyControllerGetTransactionV1200Meta = {
@@ -8410,6 +8524,26 @@ export type LoyaltyControllerGetCustomerLedgerV1Params = {
   cursor: string;
 };
 
+export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType =
+  (typeof LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType)[keyof typeof LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType = {
+  EARN: 'EARN',
+  REDEEM: 'REDEEM',
+  REVERSAL: 'REVERSAL',
+  ADJUSTMENT: 'ADJUSTMENT',
+} as const;
+
+export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemDirection =
+  (typeof LoyaltyControllerGetCustomerLedgerV1200DataItemsItemDirection)[keyof typeof LoyaltyControllerGetCustomerLedgerV1200DataItemsItemDirection];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const LoyaltyControllerGetCustomerLedgerV1200DataItemsItemDirection = {
+  CREDIT: 'CREDIT',
+  DEBIT: 'DEBIT',
+} as const;
+
 export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemAllocationsItemRestorationsItem =
   {
     id: string;
@@ -8438,13 +8572,23 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemCreditLot = {
   expiresAt: string;
 } | null;
 
+export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemRestorationsItem =
+  {
+    id: string;
+    allocationId: string;
+    creditLotId: string;
+    amountKobo: number;
+    reversalLedgerEntryId: string;
+  };
+
 export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   id: string;
-  receiptId: string;
+  /** @nullable */
+  receiptId: string | null;
   /** @nullable */
   redemptionId?: string | null;
-  type: string;
-  direction: string;
+  type: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType;
+  direction: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemDirection;
   amountKobo: number;
   status: string;
   effectiveAt: string;
@@ -8453,6 +8597,7 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   allocations?: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemAllocationsItem[];
   /** @nullable */
   creditLot: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemCreditLot;
+  restorations: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemRestorationsItem[];
 };
 
 export type LoyaltyControllerGetCustomerLedgerV1200Data = {
@@ -9023,6 +9168,41 @@ export type RedemptionsControllerRedeemV1503 = {
   meta: RedemptionsControllerRedeemV1503Meta;
 };
 
+export type ReversalsControllerReverseV1201DataAllocationsItem = {
+  [key: string]: unknown;
+};
+
+export type ReversalsControllerReverseV1201DataRestorationsItem = {
+  [key: string]: unknown;
+};
+
+export type ReversalsControllerReverseV1201Data = {
+  id: string;
+  transactionId: string;
+  originalTransactionId: string;
+  originalTransactionType: string;
+  reversedAmountKobo: number;
+  newActiveBalanceKobo: number;
+  allocations: ReversalsControllerReverseV1201DataAllocationsItem[];
+  restorations: ReversalsControllerReverseV1201DataRestorationsItem[];
+  /** @nullable */
+  smsStatus: string | null;
+  occurredAt: string;
+  requestedAt: string;
+};
+
+export type ReversalsControllerReverseV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReversalsControllerReverseV1201 = {
+  success: boolean;
+  data: ReversalsControllerReverseV1201Data;
+  meta: ReversalsControllerReverseV1201Meta;
+};
+
 /**
  * @nullable
  */
@@ -9239,6 +9419,270 @@ export type ReversalsControllerReverseV1503 = {
   meta: ReversalsControllerReverseV1503Meta;
 };
 
+export type AdjustmentsControllerCreateV1201DataKind =
+  (typeof AdjustmentsControllerCreateV1201DataKind)[keyof typeof AdjustmentsControllerCreateV1201DataKind];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const AdjustmentsControllerCreateV1201DataKind = {
+  CREDIT: 'CREDIT',
+  DEBIT: 'DEBIT',
+} as const;
+
+export type AdjustmentsControllerCreateV1201DataAllocationsItem = {
+  [key: string]: unknown;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1201DataCreditLot = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1201Data = {
+  id: string;
+  transactionId: string;
+  adjustmentId: string;
+  customerId: string;
+  kind: AdjustmentsControllerCreateV1201DataKind;
+  amountKobo: number;
+  newActiveBalanceKobo: number;
+  allocations: AdjustmentsControllerCreateV1201DataAllocationsItem[];
+  /** @nullable */
+  creditLot: AdjustmentsControllerCreateV1201DataCreditLot;
+  /** @nullable */
+  smsStatus: string | null;
+  occurredAt: string;
+};
+
+export type AdjustmentsControllerCreateV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1201 = {
+  success: boolean;
+  data: AdjustmentsControllerCreateV1201Data;
+  meta: AdjustmentsControllerCreateV1201Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1400ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1400 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1400Error;
+  meta: AdjustmentsControllerCreateV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1401ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1401 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1401Error;
+  meta: AdjustmentsControllerCreateV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1403ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1403 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1403Error;
+  meta: AdjustmentsControllerCreateV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1404ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1404 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1404Error;
+  meta: AdjustmentsControllerCreateV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1409ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1409 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1409Error;
+  meta: AdjustmentsControllerCreateV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1422ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1422 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1422Error;
+  meta: AdjustmentsControllerCreateV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1429ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1429 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1429Error;
+  meta: AdjustmentsControllerCreateV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AdjustmentsControllerCreateV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AdjustmentsControllerCreateV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AdjustmentsControllerCreateV1503ErrorDetails;
+};
+
+export type AdjustmentsControllerCreateV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AdjustmentsControllerCreateV1503 = {
+  success: boolean;
+  error: AdjustmentsControllerCreateV1503Error;
+  meta: AdjustmentsControllerCreateV1503Meta;
+};
+
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
   id: string;
   name: string;
@@ -9258,6 +9702,7 @@ export type ConfigurationControllerGetPublicConfigV1200DataPolicies = {
   purchaseFlagThresholdKobo: number;
   purchaseApprovalThresholdKobo: number;
   redemptionApprovalThresholdKobo: number;
+  offlineRedemptionDisabled: boolean;
 };
 
 export type ConfigurationControllerGetPublicConfigV1200Data = {
@@ -13009,9 +13454,14 @@ export const redemptionsControllerRedeemV1 = async (
 };
 
 /**
- * Reversal execution is deferred for this release and no reversal request is queued.
- * @summary Unavailable transaction reversal
+ * Creates an immutable compensating reversal transaction.
+ * @summary Reverse a transaction
  */
+export type reversalsControllerReverseV1Response201 = {
+  data: ReversalsControllerReverseV1201;
+  status: 201;
+};
+
 export type reversalsControllerReverseV1Response400 = {
   data: ReversalsControllerReverseV1400;
   status: 400;
@@ -13052,6 +13502,10 @@ export type reversalsControllerReverseV1Response503 = {
   status: 503;
 };
 
+export type reversalsControllerReverseV1ResponseSuccess =
+  reversalsControllerReverseV1Response201 & {
+    headers: Headers;
+  };
 export type reversalsControllerReverseV1ResponseError = (
   | reversalsControllerReverseV1Response400
   | reversalsControllerReverseV1Response401
@@ -13066,7 +13520,8 @@ export type reversalsControllerReverseV1ResponseError = (
 };
 
 export type reversalsControllerReverseV1Response =
-  reversalsControllerReverseV1ResponseError;
+  | reversalsControllerReverseV1ResponseSuccess
+  | reversalsControllerReverseV1ResponseError;
 
 export const getReversalsControllerReverseV1Url = (transactionId: string) => {
   return `/api/v1/transactions/${transactionId}/reverse`;
@@ -13094,6 +13549,103 @@ export const reversalsControllerReverseV1 = async (
     status: res.status,
     headers: res.headers,
   } as reversalsControllerReverseV1Response;
+};
+
+/**
+ * Create a manual adjustment
+ * @summary Create a manual adjustment
+ */
+export type adjustmentsControllerCreateV1Response201 = {
+  data: AdjustmentsControllerCreateV1201;
+  status: 201;
+};
+
+export type adjustmentsControllerCreateV1Response400 = {
+  data: AdjustmentsControllerCreateV1400;
+  status: 400;
+};
+
+export type adjustmentsControllerCreateV1Response401 = {
+  data: AdjustmentsControllerCreateV1401;
+  status: 401;
+};
+
+export type adjustmentsControllerCreateV1Response403 = {
+  data: AdjustmentsControllerCreateV1403;
+  status: 403;
+};
+
+export type adjustmentsControllerCreateV1Response404 = {
+  data: AdjustmentsControllerCreateV1404;
+  status: 404;
+};
+
+export type adjustmentsControllerCreateV1Response409 = {
+  data: AdjustmentsControllerCreateV1409;
+  status: 409;
+};
+
+export type adjustmentsControllerCreateV1Response422 = {
+  data: AdjustmentsControllerCreateV1422;
+  status: 422;
+};
+
+export type adjustmentsControllerCreateV1Response429 = {
+  data: AdjustmentsControllerCreateV1429;
+  status: 429;
+};
+
+export type adjustmentsControllerCreateV1Response503 = {
+  data: AdjustmentsControllerCreateV1503;
+  status: 503;
+};
+
+export type adjustmentsControllerCreateV1ResponseSuccess =
+  adjustmentsControllerCreateV1Response201 & {
+    headers: Headers;
+  };
+export type adjustmentsControllerCreateV1ResponseError = (
+  | adjustmentsControllerCreateV1Response400
+  | adjustmentsControllerCreateV1Response401
+  | adjustmentsControllerCreateV1Response403
+  | adjustmentsControllerCreateV1Response404
+  | adjustmentsControllerCreateV1Response409
+  | adjustmentsControllerCreateV1Response422
+  | adjustmentsControllerCreateV1Response429
+  | adjustmentsControllerCreateV1Response503
+) & {
+  headers: Headers;
+};
+
+export type adjustmentsControllerCreateV1Response =
+  | adjustmentsControllerCreateV1ResponseSuccess
+  | adjustmentsControllerCreateV1ResponseError;
+
+export const getAdjustmentsControllerCreateV1Url = () => {
+  return `/api/v1/adjustments`;
+};
+
+export const adjustmentsControllerCreateV1 = async (
+  createAdjustmentDto: CreateAdjustmentDto,
+  options?: RequestInit,
+): Promise<adjustmentsControllerCreateV1Response> => {
+  const res = await fetch(getAdjustmentsControllerCreateV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createAdjustmentDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: adjustmentsControllerCreateV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as adjustmentsControllerCreateV1Response;
 };
 
 /**

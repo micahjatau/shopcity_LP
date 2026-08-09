@@ -819,7 +819,12 @@ describe('LoyaltyService redemption approvals', () => {
       effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
       createdAt: new Date('2026-07-26T12:01:00.000Z'),
       creditLot: null,
-      adjustment: { id: 'adjustment-3' },
+      adjustment: {
+        id: 'adjustment-3',
+        kind: 'DEBIT',
+        reason: 'Manual correction',
+        createdBy: 'user-1',
+      },
       redemption: null,
       redemptionAllocations: [],
       allocationRestorations: [],
@@ -849,11 +854,189 @@ describe('LoyaltyService redemption approvals', () => {
       transactionId: 'ledger-3',
       type: 'ADJUSTMENT',
       direction: 'DEBIT',
+      cardSerialNumber: null,
+      posReceiptNumber: null,
+      purchaseAmountKobo: null,
+      captureStatus: null,
+      reviewStatus: null,
+      adjustment: {
+        id: 'adjustment-3',
+        kind: 'DEBIT',
+        reason: 'Manual correction',
+        createdBy: 'user-1',
+      },
       ledger: {
         receiptId: null,
         restorations: [],
       },
     });
+  });
+
+  it('returns receiptless reversal transaction details', async () => {
+    const ledgerEntry = {
+      id: 'ledger-4',
+      tenantId: 'tenant-1',
+      customerId: 'customer-1',
+      receiptId: null,
+      type: 'REVERSAL',
+      direction: 'DEBIT',
+      amountKobo: 2_000n,
+      status: 'CONFIRMED',
+      effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+      createdAt: new Date('2026-07-26T12:01:00.000Z'),
+      creditLot: null,
+      adjustment: null,
+      redemption: null,
+      redemptionAllocations: [],
+      allocationRestorations: [
+        {
+          id: 'restoration-1',
+          allocationId: 'allocation-1',
+          amountKobo: 2_000n,
+          reversalLedgerEntryId: 'ledger-4',
+          allocation: { creditLotId: 'lot-1' },
+        },
+      ],
+      customer: { branchId: 'branch-1' },
+      receipt: null,
+      reversesEntryId: 'ledger-original',
+    };
+
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(ledgerEntry),
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(92_000n),
+    );
+
+    await expect(
+      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-4'),
+    ).resolves.toMatchObject({
+      id: 'ledger-4',
+      transactionId: 'ledger-4',
+      type: 'REVERSAL',
+      direction: 'DEBIT',
+      cardSerialNumber: null,
+      posReceiptNumber: null,
+      purchaseAmountKobo: null,
+      captureStatus: null,
+      reviewStatus: null,
+      reversal: {
+        originalTransactionId: 'ledger-original',
+        restorations: [
+          {
+            id: 'restoration-1',
+            allocationId: 'allocation-1',
+            creditLotId: 'lot-1',
+            amountKobo: 2_000,
+            reversalLedgerEntryId: 'ledger-4',
+          },
+        ],
+      },
+    });
+  });
+
+  it('does not audit rejected redemptions as expired', async () => {
+    const now = new Date('2026-07-26T12:00:00.000Z');
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      approval: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'approval-1',
+          tenantId: 'tenant-1',
+          receiptId: null,
+          redemptionId: 'redemption-1',
+          targetType: ApprovalTargetType.REDEEM,
+          status: ApprovalStatus.PENDING,
+          requestedByTenantId: 'tenant-1',
+          requestedBy: 'cashier-1',
+          policyVersion: redemptionPolicyVersion(),
+          expiresAt: new Date('2127-07-30T12:00:00.000Z'),
+          redemption: {
+            id: 'redemption-1',
+            tenantId: 'tenant-1',
+            branchId: 'branch-1',
+            customerId: 'customer-1',
+            cardId: 'card-1',
+            deviceId: 'device-1',
+            receiptId: 'receipt-1',
+            requestedAmountKobo: 6_000n,
+            basketAmountKobo: 30_000n,
+            maximumAllowedKobo: 9_000n,
+            status: RedemptionStatus.PENDING_APPROVAL,
+            ledgerEntryId: null,
+            policyVersion: redemptionPolicyVersion(),
+            receipt: {
+              id: 'receipt-1',
+              tenantId: 'tenant-1',
+              branchId: 'branch-1',
+              customerId: 'customer-1',
+              cardId: 'card-1',
+              deviceId: 'device-1',
+              posReceiptNumber: 'POS-REDEEM-1',
+              purchaseAmountKobo: 30_000n,
+              occurredAt: now,
+              capturedByTenantId: 'tenant-1',
+              capturedBy: 'cashier-1',
+              captureStatus: 'PENDING_APPROVAL',
+              reviewStatus: ReceiptReviewStatus.PENDING,
+              branch: { status: 'ACTIVE' },
+              card: {
+                status: 'ACTIVE',
+                customer: { phoneE164: '+2348000000000' },
+              },
+              customer: {
+                status: 'ACTIVE',
+                isStaff: false,
+                phoneE164: '+2348000000000',
+              },
+              device: { status: 'ACTIVE' },
+            },
+          },
+        }),
+      },
+      redemption: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+      receipt: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) => callback(tx));
+    const audit = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      audit as never,
+      redemptionConfigService(),
+      activeBalanceService(100_000n),
+      { allocateDebit: jest.fn() } as never,
+    );
+
+    await expect(
+      service.decideApproval(
+        'tenant-1',
+        supervisorAuthContext(),
+        'approval-1',
+        'REJECTED',
+        'not approved',
+      ),
+    ).resolves.toMatchObject({
+      status: ApprovalStatus.REJECTED,
+      receiptId: 'receipt-1',
+      redemptionId: 'redemption-1',
+    });
+
+    const actions = audit.recordWithClient.mock.calls.map(([, payload]) => payload.action);
+    expect(actions).toEqual(['redemption.rejected', 'redemption.approval.reject']);
+    expect(actions).not.toContain('redemption.expired');
   });
 });
 

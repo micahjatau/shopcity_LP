@@ -10,6 +10,36 @@ import { buildReverseThrottleKey } from '../../common/throttle/throttle.keys';
 import { CreateAdjustmentDto } from './adjustments.dto';
 import { AdjustmentsService } from './adjustments.service';
 
+const adjustmentResponseSchema = {
+  type: 'object',
+  required: [
+    'id',
+    'transactionId',
+    'adjustmentId',
+    'customerId',
+    'kind',
+    'amountKobo',
+    'newActiveBalanceKobo',
+    'allocations',
+    'creditLot',
+    'smsStatus',
+    'occurredAt',
+  ],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    transactionId: { type: 'string', format: 'uuid' },
+    adjustmentId: { type: 'string', format: 'uuid' },
+    customerId: { type: 'string', format: 'uuid' },
+    kind: { type: 'string', enum: ['CREDIT', 'DEBIT'] },
+    amountKobo: { type: 'integer' },
+    newActiveBalanceKobo: { type: 'integer' },
+    allocations: { type: 'array', items: { type: 'object' } },
+    creditLot: { type: 'object', nullable: true },
+    smsStatus: { type: 'string', nullable: true },
+    occurredAt: { type: 'string', format: 'date-time' },
+  },
+} as const;
+
 @ApiTags('adjustments')
 @ApiBearerAuth()
 @Controller('adjustments')
@@ -25,7 +55,7 @@ export class AdjustmentsController {
   @apiSuccessEnvelopeResponse({
     description: 'Adjustment created',
     status: 201,
-    dataSchema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+    dataSchema: adjustmentResponseSchema,
   })
   @ApiOperation({ summary: 'Create a manual adjustment' })
   async create(

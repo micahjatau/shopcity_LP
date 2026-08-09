@@ -21,6 +21,8 @@ import { buildBalanceAdjustedSmsPayload } from '../../jobs/sms.templates';
 import { CreateAdjustmentDto } from './adjustments.dto';
 
 const ADJUSTMENTS_ENDPOINT = 'POST /api/v1/adjustments';
+const ADJUSTMENT_RETRY_ATTEMPTS = 3;
+const ADJUSTMENT_RETRY_JITTER_MS = 25;
 
 export interface AdjustmentResponse {
   id: string;
@@ -76,8 +78,20 @@ export class AdjustmentsService {
       amountKobo: dto.amountKobo,
       reason,
       effectiveAt: effectiveAt.toISOString(),
-      expiryMonths: dto.expiryMonths ?? null,
     });
+
+    const amountKobo = toSafePositiveBigInt(dto.amountKobo, 'amountKobo');
+    const amountCeilingKobo = BigInt(
+      this.configService.get<number>('ADJUSTMENT_AMOUNT_CEILING_KOBO') ?? 100_000_000,
+    );
+
+    if (amountKobo > amountCeilingKobo) {
+      throw new DomainHttpException(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION_ERROR',
+        'Adjustment amount exceeds the configured ceiling',
+      );
+    }
 
     await cleanupExpiredIdempotencyRecords(
       this.prismaService,
@@ -106,29 +120,59 @@ export class AdjustmentsService {
     }
 
     if (existing) {
-      throw new DomainHttpException(HttpStatus.CONFLICT, 'IDEMPOTENCY_IN_PROGRESS', 'Idempotency key is still being processed');
-    }
+      const replay = await waitForAdjustmentReplay(
+        this.prismaService,
+        tenantId,
+        actor.user.id,
+        normalizedKey,
+        requestHash,
+      );
 
-    return this.prismaService.$transaction(async (prisma) => {
-      const customer = await prisma.customer.findFirst({
-        where: { tenantId, id: dto.customerId },
-        include: { branch: true },
-      });
-
-      if (
-        !customer ||
-        customer.status !== CustomerStatus.ACTIVE ||
-        customer.isStaff
-      ) {
-        throw new DomainHttpException(HttpStatus.NOT_FOUND, 'CUSTOMER_NOT_FOUND', 'Customer not found');
+      if (replay) {
+        return replay;
       }
 
-      const amountKobo = toSafePositiveBigInt(dto.amountKobo, 'amountKobo');
-      const expiryMonths = dto.expiryMonths ?? this.configService.get<number>('ADJUSTMENT_CREDIT_EXPIRY_MONTHS') ?? 12;
-      const now = new Date();
+      throw new DomainHttpException(
+        HttpStatus.CONFLICT,
+        'IDEMPOTENCY_IN_PROGRESS',
+        'Idempotency key is still being processed',
+      );
+    }
 
-      if (dto.kind === 'CREDIT') {
-        const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+    for (let attempt = 1; attempt <= ADJUSTMENT_RETRY_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.prismaService.$transaction(async (prisma) => {
+          await prisma.idempotencyRecord.create({
+            data: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint: ADJUSTMENTS_ENDPOINT,
+              idempotencyKey: normalizedKey,
+              requestHash,
+              responseJson: Prisma.JsonNull,
+              status: 'PENDING',
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+          });
+          const customer = await prisma.customer.findFirst({
+            where: { tenantId, id: dto.customerId },
+            include: { branch: true },
+          });
+
+          if (
+            !customer ||
+            customer.status !== CustomerStatus.ACTIVE ||
+            customer.isStaff
+          ) {
+            throw new DomainHttpException(HttpStatus.NOT_FOUND, 'CUSTOMER_NOT_FOUND', 'Customer not found');
+          }
+
+          const expiryMonths =
+            this.configService.get<number>('ADJUSTMENT_CREDIT_EXPIRY_MONTHS') ?? 12;
+          const now = new Date();
+
+          if (dto.kind === 'CREDIT') {
+            const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
           data: {
             tenantId,
             customerId: customer.id,
@@ -144,7 +188,7 @@ export class AdjustmentsService {
           },
         });
 
-        const adjustment = await prisma.adjustment.create({
+            const adjustment = await prisma.adjustment.create({
           data: {
             tenantId,
             customerId: customer.id,
@@ -158,7 +202,7 @@ export class AdjustmentsService {
           },
         });
 
-        const creditLot = await prisma.creditLot.create({
+            const creditLot = await prisma.creditLot.create({
           data: {
             tenantId,
             customerId: customer.id,
@@ -170,8 +214,8 @@ export class AdjustmentsService {
           },
         });
 
-        const remainingBalanceKobo = await this.activeBalanceService.getActiveBalanceKobo(tenantId, customer.id, now, prisma);
-        const outboxPayload = buildBalanceAdjustedSmsPayload({
+            const remainingBalanceKobo = await this.activeBalanceService.getActiveBalanceKobo(tenantId, customer.id, now, prisma);
+            const outboxPayload = buildBalanceAdjustedSmsPayload({
           transactionId: ledgerEntry.id,
           adjustmentId: adjustment.id,
           kind: 'CREDIT',
@@ -180,7 +224,7 @@ export class AdjustmentsService {
           remainingBalanceKobo,
         });
 
-        const outboxEvent = await prisma.outboxEvent.create({
+            const outboxEvent = await prisma.outboxEvent.create({
           data: {
             tenantId,
             aggregateType: 'adjustment',
@@ -192,7 +236,7 @@ export class AdjustmentsService {
           },
         });
 
-        await prisma.smsMessage.create({
+            await prisma.smsMessage.create({
           data: {
             tenantId,
             outboxEventId: outboxEvent.id,
@@ -206,7 +250,7 @@ export class AdjustmentsService {
           },
         });
 
-        await this.auditService.recordWithClient(prisma, {
+            await this.auditService.recordWithClient(prisma, {
           tenantId,
           actorId: actor.user.id,
           action: 'adjustment.credit',
@@ -215,7 +259,7 @@ export class AdjustmentsService {
           metadata: { reason, amountKobo: Number(amountKobo), effectiveAt },
         });
 
-        const response: AdjustmentResponse = {
+            const response: AdjustmentResponse = {
           id: adjustment.id,
           transactionId: ledgerEntry.id,
           adjustmentId: adjustment.id,
@@ -229,11 +273,11 @@ export class AdjustmentsService {
           occurredAt: effectiveAt.toISOString(),
         };
 
-        await persistAdjustmentIdempotency(prisma, tenantId, actor.user.id, normalizedKey, requestHash, response);
-        return response;
-      }
+            await persistAdjustmentIdempotency(prisma, tenantId, actor.user.id, normalizedKey, requestHash, response);
+            return response;
+          }
 
-      const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
+          const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
         data: {
           tenantId,
           customerId: customer.id,
@@ -249,7 +293,7 @@ export class AdjustmentsService {
         },
       });
 
-      const adjustment = await prisma.adjustment.create({
+          const adjustment = await prisma.adjustment.create({
         data: {
           tenantId,
           customerId: customer.id,
@@ -263,7 +307,7 @@ export class AdjustmentsService {
         },
       });
 
-      const allocations = await this.lotAllocationService.allocateDebit(prisma, {
+          const allocations = await this.lotAllocationService.allocateDebit(prisma, {
         tenantId,
         customerId: customer.id,
         debitLedgerEntryId: ledgerEntry.id,
@@ -272,8 +316,8 @@ export class AdjustmentsService {
         now,
       });
 
-      const remainingBalanceKobo = await this.activeBalanceService.getActiveBalanceKobo(tenantId, customer.id, now, prisma);
-      const outboxPayload = buildBalanceAdjustedSmsPayload({
+          const remainingBalanceKobo = await this.activeBalanceService.getActiveBalanceKobo(tenantId, customer.id, now, prisma);
+          const outboxPayload = buildBalanceAdjustedSmsPayload({
         transactionId: ledgerEntry.id,
         adjustmentId: adjustment.id,
         kind: 'DEBIT',
@@ -281,7 +325,7 @@ export class AdjustmentsService {
         amountKobo,
         remainingBalanceKobo,
       });
-      const outboxEvent = await prisma.outboxEvent.create({
+          const outboxEvent = await prisma.outboxEvent.create({
         data: {
           tenantId,
           aggregateType: 'adjustment',
@@ -293,7 +337,7 @@ export class AdjustmentsService {
         },
       });
 
-      await prisma.smsMessage.create({
+          await prisma.smsMessage.create({
         data: {
           tenantId,
           outboxEventId: outboxEvent.id,
@@ -307,7 +351,7 @@ export class AdjustmentsService {
         },
       });
 
-      await this.auditService.recordWithClient(prisma, {
+          await this.auditService.recordWithClient(prisma, {
         tenantId,
         actorId: actor.user.id,
         action: 'adjustment.debit',
@@ -316,7 +360,7 @@ export class AdjustmentsService {
         metadata: { reason, amountKobo: Number(amountKobo), effectiveAt },
       });
 
-      const response: AdjustmentResponse = {
+          const response: AdjustmentResponse = {
         id: adjustment.id,
         transactionId: ledgerEntry.id,
         adjustmentId: adjustment.id,
@@ -335,16 +379,51 @@ export class AdjustmentsService {
         occurredAt: effectiveAt.toISOString(),
       };
 
-      await persistAdjustmentIdempotency(
-        prisma,
-        tenantId,
-        actor.user.id,
-        normalizedKey,
-        requestHash,
-        response,
-      );
-      return response;
-    }, FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS);
+          await persistAdjustmentIdempotency(
+            prisma,
+            tenantId,
+            actor.user.id,
+            normalizedKey,
+            requestHash,
+            response,
+          );
+          return response;
+        }, FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS);
+      } catch (error) {
+        if (isTransactionConflict(error) || isIdempotencyConflict(error)) {
+          const replay = await waitForAdjustmentReplay(
+            this.prismaService,
+            tenantId,
+            actor.user.id,
+            normalizedKey,
+            requestHash,
+          );
+
+          if (replay) {
+            return replay;
+          }
+
+          if (attempt < ADJUSTMENT_RETRY_ATTEMPTS) {
+            await waitForJitter();
+            continue;
+          }
+
+          throw new DomainHttpException(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            'ADJUSTMENT_TRANSACTION_CONFLICT',
+            'Adjustment transaction conflicted; retry the request',
+          );
+        }
+
+        throw error;
+      }
+    }
+
+    throw new DomainHttpException(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'ADJUSTMENT_TRANSACTION_CONFLICT',
+      'Adjustment transaction conflicted; retry the request',
+    );
   }
 }
 
@@ -385,6 +464,18 @@ function hashRequest(input: Record<string, unknown>): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }
 
+function isTransactionConflict(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+}
+
+function isIdempotencyConflict(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+async function waitForJitter(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * ADJUSTMENT_RETRY_JITTER_MS)));
+}
+
 async function cleanupExpiredIdempotencyRecords(prisma: PrismaService, tenantId: string, actorId: string, idempotencyKey: string) {
   await prisma.idempotencyRecord.deleteMany({ where: { tenantId, actorId, idempotencyKey, expiresAt: { lte: new Date() } } });
 }
@@ -397,16 +488,134 @@ async function persistAdjustmentIdempotency(
   requestHash: string,
   response: AdjustmentResponse,
 ) {
-  await prisma.idempotencyRecord.create({
+  await prisma.idempotencyRecord.update({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint: ADJUSTMENTS_ENDPOINT,
+        idempotencyKey,
+      },
+    },
     data: {
-      tenantId,
-      actorId,
-      endpoint: ADJUSTMENTS_ENDPOINT,
-      idempotencyKey,
       requestHash,
       responseJson: response as never,
       status: 'COMPLETED',
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
+}
+
+async function claimAdjustmentIdempotency(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  idempotencyKey: string,
+  requestHash: string,
+): Promise<AdjustmentResponse | null> {
+  const claim = await prisma.idempotencyRecord.findUnique({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint: ADJUSTMENTS_ENDPOINT,
+        idempotencyKey,
+      },
+    },
+  });
+
+  if (claim) {
+    if (claim.requestHash !== requestHash) {
+      throw new DomainHttpException(
+        HttpStatus.CONFLICT,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
+    }
+
+    if (claim.responseJson) {
+      return claim.responseJson as unknown as AdjustmentResponse;
+    }
+
+    await waitForAdjustmentReplay(prisma, tenantId, actorId, idempotencyKey, requestHash);
+
+    const replay = await prisma.idempotencyRecord.findUnique({
+      where: {
+        tenantId_actorId_endpoint_idempotencyKey: {
+          tenantId,
+          actorId,
+          endpoint: ADJUSTMENTS_ENDPOINT,
+          idempotencyKey,
+        },
+      },
+    });
+
+    if (replay?.responseJson) {
+      return replay.responseJson as unknown as AdjustmentResponse;
+    }
+
+    throw new DomainHttpException(
+      HttpStatus.CONFLICT,
+      'IDEMPOTENCY_IN_PROGRESS',
+      'Idempotency key is still being processed',
+    );
+  }
+
+  try {
+    await prisma.idempotencyRecord.create({
+      data: {
+        tenantId,
+        actorId,
+        endpoint: ADJUSTMENTS_ENDPOINT,
+        idempotencyKey,
+        requestHash,
+        responseJson: Prisma.JsonNull,
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+  } catch (error) {
+    if (isIdempotencyConflict(error)) {
+      return claimAdjustmentIdempotency(prisma, tenantId, actorId, idempotencyKey, requestHash);
+    }
+
+    throw error;
+  }
+
+  return null;
+}
+
+async function waitForAdjustmentReplay(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  idempotencyKey: string,
+  requestHash: string,
+) {
+  for (let attempt = 1; attempt <= ADJUSTMENT_RETRY_ATTEMPTS; attempt += 1) {
+    const record = await prisma.idempotencyRecord.findUnique({
+      where: {
+        tenantId_actorId_endpoint_idempotencyKey: {
+          tenantId,
+          actorId,
+          endpoint: ADJUSTMENTS_ENDPOINT,
+          idempotencyKey,
+        },
+      },
+    });
+
+    if (record?.requestHash !== requestHash) {
+      throw new DomainHttpException(
+        HttpStatus.CONFLICT,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
+    }
+
+    if (record?.responseJson) {
+      return record.responseJson as unknown as AdjustmentResponse;
+    }
+
+    await waitForJitter();
+  }
 }
