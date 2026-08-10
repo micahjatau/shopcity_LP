@@ -23177,6 +23177,2310 @@
         "description": "Synchronize offline earn records"
       }
     },
+    "/api/v1/reports/executive-summary": {
+      "get": {
+        "operationId": "ReportsController_listExecutiveSummary_v1",
+        "parameters": [
+          {
+            "name": "branchId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "timezone",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Executive summary rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "data", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "scope",
+                        "scopeKey",
+                        "branchId",
+                        "timezone",
+                        "items"
+                      ],
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": ["TENANT", "BRANCH"]
+                        },
+                        "scopeKey": {
+                          "type": "string"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "timezone": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "AUTH_REQUIRED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Authentication required"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "FORBIDDEN"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Forbidden"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NOT_FOUND"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Not found"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 409
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "CONFLICT"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Conflict"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "POLICY_VIOLATION"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Policy violation"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 429
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMITED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "DEPENDENCY_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Required dependency is unavailable"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List executive summary report rows",
+        "tags": ["reports"],
+        "description": "List executive summary report rows"
+      }
+    },
+    "/api/v1/reports/liability-ageing": {
+      "get": {
+        "operationId": "ReportsController_listLiabilityAgeing_v1",
+        "parameters": [
+          {
+            "name": "branchId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "timezone",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liability ageing rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "data", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "scope",
+                        "scopeKey",
+                        "branchId",
+                        "timezone",
+                        "items"
+                      ],
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": ["TENANT", "BRANCH"]
+                        },
+                        "scopeKey": {
+                          "type": "string"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "timezone": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "AUTH_REQUIRED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Authentication required"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "FORBIDDEN"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Forbidden"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NOT_FOUND"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Not found"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 409
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "CONFLICT"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Conflict"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "POLICY_VIOLATION"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Policy violation"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 429
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMITED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "DEPENDENCY_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Required dependency is unavailable"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List liability ageing report rows",
+        "tags": ["reports"],
+        "description": "List liability ageing report rows"
+      }
+    },
+    "/api/v1/reports/customer-performance": {
+      "get": {
+        "operationId": "ReportsController_listCustomerPerformance_v1",
+        "parameters": [
+          {
+            "name": "branchId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "timezone",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer performance rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "data", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "scope",
+                        "scopeKey",
+                        "branchId",
+                        "timezone",
+                        "items"
+                      ],
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": ["TENANT", "BRANCH"]
+                        },
+                        "scopeKey": {
+                          "type": "string"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "timezone": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "AUTH_REQUIRED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Authentication required"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "FORBIDDEN"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Forbidden"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NOT_FOUND"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Not found"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 409
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "CONFLICT"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Conflict"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "POLICY_VIOLATION"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Policy violation"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 429
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMITED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "DEPENDENCY_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Required dependency is unavailable"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List customer performance report rows",
+        "tags": ["reports"],
+        "description": "List customer performance report rows"
+      }
+    },
+    "/api/v1/reports/materialization-state": {
+      "get": {
+        "operationId": "ReportsController_listMaterializationState_v1",
+        "parameters": [
+          {
+            "name": "branchId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "timezone",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Materialization state rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "data", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "scope",
+                        "scopeKey",
+                        "branchId",
+                        "timezone",
+                        "items"
+                      ],
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": ["TENANT", "BRANCH"]
+                        },
+                        "scopeKey": {
+                          "type": "string"
+                        },
+                        "branchId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "timezone": {
+                          "type": "string"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "AUTH_REQUIRED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Authentication required"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "FORBIDDEN"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Forbidden"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NOT_FOUND"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Not found"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 409
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "CONFLICT"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Conflict"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "POLICY_VIOLATION"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Policy violation"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 429
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMITED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "DEPENDENCY_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Required dependency is unavailable"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List report materialization state rows",
+        "tags": ["reports"],
+        "description": "List report materialization state rows"
+      }
+    },
     "/api/v1/config/public": {
       "get": {
         "operationId": "ConfigurationController_getPublicConfig_v1",
