@@ -145,7 +145,7 @@ describe('report materialization (int)', () => {
       registeredCustomers: 1,
       activeCustomers: 1,
       transactionCount: 1,
-      loyaltyPurchaseValueKobo: BigInt(1_000_000),
+      loyaltyPurchaseValueKobo: BigInt(20_000),
       creditIssuedKobo: BigInt(20_000),
       creditRedeemedKobo: BigInt(0),
       outstandingLiabilityKobo: BigInt(20_000),
