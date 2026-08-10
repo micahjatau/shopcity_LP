@@ -2,6 +2,18 @@ import type { PrismaService } from '../../database/prisma.service';
 import { FraudRulesService } from './fraud-rules.service';
 import { FraudService } from './fraud.service';
 
+type FraudFlagUpsertCall = {
+  where: {
+    tenantId_dedupeKey: {
+      tenantId: string;
+      dedupeKey: string;
+    };
+  };
+  create: {
+    ruleCode: string;
+  };
+};
+
 describe('FraudService', () => {
   it('records duplicate receipt evidence and increments repeated deliveries', async () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
@@ -14,12 +26,13 @@ describe('FraudService', () => {
 
     expect(await service.evaluateReceipt(input)).toBe(3);
     expect(upsert).toHaveBeenCalledTimes(3);
-    expect(upsert.mock.calls[0]?.[0].where.tenantId_dedupeKey).toEqual({
+    const calls = upsert.mock.calls as Array<[FraudFlagUpsertCall]>;
+    expect(calls[0]?.[0].where.tenantId_dedupeKey).toEqual({
       tenantId: 'tenant-1',
       dedupeKey: 'FR-DUP-001:branch-1:POS-001:2026-08-10T00:00:00.000Z',
     });
-    expect(upsert.mock.calls[1]?.[0].create.ruleCode).toBe('FR-HV-001');
-    expect(upsert.mock.calls[2]?.[0].create.ruleCode).toBe('FR-HV-002');
+    expect(calls[1]?.[0].create.ruleCode).toBe('FR-HV-001');
+    expect(calls[2]?.[0].create.ruleCode).toBe('FR-HV-002');
   });
 
   it('records redemption evidence', async () => {
@@ -42,7 +55,8 @@ describe('FraudService', () => {
     ).toBe(1);
 
     expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert.mock.calls[0]?.[0].create.ruleCode).toBe('FR-HV-003');
+    const calls = upsert.mock.calls as Array<[FraudFlagUpsertCall]>;
+    expect(calls[0]?.[0].create.ruleCode).toBe('FR-HV-003');
   });
 });
 

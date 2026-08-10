@@ -1,10 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  FraudFlagStatus,
-  FraudSeverity,
-  FraudSubjectType,
-  Prisma,
-} from '@prisma/client';
+import { FraudFlagStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FraudRulesService } from './fraud-rules.service';
 import type {
@@ -59,10 +54,10 @@ export class FraudService {
           create: {
             tenantId,
             ruleCode: finding.ruleCode,
-            severity: finding.severity as FraudSeverity,
+            severity: finding.severity,
             status: FraudFlagStatus.OPEN,
             dedupeKey: finding.dedupeKey,
-            subjectType: finding.subjectType as FraudSubjectType,
+            subjectType: finding.subjectType,
             subjectId: finding.subjectId,
             branchId: finding.branchId ?? null,
             cashierId: finding.cashierId ?? null,
@@ -79,8 +74,8 @@ export class FraudService {
           },
           update: {
             ruleCode: finding.ruleCode,
-            severity: finding.severity as FraudSeverity,
-            subjectType: finding.subjectType as FraudSubjectType,
+            severity: finding.severity,
+            subjectType: finding.subjectType,
             subjectId: finding.subjectId,
             branchId: finding.branchId ?? null,
             cashierId: finding.cashierId ?? null,

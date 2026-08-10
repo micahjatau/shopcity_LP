@@ -22,8 +22,6 @@ import {
 import type { AuthContext } from '../../common/auth/session.types';
 import type { EarnTransactionDto } from '../loyalty/loyalty.dto';
 
-const OFFLINE_BATCH_ENDPOINT = 'POST /api/v1/offline-sync/earn-batch';
-
 @Injectable()
 export class OfflineSyncService {
   constructor(
@@ -448,20 +446,35 @@ function mapEarnFailure(
 
 function readDomainCode(error: unknown): string | null {
   if (error instanceof DomainHttpException) {
-    const body = error.getResponse();
-    if (body && typeof body === 'object' && 'code' in body) {
-      return String((body as { code?: unknown }).code ?? '');
-    }
+    return extractCode(error.getResponse());
   }
 
-  if (error && typeof error === 'object' && 'response' in error) {
-    const response = (error as { response?: unknown }).response;
-    if (response && typeof response === 'object' && 'code' in response) {
-      return String((response as { code?: unknown }).code ?? '');
-    }
+  if (isResponseWithCode(error)) {
+    return extractCode(error.response);
   }
 
   return null;
+}
+
+function extractCode(value: unknown): string | null {
+  if (!isRecord(value) || typeof value.code !== 'string') {
+    return null;
+  }
+
+  return value.code;
+}
+
+function isResponseWithCode(error: unknown): error is { response: unknown } {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'response' in error &&
+    isRecord((error as { response?: unknown }).response),
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object');
 }
 
 function normalizeReceiptNumber(value: string): string {
