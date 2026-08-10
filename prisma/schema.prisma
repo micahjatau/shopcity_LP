@@ -692,11 +692,11 @@ model OfflineSyncAttempt {
 }
 
 model FraudFlag {
-  id              String            @id @default(uuid())
+  id              String           @id @default(uuid())
   tenantId        String
   ruleCode        String
   severity        FraudSeverity
-  status          FraudFlagStatus    @default(OPEN)
+  status          FraudFlagStatus  @default(OPEN)
   dedupeKey       String
   subjectType     FraudSubjectType
   subjectId       String
@@ -710,14 +710,14 @@ model FraudFlag {
   windowEnd       DateTime?
   firstDetectedAt DateTime
   lastDetectedAt  DateTime
-  occurrenceCount Int               @default(1)
+  occurrenceCount Int              @default(1)
   evidence        Json
   decisionReason  String?
   decisionActorId String?
   decidedAt       DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, dedupeKey])
   @@index([tenantId, status, severity, lastDetectedAt])
@@ -727,6 +727,156 @@ model FraudFlag {
   @@index([tenantId, receiptId])
   @@index([tenantId, ledgerEntryId])
   @@index([tenantId, redemptionId])
+}
+
+model ReportMaterializationState {
+  id             String    @id @default(uuid())
+  tenantId       String
+  scope          String
+  scopeKey       String
+  branchId       String?
+  asOf           DateTime?
+  status         String    @default("IDLE")
+  lastError      String?
+  materializedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([tenantId, scope, scopeKey])
+  @@index([tenantId, status])
+  @@index([tenantId, scope, scopeKey])
+}
+
+model ReportDailyFinancialSummary {
+  id                       String   @id @default(uuid())
+  tenantId                 String
+  scope                    String
+  scopeKey                 String
+  branchId                 String?
+  reportDate               DateTime
+  registeredCustomers      Int      @default(0)
+  activeCustomers          Int      @default(0)
+  transactionCount         Int      @default(0)
+  loyaltyPurchaseValueKobo BigInt   @default(0)
+  creditIssuedKobo         BigInt   @default(0)
+  creditRedeemedKobo       BigInt   @default(0)
+  creditExpiredKobo        BigInt   @default(0)
+  outstandingLiabilityKobo BigInt   @default(0)
+  materializedAt           DateTime
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([tenantId, scope, scopeKey, reportDate])
+  @@index([tenantId, reportDate])
+  @@index([tenantId, scope, scopeKey])
+}
+
+model ReportCashierDailySummary {
+  id                String   @id @default(uuid())
+  tenantId          String
+  scope             String
+  scopeKey          String
+  branchId          String?
+  cashierId         String
+  reportDate        DateTime
+  transactionCount  Int      @default(0)
+  purchaseValueKobo BigInt   @default(0)
+  creditIssuedKobo  BigInt   @default(0)
+  duplicateAttempts Int      @default(0)
+  reversalCount     Int      @default(0)
+  approvalRequests  Int      @default(0)
+  materializedAt    DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, scope, scopeKey, cashierId, reportDate])
+  @@index([tenantId, reportDate])
+  @@index([tenantId, cashierId, reportDate])
+}
+
+model ReportCustomerSnapshot {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  scope              String
+  scopeKey           String
+  branchId           String?
+  customerId         String
+  reportDate         DateTime
+  purchaseValueKobo  BigInt    @default(0)
+  currentBalanceKobo BigInt    @default(0)
+  visitCount         Int       @default(0)
+  lastActivityAt     DateTime?
+  dormant            Boolean   @default(false)
+  materializedAt     DateTime
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([tenantId, scope, scopeKey, customerId, reportDate])
+  @@index([tenantId, customerId, reportDate])
+  @@index([tenantId, branchId, reportDate])
+}
+
+model ReportLiabilityBucket {
+  id              String   @id @default(uuid())
+  tenantId        String
+  scope           String
+  scopeKey        String
+  branchId        String?
+  reportDate      DateTime
+  expiryMonth     String
+  ageBucket       String
+  customerCount   Int      @default(0)
+  lotCount        Int      @default(0)
+  outstandingKobo BigInt   @default(0)
+  materializedAt  DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, scope, scopeKey, reportDate, expiryMonth, ageBucket])
+  @@index([tenantId, reportDate])
+  @@index([tenantId, branchId, reportDate])
+}
+
+model ReportRedemptionDailySummary {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  scope                String
+  scopeKey             String
+  branchId             String?
+  reportDate           DateTime
+  redemptionCount      Int      @default(0)
+  requestedKobo        BigInt   @default(0)
+  confirmedKobo        BigInt   @default(0)
+  reversedKobo         BigInt   @default(0)
+  pendingApprovalCount Int      @default(0)
+  materializedAt       DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([tenantId, scope, scopeKey, reportDate])
+  @@index([tenantId, reportDate])
+  @@index([tenantId, branchId, reportDate])
+}
+
+model ReportSmsDailySummary {
+  id              String   @id @default(uuid())
+  tenantId        String
+  scope           String
+  scopeKey        String
+  branchId        String?
+  reportDate      DateTime
+  queuedCount     Int      @default(0)
+  sentCount       Int      @default(0)
+  deliveredCount  Int      @default(0)
+  failedCount     Int      @default(0)
+  suppressedCount Int      @default(0)
+  materializedAt  DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, scope, scopeKey, reportDate])
+  @@index([tenantId, reportDate])
+  @@index([tenantId, branchId, reportDate])
 }
 
 model IdempotencyRecord {
