@@ -236,6 +236,20 @@ export interface OfflineEarnBatchRequestDto {
   records: OfflineEarnBatchRecordDto[];
 }
 
+export type FraudFlagDecisionDtoDecision =
+  (typeof FraudFlagDecisionDtoDecision)[keyof typeof FraudFlagDecisionDtoDecision];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const FraudFlagDecisionDtoDecision = {
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
+  RESOLVED: 'RESOLVED',
+} as const;
+
+export interface FraudFlagDecisionDto {
+  decision: FraudFlagDecisionDtoDecision;
+  reason: string;
+}
+
 export type AppControllerGetHelloV1200Meta = {
   timestamp: string;
   path: string;
@@ -9963,6 +9977,737 @@ export type OfflineSyncControllerEarnBatchV1503 = {
   meta: OfflineSyncControllerEarnBatchV1503Meta;
 };
 
+export type FraudControllerListFraudFlagsV1Params = {
+  status?: string;
+  ruleCode?: string;
+  branchId?: string;
+  actorId?: string;
+  customerId?: string;
+  from?: string;
+  to?: string;
+  limit?: string;
+  cursor?: string;
+  severity?: unknown;
+};
+
+export type FraudControllerListFraudFlagsV1200DataScope =
+  (typeof FraudControllerListFraudFlagsV1200DataScope)[keyof typeof FraudControllerListFraudFlagsV1200DataScope];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const FraudControllerListFraudFlagsV1200DataScope = {
+  TENANT: 'TENANT',
+  BRANCH: 'BRANCH',
+} as const;
+
+export type FraudControllerListFraudFlagsV1200DataItemsItem = {
+  [key: string]: unknown;
+};
+
+export type FraudControllerListFraudFlagsV1200Data = {
+  scope: FraudControllerListFraudFlagsV1200DataScope;
+  scopeKey: string;
+  /** @nullable */
+  branchId: string | null;
+  items: FraudControllerListFraudFlagsV1200DataItemsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type FraudControllerListFraudFlagsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1200 = {
+  success: boolean;
+  data: FraudControllerListFraudFlagsV1200Data;
+  meta: FraudControllerListFraudFlagsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1400ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1400 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1400Error;
+  meta: FraudControllerListFraudFlagsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1401ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1401 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1401Error;
+  meta: FraudControllerListFraudFlagsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1403ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1403 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1403Error;
+  meta: FraudControllerListFraudFlagsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1404ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1404 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1404Error;
+  meta: FraudControllerListFraudFlagsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1409ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1409 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1409Error;
+  meta: FraudControllerListFraudFlagsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1422ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1422 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1422Error;
+  meta: FraudControllerListFraudFlagsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1429ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1429 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1429Error;
+  meta: FraudControllerListFraudFlagsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerListFraudFlagsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerListFraudFlagsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerListFraudFlagsV1503ErrorDetails;
+};
+
+export type FraudControllerListFraudFlagsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerListFraudFlagsV1503 = {
+  success: boolean;
+  error: FraudControllerListFraudFlagsV1503Error;
+  meta: FraudControllerListFraudFlagsV1503Meta;
+};
+
+export type FraudControllerGetFraudFlagV1Params = {
+  branchId: string;
+};
+
+export type FraudControllerGetFraudFlagV1200Data = { [key: string]: unknown };
+
+export type FraudControllerGetFraudFlagV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1200 = {
+  success: boolean;
+  data: FraudControllerGetFraudFlagV1200Data;
+  meta: FraudControllerGetFraudFlagV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1400ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1400 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1400Error;
+  meta: FraudControllerGetFraudFlagV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1401ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1401 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1401Error;
+  meta: FraudControllerGetFraudFlagV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1403ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1403 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1403Error;
+  meta: FraudControllerGetFraudFlagV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1404ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1404 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1404Error;
+  meta: FraudControllerGetFraudFlagV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1409ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1409 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1409Error;
+  meta: FraudControllerGetFraudFlagV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1422ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1422 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1422Error;
+  meta: FraudControllerGetFraudFlagV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1429ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1429 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1429Error;
+  meta: FraudControllerGetFraudFlagV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerGetFraudFlagV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerGetFraudFlagV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerGetFraudFlagV1503ErrorDetails;
+};
+
+export type FraudControllerGetFraudFlagV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerGetFraudFlagV1503 = {
+  success: boolean;
+  error: FraudControllerGetFraudFlagV1503Error;
+  meta: FraudControllerGetFraudFlagV1503Meta;
+};
+
+export type FraudControllerDecideFraudFlagV1200Data = {
+  [key: string]: unknown;
+};
+
+export type FraudControllerDecideFraudFlagV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1200 = {
+  success: boolean;
+  data: FraudControllerDecideFraudFlagV1200Data;
+  meta: FraudControllerDecideFraudFlagV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1400ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1400 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1400Error;
+  meta: FraudControllerDecideFraudFlagV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1401ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1401 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1401Error;
+  meta: FraudControllerDecideFraudFlagV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1403ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1403 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1403Error;
+  meta: FraudControllerDecideFraudFlagV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1404ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1404 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1404Error;
+  meta: FraudControllerDecideFraudFlagV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1409ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1409 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1409Error;
+  meta: FraudControllerDecideFraudFlagV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1422ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1422 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1422Error;
+  meta: FraudControllerDecideFraudFlagV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1429ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1429 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1429Error;
+  meta: FraudControllerDecideFraudFlagV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type FraudControllerDecideFraudFlagV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type FraudControllerDecideFraudFlagV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: FraudControllerDecideFraudFlagV1503ErrorDetails;
+};
+
+export type FraudControllerDecideFraudFlagV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type FraudControllerDecideFraudFlagV1503 = {
+  success: boolean;
+  error: FraudControllerDecideFraudFlagV1503Error;
+  meta: FraudControllerDecideFraudFlagV1503Meta;
+};
+
 export type ReportsControllerListExecutiveSummaryV1Params = {
   branchId?: string;
   from?: string;
@@ -15502,6 +16247,324 @@ export const offlineSyncControllerEarnBatchV1 = async (
     status: res.status,
     headers: res.headers,
   } as offlineSyncControllerEarnBatchV1Response;
+};
+
+/**
+ * List fraud flags
+ * @summary List fraud flags
+ */
+export type fraudControllerListFraudFlagsV1Response200 = {
+  data: FraudControllerListFraudFlagsV1200;
+  status: 200;
+};
+
+export type fraudControllerListFraudFlagsV1Response400 = {
+  data: FraudControllerListFraudFlagsV1400;
+  status: 400;
+};
+
+export type fraudControllerListFraudFlagsV1Response401 = {
+  data: FraudControllerListFraudFlagsV1401;
+  status: 401;
+};
+
+export type fraudControllerListFraudFlagsV1Response403 = {
+  data: FraudControllerListFraudFlagsV1403;
+  status: 403;
+};
+
+export type fraudControllerListFraudFlagsV1Response404 = {
+  data: FraudControllerListFraudFlagsV1404;
+  status: 404;
+};
+
+export type fraudControllerListFraudFlagsV1Response409 = {
+  data: FraudControllerListFraudFlagsV1409;
+  status: 409;
+};
+
+export type fraudControllerListFraudFlagsV1Response422 = {
+  data: FraudControllerListFraudFlagsV1422;
+  status: 422;
+};
+
+export type fraudControllerListFraudFlagsV1Response429 = {
+  data: FraudControllerListFraudFlagsV1429;
+  status: 429;
+};
+
+export type fraudControllerListFraudFlagsV1Response503 = {
+  data: FraudControllerListFraudFlagsV1503;
+  status: 503;
+};
+
+export type fraudControllerListFraudFlagsV1ResponseSuccess =
+  fraudControllerListFraudFlagsV1Response200 & {
+    headers: Headers;
+  };
+export type fraudControllerListFraudFlagsV1ResponseError = (
+  | fraudControllerListFraudFlagsV1Response400
+  | fraudControllerListFraudFlagsV1Response401
+  | fraudControllerListFraudFlagsV1Response403
+  | fraudControllerListFraudFlagsV1Response404
+  | fraudControllerListFraudFlagsV1Response409
+  | fraudControllerListFraudFlagsV1Response422
+  | fraudControllerListFraudFlagsV1Response429
+  | fraudControllerListFraudFlagsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type fraudControllerListFraudFlagsV1Response =
+  | fraudControllerListFraudFlagsV1ResponseSuccess
+  | fraudControllerListFraudFlagsV1ResponseError;
+
+export const getFraudControllerListFraudFlagsV1Url = (
+  params?: FraudControllerListFraudFlagsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/fraud-flags?${stringifiedParams}`
+    : `/api/v1/fraud-flags`;
+};
+
+export const fraudControllerListFraudFlagsV1 = async (
+  params?: FraudControllerListFraudFlagsV1Params,
+  options?: RequestInit,
+): Promise<fraudControllerListFraudFlagsV1Response> => {
+  const res = await fetch(getFraudControllerListFraudFlagsV1Url(params), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: fraudControllerListFraudFlagsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as fraudControllerListFraudFlagsV1Response;
+};
+
+/**
+ * Read a fraud flag
+ * @summary Read a fraud flag
+ */
+export type fraudControllerGetFraudFlagV1Response200 = {
+  data: FraudControllerGetFraudFlagV1200;
+  status: 200;
+};
+
+export type fraudControllerGetFraudFlagV1Response400 = {
+  data: FraudControllerGetFraudFlagV1400;
+  status: 400;
+};
+
+export type fraudControllerGetFraudFlagV1Response401 = {
+  data: FraudControllerGetFraudFlagV1401;
+  status: 401;
+};
+
+export type fraudControllerGetFraudFlagV1Response403 = {
+  data: FraudControllerGetFraudFlagV1403;
+  status: 403;
+};
+
+export type fraudControllerGetFraudFlagV1Response404 = {
+  data: FraudControllerGetFraudFlagV1404;
+  status: 404;
+};
+
+export type fraudControllerGetFraudFlagV1Response409 = {
+  data: FraudControllerGetFraudFlagV1409;
+  status: 409;
+};
+
+export type fraudControllerGetFraudFlagV1Response422 = {
+  data: FraudControllerGetFraudFlagV1422;
+  status: 422;
+};
+
+export type fraudControllerGetFraudFlagV1Response429 = {
+  data: FraudControllerGetFraudFlagV1429;
+  status: 429;
+};
+
+export type fraudControllerGetFraudFlagV1Response503 = {
+  data: FraudControllerGetFraudFlagV1503;
+  status: 503;
+};
+
+export type fraudControllerGetFraudFlagV1ResponseSuccess =
+  fraudControllerGetFraudFlagV1Response200 & {
+    headers: Headers;
+  };
+export type fraudControllerGetFraudFlagV1ResponseError = (
+  | fraudControllerGetFraudFlagV1Response400
+  | fraudControllerGetFraudFlagV1Response401
+  | fraudControllerGetFraudFlagV1Response403
+  | fraudControllerGetFraudFlagV1Response404
+  | fraudControllerGetFraudFlagV1Response409
+  | fraudControllerGetFraudFlagV1Response422
+  | fraudControllerGetFraudFlagV1Response429
+  | fraudControllerGetFraudFlagV1Response503
+) & {
+  headers: Headers;
+};
+
+export type fraudControllerGetFraudFlagV1Response =
+  | fraudControllerGetFraudFlagV1ResponseSuccess
+  | fraudControllerGetFraudFlagV1ResponseError;
+
+export const getFraudControllerGetFraudFlagV1Url = (
+  id: string,
+  params: FraudControllerGetFraudFlagV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/fraud-flags/${id}?${stringifiedParams}`
+    : `/api/v1/fraud-flags/${id}`;
+};
+
+export const fraudControllerGetFraudFlagV1 = async (
+  id: string,
+  params: FraudControllerGetFraudFlagV1Params,
+  options?: RequestInit,
+): Promise<fraudControllerGetFraudFlagV1Response> => {
+  const res = await fetch(getFraudControllerGetFraudFlagV1Url(id, params), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: fraudControllerGetFraudFlagV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as fraudControllerGetFraudFlagV1Response;
+};
+
+/**
+ * Record a fraud decision
+ * @summary Record a fraud decision
+ */
+export type fraudControllerDecideFraudFlagV1Response200 = {
+  data: FraudControllerDecideFraudFlagV1200;
+  status: 200;
+};
+
+export type fraudControllerDecideFraudFlagV1Response400 = {
+  data: FraudControllerDecideFraudFlagV1400;
+  status: 400;
+};
+
+export type fraudControllerDecideFraudFlagV1Response401 = {
+  data: FraudControllerDecideFraudFlagV1401;
+  status: 401;
+};
+
+export type fraudControllerDecideFraudFlagV1Response403 = {
+  data: FraudControllerDecideFraudFlagV1403;
+  status: 403;
+};
+
+export type fraudControllerDecideFraudFlagV1Response404 = {
+  data: FraudControllerDecideFraudFlagV1404;
+  status: 404;
+};
+
+export type fraudControllerDecideFraudFlagV1Response409 = {
+  data: FraudControllerDecideFraudFlagV1409;
+  status: 409;
+};
+
+export type fraudControllerDecideFraudFlagV1Response422 = {
+  data: FraudControllerDecideFraudFlagV1422;
+  status: 422;
+};
+
+export type fraudControllerDecideFraudFlagV1Response429 = {
+  data: FraudControllerDecideFraudFlagV1429;
+  status: 429;
+};
+
+export type fraudControllerDecideFraudFlagV1Response503 = {
+  data: FraudControllerDecideFraudFlagV1503;
+  status: 503;
+};
+
+export type fraudControllerDecideFraudFlagV1ResponseSuccess =
+  fraudControllerDecideFraudFlagV1Response200 & {
+    headers: Headers;
+  };
+export type fraudControllerDecideFraudFlagV1ResponseError = (
+  | fraudControllerDecideFraudFlagV1Response400
+  | fraudControllerDecideFraudFlagV1Response401
+  | fraudControllerDecideFraudFlagV1Response403
+  | fraudControllerDecideFraudFlagV1Response404
+  | fraudControllerDecideFraudFlagV1Response409
+  | fraudControllerDecideFraudFlagV1Response422
+  | fraudControllerDecideFraudFlagV1Response429
+  | fraudControllerDecideFraudFlagV1Response503
+) & {
+  headers: Headers;
+};
+
+export type fraudControllerDecideFraudFlagV1Response =
+  | fraudControllerDecideFraudFlagV1ResponseSuccess
+  | fraudControllerDecideFraudFlagV1ResponseError;
+
+export const getFraudControllerDecideFraudFlagV1Url = (id: string) => {
+  return `/api/v1/fraud-flags/${id}/decision`;
+};
+
+export const fraudControllerDecideFraudFlagV1 = async (
+  id: string,
+  fraudFlagDecisionDto: FraudFlagDecisionDto,
+  options?: RequestInit,
+): Promise<fraudControllerDecideFraudFlagV1Response> => {
+  const res = await fetch(getFraudControllerDecideFraudFlagV1Url(id), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(fraudFlagDecisionDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: fraudControllerDecideFraudFlagV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as fraudControllerDecideFraudFlagV1Response;
 };
 
 /**
