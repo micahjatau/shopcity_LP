@@ -11479,6 +11479,1033 @@ export type ReportsControllerListCustomerPerformanceV1503 = {
   meta: ReportsControllerListCustomerPerformanceV1503Meta;
 };
 
+export type ReportsControllerListCashierActivityV1Params = {
+  branchId?: string;
+  from?: string;
+  to?: string;
+  timezone?: string;
+};
+
+export type ReportsControllerListCashierActivityV1200DataScope =
+  (typeof ReportsControllerListCashierActivityV1200DataScope)[keyof typeof ReportsControllerListCashierActivityV1200DataScope];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReportsControllerListCashierActivityV1200DataScope = {
+  TENANT: 'TENANT',
+  BRANCH: 'BRANCH',
+} as const;
+
+export type ReportsControllerListCashierActivityV1200DataItemsItem = {
+  [key: string]: unknown;
+};
+
+export type ReportsControllerListCashierActivityV1200Data = {
+  scope: ReportsControllerListCashierActivityV1200DataScope;
+  scopeKey: string;
+  /** @nullable */
+  branchId: string | null;
+  timezone: string;
+  items: ReportsControllerListCashierActivityV1200DataItemsItem[];
+};
+
+export type ReportsControllerListCashierActivityV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1200 = {
+  success: boolean;
+  data: ReportsControllerListCashierActivityV1200Data;
+  meta: ReportsControllerListCashierActivityV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1400ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1400 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1400Error;
+  meta: ReportsControllerListCashierActivityV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1401ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1401 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1401Error;
+  meta: ReportsControllerListCashierActivityV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1403ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1403 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1403Error;
+  meta: ReportsControllerListCashierActivityV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1404ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1404 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1404Error;
+  meta: ReportsControllerListCashierActivityV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1409ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1409 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1409Error;
+  meta: ReportsControllerListCashierActivityV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1422ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1422 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1422Error;
+  meta: ReportsControllerListCashierActivityV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1429ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1429 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1429Error;
+  meta: ReportsControllerListCashierActivityV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierActivityV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierActivityV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierActivityV1503ErrorDetails;
+};
+
+export type ReportsControllerListCashierActivityV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierActivityV1503 = {
+  success: boolean;
+  error: ReportsControllerListCashierActivityV1503Error;
+  meta: ReportsControllerListCashierActivityV1503Meta;
+};
+
+export type ReportsControllerListRedemptionSummaryV1Params = {
+  branchId?: string;
+  from?: string;
+  to?: string;
+  timezone?: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1200DataScope =
+  (typeof ReportsControllerListRedemptionSummaryV1200DataScope)[keyof typeof ReportsControllerListRedemptionSummaryV1200DataScope];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReportsControllerListRedemptionSummaryV1200DataScope = {
+  TENANT: 'TENANT',
+  BRANCH: 'BRANCH',
+} as const;
+
+export type ReportsControllerListRedemptionSummaryV1200DataItemsItem = {
+  [key: string]: unknown;
+};
+
+export type ReportsControllerListRedemptionSummaryV1200Data = {
+  scope: ReportsControllerListRedemptionSummaryV1200DataScope;
+  scopeKey: string;
+  /** @nullable */
+  branchId: string | null;
+  timezone: string;
+  items: ReportsControllerListRedemptionSummaryV1200DataItemsItem[];
+};
+
+export type ReportsControllerListRedemptionSummaryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1200 = {
+  success: boolean;
+  data: ReportsControllerListRedemptionSummaryV1200Data;
+  meta: ReportsControllerListRedemptionSummaryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1400ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1400 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1400Error;
+  meta: ReportsControllerListRedemptionSummaryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1401ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1401 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1401Error;
+  meta: ReportsControllerListRedemptionSummaryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1403ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1403 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1403Error;
+  meta: ReportsControllerListRedemptionSummaryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1404ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1404 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1404Error;
+  meta: ReportsControllerListRedemptionSummaryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1409ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1409 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1409Error;
+  meta: ReportsControllerListRedemptionSummaryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1422ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1422 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1422Error;
+  meta: ReportsControllerListRedemptionSummaryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1429ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1429 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1429Error;
+  meta: ReportsControllerListRedemptionSummaryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListRedemptionSummaryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListRedemptionSummaryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListRedemptionSummaryV1503ErrorDetails;
+};
+
+export type ReportsControllerListRedemptionSummaryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListRedemptionSummaryV1503 = {
+  success: boolean;
+  error: ReportsControllerListRedemptionSummaryV1503Error;
+  meta: ReportsControllerListRedemptionSummaryV1503Meta;
+};
+
+export type ReportsControllerListSmsOperationsV1Params = {
+  branchId?: string;
+  from?: string;
+  to?: string;
+  timezone?: string;
+};
+
+export type ReportsControllerListSmsOperationsV1200DataScope =
+  (typeof ReportsControllerListSmsOperationsV1200DataScope)[keyof typeof ReportsControllerListSmsOperationsV1200DataScope];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReportsControllerListSmsOperationsV1200DataScope = {
+  TENANT: 'TENANT',
+  BRANCH: 'BRANCH',
+} as const;
+
+export type ReportsControllerListSmsOperationsV1200DataItemsItem = {
+  [key: string]: unknown;
+};
+
+export type ReportsControllerListSmsOperationsV1200Data = {
+  scope: ReportsControllerListSmsOperationsV1200DataScope;
+  scopeKey: string;
+  /** @nullable */
+  branchId: string | null;
+  timezone: string;
+  items: ReportsControllerListSmsOperationsV1200DataItemsItem[];
+};
+
+export type ReportsControllerListSmsOperationsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1200 = {
+  success: boolean;
+  data: ReportsControllerListSmsOperationsV1200Data;
+  meta: ReportsControllerListSmsOperationsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1400ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1400 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1400Error;
+  meta: ReportsControllerListSmsOperationsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1401ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1401 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1401Error;
+  meta: ReportsControllerListSmsOperationsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1403ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1403 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1403Error;
+  meta: ReportsControllerListSmsOperationsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1404ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1404 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1404Error;
+  meta: ReportsControllerListSmsOperationsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1409ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1409 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1409Error;
+  meta: ReportsControllerListSmsOperationsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1422ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1422 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1422Error;
+  meta: ReportsControllerListSmsOperationsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1429ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1429 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1429Error;
+  meta: ReportsControllerListSmsOperationsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListSmsOperationsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListSmsOperationsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListSmsOperationsV1503ErrorDetails;
+};
+
+export type ReportsControllerListSmsOperationsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListSmsOperationsV1503 = {
+  success: boolean;
+  error: ReportsControllerListSmsOperationsV1503Error;
+  meta: ReportsControllerListSmsOperationsV1503Meta;
+};
+
+export type ReportsControllerListAuditReportV1Params = {
+  from?: string;
+  to?: string;
+  timezone?: string;
+};
+
+export type ReportsControllerListAuditReportV1200DataScope =
+  (typeof ReportsControllerListAuditReportV1200DataScope)[keyof typeof ReportsControllerListAuditReportV1200DataScope];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReportsControllerListAuditReportV1200DataScope = {
+  TENANT: 'TENANT',
+  BRANCH: 'BRANCH',
+} as const;
+
+export type ReportsControllerListAuditReportV1200DataItemsItem = {
+  [key: string]: unknown;
+};
+
+export type ReportsControllerListAuditReportV1200Data = {
+  scope: ReportsControllerListAuditReportV1200DataScope;
+  scopeKey: string;
+  /** @nullable */
+  branchId: string | null;
+  timezone: string;
+  items: ReportsControllerListAuditReportV1200DataItemsItem[];
+};
+
+export type ReportsControllerListAuditReportV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1200 = {
+  success: boolean;
+  data: ReportsControllerListAuditReportV1200Data;
+  meta: ReportsControllerListAuditReportV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1400ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1400 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1400Error;
+  meta: ReportsControllerListAuditReportV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1401ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1401 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1401Error;
+  meta: ReportsControllerListAuditReportV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1403ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1403 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1403Error;
+  meta: ReportsControllerListAuditReportV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1404ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1404 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1404Error;
+  meta: ReportsControllerListAuditReportV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1409ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1409 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1409Error;
+  meta: ReportsControllerListAuditReportV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1422ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1422 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1422Error;
+  meta: ReportsControllerListAuditReportV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1429ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1429 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1429Error;
+  meta: ReportsControllerListAuditReportV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListAuditReportV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListAuditReportV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListAuditReportV1503ErrorDetails;
+};
+
+export type ReportsControllerListAuditReportV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListAuditReportV1503 = {
+  success: boolean;
+  error: ReportsControllerListAuditReportV1503Error;
+  meta: ReportsControllerListAuditReportV1503Meta;
+};
+
 export type ReportsControllerListMaterializationStateV1Params = {
   branchId?: string;
   timezone?: string;
@@ -16904,6 +17931,448 @@ export const reportsControllerListCustomerPerformanceV1 = async (
 };
 
 /**
+ * List cashier activity report rows
+ * @summary List cashier activity report rows
+ */
+export type reportsControllerListCashierActivityV1Response200 = {
+  data: ReportsControllerListCashierActivityV1200;
+  status: 200;
+};
+
+export type reportsControllerListCashierActivityV1Response400 = {
+  data: ReportsControllerListCashierActivityV1400;
+  status: 400;
+};
+
+export type reportsControllerListCashierActivityV1Response401 = {
+  data: ReportsControllerListCashierActivityV1401;
+  status: 401;
+};
+
+export type reportsControllerListCashierActivityV1Response403 = {
+  data: ReportsControllerListCashierActivityV1403;
+  status: 403;
+};
+
+export type reportsControllerListCashierActivityV1Response404 = {
+  data: ReportsControllerListCashierActivityV1404;
+  status: 404;
+};
+
+export type reportsControllerListCashierActivityV1Response409 = {
+  data: ReportsControllerListCashierActivityV1409;
+  status: 409;
+};
+
+export type reportsControllerListCashierActivityV1Response422 = {
+  data: ReportsControllerListCashierActivityV1422;
+  status: 422;
+};
+
+export type reportsControllerListCashierActivityV1Response429 = {
+  data: ReportsControllerListCashierActivityV1429;
+  status: 429;
+};
+
+export type reportsControllerListCashierActivityV1Response503 = {
+  data: ReportsControllerListCashierActivityV1503;
+  status: 503;
+};
+
+export type reportsControllerListCashierActivityV1ResponseSuccess =
+  reportsControllerListCashierActivityV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerListCashierActivityV1ResponseError = (
+  | reportsControllerListCashierActivityV1Response400
+  | reportsControllerListCashierActivityV1Response401
+  | reportsControllerListCashierActivityV1Response403
+  | reportsControllerListCashierActivityV1Response404
+  | reportsControllerListCashierActivityV1Response409
+  | reportsControllerListCashierActivityV1Response422
+  | reportsControllerListCashierActivityV1Response429
+  | reportsControllerListCashierActivityV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerListCashierActivityV1Response =
+  | reportsControllerListCashierActivityV1ResponseSuccess
+  | reportsControllerListCashierActivityV1ResponseError;
+
+export const getReportsControllerListCashierActivityV1Url = (
+  params?: ReportsControllerListCashierActivityV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/cashier-activity?${stringifiedParams}`
+    : `/api/v1/reports/cashier-activity`;
+};
+
+export const reportsControllerListCashierActivityV1 = async (
+  params?: ReportsControllerListCashierActivityV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerListCashierActivityV1Response> => {
+  const res = await fetch(
+    getReportsControllerListCashierActivityV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerListCashierActivityV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerListCashierActivityV1Response;
+};
+
+/**
+ * List redemption summary report rows
+ * @summary List redemption summary report rows
+ */
+export type reportsControllerListRedemptionSummaryV1Response200 = {
+  data: ReportsControllerListRedemptionSummaryV1200;
+  status: 200;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response400 = {
+  data: ReportsControllerListRedemptionSummaryV1400;
+  status: 400;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response401 = {
+  data: ReportsControllerListRedemptionSummaryV1401;
+  status: 401;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response403 = {
+  data: ReportsControllerListRedemptionSummaryV1403;
+  status: 403;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response404 = {
+  data: ReportsControllerListRedemptionSummaryV1404;
+  status: 404;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response409 = {
+  data: ReportsControllerListRedemptionSummaryV1409;
+  status: 409;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response422 = {
+  data: ReportsControllerListRedemptionSummaryV1422;
+  status: 422;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response429 = {
+  data: ReportsControllerListRedemptionSummaryV1429;
+  status: 429;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response503 = {
+  data: ReportsControllerListRedemptionSummaryV1503;
+  status: 503;
+};
+
+export type reportsControllerListRedemptionSummaryV1ResponseSuccess =
+  reportsControllerListRedemptionSummaryV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerListRedemptionSummaryV1ResponseError = (
+  | reportsControllerListRedemptionSummaryV1Response400
+  | reportsControllerListRedemptionSummaryV1Response401
+  | reportsControllerListRedemptionSummaryV1Response403
+  | reportsControllerListRedemptionSummaryV1Response404
+  | reportsControllerListRedemptionSummaryV1Response409
+  | reportsControllerListRedemptionSummaryV1Response422
+  | reportsControllerListRedemptionSummaryV1Response429
+  | reportsControllerListRedemptionSummaryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerListRedemptionSummaryV1Response =
+  | reportsControllerListRedemptionSummaryV1ResponseSuccess
+  | reportsControllerListRedemptionSummaryV1ResponseError;
+
+export const getReportsControllerListRedemptionSummaryV1Url = (
+  params?: ReportsControllerListRedemptionSummaryV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/redemption-summary?${stringifiedParams}`
+    : `/api/v1/reports/redemption-summary`;
+};
+
+export const reportsControllerListRedemptionSummaryV1 = async (
+  params?: ReportsControllerListRedemptionSummaryV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerListRedemptionSummaryV1Response> => {
+  const res = await fetch(
+    getReportsControllerListRedemptionSummaryV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerListRedemptionSummaryV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerListRedemptionSummaryV1Response;
+};
+
+/**
+ * List SMS operations report rows
+ * @summary List SMS operations report rows
+ */
+export type reportsControllerListSmsOperationsV1Response200 = {
+  data: ReportsControllerListSmsOperationsV1200;
+  status: 200;
+};
+
+export type reportsControllerListSmsOperationsV1Response400 = {
+  data: ReportsControllerListSmsOperationsV1400;
+  status: 400;
+};
+
+export type reportsControllerListSmsOperationsV1Response401 = {
+  data: ReportsControllerListSmsOperationsV1401;
+  status: 401;
+};
+
+export type reportsControllerListSmsOperationsV1Response403 = {
+  data: ReportsControllerListSmsOperationsV1403;
+  status: 403;
+};
+
+export type reportsControllerListSmsOperationsV1Response404 = {
+  data: ReportsControllerListSmsOperationsV1404;
+  status: 404;
+};
+
+export type reportsControllerListSmsOperationsV1Response409 = {
+  data: ReportsControllerListSmsOperationsV1409;
+  status: 409;
+};
+
+export type reportsControllerListSmsOperationsV1Response422 = {
+  data: ReportsControllerListSmsOperationsV1422;
+  status: 422;
+};
+
+export type reportsControllerListSmsOperationsV1Response429 = {
+  data: ReportsControllerListSmsOperationsV1429;
+  status: 429;
+};
+
+export type reportsControllerListSmsOperationsV1Response503 = {
+  data: ReportsControllerListSmsOperationsV1503;
+  status: 503;
+};
+
+export type reportsControllerListSmsOperationsV1ResponseSuccess =
+  reportsControllerListSmsOperationsV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerListSmsOperationsV1ResponseError = (
+  | reportsControllerListSmsOperationsV1Response400
+  | reportsControllerListSmsOperationsV1Response401
+  | reportsControllerListSmsOperationsV1Response403
+  | reportsControllerListSmsOperationsV1Response404
+  | reportsControllerListSmsOperationsV1Response409
+  | reportsControllerListSmsOperationsV1Response422
+  | reportsControllerListSmsOperationsV1Response429
+  | reportsControllerListSmsOperationsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerListSmsOperationsV1Response =
+  | reportsControllerListSmsOperationsV1ResponseSuccess
+  | reportsControllerListSmsOperationsV1ResponseError;
+
+export const getReportsControllerListSmsOperationsV1Url = (
+  params?: ReportsControllerListSmsOperationsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/sms-operations?${stringifiedParams}`
+    : `/api/v1/reports/sms-operations`;
+};
+
+export const reportsControllerListSmsOperationsV1 = async (
+  params?: ReportsControllerListSmsOperationsV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerListSmsOperationsV1Response> => {
+  const res = await fetch(getReportsControllerListSmsOperationsV1Url(params), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerListSmsOperationsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerListSmsOperationsV1Response;
+};
+
+/**
+ * List audit report rows
+ * @summary List audit report rows
+ */
+export type reportsControllerListAuditReportV1Response200 = {
+  data: ReportsControllerListAuditReportV1200;
+  status: 200;
+};
+
+export type reportsControllerListAuditReportV1Response400 = {
+  data: ReportsControllerListAuditReportV1400;
+  status: 400;
+};
+
+export type reportsControllerListAuditReportV1Response401 = {
+  data: ReportsControllerListAuditReportV1401;
+  status: 401;
+};
+
+export type reportsControllerListAuditReportV1Response403 = {
+  data: ReportsControllerListAuditReportV1403;
+  status: 403;
+};
+
+export type reportsControllerListAuditReportV1Response404 = {
+  data: ReportsControllerListAuditReportV1404;
+  status: 404;
+};
+
+export type reportsControllerListAuditReportV1Response409 = {
+  data: ReportsControllerListAuditReportV1409;
+  status: 409;
+};
+
+export type reportsControllerListAuditReportV1Response422 = {
+  data: ReportsControllerListAuditReportV1422;
+  status: 422;
+};
+
+export type reportsControllerListAuditReportV1Response429 = {
+  data: ReportsControllerListAuditReportV1429;
+  status: 429;
+};
+
+export type reportsControllerListAuditReportV1Response503 = {
+  data: ReportsControllerListAuditReportV1503;
+  status: 503;
+};
+
+export type reportsControllerListAuditReportV1ResponseSuccess =
+  reportsControllerListAuditReportV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerListAuditReportV1ResponseError = (
+  | reportsControllerListAuditReportV1Response400
+  | reportsControllerListAuditReportV1Response401
+  | reportsControllerListAuditReportV1Response403
+  | reportsControllerListAuditReportV1Response404
+  | reportsControllerListAuditReportV1Response409
+  | reportsControllerListAuditReportV1Response422
+  | reportsControllerListAuditReportV1Response429
+  | reportsControllerListAuditReportV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerListAuditReportV1Response =
+  | reportsControllerListAuditReportV1ResponseSuccess
+  | reportsControllerListAuditReportV1ResponseError;
+
+export const getReportsControllerListAuditReportV1Url = (
+  params?: ReportsControllerListAuditReportV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/audit-report?${stringifiedParams}`
+    : `/api/v1/reports/audit-report`;
+};
+
+export const reportsControllerListAuditReportV1 = async (
+  params?: ReportsControllerListAuditReportV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerListAuditReportV1Response> => {
+  const res = await fetch(getReportsControllerListAuditReportV1Url(params), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerListAuditReportV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerListAuditReportV1Response;
+};
+
+/**
  * List report materialization state rows
  * @summary List report materialization state rows
  */
@@ -17090,6 +18559,10 @@ export const getReportsControllerExportReportV1Url = (
     | 'executive-summary'
     | 'liability-ageing'
     | 'customer-performance'
+    | 'cashier-activity'
+    | 'redemption-summary'
+    | 'sms-operations'
+    | 'audit-report'
     | 'materialization-state',
   params?: ReportsControllerExportReportV1Params,
 ) => {
@@ -17113,6 +18586,10 @@ export const reportsControllerExportReportV1 = async (
     | 'executive-summary'
     | 'liability-ageing'
     | 'customer-performance'
+    | 'cashier-activity'
+    | 'redemption-summary'
+    | 'sms-operations'
+    | 'audit-report'
     | 'materialization-state',
   params?: ReportsControllerExportReportV1Params,
   options?: RequestInit,
@@ -17212,6 +18689,10 @@ export const getReportsControllerRefreshReportV1Url = (
     | 'executive-summary'
     | 'liability-ageing'
     | 'customer-performance'
+    | 'cashier-activity'
+    | 'redemption-summary'
+    | 'sms-operations'
+    | 'audit-report'
     | 'materialization-state',
   params: ReportsControllerRefreshReportV1Params,
 ) => {
@@ -17235,6 +18716,10 @@ export const reportsControllerRefreshReportV1 = async (
     | 'executive-summary'
     | 'liability-ageing'
     | 'customer-performance'
+    | 'cashier-activity'
+    | 'redemption-summary'
+    | 'sms-operations'
+    | 'audit-report'
     | 'materialization-state',
   params: ReportsControllerRefreshReportV1Params,
   options?: RequestInit,
