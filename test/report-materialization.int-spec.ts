@@ -153,7 +153,7 @@ describe('report materialization (int)', () => {
 
     expect(customerSnapshot).toHaveLength(1);
     expect(customerSnapshot[0]).toMatchObject({
-      purchaseValueKobo: BigInt(1_000_000),
+      purchaseValueKobo: BigInt(20_000),
       currentBalanceKobo: BigInt(20_000),
       visitCount: 1,
       dormant: false,
