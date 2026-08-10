@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
@@ -6,6 +7,8 @@ import { PrismaService } from '../database/prisma.service';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
+import { FraudRulesService } from '../modules/fraud/fraud-rules.service';
+import { FraudService } from '../modules/fraud/fraud.service';
 import type { SmsProvider } from './sms.provider';
 import {
   SmsPayloadError,
@@ -48,6 +51,7 @@ type OutboxClaimRow = {
 
 export class OutboxWorkerRuntime {
   private readonly logger = new Logger(OutboxWorkerRuntime.name);
+  private readonly fraudService: FraudService;
   private queue?: Queue;
   private worker?: Worker<OutboxJobPayload>;
   private publisherTimer?: NodeJS.Timeout;
@@ -59,7 +63,12 @@ export class OutboxWorkerRuntime {
     private readonly prisma: PrismaService,
     private readonly config: WorkerConfig,
     private readonly smsProvider: SmsProvider,
-  ) {}
+  ) {
+    this.fraudService = new FraudService(
+      prisma,
+      new FraudRulesService(new ConfigService(process.env)),
+    );
+  }
 
   async start(): Promise<void> {
     if (this.started) {
@@ -329,6 +338,8 @@ export class OutboxWorkerRuntime {
       return;
     }
 
+    await this.evaluateFraudForOutboxEvent(outboxEvent);
+
     if (
       resolvedSmsMessage.deadLetteredAt ||
       resolvedSmsMessage.attempts >= OUTBOX_RETRY_ATTEMPTS
@@ -544,6 +555,72 @@ export class OutboxWorkerRuntime {
       },
       update: {},
     });
+  }
+
+  private async evaluateFraudForOutboxEvent(outboxEvent: {
+    tenantId: string;
+    aggregateType: string;
+    aggregateId: string;
+  }): Promise<void> {
+    if (outboxEvent.aggregateType === 'receipt') {
+      const receipt = await this.prisma.receipt.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.aggregateId,
+          },
+        },
+      });
+
+      if (!receipt) {
+        throw new Error(
+          `Receipt ${outboxEvent.aggregateId} not found for fraud evaluation`,
+        );
+      }
+
+      await this.fraudService.evaluateReceipt({
+        tenantId: receipt.tenantId,
+        receiptId: receipt.id,
+        branchId: receipt.branchId,
+        cashierId: receipt.capturedBy,
+        customerId: receipt.customerId,
+        cardId: receipt.cardId,
+        receiptWeekStart: receipt.receiptWeekStart,
+        normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
+        purchaseAmountKobo: receipt.purchaseAmountKobo,
+        occurredAt: receipt.occurredAt,
+      });
+      return;
+    }
+
+    if (outboxEvent.aggregateType === 'redemption') {
+      const redemption = await this.prisma.redemption.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.aggregateId,
+          },
+        },
+      });
+
+      if (!redemption) {
+        throw new Error(
+          `Redemption ${outboxEvent.aggregateId} not found for fraud evaluation`,
+        );
+      }
+
+      await this.fraudService.evaluateRedemption({
+        tenantId: redemption.tenantId,
+        redemptionId: redemption.id,
+        branchId: redemption.branchId,
+        cashierId: redemption.requestedBy,
+        customerId: redemption.customerId,
+        cardId: redemption.cardId,
+        receiptId: redemption.receiptId,
+        requestedAmountKobo: redemption.requestedAmountKobo,
+        occurredAt: redemption.confirmedAt ?? redemption.requestedAt,
+      });
+    }
   }
 
   private async markOutboxEventDeadLettered(

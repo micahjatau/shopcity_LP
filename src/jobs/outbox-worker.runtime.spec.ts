@@ -441,6 +441,84 @@ describe('OutboxWorkerRuntime', () => {
     });
   });
 
+  it('evaluates fraud evidence for confirmed earn jobs before SMS delivery', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-fraud-earn',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-fraud-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-fraud-1' },
+        publishedAt: null,
+        smsMessage: {
+          id: 'sms-fraud-earn',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-fraud-1',
+          outboxEventId: 'outbox-fraud-earn',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          payload: {
+            version: 1,
+            receiptId: 'receipt-fraud-1',
+            transactionId: 'ledger-fraud-1',
+            customerId: 'customer-1',
+            phoneE164: '+2348000000000',
+            template: 'earn-confirmed',
+            creditKobo: '125050',
+          },
+          status: 'SENT',
+          attempts: 1,
+        },
+      },
+      receipt: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'receipt-fraud-1',
+          tenantId: 'tenant-1',
+          branchId: 'branch-1',
+          customerId: 'customer-1',
+          cardId: 'card-1',
+          deviceId: 'device-1',
+          posReceiptNumber: 'POS-001',
+          normalizedPosReceiptNumber: 'POS-001',
+          receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+          purchaseAmountKobo: BigInt(125050),
+          occurredAt: new Date('2026-08-10T10:00:00.000Z'),
+          capturedBy: 'cashier-1',
+        }),
+        count: jest.fn().mockResolvedValue(2),
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send: jest.fn(),
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob({
+      data: { id: 'outbox-fraud-earn', tenantId: 'tenant-1' },
+    });
+
+    expect(prisma.receiptFindUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.receiptCount).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        branchId: 'branch-1',
+        receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+        normalizedPosReceiptNumber: 'POS-001',
+      },
+    });
+    expect(prisma.fraudFlagUpsert).toHaveBeenCalledTimes(1);
+    expect(prisma.fraudFlagUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId_dedupeKey: {
+            tenantId: 'tenant-1',
+            dedupeKey: 'FR-DUP-001:branch-1:POS-001:2026-08-10T00:00:00.000Z',
+          },
+        },
+      }),
+    );
+  });
+
   it('waits for active recovery before disconnecting during shutdown', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -519,6 +597,23 @@ function runtimeConfig() {
   };
 }
 
+function defaultReceipt(outboxEvent: PrismaStubOverrides['outboxEvent']) {
+  return {
+    id: outboxEvent.aggregateId,
+    tenantId: outboxEvent.tenantId,
+    branchId: 'branch-1',
+    customerId: 'customer-1',
+    cardId: 'card-1',
+    deviceId: 'device-1',
+    posReceiptNumber: 'POS-001',
+    normalizedPosReceiptNumber: 'POS-001',
+    receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+    purchaseAmountKobo: BigInt(125050),
+    occurredAt: new Date('2026-08-10T10:00:00.000Z'),
+    capturedBy: 'cashier-1',
+  };
+}
+
 type PrismaStubOverrides = {
   outboxEvent: {
     id: string;
@@ -544,6 +639,16 @@ type PrismaStubOverrides = {
       deadLetteredAt?: Date | null;
     } | null;
   };
+  receipt?: {
+    findUnique?: jest.Mock;
+    count?: jest.Mock;
+  };
+  redemption?: {
+    findUnique?: jest.Mock;
+  };
+  fraudFlag?: {
+    upsert?: jest.Mock;
+  };
   smsMessage?: {
     update?: jest.Mock;
   };
@@ -562,6 +667,10 @@ type SmsMessageUpdateArgs = {
 type PrismaStub = PrismaService & {
   outboxEventUpdate: jest.Mock;
   outboxEventUpdateCalls: Array<unknown>;
+  receiptFindUnique: jest.Mock;
+  receiptCount: jest.Mock;
+  redemptionFindUnique: jest.Mock;
+  fraudFlagUpsert: jest.Mock;
   smsMessageUpdate: jest.Mock;
   smsMessageUpdateCalls: SmsMessageUpdateArgs[];
   smsMessageUpsert: jest.Mock;
@@ -575,6 +684,15 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     outboxEventUpdateCalls.push(args);
     return Promise.resolve(undefined);
   });
+  const receiptFindUnique =
+    overrides.receipt?.findUnique ??
+    jest.fn().mockResolvedValue(defaultReceipt(outboxEvent));
+  const receiptCount =
+    overrides.receipt?.count ?? jest.fn().mockResolvedValue(1);
+  const redemptionFindUnique =
+    overrides.redemption?.findUnique ?? jest.fn().mockResolvedValue(null);
+  const fraudFlagUpsert =
+    overrides.fraudFlag?.upsert ?? jest.fn().mockResolvedValue(undefined);
   const smsMessageUpdateCalls: SmsMessageUpdateArgs[] = [];
   const smsMessageUpdate =
     overrides.smsMessage?.update ??
@@ -592,6 +710,16 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
       updateMany: jest.fn().mockResolvedValue(undefined),
       findMany: jest.fn().mockResolvedValue([outboxEvent]),
     },
+    receipt: {
+      findUnique: receiptFindUnique,
+      count: receiptCount,
+    },
+    redemption: {
+      findUnique: redemptionFindUnique,
+    },
+    fraudFlag: {
+      upsert: fraudFlagUpsert,
+    },
     smsMessage: {
       update: smsMessageUpdate,
       upsert: smsMessageUpsert,
@@ -599,10 +727,14 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     $connect: jest.fn().mockResolvedValue(undefined),
     $disconnect: prismaDisconnect,
     $transaction: jest.fn(async (callback: (tx: never) => Promise<unknown>) =>
-      callback(undefined as never),
+      callback({ fraudFlag: { upsert: fraudFlagUpsert } } as never),
     ),
     outboxEventUpdate,
     outboxEventUpdateCalls,
+    receiptFindUnique,
+    receiptCount,
+    redemptionFindUnique,
+    fraudFlagUpsert,
     smsMessageUpdate,
     smsMessageUpdateCalls,
     smsMessageUpsert,
