@@ -22452,6 +22452,731 @@
         "description": "Create a manual adjustment"
       }
     },
+    "/api/v1/offline-sync/earn-batch": {
+      "post": {
+        "operationId": "OfflineSyncController_earnBatch_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfflineEarnBatchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offline earn batch processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "data", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": ["deviceId", "records"],
+                      "properties": {
+                        "deviceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "localId",
+                              "status",
+                              "transactionId",
+                              "approvalId",
+                              "creditEarnedKobo",
+                              "errorCode",
+                              "retryable"
+                            ],
+                            "properties": {
+                              "localId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "CONFIRMED",
+                                  "PENDING_APPROVAL",
+                                  "REJECTED",
+                                  "RETRYABLE"
+                                ]
+                              },
+                              "transactionId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              },
+                              "approvalId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              },
+                              "creditEarnedKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "errorCode": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "retryable": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "syncBatchTooLarge": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "BAD_REQUEST",
+                        "message": "Offline sync batch is too large"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "syncActorMismatch": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "SYNC_ACTOR_MISMATCH",
+                        "message": "Offline earn sync requires a cashier session"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "syncDeviceMismatch": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "SYNC_DEVICE_MISMATCH",
+                        "message": "Offline sync device does not match the authenticated session"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "syncBranchMismatch": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "SYNC_BRANCH_MISMATCH",
+                        "message": "Branch context is required for offline sync"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "validationError": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "VALIDATION_ERROR",
+                        "message": "Validation failed"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "AUTH_REQUIRED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Authentication required"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "FORBIDDEN"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Forbidden"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NOT_FOUND"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Not found"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 409
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "CONFLICT"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Conflict"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "syncRecordConflict": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "SYNC_RECORD_CONFLICT",
+                        "message": "Offline sync record conflicts with an existing record"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "syncWeekMismatch": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "SYNC_WEEK_MISMATCH",
+                        "message": "Offline sync receipt week does not match the server-derived week"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "receiptAlreadyUsed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "RECEIPT_ALREADY_USED",
+                        "message": "Physical receipt already captured"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  },
+                  "idempotencyConflict": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "IDEMPOTENCY_CONFLICT",
+                        "message": "Idempotency key reused with different payload"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "POLICY_VIOLATION"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Policy violation"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 429
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMITED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "DEPENDENCY_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Required dependency is unavailable"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Synchronize offline earn records",
+        "tags": ["offline-sync"],
+        "description": "Synchronize offline earn records"
+      }
+    },
     "/api/v1/config/public": {
       "get": {
         "operationId": "ConfigurationController_getPublicConfig_v1",
@@ -23085,6 +23810,10 @@
       "description": ""
     },
     {
+      "name": "offline-sync",
+      "description": ""
+    },
+    {
       "name": "adjustments",
       "description": ""
     },
@@ -23458,6 +24187,72 @@
           "reason",
           "effectiveAt"
         ]
+      },
+      "OfflineEarnBatchRecordDto": {
+        "type": "object",
+        "properties": {
+          "localId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cashierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cardBarcode": {
+            "type": "string"
+          },
+          "receiptNumber": {
+            "type": "string"
+          },
+          "receiptWeekStart": {
+            "type": "string",
+            "example": "2026-07-13"
+          },
+          "purchaseAmountKobo": {
+            "type": "number",
+            "minimum": 1
+          },
+          "occurredAtLocal": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "localId",
+          "idempotencyKey",
+          "cashierId",
+          "branchId",
+          "cardBarcode",
+          "receiptNumber",
+          "receiptWeekStart",
+          "purchaseAmountKobo",
+          "occurredAtLocal"
+        ]
+      },
+      "OfflineEarnBatchRequestDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfflineEarnBatchRecordDto"
+            }
+          }
+        },
+        "required": ["deviceId", "records"]
       }
     }
   }
