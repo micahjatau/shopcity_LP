@@ -218,6 +218,24 @@ export interface CreateAdjustmentDto {
   effectiveAt: string;
 }
 
+export interface OfflineEarnBatchRecordDto {
+  localId: string;
+  idempotencyKey: string;
+  cashierId: string;
+  branchId: string;
+  cardBarcode: string;
+  receiptNumber: string;
+  receiptWeekStart: string;
+  /** @minimum 1 */
+  purchaseAmountKobo: number;
+  occurredAtLocal: string;
+}
+
+export interface OfflineEarnBatchRequestDto {
+  deviceId: string;
+  records: OfflineEarnBatchRecordDto[];
+}
+
 export type AppControllerGetHelloV1200Meta = {
   timestamp: string;
   path: string;
@@ -9687,6 +9705,264 @@ export type AdjustmentsControllerCreateV1503 = {
   meta: AdjustmentsControllerCreateV1503Meta;
 };
 
+export type OfflineSyncControllerEarnBatchV1200DataRecordsItemStatus =
+  (typeof OfflineSyncControllerEarnBatchV1200DataRecordsItemStatus)[keyof typeof OfflineSyncControllerEarnBatchV1200DataRecordsItemStatus];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const OfflineSyncControllerEarnBatchV1200DataRecordsItemStatus = {
+  CONFIRMED: 'CONFIRMED',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  REJECTED: 'REJECTED',
+  RETRYABLE: 'RETRYABLE',
+} as const;
+
+export type OfflineSyncControllerEarnBatchV1200DataRecordsItem = {
+  localId: string;
+  status: OfflineSyncControllerEarnBatchV1200DataRecordsItemStatus;
+  /** @nullable */
+  transactionId: string | null;
+  /** @nullable */
+  approvalId: string | null;
+  /** @nullable */
+  creditEarnedKobo: number | null;
+  /** @nullable */
+  errorCode: string | null;
+  retryable: boolean;
+};
+
+export type OfflineSyncControllerEarnBatchV1200Data = {
+  deviceId: string;
+  records: OfflineSyncControllerEarnBatchV1200DataRecordsItem[];
+};
+
+export type OfflineSyncControllerEarnBatchV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1200 = {
+  success: boolean;
+  data: OfflineSyncControllerEarnBatchV1200Data;
+  meta: OfflineSyncControllerEarnBatchV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1400ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1400 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1400Error;
+  meta: OfflineSyncControllerEarnBatchV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1401ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1401 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1401Error;
+  meta: OfflineSyncControllerEarnBatchV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1403ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1403 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1403Error;
+  meta: OfflineSyncControllerEarnBatchV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1404ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1404 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1404Error;
+  meta: OfflineSyncControllerEarnBatchV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1409ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1409 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1409Error;
+  meta: OfflineSyncControllerEarnBatchV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1422ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1422 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1422Error;
+  meta: OfflineSyncControllerEarnBatchV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1429ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1429 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1429Error;
+  meta: OfflineSyncControllerEarnBatchV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type OfflineSyncControllerEarnBatchV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type OfflineSyncControllerEarnBatchV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: OfflineSyncControllerEarnBatchV1503ErrorDetails;
+};
+
+export type OfflineSyncControllerEarnBatchV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type OfflineSyncControllerEarnBatchV1503 = {
+  success: boolean;
+  error: OfflineSyncControllerEarnBatchV1503Error;
+  meta: OfflineSyncControllerEarnBatchV1503Meta;
+};
+
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
   id: string;
   name: string;
@@ -13650,6 +13926,103 @@ export const adjustmentsControllerCreateV1 = async (
     status: res.status,
     headers: res.headers,
   } as adjustmentsControllerCreateV1Response;
+};
+
+/**
+ * Synchronize offline earn records
+ * @summary Synchronize offline earn records
+ */
+export type offlineSyncControllerEarnBatchV1Response200 = {
+  data: OfflineSyncControllerEarnBatchV1200;
+  status: 200;
+};
+
+export type offlineSyncControllerEarnBatchV1Response400 = {
+  data: OfflineSyncControllerEarnBatchV1400;
+  status: 400;
+};
+
+export type offlineSyncControllerEarnBatchV1Response401 = {
+  data: OfflineSyncControllerEarnBatchV1401;
+  status: 401;
+};
+
+export type offlineSyncControllerEarnBatchV1Response403 = {
+  data: OfflineSyncControllerEarnBatchV1403;
+  status: 403;
+};
+
+export type offlineSyncControllerEarnBatchV1Response404 = {
+  data: OfflineSyncControllerEarnBatchV1404;
+  status: 404;
+};
+
+export type offlineSyncControllerEarnBatchV1Response409 = {
+  data: OfflineSyncControllerEarnBatchV1409;
+  status: 409;
+};
+
+export type offlineSyncControllerEarnBatchV1Response422 = {
+  data: OfflineSyncControllerEarnBatchV1422;
+  status: 422;
+};
+
+export type offlineSyncControllerEarnBatchV1Response429 = {
+  data: OfflineSyncControllerEarnBatchV1429;
+  status: 429;
+};
+
+export type offlineSyncControllerEarnBatchV1Response503 = {
+  data: OfflineSyncControllerEarnBatchV1503;
+  status: 503;
+};
+
+export type offlineSyncControllerEarnBatchV1ResponseSuccess =
+  offlineSyncControllerEarnBatchV1Response200 & {
+    headers: Headers;
+  };
+export type offlineSyncControllerEarnBatchV1ResponseError = (
+  | offlineSyncControllerEarnBatchV1Response400
+  | offlineSyncControllerEarnBatchV1Response401
+  | offlineSyncControllerEarnBatchV1Response403
+  | offlineSyncControllerEarnBatchV1Response404
+  | offlineSyncControllerEarnBatchV1Response409
+  | offlineSyncControllerEarnBatchV1Response422
+  | offlineSyncControllerEarnBatchV1Response429
+  | offlineSyncControllerEarnBatchV1Response503
+) & {
+  headers: Headers;
+};
+
+export type offlineSyncControllerEarnBatchV1Response =
+  | offlineSyncControllerEarnBatchV1ResponseSuccess
+  | offlineSyncControllerEarnBatchV1ResponseError;
+
+export const getOfflineSyncControllerEarnBatchV1Url = () => {
+  return `/api/v1/offline-sync/earn-batch`;
+};
+
+export const offlineSyncControllerEarnBatchV1 = async (
+  offlineEarnBatchRequestDto: OfflineEarnBatchRequestDto,
+  options?: RequestInit,
+): Promise<offlineSyncControllerEarnBatchV1Response> => {
+  const res = await fetch(getOfflineSyncControllerEarnBatchV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(offlineEarnBatchRequestDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: offlineSyncControllerEarnBatchV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as offlineSyncControllerEarnBatchV1Response;
 };
 
 /**
