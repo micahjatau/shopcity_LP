@@ -163,6 +163,12 @@ describe('offline earn sync HTTP (int)', () => {
 
     expect(first.status).toBe(200);
 
+    const firstBody = first.body as {
+      data: {
+        records: Array<{ status: string; retryable: boolean }>;
+      };
+    };
+
     const replay = await request(httpServer)
       .post('/api/v1/offline-sync/earn-batch')
       .set('Cookie', `${sessionCookie}; ${csrfCookie}`)
@@ -170,8 +176,14 @@ describe('offline earn sync HTTP (int)', () => {
       .send(body)
       .expect(200);
 
-    expect(replay.body.data).toEqual(first.body.data);
-    expect(first.body.data.records[0]).toMatchObject({
+    const replayBody = replay.body as {
+      data: {
+        records: Array<{ status: string; retryable: boolean }>;
+      };
+    };
+
+    expect(replayBody.data).toEqual(firstBody.data);
+    expect(firstBody.data.records[0]).toMatchObject({
       status: 'CONFIRMED',
       retryable: false,
     });

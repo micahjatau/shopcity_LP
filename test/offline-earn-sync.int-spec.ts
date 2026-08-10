@@ -1,11 +1,6 @@
 import { execSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import {
-  CardStatus,
-  CustomerStatus,
-  PrismaClient,
-  UserRole,
-} from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
@@ -119,17 +114,22 @@ describe('offline earn sync foundation (int)', () => {
       retryable: false,
     });
 
+    const firstRecord = request.records[0];
+    if (!firstRecord) {
+      throw new Error('Offline request must contain a record');
+    }
+
     const counts = await Promise.all([
       prisma.receipt.count({
         where: {
           tenantId: tenant.id,
-          posReceiptNumber: request.records[0]!.receiptNumber,
+          posReceiptNumber: firstRecord.receiptNumber,
         },
       }),
       prisma.loyaltyLedgerEntry.count({
         where: {
           tenantId: tenant.id,
-          receipt: { posReceiptNumber: request.records[0]!.receiptNumber },
+          receipt: { posReceiptNumber: firstRecord.receiptNumber },
         },
       }),
       prisma.creditLot.count({
@@ -139,7 +139,7 @@ describe('offline earn sync foundation (int)', () => {
         where: { tenantId: tenant.id, aggregateType: 'receipt' },
       }),
       prisma.offlineSyncAttempt.count({
-        where: { tenantId: tenant.id, localId: request.records[0]!.localId },
+        where: { tenantId: tenant.id, localId: firstRecord.localId },
       }),
     ]);
 
@@ -157,9 +157,14 @@ describe('offline earn sync foundation (int)', () => {
     const request = buildOfflineRequest(fixture, 1_000_000);
     await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
 
+    const firstRecord = request.records[0];
+    if (!firstRecord) {
+      throw new Error('Offline request must contain a record');
+    }
+
     const changed = {
       ...request,
-      records: [{ ...request.records[0]!, purchaseAmountKobo: 1_000_001 }],
+      records: [{ ...firstRecord, purchaseAmountKobo: 1_000_001 }],
     };
 
     const replay = await offlineSyncService.earnBatch(
@@ -168,7 +173,7 @@ describe('offline earn sync foundation (int)', () => {
       changed,
     );
     expect(replay.records[0]).toMatchObject({
-      localId: request.records[0]!.localId,
+      localId: firstRecord.localId,
       status: 'REJECTED',
       errorCode: 'SYNC_RECORD_CONFLICT',
       retryable: false,
@@ -250,13 +255,14 @@ describe('offline earn sync foundation (int)', () => {
       },
     );
 
-    expect(response.records[0]).toMatchObject({
+    const pendingRecord = response.records[0];
+    expect(pendingRecord).toMatchObject({
       status: 'PENDING_APPROVAL',
       transactionId: null,
-      approvalId: expect.any(String),
       creditEarnedKobo: null,
       retryable: false,
     });
+    expect(typeof pendingRecord?.approvalId).toBe('string');
 
     const firstRecord = buildOfflineRecord(fixture, 21_000_000);
     const receipt = await prisma.receipt.findFirstOrThrow({
