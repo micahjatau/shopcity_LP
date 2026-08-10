@@ -105,6 +105,62 @@ describe('LotAllocationService', () => {
     expect(prisma.creditLot.updateMany).toHaveBeenCalledTimes(1);
   });
 
+  it('skips excluded lots during FIFO allocation', async () => {
+    const expiresAt = new Date('2027-01-15T10:00:00.000Z');
+    const prisma = prismaStub({
+      lots: [{ id: 'lot-2', remainingAmountKobo: 500n, expiresAt }],
+    });
+    const service = new LotAllocationService();
+
+    await expect(
+      service.allocateDebit(prisma, {
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        debitLedgerEntryId: 'ledger-id',
+        redemptionId: 'redemption-id',
+        amountKobo: 200n,
+        excludedCreditLotIds: ['lot-1'],
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          creditLotId: 'lot-2',
+          amountKobo: 200n,
+          allocationOrder: 1,
+        }),
+      ]),
+    );
+
+    const queryRawMock = prisma.$queryRaw as unknown as {
+      mock: { calls: Array<[Prisma.Sql]> };
+    };
+    expect(queryRawMock.mock.calls[0][0].strings.join(' ')).toContain(
+      'NOT IN',
+    );
+  });
+
+  it('requires review when an exact lot cannot be updated', async () => {
+    const expiresAt = new Date('2027-01-15T10:00:00.000Z');
+    const prisma = prismaStub({
+      lots: [{ id: 'lot-2', remainingAmountKobo: 400n, expiresAt }],
+      updateCount: 0,
+    });
+    const service = new LotAllocationService();
+
+    await expect(
+      service.allocateDebitFromExactLot(prisma, {
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        creditLotId: 'lot-2',
+        debitLedgerEntryId: 'ledger-id',
+        adjustmentId: 'adjustment-id',
+        amountKobo: 250n,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'REVERSAL_REVIEW_REQUIRED' },
+    });
+  });
+
   it('rejects insufficient active balance without writing allocations', async () => {
     const prisma = prismaStub({
       lots: [
