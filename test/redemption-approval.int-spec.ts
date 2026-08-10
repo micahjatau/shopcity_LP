@@ -16,6 +16,7 @@ import { LotAllocationService } from '../src/common/balance/lot-allocation.servi
 import type { AuthContext } from '../src/common/auth/session.types';
 import { PrismaService } from '../src/database/prisma.service';
 import { AuditService } from '../src/modules/audit/audit.service';
+import { AdjustmentsService } from '../src/modules/adjustments/adjustments.service';
 import { ApprovalsService } from '../src/modules/approvals/approvals.service';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
 import { RedemptionPolicyService } from '../src/modules/redemptions/redemption-policy.service';
@@ -26,6 +27,7 @@ describe('redemption approval lifecycle (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let prisma: PrismaService;
   let redemptionsService: RedemptionsService;
+  let adjustmentsService: AdjustmentsService;
   let approvalsService: ApprovalsService;
   let loyaltyService: LoyaltyService;
   let fixture: Awaited<ReturnType<typeof createFixture>>;
@@ -53,6 +55,13 @@ describe('redemption approval lifecycle (int)', () => {
       lotAllocationService,
       new RedemptionPolicyService(configService),
       auditService,
+    );
+    adjustmentsService = new AdjustmentsService(
+      prisma,
+      activeBalanceService,
+      lotAllocationService,
+      auditService,
+      configService,
     );
     loyaltyService = new LoyaltyService(
       prisma,
@@ -395,6 +404,52 @@ describe('redemption approval lifecycle (int)', () => {
     ).toBe(1);
   }, 120000);
 
+  it('prevents manual debit adjustments racing redemptions from overdrawing balance', async () => {
+    const localFixture = await createFixture(prisma, 20_000n);
+
+    const settled = await Promise.allSettled([
+      redemptionsService.redeem(
+        localFixture.tenantId,
+        makeContext(localFixture.cashier, localFixture.deviceId),
+        'redeem-racing-debit-adjustment-key',
+        {
+          cardSerialNumber: localFixture.cardSerial,
+          posReceiptNumber: 'POS-REDEEM-RACING-DEBIT-ADJUSTMENT',
+          basketAmountKobo: 15_000,
+          requestedRedemptionKobo: 4_500,
+          occurredAt: new Date(Date.now() - 60_000).toISOString(),
+        },
+      ),
+      adjustmentsService.createAdjustment(
+        localFixture.tenantId,
+        makeContext(localFixture.admin, localFixture.deviceId),
+        'debit-adjustment-racing-redemption-key',
+        {
+          customerId: localFixture.customerId,
+          kind: 'DEBIT',
+          amountKobo: 17_000,
+          reason: 'Debit adjustment racing redemption',
+          effectiveAt: new Date(Date.now() - 30_000).toISOString(),
+        },
+      ),
+    ]);
+
+    expect(
+      settled.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const remaining = await prisma.creditLot.aggregate({
+      where: {
+        tenantId: localFixture.tenantId,
+        customerId: localFixture.customerId,
+      },
+      _sum: { remainingAmountKobo: true },
+    });
+    expect(
+      remaining._sum.remainingAmountKobo === 3_000n ||
+        remaining._sum.remainingAmountKobo === 15_500n,
+    ).toBe(true);
+  }, 120000);
+
   it('prevents approval execution racing another redemption from overdrawing balance', async () => {
     const localFixture = await createFixture(prisma, 20_000n);
     const pending = await redemptionsService.redeem(
@@ -467,6 +522,12 @@ async function createFixture(prisma: PrismaService, lotAmountKobo = 20_000n) {
     branchId,
     role: UserRole.SUPERVISOR,
   };
+  const admin = {
+    id: randomUUID(),
+    tenantId,
+    branchId,
+    role: UserRole.ADMIN,
+  };
 
   await prisma.tenant.create({
     data: { id: tenantId, name: 'Redemption Tenant' },
@@ -507,6 +568,14 @@ async function createFixture(prisma: PrismaService, lotAmountKobo = 20_000n) {
         branchId,
         username: 'supervisor@redemption.local',
         role: supervisor.role,
+        status: 'ACTIVE',
+      },
+      {
+        id: admin.id,
+        tenantId,
+        branchId,
+        username: 'admin@redemption.local',
+        role: admin.role,
         status: 'ACTIVE',
       },
     ],
@@ -552,6 +621,7 @@ async function createFixture(prisma: PrismaService, lotAmountKobo = 20_000n) {
     customerId,
     cashier,
     supervisor,
+    admin,
     cardSerial: 'CARD-REDEEM-APPROVAL',
   };
 }
@@ -675,6 +745,8 @@ function redemptionConfigService() {
         PURCHASE_FLAG_THRESHOLD_KOBO: 10_000_000,
         PURCHASE_APPROVAL_THRESHOLD_KOBO: 20_000_000,
         PURCHASE_AMOUNT_CEILING_KOBO: 100_000_000,
+        ADJUSTMENT_AMOUNT_CEILING_KOBO: 100_000_000,
+        ADJUSTMENT_CREDIT_EXPIRY_MONTHS: 12,
       })[key],
   } as never;
 }

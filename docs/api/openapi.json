@@ -18908,9 +18908,23 @@
                         "reversal": {
                           "type": "object",
                           "nullable": true,
-                          "required": ["originalTransactionId", "restorations"],
+                          "required": [
+                            "originalTransactionId",
+                            "reason",
+                            "createdBy",
+                            "restorations"
+                          ],
                           "properties": {
                             "originalTransactionId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "reason": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "createdBy": {
                               "type": "string",
                               "format": "uuid",
                               "nullable": true
@@ -21567,7 +21581,6 @@
             "description": ""
           },
           "409": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -21620,9 +21633,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "transactionAlreadyReversed": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 409,
+                        "code": "TRANSACTION_ALREADY_REVERSED",
+                        "message": "Transaction already has a reversal"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "422": {
             "content": {
@@ -23420,7 +23451,13 @@
             "format": "date-time"
           }
         },
-        "required": ["customerId", "kind", "amountKobo", "reason"]
+        "required": [
+          "customerId",
+          "kind",
+          "amountKobo",
+          "reason",
+          "effectiveAt"
+        ]
       }
     }
   }

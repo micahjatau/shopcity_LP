@@ -97,6 +97,13 @@ export class ReversalsController {
         message: 'Transaction not found',
       },
     },
+    conflict: {
+      transactionAlreadyReversed: {
+        statusCode: 409,
+        code: 'TRANSACTION_ALREADY_REVERSED',
+        message: 'Transaction already has a reversal',
+      },
+    },
     unprocessableEntity: {
       reversalReviewRequired: {
         statusCode: 422,

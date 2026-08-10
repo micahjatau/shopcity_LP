@@ -18,6 +18,7 @@ describe('AdjustmentsService', () => {
         kind: 'CREDIT',
         amountKobo: 1_000,
         reason: 'Service recovery',
+        effectiveAt: '2026-07-26T12:00:00.000Z',
       }),
     ).rejects.toMatchObject({
       response: {
@@ -36,6 +37,7 @@ describe('AdjustmentsService', () => {
         kind: 'CREDIT',
         amountKobo: 0,
         reason: 'Service recovery',
+        effectiveAt: '2026-07-26T12:00:00.000Z',
       }),
     ).rejects.toMatchObject({
       response: { code: 'VALIDATION_ERROR' },
@@ -47,6 +49,7 @@ describe('AdjustmentsService', () => {
         kind: 'DEBIT',
         amountKobo: 1_000,
         reason: '   ',
+        effectiveAt: '2026-07-26T12:00:00.000Z',
       }),
     ).rejects.toMatchObject({
       response: { code: 'VALIDATION_ERROR' },
@@ -129,6 +132,7 @@ describe('AdjustmentsService', () => {
           kind: 'DEBIT',
           amountKobo: 2_000,
           reason: 'Manual correction',
+          effectiveAt: '2026-07-26T12:00:00.000Z',
         },
       ),
     ).resolves.toMatchObject({
@@ -171,6 +175,7 @@ describe('AdjustmentsService', () => {
           kind: 'CREDIT',
           amountKobo: 1_001,
           reason: 'Service recovery',
+          effectiveAt: '2026-07-26T12:00:00.000Z',
         },
       ),
     ).rejects.toMatchObject({

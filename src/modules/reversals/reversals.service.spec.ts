@@ -82,6 +82,64 @@ describe('ReversalsService', () => {
     });
   });
 
+  it('returns a specific conflict for transactions that already have reversals', async () => {
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(0),
+      loyaltyLedgerEntry: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'earn-1',
+          tenantId: 'tenant-1',
+          customerId: 'customer-1',
+          receiptId: 'receipt-1',
+          type: LedgerEntryType.EARN,
+          direction: LedgerEntryDirection.CREDIT,
+          amountKobo: 4_000n,
+          status: LedgerEntryStatus.CONFIRMED,
+          customer: { branchId: 'branch-1' },
+          creditLot: null,
+          redemption: null,
+          adjustment: null,
+          redemptionAllocations: [],
+          reversedByEntries: [{ id: 'reversal-1' }],
+        }),
+      },
+      idempotencyRecord: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+    };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (callback: (tx: never) => Promise<unknown>) =>
+          callback(tx as never),
+        ),
+    };
+    const service = new ReversalsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.reverse('tenant-1', actor(), 'earn-1', 'idem-reversed', {
+        reason: 'Customer refund',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'TRANSACTION_ALREADY_REVERSED',
+        message: 'Transaction already has a reversal',
+      },
+      status: HttpStatus.CONFLICT,
+    });
+  });
+
   it('replays an existing reversal response for the same idempotency key', async () => {
     const requestHash = createHash('sha256')
       .update(

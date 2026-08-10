@@ -215,7 +215,7 @@ export interface CreateAdjustmentDto {
   amountKobo: number;
   /** @maxLength 500 */
   reason: string;
-  effectiveAt?: string;
+  effectiveAt: string;
 }
 
 export type AppControllerGetHelloV1200Meta = {
@@ -8243,6 +8243,10 @@ export type LoyaltyControllerGetTransactionV1200DataReversalRestorationsItem = {
 export type LoyaltyControllerGetTransactionV1200DataReversal = {
   /** @nullable */
   originalTransactionId: string | null;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  createdBy: string | null;
   restorations: LoyaltyControllerGetTransactionV1200DataReversalRestorationsItem[];
 } | null;
 

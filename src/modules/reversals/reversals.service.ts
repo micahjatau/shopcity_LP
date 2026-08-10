@@ -249,7 +249,7 @@ async function runReverseTransaction(input: {
         }
 
         if (original.reversedByEntries.length > 0) {
-          throw reviewRequired('Transaction already has a reversal');
+          throw alreadyReversed();
         }
 
         const now = new Date();
@@ -911,6 +911,14 @@ function reviewRequired(message: string): DomainHttpException {
     HttpStatus.UNPROCESSABLE_ENTITY,
     'REVERSAL_REVIEW_REQUIRED',
     message,
+  );
+}
+
+function alreadyReversed(): DomainHttpException {
+  return new DomainHttpException(
+    HttpStatus.CONFLICT,
+    'TRANSACTION_ALREADY_REVERSED',
+    'Transaction already has a reversal',
   );
 }
 

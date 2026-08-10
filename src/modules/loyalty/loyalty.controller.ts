@@ -207,13 +207,20 @@ const transactionResponseSchema = {
     reversal: {
       type: 'object',
       nullable: true,
-      required: ['originalTransactionId', 'restorations'],
+      required: [
+        'originalTransactionId',
+        'reason',
+        'createdBy',
+        'restorations',
+      ],
       properties: {
         originalTransactionId: {
           type: 'string',
           format: 'uuid',
           nullable: true,
         },
+        reason: { type: 'string', nullable: true },
+        createdBy: { type: 'string', format: 'uuid', nullable: true },
         restorations: {
           type: 'array',
           items: {

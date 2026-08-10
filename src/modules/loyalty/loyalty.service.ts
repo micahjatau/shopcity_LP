@@ -164,6 +164,8 @@ export interface TransactionResponse {
   } | null;
   reversal: {
     originalTransactionId: string | null;
+    reason: string | null;
+    createdBy: string | null;
     restorations: Array<{
       id: string;
       allocationId: string;
@@ -910,21 +912,22 @@ export class LoyaltyService {
           createdBy: ledgerEntry.adjustment.createdBy,
         }
       : null;
-    const reversal =
-      ledgerEntry.type === LedgerEntryType.REVERSAL
-        ? {
-            originalTransactionId: ledgerEntry.reversesEntryId,
-            restorations: ledgerEntry.allocationRestorations.map(
-              (restoration) => ({
-                id: restoration.id,
-                allocationId: restoration.allocationId,
-                creditLotId: restoration.allocation.creditLotId,
-                amountKobo: Number(restoration.amountKobo),
-                reversalLedgerEntryId: restoration.reversalLedgerEntryId,
-              }),
-            ),
-          }
-        : null;
+    const reversal = ledgerEntry.reversesEntryId
+      ? {
+          originalTransactionId: ledgerEntry.reversesEntryId,
+          reason: ledgerEntry.adjustment?.reason ?? null,
+          createdBy: ledgerEntry.adjustment?.createdBy ?? null,
+          restorations: ledgerEntry.allocationRestorations.map(
+            (restoration) => ({
+              id: restoration.id,
+              allocationId: restoration.allocationId,
+              creditLotId: restoration.allocation.creditLotId,
+              amountKobo: Number(restoration.amountKobo),
+              reversalLedgerEntryId: restoration.reversalLedgerEntryId,
+            }),
+          ),
+        }
+      : null;
 
     return {
       id: responseId,

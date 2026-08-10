@@ -33,7 +33,7 @@ export class CreateAdjustmentDto {
   @MaxLength(500)
   reason!: string;
 
-  @ApiProperty({ format: 'date-time', required: false })
+  @ApiProperty({ format: 'date-time' })
   @IsDateString()
-  effectiveAt?: string;
+  effectiveAt!: string;
 }

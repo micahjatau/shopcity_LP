@@ -930,6 +930,8 @@ describe('LoyaltyService redemption approvals', () => {
       reviewStatus: null,
       reversal: {
         originalTransactionId: 'ledger-original',
+        reason: null,
+        createdBy: null,
         restorations: [
           {
             id: 'restoration-1',
@@ -939,6 +941,69 @@ describe('LoyaltyService redemption approvals', () => {
             reversalLedgerEntryId: 'ledger-4',
           },
         ],
+      },
+    });
+  });
+
+  it('returns debit adjustment reversal semantics for reversed earn transactions', async () => {
+    const ledgerEntry = {
+      id: 'ledger-5',
+      tenantId: 'tenant-1',
+      customerId: 'customer-1',
+      receiptId: null,
+      type: 'ADJUSTMENT',
+      direction: 'DEBIT',
+      amountKobo: 2_000n,
+      status: 'CONFIRMED',
+      effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
+      createdAt: new Date('2026-07-26T12:01:00.000Z'),
+      creditLot: null,
+      adjustment: {
+        id: 'adjustment-5',
+        kind: 'DEBIT',
+        reason: 'Customer refund',
+        createdBy: 'supervisor-1',
+      },
+      redemption: null,
+      redemptionAllocations: [],
+      allocationRestorations: [],
+      customer: { branchId: 'branch-1' },
+      receipt: null,
+      reversesEntryId: 'earn-original',
+    };
+
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(ledgerEntry),
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(90_000n),
+    );
+
+    await expect(
+      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-5'),
+    ).resolves.toMatchObject({
+      id: 'ledger-5',
+      transactionId: 'ledger-5',
+      type: 'ADJUSTMENT',
+      direction: 'DEBIT',
+      adjustment: {
+        id: 'adjustment-5',
+        kind: 'DEBIT',
+        reason: 'Customer refund',
+        createdBy: 'supervisor-1',
+      },
+      reversal: {
+        originalTransactionId: 'earn-original',
+        reason: 'Customer refund',
+        createdBy: 'supervisor-1',
+        restorations: [],
       },
     });
   });

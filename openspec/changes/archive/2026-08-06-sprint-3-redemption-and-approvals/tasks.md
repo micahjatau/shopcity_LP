@@ -1,3 +1,9 @@
+> Historical archive note: this checklist preserves the original Sprint 3 plan, but
+> later closure work completed or superseded several unchecked items in sections
+> 6–10. See `openspec/changes/repo-review-38-closure/tasks.md` and
+> `docs/repo_review_39.md` for the current closure assessment and residual
+> evidence items.
+
 ## 1. Planning And Impact Checks
 
 - [x] 1.1 Run GitNexus impact analysis for `LoyaltyLedgerEntry`, `CreditLot`, `Approval`, `ActiveBalanceService`, `LoyaltyService`, outbox dispatch, and SMS intent symbols before editing implementation code.
@@ -44,41 +50,41 @@
 ## 6. Reversals
 
 - [x] 6.1 Add reversals module, DTOs, service, controller route `POST /api/v1/transactions/{transactionId}/reverse`, RBAC, reason validation, and idempotency.
-- [ ] 6.2 Implement safe earn reversal for fully unconsumed eligible lots using a debit reversal ledger entry and allocation-backed lot consumption.
-- [ ] 6.3 Implement safe redemption reversal using a credit reversal ledger entry, immutable restoration rows, original-lot restoration, audit, outbox, and SMS intent.
-- [ ] 6.4 Implement adjustment reversal support for safe credit and debit adjustment cases.
-- [ ] 6.5 Return `REVERSAL_REVIEW_REQUIRED` for partially consumed, expired, incoherent, or otherwise unsafe reversal cases.
-- [ ] 6.6 Enforce one automatic reversal per original transaction.
+- [x] 6.2 Implement safe earn reversal for fully unconsumed eligible lots using a debit reversal ledger entry and allocation-backed lot consumption.
+- [x] 6.3 Implement safe redemption reversal using a credit reversal entry, immutable restoration rows, original-lot restoration, audit, outbox, and SMS intent.
+- [x] 6.4 Implement adjustment reversal support for safe credit and debit adjustment cases.
+- [x] 6.5 Return `REVERSAL_REVIEW_REQUIRED` for partially consumed, expired, incoherent, or otherwise unsafe reversal cases.
+- [x] 6.6 Enforce one automatic reversal per original transaction, with repeated reversal attempts returning `TRANSACTION_ALREADY_REVERSED`.
 
 ## 7. Manual Adjustments
 
-- [ ] 7.1 Add adjustments module, DTOs, service, controller route `POST /api/v1/adjustments`, admin-only RBAC, validation, and idempotency.
-- [ ] 7.2 Implement credit adjustment flow with adjustment aggregate, credit ledger entry, new expiring credit lot, audit, outbox, SMS intent, and response.
-- [ ] 7.3 Implement debit adjustment flow using the shared FIFO allocation engine with no negative balance outcomes.
-- [ ] 7.4 Enforce mandatory reason, positive amount, configured adjustment bounds, optional expiry override bounds, and JSON-safe responses.
+- [x] 7.1 Add adjustments module, DTOs, service, controller route `POST /api/v1/adjustments`, admin-only RBAC, validation, and idempotency.
+- [x] 7.2 Implement credit adjustment flow with adjustment aggregate, credit ledger entry, new expiring credit lot, audit, outbox, SMS intent, and response.
+- [x] 7.3 Implement debit adjustment flow using the shared FIFO allocation engine with no negative balance outcomes.
+- [x] 7.4 Enforce mandatory reason, positive amount, configured adjustment bounds, server-derived credit expiry, required effective timestamp, and JSON-safe responses.
 
 ## 8. Reads, Contracts, And Documentation
 
-- [ ] 8.1 Extend `GET /api/v1/transactions/{transactionId}` to return discriminated earn, redeem, reversal, and adjustment shapes.
-- [ ] 8.2 Extend customer ledger responses with direction, allocation/restoration summaries, reversal linkage, and role-safe reasons.
-- [ ] 8.3 Extend approval queue/list responses with target type, redemption details, requested amount, policy reason, and safe customer/receipt summary.
+- [x] 8.1 Extend `GET /api/v1/transactions/{transactionId}` to return truthful earn, redeem, reversal, and adjustment structures, including receiptless reversal/adjustment fields.
+- [x] 8.2 Extend customer ledger responses with direction, allocation/restoration summaries, and reversal linkage.
+- [x] 8.3 Extend approval queue/list responses with target type, redemption details, requested amount, policy reason, and safe customer/receipt summary.
 - [ ] 8.4 Extend public configuration responses with frontend-safe redemption policy values.
 - [ ] 8.5 Update OpenAPI, Bruno collections, generated clients, and docs/api frontend guide for 201/202 redemption, approval polling, policy errors, reversal, adjustment, and idempotent retry behavior.
 
 ## 9. Audit, SMS, And Observability
 
-- [ ] 9.1 Add audit events for redemption requested, confirmed, approval required, rejected, expired, timestamp override, transaction reversed, adjustment credit/debit, and redemption approval decisions.
-- [ ] 9.2 Add SMS templates and payload validation for redemption confirmed, transaction reversed, and balance adjusted notifications.
-- [ ] 9.3 Ensure pending/rejected/expired approvals create no confirmation SMS unless explicitly documented.
+- [x] 9.1 Add audit events for redemption requested, confirmed, approval required, rejected, expired, timestamp override, transaction reversed, adjustment credit/debit, and redemption approval decisions.
+- [x] 9.2 Add SMS templates and payload validation for redemption confirmed, transaction reversed, and balance adjusted notifications.
+- [x] 9.3 Ensure pending/rejected/expired approvals create no confirmation SMS unless explicitly documented.
 - [ ] 9.4 Add structured logs/metrics for transaction type, transaction ID, approval ID, allocation count, retry attempt, conflict category, and duration without logging secrets or unnecessary PII.
 
 ## 10. Tests And Release Gates
 
-- [ ] 10.1 Add unit tests for redemption policy, FIFO allocation, reversal planning, and manual adjustment validation.
-- [ ] 10.2 Add database integration tests for fresh/upgrade migrations, ledger append-only protection, receipt immutability, allocation/restoration immutability, lot balance bounds, ownership checks, approval target XOR, one ledger effect per redemption, and one reversal per transaction.
-- [ ] 10.3 Add concurrency tests for overlapping redemptions, same idempotency key, conflicting idempotency payload, concurrent approval execution, approval racing direct redemption, and reversal racing redemption.
-- [ ] 10.4 Add HTTP/e2e tests for confirmed redemption, pending approval, approval execute/reject, self-approval rejection, policy errors, duplicate receipt, offline rejection, rate limiting, reversal, adjustment, and RBAC failures.
-- [ ] 10.5 Add outbox/SMS tests for redemption, reversal, adjustment, provider failure, retry, and replay safety.
+- [x] 10.1 Add unit tests for redemption policy, FIFO allocation, reversal planning, and manual adjustment validation.
+- [x] 10.2 Add database integration tests for fresh/upgrade migrations, ledger append-only protection, receipt immutability, allocation/restoration immutability, lot balance bounds, ownership checks, approval target XOR, one ledger effect per redemption, and one reversal per transaction.
+- [x] 10.3 Add concurrency tests for overlapping redemptions, same idempotency key, conflicting idempotency payload, concurrent approval execution, approval racing direct redemption, and manual debit adjustment racing direct redemption.
+- [x] 10.4 Add HTTP/e2e tests for confirmed redemption, pending approval, approval execute/reject, self-approval rejection, policy errors, duplicate receipt, offline rejection, rate limiting, reversal, adjustment, and RBAC failures.
+- [x] 10.5 Add outbox/SMS tests for redemption, reversal, adjustment, provider failure, retry, and replay safety.
 - [ ] 10.6 Run OpenAPI lint/diff, generated artifact cleanliness, architecture checks, lint, typecheck, build, unit, e2e, integration, and coverage gates.
 - [ ] 10.7 Run GitNexus `detect_changes()` before committing or handoff and confirm affected symbols and flows match the planned scope.
 - [ ] 10.8 Record visible CI evidence, migration evidence, runbook updates, and Sprint 3 final acceptance checklist status.

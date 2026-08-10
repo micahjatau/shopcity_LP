@@ -72,9 +72,7 @@ export class AdjustmentsService {
 
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const reason = normalizeReason(dto.reason);
-    const effectiveAt = dto.effectiveAt
-      ? new Date(dto.effectiveAt)
-      : new Date();
+    const effectiveAt = parseRequiredEffectiveAt(dto.effectiveAt);
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
@@ -497,6 +495,27 @@ function normalizeReason(value: string): string {
     );
   }
   return normalized;
+}
+
+function parseRequiredEffectiveAt(value: string): Date {
+  if (!value) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'effectiveAt is required',
+    );
+  }
+
+  const effectiveAt = new Date(value);
+  if (Number.isNaN(effectiveAt.getTime())) {
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'effectiveAt must be a valid ISO 8601 date-time',
+    );
+  }
+
+  return effectiveAt;
 }
 
 function toSafePositiveBigInt(value: number, field: string): bigint {
