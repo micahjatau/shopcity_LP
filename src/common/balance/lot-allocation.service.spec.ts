@@ -134,9 +134,7 @@ describe('LotAllocationService', () => {
     const queryRawMock = prisma.$queryRaw as unknown as {
       mock: { calls: Array<[Prisma.Sql]> };
     };
-    expect(queryRawMock.mock.calls[0][0].strings.join(' ')).toContain(
-      'NOT IN',
-    );
+    expect(queryRawMock.mock.calls[0][0].strings.join(' ')).toContain('NOT IN');
   });
 
   it('requires review when an exact lot cannot be updated', async () => {
