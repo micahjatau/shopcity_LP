@@ -209,7 +209,7 @@ describe('ReversalsService', () => {
 
   it('reverses an unused earn transaction with compensating ledger evidence', async () => {
     const lotAllocationService = {
-      allocateDebit: jest.fn().mockResolvedValue([
+      allocateDebitFromExactLot: jest.fn().mockResolvedValue([
         {
           creditLotId: 'lot-1',
           amountKobo: 4_000n,
@@ -335,9 +335,10 @@ describe('ReversalsService', () => {
       kind: 'DEBIT',
       ledgerEntryId: 'reversal-1',
     });
-    expect(lotAllocationService.allocateDebit).toHaveBeenCalledWith(
+    expect(lotAllocationService.allocateDebitFromExactLot).toHaveBeenCalledWith(
       tx as never,
       expect.objectContaining({
+        creditLotId: 'lot-1',
         debitLedgerEntryId: 'reversal-1',
         adjustmentId: 'reversal-adjustment-1',
       }),

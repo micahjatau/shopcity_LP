@@ -312,9 +312,10 @@ async function runReverseTransaction(input: {
           });
 
           allocations = toReversalAllocations(
-            await input.lotAllocationService.allocateDebit(prisma, {
+            await input.lotAllocationService.allocateDebitFromExactLot(prisma, {
               tenantId: input.tenantId,
               customerId: original.customerId,
+              creditLotId: original.creditLot.id,
               debitLedgerEntryId: reversalLedgerEntry.id,
               amountKobo: reversedAmountKobo,
               adjustmentId: reversalAdjustment.id,
@@ -564,9 +565,10 @@ async function runReverseTransaction(input: {
           });
 
           allocations = toReversalAllocations(
-            await input.lotAllocationService.allocateDebit(prisma, {
+            await input.lotAllocationService.allocateDebitFromExactLot(prisma, {
               tenantId: input.tenantId,
               customerId: original.customerId,
+              creditLotId: original.creditLot.id,
               debitLedgerEntryId: reversalLedgerEntry.id,
               amountKobo: reversedAmountKobo,
               adjustmentId: reversalAdjustment.id,

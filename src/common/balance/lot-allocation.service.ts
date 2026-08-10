@@ -19,6 +19,17 @@ export interface AllocateDebitInput {
   excludedCreditLotIds?: string[];
 }
 
+export interface AllocateDebitFromExactLotInput {
+  tenantId: string;
+  customerId: string;
+  creditLotId: string;
+  debitLedgerEntryId: string;
+  amountKobo: bigint;
+  now?: Date;
+  redemptionId?: string;
+  adjustmentId?: string;
+}
+
 export interface PersistedAllocation {
   creditLotId: string;
   amountKobo: bigint;
@@ -103,59 +114,26 @@ export class LotAllocationService {
     prisma: AllocationPrismaClient,
     input: AllocateDebitInput,
   ): Promise<PersistedAllocation[]> {
-    if (input.amountKobo <= 0n) {
-      throw new DomainHttpException(
-        HttpStatus.BAD_REQUEST,
-        'VALIDATION_ERROR',
-        'Debit allocation amount must be positive',
-      );
-    }
-
-    const targetCount =
-      Number(Boolean(input.redemptionId)) + Number(Boolean(input.adjustmentId));
-
-    if (targetCount !== 1) {
-      throw new DomainHttpException(
-        HttpStatus.BAD_REQUEST,
-        'VALIDATION_ERROR',
-        'Debit allocation must target exactly one redemption or adjustment',
-      );
-    }
+    this.validateDebitAllocationTarget(input);
 
     const lots = await this.lockEligibleLots(prisma, input);
     const allocations = this.planAllocations(lots, input.amountKobo);
 
-    await prisma.redemptionAllocation.createMany({
-      data: allocations.map((allocation) => ({
-        tenantId: input.tenantId,
-        redemptionId: input.redemptionId,
-        adjustmentId: input.adjustmentId,
-        redemptionLedgerEntryId: input.debitLedgerEntryId,
-        creditLotId: allocation.creditLotId,
-        amountKobo: allocation.amountKobo,
-        allocationOrder: allocation.allocationOrder,
-      })),
-    });
+    await this.persistAllocations(prisma, input, allocations);
 
-    for (const allocation of allocations) {
-      const result = await prisma.creditLot.updateMany({
-        where: {
-          tenantId: input.tenantId,
-          id: allocation.creditLotId,
-          customerId: input.customerId,
-          remainingAmountKobo: { gte: allocation.amountKobo },
-        },
-        data: { remainingAmountKobo: { decrement: allocation.amountKobo } },
-      });
+    return allocations;
+  }
 
-      if (result.count !== 1) {
-        throw new DomainHttpException(
-          HttpStatus.SERVICE_UNAVAILABLE,
-          'REDEMPTION_TRANSACTION_CONFLICT',
-          'Credit lot changed during allocation',
-        );
-      }
-    }
+  async allocateDebitFromExactLot(
+    prisma: AllocationPrismaClient,
+    input: AllocateDebitFromExactLotInput,
+  ): Promise<PersistedAllocation[]> {
+    this.validateDebitAllocationTarget(input);
+
+    const lot = await this.lockExactLot(prisma, input);
+    const allocations = this.planAllocations([lot], input.amountKobo);
+
+    await this.persistAllocations(prisma, input, allocations);
 
     return allocations;
   }
@@ -214,6 +192,29 @@ export class LotAllocationService {
     return restorations;
   }
 
+  private validateDebitAllocationTarget(
+    input: AllocateDebitInput | AllocateDebitFromExactLotInput,
+  ): void {
+    if (input.amountKobo <= 0n) {
+      throw new DomainHttpException(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION_ERROR',
+        'Debit allocation amount must be positive',
+      );
+    }
+
+    const targetCount =
+      Number(Boolean(input.redemptionId)) + Number(Boolean(input.adjustmentId));
+
+    if (targetCount !== 1) {
+      throw new DomainHttpException(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION_ERROR',
+        'Debit allocation must target exactly one redemption or adjustment',
+      );
+    }
+  }
+
   private async lockEligibleLots(
     prisma: AllocationPrismaClient,
     input: AllocateDebitInput,
@@ -235,6 +236,72 @@ export class LotAllocationService {
       ORDER BY "expiresAt" ASC, "earnedAt" ASC, "id" ASC
       FOR UPDATE
     `);
+  }
+
+  private async lockExactLot(
+    prisma: AllocationPrismaClient,
+    input: AllocateDebitFromExactLotInput,
+  ): Promise<LockedCreditLot> {
+    const now = input.now ?? new Date();
+    const lots = await prisma.$queryRaw<LockedCreditLot[]>(Prisma.sql`
+      SELECT "id", "remainingAmountKobo", "expiresAt"
+      FROM "CreditLot"
+      WHERE "tenantId" = ${input.tenantId}
+        AND "customerId" = ${input.customerId}
+        AND "id" = ${input.creditLotId}
+        AND "remainingAmountKobo" >= ${input.amountKobo}
+        AND "expiresAt" > ${now}
+      FOR UPDATE
+    `);
+
+    const lot = lots[0];
+    if (!lot) {
+      throw reviewRequired('Original credit lot changed during reversal');
+    }
+
+    return lot;
+  }
+
+  private async persistAllocations(
+    prisma: AllocationPrismaClient,
+    input: AllocateDebitInput | AllocateDebitFromExactLotInput,
+    allocations: PersistedAllocation[],
+  ): Promise<void> {
+    await prisma.redemptionAllocation.createMany({
+      data: allocations.map((allocation) => ({
+        tenantId: input.tenantId,
+        redemptionId: input.redemptionId,
+        adjustmentId: input.adjustmentId,
+        redemptionLedgerEntryId: input.debitLedgerEntryId,
+        creditLotId: allocation.creditLotId,
+        amountKobo: allocation.amountKobo,
+        allocationOrder: allocation.allocationOrder,
+      })),
+    });
+
+    for (const allocation of allocations) {
+      const result = await prisma.creditLot.updateMany({
+        where: {
+          tenantId: input.tenantId,
+          id: allocation.creditLotId,
+          customerId: input.customerId,
+          remainingAmountKobo: { gte: allocation.amountKobo },
+        },
+        data: { remainingAmountKobo: { decrement: allocation.amountKobo } },
+      });
+
+      if (result.count !== 1) {
+        if ('creditLotId' in input) {
+          throw reviewRequired('Original credit lot changed during reversal');
+        }
+
+        throw new DomainHttpException(
+          HttpStatus.SERVICE_UNAVAILABLE,
+          'REDEMPTION_TRANSACTION_CONFLICT',
+          'Credit lot changed during allocation',
+        );
+      }
+    }
   }
 
   private planAllocations(

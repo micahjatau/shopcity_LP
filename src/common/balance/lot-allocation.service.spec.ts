@@ -63,6 +63,48 @@ describe('LotAllocationService', () => {
     expect(prisma.creditLot.updateMany).toHaveBeenCalledTimes(2);
   });
 
+  it('allocates from a specific credit lot without FIFO fallback', async () => {
+    const expiresAt = new Date('2027-01-15T10:00:00.000Z');
+    const prisma = prismaStub({
+      lots: [{ id: 'lot-2', remainingAmountKobo: 400n, expiresAt }],
+    });
+    const service = new LotAllocationService();
+
+    await expect(
+      service.allocateDebitFromExactLot(prisma, {
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        creditLotId: 'lot-2',
+        debitLedgerEntryId: 'ledger-id',
+        adjustmentId: 'adjustment-id',
+        amountKobo: 250n,
+        now: new Date('2026-07-26T12:00:00.000Z'),
+      }),
+    ).resolves.toEqual([
+      {
+        creditLotId: 'lot-2',
+        amountKobo: 250n,
+        allocationOrder: 1,
+        expiresAt,
+      },
+    ]);
+
+    expect(prisma.redemptionAllocation.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          tenantId: 'tenant-id',
+          redemptionId: undefined,
+          adjustmentId: 'adjustment-id',
+          redemptionLedgerEntryId: 'ledger-id',
+          creditLotId: 'lot-2',
+          amountKobo: 250n,
+          allocationOrder: 1,
+        },
+      ],
+    });
+    expect(prisma.creditLot.updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects insufficient active balance without writing allocations', async () => {
     const prisma = prismaStub({
       lots: [
