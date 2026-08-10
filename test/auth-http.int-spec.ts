@@ -28,6 +28,20 @@ import type { INestApplication } from '@nestjs/common';
 
 let receiptlessFixtureSeq = 0;
 
+type ApiEnvelope<T> = {
+  data: T;
+};
+
+type ConcurrentAdjustmentResponse = {
+  adjustmentId?: string;
+  creditLot?: unknown;
+};
+
+type ConcurrentReversalResponse = {
+  originalTransactionId: string;
+  smsStatus: string;
+};
+
 describe('auth and readiness flows (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let redisEnv: RedisTestEnvironment;
@@ -350,9 +364,14 @@ describe('auth and readiness flows (int)', () => {
         .expect(201),
     ]);
 
-    expect(first.body.data).toMatchObject(second.body.data);
-    expect(first.body.data.adjustmentId).toBeDefined();
-    expect(first.body.data.creditLot).toBeTruthy();
+    const firstBody =
+      first.body as unknown as ApiEnvelope<ConcurrentAdjustmentResponse>;
+    const secondBody =
+      second.body as unknown as ApiEnvelope<ConcurrentAdjustmentResponse>;
+
+    expect(firstBody.data).toMatchObject(secondBody.data);
+    expect(firstBody.data.adjustmentId).toBeDefined();
+    expect(firstBody.data.creditLot).toBeTruthy();
   }, 120000);
 
   it('replays concurrent same-key reversal requests with the same response', async () => {
@@ -394,9 +413,14 @@ describe('auth and readiness flows (int)', () => {
         .expect(201),
     ]);
 
-    expect(first.body.data).toMatchObject(second.body.data);
-    expect(first.body.data.originalTransactionId).toBe(fixture.ledgerEntry.id);
-    expect(first.body.data.smsStatus).toBe('QUEUED');
+    const firstBody =
+      first.body as unknown as ApiEnvelope<ConcurrentReversalResponse>;
+    const secondBody =
+      second.body as unknown as ApiEnvelope<ConcurrentReversalResponse>;
+
+    expect(firstBody.data).toMatchObject(secondBody.data);
+    expect(firstBody.data.originalTransactionId).toBe(fixture.ledgerEntry.id);
+    expect(firstBody.data.smsStatus).toBe('QUEUED');
   }, 120000);
 
   it('binds login sessions to attested devices', async () => {

@@ -14,11 +14,12 @@ Sprint 3 is close, but the latest review shows a small set of correctness gaps s
 ## Capabilities
 
 ### New Capabilities
+
 - `financial-closure-hardening`: final Sprint 3 financial correctness, including reversals, manual adjustments, truthful read models, audit fidelity, and contract synchronization.
 
 ### Modified Capabilities
 
-- 
+-
 
 ## Impact
 

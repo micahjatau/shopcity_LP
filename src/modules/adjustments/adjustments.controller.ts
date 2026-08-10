@@ -1,10 +1,26 @@
-import { Body, Controller, Headers, Post, Req, Res, Version } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Headers,
+  Post,
+  Req,
+  Res,
+  Version,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { FastifyReply } from 'fastify';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
-import { apiErrorEnvelopeResponses, apiSuccessEnvelopeResponse } from '../../common/openapi-envelope';
+import {
+  apiErrorEnvelopeResponses,
+  apiSuccessEnvelopeResponse,
+} from '../../common/openapi-envelope';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildReverseThrottleKey } from '../../common/throttle/throttle.keys';
 import { CreateAdjustmentDto } from './adjustments.dto';
@@ -50,7 +66,12 @@ export class AdjustmentsController {
   @Post()
   @Version('1')
   @Roles(UserRole.ADMIN)
-  @Throttle({ bucket: 'adjustments.create', limit: 20, windowMs: 60_000, keyFactory: buildReverseThrottleKey })
+  @Throttle({
+    bucket: 'adjustments.create',
+    limit: 20,
+    windowMs: 60_000,
+    keyFactory: buildReverseThrottleKey,
+  })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
   @apiSuccessEnvelopeResponse({
     description: 'Adjustment created',

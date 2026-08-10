@@ -22,7 +22,9 @@ describe('ReversalsController', () => {
     const reversalsService: Pick<ReversalsService, 'reverse'> = {
       reverse: jest.fn().mockResolvedValue({ id: 'reversal-1' }),
     };
-    const controller = new ReversalsController(reversalsService as ReversalsService);
+    const controller = new ReversalsController(
+      reversalsService as ReversalsService,
+    );
     const request = {
       authContext: {
         user: { id: 'user-1', tenantId: 'tenant-1' },
@@ -33,7 +35,13 @@ describe('ReversalsController', () => {
     const dto = { reason: 'Customer refund' };
 
     await expect(
-      controller.reverse(request as never, 'transaction-1', 'idem-1', dto, reply as never),
+      controller.reverse(
+        request as never,
+        'transaction-1',
+        'idem-1',
+        dto,
+        reply as never,
+      ),
     ).resolves.toEqual({ id: 'reversal-1' });
 
     expect(reversalsService.reverse).toHaveBeenCalledWith(

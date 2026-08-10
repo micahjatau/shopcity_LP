@@ -5,6 +5,7 @@ Sprint 3 already has reversal, adjustment, read-model, audit, and OpenAPI plumbi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make eligible earn reversals complete successfully and remain idempotent under replay/concurrency.
 - Make manual adjustment expiry server-authoritative and enforce the configured amount ceiling.
 - Make receiptless transaction read models truthful instead of fabricating receipt fields.
@@ -12,6 +13,7 @@ Sprint 3 already has reversal, adjustment, read-model, audit, and OpenAPI plumbi
 - Regenerate OpenAPI and client artifacts so docs match runtime behavior.
 
 **Non-Goals:**
+
 - Redesign the financial domain model.
 - Add new transaction types or change approval policy semantics beyond the closure fixes.
 - Replace the existing Nest/Prisma/OpenAPI stack.
@@ -19,18 +21,22 @@ Sprint 3 already has reversal, adjustment, read-model, audit, and OpenAPI plumbi
 ## Decisions
 
 1. Keep reversal and adjustment behavior inside the existing service layer.
+
 - Rationale: both flows already use serializable transactions, idempotency records, and audit/outbox persistence. Extending those services keeps the change localized and preserves current retry semantics.
 - Alternatives considered: splitting closure logic into new orchestration services or background jobs. Rejected because the work is synchronous request handling and does not need a new execution layer.
 
 2. Make adjustment expiry server-owned by removing caller control from the public DTO.
+
 - Rationale: the review identifies caller-supplied expiry as a policy leak. The service should read `ADJUSTMENT_CREDIT_EXPIRY_MONTHS` and fall back to the documented default.
 - Alternatives considered: accepting the field but ignoring it, or validating it against config. Rejected because the public shape would still suggest caller control.
 
 3. Serialize receiptless transactions with explicit null receipt fields plus type-specific detail.
+
 - Rationale: synthetic receipt/card identifiers are misleading. Returning nulls for receipt-only fields and separate detail blocks keeps the model truthful without breaking the general transaction response envelope.
 - Alternatives considered: keeping synthetic placeholders or creating a separate endpoint. Rejected because placeholders violate truthfulness and a new endpoint is unnecessary for this closure pass.
 
 4. Treat contract regeneration as part of implementation, not a spec concern.
+
 - Rationale: OpenAPI/client artifacts are derived outputs and should be regenerated from the runtime app after code changes. The change should verify them, not model them as product behavior.
 - Alternatives considered: making the proposal/spec about documentation generation. Rejected because the user-facing behavior is the transaction contract, not the build tooling.
 

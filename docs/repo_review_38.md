@@ -8,24 +8,21 @@ Decision: Do not move to Sprint 4 yet
 
 The repository has made substantial progress: reversals and manual adjustments now exist, but it has not crossed the agreed 90% threshold. This needs one focused closure pass—not another architectural review.
 
-
 ---
 
 Scorecard
 
-TRD/Issue #3 area	Weight	Score
+TRD/Issue #3 area Weight Score
 
-Existing redemption, FIFO and approvals	30	29
-Reversal execution	25	16
-Manual credit/debit adjustments	20	17
-Financial safety and concurrency evidence	10	7
-API contracts and read models	10	6
-Documentation and final CI evidence	5	2
-Total	100	82
-
+Existing redemption, FIFO and approvals 30 29
+Reversal execution 25 16
+Manual credit/debit adjustments 20 17
+Financial safety and concurrency evidence 10 7
+API contracts and read models 10 6
+Documentation and final CI evidence 5 2
+Total 100 82
 
 Issue #3 requires working earn and redemption reversals, manual credit/debit adjustments, truthful read models, concurrency tests, regenerated contracts and a green final SHA.
-
 
 ---
 
@@ -39,13 +36,9 @@ The EARN branch:
 
 1. Validates that the original lot is unused.
 
-
 2. Decrements the credit lot.
 
-
 3. Builds the allocation response.
-
-
 
 But it does not create the compensating reversal ledger entry, notification, audit event, idempotency response or return value. After leaving the branch, execution reaches:
 
@@ -60,7 +53,6 @@ missing idempotency key
 empty reason
 
 unknown transaction
-
 
 There is no successful earn-reversal test.
 
@@ -80,9 +72,7 @@ persist idempotency response
 
 return 201
 
-
 Add a real integration test that proves the original earn remains unchanged and the lot becomes zero.
-
 
 ---
 
@@ -97,9 +87,9 @@ However, the DTO accepts expiryMonths from the caller, from 1 to 120 months.
 The service then prefers that submitted value over the server configuration:
 
 const expiryMonths =
-  dto.expiryMonths ??
-  configService.get('ADJUSTMENT_CREDIT_EXPIRY_MONTHS') ??
-  12;
+dto.expiryMonths ??
+configService.get('ADJUSTMENT_CREDIT_EXPIRY_MONTHS') ??
+12;
 
 That makes a financial policy client-selectable. An administrator could submit a 10-year expiry even though the configured ShopCity policy is 12 months.
 
@@ -108,7 +98,6 @@ Required correction
 Remove expiryMonths from the public DTO. Always derive expiry from the validated server configuration.
 
 Also add the adjustment amount ceiling required by Issue #3. Currently, the only upper limit is JavaScript’s Number.MAX_SAFE_INTEGER; no business ceiling is applied.
-
 
 ---
 
@@ -143,7 +132,6 @@ reversed-by transaction
 
 reversal reason
 
-
 These were specifically required by Issue #3.
 
 Required correction
@@ -151,20 +139,19 @@ Required correction
 Make receipt-specific fields nullable for receiptless transaction types and add an explicit transaction-type detail object, for example:
 
 adjustment: {
-  id,
-  kind,
-  reason,
-  createdBy,
+id,
+kind,
+reason,
+createdBy,
 }
 
 reversal: {
-  originalTransactionId,
-  reason,
-  restorations,
+originalTransactionId,
+reason,
+restorations,
 }
 
 Do not place ledger IDs or correlation hashes into receipt/card fields.
-
 
 ---
 
@@ -178,7 +165,6 @@ redemption.expired
 
 redemption.approval.reject
 
-
 The middle event is false: a rejected redemption has not expired.
 
 This corrupts the audit history and could later inflate expiry reports or confuse investigations.
@@ -186,7 +172,6 @@ This corrupts the audit history and could later inflate expiry reports or confus
 Required correction
 
 Remove redemption.expired from the rejection branch. Keep it only in the actual approval-expiry branch.
-
 
 ---
 
@@ -198,17 +183,15 @@ Previous: 6da4c8d72008e2b9662ceed90b2c4a8b478b43c6
 
 Current: 6da4c8d72008e2b9662ceed90b2c4a8b478b43c6
 
-
 The generated frontend client is also unchanged:
 
 Previous: 85d04922f931c59c5d374ccf994eb070fe84f88c
 
 Current: 85d04922f931c59c5d374ccf994eb070fe84f88c
 
-
 Yet the repository has added an adjustment controller and changed reversal from unavailable to successful 201. The committed API contract therefore cannot represent the current runtime.
 
-The CI workflow regenerates both files and then requires a clean Git diff.  Consequently, once the static workflow runs correctly, this head should fail the generated-artifact checks.
+The CI workflow regenerates both files and then requires a clean Git diff. Consequently, once the static workflow runs correctly, this head should fail the generated-artifact checks.
 
 Required correction
 
@@ -221,7 +204,6 @@ npm run openapi:diff
 npm run client:typecheck
 
 The adjustment OpenAPI response should document the complete response—not only { id }. The current controller schema exposes only an ID despite returning balances, allocations, credit-lot details and SMS status.
-
 
 ---
 
@@ -240,7 +222,6 @@ Allocation-restoration and single-reversal database constraints are tested.
 Financial SQL triggers are checked after migration deployment.
 
 The integration test configuration includes all *.int-spec.ts files.
-
 
 What remains
 
@@ -266,9 +247,7 @@ rollback when audit/outbox/idempotency persistence fails
 
 truthful read-model assertions for adjustments and reversals
 
-
 The current HTTP reversal test only attempts to reverse a nonexistent transaction and expects 404; it does not exercise a successful reversal.
-
 
 ---
 
@@ -298,9 +277,7 @@ manual debit adjustment structure
 
 redemption reversal structure
 
-
 The core architecture is good. This is now a correctness-and-closure task.
-
 
 ---
 
@@ -310,18 +287,12 @@ Complete these five packages of work:
 
 1. Repair earn reversal and add successful service, HTTP and integration tests.
 
-
 2. Make adjustment policy server-authoritative by removing caller-controlled expiry and adding the configured amount ceiling.
-
 
 3. Correct the read model and audit events, including the false rejection-expiry event.
 
-
 4. Regenerate and commit OpenAPI/client artifacts with complete schemas.
 
-
 5. Add the missing concurrency/idempotency tests and obtain one green immutable SHA.
-
-
 
 After those changes, the expected score is approximately 96–100%, and Sprint 3 can be closed without another broad review.

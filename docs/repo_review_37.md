@@ -46,9 +46,9 @@ The declared design requires one immutable release SHA, truthful deferral of inc
 
 The runtime is correctly unavailable:
 
-* The controller assigns HTTP 503.
-* The service always throws `REVERSAL_UNAVAILABLE`.
-* It creates no reversal, idempotency record, outbox event or financial effect.
+- The controller assigns HTTP 503.
+- The service always throws `REVERSAL_UNAVAILABLE`.
+- It creates no reversal, idempotency record, outbox event or financial effect.
 
 But the controller also declares `@ApiNoContentResponse`, which generates a `204` success response in OpenAPI and the client. A later test explicitly requires this nonexistent success path.
 
@@ -60,17 +60,18 @@ A frontend generated from the contract can legitimately interpret `204` as a com
 
 ### Required correction
 
-* Remove `@ApiNoContentResponse`.
-* Remove the generated `204` client type.
-* Configure a targeted Spectral exception for this intentionally unavailable endpoint rather than fabricating a 2xx response.
-* Add an HTTP integration test asserting:
+- Remove `@ApiNoContentResponse`.
+- Remove the generated `204` client type.
+- Configure a targeted Spectral exception for this intentionally unavailable endpoint rather than fabricating a 2xx response.
+- Add an HTTP integration test asserting:
 
-  * status `503`
-  * `success: false`
-  * `error.code: REVERSAL_UNAVAILABLE`
-  * no durable reversal or idempotency side effects.
-* Assert that `201`, `202` and `204` are absent from the operation.
-* Regenerate and commit OpenAPI and client artifacts.
+  - status `503`
+  - `success: false`
+  - `error.code: REVERSAL_UNAVAILABLE`
+  - no durable reversal or idempotency side effects.
+
+- Assert that `201`, `202` and `204` are absent from the operation.
+- Regenerate and commit OpenAPI and client artifacts.
 
 The existing tests only verify service exceptions and controller delegation; they do not validate the actual HTTP response envelope.
 
@@ -120,13 +121,13 @@ test-results/halfway-release/<release-sha>/
 9. Upload evidence using `if: always()`.
 10. Include:
 
-* backup reference and checksum
-* checked-out SHA
-* migration inventory comparison
-* `prisma migrate status`
-* database object probes
-* financial-row probes
-* logs and final outcome.
+- backup reference and checksum
+- checked-out SHA
+- migration inventory comparison
+- `prisma migrate status`
+- database object probes
+- financial-row probes
+- logs and final outcome.
 
 The `backup_reference` must identify the actual downloaded object, not merely act as a descriptive string.
 
@@ -167,10 +168,10 @@ The specification requires `DEVICE_ATTESTATION_KEK` to be distinct from session-
 
 Current environment validation only requires a nonempty string. It does not enforce:
 
-* minimum length or entropy
-* inequality with `SESSION_SECRET`
-* inequality with `CSRF_SECRET`
-* a supported encoding or key version.
+- minimum length or entropy
+- inequality with `SESSION_SECRET`
+- inequality with `CSRF_SECRET`
+- a supported encoding or key version.
 
 The encryption code hashes arbitrary key material into an AES key, meaning even a very weak one-character secret is technically accepted.
 
@@ -178,16 +179,17 @@ The environment tests do not cover the device KEK at all.
 
 ### Required correction
 
-* Require at least 32 bytes of unpredictable material.
-* Prefer base64-encoded 32-byte keys.
-* Reject a KEK equal to:
+- Require at least 32 bytes of unpredictable material.
+- Prefer base64-encoded 32-byte keys.
+- Reject a KEK equal to:
 
-  * `SESSION_SECRET`
-  * `CSRF_SECRET`
-  * SMS credentials.
-* Add a `DEVICE_ATTESTATION_KEK_VERSION`.
-* Add tests for missing, weak, malformed and reused keys.
-* Add a documented KEK rotation process capable of decrypting the prior version during controlled rotation.
+  - `SESSION_SECRET`
+  - `CSRF_SECRET`
+  - SMS credentials.
+
+- Add a `DEVICE_ATTESTATION_KEK_VERSION`.
+- Add tests for missing, weak, malformed and reused keys.
+- Add a documented KEK rotation process capable of decrypting the prior version during controlled rotation.
 
 ---
 
@@ -259,17 +261,17 @@ CHECK (
 
 Also:
 
-* Reject activation without valid secret metadata.
-* Allow activation and secret rotation atomically in one transaction.
-* Add integration tests for:
+- Reject activation without valid secret metadata.
+- Allow activation and secret rotation atomically in one transaction.
+- Add integration tests for:
 
-  * activation without a secret
-  * failed secret decryption
-  * supervisor list scope
-  * supervisor cross-branch create
-  * supervisor cross-branch update
-  * admin tenant-wide access
-  * non-enumerating cross-branch failure.
+  - activation without a secret
+  - failed secret decryption
+  - supervisor list scope
+  - supervisor cross-branch create
+  - supervisor cross-branch update
+  - admin tenant-wide access
+  - non-enumerating cross-branch failure.
 
 ---
 
@@ -279,9 +281,9 @@ The halfway checklist marks the controlled real-provider smoke script complete.
 
 However:
 
-* `package.json` contains no SMS smoke command.
-* No executable smoke implementation was found in the inspected current head.
-* The release evidence still lists SMS smoke evidence as pending.
+- `package.json` contains no SMS smoke command.
+- No executable smoke implementation was found in the inspected current head.
+- The release evidence still lists SMS smoke evidence as pending.
 
 The production provider and fake-provider production guard are present, which is good.
 
@@ -295,13 +297,13 @@ npm run sms:smoke:production
 
 It must require:
 
-* `SMS_SMOKE_APPROVED=true`
-* an allowlisted test destination
-* `SMS_PROVIDER_MODE=real`
-* one message maximum
-* a unique correlation ID
-* retry disabled for the smoke execution
-* no full phone number or credentials in logs.
+- `SMS_SMOKE_APPROVED=true`
+- an allowlisted test destination
+- `SMS_PROVIDER_MODE=real`
+- one message maximum
+- a unique correlation ID
+- retry disabled for the smoke execution
+- no full phone number or credentials in logs.
 
 It should produce redacted JSON evidence containing:
 
@@ -365,24 +367,24 @@ The scripts also rely on `CREATE TABLE IF NOT EXISTS`. That does not upgrade old
 
 The integration test is a single happy path. It does not cover:
 
-* placeholder operator identity
-* missing or blank reason
-* cross-batch receipt ownership
-* re-execution
-* old-table upgrade
-* count mismatch rollback
-* failed dependency reconciliation.
+- placeholder operator identity
+- missing or blank reason
+- cross-batch receipt ownership
+- re-execution
+- old-table upgrade
+- count mismatch rollback
+- failed dependency reconciliation.
 
 ### Required correction
 
-* Move support-table evolution into a committed migration using explicit `ALTER TABLE`.
-* Add `NOT NULL` and nonblank checks.
-* Reject values matching placeholder patterns such as `__%__`.
-* Record tenant and branch scope on the batch.
-* Require distinct creator, approver and executor where policy demands separation of duties.
-* Add negative, rollback and concurrency tests.
-* Produce a quarantine dry-run report before execution.
-* Attach the report to the final evidence package.
+- Move support-table evolution into a committed migration using explicit `ALTER TABLE`.
+- Add `NOT NULL` and nonblank checks.
+- Reject values matching placeholder patterns such as `__%__`.
+- Record tenant and branch scope on the batch.
+- Require distinct creator, approver and executor where policy demands separation of duties.
+- Add negative, rollback and concurrency tests.
+- Produce a quarantine dry-run report before execution.
+- Attach the report to the final evidence package.
 
 ---
 
@@ -425,19 +427,19 @@ Add:
 
 Then:
 
-* run it in CI before `validate:scope`
-* parse individual workflow steps
-* detect job- and step-level `continue-on-error`
-* require commands in specific mandatory jobs
-* reject common bypass patterns
-* add negative tests for:
+- run it in CI before `validate:scope`
+- parse individual workflow steps
+- detect job- and step-level `continue-on-error`
+- require commands in specific mandatory jobs
+- reject common bypass patterns
+- add negative tests for:
 
-  * uncovered critical file
-  * missing package script
-  * missing CI command
-  * command only in manual workflow
-  * optionalized step
-  * optionalized job.
+  - uncovered critical file
+  - missing package script
+  - missing CI command
+  - command only in manual workflow
+  - optionalized step
+  - optionalized job.
 
 ---
 
@@ -461,12 +463,12 @@ Add endpoint-specific OpenAPI examples and HTTP contract tests for the unsupport
 
 `format:release` checks a narrow collection of older files and omits the actual halfway:
 
-* README
-* validation JSON
-* deployment checklist
-* rollback checklist
-* halfway task file
-* protected workflow.
+- README
+- validation JSON
+- deployment checklist
+- rollback checklist
+- halfway task file
+- protected workflow.
 
 Normal CI also uploads `docs/release-evidence/repo-review-34/**` rather than the current `sprint-3-halfway` package.
 
@@ -474,13 +476,13 @@ Normal CI also uploads `docs/release-evidence/repo-review-34/**` rather than the
 
 Create a release-evidence verifier that checks:
 
-* JSON schema validity
-* all evidence files use `$GITHUB_SHA`
-* no required evidence remains pending
-* workflow run IDs and artifact IDs are populated
-* deployment and rollback checklists are complete
-* deferred capabilities match OpenAPI
-* all referenced report files exist.
+- JSON schema validity
+- all evidence files use `$GITHUB_SHA`
+- no required evidence remains pending
+- workflow run IDs and artifact IDs are populated
+- deployment and rollback checklists are complete
+- deferred capabilities match OpenAPI
+- all referenced report files exist.
 
 Upload an artifact named with the exact SHA.
 
@@ -613,24 +615,24 @@ The current checklist marks these as completed even though its final exact-head 
 
 The halfway sprint is complete only when one immutable SHA has all of the following:
 
-* Green static, unit, coverage, E2E, integration and GitNexus jobs.
-* Clean OpenAPI and generated-client diff.
-* No reversal 2xx contract.
-* Explicit receiptless unsupported contract.
-* Device KEK separation tests.
-* Active-device secret database constraint.
-* Device provisioning acknowledgement and backfill report.
-* Branch-scope authorization tests.
-* Validation-scope negative tests executed in CI.
-* Quarantine migration and concurrency proof.
-* Successful protected shared-backup restore artifact.
-* Migration reconciliation and object inventory.
-* Financial-row probes.
-* Real-provider SMS smoke evidence.
-* Quarantine dry-run evidence.
-* Completed deployment checklist.
-* Completed rollback checklist.
-* Evidence package and Issue #1 referencing the exact same SHA.
+- Green static, unit, coverage, E2E, integration and GitNexus jobs.
+- Clean OpenAPI and generated-client diff.
+- No reversal 2xx contract.
+- Explicit receiptless unsupported contract.
+- Device KEK separation tests.
+- Active-device secret database constraint.
+- Device provisioning acknowledgement and backfill report.
+- Branch-scope authorization tests.
+- Validation-scope negative tests executed in CI.
+- Quarantine migration and concurrency proof.
+- Successful protected shared-backup restore artifact.
+- Migration reconciliation and object inventory.
+- Financial-row probes.
+- Real-provider SMS smoke evidence.
+- Quarantine dry-run evidence.
+- Completed deployment checklist.
+- Completed rollback checklist.
+- Evidence package and Issue #1 referencing the exact same SHA.
 
 Until those conditions are met, the repository should remain **open for halfway-completion work and unavailable for production release**.
 

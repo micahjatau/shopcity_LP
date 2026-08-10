@@ -6,6 +6,7 @@ import {
   LedgerEntryDirection,
   LedgerEntryStatus,
   LedgerEntryType,
+  Prisma,
   PrismaClient,
   RedemptionStatus,
   ReceiptCaptureStatus,
@@ -176,12 +177,13 @@ describe('financial state invariants (int)', () => {
   }, 120000);
 
   it('rejects a second reversal for the same original transaction', async () => {
-    const { debitLedgerEntryId: originalLedgerId, allocationId } = await createConfirmedRedemption(
-      prisma,
-      fixture,
-      'REDEEM-REVERSAL-ONE',
-      6_000n,
-    );
+    const { debitLedgerEntryId: originalLedgerId, allocationId } =
+      await createConfirmedRedemption(
+        prisma,
+        fixture,
+        'REDEEM-REVERSAL-ONE',
+        6_000n,
+      );
 
     await prisma.$transaction(async (tx) => {
       const reversalLedger = await tx.loyaltyLedgerEntry.create({
@@ -216,9 +218,13 @@ describe('financial state invariants (int)', () => {
         where: {
           tenantId_id: {
             tenantId: fixture.tenantId,
-            id: (await tx.redemptionAllocation.findUniqueOrThrow({
-              where: { tenantId_id: { tenantId: fixture.tenantId, id: allocationId } },
-            })).creditLotId,
+            id: (
+              await tx.redemptionAllocation.findUniqueOrThrow({
+                where: {
+                  tenantId_id: { tenantId: fixture.tenantId, id: allocationId },
+                },
+              })
+            ).creditLotId,
           },
         },
         data: { remainingAmountKobo: { increment: 6_000n } },
@@ -243,7 +249,9 @@ describe('financial state invariants (int)', () => {
           effectiveAt: new Date('2026-07-26T12:00:00.000Z'),
         },
       }),
-    ).rejects.toThrow(/reversesentryid|unique constraint failed|duplicate key value/i);
+    ).rejects.toThrow(
+      /reversesentryid|unique constraint failed|duplicate key value/i,
+    );
   }, 120000);
 
   it('verifies the financial SQL guards are present after migration deploy', async () => {
@@ -582,7 +590,7 @@ async function createConfirmedRedemption(
 }
 
 async function createRedemptionScenario(
-  tx: PrismaClient,
+  tx: Prisma.TransactionClient,
   fixture: Awaited<ReturnType<typeof createBaseFixture>>,
 ) {
   const now = new Date();
@@ -625,7 +633,7 @@ async function createRedemptionScenario(
 }
 
 async function createReceipt(
-  prisma: PrismaClient,
+  prisma: Prisma.TransactionClient,
   fixture: Awaited<ReturnType<typeof createBaseFixture>>,
   receiptNumber: string,
   occurredAt: Date,

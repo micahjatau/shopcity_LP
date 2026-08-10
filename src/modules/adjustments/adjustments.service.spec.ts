@@ -1,5 +1,10 @@
 import { HttpStatus } from '@nestjs/common';
-import { CustomerStatus, SessionStatus, UserRole, UserStatus } from '@prisma/client';
+import {
+  CustomerStatus,
+  SessionStatus,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 import type { AuthContext } from '../../common/auth/session.types';
 import { AdjustmentsService } from './adjustments.service';
 
@@ -58,13 +63,18 @@ describe('AdjustmentsService', () => {
     });
 
     await expect(
-      service.createAdjustment('tenant-1', actor(UserRole.ADMIN), 'idem-credit', {
-        customerId: 'customer-1',
-        kind: 'CREDIT',
-        amountKobo: 2_500,
-        reason: 'Service recovery',
-        effectiveAt: '2026-07-26T12:00:00.000Z',
-      }),
+      service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-credit',
+        {
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 2_500,
+          reason: 'Service recovery',
+          effectiveAt: '2026-07-26T12:00:00.000Z',
+        },
+      ),
     ).resolves.toMatchObject({
       kind: 'CREDIT',
       amountKobo: 2_500,
@@ -72,11 +82,14 @@ describe('AdjustmentsService', () => {
       smsStatus: 'QUEUED',
     });
 
-    expect(tx.creditLot.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        expiresAt: new Date('2027-07-26T12:00:00.000Z'),
-      }),
-    });
+    const creditLotCreate = tx.creditLot.create as jest.Mock<
+      unknown,
+      [{ data: { expiresAt: Date } }]
+    >;
+    const creditLotCreateArg = creditLotCreate.mock.calls[0]?.[0];
+    expect(creditLotCreateArg.data.expiresAt).toEqual(
+      new Date('2027-07-26T12:00:00.000Z'),
+    );
 
     expect(tx.loyaltyLedgerEntry.create).toHaveBeenCalledTimes(1);
     expect(tx.adjustment.create).toHaveBeenCalledTimes(1);
@@ -107,12 +120,17 @@ describe('AdjustmentsService', () => {
     });
 
     await expect(
-      service.createAdjustment('tenant-1', actor(UserRole.ADMIN), 'idem-debit', {
-        customerId: 'customer-1',
-        kind: 'DEBIT',
-        amountKobo: 2_000,
-        reason: 'Manual correction',
-      }),
+      service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-debit',
+        {
+          customerId: 'customer-1',
+          kind: 'DEBIT',
+          amountKobo: 2_000,
+          reason: 'Manual correction',
+        },
+      ),
     ).resolves.toMatchObject({
       kind: 'DEBIT',
       amountKobo: 2_000,
@@ -144,12 +162,17 @@ describe('AdjustmentsService', () => {
     });
 
     await expect(
-      service.createAdjustment('tenant-1', actor(UserRole.ADMIN), 'idem-ceiling', {
-        customerId: 'customer-1',
-        kind: 'CREDIT',
-        amountKobo: 1_001,
-        reason: 'Service recovery',
-      }),
+      service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-ceiling',
+        {
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 1_001,
+          reason: 'Service recovery',
+        },
+      ),
     ).rejects.toMatchObject({
       response: { code: 'VALIDATION_ERROR' },
     });
@@ -166,19 +189,22 @@ function createService(options?: {
 }) {
   const tx = transactionClient();
   const transaction =
-    options?.transaction ?? jest.fn((callback: (client: typeof tx) => unknown) => callback(tx));
+    options?.transaction ??
+    jest.fn((callback: (client: typeof tx) => unknown) => callback(tx));
 
   return new AdjustmentsService(
     {
       $transaction: transaction,
-    idempotencyRecord: {
-      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
-      findUnique: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({}),
-    },
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
     } as never,
     {
-      getActiveBalanceKobo: jest.fn().mockResolvedValue(options?.activeBalanceKobo ?? 20_000n),
+      getActiveBalanceKobo: jest
+        .fn()
+        .mockResolvedValue(options?.activeBalanceKobo ?? 20_000n),
     } as never,
     (options?.lotAllocationService ??
       ({ allocateDebit: jest.fn().mockResolvedValue([]) } as never)) as never,
@@ -189,7 +215,8 @@ function createService(options?: {
       get: (key: string) =>
         ({
           ADJUSTMENT_CREDIT_EXPIRY_MONTHS: 12,
-          ADJUSTMENT_AMOUNT_CEILING_KOBO: options?.config?.ADJUSTMENT_AMOUNT_CEILING_KOBO ?? 100_000_000,
+          ADJUSTMENT_AMOUNT_CEILING_KOBO:
+            options?.config?.ADJUSTMENT_AMOUNT_CEILING_KOBO ?? 100_000_000,
         })[key],
     } as never,
   );

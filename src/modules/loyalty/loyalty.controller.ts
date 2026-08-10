@@ -67,7 +67,10 @@ const transactionLedgerItemSchema = {
     id: { type: 'string', format: 'uuid' },
     receiptId: { type: 'string', format: 'uuid', nullable: true },
     redemptionId: { type: 'string', format: 'uuid', nullable: true },
-    type: { type: 'string', enum: ['EARN', 'REDEEM', 'REVERSAL', 'ADJUSTMENT'] },
+    type: {
+      type: 'string',
+      enum: ['EARN', 'REDEEM', 'REVERSAL', 'ADJUSTMENT'],
+    },
     direction: { type: 'string', enum: ['CREDIT', 'DEBIT'] },
     amountKobo: { type: 'integer' },
     status: { type: 'string', example: 'CONFIRMED' },
@@ -111,7 +114,13 @@ const transactionLedgerItemSchema = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['id', 'allocationId', 'creditLotId', 'amountKobo', 'reversalLedgerEntryId'],
+        required: [
+          'id',
+          'allocationId',
+          'creditLotId',
+          'amountKobo',
+          'reversalLedgerEntryId',
+        ],
         properties: {
           id: { type: 'string', format: 'uuid' },
           allocationId: { type: 'string', format: 'uuid' },
@@ -200,7 +209,11 @@ const transactionResponseSchema = {
       nullable: true,
       required: ['originalTransactionId', 'restorations'],
       properties: {
-        originalTransactionId: { type: 'string', format: 'uuid', nullable: true },
+        originalTransactionId: {
+          type: 'string',
+          format: 'uuid',
+          nullable: true,
+        },
         restorations: {
           type: 'array',
           items: {

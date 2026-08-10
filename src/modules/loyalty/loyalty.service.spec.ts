@@ -1010,7 +1010,9 @@ describe('LoyaltyService redemption approvals', () => {
         update: jest.fn().mockResolvedValue({}),
       },
     };
-    const transaction = jest.fn((callback: (client: typeof tx) => unknown) => callback(tx));
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
     const audit = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
     const service = new LoyaltyService(
       prismaService({ transaction }),
@@ -1034,8 +1036,17 @@ describe('LoyaltyService redemption approvals', () => {
       redemptionId: 'redemption-1',
     });
 
-    const actions = audit.recordWithClient.mock.calls.map(([, payload]) => payload.action);
-    expect(actions).toEqual(['redemption.rejected', 'redemption.approval.reject']);
+    const recordWithClient = audit.recordWithClient as jest.Mock<
+      unknown,
+      [unknown, { action: string }]
+    >;
+    const actions = recordWithClient.mock.calls.map(
+      ([, payload]) => payload.action,
+    );
+    expect(actions).toEqual([
+      'redemption.rejected',
+      'redemption.approval.reject',
+    ]);
     expect(actions).not.toContain('redemption.expired');
   });
 });

@@ -10,7 +10,11 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
-import { FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS, LotAllocationService, type PersistedAllocation } from '../../common/balance/lot-allocation.service';
+import {
+  FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS,
+  LotAllocationService,
+  type PersistedAllocation,
+} from '../../common/balance/lot-allocation.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
@@ -129,620 +133,632 @@ async function runReverseTransaction(input: {
 }): Promise<ReversalResponse> {
   for (let attempt = 1; attempt <= REVERSAL_RETRY_ATTEMPTS; attempt += 1) {
     try {
-      return await input.prismaService.$transaction(
-        async (prisma) => {
-          const lockKey = buildReverseIdempotencyLockKey(
-            input.tenantId,
-            input.actor.user.id,
-            input.normalizedKey,
-          );
+      return await input.prismaService.$transaction(async (prisma) => {
+        const lockKey = buildReverseIdempotencyLockKey(
+          input.tenantId,
+          input.actor.user.id,
+          input.normalizedKey,
+        );
 
-          await prisma.$executeRaw(
-            Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
-          );
+        await prisma.$executeRaw(
+          Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+        );
 
-          const existing = await prisma.idempotencyRecord.findUnique({
-            where: {
-              tenantId_actorId_endpoint_idempotencyKey: {
-                tenantId: input.tenantId,
-                actorId: input.actor.user.id,
-                endpoint: REVERSE_ENDPOINT,
-                idempotencyKey: input.normalizedKey,
-              },
-            },
-          });
-
-          if (existing && existing.requestHash !== input.requestHash) {
-            throw new DomainHttpException(
-              HttpStatus.CONFLICT,
-              'IDEMPOTENCY_CONFLICT',
-              'Idempotency key reused with different payload',
-            );
-          }
-
-          if (existing?.requestHash === input.requestHash && existing.responseJson) {
-            return existing.responseJson as unknown as ReversalResponse;
-          }
-
-          if (existing) {
-            throw new DomainHttpException(
-              HttpStatus.CONFLICT,
-              'IDEMPOTENCY_IN_PROGRESS',
-              'Idempotency key is still being processed',
-            );
-          }
-
-          await prisma.idempotencyRecord.create({
-            data: {
+        const existing = await prisma.idempotencyRecord.findUnique({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
               tenantId: input.tenantId,
               actorId: input.actor.user.id,
               endpoint: REVERSE_ENDPOINT,
               idempotencyKey: input.normalizedKey,
-              requestHash: input.requestHash,
-              responseJson: Prisma.JsonNull,
-              status: 'PENDING',
-              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             },
-          });
+          },
+        });
 
-          const original = await prisma.loyaltyLedgerEntry.findFirst({
-            where: { tenantId: input.tenantId, id: input.transactionId },
-            include: {
-              customer: { include: { branch: true } },
-              receipt: {
-                include: {
-                  branch: true,
-                  card: true,
-                  device: true,
-                },
+        if (existing && existing.requestHash !== input.requestHash) {
+          throw new DomainHttpException(
+            HttpStatus.CONFLICT,
+            'IDEMPOTENCY_CONFLICT',
+            'Idempotency key reused with different payload',
+          );
+        }
+
+        if (
+          existing?.requestHash === input.requestHash &&
+          existing.responseJson
+        ) {
+          return existing.responseJson as unknown as ReversalResponse;
+        }
+
+        if (existing) {
+          throw new DomainHttpException(
+            HttpStatus.CONFLICT,
+            'IDEMPOTENCY_IN_PROGRESS',
+            'Idempotency key is still being processed',
+          );
+        }
+
+        await prisma.idempotencyRecord.create({
+          data: {
+            tenantId: input.tenantId,
+            actorId: input.actor.user.id,
+            endpoint: REVERSE_ENDPOINT,
+            idempotencyKey: input.normalizedKey,
+            requestHash: input.requestHash,
+            responseJson: Prisma.JsonNull,
+            status: 'PENDING',
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        });
+
+        const original = await prisma.loyaltyLedgerEntry.findFirst({
+          where: { tenantId: input.tenantId, id: input.transactionId },
+          include: {
+            customer: { include: { branch: true } },
+            receipt: {
+              include: {
+                branch: true,
+                card: true,
+                device: true,
               },
-              creditLot: true,
-              redemption: {
-                include: {
-                  receipt: {
-                    include: {
-                      branch: true,
-                      card: true,
-                      device: true,
-                    },
+            },
+            creditLot: true,
+            redemption: {
+              include: {
+                receipt: {
+                  include: {
+                    branch: true,
+                    card: true,
+                    device: true,
                   },
-                  approval: true,
                 },
+                approval: true,
               },
-              adjustment: true,
-              redemptionAllocations: {
-                include: {
-                  creditLot: { select: { expiresAt: true } },
-                  restorations: true,
-                },
-                orderBy: { allocationOrder: 'asc' },
+            },
+            adjustment: true,
+            redemptionAllocations: {
+              include: {
+                creditLot: { select: { expiresAt: true } },
+                restorations: true,
               },
-              reversedByEntries: {
-                select: { id: true },
-              },
+              orderBy: { allocationOrder: 'asc' },
+            },
+            reversedByEntries: {
+              select: { id: true },
+            },
+          },
+        });
+
+        if (!original) {
+          throw new DomainHttpException(
+            HttpStatus.NOT_FOUND,
+            'TRANSACTION_NOT_FOUND',
+            'Transaction not found',
+          );
+        }
+
+        if (
+          input.actor.user.branchId &&
+          input.actor.user.branchId !== original.customer.branchId
+        ) {
+          throw new DomainHttpException(
+            HttpStatus.NOT_FOUND,
+            'TRANSACTION_NOT_FOUND',
+            'Transaction not found',
+          );
+        }
+
+        if (original.reversedByEntries.length > 0) {
+          throw reviewRequired('Transaction already has a reversal');
+        }
+
+        const now = new Date();
+        let reversedAmountKobo = 0n;
+        let allocations: ReversalResponse['allocations'] = [];
+        let restorations: ReversalResponse['restorations'] = [];
+
+        if (
+          original.type === LedgerEntryType.EARN &&
+          original.direction === LedgerEntryDirection.CREDIT
+        ) {
+          if (!original.creditLot) {
+            throw reviewRequired('Original credit lot is missing');
+          }
+
+          if (original.creditLot.expiresAt <= now) {
+            throw reviewRequired('Original credit lot is expired');
+          }
+
+          if (
+            original.creditLot.remainingAmountKobo !==
+            original.creditLot.originalAmountKobo
+          ) {
+            throw reviewRequired(
+              'Original credit lot has already been consumed',
+            );
+          }
+
+          reversedAmountKobo = original.creditLot.originalAmountKobo;
+
+          const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
+            data: {
+              tenantId: input.tenantId,
+              customerId: original.customerId,
+              receiptId: null,
+              type: LedgerEntryType.ADJUSTMENT,
+              direction: LedgerEntryDirection.DEBIT,
+              amountKobo: reversedAmountKobo,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: input.requestHash,
+              reversesEntryId: original.id,
+              createdByTenantId: input.actor.user.tenantId,
+              createdBy: input.actor.user.id,
+              effectiveAt: now,
             },
           });
 
-          if (!original) {
-            throw new DomainHttpException(
-              HttpStatus.NOT_FOUND,
-              'TRANSACTION_NOT_FOUND',
-              'Transaction not found',
+          const reversalAdjustment = await prisma.adjustment.create({
+            data: {
+              tenantId: input.tenantId,
+              customerId: original.customerId,
+              kind: AdjustmentKind.DEBIT,
+              amountKobo: reversedAmountKobo,
+              reason: input.reason,
+              createdByTenantId: input.actor.user.tenantId,
+              createdBy: input.actor.user.id,
+              ledgerEntryId: reversalLedgerEntry.id,
+              effectiveAt: now,
+            },
+          });
+
+          allocations = toReversalAllocations(
+            await input.lotAllocationService.allocateDebit(prisma, {
+              tenantId: input.tenantId,
+              customerId: original.customerId,
+              debitLedgerEntryId: reversalLedgerEntry.id,
+              amountKobo: reversedAmountKobo,
+              adjustmentId: reversalAdjustment.id,
+              now,
+            }),
+          );
+
+          const remainingBalanceKobo =
+            await input.activeBalanceService.getActiveBalanceKobo(
+              input.tenantId,
+              original.customerId,
+              now,
+              prisma,
             );
+
+          await persistReverseNotification({
+            prisma,
+            tenantId: input.tenantId,
+            phoneE164: original.customer.phoneE164,
+            reversalLedgerEntryId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            receiptId: original.receiptId ?? null,
+            occurredAt: now,
+          });
+
+          await input.auditService.recordWithClient(prisma, {
+            tenantId: input.tenantId,
+            actorId: input.actor.user.id,
+            action: 'transaction.reversed',
+            entityType: 'ledger-entry',
+            entityId: original.id,
+            metadata: {
+              reason: input.reason,
+              reversalLedgerEntryId: reversalLedgerEntry.id,
+              reversedAmountKobo: Number(reversedAmountKobo),
+            },
+          });
+
+          const response: ReversalResponse = {
+            id: reversalLedgerEntry.id,
+            transactionId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            originalTransactionType: original.type,
+            reversedAmountKobo: Number(reversedAmountKobo),
+            newActiveBalanceKobo: Number(remainingBalanceKobo),
+            allocations,
+            restorations,
+            smsStatus: SmsMessageStatus.QUEUED,
+            occurredAt: now.toISOString(),
+            requestedAt: now.toISOString(),
+          };
+
+          await persistReverseIdempotency(
+            prisma,
+            input.tenantId,
+            input.actor.user.id,
+            input.normalizedKey,
+            input.requestHash,
+            response,
+          );
+
+          return response;
+        } else if (
+          original.type === LedgerEntryType.REDEEM &&
+          original.direction === LedgerEntryDirection.DEBIT
+        ) {
+          const plannedRestorations =
+            await input.lotAllocationService.planRestorations(prisma, {
+              tenantId: input.tenantId,
+              debitLedgerEntryId: original.id,
+              now,
+            });
+
+          reversedAmountKobo = plannedRestorations.reduce(
+            (sum, restoration) => sum + restoration.amountKobo,
+            0n,
+          );
+
+          const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
+            data: {
+              tenantId: input.tenantId,
+              customerId: original.customerId,
+              receiptId: null,
+              type: LedgerEntryType.REVERSAL,
+              direction: LedgerEntryDirection.CREDIT,
+              amountKobo: reversedAmountKobo,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: input.requestHash,
+              reversesEntryId: original.id,
+              createdByTenantId: input.actor.user.tenantId,
+              createdBy: input.actor.user.id,
+              effectiveAt: now,
+            },
+          });
+
+          for (const restoration of plannedRestorations) {
+            const updated = await prisma.creditLot.updateMany({
+              where: {
+                tenantId: input.tenantId,
+                id: restoration.creditLotId,
+                customerId: original.customerId,
+              },
+              data: {
+                remainingAmountKobo: { increment: restoration.amountKobo },
+              },
+            });
+
+            if (updated.count !== 1) {
+              throw reviewRequired(
+                'Original credit lot changed during reversal',
+              );
+            }
+
+            await prisma.allocationRestoration.create({
+              data: {
+                tenantId: input.tenantId,
+                allocationId: restoration.allocationId,
+                reversalLedgerEntryId: reversalLedgerEntry.id,
+                amountKobo: restoration.amountKobo,
+              },
+            });
+          }
+
+          restorations = plannedRestorations.map((restoration) => ({
+            allocationId: restoration.allocationId,
+            creditLotId: restoration.creditLotId,
+            amountKobo: Number(restoration.amountKobo),
+          }));
+
+          await prisma.redemption.updateMany({
+            where: { tenantId: input.tenantId, ledgerEntryId: original.id },
+            data: { status: RedemptionStatus.REVERSED, reversedAt: now },
+          });
+
+          const remainingBalanceKobo =
+            await input.activeBalanceService.getActiveBalanceKobo(
+              input.tenantId,
+              original.customerId,
+              now,
+              prisma,
+            );
+
+          await persistReverseNotification({
+            prisma,
+            tenantId: input.tenantId,
+            phoneE164: original.customer.phoneE164,
+            reversalLedgerEntryId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            receiptId:
+              original.receiptId ?? original.redemption?.receiptId ?? null,
+            occurredAt: now,
+          });
+
+          await input.auditService.recordWithClient(prisma, {
+            tenantId: input.tenantId,
+            actorId: input.actor.user.id,
+            action: 'transaction.reversed',
+            entityType: 'ledger-entry',
+            entityId: original.id,
+            metadata: {
+              reason: input.reason,
+              reversalLedgerEntryId: reversalLedgerEntry.id,
+              reversedAmountKobo: Number(reversedAmountKobo),
+            },
+          });
+
+          const response: ReversalResponse = {
+            id: reversalLedgerEntry.id,
+            transactionId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            originalTransactionType: original.type,
+            reversedAmountKobo: Number(reversedAmountKobo),
+            newActiveBalanceKobo: Number(remainingBalanceKobo),
+            allocations,
+            restorations,
+            smsStatus: SmsMessageStatus.QUEUED,
+            occurredAt: now.toISOString(),
+            requestedAt: now.toISOString(),
+          };
+
+          await persistReverseIdempotency(
+            prisma,
+            input.tenantId,
+            input.actor.user.id,
+            input.normalizedKey,
+            input.requestHash,
+            response,
+          );
+
+          return response;
+        } else if (
+          original.type === LedgerEntryType.ADJUSTMENT &&
+          original.direction === LedgerEntryDirection.CREDIT
+        ) {
+          if (!original.adjustment) {
+            throw reviewRequired('Original adjustment is missing');
+          }
+
+          if (!original.creditLot) {
+            throw reviewRequired('Original credit lot is missing');
+          }
+
+          if (original.creditLot.expiresAt <= now) {
+            throw reviewRequired('Original credit lot is expired');
           }
 
           if (
-            input.actor.user.branchId &&
-            input.actor.user.branchId !== original.customer.branchId
+            original.creditLot.remainingAmountKobo !==
+            original.creditLot.originalAmountKobo
           ) {
-            throw new DomainHttpException(
-              HttpStatus.NOT_FOUND,
-              'TRANSACTION_NOT_FOUND',
-              'Transaction not found',
+            throw reviewRequired(
+              'Original credit lot has already been consumed',
             );
           }
 
-          if (original.reversedByEntries.length > 0) {
-            throw reviewRequired('Transaction already has a reversal');
-          }
+          reversedAmountKobo = original.adjustment.amountKobo;
 
-          const now = new Date();
-          let reversedAmountKobo = 0n;
-          let allocations: ReversalResponse['allocations'] = [];
-          let restorations: ReversalResponse['restorations'] = [];
-
-          if (
-            original.type === LedgerEntryType.EARN &&
-            original.direction === LedgerEntryDirection.CREDIT
-          ) {
-            if (!original.creditLot) {
-              throw reviewRequired('Original credit lot is missing');
-            }
-
-            if (original.creditLot.expiresAt <= now) {
-              throw reviewRequired('Original credit lot is expired');
-            }
-
-            if (
-              original.creditLot.remainingAmountKobo !==
-              original.creditLot.originalAmountKobo
-            ) {
-              throw reviewRequired('Original credit lot has already been consumed');
-            }
-
-            reversedAmountKobo = original.creditLot.originalAmountKobo;
-
-            const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
-              data: {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                receiptId: null,
-                type: LedgerEntryType.ADJUSTMENT,
-                direction: LedgerEntryDirection.DEBIT,
-                amountKobo: reversedAmountKobo,
-                status: LedgerEntryStatus.CONFIRMED,
-                correlationId: input.requestHash,
-                reversesEntryId: original.id,
-                createdByTenantId: input.actor.user.tenantId,
-                createdBy: input.actor.user.id,
-                effectiveAt: now,
-              },
-            });
-
-            const reversalAdjustment = await prisma.adjustment.create({
-              data: {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                kind: AdjustmentKind.DEBIT,
-                amountKobo: reversedAmountKobo,
-                reason: input.reason,
-                createdByTenantId: input.actor.user.tenantId,
-                createdBy: input.actor.user.id,
-                ledgerEntryId: reversalLedgerEntry.id,
-                effectiveAt: now,
-              },
-            });
-
-            allocations = toReversalAllocations(
-              await input.lotAllocationService.allocateDebit(prisma, {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                debitLedgerEntryId: reversalLedgerEntry.id,
-                amountKobo: reversedAmountKobo,
-                adjustmentId: reversalAdjustment.id,
-                now,
-              }),
-            );
-
-            const remainingBalanceKobo =
-              await input.activeBalanceService.getActiveBalanceKobo(
-                input.tenantId,
-                original.customerId,
-                now,
-                prisma,
-              );
-
-            await persistReverseNotification({
-              prisma,
+          const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
+            data: {
               tenantId: input.tenantId,
-              phoneE164: original.customer.phoneE164,
-              reversalLedgerEntryId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              receiptId: original.receiptId ?? null,
-              occurredAt: now,
-            });
-
-            await input.auditService.recordWithClient(prisma, {
-              tenantId: input.tenantId,
-              actorId: input.actor.user.id,
-              action: 'transaction.reversed',
-              entityType: 'ledger-entry',
-              entityId: original.id,
-              metadata: {
-                reason: input.reason,
-                reversalLedgerEntryId: reversalLedgerEntry.id,
-                reversedAmountKobo: Number(reversedAmountKobo),
-              },
-            });
-
-            const response: ReversalResponse = {
-              id: reversalLedgerEntry.id,
-              transactionId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              originalTransactionType: original.type,
-              reversedAmountKobo: Number(reversedAmountKobo),
-              newActiveBalanceKobo: Number(remainingBalanceKobo),
-              allocations,
-              restorations,
-              smsStatus: SmsMessageStatus.QUEUED,
-              occurredAt: now.toISOString(),
-              requestedAt: now.toISOString(),
-            };
-
-            await persistReverseIdempotency(
-              prisma,
-              input.tenantId,
-              input.actor.user.id,
-              input.normalizedKey,
-              input.requestHash,
-              response,
-            );
-
-            return response;
-          } else if (
-            original.type === LedgerEntryType.REDEEM &&
-            original.direction === LedgerEntryDirection.DEBIT
-          ) {
-            const plannedRestorations =
-              await input.lotAllocationService.planRestorations(prisma, {
-                tenantId: input.tenantId,
-                debitLedgerEntryId: original.id,
-                now,
-              });
-
-            reversedAmountKobo = plannedRestorations.reduce(
-              (sum, restoration) => sum + restoration.amountKobo,
-              0n,
-            );
-
-            const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
-              data: {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                receiptId: null,
-                type: LedgerEntryType.REVERSAL,
-                direction: LedgerEntryDirection.CREDIT,
-                amountKobo: reversedAmountKobo,
-                status: LedgerEntryStatus.CONFIRMED,
-                correlationId: input.requestHash,
-                reversesEntryId: original.id,
-                createdByTenantId: input.actor.user.tenantId,
-                createdBy: input.actor.user.id,
-                effectiveAt: now,
-              },
-            });
-
-            for (const restoration of plannedRestorations) {
-              const updated = await prisma.creditLot.updateMany({
-                where: {
-                  tenantId: input.tenantId,
-                  id: restoration.creditLotId,
-                  customerId: original.customerId,
-                },
-                data: { remainingAmountKobo: { increment: restoration.amountKobo } },
-              });
-
-              if (updated.count !== 1) {
-                throw reviewRequired('Original credit lot changed during reversal');
-              }
-
-              await prisma.allocationRestoration.create({
-                data: {
-                  tenantId: input.tenantId,
-                  allocationId: restoration.allocationId,
-                  reversalLedgerEntryId: reversalLedgerEntry.id,
-                  amountKobo: restoration.amountKobo,
-                },
-              });
-            }
-
-            restorations = plannedRestorations.map((restoration) => ({
-              allocationId: restoration.allocationId,
-              creditLotId: restoration.creditLotId,
-              amountKobo: Number(restoration.amountKobo),
-            }));
-
-            await prisma.redemption.updateMany({
-              where: { tenantId: input.tenantId, ledgerEntryId: original.id },
-              data: { status: RedemptionStatus.REVERSED, reversedAt: now },
-            });
-
-            const remainingBalanceKobo =
-              await input.activeBalanceService.getActiveBalanceKobo(
-                input.tenantId,
-                original.customerId,
-                now,
-                prisma,
-              );
-
-            await persistReverseNotification({
-              prisma,
-              tenantId: input.tenantId,
-              phoneE164: original.customer.phoneE164,
-              reversalLedgerEntryId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              receiptId: original.receiptId ?? original.redemption?.receiptId ?? null,
-              occurredAt: now,
-            });
-
-            await input.auditService.recordWithClient(prisma, {
-              tenantId: input.tenantId,
-              actorId: input.actor.user.id,
-              action: 'transaction.reversed',
-              entityType: 'ledger-entry',
-              entityId: original.id,
-              metadata: {
-                reason: input.reason,
-                reversalLedgerEntryId: reversalLedgerEntry.id,
-                reversedAmountKobo: Number(reversedAmountKobo),
-              },
-            });
-
-            const response: ReversalResponse = {
-              id: reversalLedgerEntry.id,
-              transactionId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              originalTransactionType: original.type,
-              reversedAmountKobo: Number(reversedAmountKobo),
-              newActiveBalanceKobo: Number(remainingBalanceKobo),
-              allocations,
-              restorations,
-              smsStatus: SmsMessageStatus.QUEUED,
-              occurredAt: now.toISOString(),
-              requestedAt: now.toISOString(),
-            };
-
-            await persistReverseIdempotency(
-              prisma,
-              input.tenantId,
-              input.actor.user.id,
-              input.normalizedKey,
-              input.requestHash,
-              response,
-            );
-
-            return response;
-          } else if (
-            original.type === LedgerEntryType.ADJUSTMENT &&
-            original.direction === LedgerEntryDirection.CREDIT
-          ) {
-            if (!original.adjustment) {
-              throw reviewRequired('Original adjustment is missing');
-            }
-
-            if (!original.creditLot) {
-              throw reviewRequired('Original credit lot is missing');
-            }
-
-            if (original.creditLot.expiresAt <= now) {
-              throw reviewRequired('Original credit lot is expired');
-            }
-
-            if (
-              original.creditLot.remainingAmountKobo !==
-              original.creditLot.originalAmountKobo
-            ) {
-              throw reviewRequired('Original credit lot has already been consumed');
-            }
-
-            reversedAmountKobo = original.adjustment.amountKobo;
-
-            const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
-              data: {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                receiptId: null,
-                type: LedgerEntryType.ADJUSTMENT,
-                direction: LedgerEntryDirection.DEBIT,
-                amountKobo: reversedAmountKobo,
-                status: LedgerEntryStatus.CONFIRMED,
-                correlationId: input.requestHash,
-                reversesEntryId: original.id,
-                createdByTenantId: input.actor.user.tenantId,
-                createdBy: input.actor.user.id,
-                effectiveAt: now,
-              },
-            });
-
-            const reversalAdjustment = await prisma.adjustment.create({
-              data: {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                kind: AdjustmentKind.DEBIT,
-                amountKobo: reversedAmountKobo,
-                reason: input.reason,
-                createdByTenantId: input.actor.user.tenantId,
-                createdBy: input.actor.user.id,
-                ledgerEntryId: reversalLedgerEntry.id,
-                effectiveAt: now,
-              },
-            });
-
-            allocations = toReversalAllocations(
-              await input.lotAllocationService.allocateDebit(prisma, {
-                tenantId: input.tenantId,
-                customerId: original.customerId,
-                debitLedgerEntryId: reversalLedgerEntry.id,
-                amountKobo: reversedAmountKobo,
-                adjustmentId: reversalAdjustment.id,
-                now,
-              }),
-            );
-
-            const remainingBalanceKobo =
-              await input.activeBalanceService.getActiveBalanceKobo(
-                input.tenantId,
-                original.customerId,
-                now,
-                prisma,
-              );
-
-            await persistReverseNotification({
-              prisma,
-              tenantId: input.tenantId,
-              phoneE164: original.customer.phoneE164,
-              reversalLedgerEntryId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
+              customerId: original.customerId,
               receiptId: null,
-              occurredAt: now,
-            });
+              type: LedgerEntryType.ADJUSTMENT,
+              direction: LedgerEntryDirection.DEBIT,
+              amountKobo: reversedAmountKobo,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: input.requestHash,
+              reversesEntryId: original.id,
+              createdByTenantId: input.actor.user.tenantId,
+              createdBy: input.actor.user.id,
+              effectiveAt: now,
+            },
+          });
 
-            await input.auditService.recordWithClient(prisma, {
+          const reversalAdjustment = await prisma.adjustment.create({
+            data: {
               tenantId: input.tenantId,
-              actorId: input.actor.user.id,
-              action: 'transaction.reversed',
-              entityType: 'ledger-entry',
-              entityId: original.id,
-              metadata: {
-                reason: input.reason,
-                reversalLedgerEntryId: reversalLedgerEntry.id,
-                reversedAmountKobo: Number(reversedAmountKobo),
-              },
-            });
+              customerId: original.customerId,
+              kind: AdjustmentKind.DEBIT,
+              amountKobo: reversedAmountKobo,
+              reason: input.reason,
+              createdByTenantId: input.actor.user.tenantId,
+              createdBy: input.actor.user.id,
+              ledgerEntryId: reversalLedgerEntry.id,
+              effectiveAt: now,
+            },
+          });
 
-            const response: ReversalResponse = {
-              id: reversalLedgerEntry.id,
-              transactionId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              originalTransactionType: original.type,
-              reversedAmountKobo: Number(reversedAmountKobo),
-              newActiveBalanceKobo: Number(remainingBalanceKobo),
-              allocations,
-              restorations,
-              smsStatus: SmsMessageStatus.QUEUED,
-              occurredAt: now.toISOString(),
-              requestedAt: now.toISOString(),
-            };
+          allocations = toReversalAllocations(
+            await input.lotAllocationService.allocateDebit(prisma, {
+              tenantId: input.tenantId,
+              customerId: original.customerId,
+              debitLedgerEntryId: reversalLedgerEntry.id,
+              amountKobo: reversedAmountKobo,
+              adjustmentId: reversalAdjustment.id,
+              now,
+            }),
+          );
 
-            await persistReverseIdempotency(
-              prisma,
+          const remainingBalanceKobo =
+            await input.activeBalanceService.getActiveBalanceKobo(
               input.tenantId,
-              input.actor.user.id,
-              input.normalizedKey,
-              input.requestHash,
-              response,
+              original.customerId,
+              now,
+              prisma,
             );
 
-            return response;
-          } else if (
-            original.type === LedgerEntryType.ADJUSTMENT &&
-            original.direction === LedgerEntryDirection.DEBIT
-          ) {
-            const plannedRestorations =
-              await input.lotAllocationService.planRestorations(prisma, {
-                tenantId: input.tenantId,
-                debitLedgerEntryId: original.id,
-                now,
-              });
+          await persistReverseNotification({
+            prisma,
+            tenantId: input.tenantId,
+            phoneE164: original.customer.phoneE164,
+            reversalLedgerEntryId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            receiptId: null,
+            occurredAt: now,
+          });
 
-            reversedAmountKobo = plannedRestorations.reduce(
-              (sum, restoration) => sum + restoration.amountKobo,
-              0n,
-            );
+          await input.auditService.recordWithClient(prisma, {
+            tenantId: input.tenantId,
+            actorId: input.actor.user.id,
+            action: 'transaction.reversed',
+            entityType: 'ledger-entry',
+            entityId: original.id,
+            metadata: {
+              reason: input.reason,
+              reversalLedgerEntryId: reversalLedgerEntry.id,
+              reversedAmountKobo: Number(reversedAmountKobo),
+            },
+          });
 
-            const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
-              data: {
+          const response: ReversalResponse = {
+            id: reversalLedgerEntry.id,
+            transactionId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            originalTransactionType: original.type,
+            reversedAmountKobo: Number(reversedAmountKobo),
+            newActiveBalanceKobo: Number(remainingBalanceKobo),
+            allocations,
+            restorations,
+            smsStatus: SmsMessageStatus.QUEUED,
+            occurredAt: now.toISOString(),
+            requestedAt: now.toISOString(),
+          };
+
+          await persistReverseIdempotency(
+            prisma,
+            input.tenantId,
+            input.actor.user.id,
+            input.normalizedKey,
+            input.requestHash,
+            response,
+          );
+
+          return response;
+        } else if (
+          original.type === LedgerEntryType.ADJUSTMENT &&
+          original.direction === LedgerEntryDirection.DEBIT
+        ) {
+          const plannedRestorations =
+            await input.lotAllocationService.planRestorations(prisma, {
+              tenantId: input.tenantId,
+              debitLedgerEntryId: original.id,
+              now,
+            });
+
+          reversedAmountKobo = plannedRestorations.reduce(
+            (sum, restoration) => sum + restoration.amountKobo,
+            0n,
+          );
+
+          const reversalLedgerEntry = await prisma.loyaltyLedgerEntry.create({
+            data: {
+              tenantId: input.tenantId,
+              customerId: original.customerId,
+              receiptId: null,
+              type: LedgerEntryType.REVERSAL,
+              direction: LedgerEntryDirection.CREDIT,
+              amountKobo: reversedAmountKobo,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: input.requestHash,
+              reversesEntryId: original.id,
+              createdByTenantId: input.actor.user.tenantId,
+              createdBy: input.actor.user.id,
+              effectiveAt: now,
+            },
+          });
+
+          for (const restoration of plannedRestorations) {
+            const updated = await prisma.creditLot.updateMany({
+              where: {
                 tenantId: input.tenantId,
+                id: restoration.creditLotId,
                 customerId: original.customerId,
-                receiptId: null,
-                type: LedgerEntryType.REVERSAL,
-                direction: LedgerEntryDirection.CREDIT,
-                amountKobo: reversedAmountKobo,
-                status: LedgerEntryStatus.CONFIRMED,
-                correlationId: input.requestHash,
-                reversesEntryId: original.id,
-                createdByTenantId: input.actor.user.tenantId,
-                createdBy: input.actor.user.id,
-                effectiveAt: now,
+              },
+              data: {
+                remainingAmountKobo: { increment: restoration.amountKobo },
               },
             });
 
-            for (const restoration of plannedRestorations) {
-              const updated = await prisma.creditLot.updateMany({
-                where: {
-                  tenantId: input.tenantId,
-                  id: restoration.creditLotId,
-                  customerId: original.customerId,
-                },
-                data: { remainingAmountKobo: { increment: restoration.amountKobo } },
-              });
-
-              if (updated.count !== 1) {
-                throw reviewRequired('Original credit lot changed during reversal');
-              }
-
-              await prisma.allocationRestoration.create({
-                data: {
-                  tenantId: input.tenantId,
-                  allocationId: restoration.allocationId,
-                  reversalLedgerEntryId: reversalLedgerEntry.id,
-                  amountKobo: restoration.amountKobo,
-                },
-              });
+            if (updated.count !== 1) {
+              throw reviewRequired(
+                'Original credit lot changed during reversal',
+              );
             }
 
-            restorations = plannedRestorations.map((restoration) => ({
-              allocationId: restoration.allocationId,
-              creditLotId: restoration.creditLotId,
-              amountKobo: Number(restoration.amountKobo),
-            }));
-
-            const remainingBalanceKobo =
-              await input.activeBalanceService.getActiveBalanceKobo(
-                input.tenantId,
-                original.customerId,
-                now,
-                prisma,
-              );
-
-            await persistReverseNotification({
-              prisma,
-              tenantId: input.tenantId,
-              phoneE164: original.customer.phoneE164,
-              reversalLedgerEntryId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              receiptId: null,
-              occurredAt: now,
-            });
-
-            await input.auditService.recordWithClient(prisma, {
-              tenantId: input.tenantId,
-              actorId: input.actor.user.id,
-              action: 'transaction.reversed',
-              entityType: 'ledger-entry',
-              entityId: original.id,
-              metadata: {
-                reason: input.reason,
+            await prisma.allocationRestoration.create({
+              data: {
+                tenantId: input.tenantId,
+                allocationId: restoration.allocationId,
                 reversalLedgerEntryId: reversalLedgerEntry.id,
-                reversedAmountKobo: Number(reversedAmountKobo),
+                amountKobo: restoration.amountKobo,
               },
             });
-
-            const response: ReversalResponse = {
-              id: reversalLedgerEntry.id,
-              transactionId: reversalLedgerEntry.id,
-              originalTransactionId: original.id,
-              originalTransactionType: original.type,
-              reversedAmountKobo: Number(reversedAmountKobo),
-              newActiveBalanceKobo: Number(remainingBalanceKobo),
-              allocations,
-              restorations,
-              smsStatus: SmsMessageStatus.QUEUED,
-              occurredAt: now.toISOString(),
-              requestedAt: now.toISOString(),
-            };
-
-            await persistReverseIdempotency(
-              prisma,
-              input.tenantId,
-              input.actor.user.id,
-              input.normalizedKey,
-              input.requestHash,
-              response,
-            );
-
-            return response;
           }
 
-          throw reviewRequired('Transaction type cannot be reversed automatically');
-        },
-        FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS,
-      );
+          restorations = plannedRestorations.map((restoration) => ({
+            allocationId: restoration.allocationId,
+            creditLotId: restoration.creditLotId,
+            amountKobo: Number(restoration.amountKobo),
+          }));
+
+          const remainingBalanceKobo =
+            await input.activeBalanceService.getActiveBalanceKobo(
+              input.tenantId,
+              original.customerId,
+              now,
+              prisma,
+            );
+
+          await persistReverseNotification({
+            prisma,
+            tenantId: input.tenantId,
+            phoneE164: original.customer.phoneE164,
+            reversalLedgerEntryId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            receiptId: null,
+            occurredAt: now,
+          });
+
+          await input.auditService.recordWithClient(prisma, {
+            tenantId: input.tenantId,
+            actorId: input.actor.user.id,
+            action: 'transaction.reversed',
+            entityType: 'ledger-entry',
+            entityId: original.id,
+            metadata: {
+              reason: input.reason,
+              reversalLedgerEntryId: reversalLedgerEntry.id,
+              reversedAmountKobo: Number(reversedAmountKobo),
+            },
+          });
+
+          const response: ReversalResponse = {
+            id: reversalLedgerEntry.id,
+            transactionId: reversalLedgerEntry.id,
+            originalTransactionId: original.id,
+            originalTransactionType: original.type,
+            reversedAmountKobo: Number(reversedAmountKobo),
+            newActiveBalanceKobo: Number(remainingBalanceKobo),
+            allocations,
+            restorations,
+            smsStatus: SmsMessageStatus.QUEUED,
+            occurredAt: now.toISOString(),
+            requestedAt: now.toISOString(),
+          };
+
+          await persistReverseIdempotency(
+            prisma,
+            input.tenantId,
+            input.actor.user.id,
+            input.normalizedKey,
+            input.requestHash,
+            response,
+          );
+
+          return response;
+        }
+
+        throw reviewRequired(
+          'Transaction type cannot be reversed automatically',
+        );
+      }, FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS);
     } catch (error) {
-      if (
-        isTransactionConflict(error) ||
-        isIdempotencyConflict(error)
-      ) {
+      if (isTransactionConflict(error) || isIdempotencyConflict(error)) {
         if (attempt < REVERSAL_RETRY_ATTEMPTS) {
           await waitForJitter();
           continue;
@@ -818,7 +834,6 @@ async function persistReverseNotification(input: {
     },
   });
 }
-
 
 function hashRequest(input: {
   tenantId: string;
@@ -933,9 +948,10 @@ function getErrorMessage(error: unknown): string {
   return typeof error === 'string' ? error : '';
 }
 
-
 async function waitForJitter(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * REVERSAL_RETRY_JITTER_MS)));
+  await new Promise((resolve) =>
+    setTimeout(resolve, Math.floor(Math.random() * REVERSAL_RETRY_JITTER_MS)),
+  );
 }
 
 function normalizeIdempotencyKey(value: string | undefined): string {

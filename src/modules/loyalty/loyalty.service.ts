@@ -176,7 +176,7 @@ export interface TransactionResponse {
 
 export interface ApprovalListItem {
   id: string;
-   receiptId: string | null;
+  receiptId: string | null;
   redemptionId: string | null;
   targetType: ApprovalTargetType;
   status: ApprovalStatus;
@@ -874,7 +874,9 @@ export class LoyaltyService {
 
     const originalReceipt = receipt ?? ledgerEntry.redemption?.receipt ?? null;
     const approval =
-      ledgerEntry.redemption?.approval ?? originalReceipt?.approvals?.[0] ?? null;
+      ledgerEntry.redemption?.approval ??
+      originalReceipt?.approvals?.[0] ??
+      null;
     const smsMessage = await findTransactionSmsMessage(this.prismaService, {
       tenantId,
       ledgerEntryId: ledgerEntry.id,
@@ -886,7 +888,6 @@ export class LoyaltyService {
         tenantId,
         ledgerEntry.customerId,
       );
-    const receiptId = originalReceipt?.id ?? null;
     const responseId = originalReceipt?.id ?? ledgerEntry.id;
     const cardSerialNumber = originalReceipt?.card?.barcodeValue ?? null;
     const posReceiptNumber = originalReceipt?.posReceiptNumber ?? null;
@@ -894,9 +895,11 @@ export class LoyaltyService {
       ? Number(originalReceipt.purchaseAmountKobo)
       : null;
     const occurredAt =
-      originalReceipt?.occurredAt?.toISOString() ?? ledgerEntry.effectiveAt.toISOString();
+      originalReceipt?.occurredAt?.toISOString() ??
+      ledgerEntry.effectiveAt.toISOString();
     const capturedAt =
-      originalReceipt?.capturedAt?.toISOString() ?? ledgerEntry.createdAt.toISOString();
+      originalReceipt?.capturedAt?.toISOString() ??
+      ledgerEntry.createdAt.toISOString();
     const captureStatus = originalReceipt?.captureStatus ?? null;
     const reviewStatus = originalReceipt?.reviewStatus ?? null;
     const adjustment = ledgerEntry.adjustment
@@ -911,13 +914,15 @@ export class LoyaltyService {
       ledgerEntry.type === LedgerEntryType.REVERSAL
         ? {
             originalTransactionId: ledgerEntry.reversesEntryId,
-            restorations: ledgerEntry.allocationRestorations.map((restoration) => ({
-              id: restoration.id,
-              allocationId: restoration.allocationId,
-              creditLotId: restoration.allocation.creditLotId,
-              amountKobo: Number(restoration.amountKobo),
-              reversalLedgerEntryId: restoration.reversalLedgerEntryId,
-            })),
+            restorations: ledgerEntry.allocationRestorations.map(
+              (restoration) => ({
+                id: restoration.id,
+                allocationId: restoration.allocationId,
+                creditLotId: restoration.allocation.creditLotId,
+                amountKobo: Number(restoration.amountKobo),
+                reversalLedgerEntryId: restoration.reversalLedgerEntryId,
+              }),
+            ),
           }
         : null;
 
@@ -935,7 +940,10 @@ export class LoyaltyService {
       purchaseAmountKobo,
       occurredAt,
       capturedAt,
-      state: ledgerEntry.status === LedgerEntryStatus.CONFIRMED ? 'CONFIRMED' : 'INVALID',
+      state:
+        ledgerEntry.status === LedgerEntryStatus.CONFIRMED
+          ? 'CONFIRMED'
+          : 'INVALID',
       captureStatus,
       reviewStatus,
       approvalId: approval?.id ?? null,
@@ -1045,7 +1053,10 @@ export class LoyaltyService {
           }
         : {}),
     });
-    const { pageItems, hasMore } = pageMeta(entries, page?.limit ?? entries.length);
+    const { pageItems, hasMore } = pageMeta(
+      entries,
+      page?.limit ?? entries.length,
+    );
 
     const items = await Promise.all(
       pageItems.map(async (entry) => {
@@ -1137,19 +1148,19 @@ export class LoyaltyService {
             receiptId: true,
             requestedAmountKobo: true,
             customerId: true,
-              receipt: {
-                select: {
-                  id: true,
-                  customerId: true,
-                  posReceiptNumber: true,
-                  purchaseAmountKobo: true,
-                  captureStatus: true,
-                  reviewStatus: true,
-                  branchId: true,
-                },
+            receipt: {
+              select: {
+                id: true,
+                customerId: true,
+                posReceiptNumber: true,
+                purchaseAmountKobo: true,
+                captureStatus: true,
+                reviewStatus: true,
+                branchId: true,
               },
             },
           },
+        },
       },
       ...(page
         ? {

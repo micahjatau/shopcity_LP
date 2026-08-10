@@ -17,8 +17,9 @@ describe('ReversalsService', () => {
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({}),
     },
-    $transaction: jest.fn().mockImplementation(
-      async (callback: (tx: never) => Promise<unknown>) =>
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (callback: (tx: never) => Promise<unknown>) =>
         callback({
           $executeRaw: jest.fn().mockResolvedValue(0),
           loyaltyLedgerEntry: {
@@ -29,7 +30,7 @@ describe('ReversalsService', () => {
             create: jest.fn().mockResolvedValue({}),
           },
         } as never),
-    ),
+      ),
   };
 
   const service = new ReversalsService(
@@ -102,7 +103,12 @@ describe('ReversalsService', () => {
       },
       $transaction: jest.fn(),
     };
-    const service = new ReversalsService(prisma as never, {} as never, {} as never, {} as never);
+    const service = new ReversalsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
       service.reverse('tenant-1', actor(), 'transaction-1', 'idem-1', {
@@ -124,7 +130,12 @@ describe('ReversalsService', () => {
       },
       $transaction: jest.fn(),
     };
-    const service = new ReversalsService(prisma as never, {} as never, {} as never, {} as never);
+    const service = new ReversalsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
       service.reverse('tenant-1', actor(), 'transaction-1', 'idem-1', {
@@ -206,9 +217,11 @@ describe('ReversalsService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({}),
       },
-      $transaction: jest.fn().mockImplementation(async (callback: (tx: never) => Promise<unknown>) =>
-        callback(tx as never),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (callback: (tx: never) => Promise<unknown>) =>
+          callback(tx as never),
+        ),
     };
     const activeBalanceService = {
       getActiveBalanceKobo: jest.fn().mockResolvedValue(0n),
@@ -236,18 +249,33 @@ describe('ReversalsService', () => {
       smsStatus: 'QUEUED',
     });
 
-    expect(tx.loyaltyLedgerEntry.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        type: LedgerEntryType.ADJUSTMENT,
-        direction: LedgerEntryDirection.DEBIT,
-        reversesEntryId: 'earn-1',
-      }),
+    const ledgerEntryCreate = tx.loyaltyLedgerEntry.create as jest.Mock<
+      unknown,
+      [
+        {
+          data: {
+            type: LedgerEntryType;
+            direction: LedgerEntryDirection;
+            reversesEntryId: string;
+          };
+        },
+      ]
+    >;
+    const ledgerEntryCreateArg = ledgerEntryCreate.mock.calls[0]?.[0];
+    expect(ledgerEntryCreateArg.data).toMatchObject({
+      type: LedgerEntryType.ADJUSTMENT,
+      direction: LedgerEntryDirection.DEBIT,
+      reversesEntryId: 'earn-1',
     });
-    expect(tx.adjustment.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        kind: 'DEBIT',
-        ledgerEntryId: 'reversal-1',
-      }),
+
+    const adjustmentCreate = tx.adjustment.create as jest.Mock<
+      unknown,
+      [{ data: { kind: string; ledgerEntryId: string } }]
+    >;
+    const adjustmentCreateArg = adjustmentCreate.mock.calls[0]?.[0];
+    expect(adjustmentCreateArg.data).toMatchObject({
+      kind: 'DEBIT',
+      ledgerEntryId: 'reversal-1',
     });
     expect(lotAllocationService.allocateDebit).toHaveBeenCalledWith(
       tx as never,

@@ -12,7 +12,10 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
-import { FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS, LotAllocationService } from '../../common/balance/lot-allocation.service';
+import {
+  FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS,
+  LotAllocationService,
+} from '../../common/balance/lot-allocation.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
@@ -69,7 +72,9 @@ export class AdjustmentsService {
 
     const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
     const reason = normalizeReason(dto.reason);
-    const effectiveAt = dto.effectiveAt ? new Date(dto.effectiveAt) : new Date();
+    const effectiveAt = dto.effectiveAt
+      ? new Date(dto.effectiveAt)
+      : new Date();
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
@@ -82,7 +87,8 @@ export class AdjustmentsService {
 
     const amountKobo = toSafePositiveBigInt(dto.amountKobo, 'amountKobo');
     const amountCeilingKobo = BigInt(
-      this.configService.get<number>('ADJUSTMENT_AMOUNT_CEILING_KOBO') ?? 100_000_000,
+      this.configService.get<number>('ADJUSTMENT_AMOUNT_CEILING_KOBO') ??
+        100_000_000,
     );
 
     if (amountKobo > amountCeilingKobo) {
@@ -112,7 +118,11 @@ export class AdjustmentsService {
     });
 
     if (existing && existing.requestHash !== requestHash) {
-      throw new DomainHttpException(HttpStatus.CONFLICT, 'IDEMPOTENCY_CONFLICT', 'Idempotency key reused with different payload');
+      throw new DomainHttpException(
+        HttpStatus.CONFLICT,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
     }
 
     if (existing?.requestHash === requestHash && existing.responseJson) {
@@ -164,220 +174,250 @@ export class AdjustmentsService {
             customer.status !== CustomerStatus.ACTIVE ||
             customer.isStaff
           ) {
-            throw new DomainHttpException(HttpStatus.NOT_FOUND, 'CUSTOMER_NOT_FOUND', 'Customer not found');
+            throw new DomainHttpException(
+              HttpStatus.NOT_FOUND,
+              'CUSTOMER_NOT_FOUND',
+              'Customer not found',
+            );
           }
 
           const expiryMonths =
-            this.configService.get<number>('ADJUSTMENT_CREDIT_EXPIRY_MONTHS') ?? 12;
+            this.configService.get<number>('ADJUSTMENT_CREDIT_EXPIRY_MONTHS') ??
+            12;
           const now = new Date();
 
           if (dto.kind === 'CREDIT') {
             const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-          data: {
-            tenantId,
-            customerId: customer.id,
-            receiptId: null,
-            type: LedgerEntryType.ADJUSTMENT,
-            direction: LedgerEntryDirection.CREDIT,
-            amountKobo,
-            status: LedgerEntryStatus.CONFIRMED,
-            correlationId: requestHash,
-            createdByTenantId: actor.user.tenantId,
-            createdBy: actor.user.id,
-            effectiveAt,
-          },
-        });
+              data: {
+                tenantId,
+                customerId: customer.id,
+                receiptId: null,
+                type: LedgerEntryType.ADJUSTMENT,
+                direction: LedgerEntryDirection.CREDIT,
+                amountKobo,
+                status: LedgerEntryStatus.CONFIRMED,
+                correlationId: requestHash,
+                createdByTenantId: actor.user.tenantId,
+                createdBy: actor.user.id,
+                effectiveAt,
+              },
+            });
 
             const adjustment = await prisma.adjustment.create({
-          data: {
-            tenantId,
-            customerId: customer.id,
-            kind: AdjustmentKind.CREDIT,
-            amountKobo,
-            reason,
-            createdByTenantId: actor.user.tenantId,
-            createdBy: actor.user.id,
-            ledgerEntryId: ledgerEntry.id,
-            effectiveAt,
-          },
-        });
+              data: {
+                tenantId,
+                customerId: customer.id,
+                kind: AdjustmentKind.CREDIT,
+                amountKobo,
+                reason,
+                createdByTenantId: actor.user.tenantId,
+                createdBy: actor.user.id,
+                ledgerEntryId: ledgerEntry.id,
+                effectiveAt,
+              },
+            });
 
             const creditLot = await prisma.creditLot.create({
-          data: {
-            tenantId,
-            customerId: customer.id,
-            earnLedgerEntryId: ledgerEntry.id,
-            originalAmountKobo: amountKobo,
-            remainingAmountKobo: amountKobo,
-            earnedAt: effectiveAt,
-            expiresAt: addMonths(effectiveAt, expiryMonths),
-          },
-        });
+              data: {
+                tenantId,
+                customerId: customer.id,
+                earnLedgerEntryId: ledgerEntry.id,
+                originalAmountKobo: amountKobo,
+                remainingAmountKobo: amountKobo,
+                earnedAt: effectiveAt,
+                expiresAt: addMonths(effectiveAt, expiryMonths),
+              },
+            });
 
-            const remainingBalanceKobo = await this.activeBalanceService.getActiveBalanceKobo(tenantId, customer.id, now, prisma);
+            const remainingBalanceKobo =
+              await this.activeBalanceService.getActiveBalanceKobo(
+                tenantId,
+                customer.id,
+                now,
+                prisma,
+              );
             const outboxPayload = buildBalanceAdjustedSmsPayload({
-          transactionId: ledgerEntry.id,
-          adjustmentId: adjustment.id,
-          kind: 'CREDIT',
-          phoneE164: customer.phoneE164,
-          amountKobo,
-          remainingBalanceKobo,
-        });
+              transactionId: ledgerEntry.id,
+              adjustmentId: adjustment.id,
+              kind: 'CREDIT',
+              phoneE164: customer.phoneE164,
+              amountKobo,
+              remainingBalanceKobo,
+            });
 
             const outboxEvent = await prisma.outboxEvent.create({
-          data: {
-            tenantId,
-            aggregateType: 'adjustment',
-            aggregateId: adjustment.id,
-            eventType: 'sms.send',
-            payload: outboxPayload,
-            status: 'PENDING',
-            nextAttemptAt: now,
-          },
-        });
+              data: {
+                tenantId,
+                aggregateType: 'adjustment',
+                aggregateId: adjustment.id,
+                eventType: 'sms.send',
+                payload: outboxPayload,
+                status: 'PENDING',
+                nextAttemptAt: now,
+              },
+            });
 
             await prisma.smsMessage.create({
-          data: {
-            tenantId,
-            outboxEventId: outboxEvent.id,
-            ledgerEntryId: ledgerEntry.id,
-            adjustmentId: adjustment.id,
-            phoneE164: customer.phoneE164,
-            template: 'balance-adjusted',
-            payload: outboxPayload,
-            status: SmsMessageStatus.QUEUED,
-            queuedAt: now,
-          },
-        });
+              data: {
+                tenantId,
+                outboxEventId: outboxEvent.id,
+                ledgerEntryId: ledgerEntry.id,
+                adjustmentId: adjustment.id,
+                phoneE164: customer.phoneE164,
+                template: 'balance-adjusted',
+                payload: outboxPayload,
+                status: SmsMessageStatus.QUEUED,
+                queuedAt: now,
+              },
+            });
 
             await this.auditService.recordWithClient(prisma, {
-          tenantId,
-          actorId: actor.user.id,
-          action: 'adjustment.credit',
-          entityType: 'adjustment',
-          entityId: adjustment.id,
-          metadata: { reason, amountKobo: Number(amountKobo), effectiveAt },
-        });
+              tenantId,
+              actorId: actor.user.id,
+              action: 'adjustment.credit',
+              entityType: 'adjustment',
+              entityId: adjustment.id,
+              metadata: { reason, amountKobo: Number(amountKobo), effectiveAt },
+            });
 
             const response: AdjustmentResponse = {
-          id: adjustment.id,
-          transactionId: ledgerEntry.id,
-          adjustmentId: adjustment.id,
-          customerId: customer.id,
-          kind: AdjustmentKind.CREDIT,
-          amountKobo: Number(amountKobo),
-          newActiveBalanceKobo: Number(remainingBalanceKobo),
-          allocations: [],
-          creditLot: { id: creditLot.id, expiresAt: creditLot.expiresAt.toISOString() },
-          smsStatus: SmsMessageStatus.QUEUED,
-          occurredAt: effectiveAt.toISOString(),
-        };
+              id: adjustment.id,
+              transactionId: ledgerEntry.id,
+              adjustmentId: adjustment.id,
+              customerId: customer.id,
+              kind: AdjustmentKind.CREDIT,
+              amountKobo: Number(amountKobo),
+              newActiveBalanceKobo: Number(remainingBalanceKobo),
+              allocations: [],
+              creditLot: {
+                id: creditLot.id,
+                expiresAt: creditLot.expiresAt.toISOString(),
+              },
+              smsStatus: SmsMessageStatus.QUEUED,
+              occurredAt: effectiveAt.toISOString(),
+            };
 
-            await persistAdjustmentIdempotency(prisma, tenantId, actor.user.id, normalizedKey, requestHash, response);
+            await persistAdjustmentIdempotency(
+              prisma,
+              tenantId,
+              actor.user.id,
+              normalizedKey,
+              requestHash,
+              response,
+            );
             return response;
           }
 
           const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
-        data: {
-          tenantId,
-          customerId: customer.id,
-          receiptId: null,
-          type: LedgerEntryType.ADJUSTMENT,
-          direction: LedgerEntryDirection.DEBIT,
-          amountKobo,
-          status: LedgerEntryStatus.CONFIRMED,
-          correlationId: requestHash,
-          createdByTenantId: actor.user.tenantId,
-          createdBy: actor.user.id,
-          effectiveAt,
-        },
-      });
+            data: {
+              tenantId,
+              customerId: customer.id,
+              receiptId: null,
+              type: LedgerEntryType.ADJUSTMENT,
+              direction: LedgerEntryDirection.DEBIT,
+              amountKobo,
+              status: LedgerEntryStatus.CONFIRMED,
+              correlationId: requestHash,
+              createdByTenantId: actor.user.tenantId,
+              createdBy: actor.user.id,
+              effectiveAt,
+            },
+          });
 
           const adjustment = await prisma.adjustment.create({
-        data: {
-          tenantId,
-          customerId: customer.id,
-          kind: AdjustmentKind.DEBIT,
-          amountKobo,
-          reason,
-          createdByTenantId: actor.user.tenantId,
-          createdBy: actor.user.id,
-          ledgerEntryId: ledgerEntry.id,
-          effectiveAt,
-        },
-      });
+            data: {
+              tenantId,
+              customerId: customer.id,
+              kind: AdjustmentKind.DEBIT,
+              amountKobo,
+              reason,
+              createdByTenantId: actor.user.tenantId,
+              createdBy: actor.user.id,
+              ledgerEntryId: ledgerEntry.id,
+              effectiveAt,
+            },
+          });
 
-          const allocations = await this.lotAllocationService.allocateDebit(prisma, {
-        tenantId,
-        customerId: customer.id,
-        debitLedgerEntryId: ledgerEntry.id,
-        amountKobo,
-        adjustmentId: adjustment.id,
-        now,
-      });
+          const allocations = await this.lotAllocationService.allocateDebit(
+            prisma,
+            {
+              tenantId,
+              customerId: customer.id,
+              debitLedgerEntryId: ledgerEntry.id,
+              amountKobo,
+              adjustmentId: adjustment.id,
+              now,
+            },
+          );
 
-          const remainingBalanceKobo = await this.activeBalanceService.getActiveBalanceKobo(tenantId, customer.id, now, prisma);
+          const remainingBalanceKobo =
+            await this.activeBalanceService.getActiveBalanceKobo(
+              tenantId,
+              customer.id,
+              now,
+              prisma,
+            );
           const outboxPayload = buildBalanceAdjustedSmsPayload({
-        transactionId: ledgerEntry.id,
-        adjustmentId: adjustment.id,
-        kind: 'DEBIT',
-        phoneE164: customer.phoneE164,
-        amountKobo,
-        remainingBalanceKobo,
-      });
+            transactionId: ledgerEntry.id,
+            adjustmentId: adjustment.id,
+            kind: 'DEBIT',
+            phoneE164: customer.phoneE164,
+            amountKobo,
+            remainingBalanceKobo,
+          });
           const outboxEvent = await prisma.outboxEvent.create({
-        data: {
-          tenantId,
-          aggregateType: 'adjustment',
-          aggregateId: adjustment.id,
-          eventType: 'sms.send',
-          payload: outboxPayload,
-          status: 'PENDING',
-          nextAttemptAt: now,
-        },
-      });
+            data: {
+              tenantId,
+              aggregateType: 'adjustment',
+              aggregateId: adjustment.id,
+              eventType: 'sms.send',
+              payload: outboxPayload,
+              status: 'PENDING',
+              nextAttemptAt: now,
+            },
+          });
 
           await prisma.smsMessage.create({
-        data: {
-          tenantId,
-          outboxEventId: outboxEvent.id,
-          ledgerEntryId: ledgerEntry.id,
-          adjustmentId: adjustment.id,
-          phoneE164: customer.phoneE164,
-          template: 'balance-adjusted',
-          payload: outboxPayload,
-          status: SmsMessageStatus.QUEUED,
-          queuedAt: now,
-        },
-      });
+            data: {
+              tenantId,
+              outboxEventId: outboxEvent.id,
+              ledgerEntryId: ledgerEntry.id,
+              adjustmentId: adjustment.id,
+              phoneE164: customer.phoneE164,
+              template: 'balance-adjusted',
+              payload: outboxPayload,
+              status: SmsMessageStatus.QUEUED,
+              queuedAt: now,
+            },
+          });
 
           await this.auditService.recordWithClient(prisma, {
-        tenantId,
-        actorId: actor.user.id,
-        action: 'adjustment.debit',
-        entityType: 'adjustment',
-        entityId: adjustment.id,
-        metadata: { reason, amountKobo: Number(amountKobo), effectiveAt },
-      });
+            tenantId,
+            actorId: actor.user.id,
+            action: 'adjustment.debit',
+            entityType: 'adjustment',
+            entityId: adjustment.id,
+            metadata: { reason, amountKobo: Number(amountKobo), effectiveAt },
+          });
 
           const response: AdjustmentResponse = {
-        id: adjustment.id,
-        transactionId: ledgerEntry.id,
-        adjustmentId: adjustment.id,
-        customerId: customer.id,
-        kind: AdjustmentKind.DEBIT,
-        amountKobo: Number(amountKobo),
-        newActiveBalanceKobo: Number(remainingBalanceKobo),
-        allocations: allocations.map((allocation) => ({
-          creditLotId: allocation.creditLotId,
-          amountKobo: Number(allocation.amountKobo),
-          allocationOrder: allocation.allocationOrder,
-          expiresAt: allocation.expiresAt.toISOString(),
-        })),
-        creditLot: null,
-        smsStatus: SmsMessageStatus.QUEUED,
-        occurredAt: effectiveAt.toISOString(),
-      };
+            id: adjustment.id,
+            transactionId: ledgerEntry.id,
+            adjustmentId: adjustment.id,
+            customerId: customer.id,
+            kind: AdjustmentKind.DEBIT,
+            amountKobo: Number(amountKobo),
+            newActiveBalanceKobo: Number(remainingBalanceKobo),
+            allocations: allocations.map((allocation) => ({
+              creditLotId: allocation.creditLotId,
+              amountKobo: Number(allocation.amountKobo),
+              allocationOrder: allocation.allocationOrder,
+              expiresAt: allocation.expiresAt.toISOString(),
+            })),
+            creditLot: null,
+            smsStatus: SmsMessageStatus.QUEUED,
+            occurredAt: effectiveAt.toISOString(),
+          };
 
           await persistAdjustmentIdempotency(
             prisma,
@@ -430,7 +470,11 @@ export class AdjustmentsService {
 function normalizeIdempotencyKey(value: string | undefined): string {
   const normalized = value?.trim();
   if (!normalized) {
-    throw new DomainHttpException(HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR', 'Idempotency-Key header is required');
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'Idempotency-Key header is required',
+    );
   }
 
   return normalized;
@@ -439,17 +483,29 @@ function normalizeIdempotencyKey(value: string | undefined): string {
 function normalizeReason(value: string): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new DomainHttpException(HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR', 'Reason is required');
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'Reason is required',
+    );
   }
   if (normalized.length > 500) {
-    throw new DomainHttpException(HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR', 'Reason must be at most 500 characters');
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      'Reason must be at most 500 characters',
+    );
   }
   return normalized;
 }
 
 function toSafePositiveBigInt(value: number, field: string): bigint {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new DomainHttpException(HttpStatus.BAD_REQUEST, 'VALIDATION_ERROR', `${field} must be a positive integer`);
+    throw new DomainHttpException(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION_ERROR',
+      `${field} must be a positive integer`,
+    );
   }
   return BigInt(value);
 }
@@ -465,19 +521,39 @@ function hashRequest(input: Record<string, unknown>): string {
 }
 
 function isTransactionConflict(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2034'
+  );
 }
 
 function isIdempotencyConflict(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }
 
 async function waitForJitter(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * ADJUSTMENT_RETRY_JITTER_MS)));
+  await new Promise((resolve) =>
+    setTimeout(resolve, Math.floor(Math.random() * ADJUSTMENT_RETRY_JITTER_MS)),
+  );
 }
 
-async function cleanupExpiredIdempotencyRecords(prisma: PrismaService, tenantId: string, actorId: string, idempotencyKey: string) {
-  await prisma.idempotencyRecord.deleteMany({ where: { tenantId, actorId, idempotencyKey, expiresAt: { lte: new Date() } } });
+async function cleanupExpiredIdempotencyRecords(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  idempotencyKey: string,
+) {
+  await prisma.idempotencyRecord.deleteMany({
+    where: {
+      tenantId,
+      actorId,
+      idempotencyKey,
+      expiresAt: { lte: new Date() },
+    },
+  });
 }
 
 async function persistAdjustmentIdempotency(
@@ -504,85 +580,6 @@ async function persistAdjustmentIdempotency(
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
-}
-
-async function claimAdjustmentIdempotency(
-  prisma: PrismaService,
-  tenantId: string,
-  actorId: string,
-  idempotencyKey: string,
-  requestHash: string,
-): Promise<AdjustmentResponse | null> {
-  const claim = await prisma.idempotencyRecord.findUnique({
-    where: {
-      tenantId_actorId_endpoint_idempotencyKey: {
-        tenantId,
-        actorId,
-        endpoint: ADJUSTMENTS_ENDPOINT,
-        idempotencyKey,
-      },
-    },
-  });
-
-  if (claim) {
-    if (claim.requestHash !== requestHash) {
-      throw new DomainHttpException(
-        HttpStatus.CONFLICT,
-        'IDEMPOTENCY_CONFLICT',
-        'Idempotency key reused with different payload',
-      );
-    }
-
-    if (claim.responseJson) {
-      return claim.responseJson as unknown as AdjustmentResponse;
-    }
-
-    await waitForAdjustmentReplay(prisma, tenantId, actorId, idempotencyKey, requestHash);
-
-    const replay = await prisma.idempotencyRecord.findUnique({
-      where: {
-        tenantId_actorId_endpoint_idempotencyKey: {
-          tenantId,
-          actorId,
-          endpoint: ADJUSTMENTS_ENDPOINT,
-          idempotencyKey,
-        },
-      },
-    });
-
-    if (replay?.responseJson) {
-      return replay.responseJson as unknown as AdjustmentResponse;
-    }
-
-    throw new DomainHttpException(
-      HttpStatus.CONFLICT,
-      'IDEMPOTENCY_IN_PROGRESS',
-      'Idempotency key is still being processed',
-    );
-  }
-
-  try {
-    await prisma.idempotencyRecord.create({
-      data: {
-        tenantId,
-        actorId,
-        endpoint: ADJUSTMENTS_ENDPOINT,
-        idempotencyKey,
-        requestHash,
-        responseJson: Prisma.JsonNull,
-        status: 'PENDING',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-  } catch (error) {
-    if (isIdempotencyConflict(error)) {
-      return claimAdjustmentIdempotency(prisma, tenantId, actorId, idempotencyKey, requestHash);
-    }
-
-    throw error;
-  }
-
-  return null;
 }
 
 async function waitForAdjustmentReplay(
