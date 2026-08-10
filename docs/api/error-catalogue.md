@@ -19,4 +19,5 @@
 - `AUTH_*` covers invalid credentials, expired or revoked sessions, CSRF failures, suspension blocks, and login throttling.
 - `RECEIPT_ALREADY_USED` is the canonical duplicate physical receipt code.
 - `EARN_TRANSACTION_CONFLICT` represents exhausted serialization retries and should be treated as temporary/retryable by clients.
+- `SYNC_RECORD_CONFLICT`, `SYNC_WEEK_MISMATCH`, `SYNC_DEVICE_MISMATCH`, `SYNC_BRANCH_MISMATCH`, `SYNC_ACTOR_MISMATCH`, `SYNC_RECORD_EXPIRED`, and `SYNC_RECORD_PROCESSING` are the stable offline-sync codes for replay and trust-boundary failures.
 - `RECEIPT_ALREADY_CAPTURED` is legacy wording and should not be used for new duplicate receipt mappings.

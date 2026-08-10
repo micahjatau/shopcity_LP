@@ -27,6 +27,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { RedemptionsModule } from './modules/redemptions/redemptions.module';
 import { ReversalsModule } from './modules/reversals/reversals.module';
 import { AdjustmentsModule } from './modules/adjustments/adjustments.module';
+import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { AdjustmentsModule } from './modules/adjustments/adjustments.module';
     RedemptionsModule,
     ReversalsModule,
     AdjustmentsModule,
+    OfflineSyncModule,
     ApprovalsModule,
     AuditModule,
     ConfigurationModule,

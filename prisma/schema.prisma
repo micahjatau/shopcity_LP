@@ -126,6 +126,13 @@ enum SmsMessageStatus {
   SUPPRESSED
 }
 
+enum OfflineSyncStatus {
+  CONFIRMED
+  PENDING_APPROVAL
+  REJECTED
+  RETRYABLE
+}
+
 model Tenant {
   id                     String                  @id @default(uuid())
   name                   String
@@ -150,6 +157,7 @@ model Tenant {
   idempotencyRecords     IdempotencyRecord[]
   auditLogs              AuditLog[]
   deviceAttestations     DeviceAttestation[]
+  offlineSyncAttempts    OfflineSyncAttempt[]
 }
 
 model Branch {
@@ -178,9 +186,9 @@ model Device {
   branchId                    String
   name                        String
   fingerprintHash             String              @unique
-  attestationSecretCiphertext  String?
-  attestationSecretVersion     Int                 @default(0)
-  attestationSecretRotatedAt   DateTime?
+  attestationSecretCiphertext String?
+  attestationSecretVersion    Int                 @default(0)
+  attestationSecretRotatedAt  DateTime?
   status                      DeviceStatus        @default(ACTIVE)
   lastSeenAt                  DateTime?
   createdAt                   DateTime            @default(now())
@@ -248,18 +256,18 @@ model Session {
 }
 
 model DeviceAttestation {
-  id                   String   @id @default(uuid())
+  id                   String    @id @default(uuid())
   tenantId             String
   deviceId             String
   nonce                String
   nonceHash            String?
   attestationTimestamp DateTime?
-  acceptedAt           DateTime @default(now())
+  acceptedAt           DateTime  @default(now())
   expiresAt            DateTime
   issuedSessionId      String?
-  createdAt            DateTime @default(now())
-  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  device               Device   @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: Cascade)
+  createdAt            DateTime  @default(now())
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  device               Device    @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([tenantId, deviceId, nonce])
   @@unique([tenantId, deviceId, nonceHash])
@@ -632,6 +640,36 @@ model SmsMessage {
   @@index([tenantId, ledgerEntryId])
   @@index([tenantId, redemptionId])
   @@index([tenantId, adjustmentId])
+}
+
+model OfflineSyncAttempt {
+  id                        String            @id @default(uuid())
+  tenantId                  String
+  localId                   String
+  idempotencyKey            String
+  requestHash               String
+  cashierId                 String
+  branchId                  String
+  deviceId                  String
+  posReceiptNumber          String
+  receiptWeekStartSubmitted DateTime
+  receiptWeekStartDerived   DateTime?
+  purchaseAmountKobo        Int
+  occurredAt                DateTime
+  status                    OfflineSyncStatus @default(RETRYABLE)
+  errorCode                 String?
+  responseJson              Json?
+  transactionId             String?
+  approvalId                String?
+  syncedAt                  DateTime?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  tenant                    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, deviceId, localId])
+  @@index([tenantId, status, syncedAt])
+  @@index([tenantId, branchId, syncedAt])
+  @@index([tenantId, cashierId, syncedAt])
 }
 
 model IdempotencyRecord {

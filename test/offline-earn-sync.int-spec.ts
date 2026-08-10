@@ -1,0 +1,420 @@
+import { execSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import {
+  CardStatus,
+  CustomerStatus,
+  PrismaClient,
+  UserRole,
+} from '@prisma/client';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { AuditService } from '../src/modules/audit/audit.service';
+import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
+import { OfflineSyncService } from '../src/modules/offline-sync/offline-sync.service';
+import type { AuthContext } from '../src/common/auth/session.types';
+import { PrismaService } from '../src/database/prisma.service';
+import { createAttestedDeviceData } from './support/device-attestation';
+
+const DEFAULT_POLICY = {
+  OFFLINE_SYNC_MAX_RECORDS: 100,
+  OFFLINE_EARN_MAX_AGE_HOURS: 72,
+  DEFAULT_EARN_RATE_BPS: 200,
+  PURCHASE_FLAG_THRESHOLD_KOBO: 10_000_000,
+  PURCHASE_APPROVAL_THRESHOLD_KOBO: 20_000_000,
+  PURCHASE_AMOUNT_CEILING_KOBO: 100_000_000,
+};
+
+describe('offline earn sync foundation (int)', () => {
+  let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
+  let prisma: PrismaService;
+  let offlineSyncService: OfflineSyncService;
+  let tenant: { id: string };
+  let branch: { id: string };
+  let cashier: Awaited<ReturnType<typeof createStaffUser>>;
+  let configValues: Record<string, number>;
+
+  beforeAll(async () => {
+    pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
+    const databaseUrl = pgContainer.getConnectionUri();
+
+    execSync('npx prisma migrate deploy', {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrl,
+      },
+    });
+
+    process.env.DATABASE_URL = databaseUrl;
+
+    prisma = new PrismaService();
+    await prisma.$connect();
+
+    tenant = await prisma.tenant.create({
+      data: { id: randomUUID(), name: 'Offline Tenant', status: 'ACTIVE' },
+    });
+    branch = await prisma.branch.create({
+      data: {
+        id: randomUUID(),
+        tenantId: tenant.id,
+        name: 'Offline Branch',
+        timezone: 'Africa/Lagos',
+        receiptWeekStartDay: 1,
+        status: 'ACTIVE',
+      },
+    });
+    cashier = await createStaffUser(
+      prisma,
+      tenant.id,
+      branch.id,
+      UserRole.CASHIER,
+      'cashier@offline.local',
+    );
+
+    configValues = { ...DEFAULT_POLICY };
+    const configService = { get: (key: string) => configValues[key] } as never;
+    const auditService = new AuditService(prisma);
+    const loyaltyService = new LoyaltyService(prisma, auditService, configService);
+    offlineSyncService = new OfflineSyncService(prisma, loyaltyService, configService);
+  }, 120000);
+
+  afterAll(async () => {
+    await prisma?.$disconnect();
+    await pgContainer?.stop();
+  }, 120000);
+
+  it('confirms an offline earn and replays the exact original response', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0001',
+    );
+    const request = buildOfflineRequest(fixture, 1_000_000);
+
+    const first = await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
+    const replay = await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
+
+    expect(replay).toEqual(first);
+    expect(first.records[0]).toMatchObject({
+      localId: request.records[0].localId,
+      status: 'CONFIRMED',
+      creditEarnedKobo: 20_000,
+      retryable: false,
+    });
+
+    const counts = await Promise.all([
+      prisma.receipt.count({
+        where: { tenantId: tenant.id, posReceiptNumber: request.records[0]!.receiptNumber },
+      }),
+      prisma.loyaltyLedgerEntry.count({
+        where: {
+          tenantId: tenant.id,
+          receipt: { posReceiptNumber: request.records[0]!.receiptNumber },
+        },
+      }),
+      prisma.creditLot.count({
+        where: { tenantId: tenant.id, customerId: fixture.customer.id },
+      }),
+      prisma.outboxEvent.count({
+        where: { tenantId: tenant.id, aggregateType: 'receipt' },
+      }),
+      prisma.offlineSyncAttempt.count({
+        where: { tenantId: tenant.id, localId: request.records[0]!.localId },
+      }),
+    ]);
+
+    expect(counts).toEqual([1, 1, 1, 1, 1]);
+  }, 120000);
+
+  it('rejects a changed payload for the same local record', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0002',
+    );
+    const request = buildOfflineRequest(fixture, 1_000_000);
+    await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
+
+    const changed = {
+      ...request,
+      records: [{ ...request.records[0]!, purchaseAmountKobo: 1_000_001 }],
+    };
+
+    const replay = await offlineSyncService.earnBatch(tenant.id, fixture.actor, changed);
+    expect(replay.records[0]).toMatchObject({
+      localId: request.records[0]!.localId,
+      status: 'REJECTED',
+      errorCode: 'SYNC_RECORD_CONFLICT',
+      retryable: false,
+    });
+  }, 120000);
+
+  it('keeps valid neighbors in a mixed batch', async () => {
+    const firstFixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0003',
+    );
+    const secondFixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0004',
+      { weekMismatch: true },
+    );
+
+    const response = await offlineSyncService.earnBatch(tenant.id, firstFixture.actor, {
+      deviceId: firstFixture.device.id,
+      records: [
+        buildOfflineRecord(firstFixture, 1_000_000),
+        buildOfflineRecord(secondFixture, 1_000_000),
+      ],
+    });
+
+    expect(response.records[0]).toMatchObject({
+      status: 'CONFIRMED',
+      errorCode: null,
+    });
+    expect(response.records[1]).toMatchObject({
+      status: 'REJECTED',
+      errorCode: 'SYNC_WEEK_MISMATCH',
+    });
+
+    const firstRecord = buildOfflineRecord(firstFixture, 1_000_000);
+    expect(
+      await prisma.receipt.count({
+        where: { tenantId: tenant.id, posReceiptNumber: firstRecord.receiptNumber },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.loyaltyLedgerEntry.count({
+        where: {
+          tenantId: tenant.id,
+          receipt: { posReceiptNumber: firstRecord.receiptNumber },
+        },
+      }),
+    ).toBe(1);
+  }, 120000);
+
+  it('creates pending approval without ledger or lot effects', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0005',
+    );
+
+    const response = await offlineSyncService.earnBatch(tenant.id, fixture.actor, {
+      deviceId: fixture.device.id,
+      records: [buildOfflineRecord(fixture, 21_000_000)],
+    });
+
+    expect(response.records[0]).toMatchObject({
+      status: 'PENDING_APPROVAL',
+      transactionId: null,
+      approvalId: expect.any(String),
+      creditEarnedKobo: null,
+      retryable: false,
+    });
+
+    const firstRecord = buildOfflineRecord(fixture, 21_000_000);
+    const receipt = await prisma.receipt.findFirstOrThrow({
+      where: { tenantId: tenant.id, posReceiptNumber: firstRecord.receiptNumber },
+    });
+
+    const [receipts, ledgers, lots, approvals, smsMessages] = await Promise.all([
+      prisma.receipt.count({ where: { tenantId: tenant.id, id: receipt.id } }),
+      prisma.loyaltyLedgerEntry.count({ where: { tenantId: tenant.id, receiptId: receipt.id } }),
+      prisma.creditLot.count({ where: { tenantId: tenant.id, customerId: fixture.customer.id } }),
+      prisma.approval.count({ where: { tenantId: tenant.id, receiptId: receipt.id } }),
+      prisma.smsMessage.count({ where: { tenantId: tenant.id, receiptId: receipt.id } }),
+    ]);
+
+    expect(receipts).toBe(1);
+    expect(ledgers).toBe(0);
+    expect(lots).toBe(0);
+    expect(approvals).toBe(1);
+    expect(smsMessages).toBe(0);
+  }, 120000);
+});
+
+async function createStaffUser(
+  prisma: PrismaService,
+  tenantId: string,
+  branchId: string,
+  role: UserRole,
+  username: string,
+) {
+  return prisma.user.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      branchId,
+      username,
+      role,
+      status: 'ACTIVE',
+    },
+  });
+}
+
+async function createOfflineFixture(
+  prisma: PrismaService,
+  tenantId: string,
+  branchId: string,
+  cashierId: string,
+  receiptNumber: string,
+  options: { weekMismatch?: boolean } = {},
+) {
+  const device = await prisma.device.create({
+    data: createAttestedDeviceData({
+      id: randomUUID(),
+      tenantId,
+      branchId,
+      name: `Device-${receiptNumber}`,
+      fingerprintHash: `fingerprint-${receiptNumber}`,
+      status: 'ACTIVE',
+    }),
+  });
+
+  const customer = await prisma.customer.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      branchId,
+      fullName: `Customer ${receiptNumber}`,
+      phoneE164: `+23480123${Math.floor(Math.random() * 1_000_000)
+        .toString()
+        .padStart(6, '0')}`,
+      isStaff: false,
+      status: 'ACTIVE',
+      registeredByTenantId: tenantId,
+      registeredBy: cashierId,
+    },
+  });
+
+  const card = await prisma.card.create({
+    data: {
+      id: randomUUID(),
+      tenantId,
+      customerId: customer.id,
+      barcodeValue: `CARD-${receiptNumber}`,
+      status: 'ACTIVE',
+      issuedByTenantId: tenantId,
+      issuedBy: cashierId,
+    },
+  });
+
+  const actor = makeContext(
+    { id: cashierId, tenantId, branchId, role: UserRole.CASHIER },
+    device.id,
+  );
+
+  return { device, customer, card, actor, weekMismatch: options.weekMismatch ?? false };
+}
+
+function buildOfflineRequest(
+  fixture: Awaited<ReturnType<typeof createOfflineFixture>>,
+  purchaseAmountKobo: number,
+) {
+  return {
+    deviceId: fixture.device.id,
+    records: [buildOfflineRecord(fixture, purchaseAmountKobo)],
+  };
+}
+
+function buildOfflineRecord(
+  fixture: Awaited<ReturnType<typeof createOfflineFixture>>,
+  purchaseAmountKobo: number,
+) {
+  const occurredAt = recentOccurredAt();
+  const derivedWeekStart = formatYmd(
+    deriveReceiptWeekStart(new Date(occurredAt), 'Africa/Lagos', 1),
+  );
+
+  return {
+    localId: randomUUID(),
+    idempotencyKey: randomUUID(),
+    cashierId: fixture.actor.user.id,
+    branchId: fixture.actor.user.branchId!,
+    cardBarcode: fixture.card.barcodeValue,
+    receiptNumber: `POS-${fixture.card.barcodeValue}`,
+    receiptWeekStart: fixture.weekMismatch
+      ? '2026-01-01'
+      : derivedWeekStart,
+    purchaseAmountKobo,
+    occurredAtLocal: occurredAt,
+  };
+}
+
+function makeContext(
+  user: { id: string; tenantId: string; branchId: string | null; role: UserRole },
+  deviceId?: string,
+): AuthContext {
+  const now = new Date();
+  return {
+    session: {
+      id: randomUUID(),
+      userId: user.id,
+      deviceId: deviceId ?? null,
+      sessionTokenHash: 'session-token-hash',
+      csrfTokenHash: 'csrf-token-hash',
+      status: 'ACTIVE',
+      expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
+      revokedAt: null,
+      lastUsedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    },
+    user: {
+      id: user.id,
+      tenantId: user.tenantId,
+      branchId: user.branchId,
+      username: `${user.role.toLowerCase()}@offline.local`,
+      role: user.role,
+      status: 'ACTIVE',
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: now,
+      supabaseAuthId: null,
+      tenant: null,
+      branch: null,
+    },
+  };
+}
+
+function recentOccurredAt(): string {
+  return new Date(Date.now() - 60_000).toISOString();
+}
+
+function deriveReceiptWeekStart(
+  occurredAt: Date,
+  timeZone: string,
+  receiptWeekStartDay: number,
+): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(occurredAt);
+
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+  const localDate = new Date(Date.UTC(year, month - 1, day));
+  const localWeekday = localDate.getUTCDay();
+  const deltaDays = (7 + localWeekday - receiptWeekStartDay) % 7;
+
+  return new Date(Date.UTC(year, month - 1, day - deltaDays));
+}
+
+function formatYmd(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
