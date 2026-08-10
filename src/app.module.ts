@@ -28,6 +28,7 @@ import { RedemptionsModule } from './modules/redemptions/redemptions.module';
 import { ReversalsModule } from './modules/reversals/reversals.module';
 import { AdjustmentsModule } from './modules/adjustments/adjustments.module';
 import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
+import { FraudModule } from './modules/fraud/fraud.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
     ReversalsModule,
     AdjustmentsModule,
     OfflineSyncModule,
+    FraudModule,
     ApprovalsModule,
     AuditModule,
     ConfigurationModule,

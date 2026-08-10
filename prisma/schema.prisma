@@ -133,6 +133,24 @@ enum OfflineSyncStatus {
   RETRYABLE
 }
 
+enum FraudSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FraudFlagStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum FraudSubjectType {
+  RECEIPT
+  LEDGER_ENTRY
+  REDEMPTION
+}
+
 model Tenant {
   id                     String                  @id @default(uuid())
   name                   String
@@ -158,6 +176,7 @@ model Tenant {
   auditLogs              AuditLog[]
   deviceAttestations     DeviceAttestation[]
   offlineSyncAttempts    OfflineSyncAttempt[]
+  fraudFlags             FraudFlag[]
 }
 
 model Branch {
@@ -670,6 +689,44 @@ model OfflineSyncAttempt {
   @@index([tenantId, status, syncedAt])
   @@index([tenantId, branchId, syncedAt])
   @@index([tenantId, cashierId, syncedAt])
+}
+
+model FraudFlag {
+  id              String            @id @default(uuid())
+  tenantId        String
+  ruleCode        String
+  severity        FraudSeverity
+  status          FraudFlagStatus    @default(OPEN)
+  dedupeKey       String
+  subjectType     FraudSubjectType
+  subjectId       String
+  branchId        String?
+  cashierId       String?
+  customerId      String?
+  receiptId       String?
+  ledgerEntryId   String?
+  redemptionId    String?
+  windowStart     DateTime
+  windowEnd       DateTime?
+  firstDetectedAt DateTime
+  lastDetectedAt  DateTime
+  occurrenceCount Int               @default(1)
+  evidence        Json
+  decisionReason  String?
+  decisionActorId String?
+  decidedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId, status, severity, lastDetectedAt])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, cashierId, status])
+  @@index([tenantId, customerId, status])
+  @@index([tenantId, receiptId])
+  @@index([tenantId, ledgerEntryId])
+  @@index([tenantId, redemptionId])
 }
 
 model IdempotencyRecord {
