@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
@@ -7,8 +6,6 @@ import { PrismaService } from '../database/prisma.service';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
-import { FraudRulesService } from '../modules/fraud/fraud-rules.service';
-import { FraudService } from '../modules/fraud/fraud.service';
 import type { SmsProvider } from './sms.provider';
 import {
   SmsPayloadError,
@@ -49,9 +46,31 @@ type OutboxClaimRow = {
   id: string;
 };
 
+type FraudSubjectType = 'RECEIPT' | 'REDEMPTION' | 'LEDGER_ENTRY';
+
+type FraudFinding = {
+  ruleCode: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  dedupeKey: string;
+  subjectType: FraudSubjectType;
+  subjectId: string;
+  windowStart: Date;
+  windowEnd?: Date | null;
+  branchId?: string | null;
+  cashierId?: string | null;
+  customerId?: string | null;
+  receiptId?: string | null;
+  ledgerEntryId?: string | null;
+  redemptionId?: string | null;
+  evidence: Prisma.InputJsonValue;
+};
+
+const DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO = 10_000_000;
+const DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO = 20_000_000;
+const DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO = 500_000;
+
 export class OutboxWorkerRuntime {
   private readonly logger = new Logger(OutboxWorkerRuntime.name);
-  private readonly fraudService: FraudService;
   private queue?: Queue;
   private worker?: Worker<OutboxJobPayload>;
   private publisherTimer?: NodeJS.Timeout;
@@ -63,12 +82,7 @@ export class OutboxWorkerRuntime {
     private readonly prisma: PrismaService,
     private readonly config: WorkerConfig,
     private readonly smsProvider: SmsProvider,
-  ) {
-    this.fraudService = new FraudService(
-      prisma,
-      new FraudRulesService(new ConfigService(process.env)),
-    );
-  }
+  ) {}
 
   async start(): Promise<void> {
     if (this.started) {
@@ -578,18 +592,91 @@ export class OutboxWorkerRuntime {
         );
       }
 
-      await this.fraudService.evaluateReceipt({
-        tenantId: receipt.tenantId,
-        receiptId: receipt.id,
-        branchId: receipt.branchId,
-        cashierId: receipt.capturedBy,
-        customerId: receipt.customerId,
-        cardId: receipt.cardId,
-        receiptWeekStart: receipt.receiptWeekStart,
-        normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
-        purchaseAmountKobo: receipt.purchaseAmountKobo,
-        occurredAt: receipt.occurredAt,
+      const duplicateCount = await this.prisma.receipt.count({
+        where: {
+          tenantId: receipt.tenantId,
+          branchId: receipt.branchId,
+          receiptWeekStart: receipt.receiptWeekStart,
+          normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
+        },
       });
+
+      await this.recordFraudFindings(receipt.tenantId, [
+        ...(duplicateCount > 1
+          ? [
+              {
+                ruleCode: 'FR-DUP-001',
+                severity: 'HIGH' as const,
+                dedupeKey: this.dedupeKey(
+                  'FR-DUP-001',
+                  `${receipt.branchId}:${receipt.normalizedPosReceiptNumber}:${receipt.receiptWeekStart.toISOString()}`,
+                ),
+                subjectType: 'RECEIPT' as const,
+                subjectId: receipt.id,
+                windowStart: receipt.receiptWeekStart,
+                branchId: receipt.branchId,
+                cashierId: receipt.capturedBy,
+                customerId: receipt.customerId,
+                receiptId: receipt.id,
+                evidence: {
+                  duplicateCount,
+                  normalizedPosReceiptNumber:
+                    receipt.normalizedPosReceiptNumber,
+                  receiptWeekStart: receipt.receiptWeekStart.toISOString(),
+                  occurredAt: receipt.occurredAt.toISOString(),
+                },
+              },
+            ]
+          : []),
+        ...(receipt.purchaseAmountKobo >
+        BigInt(this.purchaseFlagThresholdKobo())
+          ? [
+              {
+                ruleCode: 'FR-HV-001',
+                severity: 'MEDIUM' as const,
+                dedupeKey: this.dedupeKey('FR-HV-001', receipt.id),
+                subjectType: 'RECEIPT' as const,
+                subjectId: receipt.id,
+                windowStart: receipt.receiptWeekStart,
+                branchId: receipt.branchId,
+                cashierId: receipt.capturedBy,
+                customerId: receipt.customerId,
+                receiptId: receipt.id,
+                evidence: {
+                  purchaseAmountKobo: receipt.purchaseAmountKobo.toString(),
+                  thresholdKobo: this.purchaseFlagThresholdKobo(),
+                  normalizedPosReceiptNumber:
+                    receipt.normalizedPosReceiptNumber,
+                  occurredAt: receipt.occurredAt.toISOString(),
+                },
+              },
+            ]
+          : []),
+        ...(receipt.purchaseAmountKobo >
+        BigInt(this.purchaseApprovalThresholdKobo())
+          ? [
+              {
+                ruleCode: 'FR-HV-002',
+                severity: 'HIGH' as const,
+                dedupeKey: this.dedupeKey('FR-HV-002', receipt.id),
+                subjectType: 'RECEIPT' as const,
+                subjectId: receipt.id,
+                windowStart: receipt.receiptWeekStart,
+                branchId: receipt.branchId,
+                cashierId: receipt.capturedBy,
+                customerId: receipt.customerId,
+                receiptId: receipt.id,
+                evidence: {
+                  purchaseAmountKobo: receipt.purchaseAmountKobo.toString(),
+                  thresholdKobo: this.purchaseApprovalThresholdKobo(),
+                  normalizedPosReceiptNumber:
+                    receipt.normalizedPosReceiptNumber,
+                  occurredAt: receipt.occurredAt.toISOString(),
+                },
+              },
+            ]
+          : []),
+      ]);
       return;
     }
 
@@ -609,18 +696,125 @@ export class OutboxWorkerRuntime {
         );
       }
 
-      await this.fraudService.evaluateRedemption({
-        tenantId: redemption.tenantId,
-        redemptionId: redemption.id,
-        branchId: redemption.branchId,
-        cashierId: redemption.requestedBy,
-        customerId: redemption.customerId,
-        cardId: redemption.cardId,
-        receiptId: redemption.receiptId,
-        requestedAmountKobo: redemption.requestedAmountKobo,
-        occurredAt: redemption.confirmedAt ?? redemption.requestedAt,
-      });
+      if (
+        redemption.requestedAmountKobo <=
+        BigInt(this.redemptionApprovalThresholdKobo())
+      ) {
+        return;
+      }
+
+      await this.recordFraudFindings(redemption.tenantId, [
+        {
+          ruleCode: 'FR-HV-003',
+          severity: 'HIGH' as const,
+          dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
+          subjectType: 'REDEMPTION' as const,
+          subjectId: redemption.id,
+          windowStart: redemption.confirmedAt ?? redemption.requestedAt,
+          branchId: redemption.branchId,
+          cashierId: redemption.requestedBy,
+          customerId: redemption.customerId,
+          receiptId: redemption.receiptId,
+          redemptionId: redemption.id,
+          evidence: {
+            requestedAmountKobo: redemption.requestedAmountKobo.toString(),
+            thresholdKobo: this.redemptionApprovalThresholdKobo(),
+            occurredAt: (
+              redemption.confirmedAt ?? redemption.requestedAt
+            ).toISOString(),
+          },
+        },
+      ]);
     }
+  }
+
+  private async recordFraudFindings(
+    tenantId: string,
+    findings: FraudFinding[],
+  ): Promise<number> {
+    if (findings.length === 0) {
+      return 0;
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const finding of findings) {
+        await tx.fraudFlag.upsert({
+          where: {
+            tenantId_dedupeKey: {
+              tenantId,
+              dedupeKey: finding.dedupeKey,
+            },
+          },
+          create: {
+            tenantId,
+            ruleCode: finding.ruleCode,
+            severity: finding.severity,
+            status: 'OPEN',
+            dedupeKey: finding.dedupeKey,
+            subjectType: finding.subjectType,
+            subjectId: finding.subjectId,
+            branchId: finding.branchId ?? null,
+            cashierId: finding.cashierId ?? null,
+            customerId: finding.customerId ?? null,
+            receiptId: finding.receiptId ?? null,
+            ledgerEntryId: finding.ledgerEntryId ?? null,
+            redemptionId: finding.redemptionId ?? null,
+            windowStart: finding.windowStart,
+            windowEnd: finding.windowEnd ?? null,
+            firstDetectedAt: now,
+            lastDetectedAt: now,
+            occurrenceCount: 1,
+            evidence: finding.evidence,
+          },
+          update: {
+            ruleCode: finding.ruleCode,
+            severity: finding.severity,
+            subjectType: finding.subjectType,
+            subjectId: finding.subjectId,
+            branchId: finding.branchId ?? null,
+            cashierId: finding.cashierId ?? null,
+            customerId: finding.customerId ?? null,
+            receiptId: finding.receiptId ?? null,
+            ledgerEntryId: finding.ledgerEntryId ?? null,
+            redemptionId: finding.redemptionId ?? null,
+            windowStart: finding.windowStart,
+            windowEnd: finding.windowEnd ?? null,
+            lastDetectedAt: now,
+            occurrenceCount: { increment: 1 },
+            evidence: finding.evidence,
+          },
+        });
+      }
+    });
+
+    return findings.length;
+  }
+
+  private purchaseFlagThresholdKobo(): number {
+    return parseThresholdKobo(
+      process.env.PURCHASE_FLAG_THRESHOLD_KOBO,
+      DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO,
+    );
+  }
+
+  private purchaseApprovalThresholdKobo(): number {
+    return parseThresholdKobo(
+      process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO,
+      DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO,
+    );
+  }
+
+  private redemptionApprovalThresholdKobo(): number {
+    return parseThresholdKobo(
+      process.env.REDEMPTION_APPROVAL_THRESHOLD_KOBO,
+      DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO,
+    );
+  }
+
+  private dedupeKey(ruleCode: string, subjectId: string): string {
+    return `${ruleCode}:${subjectId}`;
   }
 
   private async markOutboxEventDeadLettered(
@@ -730,6 +924,14 @@ function readNumberField(
   const value = payload[key];
 
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function parseThresholdKobo(
+  value: string | undefined,
+  fallback: number,
+): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function mapSmsDispatchResult(
