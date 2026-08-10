@@ -148,6 +148,127 @@ export class ReportsController {
     );
   }
 
+  @Get('cashier-activity')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiQuery({ name: 'branchId', required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'timezone', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'Cashier activity rows',
+    dataSchema: reportCollectionSchema,
+  })
+  @ApiOperation({ summary: 'List cashier activity report rows' })
+  listCashierActivity(
+    @CurrentSession() context: AuthContext,
+    @Query('branchId')
+    branchId?: string,
+    @Query('from')
+    from?: string,
+    @Query('to')
+    to?: string,
+    @Query('timezone')
+    timezone?: string,
+  ) {
+    return this.reportsService.listCashierActivity(
+      context.user.tenantId,
+      context,
+      {
+        branchId,
+        from,
+        to,
+        timezone,
+      },
+    );
+  }
+
+  @Get('redemption-summary')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiQuery({ name: 'branchId', required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'timezone', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'Redemption summary rows',
+    dataSchema: reportCollectionSchema,
+  })
+  @ApiOperation({ summary: 'List redemption summary report rows' })
+  listRedemptionSummary(
+    @CurrentSession() context: AuthContext,
+    @Query('branchId') branchId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('timezone') timezone?: string,
+  ) {
+    return this.reportsService.listRedemptionSummary(
+      context.user.tenantId,
+      context,
+      {
+        branchId,
+        from,
+        to,
+        timezone,
+      },
+    );
+  }
+
+  @Get('sms-operations')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiQuery({ name: 'branchId', required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'timezone', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'SMS operations rows',
+    dataSchema: reportCollectionSchema,
+  })
+  @ApiOperation({ summary: 'List SMS operations report rows' })
+  listSmsOperations(
+    @CurrentSession() context: AuthContext,
+    @Query('branchId') branchId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('timezone') timezone?: string,
+  ) {
+    return this.reportsService.listSmsOperations(
+      context.user.tenantId,
+      context,
+      {
+        branchId,
+        from,
+        to,
+        timezone,
+      },
+    );
+  }
+
+  @Get('audit-report')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'timezone', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'Audit report rows',
+    dataSchema: reportCollectionSchema,
+  })
+  @ApiOperation({ summary: 'List audit report rows' })
+  listAuditReport(
+    @CurrentSession() context: AuthContext,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('timezone') timezone?: string,
+  ) {
+    return this.reportsService.listAuditReport(context.user.tenantId, context, {
+      from,
+      to,
+      timezone,
+    });
+  }
+
   @Get('materialization-state')
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
@@ -191,6 +312,10 @@ export class ReportsController {
       'executive-summary',
       'liability-ageing',
       'customer-performance',
+      'cashier-activity',
+      'redemption-summary',
+      'sms-operations',
+      'audit-report',
       'materialization-state',
     ],
   })
@@ -254,6 +379,10 @@ export class ReportsController {
       'executive-summary',
       'liability-ageing',
       'customer-performance',
+      'cashier-activity',
+      'redemption-summary',
+      'sms-operations',
+      'audit-report',
       'materialization-state',
     ],
   })

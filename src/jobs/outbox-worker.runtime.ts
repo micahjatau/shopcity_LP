@@ -208,7 +208,7 @@ export class OutboxWorkerRuntime {
       const claimed = await tx.$queryRaw<OutboxClaimRow[]>`
         SELECT id
         FROM "OutboxEvent"
-        WHERE "eventType" = 'sms.send'
+        WHERE "eventType" IN ('sms.send', 'fraud.evaluate')
           AND "deadLetteredAt" IS NULL
           AND (
             ("status" IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now}))
@@ -216,23 +216,25 @@ export class OutboxWorkerRuntime {
             OR (
               "status" = 'PUBLISHED'
               AND "publishedAt" <= ${staleCutoff}
-              AND EXISTS (
-                SELECT 1
-                FROM "SmsMessage" sm
-                WHERE sm."tenantId" = "OutboxEvent"."tenantId"
-                  AND sm."outboxEventId" = "OutboxEvent"."id"
-                  AND sm."status" IN ('QUEUED', 'FAILED')
-                  AND sm."deadLetteredAt" IS NULL
-              )
-            )
-            OR (
-              "status" = 'PUBLISHED'
-              AND "publishedAt" <= ${staleCutoff}
-              AND NOT EXISTS (
-                SELECT 1
-                FROM "SmsMessage" sm
-                WHERE sm."tenantId" = "OutboxEvent"."tenantId"
-                  AND sm."outboxEventId" = "OutboxEvent"."id"
+              AND (
+                ("eventType" = 'sms.send' AND EXISTS (
+                  SELECT 1
+                  FROM "SmsMessage" sm
+                  WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+                    AND sm."outboxEventId" = "OutboxEvent"."id"
+                    AND sm."status" IN ('QUEUED', 'FAILED')
+                    AND sm."deadLetteredAt" IS NULL
+                ))
+                OR ("eventType" = 'fraud.evaluate')
+                OR (
+                  "eventType" = 'sms.send'
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM "SmsMessage" sm
+                    WHERE sm."tenantId" = "OutboxEvent"."tenantId"
+                      AND sm."outboxEventId" = "OutboxEvent"."id"
+                  )
+                )
               )
             )
           )
@@ -330,6 +332,11 @@ export class OutboxWorkerRuntime {
       },
     });
 
+    if (outboxEvent.eventType === 'fraud.evaluate') {
+      await this.evaluateFraudForOutboxEvent(outboxEvent);
+      return;
+    }
+
     if (outboxEvent.eventType !== 'sms.send') {
       await this.markOutboxEventDeadLettered(outboxEvent, 'unsupported-event');
       job.discard();
@@ -351,8 +358,6 @@ export class OutboxWorkerRuntime {
       job.discard();
       return;
     }
-
-    await this.evaluateFraudForOutboxEvent(outboxEvent);
 
     if (
       resolvedSmsMessage.deadLetteredAt ||
@@ -575,7 +580,54 @@ export class OutboxWorkerRuntime {
     tenantId: string;
     aggregateType: string;
     aggregateId: string;
+    eventType: string;
+    payload: Prisma.JsonValue;
   }): Promise<void> {
+    if (outboxEvent.eventType === 'fraud.evaluate') {
+      const payload = normalizeJsonPayload(outboxEvent.payload);
+      if (payload.ruleCode === 'FR-DUP-001') {
+        const branchId =
+          typeof payload.branchId === 'string' ? payload.branchId : '';
+        const cashierId =
+          typeof payload.cashierId === 'string' ? payload.cashierId : '';
+        const customerId =
+          typeof payload.customerId === 'string' ? payload.customerId : '';
+        const normalizedPosReceiptNumber =
+          typeof payload.normalizedPosReceiptNumber === 'string'
+            ? payload.normalizedPosReceiptNumber
+            : '';
+        const receiptWeekStartRaw =
+          typeof payload.receiptWeekStart === 'string'
+            ? payload.receiptWeekStart
+            : new Date().toISOString();
+        const receiptId =
+          typeof payload.originalReceiptId === 'string'
+            ? payload.originalReceiptId
+            : outboxEvent.aggregateId;
+
+        await this.recordFraudFindings(outboxEvent.tenantId, [
+          {
+            ruleCode: 'FR-DUP-001',
+            severity: 'HIGH' as const,
+            dedupeKey: this.dedupeKey(
+              'FR-DUP-001',
+              `${branchId}:${normalizedPosReceiptNumber}:${receiptWeekStartRaw}`,
+            ),
+            subjectType: 'RECEIPT' as const,
+            subjectId: receiptId,
+            windowStart: new Date(receiptWeekStartRaw),
+            branchId,
+            cashierId,
+            customerId,
+            receiptId,
+            evidence: payload,
+          },
+        ]);
+      }
+
+      return;
+    }
+
     if (outboxEvent.aggregateType === 'receipt') {
       const receipt = await this.prisma.receipt.findUnique({
         where: {
@@ -592,42 +644,7 @@ export class OutboxWorkerRuntime {
         );
       }
 
-      const duplicateCount = await this.prisma.receipt.count({
-        where: {
-          tenantId: receipt.tenantId,
-          branchId: receipt.branchId,
-          receiptWeekStart: receipt.receiptWeekStart,
-          normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
-        },
-      });
-
       await this.recordFraudFindings(receipt.tenantId, [
-        ...(duplicateCount > 1
-          ? [
-              {
-                ruleCode: 'FR-DUP-001',
-                severity: 'HIGH' as const,
-                dedupeKey: this.dedupeKey(
-                  'FR-DUP-001',
-                  `${receipt.branchId}:${receipt.normalizedPosReceiptNumber}:${receipt.receiptWeekStart.toISOString()}`,
-                ),
-                subjectType: 'RECEIPT' as const,
-                subjectId: receipt.id,
-                windowStart: receipt.receiptWeekStart,
-                branchId: receipt.branchId,
-                cashierId: receipt.capturedBy,
-                customerId: receipt.customerId,
-                receiptId: receipt.id,
-                evidence: {
-                  duplicateCount,
-                  normalizedPosReceiptNumber:
-                    receipt.normalizedPosReceiptNumber,
-                  receiptWeekStart: receipt.receiptWeekStart.toISOString(),
-                  occurredAt: receipt.occurredAt.toISOString(),
-                },
-              },
-            ]
-          : []),
         ...(receipt.purchaseAmountKobo >
         BigInt(this.purchaseFlagThresholdKobo())
           ? [
@@ -676,54 +693,6 @@ export class OutboxWorkerRuntime {
               },
             ]
           : []),
-      ]);
-      return;
-    }
-
-    if (outboxEvent.aggregateType === 'redemption') {
-      const redemption = await this.prisma.redemption.findUnique({
-        where: {
-          tenantId_id: {
-            tenantId: outboxEvent.tenantId,
-            id: outboxEvent.aggregateId,
-          },
-        },
-      });
-
-      if (!redemption) {
-        throw new Error(
-          `Redemption ${outboxEvent.aggregateId} not found for fraud evaluation`,
-        );
-      }
-
-      if (
-        redemption.requestedAmountKobo <=
-        BigInt(this.redemptionApprovalThresholdKobo())
-      ) {
-        return;
-      }
-
-      await this.recordFraudFindings(redemption.tenantId, [
-        {
-          ruleCode: 'FR-HV-003',
-          severity: 'HIGH' as const,
-          dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
-          subjectType: 'REDEMPTION' as const,
-          subjectId: redemption.id,
-          windowStart: redemption.confirmedAt ?? redemption.requestedAt,
-          branchId: redemption.branchId,
-          cashierId: redemption.requestedBy,
-          customerId: redemption.customerId,
-          receiptId: redemption.receiptId,
-          redemptionId: redemption.id,
-          evidence: {
-            requestedAmountKobo: redemption.requestedAmountKobo.toString(),
-            thresholdKobo: this.redemptionApprovalThresholdKobo(),
-            occurredAt: (
-              redemption.confirmedAt ?? redemption.requestedAt
-            ).toISOString(),
-          },
-        },
       ]);
     }
   }

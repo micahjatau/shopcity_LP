@@ -22,6 +22,7 @@ import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { FraudService } from '../fraud/fraud.service';
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
 import { RedeemTransactionDto } from './redemptions.dto';
 import { buildRedemptionConfirmedSmsPayload } from '../../jobs/sms.templates';
@@ -71,6 +72,7 @@ export class RedemptionsService {
     private readonly lotAllocationService: LotAllocationService,
     private readonly redemptionPolicyService: RedemptionPolicyService,
     private readonly auditService: AuditService,
+    private readonly fraudService?: FraudService,
   ) {}
 
   get dependenciesReady(): boolean {
@@ -258,6 +260,19 @@ export class RedemptionsService {
             });
 
             if (duplicateReceipt) {
+              await this.fraudService?.recordDuplicateReceiptAttempt({
+                tenantId,
+                receiptId: posReceiptNumber,
+                originalReceiptId: duplicateReceipt.id,
+                branchId,
+                cashierId: actor.user.id,
+                customerId: transactionCard.customerId,
+                deviceId: transactionDevice.id,
+                normalizedPosReceiptNumber,
+                receiptWeekStart,
+                occurredAt,
+              });
+
               throw new DomainHttpException(
                 HttpStatus.CONFLICT,
                 'RECEIPT_ALREADY_USED',

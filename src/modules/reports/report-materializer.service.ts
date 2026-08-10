@@ -35,6 +35,7 @@ interface ReceiptRecord {
   purchaseAmountKobo: bigint;
   normalizedPosReceiptNumber: string;
   receiptWeekStart: Date;
+  captureStatus: string;
 }
 
 interface LedgerEntryRecord {
@@ -87,6 +88,20 @@ interface ApprovalRecord {
   redemptionId: string | null;
 }
 
+interface FraudFlagRecord {
+  id: string;
+  ruleCode: string;
+  severity: string;
+  status: string;
+  branchId: string | null;
+  cashierId: string | null;
+  customerId: string | null;
+  receiptId: string | null;
+  windowStart: Date;
+  firstDetectedAt: Date;
+  occurrenceCount: number;
+}
+
 interface SourceData {
   branches: BranchRecord[];
   customers: CustomerRecord[];
@@ -96,6 +111,7 @@ interface SourceData {
   redemptions: RedemptionRecord[];
   smsMessages: SmsMessageRecord[];
   approvals: ApprovalRecord[];
+  fraudFlags: FraudFlagRecord[];
 }
 
 type ReportMaterializationStateRow =
@@ -225,6 +241,7 @@ export class ReportMaterializerService {
       redemptions,
       smsMessages,
       approvals,
+      fraudFlags,
     ] = await Promise.all([
       this.prisma.branch.findMany({
         where: { tenantId },
@@ -253,6 +270,7 @@ export class ReportMaterializerService {
           purchaseAmountKobo: true,
           normalizedPosReceiptNumber: true,
           receiptWeekStart: true,
+          captureStatus: true,
         },
       }),
       this.prisma.loyaltyLedgerEntry.findMany({
@@ -315,6 +333,22 @@ export class ReportMaterializerService {
           redemptionId: true,
         },
       }),
+      this.prisma.fraudFlag.findMany({
+        where: { tenantId, ruleCode: 'FR-DUP-001' },
+        select: {
+          id: true,
+          ruleCode: true,
+          severity: true,
+          status: true,
+          branchId: true,
+          cashierId: true,
+          customerId: true,
+          receiptId: true,
+          windowStart: true,
+          firstDetectedAt: true,
+          occurrenceCount: true,
+        },
+      }),
     ]);
 
     return {
@@ -326,6 +360,7 @@ export class ReportMaterializerService {
       redemptions,
       smsMessages,
       approvals,
+      fraudFlags,
     };
   }
 
@@ -567,7 +602,6 @@ function buildDailyFinancialSummaries(
   asOf: Date,
   materializedAt: Date,
 ) {
-  const receipts = filterReceiptsForScope(source.receipts, scope);
   const redemptions = filterRedemptionsForScope(source.redemptions, scope);
   const customers = filterCustomersForScope(source.customers, scope);
   const lots = filterLotsForScope(source.creditLots, source, scope);
@@ -576,7 +610,6 @@ function buildDailyFinancialSummaries(
     source,
     scope,
   );
-
   const reportDates = new Set<string>();
   const activeCustomerByDate = new Map<string, Set<string>>();
   const purchaseByDate = new Map<string, bigint>();
@@ -584,12 +617,16 @@ function buildDailyFinancialSummaries(
   const creditRedeemedByDate = new Map<string, bigint>();
   const transactionCountByDate = new Map<string, number>();
 
-  for (const receipt of receipts) {
-    const reportDate = toReportDate(receipt.occurredAt, scope.timezone);
+  for (const entry of ledgerEntries) {
+    if (entry.type !== 'EARN' || entry.direction !== 'CREDIT') {
+      continue;
+    }
+
+    const reportDate = toReportDate(entry.effectiveAt, scope.timezone);
     reportDates.add(reportDate);
-    addBigInt(purchaseByDate, reportDate, receipt.purchaseAmountKobo);
+    addBigInt(purchaseByDate, reportDate, entry.amountKobo);
     addNumber(transactionCountByDate, reportDate, 1);
-    addToSet(activeCustomerByDate, reportDate, receipt.customerId);
+    addToSet(activeCustomerByDate, reportDate, entry.customerId);
   }
 
   for (const entry of ledgerEntries) {
@@ -600,7 +637,6 @@ function buildDailyFinancialSummaries(
     const reportDate = toReportDate(entry.effectiveAt, scope.timezone);
     reportDates.add(reportDate);
     addBigInt(creditIssuedByDate, reportDate, entry.amountKobo);
-    addToSet(activeCustomerByDate, reportDate, entry.customerId);
   }
 
   for (const redemption of redemptions) {
@@ -618,12 +654,10 @@ function buildDailyFinancialSummaries(
   }
 
   const registeredCustomers = customers.length;
-  const outstandingLiabilityKobo = sumLots(
-    lots.filter((lot) => lot.expiresAt > asOf),
-  );
-  const creditExpiredKobo = sumLots(
-    lots.filter((lot) => lot.expiresAt <= asOf),
-  );
+  const activeLots = lots.filter((lot) => lot.expiresAt > asOf);
+  const expiredLots = lots.filter((lot) => lot.expiresAt <= asOf);
+  const outstandingLiabilityKobo = sumLots(activeLots);
+  const creditExpiredKobo = sumLots(expiredLots);
 
   return Array.from(reportDates)
     .sort()
@@ -665,46 +699,31 @@ function buildCashierSummaries(
   const reversalCount = new Map<string, number>();
   const approvalRequests = new Map<string, number>();
 
-  const duplicateGroups = new Map<string, number>();
-  for (const receipt of receipts) {
-    const key = [
-      receipt.capturedBy,
-      receipt.branchId,
-      toReportDate(receipt.occurredAt, scope.timezone),
-      receipt.normalizedPosReceiptNumber,
-    ].join('|');
-    duplicateGroups.set(key, (duplicateGroups.get(key) ?? 0) + 1);
-  }
-
-  for (const receipt of receipts) {
-    const reportDate = toReportDate(receipt.occurredAt, scope.timezone);
-    const key = cashierKey(reportDate, receipt.capturedBy);
-    addNumber(transactionCount, key, 1);
-    addBigInt(purchaseValue, key, receipt.purchaseAmountKobo);
-    const duplicateKey = [reportDate, receipt.capturedBy].join('|');
-    if (
-      (duplicateGroups.get(
-        [
-          receipt.capturedBy,
-          receipt.branchId,
-          reportDate,
-          receipt.normalizedPosReceiptNumber,
-        ].join('|'),
-      ) ?? 0) > 1
-    ) {
-      addNumber(duplicateAttempts, duplicateKey, 1);
-    }
-  }
-
   for (const entry of ledgerEntries) {
     const reportDate = toReportDate(entry.effectiveAt, scope.timezone);
     const key = cashierKey(reportDate, entry.createdBy);
     if (entry.type === 'EARN' && entry.direction === 'CREDIT') {
+      addNumber(transactionCount, key, 1);
+      addBigInt(purchaseValue, key, entry.amountKobo);
       addBigInt(creditIssued, key, entry.amountKobo);
     }
     if (entry.type === 'REVERSAL') {
       addNumber(reversalCount, key, 1);
     }
+  }
+
+  for (const flag of source.fraudFlags) {
+    if (
+      flag.ruleCode !== 'FR-DUP-001' ||
+      flag.status === 'RESOLVED' ||
+      (scope.scope === 'BRANCH' && flag.branchId !== scope.branchId)
+    ) {
+      continue;
+    }
+
+    const reportDate = toReportDate(flag.firstDetectedAt, scope.timezone);
+    const key = cashierKey(reportDate, flag.cashierId ?? 'unknown');
+    addNumber(duplicateAttempts, key, flag.occurrenceCount);
   }
 
   for (const approval of approvals) {
@@ -754,31 +773,41 @@ function buildCustomerSnapshots(
   dormantCustomerDays: number,
 ) {
   const customers = filterCustomersForScope(source.customers, scope);
-  const receipts = filterReceiptsForScope(source.receipts, scope);
   const redemptions = filterRedemptionsForScope(source.redemptions, scope);
   const lots = filterLotsForScope(source.creditLots, source, scope);
+  const ledgerEntries = filterLedgerEntriesForScope(
+    source.ledgerEntries,
+    source,
+    scope,
+  );
 
   return customers
     .map((customer) => {
-      const customerReceipts = receipts.filter(
-        (receipt) => receipt.customerId === customer.id,
+      const customerEarnEntries = ledgerEntries.filter(
+        (entry) =>
+          entry.customerId === customer.id &&
+          entry.type === 'EARN' &&
+          entry.direction === 'CREDIT',
       );
       const customerRedemptions = redemptions.filter(
         (redemption) => redemption.customerId === customer.id,
       );
-      const customerLots = lots.filter((lot) => lot.customerId === customer.id);
+      const customerLots = lots.filter(
+        (lot) => lot.customerId === customer.id && lot.expiresAt > asOf,
+      );
 
-      const purchaseValueKobo = customerReceipts.reduce(
-        (sum, receipt) => sum + receipt.purchaseAmountKobo,
+      const purchaseValueKobo = customerEarnEntries.reduce(
+        (sum, entry) => sum + entry.amountKobo,
         0n,
       );
       const currentBalanceKobo = customerLots.reduce(
         (sum, lot) => sum + lot.remainingAmountKobo,
         0n,
       );
-      const visitCount = customerReceipts.length + customerRedemptions.length;
+      const visitCount =
+        customerEarnEntries.length + customerRedemptions.length;
       const lastActivityAt = latestDate([
-        ...customerReceipts.map((receipt) => receipt.occurredAt),
+        ...customerEarnEntries.map((entry) => entry.effectiveAt),
         ...customerRedemptions.map((redemption) => redemption.requestedAt),
       ]);
       const dormant =
@@ -812,7 +841,7 @@ function buildLiabilityBuckets(
   materializedAt: Date,
 ) {
   const lots = filterLotsForScope(source.creditLots, source, scope).filter(
-    (lot) => lot.remainingAmountKobo > 0n,
+    (lot) => lot.remainingAmountKobo > 0n && lot.expiresAt > asOf,
   );
 
   const buckets = new Map<

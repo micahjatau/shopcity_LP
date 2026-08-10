@@ -100,6 +100,88 @@ export class ReportsService {
     );
   }
 
+  async listCashierActivity(
+    tenantId: string,
+    context: AuthContext,
+    query: ReportQuery = {},
+  ): Promise<ReportCollection<Record<string, unknown>>> {
+    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
+      this.prisma.reportCashierDailySummary.findMany({
+        where: {
+          tenantId,
+          scope: scope.scope,
+          scopeKey: scope.scopeKey,
+          ...(dateFilter ? { reportDate: dateFilter } : {}),
+        },
+        orderBy: [{ reportDate: 'desc' }, { cashierId: 'asc' }],
+      }),
+    );
+  }
+
+  async listRedemptionSummary(
+    tenantId: string,
+    context: AuthContext,
+    query: ReportQuery = {},
+  ): Promise<ReportCollection<Record<string, unknown>>> {
+    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
+      this.prisma.reportRedemptionDailySummary.findMany({
+        where: {
+          tenantId,
+          scope: scope.scope,
+          scopeKey: scope.scopeKey,
+          ...(dateFilter ? { reportDate: dateFilter } : {}),
+        },
+        orderBy: [{ reportDate: 'desc' }],
+      }),
+    );
+  }
+
+  async listSmsOperations(
+    tenantId: string,
+    context: AuthContext,
+    query: ReportQuery = {},
+  ): Promise<ReportCollection<Record<string, unknown>>> {
+    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
+      this.prisma.reportSmsDailySummary.findMany({
+        where: {
+          tenantId,
+          scope: scope.scope,
+          scopeKey: scope.scopeKey,
+          ...(dateFilter ? { reportDate: dateFilter } : {}),
+        },
+        orderBy: [{ reportDate: 'desc' }],
+      }),
+    );
+  }
+
+  async listAuditReport(
+    tenantId: string,
+    context: AuthContext,
+    query: Pick<ReportQuery, 'from' | 'to' | 'timezone'> = {},
+  ): Promise<ReportCollection<Record<string, unknown>>> {
+    if (context.user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Audit report is admin-only');
+    }
+
+    const dateFilter = buildDateFilter(query.from, query.to);
+    return {
+      scope: 'TENANT',
+      scopeKey: tenantId,
+      branchId: null,
+      timezone:
+        query.timezone ??
+        this.configService.get<string>('SHOPCITY_TIMEZONE') ??
+        DEFAULT_REPORT_TIME_ZONE,
+      items: await this.prisma.auditLog.findMany({
+        where: {
+          tenantId,
+          ...(dateFilter ? { createdAt: dateFilter } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    };
+  }
+
   async listMaterializationState(
     tenantId: string,
     context: AuthContext,

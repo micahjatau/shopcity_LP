@@ -146,7 +146,7 @@ describe('offline earn sync foundation (int)', () => {
     expect(counts).toEqual([1, 1, 1, 1, 1]);
   }, 120000);
 
-  it('rejects a changed payload for the same local record', async () => {
+  it('rejects a changed payload for the same local record without mutating the original replay', async () => {
     const fixture = await createOfflineFixture(
       prisma,
       tenant.id,
@@ -155,7 +155,11 @@ describe('offline earn sync foundation (int)', () => {
       'POS-OFFLINE-0002',
     );
     const request = buildOfflineRequest(fixture, 1_000_000);
-    await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
+    const first = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      request,
+    );
 
     const firstRecord = request.records[0];
     if (!firstRecord) {
@@ -167,15 +171,29 @@ describe('offline earn sync foundation (int)', () => {
       records: [{ ...firstRecord, purchaseAmountKobo: 1_000_001 }],
     };
 
-    const replay = await offlineSyncService.earnBatch(
+    const conflict = await offlineSyncService.earnBatch(
       tenant.id,
       fixture.actor,
       changed,
     );
-    expect(replay.records[0]).toMatchObject({
+    expect(conflict.records[0]).toMatchObject({
       localId: firstRecord.localId,
       status: 'REJECTED',
       errorCode: 'SYNC_RECORD_CONFLICT',
+      retryable: false,
+    });
+
+    const replay = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      request,
+    );
+    expect(replay).toEqual(first);
+    expect(replay.records[0]).toMatchObject({
+      status: 'CONFIRMED',
+      transactionId: first.records[0]?.transactionId,
+      approvalId: null,
+      errorCode: null,
       retryable: false,
     });
   }, 120000);

@@ -1,4 +1,5 @@
 import type { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { FraudRulesService } from './fraud-rules.service';
 import { FraudService } from './fraud.service';
 
@@ -21,7 +22,7 @@ describe('FraudService', () => {
       receiptCount: 2,
       upsert,
     });
-    const service = new FraudService(prisma, rulesStub());
+    const service = new FraudService(prisma, rulesStub(), auditStub());
     const input = receiptInput();
 
     expect(await service.evaluateReceipt(input)).toBe(3);
@@ -35,10 +36,39 @@ describe('FraudService', () => {
     expect(calls[2]?.[0].create.ruleCode).toBe('FR-HV-002');
   });
 
+  it('records duplicate receipt attempts durably', async () => {
+    const upsert = jest.fn().mockResolvedValue(undefined);
+    const outboxCreate = jest.fn().mockResolvedValue(undefined);
+    const auditRecord = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub({ upsert, outboxCreate });
+    const service = new FraudService(prisma, rulesStub(), {
+      recordWithClient: auditRecord,
+    } as unknown as AuditService);
+
+    expect(
+      await service.recordDuplicateReceiptAttempt({
+        tenantId: 'tenant-1',
+        receiptId: 'duplicate-receipt-1',
+        originalReceiptId: 'receipt-1',
+        branchId: 'branch-1',
+        cashierId: 'cashier-1',
+        customerId: 'customer-1',
+        deviceId: 'device-1',
+        normalizedPosReceiptNumber: 'POS-001',
+        receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+        occurredAt: new Date('2026-08-10T10:00:00.000Z'),
+      }),
+    ).toBe(1);
+
+    expect(auditRecord).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledTimes(0);
+    expect(outboxCreate).toHaveBeenCalledTimes(1);
+  });
+
   it('records redemption evidence', async () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
     const prisma = prismaStub({ upsert });
-    const service = new FraudService(prisma, rulesStub());
+    const service = new FraudService(prisma, rulesStub(), auditStub());
 
     expect(
       await service.evaluateRedemption({
@@ -112,6 +142,7 @@ function rulesStub() {
 function prismaStub(overrides: {
   receiptCount?: number;
   upsert: jest.Mock;
+  outboxCreate?: jest.Mock;
 }): PrismaService {
   return {
     receipt: {
@@ -120,14 +151,33 @@ function prismaStub(overrides: {
     fraudFlag: {
       upsert: overrides.upsert,
     },
+    outboxEvent: {
+      create: overrides.outboxCreate ?? jest.fn().mockResolvedValue(undefined),
+    },
+    auditLog: {
+      create: jest.fn().mockResolvedValue(undefined),
+    },
     $transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) =>
       callback({
         fraudFlag: {
           upsert: overrides.upsert,
         },
+        outboxEvent: {
+          create:
+            overrides.outboxCreate ?? jest.fn().mockResolvedValue(undefined),
+        },
+        auditLog: {
+          create: jest.fn().mockResolvedValue(undefined),
+        },
       }),
     ),
   } as unknown as PrismaService;
+}
+
+function auditStub(): AuditService {
+  return {
+    recordWithClient: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditService;
 }
 
 function receiptInput() {

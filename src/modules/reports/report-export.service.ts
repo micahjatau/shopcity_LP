@@ -17,6 +17,10 @@ export type ReportExportName =
   | 'executive-summary'
   | 'liability-ageing'
   | 'customer-performance'
+  | 'cashier-activity'
+  | 'redemption-summary'
+  | 'sms-operations'
+  | 'audit-report'
   | 'materialization-state';
 
 interface ReportExportQuery {
@@ -103,9 +107,7 @@ export class ReportExportService {
       },
     });
 
-    void this.scheduleRefresh(tenantId, report, query).catch((error) => {
-      void error;
-    });
+    await this.scheduleRefresh(tenantId, report, query);
   }
 
   private async scheduleRefresh(
@@ -168,6 +170,26 @@ export class ReportExportService {
           context,
           common,
         );
+      case 'cashier-activity':
+        return this.reportsService.listCashierActivity(
+          tenantId,
+          context,
+          common,
+        );
+      case 'redemption-summary':
+        return this.reportsService.listRedemptionSummary(
+          tenantId,
+          context,
+          common,
+        );
+      case 'sms-operations':
+        return this.reportsService.listSmsOperations(tenantId, context, common);
+      case 'audit-report':
+        return this.reportsService.listAuditReport(tenantId, context, {
+          from: query.from,
+          to: query.to,
+          timezone: query.timezone,
+        });
       case 'materialization-state':
         return this.reportsService.listMaterializationState(tenantId, context, {
           branchId: query.branchId,
@@ -259,6 +281,58 @@ function reportColumns(report: ReportExportName): string[] {
         'lastActivityAt',
         'dormant',
         'materializedAt',
+      ];
+    case 'cashier-activity':
+      return [
+        'scope',
+        'scopeKey',
+        'branchId',
+        'cashierId',
+        'reportDate',
+        'transactionCount',
+        'purchaseValueKobo',
+        'creditIssuedKobo',
+        'duplicateAttempts',
+        'reversalCount',
+        'approvalRequests',
+        'materializedAt',
+      ];
+    case 'redemption-summary':
+      return [
+        'scope',
+        'scopeKey',
+        'branchId',
+        'reportDate',
+        'redemptionCount',
+        'requestedKobo',
+        'confirmedKobo',
+        'reversedKobo',
+        'pendingApprovalCount',
+        'materializedAt',
+      ];
+    case 'sms-operations':
+      return [
+        'scope',
+        'scopeKey',
+        'branchId',
+        'reportDate',
+        'queuedCount',
+        'sentCount',
+        'deliveredCount',
+        'failedCount',
+        'suppressedCount',
+        'materializedAt',
+      ];
+    case 'audit-report':
+      return [
+        'tenantId',
+        'actorId',
+        'actorTenantId',
+        'action',
+        'entityType',
+        'entityId',
+        'requestId',
+        'createdAt',
       ];
     case 'materialization-state':
       return [

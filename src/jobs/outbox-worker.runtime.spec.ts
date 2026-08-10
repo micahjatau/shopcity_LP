@@ -441,35 +441,27 @@ describe('OutboxWorkerRuntime', () => {
     });
   });
 
-  it('evaluates fraud evidence for confirmed earn jobs before SMS delivery', async () => {
+  it('evaluates fraud work from a dedicated outbox event', async () => {
     const prisma = prismaStub({
       outboxEvent: {
-        id: 'outbox-fraud-earn',
+        id: 'outbox-fraud-evaluate',
         tenantId: 'tenant-1',
         aggregateType: 'receipt',
         aggregateId: 'receipt-fraud-1',
-        eventType: 'sms.send',
-        payload: { receiptId: 'receipt-fraud-1' },
-        publishedAt: null,
-        smsMessage: {
-          id: 'sms-fraud-earn',
-          tenantId: 'tenant-1',
-          receiptId: 'receipt-fraud-1',
-          outboxEventId: 'outbox-fraud-earn',
-          phoneE164: '+2348000000000',
-          template: 'earn-confirmed',
-          payload: {
-            version: 1,
-            receiptId: 'receipt-fraud-1',
-            transactionId: 'ledger-fraud-1',
-            customerId: 'customer-1',
-            phoneE164: '+2348000000000',
-            template: 'earn-confirmed',
-            creditKobo: '125050',
-          },
-          status: 'SENT',
-          attempts: 1,
+        eventType: 'fraud.evaluate',
+        payload: {
+          ruleCode: 'FR-DUP-001',
+          originalReceiptId: 'receipt-fraud-1',
+          duplicateReceiptId: 'duplicate-receipt-1',
+          branchId: 'branch-1',
+          cashierId: 'cashier-1',
+          customerId: 'customer-1',
+          normalizedPosReceiptNumber: 'POS-001',
+          receiptWeekStart: '2026-08-10T00:00:00.000Z',
+          occurredAt: '2026-08-10T10:00:00.000Z',
         },
+        publishedAt: null,
+        smsMessage: null,
       },
       receipt: {
         findUnique: jest.fn().mockResolvedValue({
@@ -494,18 +486,11 @@ describe('OutboxWorkerRuntime', () => {
     });
 
     await runtimeWithHandleJob(runtime).handleJob({
-      data: { id: 'outbox-fraud-earn', tenantId: 'tenant-1' },
+      data: { id: 'outbox-fraud-evaluate', tenantId: 'tenant-1' },
     });
 
-    expect(prisma.receiptFindUnique).toHaveBeenCalledTimes(1);
-    expect(prisma.receiptCount).toHaveBeenCalledWith({
-      where: {
-        tenantId: 'tenant-1',
-        branchId: 'branch-1',
-        receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
-        normalizedPosReceiptNumber: 'POS-001',
-      },
-    });
+    expect(prisma.receiptFindUnique).not.toHaveBeenCalled();
+    expect(prisma.receiptCount).not.toHaveBeenCalled();
     expect(prisma.fraudFlagUpsert).toHaveBeenCalledTimes(1);
     expect(prisma.fraudFlagUpsert).toHaveBeenCalledWith(
       expect.objectContaining({

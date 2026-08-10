@@ -125,7 +125,7 @@ export class OfflineSyncService {
 
     if (existingAttempt) {
       if (existingAttempt.requestHash !== requestHash) {
-        return this.persistResult(tenantId, deviceId, record.localId, {
+        return {
           localId: record.localId,
           status: 'REJECTED',
           transactionId: null,
@@ -133,7 +133,7 @@ export class OfflineSyncService {
           creditEarnedKobo: null,
           errorCode: 'SYNC_RECORD_CONFLICT',
           retryable: false,
-        });
+        };
       }
 
       if (existingAttempt.responseJson) {

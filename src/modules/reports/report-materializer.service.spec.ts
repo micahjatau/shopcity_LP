@@ -27,15 +27,15 @@ describe('ReportMaterializerService', () => {
       registeredCustomers: 1,
       transactionCount: 1,
       loyaltyPurchaseValueKobo: 1000n,
-      creditIssuedKobo: 20n,
-      outstandingLiabilityKobo: 20n,
+      creditIssuedKobo: 1000n,
+      outstandingLiabilityKobo: 1000n,
     });
     expect(branchRow).toMatchObject({
       registeredCustomers: 1,
       transactionCount: 1,
       loyaltyPurchaseValueKobo: 1000n,
-      creditIssuedKobo: 20n,
-      outstandingLiabilityKobo: 20n,
+      creditIssuedKobo: 1000n,
+      outstandingLiabilityKobo: 1000n,
     });
   });
 });
@@ -72,6 +72,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
           purchaseAmountKobo: 1000n,
           normalizedPosReceiptNumber: 'POS-1',
           receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+          captureStatus: 'CAPTURED',
         },
       ]),
     },
@@ -83,7 +84,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
           receiptId: 'receipt-1',
           type: 'EARN',
           direction: 'CREDIT',
-          amountKobo: 20n,
+          amountKobo: 1000n,
           createdBy: 'cashier-1',
           createdAt: new Date('2026-08-10T10:00:00.000Z'),
           effectiveAt: new Date('2026-08-10T10:00:00.000Z'),
@@ -95,7 +96,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
         {
           id: 'lot-1',
           customerId: 'customer-1',
-          remainingAmountKobo: 20n,
+          remainingAmountKobo: 1000n,
           earnedAt: new Date('2026-08-10T10:00:00.000Z'),
           expiresAt: new Date('2026-09-10T10:00:00.000Z'),
           earnLedgerEntryId: 'ledger-1',
@@ -109,6 +110,9 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
       findMany: jest.fn().mockResolvedValue([]),
     },
     approval: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    fraudFlag: {
       findMany: jest.fn().mockResolvedValue([]),
     },
     reportMaterializationState: {

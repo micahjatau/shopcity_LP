@@ -22,6 +22,7 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
+import { FraudService } from '../fraud/fraud.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
@@ -296,6 +297,7 @@ export class LoyaltyService {
       prismaService,
     ),
     private readonly lotAllocationService: LotAllocationService = new LotAllocationService(),
+    private readonly fraudService?: FraudService,
   ) {}
 
   async earn(
@@ -459,6 +461,19 @@ export class LoyaltyService {
             });
 
             if (duplicateReceipt) {
+              await this.fraudService?.recordDuplicateReceiptAttempt({
+                tenantId,
+                receiptId: data.posReceiptNumber,
+                originalReceiptId: duplicateReceipt.id,
+                branchId,
+                cashierId: actor.user.id,
+                customerId: transactionCard.customerId,
+                deviceId: transactionDevice.id,
+                normalizedPosReceiptNumber,
+                receiptWeekStart,
+                occurredAt,
+              });
+
               throw new DomainHttpException(
                 409,
                 'RECEIPT_ALREADY_USED',
