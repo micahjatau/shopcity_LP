@@ -1,14 +1,14 @@
 import { execSync } from 'node:child_process';
 import { createHmac, randomUUID } from 'node:crypto';
-import {
-  PrismaClient,
-  UserRole,
-} from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
 import { createAttestedDeviceData } from './support/device-attestation';
-import { createRedisTestEnvironment, type RedisTestEnvironment } from './support/redis-testcontainer';
+import {
+  createRedisTestEnvironment,
+  type RedisTestEnvironment,
+} from './support/redis-testcontainer';
 import type { INestApplication } from '@nestjs/common';
 
 const DEFAULT_POLICY = {
@@ -24,7 +24,9 @@ describe('offline earn sync HTTP (int)', () => {
   let httpServer: Parameters<typeof request>[0];
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
   let cashier: Awaited<ReturnType<typeof createCashierUser>>;
-  let createAppFn: (options?: { enableDocs?: boolean }) => Promise<INestApplication>;
+  let createAppFn: (options?: {
+    enableDocs?: boolean;
+  }) => Promise<INestApplication>;
   let SupabaseServiceToken: typeof import('../src/supabase/supabase.service').SupabaseService;
 
   beforeAll(async () => {
@@ -44,17 +46,20 @@ describe('offline earn sync HTTP (int)', () => {
     process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
-    process.env.OFFLINE_SYNC_MAX_RECORDS = String(DEFAULT_POLICY.OFFLINE_SYNC_MAX_RECORDS);
-    process.env.OFFLINE_EARN_MAX_AGE_HOURS = String(DEFAULT_POLICY.OFFLINE_EARN_MAX_AGE_HOURS);
+    process.env.OFFLINE_SYNC_MAX_RECORDS = String(
+      DEFAULT_POLICY.OFFLINE_SYNC_MAX_RECORDS,
+    );
+    process.env.OFFLINE_EARN_MAX_AGE_HOURS = String(
+      DEFAULT_POLICY.OFFLINE_EARN_MAX_AGE_HOURS,
+    );
 
     jest.resetModules();
-    const supabaseModule = jest.requireActual<typeof import('../src/supabase/supabase.service')>(
-      '../src/supabase/supabase.service',
-    );
+    const supabaseModule = jest.requireActual<
+      typeof import('../src/supabase/supabase.service')
+    >('../src/supabase/supabase.service');
     SupabaseServiceToken = supabaseModule.SupabaseService;
-    const bootstrap = jest.requireActual<typeof import('../src/bootstrap')>(
-      '../src/bootstrap',
-    );
+    const bootstrap =
+      jest.requireActual<typeof import('../src/bootstrap')>('../src/bootstrap');
     createAppFn = bootstrap.createApp;
 
     prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
@@ -65,26 +70,35 @@ describe('offline earn sync HTTP (int)', () => {
       adminPassword: 'password',
     });
 
-    cashier = await createCashierUser(prisma, seedData.tenant.id, seedData.branch.id);
+    cashier = await createCashierUser(
+      prisma,
+      seedData.tenant.id,
+      seedData.branch.id,
+    );
 
     app = await createAppFn({ enableDocs: false });
-    await (app.getHttpAdapter().getInstance() as { ready: () => Promise<void> }).ready();
+    await (
+      app.getHttpAdapter().getInstance() as { ready: () => Promise<void> }
+    ).ready();
     httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
     const supabaseService = app.get(SupabaseServiceToken);
-    jest.spyOn(supabaseService.publicClient.auth, 'signInWithPassword').mockImplementation(
-      (credentials) => {
+    jest
+      .spyOn(supabaseService.publicClient.auth, 'signInWithPassword')
+      .mockImplementation((credentials) => {
         const email = 'email' in credentials ? credentials.email : '';
         if (email !== cashier.username) {
-          return Promise.resolve({ data: { user: null }, error: new Error('Invalid credentials') } as never);
+          return Promise.resolve({
+            data: { user: null },
+            error: new Error('Invalid credentials'),
+          } as never);
         }
 
         return Promise.resolve({
           data: { user: { id: cashier.supabaseAuthId }, session: null },
           error: null,
         } as never);
-      },
-    );
+      });
   }, 120000);
 
   beforeEach(async () => {
@@ -113,13 +127,21 @@ describe('offline earn sync HTTP (int)', () => {
       seedData.branch.id,
       1_000_000,
       occurredAtLocal,
-      formatYmd(deriveReceiptWeekStart(new Date(occurredAtLocal), 'Africa/Lagos', 1)),
+      formatYmd(
+        deriveReceiptWeekStart(new Date(occurredAtLocal), 'Africa/Lagos', 1),
+      ),
     );
 
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
       .set('x-device-id', fixture.device.id)
-      .set('x-device-attestation', buildDeviceAttestation(fixture.device.id, fixture.device.fingerprintHash))
+      .set(
+        'x-device-attestation',
+        buildDeviceAttestation(
+          fixture.device.id,
+          fixture.device.fingerprintHash,
+        ),
+      )
       .send({ username: cashier.username, password: 'password' })
       .expect(200);
 
@@ -156,7 +178,11 @@ describe('offline earn sync HTTP (int)', () => {
   }, 120000);
 });
 
-async function createCashierUser(prisma: PrismaClient, tenantId: string, branchId: string) {
+async function createCashierUser(
+  prisma: PrismaClient,
+  tenantId: string,
+  branchId: string,
+) {
   return prisma.user.create({
     data: {
       id: randomUUID(),
@@ -294,7 +320,10 @@ function formatYmd(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-function buildDeviceAttestation(deviceId: string, fingerprintHash: string): string {
+function buildDeviceAttestation(
+  deviceId: string,
+  fingerprintHash: string,
+): string {
   const timestamp = Date.now();
   const nonce = randomUUID();
   const signature = createHmac('sha256', fingerprintHash)
@@ -308,8 +337,13 @@ function createSupabaseAdminStub(supabaseAuthId: string) {
   return {
     auth: {
       admin: {
-        listUsers: jest.fn().mockResolvedValue({ data: { users: [] }, error: null }),
-        createUser: jest.fn().mockResolvedValue({ data: { user: { id: supabaseAuthId } }, error: null }),
+        listUsers: jest
+          .fn()
+          .mockResolvedValue({ data: { users: [] }, error: null }),
+        createUser: jest.fn().mockResolvedValue({
+          data: { user: { id: supabaseAuthId } },
+          error: null,
+        }),
         updateUserById: jest.fn().mockResolvedValue({ error: null }),
         deleteUser: jest.fn().mockResolvedValue({ error: null }),
       },

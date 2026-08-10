@@ -77,7 +77,13 @@ export class OfflineSyncService {
     const results: OfflineEarnBatchRecordResult[] = [];
     for (const record of request.records) {
       results.push(
-        await this.processRecord(tenantId, actor, request.deviceId, policy, record),
+        await this.processRecord(
+          tenantId,
+          actor,
+          request.deviceId,
+          policy,
+          record,
+        ),
       );
     }
 
@@ -181,16 +187,29 @@ export class OfflineSyncService {
     );
 
     if (validationError) {
-      return this.persistResult(tenantId, deviceId, record.localId, validationError);
+      return this.persistResult(
+        tenantId,
+        deviceId,
+        record.localId,
+        validationError,
+      );
     }
 
     try {
-      const earnResponse = await this.loyaltyService.earn(tenantId, actor, record.idempotencyKey, {
-        posReceiptNumber: normalizeReceiptNumber(record.receiptNumber),
-        cardSerialNumber: normalizeCardBarcode(record.cardBarcode),
-        purchaseAmountKobo: record.purchaseAmountKobo,
-        occurredAt: parseDate(record.occurredAtLocal, 'occurredAtLocal').toISOString(),
-      } satisfies EarnTransactionDto);
+      const earnResponse = await this.loyaltyService.earn(
+        tenantId,
+        actor,
+        record.idempotencyKey,
+        {
+          posReceiptNumber: normalizeReceiptNumber(record.receiptNumber),
+          cardSerialNumber: normalizeCardBarcode(record.cardBarcode),
+          purchaseAmountKobo: record.purchaseAmountKobo,
+          occurredAt: parseDate(
+            record.occurredAtLocal,
+            'occurredAtLocal',
+          ).toISOString(),
+        } satisfies EarnTransactionDto,
+      );
 
       const result =
         earnResponse.state === 'PENDING_APPROVAL'
@@ -244,8 +263,7 @@ export class OfflineSyncService {
     }
 
     const occurredAt = parseDate(record.occurredAtLocal, 'occurredAtLocal');
-    const ageHours =
-      (Date.now() - occurredAt.getTime()) / (60 * 60 * 1000);
+    const ageHours = (Date.now() - occurredAt.getTime()) / (60 * 60 * 1000);
     if (ageHours > policy.maxRecordAgeHours) {
       return buildRejectedResult(record.localId, 'SYNC_RECORD_EXPIRED');
     }
@@ -278,7 +296,10 @@ export class OfflineSyncService {
     }
 
     const card = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue: normalizeCardBarcode(record.cardBarcode) },
+      where: {
+        tenantId,
+        barcodeValue: normalizeCardBarcode(record.cardBarcode),
+      },
       include: { customer: true },
     });
 
@@ -547,8 +568,8 @@ function stableStringify(value: unknown): string {
 function isUniqueConstraintError(error: unknown): boolean {
   return Boolean(
     error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2002',
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002',
   );
 }

@@ -26,8 +26,16 @@ export const envValidationSchema = Joi.object({
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
-  OFFLINE_SYNC_MAX_RECORDS: Joi.number().integer().min(1).max(1000).default(100),
-  OFFLINE_EARN_MAX_AGE_HOURS: Joi.number().integer().min(1).max(168).default(72),
+  OFFLINE_SYNC_MAX_RECORDS: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(100),
+  OFFLINE_EARN_MAX_AGE_HOURS: Joi.number()
+    .integer()
+    .min(1)
+    .max(168)
+    .default(72),
   MIN_REDEMPTION_KOBO: Joi.number()
     .integer()
     .min(1)

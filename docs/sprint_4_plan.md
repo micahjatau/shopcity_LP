@@ -1,9 +1,7 @@
 Sprint 4 — Offline, Fraud and Reporting Implementation Plan
 
 > Recommended plan location: docs/superpowers/plans/2026-08-10-sprint-4-offline-fraud-reports.md
-Recommended OpenSpec change: openspec/changes/sprint-4-offline-fraud-reports/
-
-
+> Recommended OpenSpec change: openspec/changes/sprint-4-offline-fraud-reports/
 
 Goal: Implement conflict-safe offline earn synchronization, deterministic fraud detection/review, dashboard/reporting read models, and controlled exports without weakening the financial guarantees established in Sprints 2–3.
 
@@ -15,7 +13,6 @@ The current TRD defines Sprint 4 specifically as offline batch sync, fraud rules
 
 This separation should remain strict.
 
-
 ---
 
 1. Sprint 4 scope
@@ -24,58 +21,39 @@ In scope
 
 1. Offline earn-only synchronization.
 
-
 2. Per-record conflict handling and replay.
-
 
 3. Offline synchronization history/reconciliation.
 
-
 4. Fraud signal/flag persistence.
-
 
 5. Existing high-risk rules integrated with fraud evidence.
 
-
 6. New behavioral fraud rules.
-
 
 7. Supervisor/admin fraud review dashboard API.
 
-
 8. Executive reporting.
-
 
 9. Liability ageing.
 
-
 10. Cashier activity.
-
 
 11. Customer performance.
 
-
 12. Redemption reporting.
-
 
 13. SMS operations reporting.
 
-
 14. Audit reporting.
-
 
 15. CSV exports.
 
-
 16. Report materialization/refresh.
-
 
 17. OpenAPI, generated client and Bruno journeys.
 
-
 18. Full offline/fraud/report integration and concurrency suite.
-
-
 
 The TRD explicitly says offline mode is continuity support rather than another ledger, and that redemptions, approvals, card replacement and manual adjustments remain blocked offline.
 
@@ -107,8 +85,6 @@ Large data-warehouse infrastructure.
 
 Direct POS integration.
 
-
-
 ---
 
 2. First: freeze the Sprint 3 boundary
@@ -123,11 +99,9 @@ add redemption-vs-manual-debit concurrency test;
 
 obtain the final green CI evidence and close Issue #3.
 
-
 Then freeze Sprint 3.
 
 Do not use Sprint 4 to continue redesigning redemption/reversal.
-
 
 ---
 
@@ -150,16 +124,16 @@ with its own ledger-writing implementation.
 Conceptually:
 
 Online request ───────┐
-                      ├─> Canonical Earn Execution
+├─> Canonical Earn Execution
 Offline sync record ──┘
-                           │
-                           ├─ Receipt
-                           ├─ Ledger
-                           ├─ CreditLot
-                           ├─ Approval
-                           ├─ Audit
-                           ├─ Outbox/SMS
-                           └─ Idempotency
+│
+├─ Receipt
+├─ Ledger
+├─ CreditLot
+├─ Approval
+├─ Audit
+├─ Outbox/SMS
+└─ Idempotency
 
 Offline changes how the command arrives, not how money is created.
 
@@ -189,7 +163,6 @@ approval requirements;
 
 resulting balance.
 
-
 This continues the repository rule that frontend-supplied balances, roles and approvals cannot be trusted.
 
 Reporting authority
@@ -199,17 +172,16 @@ Reports may be mutable and rebuildable.
 Financial history may not.
 
 Authoritative domain tables
-        ↓
+↓
 Reporting materializer
-        ↓
+↓
 Derived reporting tables
-        ↓
+↓
 Dashboard / CSV
 
 Deleting and rebuilding report read models is acceptable.
 
 Editing a confirmed ledger row to correct a report is not.
-
 
 ---
 
@@ -218,39 +190,39 @@ Editing a confirmed ledger row to correct a report is not.
 New feature modules
 
 src/modules/offline-sync/
-  offline-sync.module.ts
-  offline-sync.controller.ts
-  offline-sync.service.ts
-  offline-sync.dto.ts
-  offline-sync.types.ts
-  offline-sync.policy.ts
-  offline-sync.service.spec.ts
+offline-sync.module.ts
+offline-sync.controller.ts
+offline-sync.service.ts
+offline-sync.dto.ts
+offline-sync.types.ts
+offline-sync.policy.ts
+offline-sync.service.spec.ts
 
 src/modules/fraud/
-  fraud.module.ts
-  fraud.controller.ts
-  fraud.service.ts
-  fraud-rules.service.ts
-  fraud.dto.ts
-  fraud.types.ts
-  fraud.service.spec.ts
-  fraud-rules.service.spec.ts
+fraud.module.ts
+fraud.controller.ts
+fraud.service.ts
+fraud-rules.service.ts
+fraud.dto.ts
+fraud.types.ts
+fraud.service.spec.ts
+fraud-rules.service.spec.ts
 
 src/modules/reports/
-  reports.module.ts
-  reports.controller.ts
-  reports.service.ts
-  reports.dto.ts
-  reports.queries.ts
-  report-materializer.service.ts
-  report-export.service.ts
-  reports.service.spec.ts
-  report-materializer.service.spec.ts
-  report-export.service.spec.ts
+reports.module.ts
+reports.controller.ts
+reports.service.ts
+reports.dto.ts
+reports.queries.ts
+report-materializer.service.ts
+report-export.service.ts
+reports.service.spec.ts
+report-materializer.service.spec.ts
+report-export.service.spec.ts
 
 src/jobs/
-  fraud-evaluation.worker.ts
-  report-materialization.worker.ts
+fraud-evaluation.worker.ts
+report-materialization.worker.ts
 
 Existing files to modify
 
@@ -269,7 +241,6 @@ docs/TRD.md
 
 The current AppModule cleanly follows feature-module boundaries, so OfflineSync, Fraud and Reports should follow the same pattern rather than being pushed into LoyaltyModule.
 
-
 ---
 
 5. Workstream A — Sprint 4 contracts and policy
@@ -279,16 +250,16 @@ Task 1: Create Sprint 4 OpenSpec
 Create:
 
 openspec/changes/sprint-4-offline-fraud-reports/
-  proposal.md
-  design.md
-  tasks.md
+proposal.md
+design.md
+tasks.md
 
-  specs/
-    offline-earn-sync/spec.md
-    fraud-detection/spec.md
-    fraud-review/spec.md
-    reporting/spec.md
-    report-export/spec.md
+specs/
+offline-earn-sync/spec.md
+fraud-detection/spec.md
+fraud-review/spec.md
+reporting/spec.md
+report-export/spec.md
 
 Before modifying implementation symbols, run the repository-required GitNexus impact analysis and record it in:
 
@@ -320,7 +291,6 @@ I would use 90 days for DORMANT_CUSTOMER_DAYS, because that is the TRD's recomme
 
 Fraud thresholds should remain server-side and must not be exposed through /configuration/public.
 
-
 ---
 
 6. Workstream B — database foundation
@@ -330,15 +300,16 @@ Task 2: Offline synchronization evidence
 Add:
 
 enum OfflineSyncStatus {
-  CONFIRMED
-  PENDING_APPROVAL
-  REJECTED
-  RETRYABLE
+CONFIRMED
+PENDING_APPROVAL
+REJECTED
+RETRYABLE
 }
 
 And approximately:
 
 OfflineSyncAttempt
+
 - id
 - tenantId
 - localId
@@ -368,7 +339,6 @@ INDEX tenantId + cashierId + syncedAt
 
 This table is sync evidence, not a second ledger.
 
-
 ---
 
 7. Workstream C — offline earn synchronization
@@ -382,20 +352,20 @@ POST /api/v1/offline-sync/earn-batch
 Request:
 
 {
-  "deviceId": "uuid",
-  "records": [
-    {
-      "localId": "uuid",
-      "idempotencyKey": "uuid",
-      "cashierId": "uuid",
-      "branchId": "uuid",
-      "cardBarcode": "SC-00001234",
-      "receiptNumber": "10452",
-      "receiptWeekStart": "2026-07-13",
-      "purchaseAmountKobo": 1000000,
-      "occurredAtLocal": "2026-07-19T09:44:00+01:00"
-    }
-  ]
+"deviceId": "uuid",
+"records": [
+{
+"localId": "uuid",
+"idempotencyKey": "uuid",
+"cashierId": "uuid",
+"branchId": "uuid",
+"cardBarcode": "SC-00001234",
+"receiptNumber": "10452",
+"receiptWeekStart": "2026-07-13",
+"purchaseAmountKobo": 1000000,
+"occurredAtLocal": "2026-07-19T09:44:00+01:00"
+}
+]
 }
 
 This follows the TRD's existing offline contract.
@@ -403,13 +373,13 @@ This follows the TRD's existing offline contract.
 Response should always preserve localId:
 
 {
-  "localId": "uuid",
-  "status": "CONFIRMED",
-  "transactionId": "uuid",
-  "approvalId": null,
-  "creditEarnedKobo": 20000,
-  "errorCode": null,
-  "retryable": false
+"localId": "uuid",
+"status": "CONFIRMED",
+"transactionId": "uuid",
+"approvalId": null,
+"creditEarnedKobo": 20000,
+"errorCode": null,
+"retryable": false
 }
 
 Batch semantics
@@ -421,16 +391,15 @@ Each record is independently atomic.
 Therefore:
 
 100 records
- ├─ 97 CONFIRMED
- ├─ 1 PENDING_APPROVAL
- └─ 2 REJECTED
+├─ 97 CONFIRMED
+├─ 1 PENDING_APPROVAL
+└─ 2 REJECTED
 
 must not become:
 
 0 records because record 99 was bad
 
 Process records sequentially initially. The financial path is sufficiently sensitive that aggressive parallelism inside one request provides little MVP benefit.
-
 
 ---
 
@@ -465,7 +434,6 @@ credit-lot creation
 idempotency
 outbox/SMS
 
-
 ---
 
 9. Workstream E — offline conflict engine
@@ -476,23 +444,22 @@ The TRD already establishes the primary conflict matrix.
 
 Implement these stable outcomes:
 
-Situation	Result
+Situation Result
 
-Existing same local ID + same hash	replay original sync result
-Same local ID + different payload	SYNC_RECORD_CONFLICT
-Same idempotency key + same canonical request	original financial response
-Same key + changed canonical request	IDEMPOTENCY_CONFLICT
-Receipt already captured	RECEIPT_ALREADY_USED
-Card replaced/inactive	CARD_INACTIVE
-Staff customer	STAFF_INELIGIBLE
-Approval threshold crossed	PENDING_APPROVAL
-Local/server week disagreement	SYNC_WEEK_MISMATCH
-Wrong authenticated cashier	SYNC_ACTOR_MISMATCH
-Wrong device	SYNC_DEVICE_MISMATCH
-Wrong branch	SYNC_BRANCH_MISMATCH
-Offline record too old	SYNC_RECORD_EXPIRED
-Exhausted serialization retries	retryable transaction conflict
-
+Existing same local ID + same hash replay original sync result
+Same local ID + different payload SYNC_RECORD_CONFLICT
+Same idempotency key + same canonical request original financial response
+Same key + changed canonical request IDEMPOTENCY_CONFLICT
+Receipt already captured RECEIPT_ALREADY_USED
+Card replaced/inactive CARD_INACTIVE
+Staff customer STAFF_INELIGIBLE
+Approval threshold crossed PENDING_APPROVAL
+Local/server week disagreement SYNC_WEEK_MISMATCH
+Wrong authenticated cashier SYNC_ACTOR_MISMATCH
+Wrong device SYNC_DEVICE_MISMATCH
+Wrong branch SYNC_BRANCH_MISMATCH
+Offline record too old SYNC_RECORD_EXPIRED
+Exhausted serialization retries retryable transaction conflict
 
 Server week is authoritative
 
@@ -505,11 +472,11 @@ to populate the authoritative receipt.
 Calculate it again from:
 
 occurredAtLocal
-+ branch timezone
-+ branch receiptWeekStartDay
+
+- branch timezone
+- branch receiptWeekStartDay
 
 and compare.
-
 
 ---
 
@@ -526,65 +493,45 @@ It must prove:
 
 1. disconnected earn syncs once;
 
-
 2. identical replay returns exactly the original response;
-
 
 3. changed payload under same local ID is rejected;
 
-
 4. changed payload under same idempotency key is rejected;
-
 
 5. online earn followed by offline replay cannot duplicate credit;
 
-
 6. offline earn followed by online retry cannot duplicate credit;
-
 
 7. simultaneous sync of one receipt from two requests produces exactly one financial effect;
 
-
 8. inactive card fails;
-
 
 9. replaced card fails;
 
-
 10. staff account fails;
-
 
 11. wrong cashier fails;
 
-
 12. wrong device fails;
-
 
 13. wrong branch fails;
 
-
 14. incorrect submitted receipt week fails;
-
 
 15. high-value record produces pending approval;
 
-
 16. pending approval creates no ledger/lot/SMS effect;
-
 
 17. successful sync produces exactly one receipt, ledger entry and lot;
 
-
 18. mixed-result batch does not roll back valid neighboring records.
-
-
 
 Sprint 4 checkpoint A
 
 Do not start reporting implementation until this suite is green.
 
 This directly attacks Sprint 4's principal exit gate.
-
 
 ---
 
@@ -595,6 +542,7 @@ Task 6: Add FraudFlag
 Suggested model:
 
 FraudFlag
+
 - id
 - tenantId
 - ruleCode
@@ -621,21 +569,20 @@ FraudFlag
 Enums:
 
 FraudSeverity
-  LOW
-  MEDIUM
-  HIGH
+LOW
+MEDIUM
+HIGH
 
 FraudFlagStatus
-  OPEN
-  ACKNOWLEDGED
-  RESOLVED
+OPEN
+ACKNOWLEDGED
+RESOLVED
 
 dedupeKey prevents asynchronous replay from creating multiple dashboard cases for the same subject/window.
 
 Fraud data may be updated as operational state changes.
 
 Financial records still may not be changed.
-
 
 ---
 
@@ -668,7 +615,6 @@ Do not reimplement approval logic in FraudService.
 Fraud detects.
 
 Financial policy decides.
-
 
 ---
 
@@ -722,7 +668,6 @@ Repeated login failures/forbidden API access.
 
 Use security/audit evidence.
 
-
 ---
 
 14. Workstream H — durable asynchronous fraud evaluation
@@ -736,19 +681,19 @@ Task 8: Generalize outbox dispatch safely
 Refactor:
 
 OutboxWorkerRuntime
-          │
-          ▼
+│
+▼
 Outbox Handler Registry
-   ├── sms.send
-   └── fraud.evaluate
+├── sms.send
+└── fraud.evaluate
 
 Do not intermingle SMS-specific validation with fraud payload validation.
 
 Conceptually:
 
 interface OutboxEventHandler {
-  eventType: string;
-  handle(event: OutboxEvent): Promise<void>;
+eventType: string;
+handle(event: OutboxEvent): Promise<void>;
 }
 
 Existing SMS behavior must remain bit-for-bit regression tested.
@@ -758,13 +703,13 @@ Fraud event requirements
 Financial transaction commits:
 
 financial state
-+ existing SMS intent
-+ fraud.evaluate outbox intent
+
+- existing SMS intent
+- fraud.evaluate outbox intent
 
 atomically where applicable.
 
 The asynchronous evaluator may fail or retry without invalidating the financial transaction.
-
 
 ---
 
@@ -796,15 +741,15 @@ limit
 Decision:
 
 {
-  "decision": "ACKNOWLEDGED",
-  "reason": "Reviewed receipt history with supervisor"
+"decision": "ACKNOWLEDGED",
+"reason": "Reviewed receipt history with supervisor"
 }
 
 or:
 
 {
-  "decision": "RESOLVED",
-  "reason": "Legitimate bulk purchase"
+"decision": "RESOLVED",
+"reason": "Legitimate bulk purchase"
 }
 
 Authorization
@@ -815,9 +760,7 @@ Supervisor: own branch.
 
 Admin/Owner: tenant-wide.
 
-
 Cross-branch supervisor requests should remain non-enumerating.
-
 
 ---
 
@@ -869,12 +812,9 @@ Recommended Sprint 4 definition:
 
 > Customer with at least one confirmed financial transaction during the selected period.
 
-
-
 Dormant customer
 
 No confirmed transaction during the configured dormant period; initial TRD recommendation is 90 days.
-
 
 ---
 
@@ -911,7 +851,6 @@ mutable;
 
 never financial authority.
 
-
 Materializer
 
 ReportMaterializerService
@@ -925,7 +864,6 @@ rebuildTenant(tenantId)
 A retry must produce the same values rather than adding metrics twice.
 
 Use UPSERT/replace semantics, not incremental blind addition.
-
 
 ---
 
@@ -957,7 +895,6 @@ limit
 Never make the client infer the timezone used for bucketing.
 
 Return it.
-
 
 ---
 
@@ -1040,7 +977,6 @@ deadLetterCount
 
 This can derive directly from the existing SMS operational records.
 
-
 ---
 
 20. Workstream K — report materialization worker
@@ -1072,7 +1008,6 @@ Response:
 202 Accepted
 
 Do not make an HTTP report request perform a full tenant rebuild synchronously.
-
 
 ---
 
@@ -1107,8 +1042,6 @@ Report/export rate limiting: 10/minute per admin, matching the TRD baseline.
 CSV serializer must escape quotes/newlines correctly.
 
 Prevent spreadsheet-formula injection for values starting with =, +, - or @.
-
-
 
 ---
 
@@ -1155,7 +1088,6 @@ and require equality.
 
 That prevents silent reporting drift.
 
-
 ---
 
 23. Workstream N — OpenAPI and frontend integration
@@ -1196,7 +1128,6 @@ client/shopcity-client.ts
 
 No manual edits to generated client code.
 
-
 ---
 
 24. Bruno journeys
@@ -1224,7 +1155,6 @@ customer report
 redemption report
 SMS report
 CSV export
-
 
 ---
 
@@ -1268,7 +1198,6 @@ session tokens
 attestation secrets
 SMS credentials
 
-
 ---
 
 26. Sprint 4 migration strategy
@@ -1307,7 +1236,6 @@ fresh database migration test
 Sprint 3 → Sprint 4 upgrade test
 Prisma validation
 migration tracker update
-
 
 ---
 
@@ -1363,32 +1291,29 @@ oasdiff
 generated client
 Bruno
 
-
 ---
 
 28. Critical Sprint 4 acceptance tests
 
 These are the tests I would personally use when deciding whether Sprint 4 is finished.
 
-Gate	Required outcome
+Gate Required outcome
 
-Offline vs online same receipt	exactly one earn
-Offline identical replay	exact original response
-Offline changed replay	conflict, no financial mutation
-Mixed offline batch	valid records survive invalid neighbors
-Offline high-value earn	pending approval, zero pre-approval financial effect
-Wrong week	deterministic rejection
-Wrong device/cashier	deterministic rejection
-Duplicate fraud evaluation	one logical flag
-Fraud rule replay	no duplicate case explosion
-Report materialization rerun	same totals
-Report source vs read model	exact equality
-Cross-branch supervisor report	denied/non-enumerating
-Cashier raw report/export	denied
-CSV export	audited + row-capped + escaped
-Full Sprint 2/3 financial suite	no regression
-
-
+Offline vs online same receipt exactly one earn
+Offline identical replay exact original response
+Offline changed replay conflict, no financial mutation
+Mixed offline batch valid records survive invalid neighbors
+Offline high-value earn pending approval, zero pre-approval financial effect
+Wrong week deterministic rejection
+Wrong device/cashier deterministic rejection
+Duplicate fraud evaluation one logical flag
+Fraud rule replay no duplicate case explosion
+Report materialization rerun same totals
+Report source vs read model exact equality
+Cross-branch supervisor report denied/non-enumerating
+Cashier raw report/export denied
+CSV export audited + row-capped + escaped
+Full Sprint 2/3 financial suite no regression
 
 ---
 
@@ -1414,11 +1339,9 @@ concurrency;
 
 HTTP contract.
 
-
 Gate: the complete offline conflict suite passes.
 
 At this point I would consider Sprint 4 approximately 35% complete.
-
 
 ---
 
@@ -1440,11 +1363,9 @@ deduplication;
 
 supervisor/admin scope.
 
-
 Gate: all ten TRD rules are either implemented or explicitly mapped to an existing Sprint 2/3 control with fraud evidence.
 
 Approximate completion: 60%.
-
 
 ---
 
@@ -1470,11 +1391,9 @@ SMS;
 
 audit.
 
-
 Gate: golden reporting fixture passes source-vs-read-model reconciliation.
 
 Approximate completion: 85%.
-
 
 ---
 
@@ -1498,11 +1417,9 @@ Sprint 2/3 regression suite;
 
 documentation.
 
-
 Gate: one immutable SHA passes everything.
 
 Sprint 4 = 100%.
-
 
 ---
 
@@ -1510,20 +1427,18 @@ Sprint 4 = 100%.
 
 I recommend using this when we review completion later:
 
-Workstream	Weight
+Workstream Weight
 
-Offline synchronization	30%
-Offline conflict/concurrency evidence	10%
-Fraud detection/review	20%
-Reporting definitions/read models	20%
-Reports + exports	10%
-Contracts/docs/frontend integration	5%
-Final CI/migration/regression gate	5%
-Total	100%
-
+Offline synchronization 30%
+Offline conflict/concurrency evidence 10%
+Fraud detection/review 20%
+Reporting definitions/read models 20%
+Reports + exports 10%
+Contracts/docs/frontend integration 5%
+Final CI/migration/regression gate 5%
+Total 100%
 
 This makes it difficult to claim "90% complete" while the offline conflict engine or reporting definitions are still missing.
-
 
 ---
 
@@ -1568,7 +1483,6 @@ Sprint 4 should be considered 100% complete only when:
 [ ] Unit, integration, concurrency, HTTP, contract, architecture, lint, typecheck and build checks pass on one final SHA.
 
 [ ] The Sprint 4 OpenSpec tracker has no unchecked implementation items.
-
 
 The most important sequencing decision
 

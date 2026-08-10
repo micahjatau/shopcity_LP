@@ -1,9 +1,5 @@
-
 export type OfflineSyncRecordStatus =
-  | 'CONFIRMED'
-  | 'PENDING_APPROVAL'
-  | 'REJECTED'
-  | 'RETRYABLE';
+  'CONFIRMED' | 'PENDING_APPROVAL' | 'REJECTED' | 'RETRYABLE';
 
 export interface OfflineEarnBatchRecordInput {
   localId: string;

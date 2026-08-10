@@ -73,8 +73,16 @@ describe('offline earn sync foundation (int)', () => {
     configValues = { ...DEFAULT_POLICY };
     const configService = { get: (key: string) => configValues[key] } as never;
     const auditService = new AuditService(prisma);
-    const loyaltyService = new LoyaltyService(prisma, auditService, configService);
-    offlineSyncService = new OfflineSyncService(prisma, loyaltyService, configService);
+    const loyaltyService = new LoyaltyService(
+      prisma,
+      auditService,
+      configService,
+    );
+    offlineSyncService = new OfflineSyncService(
+      prisma,
+      loyaltyService,
+      configService,
+    );
   }, 120000);
 
   afterAll(async () => {
@@ -92,8 +100,16 @@ describe('offline earn sync foundation (int)', () => {
     );
     const request = buildOfflineRequest(fixture, 1_000_000);
 
-    const first = await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
-    const replay = await offlineSyncService.earnBatch(tenant.id, fixture.actor, request);
+    const first = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      request,
+    );
+    const replay = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      request,
+    );
 
     expect(replay).toEqual(first);
     expect(first.records[0]).toMatchObject({
@@ -105,7 +121,10 @@ describe('offline earn sync foundation (int)', () => {
 
     const counts = await Promise.all([
       prisma.receipt.count({
-        where: { tenantId: tenant.id, posReceiptNumber: request.records[0]!.receiptNumber },
+        where: {
+          tenantId: tenant.id,
+          posReceiptNumber: request.records[0]!.receiptNumber,
+        },
       }),
       prisma.loyaltyLedgerEntry.count({
         where: {
@@ -143,7 +162,11 @@ describe('offline earn sync foundation (int)', () => {
       records: [{ ...request.records[0]!, purchaseAmountKobo: 1_000_001 }],
     };
 
-    const replay = await offlineSyncService.earnBatch(tenant.id, fixture.actor, changed);
+    const replay = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      changed,
+    );
     expect(replay.records[0]).toMatchObject({
       localId: request.records[0]!.localId,
       status: 'REJECTED',
@@ -169,13 +192,17 @@ describe('offline earn sync foundation (int)', () => {
       { weekMismatch: true },
     );
 
-    const response = await offlineSyncService.earnBatch(tenant.id, firstFixture.actor, {
-      deviceId: firstFixture.device.id,
-      records: [
-        buildOfflineRecord(firstFixture, 1_000_000),
-        buildOfflineRecord(secondFixture, 1_000_000),
-      ],
-    });
+    const response = await offlineSyncService.earnBatch(
+      tenant.id,
+      firstFixture.actor,
+      {
+        deviceId: firstFixture.device.id,
+        records: [
+          buildOfflineRecord(firstFixture, 1_000_000),
+          buildOfflineRecord(secondFixture, 1_000_000),
+        ],
+      },
+    );
 
     expect(response.records[0]).toMatchObject({
       status: 'CONFIRMED',
@@ -189,7 +216,10 @@ describe('offline earn sync foundation (int)', () => {
     const firstRecord = buildOfflineRecord(firstFixture, 1_000_000);
     expect(
       await prisma.receipt.count({
-        where: { tenantId: tenant.id, posReceiptNumber: firstRecord.receiptNumber },
+        where: {
+          tenantId: tenant.id,
+          posReceiptNumber: firstRecord.receiptNumber,
+        },
       }),
     ).toBe(1);
     expect(
@@ -211,10 +241,14 @@ describe('offline earn sync foundation (int)', () => {
       'POS-OFFLINE-0005',
     );
 
-    const response = await offlineSyncService.earnBatch(tenant.id, fixture.actor, {
-      deviceId: fixture.device.id,
-      records: [buildOfflineRecord(fixture, 21_000_000)],
-    });
+    const response = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      {
+        deviceId: fixture.device.id,
+        records: [buildOfflineRecord(fixture, 21_000_000)],
+      },
+    );
 
     expect(response.records[0]).toMatchObject({
       status: 'PENDING_APPROVAL',
@@ -226,16 +260,31 @@ describe('offline earn sync foundation (int)', () => {
 
     const firstRecord = buildOfflineRecord(fixture, 21_000_000);
     const receipt = await prisma.receipt.findFirstOrThrow({
-      where: { tenantId: tenant.id, posReceiptNumber: firstRecord.receiptNumber },
+      where: {
+        tenantId: tenant.id,
+        posReceiptNumber: firstRecord.receiptNumber,
+      },
     });
 
-    const [receipts, ledgers, lots, approvals, smsMessages] = await Promise.all([
-      prisma.receipt.count({ where: { tenantId: tenant.id, id: receipt.id } }),
-      prisma.loyaltyLedgerEntry.count({ where: { tenantId: tenant.id, receiptId: receipt.id } }),
-      prisma.creditLot.count({ where: { tenantId: tenant.id, customerId: fixture.customer.id } }),
-      prisma.approval.count({ where: { tenantId: tenant.id, receiptId: receipt.id } }),
-      prisma.smsMessage.count({ where: { tenantId: tenant.id, receiptId: receipt.id } }),
-    ]);
+    const [receipts, ledgers, lots, approvals, smsMessages] = await Promise.all(
+      [
+        prisma.receipt.count({
+          where: { tenantId: tenant.id, id: receipt.id },
+        }),
+        prisma.loyaltyLedgerEntry.count({
+          where: { tenantId: tenant.id, receiptId: receipt.id },
+        }),
+        prisma.creditLot.count({
+          where: { tenantId: tenant.id, customerId: fixture.customer.id },
+        }),
+        prisma.approval.count({
+          where: { tenantId: tenant.id, receiptId: receipt.id },
+        }),
+        prisma.smsMessage.count({
+          where: { tenantId: tenant.id, receiptId: receipt.id },
+        }),
+      ],
+    );
 
     expect(receipts).toBe(1);
     expect(ledgers).toBe(0);
@@ -316,7 +365,13 @@ async function createOfflineFixture(
     device.id,
   );
 
-  return { device, customer, card, actor, weekMismatch: options.weekMismatch ?? false };
+  return {
+    device,
+    customer,
+    card,
+    actor,
+    weekMismatch: options.weekMismatch ?? false,
+  };
 }
 
 function buildOfflineRequest(
@@ -345,16 +400,19 @@ function buildOfflineRecord(
     branchId: fixture.actor.user.branchId!,
     cardBarcode: fixture.card.barcodeValue,
     receiptNumber: `POS-${fixture.card.barcodeValue}`,
-    receiptWeekStart: fixture.weekMismatch
-      ? '2026-01-01'
-      : derivedWeekStart,
+    receiptWeekStart: fixture.weekMismatch ? '2026-01-01' : derivedWeekStart,
     purchaseAmountKobo,
     occurredAtLocal: occurredAt,
   };
 }
 
 function makeContext(
-  user: { id: string; tenantId: string; branchId: string | null; role: UserRole },
+  user: {
+    id: string;
+    tenantId: string;
+    branchId: string | null;
+    role: UserRole;
+  },
   deviceId?: string,
 ): AuthContext {
   const now = new Date();

@@ -65,7 +65,9 @@ export class OfflineEarnBatchRecordResponseDto {
   @ApiProperty({ format: 'uuid' })
   localId!: string;
 
-  @ApiProperty({ enum: ['CONFIRMED', 'PENDING_APPROVAL', 'REJECTED', 'RETRYABLE'] })
+  @ApiProperty({
+    enum: ['CONFIRMED', 'PENDING_APPROVAL', 'REJECTED', 'RETRYABLE'],
+  })
   status!: 'CONFIRMED' | 'PENDING_APPROVAL' | 'REJECTED' | 'RETRYABLE';
 
   @ApiPropertyOptional({ format: 'uuid', nullable: true })

@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { FraudFlagStatus, FraudSeverity, FraudSubjectType, Prisma } from '@prisma/client';
+import {
+  FraudFlagStatus,
+  FraudSeverity,
+  FraudSubjectType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FraudRulesService } from './fraud-rules.service';
 import type {

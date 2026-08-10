@@ -1,9 +1,5 @@
 import { Body, Controller, Post, Req, Res, Version } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { FastifyReply } from 'fastify';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
@@ -103,7 +99,8 @@ export class OfflineSyncController {
       syncWeekMismatch: {
         statusCode: 409,
         code: 'SYNC_WEEK_MISMATCH',
-        message: 'Offline sync receipt week does not match the server-derived week',
+        message:
+          'Offline sync receipt week does not match the server-derived week',
       },
       receiptAlreadyUsed: {
         statusCode: 409,

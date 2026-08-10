@@ -5,10 +5,7 @@ export type FraudFlagStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 export type FraudSubjectType = 'RECEIPT' | 'LEDGER_ENTRY' | 'REDEMPTION';
 
 export type FraudRuleCode =
-  | 'FR-DUP-001'
-  | 'FR-HV-001'
-  | 'FR-HV-002'
-  | 'FR-HV-003';
+  'FR-DUP-001' | 'FR-HV-001' | 'FR-HV-002' | 'FR-HV-003';
 
 export interface FraudFinding {
   ruleCode: FraudRuleCode;
