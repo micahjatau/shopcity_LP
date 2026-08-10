@@ -36,6 +36,16 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(168)
     .default(72),
+  REPORT_EXPORT_MAX_ROWS: Joi.number()
+    .integer()
+    .min(1)
+    .max(50000)
+    .default(5000),
+  REPORT_EXPORT_RATE_LIMIT_PER_MINUTE: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(10),
   MIN_REDEMPTION_KOBO: Joi.number()
     .integer()
     .min(1)
