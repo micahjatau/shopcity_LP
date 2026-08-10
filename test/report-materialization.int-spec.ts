@@ -89,7 +89,7 @@ describe('report materialization (int)', () => {
       'POS-REPORT-0001',
     );
 
-    const occurredAt = '2026-08-10T10:00:00.000Z';
+    const occurredAt = '2026-08-10T20:00:00.000Z';
     const earn = await loyaltyService.earn(
       tenant.id,
       makeContext(
