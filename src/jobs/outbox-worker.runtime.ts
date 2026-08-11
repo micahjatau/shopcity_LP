@@ -4,8 +4,7 @@ import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
-import { FraudBehaviorService } from '../modules/fraud/fraud-behavior.service';
-import { FraudRulesService } from '../modules/fraud/fraud-rules.service';
+import { FraudBehaviorRuntime } from './fraud-behavior.runtime';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
@@ -80,21 +79,18 @@ export class OutboxWorkerRuntime {
   private activeRecovery?: Promise<void>;
   private started = false;
   private stopping = false;
-  private readonly fraudBehaviorService: FraudBehaviorService;
+  private readonly fraudBehaviorService: FraudBehaviorRuntime;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: WorkerConfig,
     private readonly smsProvider: SmsProvider,
-    fraudBehaviorService?: FraudBehaviorService,
+    fraudBehaviorService?: FraudBehaviorRuntime,
   ) {
     this.fraudBehaviorService =
       fraudBehaviorService ??
-      new FraudBehaviorService(
+      new FraudBehaviorRuntime(
         prisma,
-        new FraudRulesService(
-          new ConfigService(process.env as Record<string, string | undefined>),
-        ),
         new ConfigService(process.env as Record<string, string | undefined>),
       );
   }
