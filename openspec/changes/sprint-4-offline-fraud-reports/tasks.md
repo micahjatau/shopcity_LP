@@ -1,3 +1,5 @@
+> Supersession note: this older Sprint 4 tracker was left unchecked during the later final-gate work. Its remaining offline, fraud, reporting, refresh, and validation items are superseded by `sprint-4-final-gate-closure` and `sprint-4-review-43-closure`; use those trackers and final evidence for Sprint 4 completion status.
+
 ## 1. Scope and evidence
 
 - [ ] 1.1 Freeze the Sprint 4 hardening scope from review 41 and align it with the existing sprint-4 offline/fraud/report change.

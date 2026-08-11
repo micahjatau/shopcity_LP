@@ -561,13 +561,114 @@ describe('offline earn sync foundation (int)', () => {
     ).toBe(1);
   }, 120000);
 
-  it('keeps one financial effect for concurrent offline duplicate submissions', async () => {
+  it('rejects an online duplicate after the receipt was captured offline', async () => {
     const fixture = await createOfflineFixture(
       prisma,
       tenant.id,
       branch.id,
       cashier.id,
       'POS-OFFLINE-0013',
+    );
+    const request = buildOfflineRequest(fixture, 1_000_000);
+    const offlineRecord = request.records[0];
+    if (!offlineRecord) {
+      throw new Error('Offline request must contain a record');
+    }
+
+    const offlineResponse = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      request,
+    );
+    expect(offlineResponse.records[0]).toMatchObject({ status: 'CONFIRMED' });
+
+    await expect(
+      loyaltyService.earn(tenant.id, fixture.actor, randomUUID(), {
+        posReceiptNumber: offlineRecord.receiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: offlineRecord.occurredAtLocal,
+      }),
+    ).rejects.toThrow(/receipt/i);
+
+    await expectSingleFinancialEffect(
+      offlineRecord.receiptNumber,
+      fixture.customer.id,
+    );
+  }, 120000);
+
+  it('keeps one financial effect for concurrent online/offline duplicate submissions', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0014',
+    );
+    const request = buildOfflineRequest(fixture, 1_000_000);
+    const offlineRecord = request.records[0];
+    if (!offlineRecord) {
+      throw new Error('Offline request must contain a record');
+    }
+
+    await Promise.allSettled([
+      loyaltyService.earn(tenant.id, fixture.actor, randomUUID(), {
+        posReceiptNumber: offlineRecord.receiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: offlineRecord.occurredAtLocal,
+      }),
+      offlineSyncService.earnBatch(tenant.id, fixture.actor, request),
+    ]);
+
+    await expectSingleFinancialEffect(
+      offlineRecord.receiptNumber,
+      fixture.customer.id,
+    );
+  }, 120000);
+
+  it('keeps one financial effect for concurrent distinct offline duplicate submissions', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0015',
+    );
+    const first = buildOfflineRequest(fixture, 1_000_000);
+    const firstRecord = first.records[0];
+    if (!firstRecord) {
+      throw new Error('Offline request must contain a record');
+    }
+    const second = {
+      ...first,
+      records: [
+        {
+          ...firstRecord,
+          localId: randomUUID(),
+          idempotencyKey: randomUUID(),
+        },
+      ],
+    };
+
+    await Promise.allSettled([
+      offlineSyncService.earnBatch(tenant.id, fixture.actor, first),
+      offlineSyncService.earnBatch(tenant.id, fixture.actor, second),
+    ]);
+
+    await expectSingleFinancialEffect(
+      firstRecord.receiptNumber,
+      fixture.customer.id,
+    );
+  }, 120000);
+
+  it('keeps one financial effect for concurrent offline duplicate submissions', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0016',
     );
     const request = buildOfflineRequest(fixture, 1_000_000);
     const [first, second] = await Promise.all([
@@ -600,6 +701,28 @@ describe('offline earn sync foundation (int)', () => {
       }),
     ).toBe(1);
   }, 120000);
+
+  async function expectSingleFinancialEffect(
+    receiptNumber: string,
+    customerId: string,
+  ): Promise<void> {
+    const [receiptCount, ledgerCount, lotCount] = await Promise.all([
+      prisma.receipt.count({
+        where: { tenantId: tenant.id, posReceiptNumber: receiptNumber },
+      }),
+      prisma.loyaltyLedgerEntry.count({
+        where: {
+          tenantId: tenant.id,
+          receipt: { posReceiptNumber: receiptNumber },
+        },
+      }),
+      prisma.creditLot.count({ where: { tenantId: tenant.id, customerId } }),
+    ]);
+
+    expect(receiptCount).toBe(1);
+    expect(ledgerCount).toBe(1);
+    expect(lotCount).toBe(1);
+  }
 });
 
 async function createStaffUser(

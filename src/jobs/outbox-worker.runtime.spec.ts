@@ -441,6 +441,60 @@ describe('OutboxWorkerRuntime', () => {
     });
   });
 
+  it('preserves SMS failedAt evidence when a retry succeeds', async () => {
+    const failedAt = new Date('2026-08-10T09:05:00.000Z');
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-1',
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'sms.send',
+        payload: { receiptId: 'receipt-1' },
+        publishedAt: null,
+        smsMessage: {
+          id: 'sms-1',
+          tenantId: 'tenant-1',
+          receiptId: 'receipt-1',
+          outboxEventId: 'outbox-1',
+          phoneE164: '+2348000000000',
+          template: 'earn-confirmed',
+          payload: {
+            version: 1,
+            receiptId: 'receipt-1',
+            transactionId: 'ledger-1',
+            customerId: 'customer-1',
+            phoneE164: '+2348000000000',
+            template: 'earn-confirmed',
+            creditKobo: '125050',
+          },
+          status: 'FAILED',
+          attempts: 1,
+          failedAt,
+        },
+      },
+    });
+    const smsProvider = {
+      send: jest.fn().mockResolvedValue({ status: 'DELIVERED' }),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithHandleJob(runtime).handleJob({
+      data: { id: 'outbox-1', tenantId: 'tenant-1' },
+    });
+
+    expect(prisma.smsMessageUpdateCalls[0]?.data).toMatchObject({
+      status: 'DELIVERED',
+    });
+    expect(prisma.smsMessageUpdateCalls[0]?.data).not.toHaveProperty(
+      'failedAt',
+    );
+  });
+
   it('evaluates fraud work from a dedicated outbox event', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -816,6 +870,7 @@ type PrismaStubOverrides = {
       payload: Record<string, unknown>;
       status: string;
       attempts: number;
+      failedAt?: Date | null;
       deadLetteredAt?: Date | null;
     } | null;
   };

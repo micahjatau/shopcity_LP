@@ -152,7 +152,7 @@ export class OfflineSyncService {
         return replay;
       }
 
-      return this.persistResult(tenantId, deviceId, record.localId, {
+      return {
         localId: record.localId,
         status: 'RETRYABLE',
         transactionId: null,
@@ -160,7 +160,7 @@ export class OfflineSyncService {
         creditEarnedKobo: null,
         errorCode: 'SYNC_RECORD_PROCESSING',
         retryable: true,
-      });
+      };
     }
 
     try {

@@ -11,8 +11,8 @@ export function redemptionStatusAt(
   input: {
     requestedAt: Date;
     confirmedAt: Date | null;
+    rejectedAt?: Date | null;
     reversedAt: Date | null;
-    status: string;
     expiresAt?: Date | null;
   },
   asOf: Date,
@@ -21,27 +21,28 @@ export function redemptionStatusAt(
     return 'PENDING_APPROVAL';
   }
 
-  if (input.reversedAt && input.reversedAt <= asOf) {
-    return 'REVERSED';
+  const transitions: Array<{
+    status: RedemptionSnapshotStatus;
+    occurredAt: Date;
+  }> = [{ status: 'PENDING_APPROVAL', occurredAt: input.requestedAt }];
+
+  if (input.confirmedAt) {
+    transitions.push({ status: 'CONFIRMED', occurredAt: input.confirmedAt });
   }
 
-  if (input.confirmedAt && input.confirmedAt <= asOf) {
-    return 'CONFIRMED';
+  if (input.rejectedAt) {
+    transitions.push({ status: 'REJECTED', occurredAt: input.rejectedAt });
   }
 
-  if (input.status === 'REJECTED') {
-    return 'REJECTED';
+  if (input.reversedAt) {
+    transitions.push({ status: 'REVERSED', occurredAt: input.reversedAt });
   }
 
-  if (input.status === 'EXPIRED') {
-    return 'REJECTED';
+  if (input.expiresAt) {
+    transitions.push({ status: 'REJECTED', occurredAt: input.expiresAt });
   }
 
-  if (input.expiresAt && input.expiresAt <= asOf) {
-    return 'REJECTED';
-  }
-
-  return 'PENDING_APPROVAL';
+  return latestTransitionAt(transitions, asOf).status;
 }
 
 export function smsStatusAt(
@@ -51,7 +52,6 @@ export function smsStatusAt(
     deliveredAt: Date | null;
     failedAt: Date | null;
     suppressedAt: Date | null;
-    status: string;
   },
   asOf: Date,
 ): SmsSnapshotStatus {
@@ -59,23 +59,44 @@ export function smsStatusAt(
     return 'QUEUED';
   }
 
-  if (input.suppressedAt && input.suppressedAt <= asOf) {
-    return 'SUPPRESSED';
+  const transitions: Array<{ status: SmsSnapshotStatus; occurredAt: Date }> = [
+    { status: 'QUEUED', occurredAt: input.queuedAt },
+  ];
+
+  if (input.sentAt) {
+    transitions.push({ status: 'SENT', occurredAt: input.sentAt });
   }
 
-  if (input.deliveredAt && input.deliveredAt <= asOf) {
-    return 'DELIVERED';
+  if (input.deliveredAt) {
+    transitions.push({ status: 'DELIVERED', occurredAt: input.deliveredAt });
   }
 
-  if (input.failedAt && input.failedAt <= asOf) {
-    return 'FAILED';
+  if (input.failedAt) {
+    transitions.push({ status: 'FAILED', occurredAt: input.failedAt });
   }
 
-  if (input.sentAt && input.sentAt <= asOf) {
-    return 'SENT';
+  if (input.suppressedAt) {
+    transitions.push({ status: 'SUPPRESSED', occurredAt: input.suppressedAt });
   }
 
-  return 'QUEUED';
+  return latestTransitionAt(transitions, asOf).status;
+}
+
+function latestTransitionAt<T extends string>(
+  transitions: Array<{ status: T; occurredAt: Date }>,
+  asOf: Date,
+): { status: T; occurredAt: Date } {
+  const latest = transitions
+    .filter((transition) => transition.occurredAt <= asOf)
+    .sort(
+      (left, right) => right.occurredAt.getTime() - left.occurredAt.getTime(),
+    )[0];
+
+  if (!latest) {
+    return transitions[0];
+  }
+
+  return latest;
 }
 
 export function approvalStatusAt(

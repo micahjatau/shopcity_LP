@@ -72,6 +72,7 @@ interface RedemptionRecord {
   status: string;
   requestedAt: Date;
   confirmedAt: Date | null;
+  rejectedAt: Date | null;
   reversedAt: Date | null;
 }
 
@@ -340,6 +341,7 @@ export class ReportMaterializerService {
           status: true,
           requestedAt: true,
           confirmedAt: true,
+          rejectedAt: true,
           reversedAt: true,
         },
       }),
@@ -724,9 +726,10 @@ function buildDailyFinancialSummaries(
   }
 
   for (const redemption of redemptions) {
+    const snapshotStatus = redemptionStatusAt(redemption, asOf);
     const reportDate = toReportDate(redemption.requestedAt, scope.timezone);
     reportDates.add(reportDate);
-    if (redemption.status === 'CONFIRMED') {
+    if (snapshotStatus === 'CONFIRMED') {
       addBigInt(
         creditRedeemedByDate,
         reportDate,

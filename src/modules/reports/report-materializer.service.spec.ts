@@ -142,10 +142,11 @@ describe('ReportMaterializerService', () => {
                   customerId: 'customer-1',
                   requestedAmountKobo: 2000n,
                   confirmedAmountKobo: 2000n,
-                  status: 'CONFIRMED',
+                  status: 'REVERSED',
                   requestedAt: new Date('2026-08-10T10:00:00.000Z'),
-                  confirmedAt: new Date('2026-08-10T13:00:00.000Z'),
-                  reversedAt: null,
+                  confirmedAt: new Date('2026-08-10T11:00:00.000Z'),
+                  rejectedAt: null,
+                  reversedAt: new Date('2026-08-10T13:00:00.000Z'),
                 },
               ]),
             },
@@ -159,7 +160,7 @@ describe('ReportMaterializerService', () => {
                   createdAt: new Date('2026-08-10T10:00:00.000Z'),
                   sentAt: new Date('2026-08-10T13:00:00.000Z'),
                   deliveredAt: null,
-                  failedAt: null,
+                  failedAt: new Date('2026-08-10T11:00:00.000Z'),
                   suppressedAt: null,
                 },
               ]),
@@ -193,14 +194,22 @@ describe('ReportMaterializerService', () => {
     const redemptionRows =
       tx.reportRedemptionDailySummary.createMany.mock.calls[0]?.[0].data;
     const smsRows = tx.reportSmsDailySummary.createMany.mock.calls[0]?.[0].data;
+    const dailyRows =
+      tx.reportDailyFinancialSummary.createMany.mock.calls[0]?.[0].data;
+    const tenantDailyRow = dailyRows.find((row) => row.scopeKey === 'tenant-1');
 
     expect(redemptionRows[0]).toMatchObject({
-      pendingApprovalCount: 1,
-      confirmedKobo: 0n,
+      pendingApprovalCount: 0,
+      confirmedKobo: 2000n,
+      reversedKobo: 0n,
+    });
+    expect(tenantDailyRow).toMatchObject({
+      creditRedeemedKobo: 2000n,
     });
     expect(smsRows[0]).toMatchObject({
       queuedCount: 1,
       sentCount: 0,
+      failedCount: 1,
     });
   });
 });

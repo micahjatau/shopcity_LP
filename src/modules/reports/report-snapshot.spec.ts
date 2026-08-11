@@ -15,8 +15,8 @@ describe('report snapshot helpers', () => {
         {
           requestedAt,
           confirmedAt,
+          rejectedAt: null,
           reversedAt,
-          status: 'REVERSED',
         },
         new Date('2026-08-10T10:30:00.000Z'),
       ),
@@ -26,8 +26,8 @@ describe('report snapshot helpers', () => {
         {
           requestedAt,
           confirmedAt,
+          rejectedAt: null,
           reversedAt,
-          status: 'REVERSED',
         },
         new Date('2026-08-10T11:30:00.000Z'),
       ),
@@ -37,19 +37,33 @@ describe('report snapshot helpers', () => {
         {
           requestedAt,
           confirmedAt,
+          rejectedAt: null,
           reversedAt,
-          status: 'REVERSED',
         },
         new Date('2026-08-10T12:30:00.000Z'),
       ),
     ).toBe('REVERSED');
   });
 
-  it('reconstructs SMS state at a watermark', () => {
+  it('does not leak future redemption rejection backward', () => {
+    expect(
+      redemptionStatusAt(
+        {
+          requestedAt: new Date('2026-08-01T09:00:00.000Z'),
+          confirmedAt: null,
+          rejectedAt: new Date('2026-08-10T09:00:00.000Z'),
+          reversedAt: null,
+        },
+        new Date('2026-08-05T09:00:00.000Z'),
+      ),
+    ).toBe('PENDING_APPROVAL');
+  });
+
+  it('reconstructs SMS state from the latest transition at a watermark', () => {
     const queuedAt = new Date('2026-08-10T09:00:00.000Z');
-    const sentAt = new Date('2026-08-10T10:00:00.000Z');
-    const deliveredAt = new Date('2026-08-10T11:00:00.000Z');
-    const failedAt = new Date('2026-08-10T12:00:00.000Z');
+    const failedAt = new Date('2026-08-10T09:05:00.000Z');
+    const sentAt = new Date('2026-08-10T09:15:00.000Z');
+    const deliveredAt = new Date('2026-08-10T09:16:00.000Z');
 
     expect(
       smsStatusAt(
@@ -59,9 +73,8 @@ describe('report snapshot helpers', () => {
           deliveredAt,
           failedAt,
           suppressedAt: null,
-          status: 'FAILED',
         },
-        new Date('2026-08-10T09:30:00.000Z'),
+        new Date('2026-08-10T09:03:00.000Z'),
       ),
     ).toBe('QUEUED');
     expect(
@@ -72,11 +85,10 @@ describe('report snapshot helpers', () => {
           deliveredAt,
           failedAt,
           suppressedAt: null,
-          status: 'FAILED',
         },
-        new Date('2026-08-10T10:30:00.000Z'),
+        new Date('2026-08-10T09:10:00.000Z'),
       ),
-    ).toBe('SENT');
+    ).toBe('FAILED');
     expect(
       smsStatusAt(
         {
@@ -85,9 +97,8 @@ describe('report snapshot helpers', () => {
           deliveredAt,
           failedAt,
           suppressedAt: null,
-          status: 'FAILED',
         },
-        new Date('2026-08-10T11:30:00.000Z'),
+        new Date('2026-08-10T09:20:00.000Z'),
       ),
     ).toBe('DELIVERED');
   });

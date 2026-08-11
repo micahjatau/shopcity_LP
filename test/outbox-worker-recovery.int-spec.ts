@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { AuditService } from '../src/modules/audit/audit.service';
@@ -16,6 +17,7 @@ import {
   DeterministicSmsProvider,
   ScriptedSmsProvider,
 } from '../src/jobs/sms.provider';
+import { ReportMaterializerService } from '../src/modules/reports/report-materializer.service';
 
 describe('outbox worker recovery (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -171,6 +173,126 @@ describe('outbox worker recovery (int)', () => {
       expect(smsMessage?.status).toBe('DELIVERED');
       expect(smsMessage?.providerMessageId).toBeDefined();
       expect(outboxEvent?.status).toBe('PUBLISHED');
+    } finally {
+      await runtime.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('recovers and completes durable report refresh work', async () => {
+    const redisEnv = await createRedisTestEnvironment();
+    const reportMaterializer = new ReportMaterializerService(
+      prisma,
+      new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
+    );
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      loadWorkerConfig({
+        ...process.env,
+        REDIS_URL: redisEnv.redisUrl,
+      }),
+      new DeterministicSmsProvider(),
+      undefined,
+      reportMaterializer,
+    );
+
+    try {
+      const tenant = await prisma.tenant.create({
+        data: {
+          id: randomUUID(),
+          name: 'Report Refresh Tenant',
+          status: 'ACTIVE',
+        },
+      });
+      const branch = await prisma.branch.create({
+        data: {
+          id: randomUUID(),
+          tenantId: tenant.id,
+          name: 'Report Refresh Branch',
+          timezone: 'Africa/Lagos',
+          receiptWeekStartDay: 1,
+          status: 'ACTIVE',
+        },
+      });
+      const outboxEvent = await prisma.outboxEvent.create({
+        data: {
+          tenantId: tenant.id,
+          aggregateType: 'report',
+          aggregateId: 'executive-summary',
+          eventType: 'report.refresh',
+          payload: {
+            version: 1,
+            report: 'executive-summary',
+            branchId: null,
+            timezone: 'Africa/Lagos',
+          },
+          status: 'PENDING',
+          nextAttemptAt: new Date(Date.now() - 1000),
+        },
+      });
+
+      await runtime.start();
+
+      await waitFor(async () => {
+        const [event, materializationState] = await Promise.all([
+          prisma.outboxEvent.findUnique({
+            where: {
+              tenantId_id: { tenantId: tenant.id, id: outboxEvent.id },
+            },
+          }),
+          prisma.reportMaterializationState.findUnique({
+            where: {
+              tenantId_scope_scopeKey: {
+                tenantId: tenant.id,
+                scope: 'TENANT',
+                scopeKey: tenant.id,
+              },
+            },
+          }),
+        ]);
+
+        return Boolean(
+          event?.status === 'COMPLETED' &&
+          event.processedAt &&
+          materializationState?.status === 'COMPLETED',
+        );
+      });
+
+      await prisma.outboxEvent.update({
+        where: { tenantId_id: { tenantId: tenant.id, id: outboxEvent.id } },
+        data: {
+          status: 'PUBLISHED',
+          processedAt: null,
+          publishedAt: new Date(Date.now() - 120_000),
+          nextAttemptAt: null,
+        },
+      });
+
+      await waitFor(async () => {
+        const event = await prisma.outboxEvent.findUnique({
+          where: { tenantId_id: { tenantId: tenant.id, id: outboxEvent.id } },
+        });
+
+        return Boolean(event?.status === 'COMPLETED' && event.processedAt);
+      }, 20000);
+
+      const states = await prisma.reportMaterializationState.findMany({
+        where: { tenantId: tenant.id },
+      });
+      expect(states).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            scope: 'TENANT',
+            scopeKey: tenant.id,
+            status: 'COMPLETED',
+          }),
+          expect.objectContaining({
+            scope: 'BRANCH',
+            scopeKey: branch.id,
+            status: 'COMPLETED',
+          }),
+        ]),
+      );
     } finally {
       await runtime.stop();
       await redisEnv.close();

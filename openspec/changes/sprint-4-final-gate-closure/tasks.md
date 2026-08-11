@@ -1,3 +1,5 @@
+> Review 43 follow-up: historical reporting, SMS reconstruction, offline replay ownership, receipt-race evidence, and report-refresh integration items are superseded and finalized by `openspec/changes/sprint-4-review-43-closure/`. Keep this tracker as the pre-Review-43 closure record; do not use its checked reporting/offline items alone as final Sprint 4 evidence.
+
 ## 1. Scope and evidence
 
 - [x] 1.1 Freeze the final-gate scope against the Sprint 4 plan and confirm the exact correctness gaps.
@@ -29,6 +31,6 @@
 
 ## 5. Contracts and release validation
 
-- [ ] 5.1 Verify OpenAPI, generated client, Bruno collections, and OpenSpec artifacts match runtime behavior.
-- [ ] 5.2 Run the targeted migration, unit, integration, HTTP/E2E, lint, typecheck, architecture, and build gates on the final SHA.
+- [x] 5.1 Verify OpenAPI, generated client, Bruno collections, and OpenSpec artifacts match runtime behavior.
+- [x] 5.2 Run the targeted migration, unit, integration, HTTP/E2E, lint, typecheck, architecture, and build gates on the final SHA.
 - [ ] 5.3 Capture the immutable release-candidate SHA and the commands used to verify it.
