@@ -221,8 +221,9 @@ export class OutboxWorkerRuntime {
       const claimed = await tx.$queryRaw<OutboxClaimRow[]>`
         SELECT id
         FROM "OutboxEvent"
-        WHERE "eventType" IN ('sms.send', 'fraud.evaluate')
+        WHERE "eventType" IN ('sms.send', 'fraud.evaluate', 'report.refresh')
           AND "deadLetteredAt" IS NULL
+          AND "processedAt" IS NULL
           AND (
             ("status" IN ('PENDING', 'FAILED') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now}))
             OR ("status" = 'QUEUED' AND "updatedAt" <= ${staleCutoff})
@@ -238,7 +239,7 @@ export class OutboxWorkerRuntime {
                     AND sm."status" IN ('QUEUED', 'FAILED')
                     AND sm."deadLetteredAt" IS NULL
                 ))
-                OR ("eventType" = 'fraud.evaluate')
+                OR ("eventType" IN ('fraud.evaluate', 'report.refresh'))
                 OR (
                   "eventType" = 'sms.send'
                   AND NOT EXISTS (
@@ -621,18 +622,19 @@ export class OutboxWorkerRuntime {
         return;
       }
 
-      await this.evaluateFraudForOutboxEvent(latest, tx);
-
+      const processedAt = new Date();
       await tx.outboxEvent.update({
         where: {
           tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
         },
         data: {
           status: OutboxEventStatus.COMPLETED,
-          processedAt: new Date(),
+          processedAt,
           nextAttemptAt: null,
         },
       });
+
+      await this.evaluateFraudForOutboxEvent(latest, tx);
     });
   }
 

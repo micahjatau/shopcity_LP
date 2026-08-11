@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type Receipt } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { branchDayWindow } from './branch-day-window';
 
 type FraudSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -91,7 +92,7 @@ export class FraudBehaviorRuntime {
     }
 
     const timezone = receipt.branch.timezone;
-    const dayWindow = this.localDayWindow(receipt.occurredAt, timezone);
+    const dayWindow = branchDayWindow(receipt.occurredAt, timezone);
     const [countInLocalDay, cashierMetrics, roundedCounts] = await Promise.all([
       this.countReceiptFrequency(receipt, timezone),
       this.loadCashierMetrics(receipt, timezone),
@@ -637,29 +638,6 @@ export class FraudBehaviorRuntime {
 
   private dayKey(date: Date): string {
     return date.toISOString().slice(0, 10);
-  }
-
-  private localDayWindow(
-    date: Date,
-    timezone: string,
-  ): {
-    windowStart: Date;
-    windowEnd: Date;
-  } {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(date);
-    const year = parts.find((part) => part.type === 'year')?.value ?? '1970';
-    const month = parts.find((part) => part.type === 'month')?.value ?? '01';
-    const day = parts.find((part) => part.type === 'day')?.value ?? '01';
-    const windowStart = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
-    return {
-      windowStart,
-      windowEnd: new Date(windowStart.getTime() + 24 * 60 * 60 * 1000),
-    };
   }
 }
 

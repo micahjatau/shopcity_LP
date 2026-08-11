@@ -559,6 +559,113 @@ describe('OutboxWorkerRuntime', () => {
     expect(redemptionOutboxUpdate?.data.processedAt).toBeInstanceOf(Date);
   });
 
+  it('processes report refresh events through the report materializer', async () => {
+    const reportMaterializerService = {
+      rebuildTenant: jest
+        .fn<Promise<void>, [string, { materializedAt: Date }]>()
+        .mockResolvedValue(undefined),
+      materializeBranch: jest
+        .fn<Promise<void>, [string, string, { materializedAt: Date }]>()
+        .mockResolvedValue(undefined),
+    };
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-report-refresh',
+        tenantId: 'tenant-1',
+        aggregateType: 'report',
+        aggregateId: 'executive-summary',
+        eventType: 'report.refresh',
+        payload: {
+          version: 1,
+          report: 'executive-summary',
+          branchId: null,
+          timezone: 'Africa/Lagos',
+        },
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      runtimeConfig(),
+      { send: jest.fn() },
+      undefined,
+      reportMaterializerService as never,
+    );
+
+    await runtimeWithHandleJob(runtime).handleJob({
+      data: { id: 'outbox-report-refresh', tenantId: 'tenant-1' },
+    });
+
+    const rebuildArgs = reportMaterializerService.rebuildTenant.mock.calls[0];
+    if (!rebuildArgs) {
+      throw new Error('expected report refresh to call rebuildTenant');
+    }
+    expect(rebuildArgs[0]).toBe('tenant-1');
+    expect(rebuildArgs[1].materializedAt).toBeInstanceOf(Date);
+    const reportOutboxUpdate = lastOutboxUpdate(prisma.outboxEventUpdateCalls);
+    expect(reportOutboxUpdate?.data.status).toBe('COMPLETED');
+    expect(reportOutboxUpdate?.data.processedAt).toBeInstanceOf(Date);
+  });
+
+  it('includes report.refresh in recovery eligibility', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-report-refresh',
+        tenantId: 'tenant-1',
+        aggregateType: 'report',
+        aggregateId: 'executive-summary',
+        eventType: 'report.refresh',
+        payload: {
+          version: 1,
+          report: 'executive-summary',
+          branchId: null,
+          timezone: 'Africa/Lagos',
+        },
+        publishedAt: null,
+        smsMessage: null,
+      },
+    });
+    const queryRaw = jest.fn((strings: TemplateStringsArray) => {
+      void strings;
+      return Promise.resolve([]);
+    });
+    const tx: RecoveryTx = {
+      $queryRaw: queryRaw,
+      outboxEvent: {
+        updateMany: jest.fn().mockResolvedValue(undefined),
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    const prismaWithTransaction = {
+      ...prisma,
+      $transaction: jest.fn(
+        async (callback: (tx: RecoveryTx) => Promise<unknown>) => callback(tx),
+      ),
+    } as unknown as PrismaService;
+    const runtime = new OutboxWorkerRuntime(
+      prismaWithTransaction,
+      runtimeConfig(),
+      {
+        send: jest.fn(),
+      },
+    );
+    runtimeWithQueue(runtime).queue = {};
+
+    await runtimeWithRecovery(runtime).recoverAndPublishOnce();
+
+    expect(queryRaw).toHaveBeenCalled();
+    const firstCall = queryRaw.mock.calls[0];
+    if (!firstCall) {
+      throw new Error('expected recovery query to be executed');
+    }
+    const querySql = firstCall[0];
+    const sql = querySql.join('');
+    expect(sql).toContain("'report.refresh'");
+    expect(sql).toContain('"processedAt" IS NULL');
+  });
+
   it('waits for active recovery before disconnecting during shutdown', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -599,9 +706,26 @@ type RuntimeWithHandleJob = {
   handleJob(job: TestJob): Promise<void>;
 };
 
+type RuntimeWithRecovery = {
+  recoverAndPublishOnce(): Promise<void>;
+};
+
+type RecoveryTx = {
+  $queryRaw: jest.Mock<Promise<unknown[]>, [TemplateStringsArray]>;
+  outboxEvent: {
+    updateMany: jest.Mock;
+    findMany: jest.Mock;
+    update: jest.Mock;
+  };
+};
+
 type RuntimeWithInternals = {
   activeRecovery?: Promise<void>;
   stop(): Promise<void>;
+};
+
+type RuntimeWithQueue = {
+  queue?: unknown;
 };
 
 function runtimeWithHandleJob(
@@ -610,10 +734,20 @@ function runtimeWithHandleJob(
   return runtime as unknown as RuntimeWithHandleJob;
 }
 
+function runtimeWithRecovery(
+  runtime: OutboxWorkerRuntime,
+): RuntimeWithRecovery {
+  return runtime as unknown as RuntimeWithRecovery;
+}
+
 function runtimeWithInternals(
   runtime: OutboxWorkerRuntime,
 ): RuntimeWithInternals {
   return runtime as unknown as RuntimeWithInternals;
+}
+
+function runtimeWithQueue(runtime: OutboxWorkerRuntime): RuntimeWithQueue {
+  return runtime as unknown as RuntimeWithQueue;
 }
 
 function deferred<T>() {

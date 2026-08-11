@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { redemptionStatusAt, smsStatusAt } from './report-snapshot';
 
 const DEFAULT_DORMANT_CUSTOMER_DAYS = 90;
 const DEFAULT_REPORT_TIME_ZONE = 'Africa/Lagos';
@@ -80,6 +81,10 @@ interface SmsMessageRecord {
   status: string;
   queuedAt: Date;
   createdAt: Date;
+  sentAt: Date | null;
+  deliveredAt: Date | null;
+  failedAt: Date | null;
+  suppressedAt: Date | null;
 }
 
 interface ApprovalRecord {
@@ -89,6 +94,9 @@ interface ApprovalRecord {
   status: string;
   receiptId: string | null;
   redemptionId: string | null;
+  expiresAt: Date;
+  decidedAt: Date | null;
+  executedAt: Date | null;
 }
 
 interface RedemptionAllocationRecord {
@@ -343,6 +351,10 @@ export class ReportMaterializerService {
           status: true,
           queuedAt: true,
           createdAt: true,
+          sentAt: true,
+          deliveredAt: true,
+          failedAt: true,
+          suppressedAt: true,
         },
       }),
       client.approval.findMany({
@@ -354,6 +366,9 @@ export class ReportMaterializerService {
           status: true,
           receiptId: true,
           redemptionId: true,
+          expiresAt: true,
+          decidedAt: true,
+          executedAt: true,
         },
       }),
       client.redemptionAllocation.findMany({
@@ -501,10 +516,10 @@ function buildTenantPlan(
     ...buildLiabilityBuckets(source, tenantId, scope, asOf, materializedAt),
   );
   plan.redemptionDailySummaries.push(
-    ...buildRedemptionSummaries(source, tenantId, scope, materializedAt),
+    ...buildRedemptionSummaries(source, tenantId, scope, asOf, materializedAt),
   );
   plan.smsDailySummaries.push(
-    ...buildSmsSummaries(source, tenantId, scope, materializedAt),
+    ...buildSmsSummaries(source, tenantId, scope, asOf, materializedAt),
   );
 
   for (const branch of source.branches) {
@@ -554,11 +569,12 @@ function buildTenantPlan(
         source,
         tenantId,
         branchScope,
+        asOf,
         materializedAt,
       ),
     );
     plan.smsDailySummaries.push(
-      ...buildSmsSummaries(source, tenantId, branchScope, materializedAt),
+      ...buildSmsSummaries(source, tenantId, branchScope, asOf, materializedAt),
     );
   }
 
@@ -574,12 +590,15 @@ function buildBranchPlan(
   dormantCustomerDays: number,
   defaultTimeZone: string,
 ): PlanRows {
-  const branch = source.branches.find((item) => item.id === branchId);
+  const branch: BranchRecord | undefined = source.branches.find(
+    (item) => item.id === branchId,
+  );
+  const timezone = branch ? branch.timezone : defaultTimeZone;
   const scope: ScopeDefinition = {
     scope: 'BRANCH',
     scopeKey: branchId,
     branchId,
-    timezone: branch?.timezone ?? defaultTimeZone,
+    timezone,
   };
   const plan: PlanRows = emptyPlan();
   plan.materializationStates.push(
@@ -611,10 +630,10 @@ function buildBranchPlan(
     ...buildLiabilityBuckets(source, tenantId, scope, asOf, materializedAt),
   );
   plan.redemptionDailySummaries.push(
-    ...buildRedemptionSummaries(source, tenantId, scope, materializedAt),
+    ...buildRedemptionSummaries(source, tenantId, scope, asOf, materializedAt),
   );
   plan.smsDailySummaries.push(
-    ...buildSmsSummaries(source, tenantId, scope, materializedAt),
+    ...buildSmsSummaries(source, tenantId, scope, asOf, materializedAt),
   );
 
   return plan;
@@ -1010,6 +1029,7 @@ function buildRedemptionSummaries(
   source: SourceData,
   tenantId: string,
   scope: ScopeDefinition,
+  asOf: Date,
   materializedAt: Date,
 ) {
   const redemptions = filterRedemptionsForScope(source.redemptions, scope);
@@ -1026,6 +1046,7 @@ function buildRedemptionSummaries(
   >();
 
   for (const redemption of redemptions) {
+    const snapshotStatus = redemptionStatusAt(redemption, asOf);
     const reportDate = toReportDate(redemption.requestedAt, scope.timezone);
     const key = reportDate;
     const entry = grouped.get(key) ?? {
@@ -1038,15 +1059,15 @@ function buildRedemptionSummaries(
     };
     entry.redemptionCount += 1;
     entry.requestedKobo += redemption.requestedAmountKobo;
-    if (redemption.status === 'CONFIRMED') {
+    if (snapshotStatus === 'CONFIRMED') {
       entry.confirmedKobo +=
         redemption.confirmedAmountKobo ?? redemption.requestedAmountKobo;
     }
-    if (redemption.status === 'REVERSED') {
+    if (snapshotStatus === 'REVERSED') {
       entry.reversedKobo +=
         redemption.confirmedAmountKobo ?? redemption.requestedAmountKobo;
     }
-    if (redemption.status === 'PENDING_APPROVAL') {
+    if (snapshotStatus === 'PENDING_APPROVAL') {
       entry.pendingApprovalCount += 1;
     }
     grouped.set(key, entry);
@@ -1073,6 +1094,7 @@ function buildSmsSummaries(
   source: SourceData,
   tenantId: string,
   scope: ScopeDefinition,
+  asOf: Date,
   materializedAt: Date,
 ) {
   const smsMessages = filterSmsForScope(source.smsMessages, source, scope);
@@ -1089,6 +1111,7 @@ function buildSmsSummaries(
   >();
 
   for (const sms of smsMessages) {
+    const snapshotStatus = smsStatusAt(sms, asOf);
     const reportDate = toReportDate(sms.queuedAt, scope.timezone);
     const key = reportDate;
     const entry = grouped.get(key) ?? {
@@ -1100,16 +1123,16 @@ function buildSmsSummaries(
       suppressedCount: 0,
     };
     entry.queuedCount += 1;
-    if (sms.status === 'SENT') {
+    if (snapshotStatus === 'SENT') {
       entry.sentCount += 1;
     }
-    if (sms.status === 'DELIVERED') {
+    if (snapshotStatus === 'DELIVERED') {
       entry.deliveredCount += 1;
     }
-    if (sms.status === 'FAILED') {
+    if (snapshotStatus === 'FAILED') {
       entry.failedCount += 1;
     }
-    if (sms.status === 'SUPPRESSED') {
+    if (snapshotStatus === 'SUPPRESSED') {
       entry.suppressedCount += 1;
     }
     grouped.set(key, entry);

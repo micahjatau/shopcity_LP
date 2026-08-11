@@ -1495,3 +1495,5 @@ I would not start with dashboards. Offline sync is the highest-risk addition bec
 The other important architectural decision is to generalize the existing outbox carefully: its current runtime is deliberately SMS-specific and will dead-letter non-SMS events, so adding fraud.evaluate without addressing that first would create a deceptively broken Sprint 4 background path.
 
 This is the Sprint 4 baseline I would use for implementation and all future completion reviews.
+
+Current final-gate evidence is recorded in `docs/sprint-4-final-gate-evidence.md`.

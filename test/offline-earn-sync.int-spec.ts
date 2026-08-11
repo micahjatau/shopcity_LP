@@ -22,6 +22,7 @@ describe('offline earn sync foundation (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let prisma: PrismaService;
   let offlineSyncService: OfflineSyncService;
+  let loyaltyService: LoyaltyService;
   let tenant: { id: string };
   let branch: { id: string };
   let cashier: Awaited<ReturnType<typeof createStaffUser>>;
@@ -68,11 +69,7 @@ describe('offline earn sync foundation (int)', () => {
     configValues = { ...DEFAULT_POLICY };
     const configService = { get: (key: string) => configValues[key] } as never;
     const auditService = new AuditService(prisma);
-    const loyaltyService = new LoyaltyService(
-      prisma,
-      auditService,
-      configService,
-    );
+    loyaltyService = new LoyaltyService(prisma, auditService, configService);
     offlineSyncService = new OfflineSyncService(
       prisma,
       loyaltyService,
@@ -319,6 +316,289 @@ describe('offline earn sync foundation (int)', () => {
     expect(lots).toBe(0);
     expect(approvals).toBe(1);
     expect(smsMessages).toBe(0);
+  }, 120000);
+
+  it('rejects invalid offline earn boundaries without confirming any financial effect', async () => {
+    const cases = [
+      {
+        name: 'actor mismatch',
+        setup: async () => {
+          const fixture = await createOfflineFixture(
+            prisma,
+            tenant.id,
+            branch.id,
+            cashier.id,
+            'POS-OFFLINE-0006',
+          );
+          return {
+            fixture,
+            actor: makeContext(
+              {
+                id: cashier.id,
+                tenantId: tenant.id,
+                branchId: branch.id,
+                role: UserRole.SUPERVISOR,
+              },
+              fixture.device.id,
+            ),
+            request: buildOfflineRequest(fixture, 1_000_000),
+            expectedCode: 'SYNC_ACTOR_MISMATCH',
+            expectReject: true,
+          };
+        },
+      },
+      {
+        name: 'expired record',
+        setup: async () => {
+          const fixture = await createOfflineFixture(
+            prisma,
+            tenant.id,
+            branch.id,
+            cashier.id,
+            'POS-OFFLINE-0007',
+          );
+          const request = buildOfflineRequest(fixture, 1_000_000);
+          const record = request.records[0];
+          if (!record) {
+            throw new Error('Offline request must contain a record');
+          }
+          record.occurredAtLocal = '2020-01-01T00:00:00.000Z';
+          return {
+            fixture,
+            actor: fixture.actor,
+            request,
+            expectedCode: 'SYNC_RECORD_EXPIRED',
+            expectReject: false,
+          };
+        },
+      },
+      {
+        name: 'device mismatch',
+        setup: async () => {
+          const fixture = await createOfflineFixture(
+            prisma,
+            tenant.id,
+            branch.id,
+            cashier.id,
+            'POS-OFFLINE-0008',
+          );
+          return {
+            fixture,
+            actor: fixture.actor,
+            request: {
+              ...buildOfflineRequest(fixture, 1_000_000),
+              deviceId: randomUUID(),
+            },
+            expectedCode: 'SYNC_DEVICE_MISMATCH',
+            expectReject: true,
+          };
+        },
+      },
+      {
+        name: 'branch mismatch',
+        setup: async () => {
+          const fixture = await createOfflineFixture(
+            prisma,
+            tenant.id,
+            branch.id,
+            cashier.id,
+            'POS-OFFLINE-0009',
+          );
+          const request = buildOfflineRequest(fixture, 1_000_000);
+          const record = request.records[0];
+          if (!record) {
+            throw new Error('Offline request must contain a record');
+          }
+          record.branchId = randomUUID();
+          return {
+            fixture,
+            actor: fixture.actor,
+            request,
+            expectedCode: 'SYNC_BRANCH_MISMATCH',
+            expectReject: false,
+          };
+        },
+      },
+      {
+        name: 'card inactive',
+        setup: async () => {
+          const fixture = await createOfflineFixture(
+            prisma,
+            tenant.id,
+            branch.id,
+            cashier.id,
+            'POS-OFFLINE-0010',
+          );
+          await prisma.card.update({
+            where: {
+              tenantId_id: {
+                tenantId: tenant.id,
+                id: fixture.card.id,
+              },
+            },
+            data: { status: 'BLOCKED' },
+          });
+          return {
+            fixture,
+            actor: fixture.actor,
+            request: buildOfflineRequest(fixture, 1_000_000),
+            expectedCode: 'CARD_INACTIVE',
+            expectReject: false,
+          };
+        },
+      },
+      {
+        name: 'staff ineligible',
+        setup: async () => {
+          const fixture = await createOfflineFixture(
+            prisma,
+            tenant.id,
+            branch.id,
+            cashier.id,
+            'POS-OFFLINE-0011',
+          );
+          await prisma.customer.update({
+            where: {
+              tenantId_id: {
+                tenantId: tenant.id,
+                id: fixture.customer.id,
+              },
+            },
+            data: { isStaff: true },
+          });
+          return {
+            fixture,
+            actor: fixture.actor,
+            request: buildOfflineRequest(fixture, 1_000_000),
+            expectedCode: 'STAFF_INELIGIBLE',
+            expectReject: false,
+          };
+        },
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const { actor, request, expectedCode, expectReject } =
+        await testCase.setup();
+      const beforeCounts = await Promise.all([
+        prisma.receipt.count({ where: { tenantId: tenant.id } }),
+        prisma.loyaltyLedgerEntry.count({ where: { tenantId: tenant.id } }),
+      ]);
+
+      if (expectReject) {
+        await expect(
+          offlineSyncService.earnBatch(tenant.id, actor, request),
+        ).rejects.toMatchObject({ response: { code: expectedCode } });
+      } else {
+        const response = await offlineSyncService.earnBatch(
+          tenant.id,
+          actor,
+          request,
+        );
+        expect(response.records[0]).toMatchObject({
+          status: 'REJECTED',
+          errorCode: expectedCode,
+          retryable: false,
+        });
+      }
+
+      const afterCounts = await Promise.all([
+        prisma.receipt.count({ where: { tenantId: tenant.id } }),
+        prisma.loyaltyLedgerEntry.count({ where: { tenantId: tenant.id } }),
+      ]);
+
+      expect(afterCounts).toEqual(beforeCounts);
+    }
+  }, 120000);
+
+  it('rejects an offline duplicate after the receipt was captured online', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0012',
+    );
+    const request = buildOfflineRequest(fixture, 1_000_000);
+    const offlineRecord = request.records[0];
+    if (!offlineRecord) {
+      throw new Error('Offline request must contain a record');
+    }
+
+    await loyaltyService.earn(tenant.id, fixture.actor, randomUUID(), {
+      posReceiptNumber: offlineRecord.receiptNumber,
+      cardSerialNumber: fixture.card.barcodeValue,
+      purchaseAmountKobo: 1_000_000,
+      occurredAt: offlineRecord.occurredAtLocal,
+    });
+
+    const response = await offlineSyncService.earnBatch(
+      tenant.id,
+      fixture.actor,
+      request,
+    );
+
+    expect(response.records[0]).toMatchObject({
+      status: 'REJECTED',
+      errorCode: 'RECEIPT_ALREADY_USED',
+      retryable: false,
+    });
+    expect(
+      await prisma.receipt.count({
+        where: {
+          tenantId: tenant.id,
+          posReceiptNumber: offlineRecord.receiptNumber,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.loyaltyLedgerEntry.count({
+        where: {
+          tenantId: tenant.id,
+          receipt: { posReceiptNumber: offlineRecord.receiptNumber },
+        },
+      }),
+    ).toBe(1);
+  }, 120000);
+
+  it('keeps one financial effect for concurrent offline duplicate submissions', async () => {
+    const fixture = await createOfflineFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-OFFLINE-0013',
+    );
+    const request = buildOfflineRequest(fixture, 1_000_000);
+    const [first, second] = await Promise.all([
+      offlineSyncService.earnBatch(tenant.id, fixture.actor, request),
+      offlineSyncService.earnBatch(tenant.id, fixture.actor, request),
+    ]);
+
+    expect(first.records[0]).toMatchObject({ status: 'CONFIRMED' });
+    expect(second.records[0]).toMatchObject({ status: 'CONFIRMED' });
+    expect(first).toEqual(second);
+    const record = request.records[0];
+    if (!record) {
+      throw new Error('Offline request must contain a record');
+    }
+
+    expect(
+      await prisma.receipt.count({
+        where: {
+          tenantId: tenant.id,
+          posReceiptNumber: record.receiptNumber,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.loyaltyLedgerEntry.count({
+        where: {
+          tenantId: tenant.id,
+          receipt: { posReceiptNumber: record.receiptNumber },
+        },
+      }),
+    ).toBe(1);
   }, 120000);
 });
 

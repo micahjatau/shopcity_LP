@@ -63,11 +63,187 @@ describe('ReportMaterializerService', () => {
       outstandingLiabilityKobo: 1000n,
     });
   });
+
+  it('rebuilds redemption and SMS summaries from as-of status snapshots', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert);
+    const prismaWithTransaction = {
+      ...prisma,
+      $transaction: jest.fn(
+        async (callback: (client: ReportMaterializationTx) => Promise<void>) =>
+          callback({
+            ...tx,
+            branch: {
+              findMany: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: 'branch-1', timezone: 'Africa/Lagos' },
+                ]),
+            },
+            customer: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'customer-1',
+                  branchId: 'branch-1',
+                  createdAt: new Date('2026-08-10T10:00:00.000Z'),
+                },
+              ]),
+            },
+            receipt: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'receipt-1',
+                  branchId: 'branch-1',
+                  customerId: 'customer-1',
+                  capturedBy: 'cashier-1',
+                  capturedAt: new Date('2026-08-10T10:00:00.000Z'),
+                  occurredAt: new Date('2026-08-10T10:00:00.000Z'),
+                  purchaseAmountKobo: 1000n,
+                  normalizedPosReceiptNumber: 'POS-1',
+                  receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+                  captureStatus: 'CAPTURED',
+                },
+              ]),
+            },
+            loyaltyLedgerEntry: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'ledger-1',
+                  customerId: 'customer-1',
+                  receiptId: 'receipt-1',
+                  type: 'EARN',
+                  direction: 'CREDIT',
+                  status: 'CONFIRMED',
+                  amountKobo: 1000n,
+                  createdBy: 'cashier-1',
+                  createdAt: new Date('2026-08-10T10:00:00.000Z'),
+                  effectiveAt: new Date('2026-08-10T10:00:00.000Z'),
+                },
+              ]),
+            },
+            creditLot: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'lot-1',
+                  customerId: 'customer-1',
+                  originalAmountKobo: 1000n,
+                  earnedAt: new Date('2026-08-10T10:00:00.000Z'),
+                  expiresAt: new Date('2026-09-10T10:00:00.000Z'),
+                  earnLedgerEntryId: 'ledger-1',
+                },
+              ]),
+            },
+            redemption: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'redemption-1',
+                  branchId: 'branch-1',
+                  customerId: 'customer-1',
+                  requestedAmountKobo: 2000n,
+                  confirmedAmountKobo: 2000n,
+                  status: 'CONFIRMED',
+                  requestedAt: new Date('2026-08-10T10:00:00.000Z'),
+                  confirmedAt: new Date('2026-08-10T13:00:00.000Z'),
+                  reversedAt: null,
+                },
+              ]),
+            },
+            smsMessage: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'sms-1',
+                  receiptId: 'receipt-1',
+                  status: 'SENT',
+                  queuedAt: new Date('2026-08-10T10:00:00.000Z'),
+                  createdAt: new Date('2026-08-10T10:00:00.000Z'),
+                  sentAt: new Date('2026-08-10T13:00:00.000Z'),
+                  deliveredAt: null,
+                  failedAt: null,
+                  suppressedAt: null,
+                },
+              ]),
+            },
+            approval: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            redemptionAllocation: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            allocationRestoration: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            auditLog: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+          }),
+      ),
+    } as unknown as PrismaService;
+    const service = new ReportMaterializerService(
+      prismaWithTransaction,
+      configService(),
+    );
+    const asOf = new Date('2026-08-10T12:00:00.000Z');
+
+    await service.materializeTenant('tenant-1', {
+      materializedAt: asOf,
+      asOf,
+    });
+
+    const redemptionRows =
+      tx.reportRedemptionDailySummary.createMany.mock.calls[0]?.[0].data;
+    const smsRows = tx.reportSmsDailySummary.createMany.mock.calls[0]?.[0].data;
+
+    expect(redemptionRows[0]).toMatchObject({
+      pendingApprovalCount: 1,
+      confirmedKobo: 0n,
+    });
+    expect(smsRows[0]).toMatchObject({
+      queuedCount: 1,
+      sentCount: 0,
+    });
+  });
 });
 
 function configService(): ConfigService {
   return new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' } as never);
 }
+
+type ReportMaterializationTx = {
+  branch: {
+    findMany: jest.Mock;
+  };
+  customer: {
+    findMany: jest.Mock;
+  };
+  receipt: {
+    findMany: jest.Mock;
+  };
+  loyaltyLedgerEntry: {
+    findMany: jest.Mock;
+  };
+  creditLot: {
+    findMany: jest.Mock;
+  };
+  redemption: {
+    findMany: jest.Mock;
+  };
+  smsMessage: {
+    findMany: jest.Mock;
+  };
+  approval: {
+    findMany: jest.Mock;
+  };
+  redemptionAllocation: {
+    findMany: jest.Mock;
+  };
+  allocationRestoration: {
+    findMany: jest.Mock;
+  };
+  auditLog: {
+    findMany: jest.Mock;
+  };
+};
 
 function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
   return {

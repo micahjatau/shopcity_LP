@@ -71,12 +71,14 @@ The implementation is ready to move to Sprint 5 only when all of the following a
 ### Task 1: Make `report.refresh` publishable, recoverable, and terminal
 
 **Files:**
+
 - Modify: `src/jobs/outbox-worker.runtime.ts`
 - Modify: `src/jobs/outbox-worker.runtime.spec.ts`
 - Create: `test/report-refresh-outbox.int-spec.ts`
 - Test support: reuse existing BullMQ/outbox Testcontainers helpers where available; otherwise instantiate `OutboxWorkerRuntime` with the same Redis/Postgres pattern used by existing outbox integration coverage.
 
 **Interfaces:**
+
 - Consumes: `OutboxEvent.eventType = 'report.refresh'`, `ReportMaterializerService.materializeBranch(...)`, `ReportMaterializerService.rebuildTenant(...)`.
 - Produces: recovery eligibility for `report.refresh` and terminal state `status=COMPLETED`, `processedAt != null` after successful materialization.
 
@@ -194,10 +196,12 @@ git commit -m "fix: recover durable report refresh events"
 ### Task 2: Add pure historical lifecycle reconstruction
 
 **Files:**
+
 - Create: `src/modules/reports/report-snapshot.ts`
 - Create: `src/modules/reports/report-snapshot.spec.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```ts
@@ -334,11 +338,13 @@ git commit -m "feat: reconstruct historical report lifecycle state"
 ### Task 3: Integrate historical lifecycle reconstruction into report materialization
 
 **Files:**
+
 - Modify: `src/modules/reports/report-materializer.service.ts`
 - Modify: `src/modules/reports/report-materializer.service.spec.ts`
 - Modify: `test/report-materialization.int-spec.ts`
 
 **Interfaces:**
+
 - Consumes: `redemptionStatusAt(...)` and `smsStatusAt(...)` from Task 2.
 - Produces: `SourceData.redemptions[].status` and `SourceData.smsMessages[].status` normalized to `asOf` before builders execute.
 
@@ -486,12 +492,14 @@ git commit -m "fix: materialize lifecycle state at report watermark"
 ### Task 4: Compute true branch-local day boundaries for behavioral fraud
 
 **Files:**
+
 - Create: `src/jobs/branch-day-window.ts`
 - Create: `src/jobs/branch-day-window.spec.ts`
 - Modify: `src/jobs/fraud-behavior.runtime.ts`
 - Modify: `test/fraud-behavior.int-spec.ts` if integration evidence needs strengthening.
 
 **Interfaces:**
+
 - Produces:
 
 ```ts
@@ -574,10 +582,12 @@ git commit -m "fix: align fraud windows to branch local day"
 ### Task 5: Complete offline validation/rejection acceptance evidence
 
 **Files:**
+
 - Modify: `test/offline-earn-sync.int-spec.ts`
 - Modify implementation only if a new test exposes a real defect: `src/modules/offline-sync/offline-sync.service.ts`
 
 **Interfaces:**
+
 - Consumes existing error codes: `SYNC_ACTOR_MISMATCH`, `SYNC_DEVICE_MISMATCH`, `SYNC_BRANCH_MISMATCH`, `SYNC_RECORD_EXPIRED`, `SYNC_WEEK_MISMATCH`, `CARD_INACTIVE`, `STAFF_INELIGIBLE`.
 - Produces executable evidence that every rejected record has zero receipt/ledger/lot financial mutation.
 
@@ -699,10 +709,12 @@ git commit -m "test: complete offline rejection acceptance matrix"
 ### Task 6: Prove the online/offline duplicate-receipt boundary under concurrency
 
 **Files:**
+
 - Create: `test/offline-receipt-boundary.int-spec.ts`
 - Modify implementation only if tests expose a defect: `src/modules/offline-sync/offline-sync.service.ts`, `src/modules/loyalty/loyalty.service.ts`, or duplicate-evidence helpers.
 
 **Interfaces:**
+
 - Consumes: `LoyaltyService.earn(...)`, `OfflineSyncService.earnBatch(...)`, database receipt uniqueness, existing duplicate-attempt evidence path.
 - Produces: exactly one receipt, one earn ledger effect, one credit lot, and one duplicate rejection/evidence observation for the same canonical receipt.
 
@@ -803,6 +815,7 @@ Only include implementation files in the commit if they actually changed.
 ### Task 7: Reconcile OpenSpec and Sprint 4 documentation with executable evidence
 
 **Files:**
+
 - Modify: `openspec/changes/sprint-4-correctness-closure/tasks.md`
 - Modify: `openspec/changes/sprint-4-offline-fraud-reports/tasks.md`
 - Modify: `docs/sprint_4_plan.md`
@@ -810,6 +823,7 @@ Only include implementation files in the commit if they actually changed.
 - Optionally amend `docs/repo_review_42.md` only to add a clearly dated closure note; do not rewrite historical review text as if it had never existed.
 
 **Interfaces:**
+
 - Consumes: passing task-level tests from Tasks 1-6.
 - Produces: one consistent statement of what is implemented and evidenced.
 
@@ -868,10 +882,12 @@ Only add `docs/repo_review_42.md` if it changed.
 ### Task 8: Certify one immutable Sprint 4 release-candidate SHA
 
 **Files:**
+
 - Create after all commands pass: `docs/sprint-4-final-gate-evidence.md`
 - Modify final validation checkboxes in the two Sprint 4 OpenSpec task files only after evidence is collected.
 
 **Interfaces:**
+
 - Consumes: all implementation commits from Tasks 1-7.
 - Produces: one immutable SHA with complete local and GitHub CI evidence.
 
