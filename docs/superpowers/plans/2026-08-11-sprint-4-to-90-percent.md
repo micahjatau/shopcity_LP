@@ -29,16 +29,16 @@
 
 Current reviewed Sprint 4 score at `6677e68`:
 
-| Area | Current | Target | Gain |
-|---|---:|---:|---:|
-| Offline sync core | 27/30 | 29/30 | +2 |
-| Offline conflict/concurrency evidence | 4/10 | 9/10 | +5 |
-| Fraud detection/review | 10/20 | 18/20 | +8 |
-| Reporting/read models | 14/20 | 18/20 | +4 |
-| Reports/exports | 8/10 | 9/10 | +1 |
-| Contracts/docs | 4/5 | 5/5 | +1 |
-| Final CI/migration/regression | 1/5 | 5/5 | +4 |
-| **Sprint 4 total** | **68/100** | **93/100** | **+25** |
+| Area                                  |    Current |     Target |    Gain |
+| ------------------------------------- | ---------: | ---------: | ------: |
+| Offline sync core                     |      27/30 |      29/30 |      +2 |
+| Offline conflict/concurrency evidence |       4/10 |       9/10 |      +5 |
+| Fraud detection/review                |      10/20 |      18/20 |      +8 |
+| Reporting/read models                 |      14/20 |      18/20 |      +4 |
+| Reports/exports                       |       8/10 |       9/10 |      +1 |
+| Contracts/docs                        |        4/5 |        5/5 |      +1 |
+| Final CI/migration/regression         |        1/5 |        5/5 |      +4 |
+| **Sprint 4 total**                    | **68/100** | **93/100** | **+25** |
 
 The implementation is allowed to stop at the 90% move-on gate only if **all P1 correctness gates are green**. A numeric score above 90 does not override an unresolved P1 financial, fraud-replay, or reporting-correctness defect.
 
@@ -125,11 +125,13 @@ Recommended execution branch: `fix/sprint-4-90-gate`.
 ## Task 1: Make approval-required high-value transactions emit fraud work
 
 **Files:**
+
 - Modify: `src/modules/loyalty/loyalty.service.ts`
 - Modify: `src/modules/redemptions/redemptions.service.ts`
 - Test: create `test/fraud-financial-dispatch.int-spec.ts`
 
 **Interfaces:**
+
 - Consumes: existing `OutboxEvent` model and `fraud.evaluate` worker contract.
 - Produces: one durable `fraud.evaluate` outbox row for every qualifying high-value earn/redemption request, whether it confirms immediately or enters approval.
 - Preserve: current API responses and approval behavior.
@@ -215,13 +217,25 @@ Do **not** add a second fraud event during approval execution. The original requ
 Extend the integration test to run the outbox worker against Redis/Testcontainers and assert:
 
 ```ts
-expect(await prisma.fraudFlag.findFirst({
-  where: { tenantId: tenant.id, ruleCode: 'FR-HV-002', receiptId: earn.receiptId },
-})).not.toBeNull();
+expect(
+  await prisma.fraudFlag.findFirst({
+    where: {
+      tenantId: tenant.id,
+      ruleCode: 'FR-HV-002',
+      receiptId: earn.receiptId,
+    },
+  }),
+).not.toBeNull();
 
-expect(await prisma.fraudFlag.findFirst({
-  where: { tenantId: tenant.id, ruleCode: 'FR-HV-003', redemptionId: redemption.redemptionId },
-})).not.toBeNull();
+expect(
+  await prisma.fraudFlag.findFirst({
+    where: {
+      tenantId: tenant.id,
+      ruleCode: 'FR-HV-003',
+      redemptionId: redemption.redemptionId,
+    },
+  }),
+).not.toBeNull();
 ```
 
 - [ ] **Step 5: Run targeted regressions**
@@ -246,11 +260,13 @@ git commit -m "fix: dispatch fraud evaluation for approval flows"
 ## Task 2: Make fraud-event processing atomic and replay-safe
 
 **Files:**
+
 - Modify: `src/jobs/outbox-worker.runtime.ts`
 - Modify: `src/jobs/outbox-worker.runtime.spec.ts`
 - Modify: `test/outbox-worker-recovery.int-spec.ts`
 
 **Interfaces:**
+
 - Consumes: `OutboxEvent.status`, `OutboxEvent.processedAt`, `FraudFlag` dedupe keys.
 - Produces: one atomic transaction that both records findings and marks the event `COMPLETED`.
 - Invariant: the same outbox event ID can never increment `occurrenceCount` twice.
@@ -266,7 +282,9 @@ await runtimeWithHandleJob(runtime).handleJob({
 
 expect(prisma.fraudFlagUpsert).not.toHaveBeenCalled();
 expect(prisma.outboxEventUpdate).not.toHaveBeenCalledWith(
-  expect.objectContaining({ data: expect.objectContaining({ status: 'PUBLISHED' }) }),
+  expect.objectContaining({
+    data: expect.objectContaining({ status: 'PUBLISHED' }),
+  }),
 );
 ```
 
@@ -287,16 +305,18 @@ Inside one Prisma transaction:
 
 ```ts
 await this.prisma.$transaction(async (tx) => {
-  const rows = await tx.$queryRaw<Array<{
-    id: string;
-    tenantId: string;
-    aggregateType: string;
-    aggregateId: string;
-    eventType: string;
-    payload: Prisma.JsonValue;
-    status: OutboxEventStatus;
-    processedAt: Date | null;
-  }>>(Prisma.sql`
+  const rows = await tx.$queryRaw<
+    Array<{
+      id: string;
+      tenantId: string;
+      aggregateType: string;
+      aggregateId: string;
+      eventType: string;
+      payload: Prisma.JsonValue;
+      status: OutboxEventStatus;
+      processedAt: Date | null;
+    }>
+  >(Prisma.sql`
     SELECT id, "tenantId", "aggregateType", "aggregateId", "eventType", payload, status, "processedAt"
     FROM "OutboxEvent"
     WHERE "tenantId" = ${tenantId} AND id = ${eventId}
@@ -372,6 +392,7 @@ git commit -m "fix: make fraud outbox processing atomic"
 ## Task 3: Persist duplicate-receipt evidence on database uniqueness races
 
 **Files:**
+
 - Modify: `src/modules/fraud/fraud.service.ts`
 - Modify: `src/modules/loyalty/loyalty.service.ts`
 - Modify: `src/modules/redemptions/redemptions.service.ts`
@@ -380,6 +401,7 @@ git commit -m "fix: make fraud outbox processing atomic"
 - Test: create `test/duplicate-receipt-race.int-spec.ts`
 
 **Interfaces:**
+
 - Consumes: existing `FraudService.recordDuplicateReceiptAttempt()`.
 - Produces: the same append-only audit + `fraud.evaluate` evidence for pre-check duplicates and unique-constraint race losers.
 - Preserve: PostgreSQL receipt uniqueness remains authoritative.
@@ -415,7 +437,9 @@ const results = await Promise.allSettled([
   loyaltyService.earn(tenant.id, actor, 'race-b', payload),
 ]);
 
-expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(
+  1,
+);
 expect(await prisma.receipt.count({ where: receiptIdentityWhere })).toBe(1);
 ```
 
@@ -470,6 +494,7 @@ git commit -m "fix: preserve duplicate receipt evidence under races"
 ## Task 4: Implement transaction-pattern behavioral fraud rules
 
 **Files:**
+
 - Modify: `src/modules/fraud/fraud.types.ts`
 - Modify: `src/modules/fraud/fraud-rules.service.ts`
 - Create: `src/modules/fraud/fraud-behavior.service.ts`
@@ -478,6 +503,7 @@ git commit -m "fix: preserve duplicate receipt evidence under races"
 - Modify: `src/config/env.validation.ts`
 
 **Interfaces:**
+
 - Produces runtime rules:
   - `FR-CARD-001` — daily card frequency.
   - `FR-CASH-001` — cashier value anomaly against branch peers.
@@ -489,11 +515,11 @@ git commit -m "fix: preserve duplicate receipt evidence under races"
 Use integer-safe values:
 
 ```ts
-FRAUD_CARD_DAILY_COUNT_THRESHOLD
-FRAUD_CASHIER_MIN_SAMPLE_SIZE
-FRAUD_CASHIER_VALUE_RATIO_THRESHOLD_BPS
-FRAUD_ROUNDED_VALUE_MIN_SAMPLE
-FRAUD_ROUNDED_VALUE_UNIT_KOBO
+FRAUD_CARD_DAILY_COUNT_THRESHOLD;
+FRAUD_CASHIER_MIN_SAMPLE_SIZE;
+FRAUD_CASHIER_VALUE_RATIO_THRESHOLD_BPS;
+FRAUD_ROUNDED_VALUE_MIN_SAMPLE;
+FRAUD_ROUNDED_VALUE_UNIT_KOBO;
 ```
 
 Do not expose them through public configuration endpoints.
@@ -544,14 +570,15 @@ export interface RoundedValueRuleInput {
 Examples:
 
 ```ts
-expect(rules.evaluateCardFrequency({ ...input, countInLocalDay: 6 }))
-  .toEqual([expect.objectContaining({ ruleCode: 'FR-CARD-001' })]);
+expect(rules.evaluateCardFrequency({ ...input, countInLocalDay: 6 })).toEqual([
+  expect.objectContaining({ ruleCode: 'FR-CARD-001' }),
+]);
 
-expect(rules.evaluateCashierAnomaly({ ...input, sampleSize: 2 }))
-  .toEqual([]);
+expect(rules.evaluateCashierAnomaly({ ...input, sampleSize: 2 })).toEqual([]);
 
-expect(rules.evaluateRoundedValues({ ...input, roundedCount: 5, sampleSize: 5 }))
-  .toEqual([expect.objectContaining({ ruleCode: 'FR-ROUND-001' })]);
+expect(
+  rules.evaluateRoundedValues({ ...input, roundedCount: 5, sampleSize: 5 }),
+).toEqual([expect.objectContaining({ ruleCode: 'FR-ROUND-001' })]);
 ```
 
 - [ ] **Step 4: Implement integer-only rule math**
@@ -604,6 +631,7 @@ git commit -m "feat: add transaction behavioral fraud rules"
 ## Task 5: Implement lifecycle behavioral fraud rules
 
 **Files:**
+
 - Modify: `src/modules/fraud/fraud.types.ts`
 - Modify: `src/modules/fraud/fraud-rules.service.ts`
 - Modify: `src/modules/fraud/fraud-behavior.service.ts`
@@ -615,6 +643,7 @@ git commit -m "feat: add transaction behavioral fraud rules"
 - Test: extend relevant service specs and create `test/fraud-behavior.int-spec.ts`
 
 **Interfaces:**
+
 - Produces runtime rules:
   - `FR-REV-001` — unusual reversal frequency.
   - `FR-REPL-001` — frequent card replacement.
@@ -636,14 +665,17 @@ FRAUD_AUTH_FAILURE_COUNT_THRESHOLD
 Use deterministic inputs and exact thresholds. For example:
 
 ```ts
-expect(rules.evaluateReversalFrequency({ ...input, reversalCount: 4 }))
-  .toEqual([expect.objectContaining({ ruleCode: 'FR-REV-001' })]);
+expect(rules.evaluateReversalFrequency({ ...input, reversalCount: 4 })).toEqual(
+  [expect.objectContaining({ ruleCode: 'FR-REV-001' })],
+);
 
-expect(rules.evaluateCardReplacementFrequency({ ...input, replacementCount: 3 }))
-  .toEqual([expect.objectContaining({ ruleCode: 'FR-REPL-001' })]);
+expect(
+  rules.evaluateCardReplacementFrequency({ ...input, replacementCount: 3 }),
+).toEqual([expect.objectContaining({ ruleCode: 'FR-REPL-001' })]);
 
-expect(rules.evaluateAuthFailures({ ...input, failureCount: 5 }))
-  .toEqual([expect.objectContaining({ ruleCode: 'FR-AUTH-001' })]);
+expect(rules.evaluateAuthFailures({ ...input, failureCount: 5 })).toEqual([
+  expect.objectContaining({ ruleCode: 'FR-AUTH-001' }),
+]);
 ```
 
 - [ ] **Step 3: Emit reversal fraud intent atomically with successful reversal**
@@ -750,11 +782,13 @@ git commit -m "feat: complete Sprint 4 behavioral fraud rules"
 ## Task 6: Add pure historical snapshot reconstruction
 
 **Files:**
+
 - Create: `src/modules/reports/report-snapshot.ts`
 - Create: `src/modules/reports/report-snapshot.spec.ts`
 - Modify: `src/modules/reports/report-materializer.service.ts`
 
 **Interfaces:**
+
 - Consumes immutable ledger/allocation/restoration timestamps and lifecycle timestamps.
 - Produces state-at-watermark helpers:
 
@@ -767,10 +801,15 @@ export function remainingLotAt(
   asOf: Date,
 ): bigint;
 
-export function redemptionStatusAt(redemption: SnapshotRedemption, asOf: Date):
-  'PENDING_APPROVAL' | 'CONFIRMED' | 'REJECTED' | 'REVERSED';
+export function redemptionStatusAt(
+  redemption: SnapshotRedemption,
+  asOf: Date,
+): 'PENDING_APPROVAL' | 'CONFIRMED' | 'REJECTED' | 'REVERSED';
 
-export function approvalStatusAt(approval: SnapshotApproval, asOf: Date): string;
+export function approvalStatusAt(
+  approval: SnapshotApproval,
+  asOf: Date,
+): string;
 export function smsStatusAt(sms: SnapshotSmsMessage, asOf: Date): string;
 ```
 
@@ -877,11 +916,13 @@ git commit -m "fix: reconstruct historical report state at watermark"
 ## Task 7: Correct customer activity and duplicate-attempt report semantics
 
 **Files:**
+
 - Modify: `src/modules/reports/report-materializer.service.ts`
 - Modify: `docs/database/reporting-definitions.md`
 - Modify: `test/report-materialization.int-spec.ts`
 
 **Interfaces:**
+
 - Customer `visitCount` and `lastActivityAt` derive from confirmed financial ledger state only.
 - Cashier `duplicateAttempts` derives from append-only duplicate-attempt audit evidence, not current `FraudFlag.occurrenceCount`.
 
@@ -953,10 +994,12 @@ git commit -m "fix: align customer and duplicate report metrics"
 ## Task 8: Serialize same-tenant report materialization
 
 **Files:**
+
 - Modify: `src/modules/reports/report-materializer.service.ts`
 - Create: `test/report-materialization-concurrency.int-spec.ts`
 
 **Interfaces:**
+
 - Produces: tenant-scoped transaction lock covering source snapshot + delete/rebuild writes.
 - Tenant and branch materializations for the same tenant must not overlap destructively.
 
@@ -974,17 +1017,23 @@ await Promise.all([
 Assert:
 
 ```ts
-expect(await prisma.reportDailyFinancialSummary.count({
-  where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
-})).toBe(expectedSummaryRows);
+expect(
+  await prisma.reportDailyFinancialSummary.count({
+    where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
+  }),
+).toBe(expectedSummaryRows);
 
-expect(await prisma.reportMaterializationState.findUnique({
-  where: { tenantId_scope_scopeKey: {
-    tenantId: tenant.id,
-    scope: 'TENANT',
-    scopeKey: tenant.id,
-  }},
-})).toMatchObject({ status: 'COMPLETED' });
+expect(
+  await prisma.reportMaterializationState.findUnique({
+    where: {
+      tenantId_scope_scopeKey: {
+        tenantId: tenant.id,
+        scope: 'TENANT',
+        scopeKey: tenant.id,
+      },
+    },
+  }),
+).toMatchObject({ status: 'COMPLETED' });
 ```
 
 Repeat with tenant materialization racing a branch materialization for the same tenant.
@@ -1044,11 +1093,13 @@ git commit -m "fix: serialize report materialization per tenant"
 ## Task 9: Complete the offline conflict/concurrency acceptance matrix
 
 **Files:**
+
 - Modify: `test/offline-earn-sync.int-spec.ts`
 - Modify: `test/offline-earn-sync-http.int-spec.ts`
 - Modify implementation only when a new regression test proves a real defect.
 
 **Interfaces:**
+
 - No new financial path.
 - Every offline record still delegates to canonical earn behavior.
 
@@ -1119,6 +1170,7 @@ git commit -m "test: close Sprint 4 offline conflict matrix"
 ## Task 10: Reconcile contracts, OpenSpec and implementation trackers
 
 **Files:**
+
 - Modify: `openspec/changes/sprint-4-offline-fraud-reports/tasks.md`
 - Modify: `openspec/changes/repo-review-42-closure/tasks.md`
 - Modify: `docs/database/migration-tracker.md`
@@ -1127,6 +1179,7 @@ git commit -m "test: close Sprint 4 offline conflict matrix"
 - Regenerate OpenAPI/client if applicable
 
 **Interfaces:**
+
 - Documentation must describe implemented behavior, not aspirational behavior.
 - Do not mark a checkbox complete until its corresponding automated evidence is green.
 
@@ -1191,11 +1244,13 @@ git commit -m "docs: reconcile Sprint 4 closure evidence"
 ## Task 11: Produce one immutable 90%+ release candidate
 
 **Files:**
+
 - No feature changes unless a gate exposes a regression.
 - Modify: `docs/database/migration-tracker.md` with final evidence.
 - Modify: Sprint 4 trackers with final SHA.
 
 **Interfaces:**
+
 - Produces one immutable candidate SHA with complete local/CI evidence.
 
 - [ ] **Step 1: Verify Prisma schema and generation**
@@ -1322,16 +1377,16 @@ The final move-on decision requires the repository CI status, not only local ass
 
 Use this rubric only after all evidence is available:
 
-| Area | Gate score |
-|---|---:|
-| Offline sync core | 29/30 |
-| Offline conflict/concurrency | 9/10 |
-| Fraud detection/review | 18/20 |
-| Reporting/read models | 18/20 |
-| Reports/exports | 9/10 |
-| Contracts/docs | 5/5 |
-| CI/migration/regression | 5/5 |
-| **Total** | **93/100** |
+| Area                         | Gate score |
+| ---------------------------- | ---------: |
+| Offline sync core            |      29/30 |
+| Offline conflict/concurrency |       9/10 |
+| Fraud detection/review       |      18/20 |
+| Reporting/read models        |      18/20 |
+| Reports/exports              |       9/10 |
+| Contracts/docs               |        5/5 |
+| CI/migration/regression      |        5/5 |
+| **Total**                    | **93/100** |
 
 If any P1 gate remains open, report **NO-GO regardless of numeric score**.
 
