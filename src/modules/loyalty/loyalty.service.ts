@@ -613,6 +613,26 @@ export class LoyaltyService {
                 },
               });
 
+              await prisma.outboxEvent.create({
+                data: {
+                  tenantId,
+                  aggregateType: 'receipt',
+                  aggregateId: receipt.id,
+                  eventType: 'fraud.evaluate',
+                  payload: {
+                    receiptId: receipt.id,
+                    approvalId: approval.id,
+                    tenantId,
+                    branchId,
+                    cashierId: actor.user.id,
+                    customerId: transactionCard.customerId,
+                    occurredAt: now.toISOString(),
+                  },
+                  status: 'PENDING',
+                  nextAttemptAt: now,
+                },
+              });
+
               const response = {
                 id: receipt.id,
                 transactionId: null,

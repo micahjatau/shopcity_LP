@@ -27,7 +27,13 @@ export async function bootstrap() {
     new ConfigService(process.env as Record<string, string | undefined>),
   );
   const reportConfig = loadReportMaterializationWorkerConfig();
-  const runtime = new OutboxWorkerRuntime(prisma, config, smsProvider);
+  const runtime = new OutboxWorkerRuntime(
+    prisma,
+    config,
+    smsProvider,
+    undefined,
+    reportMaterializer,
+  );
   const reportMaterializationRuntime = new ReportMaterializationWorkerRuntime(
     prisma,
     reportMaterializer,

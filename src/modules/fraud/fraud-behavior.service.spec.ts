@@ -1,6 +1,5 @@
 import { ConfigService } from '@nestjs/config';
 import { FraudBehaviorService } from './fraud-behavior.service';
-import { FraudRulesService } from './fraud-rules.service';
 import type { PrismaService } from '../../database/prisma.service';
 
 describe('FraudBehaviorService', () => {
@@ -37,7 +36,6 @@ describe('FraudBehaviorService', () => {
           [{ roundedCount: 6n, sampleSize: 6n }],
         ],
       }),
-      new FraudRulesService(configService()),
       configService(),
     );
 
@@ -83,7 +81,6 @@ describe('FraudBehaviorService', () => {
           [{ roundedCount: 0n, sampleSize: 1n }],
         ],
       }),
-      new FraudRulesService(configService()),
       configService(),
     );
 
@@ -121,7 +118,6 @@ describe('FraudBehaviorService', () => {
         auditLogCount: 5,
         reversalCount: 4,
       }),
-      new FraudRulesService(configService()),
       configService(),
     );
 

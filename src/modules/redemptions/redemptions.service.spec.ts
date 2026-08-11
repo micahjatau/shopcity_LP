@@ -43,7 +43,14 @@ describe('RedemptionsService', () => {
     });
     const firstCall = approvalCreate.mock.calls[0]?.[0];
     expect(firstCall.data).not.toHaveProperty('receiptId');
-    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.outboxEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tenantId: 'tenant-1',
+        aggregateType: 'redemption',
+        aggregateId: 'redemption-1',
+        eventType: 'fraud.evaluate',
+      }),
+    });
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 

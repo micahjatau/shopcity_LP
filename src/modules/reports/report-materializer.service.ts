@@ -46,6 +46,7 @@ interface LedgerEntryRecord {
   reversesEntryId: string | null;
   type: string;
   direction: string;
+  status: string;
   amountKobo: bigint;
   createdBy: string;
   createdAt: Date;
@@ -55,7 +56,7 @@ interface LedgerEntryRecord {
 interface CreditLotRecord {
   id: string;
   customerId: string;
-  remainingAmountKobo: bigint;
+  originalAmountKobo: bigint;
   earnedAt: Date;
   expiresAt: Date;
   earnLedgerEntryId: string;
@@ -90,18 +91,26 @@ interface ApprovalRecord {
   redemptionId: string | null;
 }
 
-interface FraudFlagRecord {
+interface RedemptionAllocationRecord {
   id: string;
-  ruleCode: string;
-  severity: string;
-  status: string;
-  branchId: string | null;
-  cashierId: string | null;
-  customerId: string | null;
-  receiptId: string | null;
-  windowStart: Date;
-  firstDetectedAt: Date;
-  occurrenceCount: number;
+  creditLotId: string;
+  amountKobo: bigint;
+  createdAt: Date;
+}
+
+interface AllocationRestorationRecord {
+  allocationId: string;
+  amountKobo: bigint;
+  createdAt: Date;
+}
+
+interface AuditLogRecord {
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  actorId: string | null;
+  createdAt: Date;
+  metadata: Prisma.JsonValue | null;
 }
 
 interface SourceData {
@@ -113,7 +122,9 @@ interface SourceData {
   redemptions: RedemptionRecord[];
   smsMessages: SmsMessageRecord[];
   approvals: ApprovalRecord[];
-  fraudFlags: FraudFlagRecord[];
+  redemptionAllocations: RedemptionAllocationRecord[];
+  allocationRestorations: AllocationRestorationRecord[];
+  auditLogs: AuditLogRecord[];
 }
 
 type ReportMaterializationStateRow =
@@ -186,7 +197,7 @@ export class ReportMaterializerService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await acquireMaterializationLock(tx, tenantId, branchId);
+        await acquireMaterializationLock(tx, tenantId);
 
         const source = await this.loadSourceData(tx, tenantId, asOf);
         const plan = branchId
@@ -249,7 +260,9 @@ export class ReportMaterializerService {
       redemptions,
       smsMessages,
       approvals,
-      fraudFlags,
+      redemptionAllocations,
+      allocationRestorations,
+      auditLogs,
     ] = await Promise.all([
       client.branch.findMany({
         where: { tenantId },
@@ -289,6 +302,7 @@ export class ReportMaterializerService {
           receiptId: true,
           type: true,
           direction: true,
+          status: true,
           amountKobo: true,
           createdBy: true,
           createdAt: true,
@@ -301,7 +315,7 @@ export class ReportMaterializerService {
         select: {
           id: true,
           customerId: true,
-          remainingAmountKobo: true,
+          originalAmountKobo: true,
           earnedAt: true,
           expiresAt: true,
           earnLedgerEntryId: true,
@@ -342,20 +356,36 @@ export class ReportMaterializerService {
           redemptionId: true,
         },
       }),
-      client.fraudFlag.findMany({
-        where: { tenantId, ruleCode: 'FR-DUP-001' },
+      client.redemptionAllocation.findMany({
+        where: { tenantId, createdAt: { lte: asOf } },
         select: {
           id: true,
-          ruleCode: true,
-          severity: true,
-          status: true,
-          branchId: true,
-          cashierId: true,
-          customerId: true,
-          receiptId: true,
-          windowStart: true,
-          firstDetectedAt: true,
-          occurrenceCount: true,
+          creditLotId: true,
+          amountKobo: true,
+          createdAt: true,
+        },
+      }),
+      client.allocationRestoration.findMany({
+        where: { tenantId, createdAt: { lte: asOf } },
+        select: {
+          allocationId: true,
+          amountKobo: true,
+          createdAt: true,
+        },
+      }),
+      client.auditLog.findMany({
+        where: {
+          tenantId,
+          action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
+          createdAt: { lte: asOf },
+        },
+        select: {
+          action: true,
+          entityType: true,
+          entityId: true,
+          actorId: true,
+          createdAt: true,
+          metadata: true,
         },
       }),
     ]);
@@ -371,7 +401,9 @@ export class ReportMaterializerService {
       ),
       smsMessages: smsMessages.filter((sms) => sms.queuedAt <= asOf),
       approvals: approvals.filter((approval) => approval.requestedAt <= asOf),
-      fraudFlags: fraudFlags.filter((flag) => flag.firstDetectedAt <= asOf),
+      redemptionAllocations,
+      allocationRestorations,
+      auditLogs,
     };
   }
 
@@ -637,6 +669,7 @@ function buildDailyFinancialSummaries(
         Boolean(reversesEntryId),
       ),
   );
+  const lotBalances = buildLotBalances(source, asOf);
 
   for (const entry of ledgerEntries) {
     if (
@@ -688,8 +721,8 @@ function buildDailyFinancialSummaries(
   const registeredCustomers = customers.length;
   const activeLots = lots.filter((lot) => lot.expiresAt > asOf);
   const expiredLots = lots.filter((lot) => lot.expiresAt <= asOf);
-  const outstandingLiabilityKobo = sumLots(activeLots);
-  const creditExpiredKobo = sumLots(expiredLots);
+  const outstandingLiabilityKobo = sumLots(activeLots, lotBalances);
+  const creditExpiredKobo = sumLots(expiredLots, lotBalances);
 
   return Array.from(reportDates)
     .sort()
@@ -763,18 +796,24 @@ function buildCashierSummaries(
     }
   }
 
-  for (const flag of source.fraudFlags) {
-    if (
-      flag.ruleCode !== 'FR-DUP-001' ||
-      flag.status === 'RESOLVED' ||
-      (scope.scope === 'BRANCH' && flag.branchId !== scope.branchId)
-    ) {
-      continue;
+  for (const log of source.auditLogs) {
+    const metadata =
+      (log.metadata as Record<string, unknown> | null | undefined) ?? null;
+    if (scope.scope === 'BRANCH') {
+      const branchId =
+        typeof metadata?.branchId === 'string' ? metadata.branchId : null;
+      if (branchId !== scope.branchId) {
+        continue;
+      }
     }
 
-    const reportDate = toReportDate(flag.firstDetectedAt, scope.timezone);
-    const key = cashierKey(reportDate, flag.cashierId ?? 'unknown');
-    addNumber(duplicateAttempts, key, flag.occurrenceCount);
+    const reportDate = toReportDate(log.createdAt, scope.timezone);
+    const cashierId =
+      typeof metadata?.cashierId === 'string'
+        ? metadata.cashierId
+        : log.actorId ?? 'unknown';
+    const key = cashierKey(reportDate, cashierId);
+    addNumber(duplicateAttempts, key, 1);
   }
 
   for (const approval of approvals) {
@@ -824,7 +863,6 @@ function buildCustomerSnapshots(
   dormantCustomerDays: number,
 ) {
   const customers = filterCustomersForScope(source.customers, scope);
-  const redemptions = filterRedemptionsForScope(source.redemptions, scope);
   const lots = filterLotsForScope(source.creditLots, source, scope);
   const ledgerEntries = filterLedgerEntriesForScope(
     source.ledgerEntries,
@@ -842,40 +880,41 @@ function buildCustomerSnapshots(
         Boolean(reversesEntryId),
       ),
   );
+  const lotBalances = buildLotBalances(source, asOf);
 
   return customers
     .map((customer) => {
-      const customerEarnEntries = ledgerEntries.filter(
+      const customerConfirmedEntries = ledgerEntries.filter(
         (entry) =>
           entry.customerId === customer.id &&
-          entry.type === 'EARN' &&
-          entry.direction === 'CREDIT' &&
-          !reversedEntryIds.has(entry.id),
-      );
-      const customerRedemptions = redemptions.filter(
-        (redemption) => redemption.customerId === customer.id,
+          entry.status === 'CONFIRMED' &&
+          !reversedEntryIds.has(entry.id) &&
+          ((entry.type === 'EARN' && entry.direction === 'CREDIT') ||
+            (entry.type === 'REDEEM' && entry.direction === 'DEBIT')),
       );
       const customerLots = lots.filter(
         (lot) => lot.customerId === customer.id && lot.expiresAt > asOf,
       );
 
-      const purchaseValueKobo = customerEarnEntries.reduce(
-        (sum, entry) =>
-          sum +
-          (receiptsById.get(entry.receiptId ?? '')?.purchaseAmountKobo ??
-            entry.amountKobo),
-        0n,
-      );
+      const purchaseValueKobo = customerConfirmedEntries
+        .filter(
+          (entry) => entry.type === 'EARN' && entry.direction === 'CREDIT',
+        )
+        .reduce(
+          (sum, entry) =>
+            sum +
+            (receiptsById.get(entry.receiptId ?? '')?.purchaseAmountKobo ??
+              entry.amountKobo),
+          0n,
+        );
       const currentBalanceKobo = customerLots.reduce(
-        (sum, lot) => sum + lot.remainingAmountKobo,
+        (sum, lot) => sum + (lotBalances.get(lot.id) ?? 0n),
         0n,
       );
-      const visitCount =
-        customerEarnEntries.length + customerRedemptions.length;
-      const lastActivityAt = latestDate([
-        ...customerEarnEntries.map((entry) => entry.effectiveAt),
-        ...customerRedemptions.map((redemption) => redemption.requestedAt),
-      ]);
+      const visitCount = customerConfirmedEntries.length;
+      const lastActivityAt = latestDate(
+        customerConfirmedEntries.map((entry) => entry.effectiveAt),
+      );
       const dormant =
         lastActivityAt !== null &&
         (asOf.getTime() - lastActivityAt.getTime()) / 86400000 >
@@ -907,8 +946,9 @@ function buildLiabilityBuckets(
   materializedAt: Date,
 ) {
   const lots = filterLotsForScope(source.creditLots, source, scope).filter(
-    (lot) => lot.remainingAmountKobo > 0n && lot.expiresAt > asOf,
+    (lot) => lot.expiresAt > asOf,
   );
+  const lotBalances = buildLotBalances(source, asOf);
 
   const buckets = new Map<
     string,
@@ -934,9 +974,14 @@ function buildLiabilityBuckets(
       lotCount: 0,
       outstandingKobo: 0n,
     };
+    const balance = lotBalances.get(lot.id) ?? 0n;
+    if (balance <= 0n) {
+      continue;
+    }
+
     entry.customerIds.add(lot.customerId);
     entry.lotCount += 1;
-    entry.outstandingKobo += lot.remainingAmountKobo;
+    entry.outstandingKobo += balance;
     buckets.set(key, entry);
   }
 
@@ -1090,21 +1135,15 @@ function buildSmsSummaries(
 async function acquireMaterializationLock(
   tx: Prisma.TransactionClient,
   tenantId: string,
-  branchId: string | null,
 ): Promise<void> {
-  const lockKey = materializationLockKey(tenantId, branchId);
+  const lockKey = materializationLockKey(tenantId);
   await tx.$executeRaw`
     SELECT pg_advisory_xact_lock(${lockKey})
   `;
 }
 
-function materializationLockKey(
-  tenantId: string,
-  branchId: string | null,
-): bigint {
-  const hash = createHash('sha256')
-    .update(`${tenantId}:${branchId ?? 'TENANT'}`)
-    .digest();
+function materializationLockKey(tenantId: string): bigint {
+  const hash = createHash('sha256').update(tenantId).digest();
   const combined =
     (BigInt(hash.readUInt32BE(0)) << 32n) | BigInt(hash.readUInt32BE(4));
 
@@ -1420,8 +1459,66 @@ function resolveAgeBucket(expiresAt: Date, asOf: Date): string {
   return '90+';
 }
 
-function sumLots(lots: CreditLotRecord[]): bigint {
-  return lots.reduce((sum, lot) => sum + lot.remainingAmountKobo, 0n);
+function buildLotBalances(
+  source: SourceData,
+  asOf: Date,
+): Map<string, bigint> {
+  const balances = new Map<string, bigint>();
+
+  for (const lot of source.creditLots) {
+    if (lot.earnedAt > asOf) {
+      continue;
+    }
+
+    balances.set(lot.id, lot.originalAmountKobo);
+  }
+
+  const allocationLotById = new Map(
+    source.redemptionAllocations.map((allocation) => [
+      allocation.id,
+      allocation.creditLotId,
+    ]),
+  );
+
+  for (const allocation of source.redemptionAllocations) {
+    if (allocation.createdAt > asOf) {
+      continue;
+    }
+
+    balances.set(
+      allocation.creditLotId,
+      (balances.get(allocation.creditLotId) ?? 0n) - allocation.amountKobo,
+    );
+  }
+
+  for (const restoration of source.allocationRestorations) {
+    if (restoration.createdAt > asOf) {
+      continue;
+    }
+
+    const creditLotId = allocationLotById.get(restoration.allocationId);
+    if (!creditLotId) {
+      continue;
+    }
+
+    balances.set(
+      creditLotId,
+      (balances.get(creditLotId) ?? 0n) + restoration.amountKobo,
+    );
+  }
+
+  for (const [lotId, balance] of balances.entries()) {
+    balances.set(lotId, balance < 0n ? 0n : balance);
+  }
+
+  return balances;
+}
+
+function sumLots(
+  lots: CreditLotRecord[],
+  balances: Map<string, bigint>,
+): bigint {
+  return lots.reduce((sum, lot) => sum + (balances.get(lot.id) ?? 0n), 0n);
 }
 
 function addBigInt(map: Map<string, bigint>, key: string, value: bigint): void {

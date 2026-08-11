@@ -2,8 +2,8 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import type { AuthContext } from '../../common/auth/session.types';
+import type { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { ReportMaterializerService } from './report-materializer.service';
 import { ReportExportService } from './report-export.service';
 import { ReportsService } from './reports.service';
 
@@ -11,11 +11,11 @@ describe('ReportExportService', () => {
   it('exports CSV with spreadsheet-safe escaping and masking', async () => {
     const reports = reportsServiceStub();
     const audit = auditServiceStub();
-    const materializer = materializerServiceStub();
+    const prisma = prismaStub();
     const service = new ReportExportService(
       reports.service,
-      materializer.service,
       audit.service,
+      prisma.service,
       configService(),
     );
 
@@ -42,8 +42,8 @@ describe('ReportExportService', () => {
   it('rejects non-CSV export formats', async () => {
     const service = new ReportExportService(
       reportsServiceStub().service,
-      materializerServiceStub().service,
       auditServiceStub().service,
+      prismaStub().service,
       configService(),
     );
 
@@ -54,13 +54,13 @@ describe('ReportExportService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('schedules admin report refresh asynchronously', async () => {
-    const materializer = materializerServiceStub();
+  it('schedules admin report refresh durably', async () => {
     const audit = auditServiceStub();
+    const prisma = prismaStub();
     const service = new ReportExportService(
       reportsServiceStub().service,
-      materializer.service,
       audit.service,
+      prisma.service,
       configService(),
     );
 
@@ -69,11 +69,17 @@ describe('ReportExportService', () => {
       adminContext(),
       'executive-summary',
     );
-    await Promise.resolve();
 
-    const refreshCall = materializer.rebuildTenant.mock.calls[0];
-    expect(refreshCall?.[0]).toBe('tenant-1');
-    expect(refreshCall?.[1].materializedAt).toBeInstanceOf(Date);
+    expect(prisma.outboxEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenantId: 'tenant-1',
+          aggregateType: 'report',
+          aggregateId: 'executive-summary',
+          eventType: 'report.refresh',
+        }),
+      }),
+    );
     expect(
       (audit.record.mock.calls[0]?.[0] as { action?: string }).action,
     ).toBe('REPORT_REFRESH_REQUESTED');
@@ -82,8 +88,8 @@ describe('ReportExportService', () => {
   it('rejects non-admin refresh requests', async () => {
     const service = new ReportExportService(
       reportsServiceStub().service,
-      materializerServiceStub().service,
       auditServiceStub().service,
+      prismaStub().service,
       configService(),
     );
 
@@ -159,28 +165,6 @@ function reportsServiceStub() {
   };
 }
 
-function materializerServiceStub() {
-  const rebuildTenant = jest.fn<
-    Promise<void>,
-    [string, { materializedAt: Date }]
-  >();
-  rebuildTenant.mockResolvedValue(undefined);
-  const materializeBranch = jest.fn<
-    Promise<void>,
-    [string, string, { materializedAt: Date }]
-  >();
-  materializeBranch.mockResolvedValue(undefined);
-
-  return {
-    service: {
-      rebuildTenant,
-      materializeBranch,
-    } as unknown as ReportMaterializerService,
-    rebuildTenant,
-    materializeBranch,
-  };
-}
-
 function auditServiceStub() {
   const record = jest.fn<Promise<void>, [{ [key: string]: unknown }]>();
   record.mockResolvedValue(undefined);
@@ -190,6 +174,20 @@ function auditServiceStub() {
       record,
     } as unknown as AuditService,
     record,
+  };
+}
+
+function prismaStub() {
+  const outboxEventCreate = jest.fn<Promise<unknown>, [{ [key: string]: unknown }]>();
+  outboxEventCreate.mockResolvedValue({});
+
+  return {
+    service: {
+      outboxEvent: {
+        create: outboxEventCreate,
+      },
+    } as unknown as PrismaService,
+    outboxEventCreate,
   };
 }
 

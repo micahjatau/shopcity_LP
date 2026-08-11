@@ -3,6 +3,28 @@ import type { PrismaService } from '../../database/prisma.service';
 import { ReportMaterializerService } from './report-materializer.service';
 
 describe('ReportMaterializerService', () => {
+  it('uses the same tenant-wide advisory lock for tenant and branch materialization', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert);
+    const service = new ReportMaterializerService(prisma, configService());
+
+    await service.materializeTenant('tenant-1', {
+      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
+      asOf: new Date('2026-08-10T12:00:00.000Z'),
+    });
+    await service.materializeBranch('tenant-1', 'branch-1', {
+      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
+      asOf: new Date('2026-08-10T12:00:00.000Z'),
+    });
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+    const firstLock = tx.$executeRaw.mock.calls[0]?.[0];
+    const secondLock = tx.$executeRaw.mock.calls[1]?.[0];
+
+    expect(firstLock).toStrictEqual(secondLock);
+  });
+
   it('materializes tenant and branch reporting rows from authoritative source data', async () => {
     const tx = reportTxStub();
     const stateUpsert = jest.fn().mockResolvedValue(undefined);
@@ -85,6 +107,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
           receiptId: 'receipt-1',
           type: 'EARN',
           direction: 'CREDIT',
+          status: 'CONFIRMED',
           amountKobo: 1000n,
           createdBy: 'cashier-1',
           createdAt: new Date('2026-08-10T10:00:00.000Z'),
@@ -97,7 +120,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
         {
           id: 'lot-1',
           customerId: 'customer-1',
-          remainingAmountKobo: 1000n,
+          originalAmountKobo: 1000n,
           earnedAt: new Date('2026-08-10T10:00:00.000Z'),
           expiresAt: new Date('2026-09-10T10:00:00.000Z'),
           earnLedgerEntryId: 'ledger-1',
@@ -113,7 +136,13 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
     approval: {
       findMany: jest.fn().mockResolvedValue([]),
     },
-    fraudFlag: {
+    redemptionAllocation: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    allocationRestoration: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    auditLog: {
       findMany: jest.fn().mockResolvedValue([]),
     },
     reportMaterializationState: {
@@ -164,6 +193,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
                   receiptId: 'receipt-1',
                   type: 'EARN',
                   direction: 'CREDIT',
+                  status: 'CONFIRMED',
                   amountKobo: 1000n,
                   createdBy: 'cashier-1',
                   createdAt: new Date('2026-08-10T10:00:00.000Z'),
@@ -176,7 +206,7 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
                 {
                   id: 'lot-1',
                   customerId: 'customer-1',
-                  remainingAmountKobo: 1000n,
+                  originalAmountKobo: 1000n,
                   earnedAt: new Date('2026-08-10T10:00:00.000Z'),
                   expiresAt: new Date('2026-09-10T10:00:00.000Z'),
                   earnLedgerEntryId: 'ledger-1',
@@ -192,7 +222,13 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
             approval: {
               findMany: jest.fn().mockResolvedValue([]),
             },
-            fraudFlag: {
+            redemptionAllocation: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            allocationRestoration: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            auditLog: {
               findMany: jest.fn().mockResolvedValue([]),
             },
             reportMaterializationState: {

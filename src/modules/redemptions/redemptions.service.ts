@@ -446,6 +446,26 @@ export class RedemptionsService {
                 },
               });
 
+              await prisma.outboxEvent.create({
+                data: {
+                  tenantId,
+                  aggregateType: 'redemption',
+                  aggregateId: redemption.id,
+                  eventType: 'fraud.evaluate',
+                  payload: {
+                    redemptionId: redemption.id,
+                    approvalId: approval.id,
+                    tenantId,
+                    branchId,
+                    cashierId: actor.user.id,
+                    customerId: transactionCard.customerId,
+                    occurredAt: now.toISOString(),
+                  },
+                  status: 'PENDING',
+                  nextAttemptAt: now,
+                },
+              });
+
               const response = buildRedeemResponse({
                 tenantId,
                 branchId,

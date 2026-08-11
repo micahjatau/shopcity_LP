@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { ReportMaterializerService } from './report-materializer.service';
+import { PrismaService } from '../../database/prisma.service';
 import { ReportsService, type ReportCollection } from './reports.service';
 import type { AuthContext } from '../../common/auth/session.types';
 
@@ -41,8 +41,8 @@ export interface ExportResult {
 export class ReportExportService {
   constructor(
     private readonly reportsService: ReportsService,
-    private readonly reportMaterializerService: ReportMaterializerService,
     private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -107,28 +107,21 @@ export class ReportExportService {
       },
     });
 
-    void this.scheduleRefresh(tenantId, report, query).catch(() => undefined);
-  }
-
-  private async scheduleRefresh(
-    tenantId: string,
-    report: ReportExportName,
-    query: Pick<ReportExportQuery, 'branchId' | 'timezone'>,
-  ): Promise<void> {
-    void report;
-    if (query.branchId) {
-      await this.reportMaterializerService.materializeBranch(
+    await this.prisma.outboxEvent.create({
+      data: {
         tenantId,
-        query.branchId,
-        {
-          materializedAt: new Date(),
+        aggregateType: 'report',
+        aggregateId: report,
+        eventType: 'report.refresh',
+        payload: {
+          version: 1,
+          report,
+          branchId: query.branchId ?? null,
+          timezone: query.timezone ?? null,
         },
-      );
-      return;
-    }
-
-    await this.reportMaterializerService.rebuildTenant(tenantId, {
-      materializedAt: new Date(),
+        status: 'PENDING',
+        nextAttemptAt: new Date(),
+      },
     });
   }
 

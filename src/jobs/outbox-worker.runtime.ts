@@ -5,6 +5,7 @@ import { type Job, type Queue, type Worker } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
 import { FraudBehaviorRuntime } from './fraud-behavior.runtime';
+import { ReportMaterializerService } from '../modules/reports/report-materializer.service';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
@@ -86,6 +87,7 @@ export class OutboxWorkerRuntime {
     private readonly config: WorkerConfig,
     private readonly smsProvider: SmsProvider,
     fraudBehaviorService?: FraudBehaviorRuntime,
+    private readonly reportMaterializerService?: ReportMaterializerService,
   ) {
     this.fraudBehaviorService =
       fraudBehaviorService ??
@@ -328,7 +330,7 @@ export class OutboxWorkerRuntime {
       return;
     }
 
-    if (outboxEvent.deadLetteredAt) {
+    if (outboxEvent.deadLetteredAt || outboxEvent.processedAt) {
       job.discard();
       return;
     }
@@ -344,8 +346,12 @@ export class OutboxWorkerRuntime {
     });
 
     if (outboxEvent.eventType === 'fraud.evaluate') {
-      await this.evaluateFraudForOutboxEvent(outboxEvent);
-      await this.markOutboxEventCompleted(outboxEvent);
+      await this.processFraudEvaluationEvent(outboxEvent);
+      return;
+    }
+
+    if (outboxEvent.eventType === 'report.refresh') {
+      await this.processReportRefreshEvent(outboxEvent);
       return;
     }
 
@@ -588,13 +594,90 @@ export class OutboxWorkerRuntime {
     });
   }
 
+  private async processFraudEvaluationEvent(outboxEvent: {
+    tenantId: string;
+    id: string;
+  }): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT 1
+        FROM "OutboxEvent"
+        WHERE "tenantId" = ${outboxEvent.tenantId}
+          AND "id" = ${outboxEvent.id}
+        FOR UPDATE
+      `;
+
+      const latest = await tx.outboxEvent.findUnique({
+        where: {
+          tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+        },
+      });
+
+      if (!latest || latest.processedAt || latest.status === OutboxEventStatus.COMPLETED) {
+        return;
+      }
+
+      await this.evaluateFraudForOutboxEvent(latest, tx);
+
+      await tx.outboxEvent.update({
+        where: {
+          tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+        },
+        data: {
+          status: OutboxEventStatus.COMPLETED,
+          processedAt: new Date(),
+          nextAttemptAt: null,
+        },
+      });
+    });
+  }
+
+  private async processReportRefreshEvent(outboxEvent: {
+    tenantId: string;
+    id: string;
+    payload: Prisma.JsonValue;
+  }): Promise<void> {
+    if (!this.reportMaterializerService) {
+      throw new Error('Report materializer is not configured');
+    }
+
+    const payload = normalizeJsonPayload(outboxEvent.payload);
+    const report = typeof payload.report === 'string' ? payload.report : '';
+    const branchId =
+      typeof payload.branchId === 'string' && payload.branchId.trim()
+        ? payload.branchId.trim()
+        : null;
+
+    if (!report) {
+      throw new Error(`Invalid report refresh payload for ${outboxEvent.id}`);
+    }
+
+    const materializedAt = new Date();
+    if (branchId) {
+      await this.reportMaterializerService.materializeBranch(
+        outboxEvent.tenantId,
+        branchId,
+        { materializedAt },
+      );
+      await this.markOutboxEventCompleted(outboxEvent);
+      return;
+    }
+
+    await this.reportMaterializerService.rebuildTenant(outboxEvent.tenantId, {
+      materializedAt,
+    });
+    await this.markOutboxEventCompleted(outboxEvent);
+  }
+
   private async evaluateFraudForOutboxEvent(outboxEvent: {
     tenantId: string;
     aggregateType: string;
     aggregateId: string;
     eventType: string;
     payload: Prisma.JsonValue;
-  }): Promise<void> {
+  },
+  client?: Prisma.TransactionClient,
+  ): Promise<void> {
     if (outboxEvent.eventType !== 'fraud.evaluate') {
       return;
     }
@@ -637,7 +720,7 @@ export class OutboxWorkerRuntime {
           receiptId,
           evidence: payload,
         },
-      ]);
+      ], client);
       return;
     }
 
@@ -720,7 +803,7 @@ export class OutboxWorkerRuntime {
         })),
       ];
 
-      await this.recordFraudFindings(receipt.tenantId, findings);
+      await this.recordFraudFindings(receipt.tenantId, findings, client);
       return;
     }
 
@@ -765,7 +848,7 @@ export class OutboxWorkerRuntime {
               },
             ]
           : []),
-      ]);
+      ], client);
       return;
     }
 
@@ -792,7 +875,7 @@ export class OutboxWorkerRuntime {
           windowEnd,
         });
 
-      await this.recordFraudFindings(outboxEvent.tenantId, findings);
+      await this.recordFraudFindings(outboxEvent.tenantId, findings, client);
       return;
     }
 
@@ -818,7 +901,7 @@ export class OutboxWorkerRuntime {
         },
       );
 
-      await this.recordFraudFindings(outboxEvent.tenantId, findings);
+      await this.recordFraudFindings(outboxEvent.tenantId, findings, client);
       return;
     }
 
@@ -838,13 +921,14 @@ export class OutboxWorkerRuntime {
         windowEnd,
       });
 
-      await this.recordFraudFindings(outboxEvent.tenantId, findings);
+      await this.recordFraudFindings(outboxEvent.tenantId, findings, client);
     }
   }
 
   private async recordFraudFindings(
     tenantId: string,
     findings: FraudFinding[],
+    client?: Prisma.TransactionClient,
   ): Promise<number> {
     if (findings.length === 0) {
       return 0;
@@ -852,7 +936,7 @@ export class OutboxWorkerRuntime {
 
     const now = new Date();
 
-    await this.prisma.$transaction(async (tx) => {
+    const writeFindings = async (tx: Prisma.TransactionClient) => {
       for (const finding of findings) {
         await tx.fraudFlag.upsert({
           where: {
@@ -901,7 +985,14 @@ export class OutboxWorkerRuntime {
           },
         });
       }
-    });
+    };
+
+    if (client) {
+      await writeFindings(client);
+      return findings.length;
+    }
+
+    await this.prisma.$transaction(writeFindings);
 
     return findings.length;
   }

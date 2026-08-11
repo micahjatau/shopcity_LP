@@ -108,6 +108,43 @@ describe('LoyaltyService earn transaction retries', () => {
     ).rejects.toBe(error);
     expect(transaction).toHaveBeenCalledTimes(1);
   });
+
+  it('enqueues fraud evaluation for pending approval earns', async () => {
+    const tx = transactionClient();
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+      activeBalanceService(100_000n),
+    );
+
+    const response = await service.earn('tenant-1', authContext(), 'idem-2', {
+      posReceiptNumber: 'POS-APPROVAL-1',
+      cardSerialNumber: 'CARD-1',
+      purchaseAmountKobo: 30_000_000,
+      occurredAt: FIXED_OCCURRED_AT,
+    });
+
+    expect(response.state).toBe('PENDING_APPROVAL');
+    expect(tx.approval.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        receiptId: 'receipt-1',
+        targetType: 'EARN',
+      }),
+    });
+    expect(tx.outboxEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tenantId: 'tenant-1',
+        aggregateType: 'receipt',
+        aggregateId: 'receipt-1',
+        eventType: 'fraud.evaluate',
+      }),
+    });
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('LoyaltyService redemption approvals', () => {
@@ -1362,6 +1399,9 @@ function transactionClient() {
         id: 'receipt-1',
         posReceiptNumber: 'POS-RETRY-1',
       }),
+    },
+    approval: {
+      create: jest.fn().mockResolvedValue({ id: 'approval-1' }),
     },
     loyaltyLedgerEntry: {
       create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),

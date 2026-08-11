@@ -91,6 +91,7 @@ export class FraudBehaviorRuntime {
     }
 
     const timezone = receipt.branch.timezone;
+    const dayWindow = this.localDayWindow(receipt.occurredAt, timezone);
     const [countInLocalDay, cashierMetrics, roundedCounts] = await Promise.all([
       this.countReceiptFrequency(receipt, timezone),
       this.loadCashierMetrics(receipt, timezone),
@@ -106,8 +107,8 @@ export class FraudBehaviorRuntime {
         customerId: receipt.customerId,
         receiptId: receipt.id,
         countInLocalDay,
-        windowStart: receipt.occurredAt,
-        windowEnd: new Date(receipt.occurredAt.getTime() + 24 * 60 * 60 * 1000),
+        windowStart: dayWindow.windowStart,
+        windowEnd: dayWindow.windowEnd,
       }),
     );
 
@@ -120,8 +121,8 @@ export class FraudBehaviorRuntime {
         cashierValueKobo: cashierMetrics.cashierValueKobo,
         peerMedianValueKobo: cashierMetrics.peerMedianValueKobo,
         sampleSize: cashierMetrics.cashierCount,
-        windowStart: receipt.occurredAt,
-        windowEnd: new Date(receipt.occurredAt.getTime() + 24 * 60 * 60 * 1000),
+        windowStart: dayWindow.windowStart,
+        windowEnd: dayWindow.windowEnd,
       }),
     );
 
@@ -134,8 +135,8 @@ export class FraudBehaviorRuntime {
         roundedCount: roundedCounts.roundedCount,
         sampleSize: roundedCounts.sampleSize,
         unitKobo: BigInt(this.roundedValueUnitKobo()),
-        windowStart: receipt.occurredAt,
-        windowEnd: new Date(receipt.occurredAt.getTime() + 24 * 60 * 60 * 1000),
+        windowStart: dayWindow.windowStart,
+        windowEnd: dayWindow.windowEnd,
       }),
     );
 
@@ -265,7 +266,10 @@ export class FraudBehaviorRuntime {
       {
         ruleCode: 'FR-CARD-001',
         severity: 'MEDIUM',
-        dedupeKey: this.dedupeKey('FR-CARD-001', input.cardId),
+        dedupeKey: this.dedupeKey(
+          'FR-CARD-001',
+          `${input.cardId}:${this.dayKey(input.windowStart)}`,
+        ),
         subjectType: 'RECEIPT',
         subjectId: input.cardId,
         windowStart: input.windowStart,
@@ -314,7 +318,7 @@ export class FraudBehaviorRuntime {
         severity: 'MEDIUM',
         dedupeKey: this.dedupeKey(
           'FR-CASH-001',
-          `${input.branchId}:${input.cashierId}:${input.windowStart.toISOString()}`,
+          `${input.branchId}:${input.cashierId}:${this.dayKey(input.windowStart)}`,
         ),
         subjectType: 'RECEIPT',
         subjectId: input.cashierId,
@@ -361,7 +365,7 @@ export class FraudBehaviorRuntime {
         severity: 'LOW',
         dedupeKey: this.dedupeKey(
           'FR-ROUND-001',
-          `${input.branchId}:${input.cashierId}:${input.windowStart.toISOString()}`,
+          `${input.branchId}:${input.cashierId}:${this.dayKey(input.windowStart)}`,
         ),
         subjectType: 'RECEIPT',
         subjectId: input.receiptId,
@@ -400,7 +404,7 @@ export class FraudBehaviorRuntime {
         severity: 'MEDIUM',
         dedupeKey: this.dedupeKey(
           'FR-REV-001',
-          `${input.branchId}:${input.cashierId}:${input.windowStart.toISOString()}`,
+          `${input.branchId}:${input.cashierId}:${this.dayKey(input.windowStart)}`,
         ),
         subjectType: 'LEDGER_ENTRY',
         subjectId: input.cashierId,
@@ -438,7 +442,7 @@ export class FraudBehaviorRuntime {
         severity: 'MEDIUM',
         dedupeKey: this.dedupeKey(
           'FR-REPL-001',
-          `${input.customerId}:${input.windowStart.toISOString()}`,
+          `${input.customerId}:${this.dayKey(input.windowStart)}`,
         ),
         subjectType: 'RECEIPT',
         subjectId: input.cardId,
@@ -475,7 +479,7 @@ export class FraudBehaviorRuntime {
         severity: 'HIGH',
         dedupeKey: this.dedupeKey(
           'FR-AUTH-001',
-          `${input.userId}:${input.windowStart.toISOString()}`,
+          `${input.userId}:${this.dayKey(input.windowStart)}`,
         ),
         subjectType: 'RECEIPT',
         subjectId: input.userId,
@@ -629,6 +633,30 @@ export class FraudBehaviorRuntime {
 
   private dedupeKey(ruleCode: string, subjectId: string): string {
     return `${ruleCode}:${subjectId}`;
+  }
+
+  private dayKey(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
+
+  private localDayWindow(date: Date, timezone: string): {
+    windowStart: Date;
+    windowEnd: Date;
+  } {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const year = parts.find((part) => part.type === 'year')?.value ?? '1970';
+    const month = parts.find((part) => part.type === 'month')?.value ?? '01';
+    const day = parts.find((part) => part.type === 'day')?.value ?? '01';
+    const windowStart = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+    return {
+      windowStart,
+      windowEnd: new Date(windowStart.getTime() + 24 * 60 * 60 * 1000),
+    };
   }
 }
 
