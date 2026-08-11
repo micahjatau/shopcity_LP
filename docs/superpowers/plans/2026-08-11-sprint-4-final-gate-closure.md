@@ -163,7 +163,10 @@ In `test/report-refresh-outbox.int-spec.ts`:
 Use bounded polling rather than arbitrary sleep:
 
 ```ts
-async function eventually<T>(read: () => Promise<T>, predicate: (value: T) => boolean) {
+async function eventually<T>(
+  read: () => Promise<T>,
+  predicate: (value: T) => boolean,
+) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const value = await read();
     if (predicate(value)) return value;
@@ -206,17 +209,10 @@ git commit -m "fix: recover durable report refresh events"
 
 ```ts
 export type RedemptionSnapshotStatus =
-  | 'PENDING_APPROVAL'
-  | 'CONFIRMED'
-  | 'REJECTED'
-  | 'REVERSED';
+  'PENDING_APPROVAL' | 'CONFIRMED' | 'REJECTED' | 'REVERSED';
 
 export type SmsSnapshotStatus =
-  | 'QUEUED'
-  | 'SENT'
-  | 'DELIVERED'
-  | 'FAILED'
-  | 'SUPPRESSED';
+  'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SUPPRESSED';
 
 export function redemptionStatusAt(
   input: {
@@ -252,12 +248,15 @@ const redemption = {
   reversedAt: new Date('2026-08-10T12:00:00.000Z'),
 };
 
-expect(redemptionStatusAt(redemption, new Date('2026-08-01T09:00:30.000Z')))
-  .toBe('PENDING_APPROVAL');
-expect(redemptionStatusAt(redemption, new Date('2026-08-05T00:00:00.000Z')))
-  .toBe('CONFIRMED');
-expect(redemptionStatusAt(redemption, new Date('2026-08-11T00:00:00.000Z')))
-  .toBe('REVERSED');
+expect(
+  redemptionStatusAt(redemption, new Date('2026-08-01T09:00:30.000Z')),
+).toBe('PENDING_APPROVAL');
+expect(
+  redemptionStatusAt(redemption, new Date('2026-08-05T00:00:00.000Z')),
+).toBe('CONFIRMED');
+expect(
+  redemptionStatusAt(redemption, new Date('2026-08-11T00:00:00.000Z')),
+).toBe('REVERSED');
 ```
 
 Add a rejected lifecycle proving `REJECTED` is selected after `rejectedAt` and not before it.
@@ -278,7 +277,9 @@ const sms = {
 expect(smsStatusAt(sms, new Date('2026-08-01T09:02:00.000Z'))).toBe('QUEUED');
 expect(smsStatusAt(sms, new Date('2026-08-01T09:07:00.000Z'))).toBe('FAILED');
 expect(smsStatusAt(sms, new Date('2026-08-01T09:12:00.000Z'))).toBe('SENT');
-expect(smsStatusAt(sms, new Date('2026-08-01T09:20:00.000Z'))).toBe('DELIVERED');
+expect(smsStatusAt(sms, new Date('2026-08-01T09:20:00.000Z'))).toBe(
+  'DELIVERED',
+);
 ```
 
 Add a suppression case.
@@ -411,27 +412,27 @@ Keep `buildRedemptionSummaries()` and `buildSmsSummaries()` simple; they should 
 Extend `test/report-materialization.int-spec.ts` with a direct authoritative redemption fixture using the existing tenant/branch/customer/card/device/cashier fixture. Create a redemption receipt and redemption with:
 
 ```ts
-requestedAt = new Date('2026-08-01T09:00:00.000Z')
-confirmedAt = new Date('2026-08-01T09:01:00.000Z')
-reversedAt  = new Date('2026-08-10T12:00:00.000Z')
-status      = 'REVERSED'
-requestedAmountKobo = 5_000n
-confirmedAmountKobo = 5_000n
+requestedAt = new Date('2026-08-01T09:00:00.000Z');
+confirmedAt = new Date('2026-08-01T09:01:00.000Z');
+reversedAt = new Date('2026-08-10T12:00:00.000Z');
+status = 'REVERSED';
+requestedAmountKobo = 5_000n;
+confirmedAmountKobo = 5_000n;
 ```
 
 Materialize at `2026-08-05T00:00:00.000Z` and assert:
 
 ```ts
-confirmedKobo === 5_000n
-reversedKobo === 0n
-pendingApprovalCount === 0
+confirmedKobo === 5_000n;
+reversedKobo === 0n;
+pendingApprovalCount === 0;
 ```
 
 Materialize again at `2026-08-11T00:00:00.000Z` and assert:
 
 ```ts
-confirmedKobo === 0n
-reversedKobo === 5_000n
+confirmedKobo === 0n;
+reversedKobo === 5_000n;
 ```
 
 Use a unique receipt number/week so the fixture does not collide with the earn fixture.
@@ -769,7 +770,9 @@ Accept either side as the winner. The invariant is:
 
 ```ts
 expect(await prisma.receipt.count({ where: canonicalReceiptWhere })).toBe(1);
-expect(await prisma.loyaltyLedgerEntry.count({ where: canonicalEarnWhere })).toBe(1);
+expect(
+  await prisma.loyaltyLedgerEntry.count({ where: canonicalEarnWhere }),
+).toBe(1);
 expect(await prisma.creditLot.count({ where: canonicalLotWhere })).toBe(1);
 ```
 
@@ -1016,7 +1019,9 @@ Create `docs/sprint-4-final-gate-evidence.md` with these sections:
 ## P1 correctness gates
 
 ### Durable report refresh
+
 ### Historical redemption state
+
 ### Historical SMS state
 
 ## Fraud timing gate

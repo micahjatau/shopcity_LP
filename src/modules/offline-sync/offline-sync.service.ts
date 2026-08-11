@@ -140,6 +140,18 @@ export class OfflineSyncService {
         return existingAttempt.responseJson as OfflineSyncAttemptResponseJson;
       }
 
+      const replay = await waitForOfflineSyncReplay(
+        this.prismaService,
+        tenantId,
+        deviceId,
+        record.localId,
+        requestHash,
+      );
+
+      if (replay) {
+        return replay;
+      }
+
       return this.persistResult(tenantId, deviceId, record.localId, {
         localId: record.localId,
         status: 'RETRYABLE',
@@ -351,6 +363,47 @@ export class OfflineSyncService {
 
     return responseJson;
   }
+}
+
+const OFFLINE_SYNC_REPLAY_RETRY_ATTEMPTS = 8;
+const OFFLINE_SYNC_REPLAY_JITTER_MS = 25;
+
+async function waitForOfflineSyncReplay(
+  prisma: PrismaService,
+  tenantId: string,
+  deviceId: string,
+  localId: string,
+  requestHash: string,
+): Promise<OfflineSyncAttemptResponseJson | null> {
+  for (
+    let attempt = 1;
+    attempt <= OFFLINE_SYNC_REPLAY_RETRY_ATTEMPTS;
+    attempt += 1
+  ) {
+    const record = await prisma.offlineSyncAttempt.findUnique({
+      where: {
+        tenantId_deviceId_localId: {
+          tenantId,
+          deviceId,
+          localId,
+        },
+      },
+    });
+
+    if (record?.requestHash !== requestHash) {
+      return null;
+    }
+
+    if (record?.responseJson) {
+      return record.responseJson as OfflineSyncAttemptResponseJson;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, OFFLINE_SYNC_REPLAY_JITTER_MS),
+    );
+  }
+
+  return null;
 }
 
 function buildRejectedResult(
