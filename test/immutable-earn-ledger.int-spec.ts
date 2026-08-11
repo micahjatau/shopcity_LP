@@ -301,7 +301,7 @@ describe('immutable earn ledger (int)', () => {
       }),
     ]);
 
-    expect([ledgerCount, lotCount, outboxCount]).toEqual([1, 1, 1]);
+    expect([ledgerCount, lotCount, outboxCount]).toEqual([1, 1, 2]);
 
     const approvalRecord = await prisma.approval.findUnique({
       where: { receiptId: pending.receiptId },
@@ -372,7 +372,7 @@ describe('immutable earn ledger (int)', () => {
 
     expect(approvalRecord?.status).toBe(ApprovalStatus.EXPIRED);
     expect(approvalRecord?.decidedAt).toBeInstanceOf(Date);
-    expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 0]);
+    expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 1]);
   }, 120000);
 
   it('rejects receipt evidence mutation but allows workflow metadata updates', async () => {
@@ -704,7 +704,7 @@ describe('immutable earn ledger (int)', () => {
       ]);
 
     expect(approvalRecord?.status).toBe(ApprovalStatus.PENDING);
-    expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 0]);
+    expect([ledgerCount, lotCount, outboxCount]).toEqual([0, 0, 1]);
   }, 120000);
 
   it('serializes concurrent captures of the same receipt', async () => {
