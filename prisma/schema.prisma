@@ -115,6 +115,7 @@ enum OutboxEventStatus {
   PENDING
   QUEUED
   PUBLISHED
+  COMPLETED
   FAILED
 }
 
@@ -609,6 +610,7 @@ model OutboxEvent {
   attempts        Int               @default(0)
   nextAttemptAt   DateTime?
   publishedAt     DateTime?
+  processedAt     DateTime?
   deadLetteredAt  DateTime?
   failureCategory String?
   createdAt       DateTime          @default(now())

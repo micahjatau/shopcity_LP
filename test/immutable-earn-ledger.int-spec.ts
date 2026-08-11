@@ -159,7 +159,11 @@ describe('immutable earn ledger (int)', () => {
         where: { tenantId: tenant.id, customerId: fixture.customer.id },
       }),
       prisma.outboxEvent.count({
-        where: { tenantId: tenant.id, aggregateId: first.receiptId },
+        where: {
+          tenantId: tenant.id,
+          aggregateId: first.receiptId,
+          eventType: 'sms.send',
+        },
       }),
     ]);
 
@@ -760,7 +764,11 @@ describe('immutable earn ledger (int)', () => {
         where: { tenantId: tenant.id, customerId: fixture.customer.id },
       }),
       prisma.outboxEvent.count({
-        where: { tenantId: tenant.id, aggregateId: fulfilled!.value.receiptId },
+        where: {
+          tenantId: tenant.id,
+          aggregateId: fulfilled!.value.receiptId,
+          eventType: 'sms.send',
+        },
       }),
     ]);
 

@@ -83,7 +83,11 @@ describe('outbox worker recovery (int)', () => {
       expect(response.smsStatus).toBe('QUEUED');
 
       const outboxEvent = await prisma.outboxEvent.findFirst({
-        where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+        where: {
+          tenantId: fixture.tenant.id,
+          aggregateId: response.receiptId,
+          eventType: 'sms.send',
+        },
         orderBy: { createdAt: 'desc' },
       });
       const smsMessage = await findSmsMessageByReceipt(
@@ -138,6 +142,7 @@ describe('outbox worker recovery (int)', () => {
           where: {
             tenantId: fixture.tenant.id,
             aggregateId: response.receiptId,
+            eventType: 'sms.send',
           },
           orderBy: { createdAt: 'desc' },
         });
@@ -155,7 +160,11 @@ describe('outbox worker recovery (int)', () => {
       );
 
       const outboxEvent = await prisma.outboxEvent.findFirst({
-        where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+        where: {
+          tenantId: fixture.tenant.id,
+          aggregateId: response.receiptId,
+          eventType: 'sms.send',
+        },
         orderBy: { createdAt: 'desc' },
       });
 
@@ -197,6 +206,7 @@ describe('outbox worker recovery (int)', () => {
           where: {
             tenantId: fixture.tenant.id,
             aggregateId: response.receiptId,
+            eventType: 'sms.send',
           },
           orderBy: { createdAt: 'desc' },
         });
@@ -231,6 +241,7 @@ describe('outbox worker recovery (int)', () => {
           where: {
             tenantId: fixture.tenant.id,
             aggregateId: response.receiptId,
+            eventType: 'sms.send',
           },
           orderBy: { createdAt: 'desc' },
         });
@@ -247,6 +258,7 @@ describe('outbox worker recovery (int)', () => {
           where: {
             tenantId: fixture.tenant.id,
             aggregateId: response.receiptId,
+            eventType: 'sms.send',
           },
           orderBy: { createdAt: 'desc' },
         }),
@@ -290,7 +302,11 @@ describe('outbox worker recovery (int)', () => {
       });
 
       await prisma.outboxEvent.updateMany({
-        where: { tenantId: fixture.tenant.id, aggregateId: response.receiptId },
+        where: {
+          tenantId: fixture.tenant.id,
+          aggregateId: response.receiptId,
+          eventType: 'sms.send',
+        },
         data: {
           status: 'PUBLISHED',
           publishedAt: new Date(Date.now() - 5 * 60 * 1000),
@@ -378,6 +394,7 @@ describe('outbox worker recovery (int)', () => {
           where: {
             tenantId: fixture.tenant.id,
             aggregateId: response.receiptId,
+            eventType: 'sms.send',
           },
         }),
       ]);

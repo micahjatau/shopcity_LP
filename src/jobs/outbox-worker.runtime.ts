@@ -334,6 +334,7 @@ export class OutboxWorkerRuntime {
 
     if (outboxEvent.eventType === 'fraud.evaluate') {
       await this.evaluateFraudForOutboxEvent(outboxEvent);
+      await this.markOutboxEventCompleted(outboxEvent);
       return;
     }
 
@@ -623,8 +624,52 @@ export class OutboxWorkerRuntime {
             evidence: payload,
           },
         ]);
+        return;
+      }
+    }
+
+    if (outboxEvent.aggregateType === 'redemption') {
+      const redemption = await this.prisma.redemption.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.aggregateId,
+          },
+        },
+      });
+
+      if (!redemption) {
+        throw new Error(
+          `Redemption ${outboxEvent.aggregateId} not found for fraud evaluation`,
+        );
       }
 
+      await this.recordFraudFindings(redemption.tenantId, [
+        ...(redemption.requestedAmountKobo >
+        BigInt(this.redemptionApprovalThresholdKobo())
+          ? [
+              {
+                ruleCode: 'FR-HV-003',
+                severity: 'HIGH' as const,
+                dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
+                subjectType: 'REDEMPTION' as const,
+                subjectId: redemption.id,
+                windowStart: redemption.requestedAt,
+                branchId: redemption.branchId,
+                cashierId: redemption.requestedBy,
+                customerId: redemption.customerId,
+                receiptId: redemption.receiptId,
+                redemptionId: redemption.id,
+                evidence: {
+                  requestedAmountKobo:
+                    redemption.requestedAmountKobo.toString(),
+                  thresholdKobo: this.redemptionApprovalThresholdKobo(),
+                  occurredAt: redemption.requestedAt.toISOString(),
+                },
+              },
+            ]
+          : []),
+      ]);
       return;
     }
 
@@ -784,6 +829,22 @@ export class OutboxWorkerRuntime {
 
   private dedupeKey(ruleCode: string, subjectId: string): string {
     return `${ruleCode}:${subjectId}`;
+  }
+
+  private async markOutboxEventCompleted(outboxEvent: {
+    tenantId: string;
+    id: string;
+  }): Promise<void> {
+    await this.prisma.outboxEvent.update({
+      where: {
+        tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+      },
+      data: {
+        status: OutboxEventStatus.COMPLETED,
+        processedAt: new Date(),
+        nextAttemptAt: null,
+      },
+    });
   }
 
   private async markOutboxEventDeadLettered(

@@ -42,6 +42,7 @@ interface LedgerEntryRecord {
   id: string;
   customerId: string;
   receiptId: string | null;
+  reversesEntryId: string | null;
   type: string;
   direction: string;
   amountKobo: bigint;
@@ -183,7 +184,7 @@ export class ReportMaterializerService {
     });
 
     try {
-      const source = await this.loadSourceData(tenantId);
+      const source = await this.loadSourceData(tenantId, asOf);
       const plan = branchId
         ? buildBranchPlan(
             source,
@@ -231,7 +232,10 @@ export class ReportMaterializerService {
     });
   }
 
-  private async loadSourceData(tenantId: string): Promise<SourceData> {
+  private async loadSourceData(
+    tenantId: string,
+    asOf: Date,
+  ): Promise<SourceData> {
     const [
       branches,
       customers,
@@ -285,6 +289,7 @@ export class ReportMaterializerService {
           createdBy: true,
           createdAt: true,
           effectiveAt: true,
+          reversesEntryId: true,
         },
       }),
       this.prisma.creditLot.findMany({
@@ -353,14 +358,16 @@ export class ReportMaterializerService {
 
     return {
       branches,
-      customers,
-      receipts,
-      ledgerEntries,
-      creditLots,
-      redemptions,
-      smsMessages,
-      approvals,
-      fraudFlags,
+      customers: customers.filter((customer) => customer.createdAt <= asOf),
+      receipts: receipts.filter((receipt) => receipt.occurredAt <= asOf),
+      ledgerEntries: ledgerEntries.filter((entry) => entry.effectiveAt <= asOf),
+      creditLots: creditLots.filter((lot) => lot.earnedAt <= asOf),
+      redemptions: redemptions.filter(
+        (redemption) => redemption.requestedAt <= asOf,
+      ),
+      smsMessages: smsMessages.filter((sms) => sms.queuedAt <= asOf),
+      approvals: approvals.filter((approval) => approval.requestedAt <= asOf),
+      fraudFlags: fraudFlags.filter((flag) => flag.firstDetectedAt <= asOf),
     };
   }
 
@@ -616,21 +623,42 @@ function buildDailyFinancialSummaries(
   const creditIssuedByDate = new Map<string, bigint>();
   const creditRedeemedByDate = new Map<string, bigint>();
   const transactionCountByDate = new Map<string, number>();
+  const receiptsById = new Map(
+    source.receipts.map((receipt) => [receipt.id, receipt]),
+  );
+  const reversedEntryIds = new Set(
+    ledgerEntries
+      .map((entry) => entry.reversesEntryId)
+      .filter((reversesEntryId): reversesEntryId is string =>
+        Boolean(reversesEntryId),
+      ),
+  );
 
   for (const entry of ledgerEntries) {
-    if (entry.type !== 'EARN' || entry.direction !== 'CREDIT') {
+    if (
+      entry.type !== 'EARN' ||
+      entry.direction !== 'CREDIT' ||
+      reversedEntryIds.has(entry.id)
+    ) {
       continue;
     }
 
     const reportDate = toReportDate(entry.effectiveAt, scope.timezone);
+    const receiptAmountKobo =
+      receiptsById.get(entry.receiptId ?? '')?.purchaseAmountKobo ??
+      entry.amountKobo;
     reportDates.add(reportDate);
-    addBigInt(purchaseByDate, reportDate, entry.amountKobo);
+    addBigInt(purchaseByDate, reportDate, receiptAmountKobo);
     addNumber(transactionCountByDate, reportDate, 1);
     addToSet(activeCustomerByDate, reportDate, entry.customerId);
   }
 
   for (const entry of ledgerEntries) {
-    if (entry.type !== 'EARN' || entry.direction !== 'CREDIT') {
+    if (
+      entry.type !== 'EARN' ||
+      entry.direction !== 'CREDIT' ||
+      reversedEntryIds.has(entry.id)
+    ) {
       continue;
     }
 
@@ -698,16 +726,35 @@ function buildCashierSummaries(
   const creditIssued = new Map<string, bigint>();
   const reversalCount = new Map<string, number>();
   const approvalRequests = new Map<string, number>();
+  const receiptsById = new Map(
+    source.receipts.map((receipt) => [receipt.id, receipt]),
+  );
+  const reversedEntryIds = new Set(
+    ledgerEntries
+      .map((entry) => entry.reversesEntryId)
+      .filter((reversesEntryId): reversesEntryId is string =>
+        Boolean(reversesEntryId),
+      ),
+  );
 
   for (const entry of ledgerEntries) {
     const reportDate = toReportDate(entry.effectiveAt, scope.timezone);
     const key = cashierKey(reportDate, entry.createdBy);
-    if (entry.type === 'EARN' && entry.direction === 'CREDIT') {
+    if (
+      entry.type === 'EARN' &&
+      entry.direction === 'CREDIT' &&
+      !reversedEntryIds.has(entry.id)
+    ) {
       addNumber(transactionCount, key, 1);
-      addBigInt(purchaseValue, key, entry.amountKobo);
+      addBigInt(
+        purchaseValue,
+        key,
+        receiptsById.get(entry.receiptId ?? '')?.purchaseAmountKobo ??
+          entry.amountKobo,
+      );
       addBigInt(creditIssued, key, entry.amountKobo);
     }
-    if (entry.type === 'REVERSAL') {
+    if (entry.reversesEntryId) {
       addNumber(reversalCount, key, 1);
     }
   }
@@ -781,13 +828,25 @@ function buildCustomerSnapshots(
     scope,
   );
 
+  const receiptsById = new Map(
+    source.receipts.map((receipt) => [receipt.id, receipt]),
+  );
+  const reversedEntryIds = new Set(
+    ledgerEntries
+      .map((entry) => entry.reversesEntryId)
+      .filter((reversesEntryId): reversesEntryId is string =>
+        Boolean(reversesEntryId),
+      ),
+  );
+
   return customers
     .map((customer) => {
       const customerEarnEntries = ledgerEntries.filter(
         (entry) =>
           entry.customerId === customer.id &&
           entry.type === 'EARN' &&
-          entry.direction === 'CREDIT',
+          entry.direction === 'CREDIT' &&
+          !reversedEntryIds.has(entry.id),
       );
       const customerRedemptions = redemptions.filter(
         (redemption) => redemption.customerId === customer.id,
@@ -797,7 +856,10 @@ function buildCustomerSnapshots(
       );
 
       const purchaseValueKobo = customerEarnEntries.reduce(
-        (sum, entry) => sum + entry.amountKobo,
+        (sum, entry) =>
+          sum +
+          (receiptsById.get(entry.receiptId ?? '')?.purchaseAmountKobo ??
+            entry.amountKobo),
         0n,
       );
       const currentBalanceKobo = customerLots.reduce(

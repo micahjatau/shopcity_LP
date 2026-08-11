@@ -89,7 +89,7 @@ describe('report materialization (int)', () => {
       'POS-REPORT-0001',
     );
 
-    const occurredAt = '2026-08-10T20:00:00.000Z';
+    const occurredAt = '2026-08-11T00:00:00.000Z';
     const earn = await loyaltyService.earn(
       tenant.id,
       makeContext(
@@ -113,6 +113,44 @@ describe('report materialization (int)', () => {
     await reportMaterializer.materializeTenant(tenant.id, {
       materializedAt: new Date('2026-08-10T12:00:00.000Z'),
       asOf: new Date('2026-08-10T12:00:00.000Z'),
+    });
+
+    const summaryBefore = await prisma.reportDailyFinancialSummary.findMany({
+      where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
+    });
+    const customerSnapshotBefore = await prisma.reportCustomerSnapshot.findMany(
+      {
+        where: {
+          tenantId: tenant.id,
+          scope: 'TENANT',
+          scopeKey: tenant.id,
+          customerId: fixture.customer.id,
+        },
+      },
+    );
+    const liabilityRowsBefore = await prisma.reportLiabilityBucket.findMany({
+      where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
+    });
+    const smsRowsBefore = await prisma.reportSmsDailySummary.findMany({
+      where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
+    });
+    const stateRowsBefore = await prisma.reportMaterializationState.findMany({
+      where: { tenantId: tenant.id, scope: 'TENANT', scopeKey: tenant.id },
+    });
+
+    expect(summaryBefore).toHaveLength(0);
+    expect(customerSnapshotBefore).toHaveLength(0);
+    expect(liabilityRowsBefore).toHaveLength(0);
+    expect(smsRowsBefore).toHaveLength(0);
+    expect(stateRowsBefore).toHaveLength(1);
+    expect(stateRowsBefore[0]).toMatchObject({
+      status: 'COMPLETED',
+      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
+    });
+
+    await reportMaterializer.materializeTenant(tenant.id, {
+      materializedAt: new Date('2026-08-20T21:00:00.000Z'),
+      asOf: new Date('2026-08-20T21:00:00.000Z'),
     });
 
     const [summary, customerSnapshot, liabilityRows, smsRows, stateRows] =
@@ -141,11 +179,11 @@ describe('report materialization (int)', () => {
 
     expect(summary).toHaveLength(1);
     expect(summary[0]).toMatchObject({
-      reportDate: new Date('2026-08-10T00:00:00.000Z'),
+      reportDate: new Date('2026-08-11T00:00:00.000Z'),
       registeredCustomers: 1,
       activeCustomers: 1,
       transactionCount: 1,
-      loyaltyPurchaseValueKobo: BigInt(20_000),
+      loyaltyPurchaseValueKobo: BigInt(1_000_000),
       creditIssuedKobo: BigInt(20_000),
       creditRedeemedKobo: BigInt(0),
       outstandingLiabilityKobo: BigInt(20_000),
@@ -153,7 +191,7 @@ describe('report materialization (int)', () => {
 
     expect(customerSnapshot).toHaveLength(1);
     expect(customerSnapshot[0]).toMatchObject({
-      purchaseValueKobo: BigInt(20_000),
+      purchaseValueKobo: BigInt(1_000_000),
       currentBalanceKobo: BigInt(20_000),
       visitCount: 1,
       dormant: false,
@@ -174,12 +212,7 @@ describe('report materialization (int)', () => {
     expect(stateRows).toHaveLength(1);
     expect(stateRows[0]).toMatchObject({
       status: 'COMPLETED',
-      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
-    });
-
-    await reportMaterializer.materializeTenant(tenant.id, {
-      materializedAt: new Date('2026-08-10T13:00:00.000Z'),
-      asOf: new Date('2026-08-10T13:00:00.000Z'),
+      materializedAt: new Date('2026-08-20T21:00:00.000Z'),
     });
 
     expect(

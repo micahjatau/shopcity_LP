@@ -298,6 +298,61 @@ export class LoyaltyService {
     private readonly lotAllocationService: LotAllocationService = new LotAllocationService(),
   ) {}
 
+  private async recordDuplicateReceiptAttempt(input: {
+    tenantId: string;
+    receiptId: string;
+    originalReceiptId: string;
+    branchId: string;
+    cashierId: string;
+    customerId: string;
+    deviceId: string;
+    normalizedPosReceiptNumber: string;
+    receiptWeekStart: Date;
+    occurredAt: Date;
+  }): Promise<void> {
+    await this.prismaService.$transaction(async (tx) => {
+      await this.auditService.recordWithClient(tx, {
+        tenantId: input.tenantId,
+        actorId: input.cashierId,
+        action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
+        entityType: 'RECEIPT',
+        entityId: input.originalReceiptId,
+        metadata: {
+          originalReceiptId: input.originalReceiptId,
+          duplicateReceiptId: input.receiptId,
+          branchId: input.branchId,
+          cashierId: input.cashierId,
+          customerId: input.customerId,
+          deviceId: input.deviceId,
+          normalizedPosReceiptNumber: input.normalizedPosReceiptNumber,
+          receiptWeekStart: input.receiptWeekStart.toISOString(),
+          occurredAt: input.occurredAt.toISOString(),
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: input.tenantId,
+          aggregateType: 'receipt',
+          aggregateId: input.originalReceiptId,
+          eventType: 'fraud.evaluate',
+          payload: {
+            ruleCode: 'FR-DUP-001',
+            originalReceiptId: input.originalReceiptId,
+            duplicateReceiptId: input.receiptId,
+            branchId: input.branchId,
+            cashierId: input.cashierId,
+            customerId: input.customerId,
+            deviceId: input.deviceId,
+            normalizedPosReceiptNumber: input.normalizedPosReceiptNumber,
+            receiptWeekStart: input.receiptWeekStart.toISOString(),
+            occurredAt: input.occurredAt.toISOString(),
+          },
+        },
+      });
+    });
+  }
+
   async earn(
     tenantId: string,
     actor: AuthContext,
@@ -459,44 +514,17 @@ export class LoyaltyService {
             });
 
             if (duplicateReceipt) {
-              await this.auditService.recordWithClient(prisma, {
+              await this.recordDuplicateReceiptAttempt({
                 tenantId,
-                actorId: actor.user.id,
-                action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
-                entityType: 'RECEIPT',
-                entityId: duplicateReceipt.id,
-                metadata: {
-                  originalReceiptId: duplicateReceipt.id,
-                  duplicateReceiptId: data.posReceiptNumber,
-                  branchId,
-                  cashierId: actor.user.id,
-                  customerId: transactionCard.customerId,
-                  deviceId: transactionDevice.id,
-                  normalizedPosReceiptNumber,
-                  receiptWeekStart: receiptWeekStart.toISOString(),
-                  occurredAt: occurredAt.toISOString(),
-                },
-              });
-
-              await prisma.outboxEvent.create({
-                data: {
-                  tenantId,
-                  aggregateType: 'receipt',
-                  aggregateId: duplicateReceipt.id,
-                  eventType: 'fraud.evaluate',
-                  payload: {
-                    ruleCode: 'FR-DUP-001',
-                    originalReceiptId: duplicateReceipt.id,
-                    duplicateReceiptId: data.posReceiptNumber,
-                    branchId,
-                    cashierId: actor.user.id,
-                    customerId: transactionCard.customerId,
-                    deviceId: transactionDevice.id,
-                    normalizedPosReceiptNumber,
-                    receiptWeekStart: receiptWeekStart.toISOString(),
-                    occurredAt: occurredAt.toISOString(),
-                  },
-                },
+                receiptId: data.posReceiptNumber,
+                originalReceiptId: duplicateReceipt.id,
+                branchId,
+                cashierId: actor.user.id,
+                customerId: transactionCard.customerId,
+                deviceId: transactionDevice.id,
+                normalizedPosReceiptNumber,
+                receiptWeekStart,
+                occurredAt,
               });
 
               throw new DomainHttpException(
@@ -685,6 +713,20 @@ export class LoyaltyService {
                 payload: outboxPayload,
                 status: SmsMessageStatus.QUEUED,
                 queuedAt: now,
+              },
+            });
+
+            await prisma.outboxEvent.create({
+              data: {
+                tenantId,
+                aggregateType: 'receipt',
+                aggregateId: receipt.id,
+                eventType: 'fraud.evaluate',
+                payload: {
+                  receiptId: receipt.id,
+                },
+                status: 'PENDING',
+                nextAttemptAt: now,
               },
             });
 

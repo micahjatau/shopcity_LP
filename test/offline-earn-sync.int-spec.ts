@@ -136,7 +136,11 @@ describe('offline earn sync foundation (int)', () => {
         where: { tenantId: tenant.id, customerId: fixture.customer.id },
       }),
       prisma.outboxEvent.count({
-        where: { tenantId: tenant.id, aggregateType: 'receipt' },
+        where: {
+          tenantId: tenant.id,
+          aggregateType: 'receipt',
+          eventType: 'sms.send',
+        },
       }),
       prisma.offlineSyncAttempt.count({
         where: { tenantId: tenant.id, localId: firstRecord.localId },

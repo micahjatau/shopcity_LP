@@ -502,6 +502,61 @@ describe('OutboxWorkerRuntime', () => {
         },
       }),
     );
+    const duplicateOutboxUpdate = lastOutboxUpdate(
+      prisma.outboxEventUpdateCalls,
+    );
+    expect(duplicateOutboxUpdate?.data.status).toBe('COMPLETED');
+    expect(duplicateOutboxUpdate?.data.processedAt).toBeInstanceOf(Date);
+  });
+
+  it('evaluates high-value redemption fraud from a dedicated outbox event', async () => {
+    const prisma = prismaStub({
+      outboxEvent: {
+        id: 'outbox-redemption-fraud-evaluate',
+        tenantId: 'tenant-1',
+        aggregateType: 'redemption',
+        aggregateId: 'redemption-1',
+        eventType: 'fraud.evaluate',
+        payload: { redemptionId: 'redemption-1' },
+        publishedAt: null,
+        smsMessage: null,
+      },
+      redemption: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'redemption-1',
+          tenantId: 'tenant-1',
+          branchId: 'branch-1',
+          customerId: 'customer-1',
+          requestedBy: 'cashier-1',
+          requestedAmountKobo: BigInt(600_000),
+          requestedAt: new Date('2026-08-10T11:00:00.000Z'),
+          receiptId: 'receipt-1',
+        }),
+      },
+    });
+    const runtime = new OutboxWorkerRuntime(prisma, runtimeConfig(), {
+      send: jest.fn(),
+    });
+
+    await runtimeWithHandleJob(runtime).handleJob({
+      data: { id: 'outbox-redemption-fraud-evaluate', tenantId: 'tenant-1' },
+    });
+
+    expect(prisma.fraudFlagUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId_dedupeKey: {
+            tenantId: 'tenant-1',
+            dedupeKey: 'FR-HV-003:redemption-1',
+          },
+        },
+      }),
+    );
+    const redemptionOutboxUpdate = lastOutboxUpdate(
+      prisma.outboxEventUpdateCalls,
+    );
+    expect(redemptionOutboxUpdate?.data.status).toBe('COMPLETED');
+    expect(redemptionOutboxUpdate?.data.processedAt).toBeInstanceOf(Date);
   });
 
   it('waits for active recovery before disconnecting during shutdown', async () => {
@@ -582,6 +637,12 @@ function runtimeConfig() {
   };
 }
 
+function lastOutboxUpdate(
+  calls: OutboxEventUpdateArgs[],
+): OutboxEventUpdateArgs | undefined {
+  return calls[calls.length - 1];
+}
+
 function defaultReceipt(outboxEvent: PrismaStubOverrides['outboxEvent']) {
   return {
     id: outboxEvent.aggregateId,
@@ -649,9 +710,19 @@ type SmsMessageUpdateArgs = {
   };
 };
 
+type OutboxEventUpdateArgs = {
+  data: {
+    status?: string;
+    processedAt?: Date;
+    nextAttemptAt?: Date | null;
+    failureCategory?: string;
+    deadLetteredAt?: Date | null;
+  };
+};
+
 type PrismaStub = PrismaService & {
   outboxEventUpdate: jest.Mock;
-  outboxEventUpdateCalls: Array<unknown>;
+  outboxEventUpdateCalls: OutboxEventUpdateArgs[];
   receiptFindUnique: jest.Mock;
   receiptCount: jest.Mock;
   redemptionFindUnique: jest.Mock;
@@ -664,8 +735,8 @@ type PrismaStub = PrismaService & {
 
 function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
   const { outboxEvent } = overrides;
-  const outboxEventUpdateCalls: Array<unknown> = [];
-  const outboxEventUpdate = jest.fn((args: unknown) => {
+  const outboxEventUpdateCalls: OutboxEventUpdateArgs[] = [];
+  const outboxEventUpdate = jest.fn((args: OutboxEventUpdateArgs) => {
     outboxEventUpdateCalls.push(args);
     return Promise.resolve(undefined);
   });
