@@ -783,16 +783,14 @@ function prismaStub(overrides: PrismaStubOverrides): PrismaStub {
     $connect: jest.fn().mockResolvedValue(undefined),
     $disconnect: prismaDisconnect,
     $transaction: jest.fn(async (callback: (tx: never) => Promise<unknown>) =>
-      callback(
-        {
-          fraudFlag: { upsert: fraudFlagUpsert },
-          outboxEvent: {
-            findUnique: jest.fn().mockResolvedValue(outboxEvent),
-            update: outboxEventUpdate,
-          },
-          $queryRaw: jest.fn().mockResolvedValue([{ one: 1 }]),
-        } as never,
-      ),
+      callback({
+        fraudFlag: { upsert: fraudFlagUpsert },
+        outboxEvent: {
+          findUnique: jest.fn().mockResolvedValue(outboxEvent),
+          update: outboxEventUpdate,
+        },
+        $queryRaw: jest.fn().mockResolvedValue([{ one: 1 }]),
+      } as never),
     ),
     outboxEventUpdate,
     outboxEventUpdateCalls,

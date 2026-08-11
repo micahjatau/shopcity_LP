@@ -811,7 +811,7 @@ function buildCashierSummaries(
     const cashierId =
       typeof metadata?.cashierId === 'string'
         ? metadata.cashierId
-        : log.actorId ?? 'unknown';
+        : (log.actorId ?? 'unknown');
     const key = cashierKey(reportDate, cashierId);
     addNumber(duplicateAttempts, key, 1);
   }
@@ -1459,10 +1459,7 @@ function resolveAgeBucket(expiresAt: Date, asOf: Date): string {
   return '90+';
 }
 
-function buildLotBalances(
-  source: SourceData,
-  asOf: Date,
-): Map<string, bigint> {
+function buildLotBalances(source: SourceData, asOf: Date): Map<string, bigint> {
   const balances = new Map<string, bigint>();
 
   for (const lot of source.creditLots) {

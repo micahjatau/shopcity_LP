@@ -21,9 +21,7 @@ export class FraudBehaviorService {
     return new FraudBehaviorRuntime(this.prisma, this.configService);
   }
 
-  evaluateReceiptBehavior(
-    input: FraudReceiptInput,
-  ): Promise<FraudFinding[]> {
+  evaluateReceiptBehavior(input: FraudReceiptInput): Promise<FraudFinding[]> {
     return this.runtime().evaluateReceiptBehavior(input) as Promise<
       FraudFinding[]
     >;
@@ -45,9 +43,7 @@ export class FraudBehaviorService {
     >;
   }
 
-  evaluateAuthFailures(
-    input: AuthFailureRuleInput,
-  ): Promise<FraudFinding[]> {
+  evaluateAuthFailures(input: AuthFailureRuleInput): Promise<FraudFinding[]> {
     return this.runtime().evaluateAuthFailures(input) as Promise<
       FraudFinding[]
     >;

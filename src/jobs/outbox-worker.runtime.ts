@@ -613,7 +613,11 @@ export class OutboxWorkerRuntime {
         },
       });
 
-      if (!latest || latest.processedAt || latest.status === OutboxEventStatus.COMPLETED) {
+      if (
+        !latest ||
+        latest.processedAt ||
+        latest.status === OutboxEventStatus.COMPLETED
+      ) {
         return;
       }
 
@@ -669,14 +673,15 @@ export class OutboxWorkerRuntime {
     await this.markOutboxEventCompleted(outboxEvent);
   }
 
-  private async evaluateFraudForOutboxEvent(outboxEvent: {
-    tenantId: string;
-    aggregateType: string;
-    aggregateId: string;
-    eventType: string;
-    payload: Prisma.JsonValue;
-  },
-  client?: Prisma.TransactionClient,
+  private async evaluateFraudForOutboxEvent(
+    outboxEvent: {
+      tenantId: string;
+      aggregateType: string;
+      aggregateId: string;
+      eventType: string;
+      payload: Prisma.JsonValue;
+    },
+    client?: Prisma.TransactionClient,
   ): Promise<void> {
     if (outboxEvent.eventType !== 'fraud.evaluate') {
       return;
@@ -703,24 +708,28 @@ export class OutboxWorkerRuntime {
           ? payload.originalReceiptId
           : outboxEvent.aggregateId;
 
-      await this.recordFraudFindings(outboxEvent.tenantId, [
-        {
-          ruleCode: 'FR-DUP-001',
-          severity: 'HIGH' as const,
-          dedupeKey: this.dedupeKey(
-            'FR-DUP-001',
-            `${branchId}:${normalizedPosReceiptNumber}:${receiptWeekStartRaw}`,
-          ),
-          subjectType: 'RECEIPT' as const,
-          subjectId: receiptId,
-          windowStart: new Date(receiptWeekStartRaw),
-          branchId,
-          cashierId,
-          customerId,
-          receiptId,
-          evidence: payload,
-        },
-      ], client);
+      await this.recordFraudFindings(
+        outboxEvent.tenantId,
+        [
+          {
+            ruleCode: 'FR-DUP-001',
+            severity: 'HIGH' as const,
+            dedupeKey: this.dedupeKey(
+              'FR-DUP-001',
+              `${branchId}:${normalizedPosReceiptNumber}:${receiptWeekStartRaw}`,
+            ),
+            subjectType: 'RECEIPT' as const,
+            subjectId: receiptId,
+            windowStart: new Date(receiptWeekStartRaw),
+            branchId,
+            cashierId,
+            customerId,
+            receiptId,
+            evidence: payload,
+          },
+        ],
+        client,
+      );
       return;
     }
 
@@ -823,32 +832,36 @@ export class OutboxWorkerRuntime {
         );
       }
 
-      await this.recordFraudFindings(redemption.tenantId, [
-        ...(redemption.requestedAmountKobo >
-        BigInt(this.redemptionApprovalThresholdKobo())
-          ? [
-              {
-                ruleCode: 'FR-HV-003',
-                severity: 'HIGH' as const,
-                dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
-                subjectType: 'REDEMPTION' as const,
-                subjectId: redemption.id,
-                windowStart: redemption.requestedAt,
-                branchId: redemption.branchId,
-                cashierId: redemption.requestedBy,
-                customerId: redemption.customerId,
-                receiptId: redemption.receiptId,
-                redemptionId: redemption.id,
-                evidence: {
-                  requestedAmountKobo:
-                    redemption.requestedAmountKobo.toString(),
-                  thresholdKobo: this.redemptionApprovalThresholdKobo(),
-                  occurredAt: redemption.requestedAt.toISOString(),
+      await this.recordFraudFindings(
+        redemption.tenantId,
+        [
+          ...(redemption.requestedAmountKobo >
+          BigInt(this.redemptionApprovalThresholdKobo())
+            ? [
+                {
+                  ruleCode: 'FR-HV-003',
+                  severity: 'HIGH' as const,
+                  dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
+                  subjectType: 'REDEMPTION' as const,
+                  subjectId: redemption.id,
+                  windowStart: redemption.requestedAt,
+                  branchId: redemption.branchId,
+                  cashierId: redemption.requestedBy,
+                  customerId: redemption.customerId,
+                  receiptId: redemption.receiptId,
+                  redemptionId: redemption.id,
+                  evidence: {
+                    requestedAmountKobo:
+                      redemption.requestedAmountKobo.toString(),
+                    thresholdKobo: this.redemptionApprovalThresholdKobo(),
+                    occurredAt: redemption.requestedAt.toISOString(),
+                  },
                 },
-              },
-            ]
-          : []),
-      ], client);
+              ]
+            : []),
+        ],
+        client,
+      );
       return;
     }
 

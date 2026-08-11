@@ -43,14 +43,16 @@ describe('RedemptionsService', () => {
     });
     const firstCall = approvalCreate.mock.calls[0]?.[0];
     expect(firstCall.data).not.toHaveProperty('receiptId');
-    expect(tx.outboxEvent.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        tenantId: 'tenant-1',
-        aggregateType: 'redemption',
-        aggregateId: 'redemption-1',
-        eventType: 'fraud.evaluate',
-      }),
-    });
+    const fraudEventData: Record<string, unknown> = {
+      tenantId: 'tenant-1',
+      aggregateType: 'redemption',
+      aggregateId: 'redemption-1',
+      eventType: 'fraud.evaluate',
+    };
+
+    const outboxCreateArgs = tx.outboxEvent.create.mock.calls[0]?.[0];
+
+    expect(outboxCreateArgs.data).toMatchObject(fraudEventData);
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 
@@ -494,7 +496,9 @@ function transactionClient() {
       create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),
     },
     outboxEvent: {
-      create: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
+      create: jest
+        .fn<Promise<{ id: string }>, [{ data: Record<string, unknown> }]>()
+        .mockResolvedValue({ id: 'outbox-1' }),
     },
     smsMessage: {
       create: jest.fn().mockResolvedValue({ id: 'sms-1', status: 'QUEUED' }),

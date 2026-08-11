@@ -639,7 +639,10 @@ export class FraudBehaviorRuntime {
     return date.toISOString().slice(0, 10);
   }
 
-  private localDayWindow(date: Date, timezone: string): {
+  private localDayWindow(
+    date: Date,
+    timezone: string,
+  ): {
     windowStart: Date;
     windowEnd: Date;
   } {

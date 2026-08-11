@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-11
+goal: Restore fraud replay safety, approval-path fraud evaluation, historical
+  reporting accuracy, tenant-wide reporting isolation, and confirmed-only
+  reporting semantics.

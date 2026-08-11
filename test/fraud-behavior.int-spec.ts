@@ -12,7 +12,6 @@ import {
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { FraudBehaviorService } from '../src/modules/fraud/fraud-behavior.service';
-import { FraudRulesService } from '../src/modules/fraud/fraud-rules.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { createAttestedDeviceData } from './support/device-attestation';
 import type { ConfigService } from '@nestjs/config';
@@ -80,11 +79,7 @@ describe('fraud behavioral rules (int)', () => {
       'supervisor@fraud.local',
     );
 
-    behaviorService = new FraudBehaviorService(
-      prisma,
-      new FraudRulesService(configService()),
-      configService(),
-    );
+    behaviorService = new FraudBehaviorService(prisma, configService());
   }, 120000);
 
   afterAll(async () => {

@@ -19,8 +19,10 @@ describe('ReportMaterializerService', () => {
     });
 
     expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
-    const firstLock = tx.$executeRaw.mock.calls[0]?.[0];
-    const secondLock = tx.$executeRaw.mock.calls[1]?.[0];
+    const executeRawCalls = (tx.$executeRaw as { mock: { calls: unknown[][] } })
+      .mock.calls;
+    const firstLock = executeRawCalls[0]?.[0];
+    const secondLock = executeRawCalls[1]?.[0];
 
     expect(firstLock).toStrictEqual(secondLock);
   });

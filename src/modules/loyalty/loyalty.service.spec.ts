@@ -129,20 +129,22 @@ describe('LoyaltyService earn transaction retries', () => {
     });
 
     expect(response.state).toBe('PENDING_APPROVAL');
-    expect(tx.approval.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        receiptId: 'receipt-1',
-        targetType: 'EARN',
-      }),
-    });
-    expect(tx.outboxEvent.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        tenantId: 'tenant-1',
-        aggregateType: 'receipt',
-        aggregateId: 'receipt-1',
-        eventType: 'fraud.evaluate',
-      }),
-    });
+    const approvalData: Record<string, unknown> = {
+      receiptId: 'receipt-1',
+      targetType: 'EARN',
+    };
+    const fraudEventData: Record<string, unknown> = {
+      tenantId: 'tenant-1',
+      aggregateType: 'receipt',
+      aggregateId: 'receipt-1',
+      eventType: 'fraud.evaluate',
+    };
+
+    const approvalCreateArgs = tx.approval.create.mock.calls[0]?.[0];
+    const outboxCreateArgs = tx.outboxEvent.create.mock.calls[0]?.[0];
+
+    expect(approvalCreateArgs.data).toMatchObject(approvalData);
+    expect(outboxCreateArgs.data).toMatchObject(fraudEventData);
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 });
@@ -1395,13 +1397,20 @@ function transactionClient() {
     },
     receipt: {
       findFirst: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({
-        id: 'receipt-1',
-        posReceiptNumber: 'POS-RETRY-1',
-      }),
+      create: jest
+        .fn<
+          Promise<{ id: string; posReceiptNumber: string }>,
+          [{ data: unknown }]
+        >()
+        .mockResolvedValue({
+          id: 'receipt-1',
+          posReceiptNumber: 'POS-RETRY-1',
+        }),
     },
     approval: {
-      create: jest.fn().mockResolvedValue({ id: 'approval-1' }),
+      create: jest
+        .fn<Promise<{ id: string }>, [{ data: Record<string, unknown> }]>()
+        .mockResolvedValue({ id: 'approval-1' }),
     },
     loyaltyLedgerEntry: {
       create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),
@@ -1414,7 +1423,9 @@ function transactionClient() {
       findMany: jest.fn().mockResolvedValue([{ remainingAmountKobo: 20_000n }]),
     },
     outboxEvent: {
-      create: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
+      create: jest
+        .fn<Promise<{ id: string }>, [{ data: Record<string, unknown> }]>()
+        .mockResolvedValue({ id: 'outbox-1' }),
     },
     smsMessage: {
       create: jest.fn().mockResolvedValue({ id: 'sms-1' }),

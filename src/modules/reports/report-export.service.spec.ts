@@ -70,16 +70,16 @@ describe('ReportExportService', () => {
       'executive-summary',
     );
 
-    expect(prisma.outboxEventCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          tenantId: 'tenant-1',
-          aggregateType: 'report',
-          aggregateId: 'executive-summary',
-          eventType: 'report.refresh',
-        }),
-      }),
-    );
+    const refreshEventData: Record<string, unknown> = {
+      tenantId: 'tenant-1',
+      aggregateType: 'report',
+      aggregateId: 'executive-summary',
+      eventType: 'report.refresh',
+    };
+
+    const outboxEventCreateArgs = prisma.outboxEventCreate.mock.calls[0]?.[0];
+
+    expect(outboxEventCreateArgs.data).toMatchObject(refreshEventData);
     expect(
       (audit.record.mock.calls[0]?.[0] as { action?: string }).action,
     ).toBe('REPORT_REFRESH_REQUESTED');
@@ -178,7 +178,10 @@ function auditServiceStub() {
 }
 
 function prismaStub() {
-  const outboxEventCreate = jest.fn<Promise<unknown>, [{ [key: string]: unknown }]>();
+  const outboxEventCreate = jest.fn<
+    Promise<unknown>,
+    [{ [key: string]: unknown }]
+  >();
   outboxEventCreate.mockResolvedValue({});
 
   return {
