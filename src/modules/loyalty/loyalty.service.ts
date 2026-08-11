@@ -434,6 +434,11 @@ export class LoyaltyService {
       overrideReason,
     );
 
+    let transactionBranchId: string | undefined;
+    let transactionReceiptWeekStart: Date | undefined;
+    let transactionCustomerId: string | undefined;
+    let transactionDeviceId: string | undefined;
+
     for (
       let attempt = 1;
       attempt <= EARN_SERIALIZATION_RETRY_ATTEMPTS;
@@ -503,6 +508,11 @@ export class LoyaltyService {
               transactionDevice.branch.timezone,
               transactionDevice.branch.receiptWeekStartDay,
             );
+
+            transactionBranchId = branchId;
+            transactionReceiptWeekStart = receiptWeekStart;
+            transactionCustomerId = transactionCard.customerId;
+            transactionDeviceId = transactionDevice.id;
 
             const duplicateReceipt = await prisma.receipt.findFirst({
               where: {
@@ -835,6 +845,39 @@ export class LoyaltyService {
 
           if (replay) {
             return replay;
+          }
+
+          if (
+            transactionBranchId &&
+            transactionReceiptWeekStart &&
+            transactionCustomerId &&
+            transactionDeviceId
+          ) {
+            const duplicateReceipt = await this.prismaService.receipt.findFirst(
+              {
+                where: {
+                  tenantId,
+                  branchId: transactionBranchId,
+                  receiptWeekStart: transactionReceiptWeekStart,
+                  normalizedPosReceiptNumber,
+                },
+              },
+            );
+
+            if (duplicateReceipt) {
+              await this.recordDuplicateReceiptAttempt({
+                tenantId,
+                receiptId: posReceiptNumber,
+                originalReceiptId: duplicateReceipt.id,
+                branchId: transactionBranchId,
+                cashierId: actor.user.id,
+                customerId: transactionCustomerId,
+                deviceId: transactionDeviceId,
+                normalizedPosReceiptNumber,
+                receiptWeekStart: transactionReceiptWeekStart,
+                occurredAt,
+              });
+            }
           }
 
           throw new DomainHttpException(

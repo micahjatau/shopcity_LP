@@ -116,6 +116,7 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      const occurredAt = new Date();
       const replaced = await prisma.card.updateMany({
         where: {
           id: current.id,
@@ -124,8 +125,8 @@ export class CardsService {
         },
         data: {
           status: CardStatus.REPLACED,
-          blockedAt: new Date(),
-          replacedAt: new Date(),
+          blockedAt: occurredAt,
+          replacedAt: occurredAt,
         },
       });
 
@@ -148,6 +149,25 @@ export class CardsService {
           where: { id: current.id },
           data: {
             replacedByCardId: newCard.id,
+          },
+        });
+
+        await prisma.outboxEvent.create({
+          data: {
+            tenantId,
+            aggregateType: 'card',
+            aggregateId: newCard.id,
+            eventType: 'fraud.evaluate',
+            payload: {
+              kind: 'card.replaced',
+              tenantId,
+              branchId: customer.branchId,
+              customerId: current.customerId,
+              cardId: newCard.id,
+              occurredAt: occurredAt.toISOString(),
+            },
+            status: 'PENDING',
+            nextAttemptAt: occurredAt,
           },
         });
 

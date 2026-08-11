@@ -107,7 +107,7 @@ export class ReportExportService {
       },
     });
 
-    await this.scheduleRefresh(tenantId, report, query);
+    void this.scheduleRefresh(tenantId, report, query).catch(() => undefined);
   }
 
   private async scheduleRefresh(

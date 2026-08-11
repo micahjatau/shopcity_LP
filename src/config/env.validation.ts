@@ -66,6 +66,61 @@ export const envValidationSchema = Joi.object({
     .min(0)
     .max(Number.MAX_SAFE_INTEGER)
     .default(20000000),
+  FRAUD_CARD_DAILY_COUNT_THRESHOLD: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(5),
+  FRAUD_CASHIER_MIN_SAMPLE_SIZE: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(5),
+  FRAUD_CASHIER_VALUE_RATIO_THRESHOLD_BPS: Joi.number()
+    .integer()
+    .min(1)
+    .max(100000)
+    .default(15000),
+  FRAUD_ROUNDED_VALUE_MIN_SAMPLE: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(5),
+  FRAUD_ROUNDED_VALUE_UNIT_KOBO: Joi.number()
+    .integer()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(1000),
+  FRAUD_REVERSAL_WINDOW_HOURS: Joi.number()
+    .integer()
+    .min(1)
+    .max(168)
+    .default(24),
+  FRAUD_REVERSAL_COUNT_THRESHOLD: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(3),
+  FRAUD_CARD_REPLACEMENT_WINDOW_DAYS: Joi.number()
+    .integer()
+    .min(1)
+    .max(365)
+    .default(30),
+  FRAUD_CARD_REPLACEMENT_COUNT_THRESHOLD: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(3),
+  FRAUD_AUTH_FAILURE_WINDOW_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(1440)
+    .default(15),
+  FRAUD_AUTH_FAILURE_COUNT_THRESHOLD: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(5),
   PURCHASE_AMOUNT_CEILING_KOBO: Joi.number()
     .integer()
     .min(1)

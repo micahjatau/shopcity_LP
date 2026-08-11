@@ -803,6 +803,69 @@ describe('immutable earn ledger (int)', () => {
     expect(first).toEqual(second);
     expect(first.transactionId).toBeDefined();
   }, 120000);
+
+  it('records duplicate receipt evidence when concurrent earns race the unique receipt constraint', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-DUPLICATE',
+    );
+    const occurredAt = recentOccurredAt();
+
+    const settled = await Promise.allSettled([
+      loyaltyService.earn(tenant.id, fixture.actor, 'earn-duplicate-a', {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt,
+      }),
+      loyaltyService.earn(tenant.id, fixture.actor, 'earn-duplicate-b', {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt,
+      }),
+    ]);
+
+    expect(
+      settled.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const rejected = settled.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected?.reason).toMatchObject({
+      response: { code: 'RECEIPT_ALREADY_USED' },
+    });
+
+    expect(
+      await prisma.auditLog.count({
+        where: {
+          tenantId: tenant.id,
+          action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
+          entityType: 'RECEIPT',
+        },
+      }),
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      await prisma.outboxEvent.count({
+        where: {
+          tenantId: tenant.id,
+          aggregateType: 'receipt',
+          eventType: 'fraud.evaluate',
+        },
+      }),
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      await prisma.receipt.count({
+        where: {
+          tenantId: tenant.id,
+          posReceiptNumber: fixture.posReceiptNumber,
+        },
+      }),
+    ).toBe(1);
+  }, 120000);
 });
 
 async function createStaffUser(

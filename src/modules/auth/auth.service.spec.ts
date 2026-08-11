@@ -57,6 +57,7 @@ describe('AuthService', () => {
     const service = new AuthService(
       {
         user: {
+          findFirst: jest.fn().mockResolvedValue(null),
           findUnique: jest.fn().mockResolvedValue(null),
         },
         session: {
@@ -269,6 +270,14 @@ describe('AuthService', () => {
     const service = new AuthService(
       {
         user: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'user-id',
+            tenantId: 'tenant-id',
+            branchId: 'branch-id',
+            status: UserStatus.ACTIVE,
+            tenant: { status: 'ACTIVE' },
+            branch: { status: 'ACTIVE' },
+          }),
           findUnique: jest.fn().mockResolvedValue({
             id: 'user-id',
             tenantId: 'tenant-id',
@@ -445,6 +454,14 @@ describe('AuthService', () => {
     const service = new AuthService(
       {
         user: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'user-id',
+            tenantId: 'tenant-id',
+            branchId: 'branch-id',
+            status: UserStatus.ACTIVE,
+            tenant: { status: 'ACTIVE' },
+            branch: { status: 'ACTIVE' },
+          }),
           findUnique: jest.fn().mockResolvedValue({
             id: 'user-id',
             tenantId: 'tenant-id',
@@ -636,6 +653,14 @@ function buildLoginService(overrides: {
   return new AuthService(
     {
       user: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'user-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: UserStatus.ACTIVE,
+          tenant: { status: 'ACTIVE' },
+          branch: { status: 'ACTIVE' },
+        }),
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-id',
           tenantId: 'tenant-id',

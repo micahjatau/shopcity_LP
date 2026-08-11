@@ -1,8 +1,11 @@
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { type Job, type Queue, type Worker } from 'bullmq';
 import { envValidationSchema } from '../config/env.validation';
 import { PrismaService } from '../database/prisma.service';
+import { FraudBehaviorService } from '../modules/fraud/fraud-behavior.service';
+import { FraudRulesService } from '../modules/fraud/fraud-rules.service';
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
@@ -62,7 +65,7 @@ type FraudFinding = {
   receiptId?: string | null;
   ledgerEntryId?: string | null;
   redemptionId?: string | null;
-  evidence: Prisma.InputJsonValue;
+  evidence: Record<string, unknown>;
 };
 
 const DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO = 10_000_000;
@@ -77,12 +80,24 @@ export class OutboxWorkerRuntime {
   private activeRecovery?: Promise<void>;
   private started = false;
   private stopping = false;
+  private readonly fraudBehaviorService: FraudBehaviorService;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: WorkerConfig,
     private readonly smsProvider: SmsProvider,
-  ) {}
+    fraudBehaviorService?: FraudBehaviorService,
+  ) {
+    this.fraudBehaviorService =
+      fraudBehaviorService ??
+      new FraudBehaviorService(
+        prisma,
+        new FraudRulesService(
+          new ConfigService(process.env as Record<string, string | undefined>),
+        ),
+        new ConfigService(process.env as Record<string, string | undefined>),
+      );
+  }
 
   async start(): Promise<void> {
     if (this.started) {
@@ -584,91 +599,48 @@ export class OutboxWorkerRuntime {
     eventType: string;
     payload: Prisma.JsonValue;
   }): Promise<void> {
-    if (outboxEvent.eventType === 'fraud.evaluate') {
-      const payload = normalizeJsonPayload(outboxEvent.payload);
-      if (payload.ruleCode === 'FR-DUP-001') {
-        const branchId =
-          typeof payload.branchId === 'string' ? payload.branchId : '';
-        const cashierId =
-          typeof payload.cashierId === 'string' ? payload.cashierId : '';
-        const customerId =
-          typeof payload.customerId === 'string' ? payload.customerId : '';
-        const normalizedPosReceiptNumber =
-          typeof payload.normalizedPosReceiptNumber === 'string'
-            ? payload.normalizedPosReceiptNumber
-            : '';
-        const receiptWeekStartRaw =
-          typeof payload.receiptWeekStart === 'string'
-            ? payload.receiptWeekStart
-            : new Date().toISOString();
-        const receiptId =
-          typeof payload.originalReceiptId === 'string'
-            ? payload.originalReceiptId
-            : outboxEvent.aggregateId;
-
-        await this.recordFraudFindings(outboxEvent.tenantId, [
-          {
-            ruleCode: 'FR-DUP-001',
-            severity: 'HIGH' as const,
-            dedupeKey: this.dedupeKey(
-              'FR-DUP-001',
-              `${branchId}:${normalizedPosReceiptNumber}:${receiptWeekStartRaw}`,
-            ),
-            subjectType: 'RECEIPT' as const,
-            subjectId: receiptId,
-            windowStart: new Date(receiptWeekStartRaw),
-            branchId,
-            cashierId,
-            customerId,
-            receiptId,
-            evidence: payload,
-          },
-        ]);
-        return;
-      }
+    if (outboxEvent.eventType !== 'fraud.evaluate') {
+      return;
     }
 
-    if (outboxEvent.aggregateType === 'redemption') {
-      const redemption = await this.prisma.redemption.findUnique({
-        where: {
-          tenantId_id: {
-            tenantId: outboxEvent.tenantId,
-            id: outboxEvent.aggregateId,
-          },
+    const payload = normalizeJsonPayload(outboxEvent.payload);
+    if (payload.ruleCode === 'FR-DUP-001') {
+      const branchId =
+        typeof payload.branchId === 'string' ? payload.branchId : '';
+      const cashierId =
+        typeof payload.cashierId === 'string' ? payload.cashierId : '';
+      const customerId =
+        typeof payload.customerId === 'string' ? payload.customerId : '';
+      const normalizedPosReceiptNumber =
+        typeof payload.normalizedPosReceiptNumber === 'string'
+          ? payload.normalizedPosReceiptNumber
+          : '';
+      const receiptWeekStartRaw =
+        typeof payload.receiptWeekStart === 'string'
+          ? payload.receiptWeekStart
+          : new Date().toISOString();
+      const receiptId =
+        typeof payload.originalReceiptId === 'string'
+          ? payload.originalReceiptId
+          : outboxEvent.aggregateId;
+
+      await this.recordFraudFindings(outboxEvent.tenantId, [
+        {
+          ruleCode: 'FR-DUP-001',
+          severity: 'HIGH' as const,
+          dedupeKey: this.dedupeKey(
+            'FR-DUP-001',
+            `${branchId}:${normalizedPosReceiptNumber}:${receiptWeekStartRaw}`,
+          ),
+          subjectType: 'RECEIPT' as const,
+          subjectId: receiptId,
+          windowStart: new Date(receiptWeekStartRaw),
+          branchId,
+          cashierId,
+          customerId,
+          receiptId,
+          evidence: payload,
         },
-      });
-
-      if (!redemption) {
-        throw new Error(
-          `Redemption ${outboxEvent.aggregateId} not found for fraud evaluation`,
-        );
-      }
-
-      await this.recordFraudFindings(redemption.tenantId, [
-        ...(redemption.requestedAmountKobo >
-        BigInt(this.redemptionApprovalThresholdKobo())
-          ? [
-              {
-                ruleCode: 'FR-HV-003',
-                severity: 'HIGH' as const,
-                dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
-                subjectType: 'REDEMPTION' as const,
-                subjectId: redemption.id,
-                windowStart: redemption.requestedAt,
-                branchId: redemption.branchId,
-                cashierId: redemption.requestedBy,
-                customerId: redemption.customerId,
-                receiptId: redemption.receiptId,
-                redemptionId: redemption.id,
-                evidence: {
-                  requestedAmountKobo:
-                    redemption.requestedAmountKobo.toString(),
-                  thresholdKobo: this.redemptionApprovalThresholdKobo(),
-                  occurredAt: redemption.requestedAt.toISOString(),
-                },
-              },
-            ]
-          : []),
       ]);
       return;
     }
@@ -689,7 +661,7 @@ export class OutboxWorkerRuntime {
         );
       }
 
-      await this.recordFraudFindings(receipt.tenantId, [
+      const findings = [
         ...(receipt.purchaseAmountKobo >
         BigInt(this.purchaseFlagThresholdKobo())
           ? [
@@ -738,7 +710,139 @@ export class OutboxWorkerRuntime {
               },
             ]
           : []),
+        ...(await this.fraudBehaviorService.evaluateReceiptBehavior({
+          tenantId: receipt.tenantId,
+          receiptId: receipt.id,
+          branchId: receipt.branchId,
+          customerId: receipt.customerId,
+          cashierId: receipt.capturedBy,
+          cardId: receipt.cardId,
+          normalizedPosReceiptNumber: receipt.normalizedPosReceiptNumber,
+          receiptWeekStart: receipt.receiptWeekStart,
+          purchaseAmountKobo: receipt.purchaseAmountKobo,
+          occurredAt: receipt.occurredAt,
+        })),
+      ];
+
+      await this.recordFraudFindings(receipt.tenantId, findings);
+      return;
+    }
+
+    if (outboxEvent.aggregateType === 'redemption') {
+      const redemption = await this.prisma.redemption.findUnique({
+        where: {
+          tenantId_id: {
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.aggregateId,
+          },
+        },
+      });
+
+      if (!redemption) {
+        throw new Error(
+          `Redemption ${outboxEvent.aggregateId} not found for fraud evaluation`,
+        );
+      }
+
+      await this.recordFraudFindings(redemption.tenantId, [
+        ...(redemption.requestedAmountKobo >
+        BigInt(this.redemptionApprovalThresholdKobo())
+          ? [
+              {
+                ruleCode: 'FR-HV-003',
+                severity: 'HIGH' as const,
+                dedupeKey: this.dedupeKey('FR-HV-003', redemption.id),
+                subjectType: 'REDEMPTION' as const,
+                subjectId: redemption.id,
+                windowStart: redemption.requestedAt,
+                branchId: redemption.branchId,
+                cashierId: redemption.requestedBy,
+                customerId: redemption.customerId,
+                receiptId: redemption.receiptId,
+                redemptionId: redemption.id,
+                evidence: {
+                  requestedAmountKobo:
+                    redemption.requestedAmountKobo.toString(),
+                  thresholdKobo: this.redemptionApprovalThresholdKobo(),
+                  occurredAt: redemption.requestedAt.toISOString(),
+                },
+              },
+            ]
+          : []),
       ]);
+      return;
+    }
+
+    if (outboxEvent.aggregateType === 'card') {
+      const occurredAt = readOutboxOccurredAt(payload);
+      const windowEnd = occurredAt;
+      const windowStart = new Date(
+        windowEnd.getTime() - 30 * 24 * 60 * 60 * 1000,
+      );
+
+      const findings =
+        await this.fraudBehaviorService.evaluateCardReplacementBehavior({
+          tenantId: outboxEvent.tenantId,
+          branchId:
+            typeof payload.branchId === 'string' ? payload.branchId : '',
+          customerId:
+            typeof payload.customerId === 'string' ? payload.customerId : '',
+          cardId:
+            typeof payload.cardId === 'string'
+              ? payload.cardId
+              : outboxEvent.aggregateId,
+          replacementCount: 0,
+          windowStart,
+          windowEnd,
+        });
+
+      await this.recordFraudFindings(outboxEvent.tenantId, findings);
+      return;
+    }
+
+    if (outboxEvent.aggregateType === 'reversal') {
+      const occurredAt = readOutboxOccurredAt(payload);
+      const windowEnd = occurredAt;
+      const windowStart = new Date(windowEnd.getTime() - 24 * 60 * 60 * 1000);
+
+      const findings = await this.fraudBehaviorService.evaluateReversalBehavior(
+        {
+          tenantId: outboxEvent.tenantId,
+          branchId:
+            typeof payload.branchId === 'string' ? payload.branchId : '',
+          cashierId:
+            typeof payload.actorId === 'string'
+              ? payload.actorId
+              : typeof payload.cashierId === 'string'
+                ? payload.cashierId
+                : outboxEvent.aggregateId,
+          reversalCount: 0,
+          windowStart,
+          windowEnd,
+        },
+      );
+
+      await this.recordFraudFindings(outboxEvent.tenantId, findings);
+      return;
+    }
+
+    if (outboxEvent.aggregateType === 'auth-user') {
+      const occurredAt = readOutboxOccurredAt(payload);
+      const windowEnd = occurredAt;
+      const windowStart = new Date(windowEnd.getTime() - 15 * 60 * 1000);
+
+      const findings = await this.fraudBehaviorService.evaluateAuthFailures({
+        tenantId: outboxEvent.tenantId,
+        userId:
+          typeof payload.userId === 'string'
+            ? payload.userId
+            : outboxEvent.aggregateId,
+        failureCount: 0,
+        windowStart,
+        windowEnd,
+      });
+
+      await this.recordFraudFindings(outboxEvent.tenantId, findings);
     }
   }
 
@@ -780,7 +884,7 @@ export class OutboxWorkerRuntime {
             firstDetectedAt: now,
             lastDetectedAt: now,
             occurrenceCount: 1,
-            evidence: finding.evidence,
+            evidence: finding.evidence as Prisma.InputJsonValue,
           },
           update: {
             ruleCode: finding.ruleCode,
@@ -797,7 +901,7 @@ export class OutboxWorkerRuntime {
             windowEnd: finding.windowEnd ?? null,
             lastDetectedAt: now,
             occurrenceCount: { increment: 1 },
-            evidence: finding.evidence,
+            evidence: finding.evidence as Prisma.InputJsonValue,
           },
         });
       }
@@ -954,6 +1058,18 @@ function readNumberField(
   const value = payload[key];
 
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function readOutboxOccurredAt(payload: Record<string, Prisma.JsonValue>): Date {
+  const occurredAt = payload.occurredAt;
+  if (typeof occurredAt === 'string') {
+    const parsed = new Date(occurredAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return new Date();
 }
 
 function parseThresholdKobo(

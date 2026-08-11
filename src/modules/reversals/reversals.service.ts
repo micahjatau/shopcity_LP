@@ -802,6 +802,24 @@ async function persistReverseNotification(input: {
   receiptId: string | null;
   occurredAt: Date;
 }) {
+  await input.prisma.outboxEvent.create({
+    data: {
+      tenantId: input.tenantId,
+      aggregateType: 'reversal',
+      aggregateId: input.reversalLedgerEntryId,
+      eventType: 'fraud.evaluate',
+      payload: {
+        kind: 'transaction.reversed',
+        reversalLedgerEntryId: input.reversalLedgerEntryId,
+        originalTransactionId: input.originalTransactionId,
+        receiptId: input.receiptId,
+        occurredAt: input.occurredAt.toISOString(),
+      },
+      status: 'PENDING',
+      nextAttemptAt: input.occurredAt,
+    },
+  });
+
   const outboxEvent = await input.prisma.outboxEvent.create({
     data: {
       tenantId: input.tenantId,

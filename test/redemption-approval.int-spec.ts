@@ -292,6 +292,25 @@ describe('redemption approval lifecycle (int)', () => {
     expect(rejected?.reason).toMatchObject({
       response: { code: 'RECEIPT_ALREADY_USED' },
     });
+
+    expect(
+      await prisma.auditLog.count({
+        where: {
+          tenantId: localFixture.tenantId,
+          action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
+          entityType: 'RECEIPT',
+        },
+      }),
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      await prisma.outboxEvent.count({
+        where: {
+          tenantId: localFixture.tenantId,
+          aggregateType: 'receipt',
+          eventType: 'fraud.evaluate',
+        },
+      }),
+    ).toBeGreaterThanOrEqual(1);
   }, 120000);
 
   it('prevents concurrent immediate redemptions from overdrawing lots', async () => {

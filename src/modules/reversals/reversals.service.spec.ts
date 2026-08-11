@@ -343,7 +343,7 @@ describe('ReversalsService', () => {
         adjustmentId: 'reversal-adjustment-1',
       }),
     );
-    expect(tx.outboxEvent.create).toHaveBeenCalledTimes(1);
+    expect(tx.outboxEvent.create).toHaveBeenCalledTimes(2);
     expect(tx.smsMessage.create).toHaveBeenCalledTimes(1);
     expect(auditService.recordWithClient).toHaveBeenCalledWith(
       tx as never,

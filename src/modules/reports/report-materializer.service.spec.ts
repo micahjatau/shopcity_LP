@@ -15,6 +15,7 @@ describe('ReportMaterializerService', () => {
     });
 
     expect(stateUpsert).toHaveBeenCalled();
+    expect(tx.$executeRaw).toHaveBeenCalled();
     expect(tx.reportDailyFinancialSummary.createMany).toHaveBeenCalled();
 
     const payload =
@@ -118,8 +119,88 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
     reportMaterializationState: {
       upsert: stateUpsert,
     },
+    $executeRaw: jest.fn().mockResolvedValue(undefined),
     $transaction: jest.fn(
-      async (callback: (client: ReportTxStub) => Promise<void>) => callback(tx),
+      async (callback: (client: unknown) => Promise<void>) =>
+        callback({
+          ...({
+            branch: {
+              findMany: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: 'branch-1', timezone: 'Africa/Lagos' },
+                ]),
+            },
+            customer: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'customer-1',
+                  branchId: 'branch-1',
+                  createdAt: new Date('2026-08-10T10:00:00.000Z'),
+                },
+              ]),
+            },
+            receipt: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'receipt-1',
+                  branchId: 'branch-1',
+                  customerId: 'customer-1',
+                  capturedBy: 'cashier-1',
+                  capturedAt: new Date('2026-08-10T10:00:00.000Z'),
+                  occurredAt: new Date('2026-08-10T10:00:00.000Z'),
+                  purchaseAmountKobo: 1000n,
+                  normalizedPosReceiptNumber: 'POS-1',
+                  receiptWeekStart: new Date('2026-08-10T00:00:00.000Z'),
+                  captureStatus: 'CAPTURED',
+                },
+              ]),
+            },
+            loyaltyLedgerEntry: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'ledger-1',
+                  customerId: 'customer-1',
+                  receiptId: 'receipt-1',
+                  type: 'EARN',
+                  direction: 'CREDIT',
+                  amountKobo: 1000n,
+                  createdBy: 'cashier-1',
+                  createdAt: new Date('2026-08-10T10:00:00.000Z'),
+                  effectiveAt: new Date('2026-08-10T10:00:00.000Z'),
+                },
+              ]),
+            },
+            creditLot: {
+              findMany: jest.fn().mockResolvedValue([
+                {
+                  id: 'lot-1',
+                  customerId: 'customer-1',
+                  remainingAmountKobo: 1000n,
+                  earnedAt: new Date('2026-08-10T10:00:00.000Z'),
+                  expiresAt: new Date('2026-09-10T10:00:00.000Z'),
+                  earnLedgerEntryId: 'ledger-1',
+                },
+              ]),
+            },
+            redemption: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            smsMessage: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            approval: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            fraudFlag: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
+            reportMaterializationState: {
+              upsert: stateUpsert,
+            },
+          } as const),
+          ...tx,
+        }),
     ),
   } as unknown as PrismaService;
 }
@@ -136,6 +217,7 @@ function reportTxStub(): ReportTxStub {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       upsert: jest.fn().mockResolvedValue(undefined),
     },
+    $executeRaw: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -177,4 +259,5 @@ type ReportTxStub = {
     deleteMany: jest.Mock;
     upsert: jest.Mock;
   };
+  $executeRaw: jest.Mock;
 };

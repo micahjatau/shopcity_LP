@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
@@ -184,27 +185,29 @@ export class ReportMaterializerService {
     });
 
     try {
-      const source = await this.loadSourceData(tenantId, asOf);
-      const plan = branchId
-        ? buildBranchPlan(
-            source,
-            tenantId,
-            branchId,
-            asOf,
-            materializedAt,
-            dormantCustomerDays,
-            this.reportTimeZone(),
-          )
-        : buildTenantPlan(
-            source,
-            tenantId,
-            asOf,
-            materializedAt,
-            dormantCustomerDays,
-            this.reportTimeZone(),
-          );
-
       await this.prisma.$transaction(async (tx) => {
+        await acquireMaterializationLock(tx, tenantId, branchId);
+
+        const source = await this.loadSourceData(tx, tenantId, asOf);
+        const plan = branchId
+          ? buildBranchPlan(
+              source,
+              tenantId,
+              branchId,
+              asOf,
+              materializedAt,
+              dormantCustomerDays,
+              this.reportTimeZone(),
+            )
+          : buildTenantPlan(
+              source,
+              tenantId,
+              asOf,
+              materializedAt,
+              dormantCustomerDays,
+              this.reportTimeZone(),
+            );
+
         if (branchId) {
           await deleteBranchRows(tx, tenantId, branchId);
         } else {
@@ -233,6 +236,7 @@ export class ReportMaterializerService {
   }
 
   private async loadSourceData(
+    client: Prisma.TransactionClient,
     tenantId: string,
     asOf: Date,
   ): Promise<SourceData> {
@@ -247,14 +251,14 @@ export class ReportMaterializerService {
       approvals,
       fraudFlags,
     ] = await Promise.all([
-      this.prisma.branch.findMany({
+      client.branch.findMany({
         where: { tenantId },
         select: {
           id: true,
           timezone: true,
         },
       }),
-      this.prisma.customer.findMany({
+      client.customer.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -262,7 +266,7 @@ export class ReportMaterializerService {
           createdAt: true,
         },
       }),
-      this.prisma.receipt.findMany({
+      client.receipt.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -277,7 +281,7 @@ export class ReportMaterializerService {
           captureStatus: true,
         },
       }),
-      this.prisma.loyaltyLedgerEntry.findMany({
+      client.loyaltyLedgerEntry.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -292,7 +296,7 @@ export class ReportMaterializerService {
           reversesEntryId: true,
         },
       }),
-      this.prisma.creditLot.findMany({
+      client.creditLot.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -303,7 +307,7 @@ export class ReportMaterializerService {
           earnLedgerEntryId: true,
         },
       }),
-      this.prisma.redemption.findMany({
+      client.redemption.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -317,7 +321,7 @@ export class ReportMaterializerService {
           reversedAt: true,
         },
       }),
-      this.prisma.smsMessage.findMany({
+      client.smsMessage.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -327,7 +331,7 @@ export class ReportMaterializerService {
           createdAt: true,
         },
       }),
-      this.prisma.approval.findMany({
+      client.approval.findMany({
         where: { tenantId },
         select: {
           id: true,
@@ -338,7 +342,7 @@ export class ReportMaterializerService {
           redemptionId: true,
         },
       }),
-      this.prisma.fraudFlag.findMany({
+      client.fraudFlag.findMany({
         where: { tenantId, ruleCode: 'FR-DUP-001' },
         select: {
           id: true,
@@ -1081,6 +1085,30 @@ function buildSmsSummaries(
       suppressedCount: entry.suppressedCount,
       materializedAt,
     }));
+}
+
+async function acquireMaterializationLock(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  branchId: string | null,
+): Promise<void> {
+  const lockKey = materializationLockKey(tenantId, branchId);
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(${lockKey})
+  `;
+}
+
+function materializationLockKey(
+  tenantId: string,
+  branchId: string | null,
+): bigint {
+  const hash = createHash('sha256')
+    .update(`${tenantId}:${branchId ?? 'TENANT'}`)
+    .digest();
+  const combined =
+    (BigInt(hash.readUInt32BE(0)) << 32n) | BigInt(hash.readUInt32BE(4));
+
+  return BigInt.asIntN(64, combined);
 }
 
 async function deleteTenantRows(

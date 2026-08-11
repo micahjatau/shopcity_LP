@@ -47,6 +47,21 @@ export class AuthService {
     deviceId?: string,
     deviceAttestation?: string,
   ): Promise<IssuedSession> {
+    const normalizedUsername = normalizeUsername(username);
+    const candidate = await this.prismaService.user.findFirst({
+      where: {
+        username: {
+          equals: normalizedUsername,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        username: true,
+      },
+    });
+
     const { data, error } =
       await this.supabaseService.publicClient.auth.signInWithPassword({
         email: username,
@@ -54,6 +69,9 @@ export class AuthService {
       });
 
     if (error || !data.user) {
+      if (candidate) {
+        await this.recordFailedLoginEvidence(candidate, normalizedUsername);
+      }
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -290,6 +308,45 @@ export class AuthService {
     };
   }
 
+  private async recordFailedLoginEvidence(
+    candidate: {
+      id: string;
+      tenantId: string;
+      username: string;
+    },
+    normalizedUsername: string,
+  ): Promise<void> {
+    await this.prismaService.$transaction(async (tx) => {
+      await this.auditService.recordWithClient(tx, {
+        tenantId: candidate.tenantId,
+        actorId: candidate.id,
+        action: 'auth.login.failed',
+        entityType: 'user',
+        entityId: candidate.id,
+        metadata: {
+          username: normalizedUsername,
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: candidate.tenantId,
+          aggregateType: 'auth-user',
+          aggregateId: candidate.id,
+          eventType: 'fraud.evaluate',
+          payload: {
+            kind: 'auth.login.failed',
+            userId: candidate.id,
+            username: normalizedUsername,
+            occurredAt: new Date().toISOString(),
+          },
+          status: 'PENDING',
+          nextAttemptAt: new Date(),
+        },
+      });
+    });
+  }
+
   async resolveCurrentSession(sessionId: string): Promise<AuthContext> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
@@ -367,6 +424,10 @@ function resolveDeviceAttestationSecret(
     'DEVICE_ATTESTATION_SECRET_UNAVAILABLE',
     'Device attestation secret is unavailable',
   );
+}
+
+function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
 }
 
 async function recordDeviceAttestation(
