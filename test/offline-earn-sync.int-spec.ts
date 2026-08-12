@@ -734,7 +734,9 @@ describe('offline earn sync foundation (int)', () => {
 function expectRecognizedOnlineOfflineRaceOutcome(
   settled: [
     PromiseSettledResult<unknown>,
-    PromiseSettledResult<{ records: Array<{ status: string; errorCode: string | null }> }>,
+    PromiseSettledResult<{
+      records: Array<{ status: string; errorCode: string | null }>;
+    }>,
   ],
 ): void {
   const [onlineResult, offlineResult] = settled;
@@ -768,8 +770,20 @@ function expectRecognizedOnlineOfflineRaceOutcome(
 
 function expectRecognizedDistinctOfflineRaceOutcome(
   settled: [
-    PromiseSettledResult<{ records: Array<{ status: string; errorCode: string | null; retryable?: boolean }> }>,
-    PromiseSettledResult<{ records: Array<{ status: string; errorCode: string | null; retryable?: boolean }> }>,
+    PromiseSettledResult<{
+      records: Array<{
+        status: string;
+        errorCode: string | null;
+        retryable?: boolean;
+      }>;
+    }>,
+    PromiseSettledResult<{
+      records: Array<{
+        status: string;
+        errorCode: string | null;
+        retryable?: boolean;
+      }>;
+    }>,
   ],
 ): void {
   const outcomes = settled.map((result) => {
