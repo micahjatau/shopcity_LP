@@ -3,11 +3,16 @@ import { ExpiryReminderService } from './expiry-reminder.service';
 
 describe('ExpiryReminderService', () => {
   it('creates one reminder, outbox event, and SMS row per customer-day candidate', async () => {
+    const outboxEventCreate = jest.fn().mockResolvedValue({ id: 'outbox-1' });
+    const smsMessageCreate = jest.fn().mockResolvedValue({ id: 'sms-1' });
+    const creditExpiryReminderCreate = jest
+      .fn()
+      .mockResolvedValue({ id: 'reminder-1' });
     const tx = {
-      outboxEvent: { create: jest.fn().mockResolvedValue({ id: 'outbox-1' }) },
-      smsMessage: { create: jest.fn().mockResolvedValue({ id: 'sms-1' }) },
+      outboxEvent: { create: outboxEventCreate },
+      smsMessage: { create: smsMessageCreate },
       creditExpiryReminder: {
-        create: jest.fn().mockResolvedValue({ id: 'reminder-1' }),
+        create: creditExpiryReminderCreate,
       },
     };
     const prisma = {
@@ -36,13 +41,13 @@ describe('ExpiryReminderService', () => {
     ).resolves.toEqual({ customers: 1, amountKobo: 1500n });
 
     expect(tx.outboxEvent.create).toHaveBeenCalledTimes(1);
-    expect(tx.smsMessage.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: SmsMessageStatus.QUEUED,
-          template: 'credit-expiry-reminder-v1',
-        }),
-      }),
+    expect(smsMessageCreate).toHaveBeenCalledTimes(1);
+    const [[smsMessageCreateCall]] = smsMessageCreate.mock.calls as Array<
+      [{ data: { status: SmsMessageStatus; template: string } }]
+    >;
+    expect(smsMessageCreateCall.data.status).toBe(SmsMessageStatus.QUEUED);
+    expect(smsMessageCreateCall.data.template).toBe(
+      'credit-expiry-reminder-v1',
     );
     expect(tx.creditExpiryReminder.create).toHaveBeenCalledTimes(1);
   });

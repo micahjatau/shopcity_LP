@@ -1,14 +1,20 @@
-import { AuditService } from '../audit/audit.service';
-import { SystemActorService } from '../../common/system/system-actor.service';
+import type { AuditService } from '../audit/audit.service';
+import type { SystemActorService } from '../../common/system/system-actor.service';
 import { CreditExpiryService } from './credit-expiry.service';
 
 describe('CreditExpiryService', () => {
   it('returns an empty result when no due lots are found', async () => {
     const prisma = prismaStub({ lots: [] });
+    const auditService = {
+      recordWithClient: jest.fn(),
+    } satisfies Pick<AuditService, 'recordWithClient'>;
+    const systemActorService = {
+      getOrCreate: jest.fn(),
+    } satisfies Pick<SystemActorService, 'getOrCreate'>;
     const service = new CreditExpiryService(
-      prisma as never,
-      { recordWithClient: jest.fn() } as never,
-      { getOrCreate: jest.fn() } as never,
+      prisma,
+      auditService,
+      systemActorService,
     );
 
     await expect(
@@ -45,9 +51,9 @@ describe('CreditExpiryService', () => {
         .mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' }),
     } satisfies Pick<SystemActorService, 'getOrCreate'>;
     const service = new CreditExpiryService(
-      prisma as never,
-      auditService as never,
-      systemActorService as never,
+      prisma,
+      auditService,
+      systemActorService,
     );
 
     await expect(
@@ -70,10 +76,16 @@ describe('CreditExpiryService', () => {
 
   it('rejects invalid inputs before opening a transaction', async () => {
     const prisma = prismaStub({ lots: [] });
+    const auditService = {
+      recordWithClient: jest.fn(),
+    } satisfies Pick<AuditService, 'recordWithClient'>;
+    const systemActorService = {
+      getOrCreate: jest.fn(),
+    } satisfies Pick<SystemActorService, 'getOrCreate'>;
     const service = new CreditExpiryService(
-      prisma as never,
-      { recordWithClient: jest.fn() } as never,
-      { getOrCreate: jest.fn() } as never,
+      prisma,
+      auditService,
+      systemActorService,
     );
 
     await expect(
@@ -103,7 +115,7 @@ function prismaStub({
       create: jest
         .fn()
         .mockImplementation(
-          async ({ data }: { data: { correlationId: string } }) => ({
+          ({ data }: { data: { correlationId: string } }) => ({
             id: `${data.correlationId}-ledger`,
           }),
         ),
