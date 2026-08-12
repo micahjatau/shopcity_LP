@@ -1,6 +1,7 @@
 {
   "releaseSha": "0123456789abcdef0123456789abcdef01234567",
   "releaseArtifact": "ghcr.io/shopcity/shopcity-lp@sha256:example",
+  "restoreTarget": "example isolated restore target",
   "backupCompletedAt": "2026-08-13T08:00:00.000Z",
   "restoreStartedAt": "2026-08-13T08:20:00.000Z",
   "restoreCompletedAt": "2026-08-13T09:05:00.000Z",

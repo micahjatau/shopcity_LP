@@ -107,6 +107,18 @@ function assertNotFutureTimestamp(value, label, referenceTime) {
   );
 }
 
+function assertNotBeforeTimestamp(value, label, minimumTime) {
+  const timestamp = new Date(value);
+  assert(
+    !Number.isNaN(timestamp.getTime()),
+    `${label} must be a valid ISO datetime`,
+  );
+  assert(
+    timestamp.getTime() >= minimumTime.getTime(),
+    `${label} must not predate the frozen candidate`,
+  );
+}
+
 function findFirstStringByKey(node, keys) {
   if (!node || typeof node !== 'object') {
     return null;
@@ -206,6 +218,17 @@ function validateReadinessDocument(document, options = {}) {
   const referenceTime = options.referenceTime ?? new Date();
   assertValidReferenceTime(referenceTime);
 
+  assert(
+    isNonEmptyString(document.releaseFreezeAt),
+    'releaseFreezeAt is required',
+  );
+  assertNotFutureTimestamp(
+    document.releaseFreezeAt,
+    'releaseFreezeAt',
+    referenceTime,
+  );
+  const freezeTime = new Date(document.releaseFreezeAt);
+
   assert(document.schemaVersion === '1', 'schemaVersion must be "1"');
   assert(
     isSha(document.releaseSha),
@@ -262,6 +285,11 @@ function validateReadinessDocument(document, options = {}) {
       `gate ${gateName} recordedAt`,
       referenceTime,
     );
+    assertNotBeforeTimestamp(
+      gate.recordedAt,
+      `gate ${gateName} recordedAt`,
+      freezeTime,
+    );
   }
 
   assert(Array.isArray(document.approvals), 'approvals must be an array');
@@ -277,6 +305,11 @@ function validateReadinessDocument(document, options = {}) {
       approval.approvedAt,
       `approval ${approval.role} approvedAt`,
       referenceTime,
+    );
+    assertNotBeforeTimestamp(
+      approval.approvedAt,
+      `approval ${approval.role} approvedAt`,
+      freezeTime,
     );
     assert(isSha(approval.releaseSha), 'approval.releaseSha is required');
     assert(
@@ -324,6 +357,11 @@ function validateReadinessDocument(document, options = {}) {
       entry.completedAt,
       `trainingSignOff ${entry.role} completedAt`,
       referenceTime,
+    );
+    assertNotBeforeTimestamp(
+      entry.completedAt,
+      `trainingSignOff ${entry.role} completedAt`,
+      freezeTime,
     );
   }
   assert(
@@ -386,18 +424,30 @@ function validateEvidenceBundle(evidenceDir, document, options = {}) {
     }
 
     if (reference.endsWith('security-results.md')) {
-      validateSecurityEvidence(filePath, rawText, document);
+      validateSecurityEvidence(filePath, rawText, document, referenceTime);
     }
 
     if (reference.endsWith('staging-certification.md')) {
-      validateStagingEvidence(filePath, rawText);
+      validateStagingEvidence(filePath, rawText, document, referenceTime);
+    }
+
+    if (reference.endsWith('restore-drill.json')) {
+      validateRestoreEvidence(filePath, rawText, document);
+    }
+
+    if (reference.endsWith('training-signoff.md')) {
+      validateTrainingGateEvidence(filePath, rawText, document, referenceTime);
+    }
+
+    if (reference.endsWith('final-approval.md')) {
+      validateFinalApprovalEvidence(filePath, rawText, document, referenceTime);
     }
 
     validateTimestampText(rawText, reference, referenceTime);
   }
 }
 
-function validateSecurityEvidence(filePath, rawText, document) {
+function validateSecurityEvidence(filePath, rawText, document, referenceTime) {
   assert(
     /actions\/runs\/\d+/i.test(rawText),
     `security evidence must include a workflow run URL: ${filePath}`,
@@ -410,6 +460,14 @@ function validateSecurityEvidence(filePath, rawText, document) {
     /Gitleaks/i.test(rawText) && /Trivy/i.test(rawText),
     `security evidence must mention the executed security jobs: ${filePath}`,
   );
+  assert(/CodeQL/i.test(rawText), `security evidence must include CodeQL: ${filePath}`);
+  assert(/ZAP/i.test(rawText), `security evidence must include ZAP: ${filePath}`);
+  assert(!/CodeQL[^\n]*skipped/i.test(rawText), `security evidence must not skip CodeQL: ${filePath}`);
+  assert(!/ZAP[^\n]*skipped/i.test(rawText), `security evidence must not skip ZAP: ${filePath}`);
+  assert(
+    /Status:\s*passed/i.test(rawText) || /passed in release bundle/i.test(rawText),
+    `security evidence must conclude passed for the full gate: ${filePath}`,
+  );
   assert(
     new RegExp(`Candidate SHA:\\s*${document.releaseSha}`, 'i').test(rawText),
     `security evidence candidate SHA must match readiness.json: ${filePath}`,
@@ -418,9 +476,18 @@ function validateSecurityEvidence(filePath, rawText, document) {
     rawText.includes(document.imageDigest),
     `security evidence imageDigest must match readiness.json: ${filePath}`,
   );
+
+  const recordedAt = matchFirst(rawText, [/RecordedAt:\s*([^\n]+)/i]);
+  assert(recordedAt, `security evidence must record a timestamp: ${filePath}`);
+  assertNotFutureTimestamp(recordedAt, `security evidence recordedAt`, referenceTime);
+  assertNotBeforeTimestamp(
+    recordedAt,
+    `security evidence recordedAt`,
+    new Date(document.releaseFreezeAt),
+  );
 }
 
-function validateStagingEvidence(filePath, rawText) {
+function validateStagingEvidence(filePath, rawText, document, referenceTime) {
   assert(
     /actions\/runs\/\d+/i.test(rawText),
     `staging evidence must include a workflow or validation URL: ${filePath}`,
@@ -428,6 +495,25 @@ function validateStagingEvidence(filePath, rawText) {
   assert(
     /staging/i.test(rawText),
     `staging evidence must mention staging validation: ${filePath}`,
+  );
+  assert(
+    /(?:Deployment|Staging) URL:\s*https:\/\/\S+/i.test(rawText),
+    `staging evidence must include a real deployment URL: ${filePath}`,
+  );
+  assert(/migration/i.test(rawText), `staging evidence must mention migration: ${filePath}`);
+  assert(/readiness/i.test(rawText), `staging evidence must mention readiness checks: ${filePath}`);
+  assert(/Bruno/i.test(rawText), `staging evidence must mention Bruno smoke checks: ${filePath}`);
+  assert(/contract/i.test(rawText), `staging evidence must mention contract tests: ${filePath}`);
+  assert(/ZAP/i.test(rawText), `staging evidence must mention ZAP: ${filePath}`);
+  assert(!/ZAP[^\n]*skipped/i.test(rawText), `staging evidence must not skip ZAP: ${filePath}`);
+
+  const recordedAt = matchFirst(rawText, [/RecordedAt:\s*([^\n]+)/i]);
+  assert(recordedAt, `staging evidence must record a timestamp: ${filePath}`);
+  assertNotFutureTimestamp(recordedAt, `staging evidence recordedAt`, referenceTime);
+  assertNotBeforeTimestamp(
+    recordedAt,
+    `staging evidence recordedAt`,
+    new Date(document.releaseFreezeAt),
   );
 }
 
@@ -448,6 +534,10 @@ function validatePerformanceEvidence(filePath, rawText, document) {
   assert(
     evidence.imageDigest === document.imageDigest,
     'performance evidence imageDigest must match readiness.json',
+  );
+  assert(
+    typeof evidence.baseUrl === 'string' && /^https:\/\//i.test(evidence.baseUrl) && !/127\.0\.0\.1|localhost/i.test(evidence.baseUrl),
+    'performance evidence baseUrl must be a non-local certification URL',
   );
   assert(
     typeof evidence.lookupP95Ms === 'number' && evidence.lookupP95Ms < 500,
@@ -476,6 +566,119 @@ function validatePerformanceEvidence(filePath, rawText, document) {
   assert(
     evidence.reconciliationMismatchCount === 0,
     'performance evidence reconciliationMismatchCount must be zero',
+  );
+}
+
+function validateRestoreEvidence(filePath, rawText, document) {
+  let evidence;
+  try {
+    evidence = JSON.parse(rawText);
+  } catch {
+    throw new Error(`restore drill evidence must be valid JSON: ${filePath}`);
+  }
+
+  assert(
+    evidence.releaseSha === document.releaseSha,
+    'restore drill releaseSha must match readiness.json',
+  );
+  assert(
+    evidence.releaseArtifact === document.imageDigest,
+    'restore drill releaseArtifact must match readiness.json',
+  );
+  assert(
+    isNonEmptyString(evidence.restoreTarget),
+    'restore drill evidence must include a restoreTarget',
+  );
+  assert(
+    /isolated/i.test(evidence.restoreTarget),
+    'restore drill restoreTarget must describe an isolated target',
+  );
+  assert(
+    /managed.*backup|pitr/i.test(evidence.providerBackupControl),
+    'restore drill evidence must document provider-managed backup control',
+  );
+  assert(Array.isArray(evidence.commands) && evidence.commands.length > 0, 'restore drill evidence must record executed verification commands');
+  assert(
+    evidence.commands.some((command) =>
+      /invariant|reconciliation|financial-state-invariants/i.test(command.command),
+    ),
+    'restore drill evidence must include invariant or reconciliation validation',
+  );
+  assert(
+    evidence.commands.some((command) => command.status === 'passed'),
+    'restore drill evidence must include passed commands',
+  );
+  assert(
+    evidence.commands.every((command) => command.status === 'passed'),
+    'restore drill evidence contains failed commands',
+  );
+
+  const backupCompletedAt = new Date(evidence.backupCompletedAt);
+  const restoreStartedAt = new Date(evidence.restoreStartedAt);
+  const restoreCompletedAt = new Date(evidence.restoreCompletedAt);
+  const verificationCompletedAt = new Date(evidence.verificationCompletedAt);
+  assert(
+    [backupCompletedAt, restoreStartedAt, restoreCompletedAt, verificationCompletedAt].every(
+      (value) => !Number.isNaN(value.getTime()),
+    ),
+    'restore drill timestamps must be valid ISO datetimes',
+  );
+  assertNotBeforeTimestamp(
+    evidence.backupCompletedAt,
+    'restore drill backupCompletedAt',
+    new Date(document.releaseFreezeAt),
+  );
+  assertNotBeforeTimestamp(
+    evidence.restoreStartedAt,
+    'restore drill restoreStartedAt',
+    new Date(document.releaseFreezeAt),
+  );
+  assertNotBeforeTimestamp(
+    evidence.restoreCompletedAt,
+    'restore drill restoreCompletedAt',
+    new Date(document.releaseFreezeAt),
+  );
+  assertNotBeforeTimestamp(
+    evidence.verificationCompletedAt,
+    'restore drill verificationCompletedAt',
+    new Date(document.releaseFreezeAt),
+  );
+}
+
+function validateTrainingGateEvidence(filePath, rawText, document, referenceTime) {
+  assert(/cashier/i.test(rawText), `training evidence must mention cashier training: ${filePath}`);
+  assert(/supervisor/i.test(rawText), `training evidence must mention supervisor training: ${filePath}`);
+  assert(/owner-admin/i.test(rawText), `training evidence must mention owner-admin training: ${filePath}`);
+  assert(/Status:\s*passed/i.test(rawText), `training evidence must conclude passed: ${filePath}`);
+  assert(!/Pilot Approver/i.test(rawText), `training evidence must not use placeholder names: ${filePath}`);
+  const recordedAt = matchFirst(rawText, [/Completed at:\s*([^\n]+)/i, /RecordedAt:\s*([^\n]+)/i]);
+  if (recordedAt) {
+    assertNotFutureTimestamp(recordedAt, `training gate evidence recordedAt`, referenceTime);
+    assertNotBeforeTimestamp(recordedAt, `training gate evidence recordedAt`, new Date(document.releaseFreezeAt));
+  }
+}
+
+function validateFinalApprovalEvidence(filePath, rawText, document, referenceTime) {
+  assert(/Approved:\s*yes/i.test(rawText), `final approval must be explicit: ${filePath}`);
+  const approver = matchFirst(rawText, [/Approver:\s*([^\n]+)/i]);
+  assert(isNonEmptyString(approver), `final approval must name an approver: ${filePath}`);
+  assert(!/Pilot Approver/i.test(approver), `final approval must use a real approver name: ${filePath}`);
+  const recordedAt = matchFirst(rawText, [/RecordedAt:\s*([^\n]+)/i]);
+  if (recordedAt) {
+    assertNotFutureTimestamp(recordedAt, `final approval recordedAt`, referenceTime);
+    assertNotBeforeTimestamp(recordedAt, `final approval recordedAt`, new Date(document.releaseFreezeAt));
+  }
+  assert(
+    /CI run:\s*https:\/\/github\.com\/.+\/actions\/runs\/\d+/i.test(rawText),
+    `final approval must include the CI run: ${filePath}`,
+  );
+  assert(
+    /Security run:\s*https:\/\/github\.com\/.+\/actions\/runs\/\d+/i.test(rawText),
+    `final approval must include the security run: ${filePath}`,
+  );
+  assert(
+    !/placeholder/i.test(rawText),
+    `final approval must not use placeholder language: ${filePath}`,
   );
 }
 

@@ -51,9 +51,8 @@ Recommended real files to add:
 
 ## 4. Resolve remaining open decisions
 
-- Decide whether Sentry is enabled for pilot or explicitly deferred.
-- If deferred, record the approver, rationale, and follow-up issue in final approval evidence.
-- Record the observed restore RPO/RTO and note whether the strict pilot policy or TRD baseline was used.
+- Record the observed restore RPO/RTO and note the restore target and policy used.
+- If the pilot ever defers a mandatory gate, record the approver, rationale, and follow-up issue in final approval evidence.
 
 ## 5. Final verification
 

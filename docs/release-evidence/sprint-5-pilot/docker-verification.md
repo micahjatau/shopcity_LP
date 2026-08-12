@@ -1,8 +1,8 @@
 # Docker verification
 
-Candidate SHA: 49f0e44324feb4793c15ffd8afa4e59d2b15bd12
+Candidate SHA: 41afe775b8abf985173c58c8de244bcb617be8c5
 Image digest: ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b
-RecordedAt: 2026-08-12T19:08:08Z
+RecordedAt: 2026-08-12T18:08:08Z
 CI run: https://github.com/micahjatau/shopcity_LP/actions/runs/31630700887/job/94229882789
 
 Verified locally:

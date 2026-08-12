@@ -1,6 +1,7 @@
 {
   "schemaVersion": "1",
   "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+  "releaseFreezeAt": "2026-08-13T10:00:00.000Z",
   "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "releaseCandidate": {
     "engineeringComplete": true,

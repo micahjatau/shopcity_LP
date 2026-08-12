@@ -13,6 +13,7 @@ function validDocument() {
   return {
     schemaVersion: '1',
     releaseSha: '49f0e44324feb4793c15ffd8afa4e59d2b15bd12',
+    releaseFreezeAt: '2026-08-12T18:00:00.000Z',
     imageDigest:
       'ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b',
     releaseCandidate: {
@@ -194,6 +195,21 @@ test('rejects example readiness evidence and generic gate references', () => {
         referenceTime: new Date('2026-08-13T12:00:00.000Z'),
       }),
     /executed release evidence|gate performance evidence/i,
+  );
+});
+
+test('rejects pre-freeze evidence', () => {
+  const document = validDocument();
+  document.gates.security.recordedAt = '2026-08-12T17:59:59.000Z';
+  document.trainingSignOffs[0].completedAt = '2026-08-12T17:59:59.000Z';
+
+  assert.throws(
+    () =>
+      validateReadinessDocument(document, {
+        evidencePath: 'docs/release-evidence/sprint-5-pilot/readiness.json',
+        referenceTime: new Date('2026-08-13T12:00:00.000Z'),
+      }),
+    /must not predate the frozen candidate/,
   );
 });
 

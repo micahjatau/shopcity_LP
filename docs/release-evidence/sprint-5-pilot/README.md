@@ -19,6 +19,7 @@ Use this directory to store the final pilot certification bundle for one approve
 - training sign-off references
 - final approval record with release SHA and image digest
 - CI and security workflow run URLs for the frozen candidate
+- releaseFreezeAt timestamp for the frozen candidate
 
 ## Rules
 
