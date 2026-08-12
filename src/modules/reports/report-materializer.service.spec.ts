@@ -472,9 +472,9 @@ function prismaStub(
               findMany: jest.fn().mockResolvedValue([]),
             },
             creditExpiry: {
-              findMany: jest.fn().mockResolvedValue(
-                options.creditExpiries ?? [],
-              ),
+              findMany: jest
+                .fn()
+                .mockResolvedValue(options.creditExpiries ?? []),
             },
             smsMessage: {
               findMany: jest.fn().mockResolvedValue([]),

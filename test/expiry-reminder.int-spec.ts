@@ -1,6 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { LedgerEntryDirection, LedgerEntryStatus, LedgerEntryType, PrismaClient, ReceiptCaptureStatus, ReceiptReviewStatus, SmsMessageStatus, UserRole } from '@prisma/client';
+import {
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  LedgerEntryType,
+  PrismaClient,
+  ReceiptCaptureStatus,
+  ReceiptReviewStatus,
+  SmsMessageStatus,
+  UserRole,
+} from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { ExpiryReminderService } from '../src/modules/credit-expiry/expiry-reminder.service';
 import { createAttestedDeviceData } from './support/device-attestation';
@@ -32,8 +41,20 @@ describe('expiry reminders (int)', () => {
   }, 120000);
 
   it('aggregates multiple qualifying lots into one customer-day reminder and dedupes on repeat sweep', async () => {
-    await createEarnCreditLot(prisma, fixture, 5_000n, 'REM-A', new Date('2027-08-01T08:00:00.000Z'));
-    await createEarnCreditLot(prisma, fixture, 7_000n, 'REM-B', new Date('2027-08-01T10:00:00.000Z'));
+    await createEarnCreditLot(
+      prisma,
+      fixture,
+      5_000n,
+      'REM-A',
+      new Date('2027-08-01T08:00:00.000Z'),
+    );
+    await createEarnCreditLot(
+      prisma,
+      fixture,
+      7_000n,
+      'REM-B',
+      new Date('2027-08-01T10:00:00.000Z'),
+    );
 
     await expect(
       reminderService.enqueueDueReminders({
@@ -55,7 +76,10 @@ describe('expiry reminders (int)', () => {
       where: { tenantId: fixture.tenantId, customerId: fixture.customerId },
     });
     const smsMessages = await prisma.smsMessage.findMany({
-      where: { tenantId: fixture.tenantId, template: 'credit-expiry-reminder-v1' },
+      where: {
+        tenantId: fixture.tenantId,
+        template: 'credit-expiry-reminder-v1',
+      },
     });
 
     expect(reminders).toHaveLength(1);
@@ -97,7 +121,10 @@ describe('expiry reminders (int)', () => {
     });
 
     const smsMessage = await prisma.smsMessage.findFirstOrThrow({
-      where: { tenantId: fixture.tenantId, template: 'credit-expiry-reminder-v1' },
+      where: {
+        tenantId: fixture.tenantId,
+        template: 'credit-expiry-reminder-v1',
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -114,7 +141,9 @@ describe('expiry reminders (int)', () => {
     });
 
     expect(refreshedLot.remainingAmountKobo).toBe(6_000n);
-    expect(refreshedLot.expiresAt.toISOString()).toBe('2027-08-01T14:00:00.000Z');
+    expect(refreshedLot.expiresAt.toISOString()).toBe(
+      '2027-08-01T14:00:00.000Z',
+    );
   }, 120000);
 });
 
@@ -126,7 +155,9 @@ async function createBaseFixture(prisma: PrismaClient) {
   const customerId = randomUUID();
   const cardId = randomUUID();
 
-  await prisma.tenant.create({ data: { id: tenantId, name: 'Reminder Tenant' } });
+  await prisma.tenant.create({
+    data: { id: tenantId, name: 'Reminder Tenant' },
+  });
   await prisma.branch.create({
     data: {
       id: branchId,

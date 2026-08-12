@@ -42,11 +42,13 @@ describe('CreditExpiryWorkerRuntime', () => {
     expect(
       loadCreditExpiryWorkerConfig({
         ...process.env,
-        DATABASE_URL: 'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
+        DATABASE_URL:
+          'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
         REDIS_URL: 'redis://127.0.0.1:6379',
         SESSION_SECRET: 'test-session-secret-test-session-secret',
         CSRF_SECRET: 'test-csrf-secret-test-csrf-secret',
-        DEVICE_ATTESTATION_KEK: 'test-device-attestation-kek-test-device-attestation-kek',
+        DEVICE_ATTESTATION_KEK:
+          'test-device-attestation-kek-test-device-attestation-kek',
         CREDIT_EXPIRY_SWEEP_INTERVAL_MS: '120000',
         CREDIT_EXPIRY_BATCH_SIZE: '20',
         CREDIT_EXPIRY_REMINDER_DAYS: '30',

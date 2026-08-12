@@ -12,7 +12,10 @@ describe('CreditExpiryService', () => {
     );
 
     await expect(
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
     ).resolves.toEqual({ examined: 0, expiredLots: 0, expiredAmountKobo: 0n });
   });
 
@@ -37,7 +40,9 @@ describe('CreditExpiryService', () => {
     });
     const auditService = { recordWithClient: jest.fn().mockResolvedValue({}) };
     const systemActorService = {
-      getOrCreate: jest.fn().mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' }),
+      getOrCreate: jest
+        .fn()
+        .mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' }),
     } satisfies Pick<SystemActorService, 'getOrCreate'>;
     const service = new CreditExpiryService(
       prisma as never,
@@ -46,8 +51,15 @@ describe('CreditExpiryService', () => {
     );
 
     await expect(
-      service.expireDueCredit({ now: new Date('2027-08-01T12:00:00.000Z'), batchSize: 10 }),
-    ).resolves.toEqual({ examined: 2, expiredLots: 2, expiredAmountKobo: 1500n });
+      service.expireDueCredit({
+        now: new Date('2027-08-01T12:00:00.000Z'),
+        batchSize: 10,
+      }),
+    ).resolves.toEqual({
+      examined: 2,
+      expiredLots: 2,
+      expiredAmountKobo: 1500n,
+    });
 
     expect(systemActorService.getOrCreate).toHaveBeenCalledTimes(1);
     expect(prisma.loyaltyLedgerEntry.create).toHaveBeenCalledTimes(2);
@@ -90,21 +102,30 @@ function prismaStub({
     loyaltyLedgerEntry: {
       create: jest
         .fn()
-        .mockImplementation(async ({ data }: { data: { correlationId: string } }) => ({
-          id: `${data.correlationId}-ledger`,
-        })),
+        .mockImplementation(
+          async ({ data }: { data: { correlationId: string } }) => ({
+            id: `${data.correlationId}-ledger`,
+          }),
+        ),
     },
     creditExpiry: { create: jest.fn().mockResolvedValue({}) },
     creditLot: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     user: {
       findFirst: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' }),
+      create: jest
+        .fn()
+        .mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' }),
     },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
   };
 
   return {
-    $transaction: jest.fn().mockImplementation(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
     ...tx,
   };
 }

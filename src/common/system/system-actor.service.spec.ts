@@ -13,7 +13,9 @@ describe('SystemActorService', () => {
     });
     const service = new SystemActorService();
 
-    await expect(service.getOrCreate(prisma as never, 'tenant-id')).resolves.toEqual({
+    await expect(
+      service.getOrCreate(prisma as never, 'tenant-id'),
+    ).resolves.toEqual({
       id: 'system-user-id',
       tenantId: 'tenant-id',
     });
@@ -25,7 +27,9 @@ describe('SystemActorService', () => {
     const prisma = prismaStub();
     const service = new SystemActorService();
 
-    await expect(service.getOrCreate(prisma as never, 'tenant-id')).resolves.toEqual({
+    await expect(
+      service.getOrCreate(prisma as never, 'tenant-id'),
+    ).resolves.toEqual({
       id: 'created-system-user-id',
       tenantId: 'tenant-id',
     });

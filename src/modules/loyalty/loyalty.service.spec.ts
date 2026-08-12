@@ -861,7 +861,11 @@ describe('LoyaltyService redemption approvals', () => {
     );
 
     await expect(
-      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-expiry-1'),
+      service.getTransaction(
+        'tenant-1',
+        supervisorAuthContext(),
+        'ledger-expiry-1',
+      ),
     ).resolves.toMatchObject({
       transactionId: 'ledger-expiry-1',
       type: 'EXPIRY',

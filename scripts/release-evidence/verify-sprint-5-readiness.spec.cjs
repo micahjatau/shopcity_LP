@@ -35,9 +35,21 @@ function validDocument() {
       },
     ],
     trainingSignOffs: [
-      { role: 'cashier', reference: 'training/cashier', completedAt: '2026-08-13T09:00:00.000Z' },
-      { role: 'supervisor', reference: 'training/supervisor', completedAt: '2026-08-13T09:15:00.000Z' },
-      { role: 'owner-admin', reference: 'training/owner-admin', completedAt: '2026-08-13T09:30:00.000Z' },
+      {
+        role: 'cashier',
+        reference: 'training/cashier',
+        completedAt: '2026-08-13T09:00:00.000Z',
+      },
+      {
+        role: 'supervisor',
+        reference: 'training/supervisor',
+        completedAt: '2026-08-13T09:15:00.000Z',
+      },
+      {
+        role: 'owner-admin',
+        reference: 'training/owner-admin',
+        completedAt: '2026-08-13T09:30:00.000Z',
+      },
     ],
   };
 }
@@ -50,7 +62,10 @@ test('rejects missing mandatory gates', () => {
   const document = validDocument();
   delete document.gates.security;
 
-  assert.throws(() => validateReadinessDocument(document), /missing gate security/);
+  assert.throws(
+    () => validateReadinessDocument(document),
+    /missing gate security/,
+  );
 });
 
 test('rejects incomplete release-candidate stages', () => {

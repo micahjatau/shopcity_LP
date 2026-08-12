@@ -18,7 +18,9 @@ export class SystemActorService {
 
     if (existing) {
       if (existing.role !== UserRole.SYSTEM) {
-        throw new Error('existing system actor username is not bound to SYSTEM role');
+        throw new Error(
+          'existing system actor username is not bound to SYSTEM role',
+        );
       }
 
       if (existing.status !== UserStatus.ACTIVE) {

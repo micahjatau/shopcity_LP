@@ -8,11 +8,31 @@ const summaryPath = resolve(args.summary ?? 'tmp/k6-pilot-summary.json');
 const summary = JSON.parse(readFileSync(summaryPath, 'utf8'));
 
 assertThreshold(summary, 'http_req_failed', (metric) => metric.rate < 0.01);
-assertThreshold(summary, 'synthetic_failure_rate', (metric) => metric.rate < 0.01);
-assertTrend(summary, 'http_req_duration{scenario:card_lookup}', (metric) => metric['p(95)'] < 500);
-assertTrend(summary, 'http_req_duration{scenario:earn_checkout}', (metric) => metric['p(95)'] < 1200);
-assertTrend(summary, 'http_req_duration{scenario:redeem_checkout}', (metric) => metric['p(95)'] < 1200);
-assertCounter(summary, 'invariant_check_failures', (metric) => metric.count === 0);
+assertThreshold(
+  summary,
+  'synthetic_failure_rate',
+  (metric) => metric.rate < 0.01,
+);
+assertTrend(
+  summary,
+  'http_req_duration{scenario:card_lookup}',
+  (metric) => metric['p(95)'] < 500,
+);
+assertTrend(
+  summary,
+  'http_req_duration{scenario:earn_checkout}',
+  (metric) => metric['p(95)'] < 1200,
+);
+assertTrend(
+  summary,
+  'http_req_duration{scenario:redeem_checkout}',
+  (metric) => metric['p(95)'] < 1200,
+);
+assertCounter(
+  summary,
+  'invariant_check_failures',
+  (metric) => metric.count === 0,
+);
 
 console.log(`k6 summary validated: ${summaryPath}`);
 

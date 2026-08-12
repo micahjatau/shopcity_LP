@@ -37,6 +37,7 @@
 **Current assessment:** functionally mature but release-hardening incomplete.
 
 Already present:
+
 - NestJS/Fastify bootstrap, Helmet, CORS, versioning, global validation, request envelopes.
 - Prisma/PostgreSQL, Redis/BullMQ, Joi environment validation.
 - Pino logging.
@@ -44,6 +45,7 @@ Already present:
 - Static, integration, E2E, OpenAPI/client and architecture CI jobs.
 
 Carry into Sprint 5 rather than reopening Sprint 0:
+
 - production Docker image definition and image-build gate;
 - security scanning in CI;
 - staging/release certification on one immutable SHA;
@@ -95,17 +97,17 @@ Carry into Sprint 5 rather than reopening Sprint 0:
 
 ## Sprint 5 Scoring Rubric and Non-Negotiable Release Gates
 
-| Area | Weight |
-| --- | ---: |
-| Credit expiry execution and reminder correctness | 25 |
-| Observability, reconciliation and pilot monitoring | 15 |
-| Security hardening and scans | 15 |
-| Performance/load evidence | 10 |
-| Backup/restore/disaster recovery | 15 |
-| Container, deployment and rollback readiness | 10 |
-| Runbooks and training support | 5 |
-| Final production certification | 5 |
-| **Total** | **100** |
+| Area                                               |  Weight |
+| -------------------------------------------------- | ------: |
+| Credit expiry execution and reminder correctness   |      25 |
+| Observability, reconciliation and pilot monitoring |      15 |
+| Security hardening and scans                       |      15 |
+| Performance/load evidence                          |      10 |
+| Backup/restore/disaster recovery                   |      15 |
+| Container, deployment and rollback readiness       |      10 |
+| Runbooks and training support                      |       5 |
+| Final production certification                     |       5 |
+| **Total**                                          | **100** |
 
 A score of 90+ is an engineering PASS, but **production launch is still blocked** if any of these are false:
 
@@ -224,11 +226,13 @@ Do not create a new microservice or a second ledger. New files exist to isolate 
 ### Task 1: Freeze Sprint 5 Scope and Create the OpenSpec Change
 
 **Files:**
+
 - Create: `openspec/changes/sprint-5-hardening-and-pilot/**`
 - Modify: `docs/development/gitnexus-impact-tracker.md`
 - Modify: `docs/sprint-4-final-gate-evidence.md` only if current Sprint 4 certification evidence becomes available during this task
 
 **Interfaces:**
+
 - Consumes: TRD Sections 18, 20, 21, 22, 23, 24 and 25.
 - Produces: one accepted Sprint 5 change whose task list is the source of truth for execution.
 
@@ -294,6 +298,7 @@ git commit -m "docs: define sprint 5 hardening and pilot scope"
 ### Task 2: Add Explicit Credit-Expiry Evidence and a Non-Human System Actor
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/<timestamp>_sprint_5_credit_expiry/migration.sql`
 - Create: `src/common/system/system-actor.service.ts`
@@ -301,6 +306,7 @@ git commit -m "docs: define sprint 5 hardening and pilot scope"
 - Test: `test/credit-expiry-invariants.int-spec.ts`
 
 **Interfaces:**
+
 - Produces: `LedgerEntryType.EXPIRY` and one immutable `CreditExpiry` row per expired credit lot.
 - Produces: `SystemActorService.getOrCreate(client, tenantId)` returning a tenant-owned `SYSTEM` user for background ledger writes.
 - Consumes: existing `UserRole.SYSTEM`, `CreditLot`, `LoyaltyLedgerEntry`, audit and financial DB invariants.
@@ -414,6 +420,7 @@ git commit -m "feat: add immutable credit expiry evidence"
 ### Task 3: Implement the Replay-Safe Credit Expiry Transaction
 
 **Files:**
+
 - Create: `src/modules/credit-expiry/credit-expiry.module.ts`
 - Create: `src/modules/credit-expiry/credit-expiry.service.ts`
 - Create: `src/modules/credit-expiry/credit-expiry.types.ts`
@@ -509,6 +516,7 @@ git commit -m "feat: expire due credit lots safely"
 ### Task 4: Add the Daily Expiry Worker and 30-Day Aggregated Reminder Workflow
 
 **Files:**
+
 - Create: `src/jobs/credit-expiry.worker.ts`
 - Create: `src/jobs/credit-expiry.worker.spec.ts`
 - Create: `src/modules/credit-expiry/expiry-reminder.service.ts`
@@ -618,6 +626,7 @@ git commit -m "feat: add expiry worker and reminder workflow"
 ### Task 5: Integrate Expiry into Historical Reporting, Ledger Reads, SMS Templates, and Contracts
 
 **Files:**
+
 - Modify: `src/modules/reports/report-materializer.service.ts`
 - Modify: `src/modules/reports/report-materializer.service.spec.ts`
 - Modify: `src/modules/loyalty/loyalty.controller.ts`
@@ -630,6 +639,7 @@ git commit -m "feat: add expiry worker and reminder workflow"
 - Test: `test/openapi.int-spec.ts`
 
 **Interfaces:**
+
 - Reporting source adds expiry evidence with `{ creditLotId, amountKobo, expiredAt }`.
 - Public ledger transaction type enum adds `EXPIRY`.
 
@@ -695,6 +705,7 @@ git commit -m "feat: expose expiry in reports and contracts"
 ### Task 6: Add Production Observability, Reconciliation, and Pilot Operations Signals
 
 **Files:**
+
 - Create: `src/common/observability/sentry.ts`
 - Create: `src/common/observability/logging.ts`
 - Create: `src/modules/operations/operations.module.ts`
@@ -721,12 +732,30 @@ Response contains operational aggregates only:
 {
   release: string;
   generatedAt: string;
-  outbox: { pending: number; deadLettered: number; oldestPendingAgeSeconds: number | null };
-  sms: { failed24h: number; queued: number };
-  offlineSync: { rejected24h: number; retryable24h: number };
-  fraud: { openHigh: number; openTotal: number };
-  reports: { staleMaterializations: number };
-  ledger: { reconciliationOk: boolean; mismatchCount: number };
+  outbox: {
+    pending: number;
+    deadLettered: number;
+    oldestPendingAgeSeconds: number | null;
+  }
+  sms: {
+    failed24h: number;
+    queued: number;
+  }
+  offlineSync: {
+    rejected24h: number;
+    retryable24h: number;
+  }
+  fraud: {
+    openHigh: number;
+    openTotal: number;
+  }
+  reports: {
+    staleMaterializations: number;
+  }
+  ledger: {
+    reconciliationOk: boolean;
+    mismatchCount: number;
+  }
 }
 ```
 
@@ -781,6 +810,7 @@ git commit -m "feat: add pilot observability and reconciliation signals"
 ### Task 7: Produce a Reproducible Production Container and Release Metadata
 
 **Files:**
+
 - Create: `Dockerfile`
 - Create: `.dockerignore`
 - Modify: `.github/workflows/ci.yml`
@@ -789,6 +819,7 @@ git commit -m "feat: add pilot observability and reconciliation signals"
 - Modify: `docs/runbooks/rollback.md`
 
 **Interfaces:**
+
 - One immutable image can run either API or worker from the same build.
 
 - [ ] **Step 1: Create a multi-stage Node 22 image**
@@ -849,6 +880,7 @@ git commit -m "build: add production container artifact"
 ### Task 8: Add Security Certification Workflows
 
 **Files:**
+
 - Create: `.github/workflows/security.yml`
 - Create: `.github/workflows/zap.yml`
 - Modify: `.github/workflows/ci.yml`
@@ -856,6 +888,7 @@ git commit -m "build: add production container artifact"
 - Modify: `docs/runbooks/security-incident.md` or create it if absent
 
 **Interfaces:**
+
 - PR/release security gates: Gitleaks, CodeQL, Trivy.
 - Staging/manual dynamic gate: OWASP ZAP baseline.
 
@@ -903,6 +936,7 @@ git commit -m "ci: add sprint 5 security gates"
 ### Task 9: Build the k6 Pre-Release Performance Suite
 
 **Files:**
+
 - Create: `performance/k6/lib/auth.js`
 - Create: `performance/k6/lib/data.js`
 - Create: `performance/k6/card-lookup.js`
@@ -914,6 +948,7 @@ git commit -m "ci: add sprint 5 security gates"
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Tests consume only synthetic staging users/cards/receipts.
 - Receipt/idempotency generators guarantee unique legitimate values while deliberate duplicate scenarios are isolated.
 
@@ -969,6 +1004,7 @@ git commit -m "test: add sprint 5 k6 performance suite"
 ### Task 10: Automate Backup and Restore Verification and Perform the Pre-Launch Drill
 
 **Files:**
+
 - Create: `scripts/backup/backup-postgres.sh`
 - Create: `scripts/backup/restore-postgres.sh`
 - Create: `scripts/backup/verify-restored-database.ts`
@@ -1044,6 +1080,7 @@ git commit -m "ops: add backup and restore verification workflow"
 ### Task 11: Complete Operational Runbooks and Pilot Training Support
 
 **Files:**
+
 - Modify: `docs/runbooks/deployment.md`
 - Modify: `docs/runbooks/rollback.md`
 - Modify: `docs/runbooks/database-restore.md`
@@ -1061,6 +1098,7 @@ git commit -m "ops: add backup and restore verification workflow"
 - Create: `docs/operations/pilot-monitoring.md`
 
 **Interfaces:**
+
 - These documents point to real commands/endpoints/error codes already present; they do not invent manual SQL that mutates confirmed ledger history.
 
 - [ ] **Step 1: Expand deploy/rollback into executable runbooks**
@@ -1130,6 +1168,7 @@ git commit -m "docs: add sprint 5 pilot operations and training"
 ### Task 12: Create a Machine-Verifiable Production Readiness Gate
 
 **Files:**
+
 - Create: `docs/release/production-readiness-checklist.md`
 - Create: `docs/release-evidence/sprint-5/evidence.example.json`
 - Create: `scripts/release/verify-sprint5-readiness.cjs`
@@ -1222,6 +1261,7 @@ git commit -m "ops: add sprint 5 production readiness gate"
 ### Task 13: Final Sprint 5 Release Candidate Certification
 
 **Files:**
+
 - Modify: `docs/release-evidence/sprint-5/evidence.json`
 - Modify: `docs/release/production-readiness-checklist.md`
 - Modify: `docs/database/migration-tracker.md`
@@ -1230,6 +1270,7 @@ git commit -m "ops: add sprint 5 production readiness gate"
 - Complete: `openspec/changes/sprint-5-hardening-and-pilot/tasks.md`
 
 **Interfaces:**
+
 - Produces one immutable release-candidate SHA referenced by local evidence, GitHub Actions, security scans, performance results, restore drill and sign-off.
 
 - [ ] **Step 1: Freeze the release candidate**
@@ -1351,6 +1392,7 @@ Because this evidence commit changes the SHA, distinguish the **tested applicati
 ### Checkpoint A — 25%: expiry foundation
 
 Required before moving on:
+
 - `EXPIRY` ledger type + immutable `CreditExpiry` evidence exists.
 - System actor is non-human and cannot be assigned through user APIs.
 - Full, partial and replay expiry integration tests pass.
@@ -1359,6 +1401,7 @@ Required before moving on:
 ### Checkpoint B — 45%: expiry/reminders operational
 
 Required:
+
 - Daily expiry worker is multi-worker safe.
 - 30-day reminder aggregates one customer/day and is replay-safe.
 - Expiry vs redemption concurrency passes.
@@ -1368,6 +1411,7 @@ Required:
 ### Checkpoint C — 65%: production hardening
 
 Required:
+
 - Pino release metadata + redaction and Sentry integration.
 - Pilot operations/reconciliation endpoint.
 - Docker image builds API + worker.
@@ -1377,6 +1421,7 @@ Required:
 ### Checkpoint D — 80%: capacity and recovery
 
 Required:
+
 - k6 suite meets agreed pilot thresholds.
 - Provider-managed backup policy is enabled/documented.
 - Automated backup/restore verification scripts pass.
@@ -1385,6 +1430,7 @@ Required:
 ### Checkpoint E — 90%: pilot-ready engineering
 
 Required:
+
 - All runbooks complete and executable.
 - Cashier/supervisor/owner training material complete.
 - Pilot daily monitoring and escalation process complete.
@@ -1393,6 +1439,7 @@ Required:
 ### Final 100% release certification
 
 Required regardless of numeric score:
+
 - exact release candidate/image digest deployed to staging;
 - security, k6, Bruno, health and reconciliation evidence green;
 - restore + rollback rehearsal passed;

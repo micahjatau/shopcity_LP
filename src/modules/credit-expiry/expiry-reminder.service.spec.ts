@@ -6,7 +6,9 @@ describe('ExpiryReminderService', () => {
     const tx = {
       outboxEvent: { create: jest.fn().mockResolvedValue({ id: 'outbox-1' }) },
       smsMessage: { create: jest.fn().mockResolvedValue({ id: 'sms-1' }) },
-      creditExpiryReminder: { create: jest.fn().mockResolvedValue({ id: 'reminder-1' }) },
+      creditExpiryReminder: {
+        create: jest.fn().mockResolvedValue({ id: 'reminder-1' }),
+      },
     };
     const prisma = {
       $queryRaw: jest.fn().mockResolvedValue([
@@ -19,7 +21,12 @@ describe('ExpiryReminderService', () => {
           latestExpiresAt: new Date('2027-08-01T10:00:00.000Z'),
         },
       ]),
-      $transaction: jest.fn().mockImplementation(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          async (callback: (client: typeof tx) => Promise<unknown>) =>
+            callback(tx),
+        ),
     };
     const service = new ExpiryReminderService(prisma as never);
     const now = new Date('2027-07-02T00:00:00.000Z');
@@ -41,16 +48,30 @@ describe('ExpiryReminderService', () => {
   });
 
   it('rejects invalid sweep inputs', async () => {
-    const service = new ExpiryReminderService({ $queryRaw: jest.fn() } as never);
+    const service = new ExpiryReminderService({
+      $queryRaw: jest.fn(),
+    } as never);
 
     await expect(
-      service.enqueueDueReminders({ now: new Date('invalid'), reminderDays: 30, batchSize: 10 }),
+      service.enqueueDueReminders({
+        now: new Date('invalid'),
+        reminderDays: 30,
+        batchSize: 10,
+      }),
     ).rejects.toThrow(/valid Date/i);
     await expect(
-      service.enqueueDueReminders({ now: new Date(), reminderDays: 0, batchSize: 10 }),
+      service.enqueueDueReminders({
+        now: new Date(),
+        reminderDays: 0,
+        batchSize: 10,
+      }),
     ).rejects.toThrow(/positive integer/i);
     await expect(
-      service.enqueueDueReminders({ now: new Date(), reminderDays: 30, batchSize: 0 }),
+      service.enqueueDueReminders({
+        now: new Date(),
+        reminderDays: 30,
+        batchSize: 0,
+      }),
     ).rejects.toThrow(/positive integer/i);
   });
 });

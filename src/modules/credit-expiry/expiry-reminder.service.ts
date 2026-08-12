@@ -42,10 +42,14 @@ export class ExpiryReminderService {
       throw new BadRequestException('batchSize must be a positive integer');
     }
 
-    const reminderDate = startOfUtcDay(addDaysUtc(input.now, input.reminderDays));
+    const reminderDate = startOfUtcDay(
+      addDaysUtc(input.now, input.reminderDays),
+    );
     const reminderDateEnd = addDaysUtc(reminderDate, 1);
 
-    const candidates = await this.prismaService.$queryRaw<ReminderCandidate[]>(Prisma.sql`
+    const candidates = await this.prismaService.$queryRaw<
+      ReminderCandidate[]
+    >(Prisma.sql`
       SELECT
         cl."tenantId",
         cl."customerId",

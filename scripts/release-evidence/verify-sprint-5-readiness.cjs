@@ -61,7 +61,10 @@ function isImageDigest(value) {
 
 function validateReadinessDocument(document) {
   assert(document.schemaVersion === '1', 'schemaVersion must be "1"');
-  assert(isSha(document.releaseSha), 'releaseSha must be a 40-character git SHA');
+  assert(
+    isSha(document.releaseSha),
+    'releaseSha must be a 40-character git SHA',
+  );
   assert(
     isImageDigest(document.imageDigest),
     'imageDigest must be an OCI image reference ending with @sha256:<64 hex>',
@@ -107,14 +110,20 @@ function validateReadinessDocument(document) {
   for (const approval of document.approvals) {
     assert(isNonEmptyString(approval.role), 'approval.role is required');
     assert(isNonEmptyString(approval.name), 'approval.name is required');
-    assert(isNonEmptyString(approval.approvedAt), 'approval.approvedAt is required');
+    assert(
+      isNonEmptyString(approval.approvedAt),
+      'approval.approvedAt is required',
+    );
     assert(
       !Number.isNaN(new Date(approval.approvedAt).getTime()),
       'approval.approvedAt must be a valid ISO datetime',
     );
   }
 
-  assert(Array.isArray(document.trainingSignOffs), 'trainingSignOffs must be an array');
+  assert(
+    Array.isArray(document.trainingSignOffs),
+    'trainingSignOffs must be an array',
+  );
   assert(
     document.trainingSignOffs.some((entry) => entry.role === 'cashier'),
     'trainingSignOffs must include cashier sign-off',
@@ -156,7 +165,8 @@ function validateEvidenceBundle(evidenceDir, document) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const evidencePath = resolve(
-    args.evidence ?? 'docs/release-evidence/sprint-5-pilot/readiness.example.json',
+    args.evidence ??
+      'docs/release-evidence/sprint-5-pilot/readiness.example.json',
   );
   const evidenceDir = resolve(
     args['evidence-dir'] ?? 'docs/release-evidence/sprint-5-pilot',

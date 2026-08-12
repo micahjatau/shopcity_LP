@@ -46,7 +46,10 @@ export class CreditExpiryService {
             return { examined: 0, expiredLots: 0, expiredAmountKobo: 0n };
           }
 
-          let systemActorByTenant = new Map<string, { id: string; tenantId: string }>();
+          let systemActorByTenant = new Map<
+            string,
+            { id: string; tenantId: string }
+          >();
           let expiredLots = 0;
           let expiredAmountKobo = 0n;
 

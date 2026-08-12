@@ -46,14 +46,29 @@ describe('credit expiry service (int)', () => {
   }, 120000);
 
   it('expires a full remaining lot exactly once', async () => {
-    const lot = await createEarnCreditLot(prisma, fixture, 20_000n, 'FULL-EXPIRY');
+    const lot = await createEarnCreditLot(
+      prisma,
+      fixture,
+      20_000n,
+      'FULL-EXPIRY',
+    );
 
     await expect(
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
-    ).resolves.toEqual({ examined: 1, expiredLots: 1, expiredAmountKobo: 20_000n });
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
+    ).resolves.toEqual({
+      examined: 1,
+      expiredLots: 1,
+      expiredAmountKobo: 20_000n,
+    });
 
     await expect(
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
     ).resolves.toEqual({ examined: 0, expiredLots: 0, expiredAmountKobo: 0n });
 
     const refreshedLot = await prisma.creditLot.findUniqueOrThrow({
@@ -68,12 +83,30 @@ describe('credit expiry service (int)', () => {
   }, 120000);
 
   it('expires only the remaining amount on a partially consumed lot', async () => {
-    const lot = await createEarnCreditLot(prisma, fixture, 20_000n, 'PARTIAL-EXPIRY');
-    await createConfirmedRedemptionAgainstLot(prisma, fixture, lot, 5_000n, 'PARTIAL-RED');
+    const lot = await createEarnCreditLot(
+      prisma,
+      fixture,
+      20_000n,
+      'PARTIAL-EXPIRY',
+    );
+    await createConfirmedRedemptionAgainstLot(
+      prisma,
+      fixture,
+      lot,
+      5_000n,
+      'PARTIAL-RED',
+    );
 
     await expect(
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
-    ).resolves.toEqual({ examined: 1, expiredLots: 1, expiredAmountKobo: 15_000n });
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
+    ).resolves.toEqual({
+      examined: 1,
+      expiredLots: 1,
+      expiredAmountKobo: 15_000n,
+    });
 
     const refreshedLot = await prisma.creditLot.findUniqueOrThrow({
       where: { tenantId_id: { tenantId: fixture.tenantId, id: lot.id } },
@@ -87,8 +120,19 @@ describe('credit expiry service (int)', () => {
   }, 120000);
 
   it('skips fully consumed and future lots', async () => {
-    const consumedLot = await createEarnCreditLot(prisma, fixture, 9_000n, 'CONSUMED-LOT');
-    await createConfirmedRedemptionAgainstLot(prisma, fixture, consumedLot, 9_000n, 'FULL-RED');
+    const consumedLot = await createEarnCreditLot(
+      prisma,
+      fixture,
+      9_000n,
+      'CONSUMED-LOT',
+    );
+    await createConfirmedRedemptionAgainstLot(
+      prisma,
+      fixture,
+      consumedLot,
+      9_000n,
+      'FULL-RED',
+    );
     await createEarnCreditLot(
       prisma,
       fixture,
@@ -99,16 +143,30 @@ describe('credit expiry service (int)', () => {
     );
 
     await expect(
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
     ).resolves.toEqual({ examined: 0, expiredLots: 0, expiredAmountKobo: 0n });
   }, 120000);
 
   it('is safe under concurrent sweeps for the same due lot', async () => {
-    const lot = await createEarnCreditLot(prisma, fixture, 11_000n, 'CONCURRENT-EXPIRY');
+    const lot = await createEarnCreditLot(
+      prisma,
+      fixture,
+      11_000n,
+      'CONCURRENT-EXPIRY',
+    );
 
     const [first, second] = await Promise.all([
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
-      service.expireDueCredit({ now: new Date('2027-08-01T10:00:00.000Z'), batchSize: 10 }),
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
+      service.expireDueCredit({
+        now: new Date('2027-08-01T10:00:00.000Z'),
+        batchSize: 10,
+      }),
     ]);
 
     expect([first, second]).toEqual(
@@ -133,7 +191,9 @@ async function createBaseFixture(prisma: PrismaClient) {
   const customerId = randomUUID();
   const cardId = randomUUID();
 
-  await prisma.tenant.create({ data: { id: tenantId, name: 'Credit Expiry Tenant' } });
+  await prisma.tenant.create({
+    data: { id: tenantId, name: 'Credit Expiry Tenant' },
+  });
   await prisma.branch.create({
     data: {
       id: branchId,
@@ -205,7 +265,7 @@ async function createEarnCreditLot(
   const receiptId = randomUUID();
   const ledgerEntryId = randomUUID();
   const lotId = randomUUID();
-  
+
   const receiptNumber = `${prefix}-${receiptId.slice(0, 8)}`;
 
   await prisma.$transaction(async (tx) => {

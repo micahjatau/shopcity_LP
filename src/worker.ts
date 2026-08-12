@@ -42,7 +42,11 @@ export async function bootstrap() {
     reportMaterializer,
   );
   const creditExpiryRuntime = new CreditExpiryWorkerRuntime(
-    new CreditExpiryService(prisma, new AuditService(prisma), new SystemActorService()),
+    new CreditExpiryService(
+      prisma,
+      new AuditService(prisma),
+      new SystemActorService(),
+    ),
     new ExpiryReminderService(prisma),
     loadCreditExpiryWorkerConfig(),
   );

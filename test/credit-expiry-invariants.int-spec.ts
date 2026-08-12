@@ -145,7 +145,9 @@ describe('credit expiry invariants (int)', () => {
           effectiveAt: lot.expiresAt,
         },
       }),
-    ).rejects.toThrow(/expiry ledger entry must reference exactly one credit expiry row/i);
+    ).rejects.toThrow(
+      /expiry ledger entry must reference exactly one credit expiry row/i,
+    );
   }, 120000);
 
   it('prevents credit expiry mutation and duplicate lot expiry evidence', async () => {
@@ -343,7 +345,14 @@ async function createBaseFixture(prisma: PrismaClient) {
     },
   });
 
-  return { tenantId, branchId, cashierUserId, systemUserId, customerId, cardId };
+  return {
+    tenantId,
+    branchId,
+    cashierUserId,
+    systemUserId,
+    customerId,
+    cardId,
+  };
 }
 
 async function createEarnCreditLot(
