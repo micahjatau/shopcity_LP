@@ -589,7 +589,9 @@ describe('offline earn sync foundation (int)', () => {
         purchaseAmountKobo: 1_000_000,
         occurredAt: offlineRecord.occurredAtLocal,
       }),
-    ).rejects.toThrow(/receipt/i);
+    ).rejects.toMatchObject({
+      response: { code: 'RECEIPT_ALREADY_USED' },
+    });
 
     await expectSingleFinancialEffect(
       offlineRecord.receiptNumber,
@@ -611,7 +613,7 @@ describe('offline earn sync foundation (int)', () => {
       throw new Error('Offline request must contain a record');
     }
 
-    await Promise.allSettled([
+    const settled = await Promise.allSettled([
       loyaltyService.earn(tenant.id, fixture.actor, randomUUID(), {
         posReceiptNumber: offlineRecord.receiptNumber,
         cardSerialNumber: fixture.card.barcodeValue,
@@ -620,6 +622,8 @@ describe('offline earn sync foundation (int)', () => {
       }),
       offlineSyncService.earnBatch(tenant.id, fixture.actor, request),
     ]);
+
+    expectRecognizedOnlineOfflineRaceOutcome(settled);
 
     await expectSingleFinancialEffect(
       offlineRecord.receiptNumber,
@@ -651,10 +655,12 @@ describe('offline earn sync foundation (int)', () => {
       ],
     };
 
-    await Promise.allSettled([
+    const settled = await Promise.allSettled([
       offlineSyncService.earnBatch(tenant.id, fixture.actor, first),
       offlineSyncService.earnBatch(tenant.id, fixture.actor, second),
     ]);
+
+    expectRecognizedDistinctOfflineRaceOutcome(settled);
 
     await expectSingleFinancialEffect(
       firstRecord.receiptNumber,
@@ -724,6 +730,82 @@ describe('offline earn sync foundation (int)', () => {
     expect(lotCount).toBe(1);
   }
 });
+
+function expectRecognizedOnlineOfflineRaceOutcome(
+  settled: [
+    PromiseSettledResult<unknown>,
+    PromiseSettledResult<{ records: Array<{ status: string; errorCode: string | null }> }>,
+  ],
+): void {
+  const [onlineResult, offlineResult] = settled;
+
+  if (onlineResult.status === 'fulfilled') {
+    expect(offlineResult.status).toBe('fulfilled');
+    if (offlineResult.status !== 'fulfilled') {
+      throw offlineResult.reason;
+    }
+
+    expect(offlineResult.value.records[0]).toMatchObject({
+      status: 'REJECTED',
+      errorCode: 'RECEIPT_ALREADY_USED',
+      retryable: false,
+    });
+    return;
+  }
+
+  expect(readErrorCode(onlineResult.reason)).toBe('RECEIPT_ALREADY_USED');
+  expect(offlineResult.status).toBe('fulfilled');
+  if (offlineResult.status !== 'fulfilled') {
+    throw offlineResult.reason;
+  }
+
+  expect(offlineResult.value.records[0]).toMatchObject({
+    status: 'CONFIRMED',
+    errorCode: null,
+    retryable: false,
+  });
+}
+
+function expectRecognizedDistinctOfflineRaceOutcome(
+  settled: [
+    PromiseSettledResult<{ records: Array<{ status: string; errorCode: string | null; retryable?: boolean }> }>,
+    PromiseSettledResult<{ records: Array<{ status: string; errorCode: string | null; retryable?: boolean }> }>,
+  ],
+): void {
+  const outcomes = settled.map((result) => {
+    if (result.status !== 'fulfilled') {
+      throw result.reason;
+    }
+
+    return result.value.records[0];
+  });
+
+  const confirmed = outcomes.filter((record) => record?.status === 'CONFIRMED');
+  const rejectedDuplicates = outcomes.filter(
+    (record) =>
+      record?.status === 'REJECTED' &&
+      record.errorCode === 'RECEIPT_ALREADY_USED' &&
+      record.retryable === false,
+  );
+
+  expect(confirmed).toHaveLength(1);
+  expect(rejectedDuplicates).toHaveLength(1);
+}
+
+function readErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return null;
+  }
+
+  const response = (error as { response?: unknown }).response;
+  if (!response || typeof response !== 'object' || !('code' in response)) {
+    return null;
+  }
+
+  return typeof (response as { code?: unknown }).code === 'string'
+    ? ((response as { code: string }).code ?? null)
+    : null;
+}
 
 async function createStaffUser(
   prisma: PrismaService,

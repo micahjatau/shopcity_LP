@@ -2,7 +2,13 @@
 
 Release candidate SHA: _pending final commit and CI run_
 
-Validation date: 2026-08-11
+Validation date: 2026-08-12
+
+## Review 44 closure local validation
+
+- `npx jest src/modules/offline-sync/offline-sync.service.spec.ts test/offline-earn-sync.int-spec.ts test/outbox-worker-recovery.int-spec.ts --config ./test/jest-int.json --runInBand`
+- `npm run typecheck`
+- `npm run openspec:validate`
 
 ## Review 43 closure local validation
 
@@ -48,6 +54,7 @@ Validation date: 2026-08-11
 ## Notes
 
 - Review 43 closure supersedes the earlier pending historical reporting, SMS, offline replay, online/offline receipt-race, and report-refresh evidence gaps.
+- Review 44 implementation added explicit terminal `report.refresh` recovery exclusion coverage and deterministic loser-outcome assertions for same-receipt races.
 - Local `detect_changes` before final commit reported HIGH risk across reporting and offline execution flows.
 - The runtime validation for Bruno required starting the app in production mode with docs disabled.
-- Capture the final immutable SHA and GitHub Actions run URL after commit and push.
+- Remaining Sprint 4 work is certification-only: capture the final immutable SHA and GitHub Actions run URL after commit and push.

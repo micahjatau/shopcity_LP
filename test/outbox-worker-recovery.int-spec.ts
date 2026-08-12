@@ -197,39 +197,10 @@ describe('outbox worker recovery (int)', () => {
     );
 
     try {
-      const tenant = await prisma.tenant.create({
-        data: {
-          id: randomUUID(),
-          name: 'Report Refresh Tenant',
-          status: 'ACTIVE',
-        },
-      });
-      const branch = await prisma.branch.create({
-        data: {
-          id: randomUUID(),
-          tenantId: tenant.id,
-          name: 'Report Refresh Branch',
-          timezone: 'Africa/Lagos',
-          receiptWeekStartDay: 1,
-          status: 'ACTIVE',
-        },
-      });
-      const outboxEvent = await prisma.outboxEvent.create({
-        data: {
-          tenantId: tenant.id,
-          aggregateType: 'report',
-          aggregateId: 'executive-summary',
-          eventType: 'report.refresh',
-          payload: {
-            version: 1,
-            report: 'executive-summary',
-            branchId: null,
-            timezone: 'Africa/Lagos',
-          },
-          status: 'PENDING',
-          nextAttemptAt: new Date(Date.now() - 1000),
-        },
-      });
+      const { tenant, branch, outboxEvent } = await createReportRefreshFixture(
+        prisma,
+        'durable',
+      );
 
       await runtime.start();
 
@@ -293,6 +264,109 @@ describe('outbox worker recovery (int)', () => {
           }),
         ]),
       );
+    } finally {
+      await runtime.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('excludes completed report refresh events from recovery', async () => {
+    const redisEnv = await createRedisTestEnvironment();
+    const reportMaterializer = new ReportMaterializerService(
+      prisma,
+      new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
+    );
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      loadWorkerConfig({
+        ...process.env,
+        REDIS_URL: redisEnv.redisUrl,
+      }),
+      new DeterministicSmsProvider(),
+      undefined,
+      reportMaterializer,
+    );
+
+    try {
+      const { tenant, outboxEvent } = await createReportRefreshFixture(
+        prisma,
+        'completed-exclusion',
+        {
+          status: 'COMPLETED',
+          processedAt: new Date(Date.now() - 5_000),
+          nextAttemptAt: null,
+        },
+      );
+
+      await runtime.start();
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+      const [event, materializationStates] = await Promise.all([
+        prisma.outboxEvent.findUnique({
+          where: { tenantId_id: { tenantId: tenant.id, id: outboxEvent.id } },
+        }),
+        prisma.reportMaterializationState.findMany({
+          where: { tenantId: tenant.id },
+        }),
+      ]);
+
+      expect(event).toMatchObject({
+        status: 'COMPLETED',
+        processedAt: outboxEvent.processedAt,
+      });
+      expect(materializationStates).toHaveLength(0);
+    } finally {
+      await runtime.stop();
+      await redisEnv.close();
+    }
+  }, 120000);
+
+  it('excludes dead-lettered report refresh events from recovery', async () => {
+    const redisEnv = await createRedisTestEnvironment();
+    const reportMaterializer = new ReportMaterializerService(
+      prisma,
+      new ConfigService({ SHOPCITY_TIMEZONE: 'Africa/Lagos' }),
+    );
+    const runtime = new OutboxWorkerRuntime(
+      prisma,
+      loadWorkerConfig({
+        ...process.env,
+        REDIS_URL: redisEnv.redisUrl,
+      }),
+      new DeterministicSmsProvider(),
+      undefined,
+      reportMaterializer,
+    );
+
+    try {
+      const deadLetteredAt = new Date(Date.now() - 5_000);
+      const { tenant, outboxEvent } = await createReportRefreshFixture(
+        prisma,
+        'dead-lettered-exclusion',
+        {
+          status: 'FAILED',
+          deadLetteredAt,
+          nextAttemptAt: null,
+        },
+      );
+
+      await runtime.start();
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+      const [event, materializationStates] = await Promise.all([
+        prisma.outboxEvent.findUnique({
+          where: { tenantId_id: { tenantId: tenant.id, id: outboxEvent.id } },
+        }),
+        prisma.reportMaterializationState.findMany({
+          where: { tenantId: tenant.id },
+        }),
+      ]);
+
+      expect(event).toMatchObject({
+        status: 'FAILED',
+        deadLetteredAt,
+      });
+      expect(materializationStates).toHaveLength(0);
     } finally {
       await runtime.stop();
       await redisEnv.close();
@@ -593,6 +667,60 @@ async function findSmsMessageByReceipt(
     where: { tenantId, receiptId },
     orderBy: { createdAt: 'desc' },
   });
+}
+
+async function createReportRefreshFixture(
+  prismaService: PrismaService,
+  suffix: string,
+  eventOverrides: Partial<{
+    status: 'PENDING' | 'FAILED' | 'PUBLISHED' | 'COMPLETED';
+    processedAt: Date | null;
+    publishedAt: Date | null;
+    nextAttemptAt: Date | null;
+    deadLetteredAt: Date | null;
+  }> = {},
+) {
+  const tenant = await prismaService.tenant.create({
+    data: {
+      id: randomUUID(),
+      name: `Report Refresh Tenant ${suffix}`,
+      status: 'ACTIVE',
+    },
+  });
+
+  const branch = await prismaService.branch.create({
+    data: {
+      id: randomUUID(),
+      tenantId: tenant.id,
+      name: `Report Refresh Branch ${suffix}`,
+      timezone: 'Africa/Lagos',
+      receiptWeekStartDay: 1,
+      status: 'ACTIVE',
+    },
+  });
+
+  const outboxEvent = await prismaService.outboxEvent.create({
+    data: {
+      tenantId: tenant.id,
+      aggregateType: 'report',
+      aggregateId: 'executive-summary',
+      eventType: 'report.refresh',
+      payload: {
+        version: 1,
+        report: 'executive-summary',
+        branchId: null,
+        timezone: 'Africa/Lagos',
+      },
+      status: eventOverrides.status ?? 'PENDING',
+      processedAt: eventOverrides.processedAt,
+      publishedAt: eventOverrides.publishedAt,
+      nextAttemptAt:
+        eventOverrides.nextAttemptAt ?? new Date(Date.now() - 1_000),
+      deadLetteredAt: eventOverrides.deadLetteredAt ?? null,
+    },
+  });
+
+  return { tenant, branch, outboxEvent };
 }
 
 async function createEarnFixture(prismaService: PrismaService, suffix: string) {
