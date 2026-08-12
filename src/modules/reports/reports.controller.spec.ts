@@ -6,7 +6,7 @@ import { ReportsService } from './reports.service';
 
 describe('ReportsController', () => {
   it('returns CSV export headers and body', async () => {
-    const reportsService = reportsServiceStub();
+    const reportsService = reportsServiceStub().service;
     const exportService = exportServiceStub();
     const controller = new ReportsController(
       reportsService,
@@ -51,7 +51,7 @@ describe('ReportsController', () => {
     ).resolves.toMatchObject({
       release: { version: '1.2.3', sha: 'abc123' },
     });
-    expect(reportsService.getPilotOperationsSummary).toHaveBeenCalledWith(
+    expect(getPilotOperationsSummary).toHaveBeenCalledWith(
       'tenant-1',
       adminContext(),
     );
@@ -93,29 +93,37 @@ function adminContext() {
   };
 }
 
-function reportsServiceStub(): ReportsService {
+function reportsServiceStub(): {
+  service: ReportsService;
+  getPilotOperationsSummary: jest.Mock;
+} {
+  const getPilotOperationsSummary = jest.fn().mockResolvedValue({
+    release: { version: '1.2.3', sha: 'abc123', sentryConfigured: true },
+    generatedAt: '2026-08-13T00:00:00.000Z',
+    outbox: { backlogCount: 1, staleCount: 0 },
+    sms: { failedCount: 0 },
+    offlineSync: { failureCount: 0 },
+    fraud: { openCount: 0 },
+    reports: { staleCount: 0 },
+    reconciliation: { healthy: true, mismatchCount: 0 },
+  });
+
   return {
-    listExecutiveSummary: jest.fn().mockResolvedValue({
-      scope: 'TENANT',
-      scopeKey: 'tenant-1',
-      branchId: null,
-      timezone: 'Africa/Lagos',
-      items: [],
-    }),
-    getPilotOperationsSummary: jest.fn().mockResolvedValue({
-      release: { version: '1.2.3', sha: 'abc123', sentryConfigured: true },
-      generatedAt: '2026-08-13T00:00:00.000Z',
-      outbox: { backlogCount: 1, staleCount: 0 },
-      sms: { failedCount: 0 },
-      offlineSync: { failureCount: 0 },
-      fraud: { openCount: 0 },
-      reports: { staleCount: 0 },
-      reconciliation: { healthy: true, mismatchCount: 0 },
-    }),
-    listLiabilityAgeing: jest.fn(),
-    listCustomerPerformance: jest.fn(),
-    listMaterializationState: jest.fn(),
-  } as unknown as ReportsService;
+    service: {
+      listExecutiveSummary: jest.fn().mockResolvedValue({
+        scope: 'TENANT',
+        scopeKey: 'tenant-1',
+        branchId: null,
+        timezone: 'Africa/Lagos',
+        items: [],
+      }),
+      getPilotOperationsSummary,
+      listLiabilityAgeing: jest.fn(),
+      listCustomerPerformance: jest.fn(),
+      listMaterializationState: jest.fn(),
+    } as unknown as ReportsService,
+    getPilotOperationsSummary,
+  };
 }
 
 function exportServiceStub() {

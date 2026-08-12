@@ -61,7 +61,7 @@ jobs:
             --build-arg RELEASE_SHA="${GITHUB_SHA}" \
             --build-arg RELEASE_VERSION="${GITHUB_REF_NAME}" \
             -t shopcity-lp:${GITHUB_SHA} .
-      - uses: aquasecurity/trivy-action@v0.29.0
+      - uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: shopcity-lp:${{ github.sha }}
           format: table
