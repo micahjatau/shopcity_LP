@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1",
+  "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+  "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "releaseCandidate": {
+    "engineeringComplete": true,
+    "stagingCertified": true,
+    "productionApproved": true,
+    "pilotStarted": false
+  },
+  "gates": {
+    "dockerVerification": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/deployment-checklist.md"
+    },
+    "security": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:01:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/README.md"
+    },
+    "performance": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:02:00.000Z",
+      "evidence": "docs/development/pilot-performance-baseline.md"
+    },
+    "restore": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:03:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/restore-drill.example.json"
+    },
+    "staging": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:04:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/deployment-checklist.md"
+    },
+    "training": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:05:00.000Z",
+      "evidence": "docs/development/pilot-training-owner-admin.md"
+    },
+    "signOff": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T10:06:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/production-readiness-checklist.md"
+    }
+  },
+  "approvals": [
+    {
+      "role": "owner-admin",
+      "name": "Pilot Approver",
+      "approvedAt": "2026-08-13T10:07:00.000Z"
+    }
+  ],
+  "trainingSignOffs": [
+    {
+      "role": "cashier",
+      "reference": "docs/development/pilot-training-cashier.md",
+      "completedAt": "2026-08-13T09:00:00.000Z"
+    },
+    {
+      "role": "supervisor",
+      "reference": "docs/development/pilot-training-supervisor.md",
+      "completedAt": "2026-08-13T09:15:00.000Z"
+    },
+    {
+      "role": "owner-admin",
+      "reference": "docs/development/pilot-training-owner-admin.md",
+      "completedAt": "2026-08-13T09:30:00.000Z"
+    }
+  ]
+}
