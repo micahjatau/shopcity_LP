@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-13
+goal: Deliver Sprint 5 hardening and pilot readiness by adding expiry execution/reminders, operational observability, security/performance/recovery evidence, and release certification on one immutable artifact.

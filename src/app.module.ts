@@ -30,6 +30,7 @@ import { AdjustmentsModule } from './modules/adjustments/adjustments.module';
 import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { FraudModule } from './modules/fraud/fraud.module';
+import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { FraudModule } from './modules/fraud/fraud.module';
     AdjustmentsModule,
     OfflineSyncModule,
     FraudModule,
+    CreditExpiryModule,
     ReportsModule,
     ApprovalsModule,
     AuditModule,

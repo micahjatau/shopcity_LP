@@ -78,6 +78,7 @@ enum LedgerEntryType {
   REDEEM
   REVERSAL
   ADJUSTMENT
+  EXPIRY
 }
 
 enum LedgerEntryDirection {
@@ -166,6 +167,7 @@ model Tenant {
   receipts               Receipt[]
   ledgerEntries          LoyaltyLedgerEntry[]
   creditLots             CreditLot[]
+  creditExpiries         CreditExpiry[]
   redemptions            Redemption[]
   redemptionAllocations  RedemptionAllocation[]
   allocationRestorations AllocationRestoration[]
@@ -317,6 +319,7 @@ model Customer {
   receipts             Receipt[]
   ledgerEntries        LoyaltyLedgerEntry[]
   creditLots           CreditLot[]
+  creditExpiries       CreditExpiry[]
   redemptions          Redemption[]
   adjustments          Adjustment[]
 
@@ -425,6 +428,7 @@ model LoyaltyLedgerEntry {
   reversesEntry          LoyaltyLedgerEntry?     @relation("LedgerReversal", fields: [tenantId, reversesEntryId], references: [tenantId, id], onDelete: Restrict)
   reversedByEntries      LoyaltyLedgerEntry[]    @relation("LedgerReversal")
   creditLot              CreditLot?
+  creditExpiry           CreditExpiry?
   redemption             Redemption?             @relation("RedemptionLedgerEntry")
   adjustment             Adjustment?             @relation("AdjustmentLedgerEntry")
   redemptionAllocations  RedemptionAllocation[]  @relation("RedemptionAllocationLedgerEntry")
@@ -450,11 +454,33 @@ model CreditLot {
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   customer              Customer               @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   earnLedgerEntry       LoyaltyLedgerEntry     @relation(fields: [tenantId, earnLedgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  creditExpiry          CreditExpiry?
   redemptionAllocations RedemptionAllocation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, earnLedgerEntryId])
   @@index([tenantId, customerId, expiresAt])
+}
+
+model CreditExpiry {
+  id            String             @id @default(uuid())
+  tenantId      String
+  customerId    String
+  creditLotId   String
+  ledgerEntryId String             @unique
+  amountKobo    BigInt
+  expiredAt     DateTime
+  createdAt     DateTime           @default(now())
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer      Customer           @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  creditLot     CreditLot          @relation(fields: [tenantId, creditLotId], references: [tenantId, id], onDelete: Restrict)
+  ledgerEntry   LoyaltyLedgerEntry @relation(fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, creditLotId])
+  @@unique([tenantId, ledgerEntryId])
+  @@index([tenantId, expiredAt])
+  @@index([tenantId, customerId, expiredAt])
 }
 
 model Redemption {
