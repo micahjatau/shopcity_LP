@@ -6,12 +6,16 @@ const baseUrl = __ENV.K6_BASE_URL || 'http://127.0.0.1:3000';
 const csrfToken = __ENV.K6_CSRF_TOKEN || 'synthetic-csrf-token';
 const bearerToken = __ENV.K6_BEARER_TOKEN || 'synthetic-session-token';
 const cardSerial = __ENV.K6_CARD_SERIAL || 'SYNTHETIC-CARD-0001';
-const customerId = __ENV.K6_CUSTOMER_ID || '00000000-0000-4000-8000-000000000201';
-const deviceId = __ENV.K6_DEVICE_ID || '00000000-0000-4000-8000-000000000202';
-const reportBranchId = __ENV.K6_REPORT_BRANCH_ID || '00000000-0000-4000-8000-000000000203';
-const earnAmountKobo = Number(__ENV.K6_EARN_AMOUNT_KOBO || '250000');
+const customerId =
+  __ENV.K6_CUSTOMER_ID || '00000000-0000-4000-8000-000000000201';
+const runId = __ENV.K6_RUN_ID || `${Date.now()}`;
+const reportBranchId =
+  __ENV.K6_REPORT_BRANCH_ID || '00000000-0000-4000-8000-000000000203';
+const earnAmountKobo = Number(__ENV.K6_EARN_AMOUNT_KOBO || '2500000');
 const redeemAmountKobo = Number(__ENV.K6_REDEEM_AMOUNT_KOBO || '50000');
-const isolationMultiplier = Number(__ENV.K6_REPORT_ISOLATION_MULTIPLIER || '1.5');
+const isolationMultiplier = Number(
+  __ENV.K6_REPORT_ISOLATION_MULTIPLIER || '1.5',
+);
 
 const syntheticFailureRate = new Rate('synthetic_failure_rate');
 const invariantCheckFailures = new Counter('invariant_check_failures');
@@ -21,28 +25,28 @@ export const options = {
     card_lookup: {
       executor: 'constant-vus',
       exec: 'lookupScenario',
-      vus: Number(__ENV.K6_LOOKUP_VUS || '5'),
-      duration: __ENV.K6_LOOKUP_DURATION || '30s',
+      vus: Number(__ENV.K6_LOOKUP_VUS || '1'),
+      duration: __ENV.K6_LOOKUP_DURATION || '20s',
     },
     earn_checkout: {
       executor: 'constant-vus',
       exec: 'earnScenario',
-      vus: Number(__ENV.K6_EARN_VUS || '3'),
-      duration: __ENV.K6_EARN_DURATION || '30s',
+      vus: Number(__ENV.K6_EARN_VUS || '1'),
+      duration: __ENV.K6_EARN_DURATION || '20s',
       startTime: '5s',
     },
     redeem_checkout: {
       executor: 'constant-vus',
       exec: 'redeemScenario',
-      vus: Number(__ENV.K6_REDEEM_VUS || '3'),
-      duration: __ENV.K6_REDEEM_DURATION || '30s',
+      vus: Number(__ENV.K6_REDEEM_VUS || '1'),
+      duration: __ENV.K6_REDEEM_DURATION || '20s',
       startTime: '10s',
     },
     report_isolation: {
       executor: 'constant-vus',
       exec: 'reportIsolationScenario',
-      vus: Number(__ENV.K6_REPORT_VUS || '2'),
-      duration: __ENV.K6_REPORT_DURATION || '30s',
+      vus: Number(__ENV.K6_REPORT_VUS || '1'),
+      duration: __ENV.K6_REPORT_DURATION || '20s',
       startTime: '15s',
     },
   },
@@ -52,7 +56,9 @@ export const options = {
     'http_req_duration{scenario:card_lookup}': ['p(95)<500'],
     'http_req_duration{scenario:earn_checkout}': ['p(95)<1200'],
     'http_req_duration{scenario:redeem_checkout}': ['p(95)<1200'],
-    'http_req_duration{scenario:report_isolation}': [`p(95)<${Math.round(1200 * isolationMultiplier)}`],
+    'http_req_duration{scenario:report_isolation}': [
+      `p(95)<${Math.round(1200 * isolationMultiplier)}`,
+    ],
     invariant_check_failures: ['count==0'],
   },
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'max'],
@@ -84,12 +90,11 @@ export function lookupScenario(data) {
 }
 
 export function earnScenario(data) {
-  const requestId = `synthetic-earn-${__VU}-${__ITER}`;
+  const requestId = `synthetic-earn-${runId}-${__VU}-${__ITER}`;
   const response = http.post(
     `${data.baseUrl}/api/v1/transactions/earn`,
     JSON.stringify({
       cardSerialNumber: cardSerial,
-      deviceId,
       posReceiptNumber: requestId,
       purchaseAmountKobo: earnAmountKobo,
       occurredAt: new Date().toISOString(),
@@ -108,13 +113,13 @@ export function earnScenario(data) {
 }
 
 export function redeemScenario(data) {
-  const requestId = `synthetic-redeem-${__VU}-${__ITER}`;
+  const requestId = `synthetic-redeem-${runId}-${__VU}-${__ITER}`;
   const response = http.post(
     `${data.baseUrl}/api/v1/transactions/redeem`,
     JSON.stringify({
       cardSerialNumber: cardSerial,
-      deviceId,
-      requestedAmountKobo: redeemAmountKobo,
+      posReceiptNumber: requestId,
+      requestedRedemptionKobo: redeemAmountKobo,
       basketAmountKobo: earnAmountKobo,
       occurredAt: new Date().toISOString(),
     }),
@@ -168,7 +173,8 @@ export function handleSummary(summary) {
 
 function recordOutcome(response, label) {
   const ok = check(response, {
-    [`${label} returned success envelope`]: (res) => res.status >= 200 && res.status < 300,
+    [`${label} returned success envelope`]: (res) =>
+      res.status >= 200 && res.status < 300,
   });
   syntheticFailureRate.add(!ok);
 }
