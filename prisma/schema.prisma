@@ -168,6 +168,7 @@ model Tenant {
   ledgerEntries          LoyaltyLedgerEntry[]
   creditLots             CreditLot[]
   creditExpiries         CreditExpiry[]
+  creditExpiryReminders  CreditExpiryReminder[]
   redemptions            Redemption[]
   redemptionAllocations  RedemptionAllocation[]
   allocationRestorations AllocationRestoration[]
@@ -320,6 +321,7 @@ model Customer {
   ledgerEntries        LoyaltyLedgerEntry[]
   creditLots           CreditLot[]
   creditExpiries       CreditExpiry[]
+  creditExpiryReminders CreditExpiryReminder[]
   redemptions          Redemption[]
   adjustments          Adjustment[]
 
@@ -643,6 +645,7 @@ model OutboxEvent {
   updatedAt       DateTime          @updatedAt
   tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   smsMessage      SmsMessage?
+  creditExpiryReminder CreditExpiryReminder?
 
   @@unique([tenantId, id])
   @@index([tenantId, status, nextAttemptAt])
@@ -687,6 +690,26 @@ model SmsMessage {
   @@index([tenantId, ledgerEntryId])
   @@index([tenantId, redemptionId])
   @@index([tenantId, adjustmentId])
+}
+
+model CreditExpiryReminder {
+  id                String     @id @default(uuid())
+  tenantId          String
+  customerId        String
+  reminderDate      DateTime
+  totalExpiringKobo BigInt
+  earliestExpiresAt DateTime
+  latestExpiresAt   DateTime
+  outboxEventId     String     @unique
+  createdAt         DateTime   @default(now())
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer          Customer   @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  outboxEvent       OutboxEvent @relation(fields: [tenantId, outboxEventId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, customerId, reminderDate])
+  @@unique([tenantId, outboxEventId])
+  @@index([tenantId, reminderDate])
 }
 
 model OfflineSyncAttempt {

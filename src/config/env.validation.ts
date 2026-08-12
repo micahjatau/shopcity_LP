@@ -134,6 +134,10 @@ export const envValidationSchema = Joi.object({
   OUTBOX_PUBLISH_INTERVAL_MS: Joi.number().integer().min(100).default(5000),
   OUTBOX_RETRY_DELAY_MS: Joi.number().integer().min(1000).default(30000),
   OUTBOX_RECOVERY_THRESHOLD_MS: Joi.number().integer().min(1000).default(60000),
+  CREDIT_EXPIRY_SWEEP_INTERVAL_MS: Joi.number().integer().min(1000).default(86400000),
+  CREDIT_EXPIRY_BATCH_SIZE: Joi.number().integer().min(1).max(1000).default(100),
+  CREDIT_EXPIRY_REMINDER_DAYS: Joi.number().integer().min(1).max(365).default(30),
+  CREDIT_EXPIRY_REMINDER_BATCH_SIZE: Joi.number().integer().min(1).max(1000).default(100),
   SMS_PROVIDER_MODE: Joi.string()
     .valid('deterministic', 'sandbox', 'real')
     .default('deterministic'),

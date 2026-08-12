@@ -2,7 +2,8 @@ export type SmsTemplate =
   | 'earn-confirmed'
   | 'redemption-confirmed'
   | 'transaction-reversed'
-  | 'balance-adjusted';
+  | 'balance-adjusted'
+  | 'credit-expiry-reminder-v1';
 
 export type AdjustmentKind = 'CREDIT' | 'DEBIT';
 
@@ -48,6 +49,14 @@ export type BalanceAdjustedSmsPayload = SmsPayloadBase<'balance-adjusted'> & {
   remainingBalanceKobo?: string;
 };
 
+export type CreditExpiryReminderSmsPayload =
+  SmsPayloadBase<'credit-expiry-reminder-v1'> & {
+    customerId: string;
+    totalExpiringKobo: string;
+    earliestExpiresAt: string;
+    latestExpiresAt: string;
+  };
+
 export class SmsPayloadError extends Error {
   readonly failureCategory = 'terminal' as const;
 }
@@ -68,6 +77,8 @@ export function renderSmsMessage(input: {
       return renderTransactionReversed(input);
     case 'balance-adjusted':
       return renderBalanceAdjusted(input);
+    case 'credit-expiry-reminder-v1':
+      return renderCreditExpiryReminder(input);
     default:
       throw new Error(
         `Unsupported SMS template ${(input as { template: string }).template}`,
@@ -153,6 +164,24 @@ export function buildBalanceAdjustedSmsPayload(input: {
   };
 }
 
+export function buildCreditExpiryReminderSmsPayload(input: {
+  customerId: string;
+  phoneE164: string;
+  totalExpiringKobo: bigint;
+  earliestExpiresAt: Date;
+  latestExpiresAt: Date;
+}): CreditExpiryReminderSmsPayload {
+  return {
+    version: 1,
+    customerId: input.customerId,
+    phoneE164: input.phoneE164,
+    template: 'credit-expiry-reminder-v1',
+    totalExpiringKobo: input.totalExpiringKobo.toString(),
+    earliestExpiresAt: input.earliestExpiresAt.toISOString(),
+    latestExpiresAt: input.latestExpiresAt.toISOString(),
+  };
+}
+
 export function validateSmsIntent(
   template: SmsTemplate,
   payload: Record<string, unknown>,
@@ -169,6 +198,9 @@ export function validateSmsIntent(
       return;
     case 'balance-adjusted':
       assertBalanceAdjustedPayload(payload);
+      return;
+    case 'credit-expiry-reminder-v1':
+      assertCreditExpiryReminderPayload(payload);
       return;
     default:
       return;
@@ -277,6 +309,25 @@ function assertTransactionReversedPayload(
   }
 }
 
+function renderCreditExpiryReminder(input: {
+  payload: Record<string, unknown>;
+}): string {
+  const totalExpiringKobo = requirePayloadAmount(
+    input.payload,
+    'totalExpiringKobo',
+  );
+  const earliestExpiresAt = requirePayloadString(
+    input.payload,
+    'earliestExpiresAt',
+  );
+  const latestExpiresAt = requirePayloadString(
+    input.payload,
+    'latestExpiresAt',
+  );
+
+  return `ShopCity: ${formatKoboAsNaira(BigInt(totalExpiringKobo))} expires soon. Expiry window ${earliestExpiresAt} to ${latestExpiresAt}.`;
+}
+
 function assertBalanceAdjustedPayload(payload: Record<string, unknown>): void {
   requirePayloadTemplate(payload, 'balance-adjusted');
   requirePayloadString(payload, 'transactionId');
@@ -292,6 +343,17 @@ function assertBalanceAdjustedPayload(payload: Record<string, unknown>): void {
   if (remainingBalanceKobo !== undefined && remainingBalanceKobo !== null) {
     requirePayloadAmount(payload, 'remainingBalanceKobo');
   }
+}
+
+function assertCreditExpiryReminderPayload(
+  payload: Record<string, unknown>,
+): void {
+  requirePayloadTemplate(payload, 'credit-expiry-reminder-v1');
+  requirePayloadString(payload, 'customerId');
+  requirePayloadPhone(payload);
+  requirePayloadAmount(payload, 'totalExpiringKobo');
+  requirePayloadDateString(payload, 'earliestExpiresAt');
+  requirePayloadDateString(payload, 'latestExpiresAt');
 }
 
 function requirePayloadTemplate(
@@ -341,6 +403,19 @@ function requirePayloadAmount(
   const value = requirePayloadString(payload, key);
 
   if (!/^\d+$/.test(value)) {
+    throw new SmsPayloadError(`SMS payload has an invalid ${key}`);
+  }
+
+  return value;
+}
+
+function requirePayloadDateString(
+  payload: Record<string, unknown>,
+  key: string,
+): string {
+  const value = requirePayloadString(payload, key);
+
+  if (Number.isNaN(Date.parse(value))) {
     throw new SmsPayloadError(`SMS payload has an invalid ${key}`);
   }
 

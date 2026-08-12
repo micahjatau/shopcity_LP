@@ -7,11 +7,18 @@ import {
   OutboxWorkerRuntime,
 } from './jobs/outbox-worker.runtime';
 import { ApprovalExpiryWorkerRuntime } from './jobs/approval-expiry.worker';
+import {
+  CreditExpiryWorkerRuntime,
+  loadCreditExpiryWorkerConfig,
+} from './jobs/credit-expiry.worker';
 import { createSmsProvider } from './jobs/sms.provider.factory';
 import {
   loadReportMaterializationWorkerConfig,
   ReportMaterializationWorkerRuntime,
 } from './jobs/report-materialization.worker';
+import { CreditExpiryService } from './modules/credit-expiry/credit-expiry.service';
+import { ExpiryReminderService } from './modules/credit-expiry/expiry-reminder.service';
+import { SystemActorService } from './common/system/system-actor.service';
 
 export async function bootstrap() {
   if (process.argv.includes('--approval-expiry-only')) {
@@ -34,6 +41,11 @@ export async function bootstrap() {
     undefined,
     reportMaterializer,
   );
+  const creditExpiryRuntime = new CreditExpiryWorkerRuntime(
+    new CreditExpiryService(prisma, new AuditService(prisma), new SystemActorService()),
+    new ExpiryReminderService(prisma),
+    loadCreditExpiryWorkerConfig(),
+  );
   const reportMaterializationRuntime = new ReportMaterializationWorkerRuntime(
     prisma,
     reportMaterializer,
@@ -49,6 +61,7 @@ export async function bootstrap() {
       runtime.stop(),
       reportMaterializationRuntime.stop(),
       approvalExpiryRuntime.stop(),
+      creditExpiryRuntime.stop(),
     ]);
     await prisma.$disconnect().catch(() => undefined);
   };
@@ -65,6 +78,7 @@ export async function bootstrap() {
     await runtime.start();
     await reportMaterializationRuntime.start();
     await approvalExpiryRuntime.start();
+    await creditExpiryRuntime.start();
   } catch (error) {
     await shutdown();
     throw error;
