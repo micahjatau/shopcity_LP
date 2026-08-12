@@ -8,6 +8,7 @@ Use this directory to store the final pilot certification bundle for one approve
 - `rollback-checklist.md`
 - `production-readiness-checklist.md`
 - `final-approval-template.md`
+- `evidence-handoff.md`
 - `readiness.schema.json`
 - `readiness.example.json`
 - performance summary and validation output
@@ -22,3 +23,4 @@ Use this directory to store the final pilot certification bundle for one approve
 - Record exceptions explicitly; missing mandatory gates block pilot launch.
 - Redact secrets, tokens, customer phone numbers, and protected payloads.
 - Run `npm run verify:sprint-5-readiness` before signing the pilot checklist.
+- Replace example evidence with real release-candidate evidence before pilot approval.
