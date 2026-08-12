@@ -1,0 +1,1 @@
+Owner/admin training sign-off for candidate 0225eafff3e0e2524311fcca8f586bf6aefa564d.

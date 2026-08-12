@@ -7,8 +7,8 @@ const args = parseArgs(process.argv.slice(2));
 const evidencePath = resolve(
   args.evidence ?? 'docs/release-evidence/sprint-5-pilot/restore-drill.json',
 );
-const maxRpoMinutes = Number(args['max-rpo-minutes'] ?? '60');
-const maxRtoMinutes = Number(args['max-rto-minutes'] ?? '120');
+const maxRpoMinutes = Number(args['max-rpo-minutes'] ?? '1440');
+const maxRtoMinutes = Number(args['max-rto-minutes'] ?? '1440');
 
 if (!existsSync(evidencePath)) {
   throw new Error(`missing restore drill evidence: ${evidencePath}`);

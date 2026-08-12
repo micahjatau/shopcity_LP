@@ -13,6 +13,33 @@ const MANDATORY_GATES = [
   'signOff',
 ];
 
+const REAL_EVIDENCE_PATH =
+  'docs/release-evidence/sprint-5-pilot/readiness.json';
+const FORBIDDEN_RELEASE_SHAS = new Set([
+  '0123456789abcdef0123456789abcdef01234567',
+  'dev',
+  'example',
+]);
+const FORBIDDEN_IMAGE_DIGESTS = new Set([
+  'ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  'ghcr.io/shopcity/shopcity-lp@sha256:example',
+]);
+const FORBIDDEN_EVIDENCE_PATTERNS = [
+  /(^|\/)readme\.md$/i,
+  /(^|\/)production-readiness-checklist\.md$/i,
+  /(^|\/)deployment-checklist\.md$/i,
+  /(^|\/)rollback-checklist\.md$/i,
+  /(^|\/)pilot-performance-baseline\.md$/i,
+  /(^|\/)pilot-training-[^/]+\.md$/i,
+  /(^|\/)readiness\.example\.json$/i,
+  /(^|\/)restore-drill\.example\.json$/i,
+  /(^|\/)evidence-handoff\.md$/i,
+  /\.example\./i,
+  /fixture/i,
+  /baseline/i,
+  /training\/.*guid/i,
+];
+
 function parseArgs(argv) {
   const result = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -59,15 +86,27 @@ function isImageDigest(value) {
   return typeof value === 'string' && /@sha256:[a-f0-9]{64}$/i.test(value);
 }
 
-function validateReadinessDocument(document) {
+function validateReadinessDocument(document, options = {}) {
+  if (options.evidencePath) {
+    assertRealEvidencePath(options.evidencePath);
+  }
+
   assert(document.schemaVersion === '1', 'schemaVersion must be "1"');
   assert(
     isSha(document.releaseSha),
     'releaseSha must be a 40-character git SHA',
   );
   assert(
+    !FORBIDDEN_RELEASE_SHAS.has(String(document.releaseSha).toLowerCase()),
+    'releaseSha must not be a placeholder or example SHA',
+  );
+  assert(
     isImageDigest(document.imageDigest),
     'imageDigest must be an OCI image reference ending with @sha256:<64 hex>',
+  );
+  assert(
+    !FORBIDDEN_IMAGE_DIGESTS.has(String(document.imageDigest).toLowerCase()),
+    'imageDigest must not be a placeholder or example digest',
   );
   assert(
     document.releaseCandidate?.engineeringComplete === true,
@@ -94,6 +133,10 @@ function validateReadinessDocument(document) {
     assert(
       isNonEmptyString(gate.evidence),
       `gate ${gateName} must include an evidence reference`,
+    );
+    assert(
+      isAllowedEvidenceReference(gate.evidence),
+      `gate ${gateName} evidence must reference executed release evidence`,
     );
     assert(
       isNonEmptyString(gate.recordedAt),
@@ -124,6 +167,12 @@ function validateReadinessDocument(document) {
     Array.isArray(document.trainingSignOffs),
     'trainingSignOffs must be an array',
   );
+  for (const entry of document.trainingSignOffs) {
+    assert(
+      isAllowedEvidenceReference(entry.reference),
+      'training sign-off reference must point at executed release evidence',
+    );
+  }
   assert(
     document.trainingSignOffs.some((entry) => entry.role === 'cashier'),
     'trainingSignOffs must include cashier sign-off',
@@ -157,23 +206,48 @@ function validateEvidenceBundle(evidenceDir, document) {
   ];
 
   for (const reference of referencedFiles) {
+    assert(
+      isAllowedEvidenceReference(reference),
+      `referenced evidence must be an executed release artifact: ${reference}`,
+    );
     const filePath = resolve(process.cwd(), reference);
     assertFile(filePath, `referenced evidence ${reference}`);
   }
 }
 
+function assertRealEvidencePath(evidencePath) {
+  const normalized = evidencePath.replace(/\\/g, '/');
+  assert(
+    !FORBIDDEN_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalized)),
+    `evidence path must point at real release evidence: ${evidencePath}`,
+  );
+  assert(
+    normalized.endsWith('/readiness.json') ||
+      normalized.endsWith('readiness.json'),
+    `evidence path must point at readiness.json: ${evidencePath}`,
+  );
+}
+
+function isAllowedEvidenceReference(reference) {
+  if (!isNonEmptyString(reference)) {
+    return false;
+  }
+
+  const normalized = reference.replace(/\\/g, '/');
+  return !FORBIDDEN_EVIDENCE_PATTERNS.some((pattern) =>
+    pattern.test(normalized),
+  );
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const evidencePath = resolve(
-    args.evidence ??
-      'docs/release-evidence/sprint-5-pilot/readiness.example.json',
-  );
+  const evidencePath = resolve(args.evidence ?? REAL_EVIDENCE_PATH);
   const evidenceDir = resolve(
     args['evidence-dir'] ?? 'docs/release-evidence/sprint-5-pilot',
   );
   const document = loadJson(evidencePath);
 
-  validateReadinessDocument(document);
+  validateReadinessDocument(document, { evidencePath });
   validateEvidenceBundle(evidenceDir, document);
 
   console.log(

@@ -1,3 +1,5 @@
+import './config/load-env';
+
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from './database/prisma.service';
 import { AuditService } from './modules/audit/audit.service';
@@ -18,9 +20,12 @@ import {
 } from './jobs/report-materialization.worker';
 import { CreditExpiryService } from './modules/credit-expiry/credit-expiry.service';
 import { ExpiryReminderService } from './modules/credit-expiry/expiry-reminder.service';
+import { initializeSentryIfConfigured } from './common/observability/sentry';
 import { SystemActorService } from './common/system/system-actor.service';
 
 export async function bootstrap() {
+  initializeSentryIfConfigured(process.env, { runtime: 'worker' });
+
   if (process.argv.includes('--approval-expiry-only')) {
     await bootstrapApprovalExpiryOnly();
     return;

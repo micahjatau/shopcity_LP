@@ -8,9 +8,9 @@ const {
 function validDocument() {
   return {
     schemaVersion: '1',
-    releaseSha: '0123456789abcdef0123456789abcdef01234567',
+    releaseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     imageDigest:
-      'ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      'ghcr.io/shopcity/shopcity-lp@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     releaseCandidate: {
       engineeringComplete: true,
       stagingCertified: true,
@@ -55,7 +55,11 @@ function validDocument() {
 }
 
 test('accepts a complete readiness document', () => {
-  assert.doesNotThrow(() => validateReadinessDocument(validDocument()));
+  assert.doesNotThrow(() =>
+    validateReadinessDocument(validDocument(), {
+      evidencePath: 'docs/release-evidence/sprint-5-pilot/readiness.json',
+    }),
+  );
 });
 
 test('rejects missing mandatory gates', () => {
@@ -85,7 +89,33 @@ test('rejects missing training roles', () => {
   );
 
   assert.throws(
-    () => validateReadinessDocument(document),
+    () =>
+      validateReadinessDocument(document, {
+        evidencePath: 'docs/release-evidence/sprint-5-pilot/readiness.json',
+      }),
     /trainingSignOffs must include supervisor sign-off/,
+  );
+});
+
+test('rejects example readiness evidence and generic gate references', () => {
+  const document = validDocument();
+  document.gates.performance.evidence =
+    'docs/development/pilot-performance-baseline.md';
+
+  assert.throws(
+    () =>
+      validateReadinessDocument(document, {
+        evidencePath:
+          'docs/release-evidence/sprint-5-pilot/readiness.example.json',
+      }),
+    /real release evidence|readiness\.json/,
+  );
+
+  assert.throws(
+    () =>
+      validateReadinessDocument(document, {
+        evidencePath: 'docs/release-evidence/sprint-5-pilot/readiness.json',
+      }),
+    /executed release evidence|gate performance evidence/i,
   );
 });

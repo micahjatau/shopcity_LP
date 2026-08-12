@@ -21,6 +21,6 @@
 
 Run:
 
-- `node scripts/release-evidence/verify-sprint-5-readiness.cjs --evidence docs/release-evidence/sprint-5-pilot/readiness.example.json --evidence-dir docs/release-evidence/sprint-5-pilot`
+- `node scripts/release-evidence/verify-sprint-5-readiness.cjs --evidence docs/release-evidence/sprint-5-pilot/readiness.json --evidence-dir docs/release-evidence/sprint-5-pilot`
 
-The readiness verifier must fail if any mandatory gate is missing or not passed.
+The readiness verifier must fail if any mandatory gate is missing, not passed, or backed only by example or fixture evidence.

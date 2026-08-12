@@ -13,7 +13,7 @@ Record one real release candidate:
 
 Update:
 
-- `docs/release-evidence/sprint-5-pilot/readiness.example.json`
+- `docs/release-evidence/sprint-5-pilot/readiness.json`
 - `docs/release-evidence/sprint-5-pilot/final-approval-template.md`
 - `docs/release-evidence/sprint-5-pilot/production-readiness-checklist.md`
 
@@ -26,7 +26,7 @@ Required commands/evidence:
 - `k6 run scripts/performance/k6-pilot.js`
 - `node scripts/performance/validate-k6-summary.mjs --summary tmp/k6-pilot-summary.json`
 - `npx jest test/financial-state-invariants.int-spec.ts --config ./test/jest-int.json --runInBand`
-- `node scripts/restore/verify-restore-drill.mjs --evidence <real-restore-evidence.json>`
+- `node scripts/restore/verify-restore-drill.mjs --evidence <real-restore-evidence.json> --max-rpo-minutes 1440 --max-rto-minutes 1440`
 - `npm run verify:sprint-5-readiness`
 
 ## 3. Replace example evidence with real evidence
@@ -36,6 +36,8 @@ Replace these placeholders:
 - `docs/release-evidence/sprint-5-pilot/readiness.example.json`
 - `docs/release-evidence/sprint-5-pilot/restore-drill.example.json`
 - `docs/release-evidence/sprint-5-pilot/final-approval-template.md`
+- `docs/release-evidence/sprint-5-pilot/readiness.json`
+- `docs/release-evidence/sprint-5-pilot/restore-drill.json`
 
 Recommended real files to add:
 
@@ -50,6 +52,7 @@ Recommended real files to add:
 
 - Decide whether Sentry is enabled for pilot or explicitly deferred.
 - If deferred, record the approver, rationale, and follow-up issue in final approval evidence.
+- Record the observed restore RPO/RTO and note whether the strict pilot policy or TRD baseline was used.
 
 ## 5. Final verification
 

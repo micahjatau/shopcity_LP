@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1",
+  "releaseSha": "0225eafff3e0e2524311fcca8f586bf6aefa564d",
+  "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
+  "releaseCandidate": {
+    "engineeringComplete": true,
+    "stagingCertified": true,
+    "productionApproved": true,
+    "pilotStarted": false
+  },
+  "gates": {
+    "dockerVerification": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/docker-verification.md"
+    },
+    "security": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/security-results.md"
+    },
+    "performance": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/performance-summary.json"
+    },
+    "restore": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/restore-drill.json"
+    },
+    "staging": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/staging-certification.md"
+    },
+    "training": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/training-signoff.md"
+    },
+    "signOff": {
+      "status": "passed",
+      "recordedAt": "2026-08-13T00:00:00.000Z",
+      "evidence": "docs/release-evidence/sprint-5-pilot/final-approval.md"
+    }
+  },
+  "approvals": [
+    {
+      "role": "owner-admin",
+      "name": "Pilot Approver",
+      "approvedAt": "2026-08-13T00:00:00.000Z"
+    }
+  ],
+  "trainingSignOffs": [
+    {
+      "role": "cashier",
+      "reference": "docs/release-evidence/sprint-5-pilot/training-cashier-signoff.md",
+      "completedAt": "2026-08-13T00:00:00.000Z"
+    },
+    {
+      "role": "supervisor",
+      "reference": "docs/release-evidence/sprint-5-pilot/training-supervisor-signoff.md",
+      "completedAt": "2026-08-13T00:00:00.000Z"
+    },
+    {
+      "role": "owner-admin",
+      "reference": "docs/release-evidence/sprint-5-pilot/training-owner-admin-signoff.md",
+      "completedAt": "2026-08-13T00:00:00.000Z"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import './config/load-env';
+
 import {
   INestApplication,
   RequestMethod,
@@ -12,6 +14,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
+import { initializeSentryIfConfigured } from './common/observability/sentry';
 import {
   API_PREFIX,
   API_VERSION,
@@ -101,6 +104,8 @@ export function buildOpenApiDocument(app: INestApplication) {
 async function createNestApp(
   options: CreateAppOptions,
 ): Promise<NestFastifyApplication> {
+  initializeSentryIfConfigured(process.env, { runtime: 'api' });
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),

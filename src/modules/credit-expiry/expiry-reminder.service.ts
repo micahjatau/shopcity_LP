@@ -18,6 +18,9 @@ type ReminderCandidate = {
   tenantId: string;
   customerId: string;
   phoneE164: string;
+};
+
+type RevalidatedReminderCandidate = {
   totalExpiringKobo: bigint;
   earliestExpiresAt: Date;
   latestExpiresAt: Date;
@@ -81,13 +84,24 @@ export class ExpiryReminderService {
 
     for (const candidate of candidates) {
       try {
-        await this.prismaService.$transaction(async (tx) => {
+        const reminder = await this.prismaService.$transaction(async (tx) => {
+          const revalidated = await buildRevalidatedReminderCandidate(tx, {
+            tenantId: candidate.tenantId,
+            customerId: candidate.customerId,
+            reminderDate,
+            reminderDateEnd,
+          });
+
+          if (revalidated === null) {
+            return null;
+          }
+
           const payload = buildCreditExpiryReminderSmsPayload({
             customerId: candidate.customerId,
             phoneE164: candidate.phoneE164,
-            totalExpiringKobo: candidate.totalExpiringKobo,
-            earliestExpiresAt: candidate.earliestExpiresAt,
-            latestExpiresAt: candidate.latestExpiresAt,
+            totalExpiringKobo: revalidated.totalExpiringKobo,
+            earliestExpiresAt: revalidated.earliestExpiresAt,
+            latestExpiresAt: revalidated.latestExpiresAt,
           });
 
           const outboxEvent = await tx.outboxEvent.create({
@@ -123,16 +137,22 @@ export class ExpiryReminderService {
               tenantId: candidate.tenantId,
               customerId: candidate.customerId,
               reminderDate,
-              totalExpiringKobo: candidate.totalExpiringKobo,
-              earliestExpiresAt: candidate.earliestExpiresAt,
-              latestExpiresAt: candidate.latestExpiresAt,
+              totalExpiringKobo: revalidated.totalExpiringKobo,
+              earliestExpiresAt: revalidated.earliestExpiresAt,
+              latestExpiresAt: revalidated.latestExpiresAt,
               outboxEventId: outboxEvent.id,
             },
           });
+
+          return revalidated;
         });
 
+        if (reminder === null) {
+          continue;
+        }
+
         customers += 1;
-        amountKobo += candidate.totalExpiringKobo;
+        amountKobo += reminder.totalExpiringKobo;
       } catch (error) {
         if (!isReminderUniquenessConflict(error)) {
           throw error;
@@ -149,6 +169,54 @@ function isReminderUniquenessConflict(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === 'P2002'
   );
+}
+
+async function buildRevalidatedReminderCandidate(
+  tx: Prisma.TransactionClient,
+  input: {
+    tenantId: string;
+    customerId: string;
+    reminderDate: Date;
+    reminderDateEnd: Date;
+  },
+): Promise<RevalidatedReminderCandidate | null> {
+  const lots = await tx.$queryRaw<
+    Array<{ remainingAmountKobo: bigint; expiresAt: Date }>
+  >(Prisma.sql`
+      SELECT cl."remainingAmountKobo", cl."expiresAt"
+      FROM "CreditLot" cl
+      WHERE cl."tenantId" = ${input.tenantId}
+        AND cl."customerId" = ${input.customerId}
+        AND cl."remainingAmountKobo" > 0
+        AND cl."expiresAt" >= ${input.reminderDate}
+        AND cl."expiresAt" < ${input.reminderDateEnd}
+      ORDER BY cl."expiresAt" ASC, cl."earnedAt" ASC, cl."id" ASC
+      FOR UPDATE
+    `);
+
+  if (lots.length === 0) {
+    return null;
+  }
+
+  let totalExpiringKobo = 0n;
+  let earliestExpiresAt = lots[0].expiresAt;
+  let latestExpiresAt = lots[0].expiresAt;
+
+  for (const lot of lots) {
+    totalExpiringKobo += lot.remainingAmountKobo;
+    if (lot.expiresAt < earliestExpiresAt) {
+      earliestExpiresAt = lot.expiresAt;
+    }
+    if (lot.expiresAt > latestExpiresAt) {
+      latestExpiresAt = lot.expiresAt;
+    }
+  }
+
+  return {
+    totalExpiringKobo,
+    earliestExpiresAt,
+    latestExpiresAt,
+  };
 }
 
 function startOfUtcDay(date: Date): Date {

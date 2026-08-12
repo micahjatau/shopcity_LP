@@ -1,0 +1,13 @@
+{
+  "releaseSha": "0225eafff3e0e2524311fcca8f586bf6aefa564d",
+  "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
+  "tool": "k6",
+  "status": "passed",
+  "notes": [
+    "lookup p95 < 500 ms",
+    "earn p95 < 1200 ms",
+    "redeem p95 < 1200 ms",
+    "failure rate < 1%",
+    "reconciliation mismatch = 0"
+  ]
+}

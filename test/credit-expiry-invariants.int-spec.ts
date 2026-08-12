@@ -10,15 +10,19 @@ import {
   UserRole,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { CreditExpiryService } from '../src/modules/credit-expiry/credit-expiry.service';
+import { createAttestedDeviceData } from './support/device-attestation';
 
 describe('credit expiry invariants (int)', () => {
   let pgContainer: Awaited<ReturnType<PostgreSqlContainer['start']>>;
   let prisma: PrismaClient;
+  let redemptionPrisma: PrismaClient;
+  let databaseUrl: string;
   let fixture: Awaited<ReturnType<typeof createBaseFixture>>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
-    const databaseUrl = pgContainer.getConnectionUri();
+    databaseUrl = pgContainer.getConnectionUri();
 
     execSync('npx prisma migrate deploy', {
       stdio: 'inherit',
@@ -26,12 +30,17 @@ describe('credit expiry invariants (int)', () => {
     });
 
     prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+    redemptionPrisma = new PrismaClient({
+      datasources: { db: { url: databaseUrl } },
+    });
     await prisma.$connect();
+    await redemptionPrisma.$connect();
     fixture = await createBaseFixture(prisma);
   }, 120000);
 
   afterAll(async () => {
     await prisma?.$disconnect();
+    await redemptionPrisma?.$disconnect();
     await pgContainer?.stop();
   }, 120000);
 
@@ -201,6 +210,46 @@ describe('credit expiry invariants (int)', () => {
     ).rejects.toThrow(/unique constraint failed|duplicate key value/i);
   }, 120000);
 
+  it('keeps expiry and redemption mutually consistent when both target the same due lot', async () => {
+    const lot = await createEarnCreditLot(prisma, fixture, 11_000n);
+    const expiryService = new CreditExpiryService(
+      prisma as never,
+      {
+        recordWithClient: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        getOrCreate: jest.fn().mockResolvedValue({
+          id: fixture.systemUserId,
+          tenantId: fixture.tenantId,
+        }),
+      },
+    );
+
+    const [expiryOutcome, redemptionOutcome] = await Promise.allSettled([
+      expiryService.expireDueCredit({ now: lot.expiresAt, batchSize: 10 }),
+      redeemCreditLot(redemptionPrisma, fixture, lot.id, 11_000n),
+    ]);
+
+    expect(
+      [expiryOutcome.status, redemptionOutcome.status].filter(
+        (status) => status === 'fulfilled',
+      ),
+    ).toHaveLength(1);
+
+    const refreshedLot = await prisma.creditLot.findUniqueOrThrow({
+      where: { tenantId_id: { tenantId: fixture.tenantId, id: lot.id } },
+    });
+    const expiredCount = await prisma.creditExpiry.count({
+      where: { tenantId: fixture.tenantId, creditLotId: lot.id },
+    });
+    const redemptionAllocationCount = await prisma.redemptionAllocation.count({
+      where: { tenantId: fixture.tenantId, creditLotId: lot.id },
+    });
+
+    expect(refreshedLot.remainingAmountKobo).toBe(0n);
+    expect(expiredCount + redemptionAllocationCount).toBe(1);
+  }, 120000);
+
   it('verifies credit expiry SQL guards are present after migration deploy', async () => {
     const functions = await prisma.$queryRaw<{ proname: string }[]>`
       SELECT p.proname
@@ -283,6 +332,7 @@ async function createBaseFixture(prisma: PrismaClient) {
   const cashierUserId = randomUUID();
   const systemUserId = randomUUID();
   const customerId = randomUUID();
+  const deviceId = randomUUID();
   const cardId = randomUUID();
 
   await prisma.tenant.create({
@@ -318,6 +368,16 @@ async function createBaseFixture(prisma: PrismaClient) {
       },
     ],
   });
+  await prisma.device.create({
+    data: createAttestedDeviceData({
+      id: deviceId,
+      tenantId,
+      branchId,
+      name: 'Expiry Device',
+      fingerprintHash: `expiry-device-${tenantId}`,
+      status: 'ACTIVE',
+    }),
+  });
   await prisma.customer.create({
     data: {
       id: customerId,
@@ -351,6 +411,7 @@ async function createBaseFixture(prisma: PrismaClient) {
     cashierUserId,
     systemUserId,
     customerId,
+    deviceId,
     cardId,
   };
 }
@@ -471,4 +532,113 @@ async function createExpiredLot(
   });
 
   return { id: expiryId };
+}
+
+async function redeemCreditLot(
+  prisma: PrismaClient,
+  fixture: Awaited<ReturnType<typeof createBaseFixture>>,
+  lotId: string,
+  amountKobo: bigint,
+) {
+  const receiptId = randomUUID();
+  const redemptionId = randomUUID();
+  const ledgerEntryId = randomUUID();
+  const occurredAt = new Date('2027-08-01T10:00:00.000Z');
+  const receiptNumber = `RACE-${receiptId.slice(0, 8)}`;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.receipt.create({
+      data: {
+        id: receiptId,
+        tenantId: fixture.tenantId,
+        branchId: fixture.branchId,
+        customerId: fixture.customerId,
+        cardId: fixture.cardId,
+        deviceId: null,
+        posReceiptNumber: receiptNumber,
+        normalizedPosReceiptNumber: receiptNumber,
+        receiptWeekStart: new Date('2027-07-26T00:00:00.000Z'),
+        purchaseAmountKobo: amountKobo,
+        occurredAt,
+        capturedByTenantId: fixture.tenantId,
+        capturedBy: fixture.cashierUserId,
+        captureStatus: ReceiptCaptureStatus.CAPTURED,
+        reviewStatus: ReceiptReviewStatus.APPROVED,
+        capturedAt: occurredAt,
+        approvedByTenantId: fixture.tenantId,
+        approvedBy: fixture.cashierUserId,
+        approvedAt: occurredAt,
+      },
+    });
+
+    await tx.loyaltyLedgerEntry.create({
+      data: {
+        id: ledgerEntryId,
+        tenantId: fixture.tenantId,
+        customerId: fixture.customerId,
+        receiptId,
+        type: LedgerEntryType.REDEEM,
+        direction: LedgerEntryDirection.DEBIT,
+        amountKobo,
+        status: LedgerEntryStatus.CONFIRMED,
+        correlationId: `redeem-${randomUUID()}`,
+        createdByTenantId: fixture.tenantId,
+        createdBy: fixture.cashierUserId,
+        effectiveAt: occurredAt,
+      },
+    });
+
+    await tx.redemption.create({
+      data: {
+        id: redemptionId,
+        tenantId: fixture.tenantId,
+        branchId: fixture.branchId,
+        customerId: fixture.customerId,
+        cardId: fixture.cardId,
+        deviceId: fixture.deviceId,
+        receiptId,
+        requestedByTenantId: fixture.tenantId,
+        requestedBy: fixture.cashierUserId,
+        requestedAmountKobo: amountKobo,
+        basketAmountKobo: amountKobo,
+        maximumAllowedKobo: amountKobo,
+        confirmedAmountKobo: amountKobo,
+        status: 'CONFIRMED',
+        policyVersion: 'policy-v1',
+        ledgerEntryId,
+        requestedAt: occurredAt,
+        confirmedAt: occurredAt,
+      },
+    });
+
+    await tx.redemptionAllocation.create({
+      data: {
+        id: randomUUID(),
+        tenantId: fixture.tenantId,
+        redemptionId,
+        redemptionLedgerEntryId: ledgerEntryId,
+        creditLotId: lotId,
+        amountKobo,
+        allocationOrder: 1,
+      },
+    });
+
+    const updated = await tx.creditLot.updateMany({
+      where: {
+        tenantId: fixture.tenantId,
+        id: lotId,
+        customerId: fixture.customerId,
+        remainingAmountKobo: { gte: amountKobo },
+      },
+      data: {
+        remainingAmountKobo: {
+          decrement: amountKobo,
+        },
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new Error('redemption raced with credit expiry');
+    }
+  });
 }
