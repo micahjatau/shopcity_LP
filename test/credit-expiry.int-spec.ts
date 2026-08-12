@@ -150,7 +150,7 @@ describe('credit expiry service (int)', () => {
     ).resolves.toEqual({ examined: 0, expiredLots: 0, expiredAmountKobo: 0n });
   }, 120000);
 
-  it('is safe under concurrent sweeps for the same due lot', async () => {
+  it('retries serialization conflicts during concurrent sweeps for the same due lot', async () => {
     const lot = await createEarnCreditLot(
       prisma,
       fixture,

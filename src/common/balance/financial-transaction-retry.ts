@@ -49,7 +49,7 @@ export async function runWithBoundedFinancialRetries<T>(
 
 export function isFinancialTransactionConflict(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === 'P2034';
+    return error.code === 'P2034' || error.code === '40001';
   }
 
   return false;

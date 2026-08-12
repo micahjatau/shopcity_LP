@@ -76,6 +76,9 @@ describe('financial transaction retry helpers', () => {
       isFinancialTransactionConflict(prismaKnownRequestError('P2034')),
     ).toBe(true);
     expect(
+      isFinancialTransactionConflict(prismaKnownRequestError('40001')),
+    ).toBe(true);
+    expect(
       isFinancialTransactionConflict(prismaKnownRequestError('P2002')),
     ).toBe(false);
   });
