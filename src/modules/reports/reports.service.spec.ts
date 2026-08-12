@@ -68,10 +68,7 @@ describe('ReportsService', () => {
   it('returns an admin-only pilot operations summary with release metadata and source-backed counts', async () => {
     const prisma = {
       outboxEvent: {
-        count: jest
-          .fn()
-          .mockResolvedValueOnce(3)
-          .mockResolvedValueOnce(1),
+        count: jest.fn().mockResolvedValueOnce(3).mockResolvedValueOnce(1),
       },
       smsMessage: {
         count: jest.fn().mockResolvedValue(2),

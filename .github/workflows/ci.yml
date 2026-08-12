@@ -47,6 +47,23 @@ jobs:
       - run: git diff --exit-code -- docs/api/openapi.json
       - run: git diff --exit-code -- client/shopcity-client.ts
 
+  docker:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: chmod +x ./scripts/verify-docker-image.sh ./docker-entrypoint.sh
+      - run: npm run verify:docker-image
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_VERSION: ${{ github.ref_name }}
+
   gitnexus:
     name: GitNexus
     runs-on: ubuntu-latest

@@ -46,10 +46,11 @@ describe('ReportsController', () => {
       exportServiceStub().service,
     );
 
-    await expect(controller.getPilotOperationsSummary(adminContext())).resolves
-      .toMatchObject({
-        release: { version: '1.2.3', sha: 'abc123' },
-      });
+    await expect(
+      controller.getPilotOperationsSummary(adminContext()),
+    ).resolves.toMatchObject({
+      release: { version: '1.2.3', sha: 'abc123' },
+    });
     expect(reportsService.getPilotOperationsSummary).toHaveBeenCalledWith(
       'tenant-1',
       adminContext(),

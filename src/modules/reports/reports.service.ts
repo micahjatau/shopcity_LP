@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OutboxEventStatus, Prisma, SmsMessageStatus, UserRole } from '@prisma/client';
+import {
+  OutboxEventStatus,
+  Prisma,
+  SmsMessageStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
 
