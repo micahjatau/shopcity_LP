@@ -45,6 +45,76 @@ const reportCollectionSchema = {
   },
 } as const;
 
+const pilotOperationsSummarySchema = {
+  type: 'object',
+  required: [
+    'release',
+    'generatedAt',
+    'outbox',
+    'sms',
+    'offlineSync',
+    'fraud',
+    'reports',
+    'reconciliation',
+  ],
+  properties: {
+    release: {
+      type: 'object',
+      required: ['version', 'sha', 'sentryConfigured'],
+      properties: {
+        version: { type: 'string' },
+        sha: { type: 'string' },
+        sentryConfigured: { type: 'boolean' },
+      },
+    },
+    generatedAt: { type: 'string', format: 'date-time' },
+    outbox: {
+      type: 'object',
+      required: ['backlogCount', 'staleCount'],
+      properties: {
+        backlogCount: { type: 'integer' },
+        staleCount: { type: 'integer' },
+      },
+    },
+    sms: {
+      type: 'object',
+      required: ['failedCount'],
+      properties: {
+        failedCount: { type: 'integer' },
+      },
+    },
+    offlineSync: {
+      type: 'object',
+      required: ['failureCount'],
+      properties: {
+        failureCount: { type: 'integer' },
+      },
+    },
+    fraud: {
+      type: 'object',
+      required: ['openCount'],
+      properties: {
+        openCount: { type: 'integer' },
+      },
+    },
+    reports: {
+      type: 'object',
+      required: ['staleCount'],
+      properties: {
+        staleCount: { type: 'integer' },
+      },
+    },
+    reconciliation: {
+      type: 'object',
+      required: ['healthy', 'mismatchCount'],
+      properties: {
+        healthy: { type: 'boolean' },
+        mismatchCount: { type: 'integer' },
+      },
+    },
+  },
+} as const;
+
 @ApiTags('reports')
 @ApiBearerAuth()
 @Controller('reports')
@@ -267,6 +337,21 @@ export class ReportsController {
       to,
       timezone,
     });
+  }
+
+  @Get('pilot-operations-summary')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description: 'Pilot operations summary',
+    dataSchema: pilotOperationsSummarySchema,
+  })
+  @ApiOperation({ summary: 'Get pilot operations summary' })
+  getPilotOperationsSummary(@CurrentSession() context: AuthContext) {
+    return this.reportsService.getPilotOperationsSummary(
+      context.user.tenantId,
+      context,
+    );
   }
 
   @Get('materialization-state')

@@ -39,6 +39,23 @@ describe('ReportsController', () => {
     );
   });
 
+  it('delegates pilot operations summary reads', async () => {
+    const reportsService = reportsServiceStub();
+    const controller = new ReportsController(
+      reportsService,
+      exportServiceStub().service,
+    );
+
+    await expect(controller.getPilotOperationsSummary(adminContext())).resolves
+      .toMatchObject({
+        release: { version: '1.2.3', sha: 'abc123' },
+      });
+    expect(reportsService.getPilotOperationsSummary).toHaveBeenCalledWith(
+      'tenant-1',
+      adminContext(),
+    );
+  });
+
   it('schedules report refresh', async () => {
     const exportService = exportServiceStub();
     const controller = new ReportsController(
@@ -83,6 +100,16 @@ function reportsServiceStub(): ReportsService {
       branchId: null,
       timezone: 'Africa/Lagos',
       items: [],
+    }),
+    getPilotOperationsSummary: jest.fn().mockResolvedValue({
+      release: { version: '1.2.3', sha: 'abc123', sentryConfigured: true },
+      generatedAt: '2026-08-13T00:00:00.000Z',
+      outbox: { backlogCount: 1, staleCount: 0 },
+      sms: { failedCount: 0 },
+      offlineSync: { failureCount: 0 },
+      fraud: { openCount: 0 },
+      reports: { staleCount: 0 },
+      reconciliation: { healthy: true, mismatchCount: 0 },
     }),
     listLiabilityAgeing: jest.fn(),
     listCustomerPerformance: jest.fn(),

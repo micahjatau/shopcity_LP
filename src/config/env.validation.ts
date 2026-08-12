@@ -184,6 +184,19 @@ export const envValidationSchema = Joi.object({
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),
+  RELEASE_SHA: Joi.string().default('dev'),
+  RELEASE_VERSION: Joi.string().default('0.0.0-dev'),
+  SENTRY_DSN: Joi.string().uri().optional(),
+  REPORT_STALENESS_THRESHOLD_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(10080)
+    .default(180),
+  OUTBOX_STALE_THRESHOLD_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(10080)
+    .default(30),
   SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   DEFAULT_PUBLIC_TENANT_ID: requiredString(
     '00000000-0000-0000-0000-000000000001',

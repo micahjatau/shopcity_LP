@@ -43,6 +43,26 @@ import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',
+        base: {
+          service: 'shopcity-api',
+          releaseSha: process.env.RELEASE_SHA ?? 'dev',
+          releaseVersion: process.env.RELEASE_VERSION ?? '0.0.0-dev',
+        },
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers["x-csrf-token"]',
+            'req.body.password',
+            'req.body.currentPassword',
+            'req.body.newPassword',
+            'req.body.token',
+            'req.body.refreshToken',
+            'req.body.accessToken',
+            'res.headers["set-cookie"]',
+          ],
+          remove: true,
+        },
         transport:
           process.env.NODE_ENV !== 'production'
             ? {

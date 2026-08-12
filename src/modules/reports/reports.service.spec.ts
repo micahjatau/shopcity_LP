@@ -65,6 +65,100 @@ describe('ReportsService', () => {
     expect(source.receipts).toHaveLength(2);
   });
 
+  it('returns an admin-only pilot operations summary with release metadata and source-backed counts', async () => {
+    const prisma = {
+      outboxEvent: {
+        count: jest
+          .fn()
+          .mockResolvedValueOnce(3)
+          .mockResolvedValueOnce(1),
+      },
+      smsMessage: {
+        count: jest.fn().mockResolvedValue(2),
+      },
+      offlineSyncAttempt: {
+        count: jest.fn().mockResolvedValue(4),
+      },
+      fraudFlag: {
+        count: jest.fn().mockResolvedValue(5),
+      },
+      reportMaterializationState: {
+        count: jest.fn().mockResolvedValue(1),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([{ mismatchCount: 0n }]),
+    } as unknown as PrismaService;
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.getPilotOperationsSummary('tenant-1', adminContext()),
+    ).resolves.toMatchObject({
+      release: {
+        version: '1.2.3',
+        sha: 'abc123',
+        sentryConfigured: true,
+      },
+      outbox: {
+        backlogCount: 3,
+        staleCount: 1,
+      },
+      sms: {
+        failedCount: 2,
+      },
+      offlineSync: {
+        failureCount: 4,
+      },
+      fraud: {
+        openCount: 5,
+      },
+      reports: {
+        staleCount: 1,
+      },
+      reconciliation: {
+        healthy: true,
+        mismatchCount: 0,
+      },
+    });
+  });
+
+  it('marks reconciliation unhealthy when mismatch counts are present', async () => {
+    const prisma = {
+      outboxEvent: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      smsMessage: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      offlineSyncAttempt: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      fraudFlag: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      reportMaterializationState: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([{ mismatchCount: 2n }]),
+    } as unknown as PrismaService;
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.getPilotOperationsSummary('tenant-1', adminContext()),
+    ).resolves.toMatchObject({
+      reconciliation: {
+        healthy: false,
+        mismatchCount: 2,
+      },
+    });
+  });
+
+  it('rejects pilot operations summary for non-admin callers', async () => {
+    const service = new ReportsService(prismaStub(), configService());
+
+    await expect(
+      service.getPilotOperationsSummary('tenant-1', supervisorContext()),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('blocks supervisors from cross-branch report access', async () => {
     const service = new ReportsService(prismaStub(), configService());
 
@@ -91,6 +185,21 @@ function configService(): ConfigService {
     get: (key: string) => {
       if (key === 'SHOPCITY_TIMEZONE') {
         return 'Africa/Lagos';
+      }
+      if (key === 'RELEASE_VERSION') {
+        return '1.2.3';
+      }
+      if (key === 'RELEASE_SHA') {
+        return 'abc123';
+      }
+      if (key === 'SENTRY_DSN') {
+        return 'https://examplePublicKey@o0.ingest.sentry.io/1';
+      }
+      if (key === 'OUTBOX_STALE_THRESHOLD_MINUTES') {
+        return 30;
+      }
+      if (key === 'REPORT_STALENESS_THRESHOLD_MINUTES') {
+        return 180;
       }
 
       return undefined;

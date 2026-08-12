@@ -8157,6 +8157,7 @@ export const LoyaltyControllerGetTransactionV1200DataType = {
   REDEEM: 'REDEEM',
   REVERSAL: 'REVERSAL',
   ADJUSTMENT: 'ADJUSTMENT',
+  EXPIRY: 'EXPIRY',
 } as const;
 
 export type LoyaltyControllerGetTransactionV1200DataDirection =
@@ -8177,6 +8178,7 @@ export const LoyaltyControllerGetTransactionV1200DataLedgerType = {
   REDEEM: 'REDEEM',
   REVERSAL: 'REVERSAL',
   ADJUSTMENT: 'ADJUSTMENT',
+  EXPIRY: 'EXPIRY',
 } as const;
 
 export type LoyaltyControllerGetTransactionV1200DataLedgerDirection =
@@ -8569,6 +8571,7 @@ export const LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType = {
   REDEEM: 'REDEEM',
   REVERSAL: 'REVERSAL',
   ADJUSTMENT: 'ADJUSTMENT',
+  EXPIRY: 'EXPIRY',
 } as const;
 
 export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItemDirection =
@@ -16672,8 +16675,8 @@ export const loyaltyControllerEarnV1 = async (
 };
 
 /**
- * Get receipt-backed transaction details
- * @summary Get receipt-backed transaction details
+ * Get transaction details
+ * @summary Get transaction details
  */
 export type loyaltyControllerGetTransactionV1Response200 = {
   data: LoyaltyControllerGetTransactionV1200;
@@ -16767,8 +16770,8 @@ export const loyaltyControllerGetTransactionV1 = async (
 };
 
 /**
- * Get receipt-backed customer ledger
- * @summary Get receipt-backed customer ledger
+ * Get customer transaction ledger
+ * @summary Get customer transaction ledger
  */
 export type loyaltyControllerGetCustomerLedgerV1Response200 = {
   data: LoyaltyControllerGetCustomerLedgerV1200;
