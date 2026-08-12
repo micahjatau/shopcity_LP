@@ -1,13 +1,21 @@
 # Security results
 
-Candidate SHA: 0225eafff3e0e2524311fcca8f586bf6aefa564d
+Candidate SHA: 49f0e44324feb4793c15ffd8afa4e59d2b15bd12
 Image digest: ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b
+RecordedAt: 2026-08-12T19:02:46Z
+Workflow run URL: https://github.com/micahjatau/shopcity_LP/actions/runs/31630700891
+Workflow run ID: 31630700891
 
-Recorded gates:
+Recorded jobs:
 
-- Gitleaks
-- CodeQL
-- Trivy
-- ZAP staging baseline
+- Gitleaks — https://github.com/micahjatau/shopcity_LP/actions/runs/31630700891/job/94228404278
+- Trivy Image Scan — https://github.com/micahjatau/shopcity_LP/actions/runs/31630700891/job/94228404346
+- CodeQL — skipped in this run because `CODEQL_SCAN_ENABLED` was not true
+- ZAP Baseline (approved staging only) — skipped because no staging URL was dispatched
+
+Validation source:
+
+- release bundle evidence package
+- same-candidate SHA/image-digest checks in readiness verifier
 
 Status: passed in release bundle

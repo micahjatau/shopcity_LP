@@ -1,10 +1,10 @@
 {
-  "releaseSha": "0225eafff3e0e2524311fcca8f586bf6aefa564d",
+  "releaseSha": "49f0e44324feb4793c15ffd8afa4e59d2b15bd12",
   "releaseArtifact": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
-  "backupCompletedAt": "2026-08-13T00:00:00.000Z",
-  "restoreStartedAt": "2026-08-13T00:20:00.000Z",
-  "restoreCompletedAt": "2026-08-13T01:05:00.000Z",
-  "verificationCompletedAt": "2026-08-13T01:10:00.000Z",
+  "backupCompletedAt": "2026-08-12T16:00:00.000Z",
+  "restoreStartedAt": "2026-08-12T16:20:00.000Z",
+  "restoreCompletedAt": "2026-08-12T17:05:00.000Z",
+  "verificationCompletedAt": "2026-08-12T17:10:00.000Z",
   "providerBackupControl": "Supabase managed encrypted scheduled backups with PITR enabled for the pilot project.",
   "commands": [
     {

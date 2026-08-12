@@ -15,27 +15,36 @@ export function initializeSentryIfConfigured(
     return false;
   }
 
-  Sentry.init({
-    dsn,
-    environment: env.NODE_ENV ?? 'development',
-    release: env.RELEASE_SHA?.trim() || undefined,
-    sendDefaultPii: false,
-    beforeSend(event) {
-      if (event.request?.headers) {
-        delete event.request.headers.authorization;
-        delete event.request.headers.cookie;
-        delete event.request.headers['x-csrf-token'];
-      }
+  try {
+    Sentry.init({
+      dsn,
+      environment: env.NODE_ENV ?? 'development',
+      release: env.RELEASE_SHA?.trim() || undefined,
+      sendDefaultPii: false,
+      beforeSend(event) {
+        if (event.request?.headers) {
+          delete event.request.headers.authorization;
+          delete event.request.headers.cookie;
+          delete event.request.headers['x-csrf-token'];
+        }
 
-      return event;
-    },
-  });
+        return event;
+      },
+    });
 
-  Sentry.setTag('shopcity.runtime', options.runtime);
-  Sentry.setTag('shopcity.release.version', env.RELEASE_VERSION ?? 'unknown');
-  Sentry.setTag('shopcity.release.sha', env.RELEASE_SHA ?? 'dev');
-  initialized = true;
-  return true;
+    Sentry.setTag('shopcity.runtime', options.runtime);
+    Sentry.setTag('shopcity.release.version', env.RELEASE_VERSION ?? 'unknown');
+    Sentry.setTag('shopcity.release.sha', env.RELEASE_SHA ?? 'dev');
+    initialized = true;
+    return true;
+  } catch (error) {
+    const message =
+      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    console.warn(
+      `Sentry initialization failed; continuing startup. ${message}`,
+    );
+    return false;
+  }
 }
 
 export function resetSentryInitializationForTests(): void {

@@ -39,6 +39,8 @@ const FORBIDDEN_EVIDENCE_PATTERNS = [
   /baseline/i,
   /training\/.*guid/i,
 ];
+const ISO_TIMESTAMP_PATTERN =
+  /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z\b/;
 
 function parseArgs(argv) {
   const result = {};
@@ -86,10 +88,123 @@ function isImageDigest(value) {
   return typeof value === 'string' && /@sha256:[a-f0-9]{64}$/i.test(value);
 }
 
+function assertValidReferenceTime(referenceTime) {
+  assert(
+    referenceTime instanceof Date && !Number.isNaN(referenceTime.getTime()),
+    'referenceTime must be a valid Date',
+  );
+}
+
+function assertNotFutureTimestamp(value, label, referenceTime) {
+  const timestamp = new Date(value);
+  assert(
+    !Number.isNaN(timestamp.getTime()),
+    `${label} must be a valid ISO datetime`,
+  );
+  assert(
+    timestamp.getTime() <= referenceTime.getTime(),
+    `${label} must not be in the future`,
+  );
+}
+
+function findFirstStringByKey(node, keys) {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+
+  if (Array.isArray(node)) {
+    for (const value of node) {
+      const found = findFirstStringByKey(value, keys);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  for (const key of keys) {
+    const value = node[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  for (const value of Object.values(node)) {
+    const found = findFirstStringByKey(value, keys);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function extractEvidenceMetadata(filePath, rawText) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    parsed = null;
+  }
+
+  const releaseSha =
+    findFirstStringByKey(parsed, ['releaseSha']) ??
+    matchFirst(rawText, [
+      /\breleaseSha\s*:\s*([0-9a-f]{40})\b/i,
+      /\bCandidate SHA:\s*([0-9a-f]{40})\b/i,
+      /"releaseSha"\s*:\s*"([0-9a-f]{40})"/i,
+    ]);
+
+  const imageDigest =
+    findFirstStringByKey(parsed, ['imageDigest', 'releaseArtifact']) ??
+    matchFirst(rawText, [
+      /\bimageDigest\s*:\s*([^\s"']+)/i,
+      /\bImage digest:\s*([^\s"']+)/i,
+      /\breleaseArtifact\s*:\s*([^\s"']+)/i,
+      /"imageDigest"\s*:\s*"([^"]+)"/i,
+      /"releaseArtifact"\s*:\s*"([^"]+)"/i,
+    ]);
+
+  assert(
+    isNonEmptyString(releaseSha),
+    `evidence file must declare a release SHA: ${filePath}`,
+  );
+  assert(
+    isNonEmptyString(imageDigest),
+    `evidence file must declare an image digest: ${filePath}`,
+  );
+
+  return {
+    releaseSha,
+    imageDigest,
+  };
+}
+
+function matchFirst(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+
+  return null;
+}
+
+function validateTimestampText(rawText, label, referenceTime) {
+  const matches = rawText.match(ISO_TIMESTAMP_PATTERN) ?? [];
+  for (const match of matches) {
+    assertNotFutureTimestamp(match, `${label} timestamp`, referenceTime);
+  }
+}
+
 function validateReadinessDocument(document, options = {}) {
   if (options.evidencePath) {
     assertRealEvidencePath(options.evidencePath);
   }
+
+  const referenceTime = options.referenceTime ?? new Date();
+  assertValidReferenceTime(referenceTime);
 
   assert(document.schemaVersion === '1', 'schemaVersion must be "1"');
   assert(
@@ -142,9 +257,10 @@ function validateReadinessDocument(document, options = {}) {
       isNonEmptyString(gate.recordedAt),
       `gate ${gateName} must include recordedAt`,
     );
-    assert(
-      !Number.isNaN(new Date(gate.recordedAt).getTime()),
-      `gate ${gateName} recordedAt must be a valid ISO datetime`,
+    assertNotFutureTimestamp(
+      gate.recordedAt,
+      `gate ${gateName} recordedAt`,
+      referenceTime,
     );
   }
 
@@ -157,9 +273,23 @@ function validateReadinessDocument(document, options = {}) {
       isNonEmptyString(approval.approvedAt),
       'approval.approvedAt is required',
     );
+    assertNotFutureTimestamp(
+      approval.approvedAt,
+      `approval ${approval.role} approvedAt`,
+      referenceTime,
+    );
+    assert(isSha(approval.releaseSha), 'approval.releaseSha is required');
     assert(
-      !Number.isNaN(new Date(approval.approvedAt).getTime()),
-      'approval.approvedAt must be a valid ISO datetime',
+      approval.releaseSha === document.releaseSha,
+      'approval.releaseSha must match readiness.json',
+    );
+    assert(
+      isImageDigest(approval.imageDigest),
+      'approval.imageDigest is required',
+    );
+    assert(
+      approval.imageDigest === document.imageDigest,
+      'approval.imageDigest must match readiness.json',
     );
   }
 
@@ -168,9 +298,32 @@ function validateReadinessDocument(document, options = {}) {
     'trainingSignOffs must be an array',
   );
   for (const entry of document.trainingSignOffs) {
+    assert(isNonEmptyString(entry.role), 'trainingSignOff.role is required');
     assert(
       isAllowedEvidenceReference(entry.reference),
       'training sign-off reference must point at executed release evidence',
+    );
+    assert(isSha(entry.releaseSha), 'trainingSignOff.releaseSha is required');
+    assert(
+      entry.releaseSha === document.releaseSha,
+      'trainingSignOff.releaseSha must match readiness.json',
+    );
+    assert(
+      isImageDigest(entry.imageDigest),
+      'trainingSignOff.imageDigest is required',
+    );
+    assert(
+      entry.imageDigest === document.imageDigest,
+      'trainingSignOff.imageDigest must match readiness.json',
+    );
+    assert(
+      isNonEmptyString(entry.completedAt),
+      'trainingSignOff.completedAt is required',
+    );
+    assertNotFutureTimestamp(
+      entry.completedAt,
+      `trainingSignOff ${entry.role} completedAt`,
+      referenceTime,
     );
   }
   assert(
@@ -187,7 +340,10 @@ function validateReadinessDocument(document, options = {}) {
   );
 }
 
-function validateEvidenceBundle(evidenceDir, document) {
+function validateEvidenceBundle(evidenceDir, document, options = {}) {
+  const referenceTime = options.referenceTime ?? new Date();
+  assertValidReferenceTime(referenceTime);
+
   assertFile(join(evidenceDir, 'README.md'), 'release evidence README');
   assertFile(
     join(evidenceDir, 'deployment-checklist.md'),
@@ -203,6 +359,7 @@ function validateEvidenceBundle(evidenceDir, document) {
     document.gates.staging.evidence,
     document.gates.training.evidence,
     document.gates.signOff.evidence,
+    ...document.trainingSignOffs.map((entry) => entry.reference),
   ];
 
   for (const reference of referencedFiles) {
@@ -212,7 +369,114 @@ function validateEvidenceBundle(evidenceDir, document) {
     );
     const filePath = resolve(process.cwd(), reference);
     assertFile(filePath, `referenced evidence ${reference}`);
+
+    const rawText = readFileSync(filePath, 'utf8');
+    const metadata = extractEvidenceMetadata(filePath, rawText);
+    assert(
+      metadata.releaseSha === document.releaseSha,
+      `referenced evidence releaseSha must match readiness.json: ${reference}`,
+    );
+    assert(
+      metadata.imageDigest === document.imageDigest,
+      `referenced evidence imageDigest must match readiness.json: ${reference}`,
+    );
+
+    if (reference.endsWith('performance-summary.json')) {
+      validatePerformanceEvidence(filePath, rawText, document);
+    }
+
+    if (reference.endsWith('security-results.md')) {
+      validateSecurityEvidence(filePath, rawText, document);
+    }
+
+    if (reference.endsWith('staging-certification.md')) {
+      validateStagingEvidence(filePath, rawText);
+    }
+
+    validateTimestampText(rawText, reference, referenceTime);
   }
+}
+
+function validateSecurityEvidence(filePath, rawText, document) {
+  assert(
+    /actions\/runs\/\d+/i.test(rawText),
+    `security evidence must include a workflow run URL: ${filePath}`,
+  );
+  assert(
+    /Workflow run ID:\s*\d+/i.test(rawText),
+    `security evidence must include a workflow run ID: ${filePath}`,
+  );
+  assert(
+    /Gitleaks/i.test(rawText) && /Trivy/i.test(rawText),
+    `security evidence must mention the executed security jobs: ${filePath}`,
+  );
+  assert(
+    new RegExp(`Candidate SHA:\\s*${document.releaseSha}`, 'i').test(rawText),
+    `security evidence candidate SHA must match readiness.json: ${filePath}`,
+  );
+  assert(
+    rawText.includes(document.imageDigest),
+    `security evidence imageDigest must match readiness.json: ${filePath}`,
+  );
+}
+
+function validateStagingEvidence(filePath, rawText) {
+  assert(
+    /actions\/runs\/\d+/i.test(rawText),
+    `staging evidence must include a workflow or validation URL: ${filePath}`,
+  );
+  assert(
+    /staging/i.test(rawText),
+    `staging evidence must mention staging validation: ${filePath}`,
+  );
+}
+
+function validatePerformanceEvidence(filePath, rawText, document) {
+  let evidence;
+  try {
+    evidence = JSON.parse(rawText);
+  } catch (error) {
+    throw new Error(`performance evidence must be valid JSON: ${filePath}`);
+  }
+
+  assert(evidence.tool === 'k6', 'performance evidence tool must be k6');
+  assert(evidence.status === 'passed', 'performance evidence must be passed');
+  assert(
+    evidence.releaseSha === document.releaseSha,
+    'performance evidence releaseSha must match readiness.json',
+  );
+  assert(
+    evidence.imageDigest === document.imageDigest,
+    'performance evidence imageDigest must match readiness.json',
+  );
+  assert(
+    typeof evidence.lookupP95Ms === 'number' && evidence.lookupP95Ms < 500,
+    'performance evidence lookupP95Ms must be below 500ms',
+  );
+  assert(
+    typeof evidence.earnCheckoutP95Ms === 'number' &&
+      evidence.earnCheckoutP95Ms < 1200,
+    'performance evidence earnCheckoutP95Ms must be below 1200ms',
+  );
+  assert(
+    typeof evidence.redeemCheckoutP95Ms === 'number' &&
+      evidence.redeemCheckoutP95Ms < 1200,
+    'performance evidence redeemCheckoutP95Ms must be below 1200ms',
+  );
+  assert(
+    typeof evidence.reportIsolationP95Ms === 'number' &&
+      evidence.reportIsolationP95Ms < 1800,
+    'performance evidence reportIsolationP95Ms must be below 1800ms',
+  );
+  assert(
+    typeof evidence.httpFailureRate === 'number' &&
+      evidence.httpFailureRate < 0.01,
+    'performance evidence httpFailureRate must be below 1%',
+  );
+  assert(
+    evidence.reconciliationMismatchCount === 0,
+    'performance evidence reconciliationMismatchCount must be zero',
+  );
 }
 
 function assertRealEvidencePath(evidencePath) {
@@ -245,10 +509,13 @@ function main() {
   const evidenceDir = resolve(
     args['evidence-dir'] ?? 'docs/release-evidence/sprint-5-pilot',
   );
+  const referenceTime = args['reference-time']
+    ? new Date(args['reference-time'])
+    : new Date();
   const document = loadJson(evidencePath);
 
-  validateReadinessDocument(document, { evidencePath });
-  validateEvidenceBundle(evidenceDir, document);
+  validateReadinessDocument(document, { evidencePath, referenceTime });
+  validateEvidenceBundle(evidenceDir, document, { referenceTime });
 
   console.log(
     JSON.stringify(

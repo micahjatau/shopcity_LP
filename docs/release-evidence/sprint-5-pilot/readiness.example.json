@@ -49,24 +49,32 @@
     {
       "role": "owner-admin",
       "name": "Pilot Approver",
-      "approvedAt": "2026-08-13T10:07:00.000Z"
+      "approvedAt": "2026-08-13T10:07:00.000Z",
+      "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }
   ],
   "trainingSignOffs": [
     {
       "role": "cashier",
       "reference": "docs/development/pilot-training-cashier.md",
-      "completedAt": "2026-08-13T09:00:00.000Z"
+      "completedAt": "2026-08-13T09:00:00.000Z",
+      "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     },
     {
       "role": "supervisor",
       "reference": "docs/development/pilot-training-supervisor.md",
-      "completedAt": "2026-08-13T09:15:00.000Z"
+      "completedAt": "2026-08-13T09:15:00.000Z",
+      "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     },
     {
       "role": "owner-admin",
       "reference": "docs/development/pilot-training-owner-admin.md",
-      "completedAt": "2026-08-13T09:30:00.000Z"
+      "completedAt": "2026-08-13T09:30:00.000Z",
+      "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     }
   ]
 }

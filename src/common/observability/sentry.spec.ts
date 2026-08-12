@@ -51,4 +51,27 @@ describe('initializeSentryIfConfigured', () => {
     ).toBe(false);
     expect(Sentry.init).toHaveBeenCalledTimes(1);
   });
+
+  it('fails open when Sentry initialization throws', () => {
+    jest.spyOn(Sentry, 'init').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(
+      initializeSentryIfConfigured(
+        { SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/1' },
+        { runtime: 'api' },
+      ),
+    ).toBe(false);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Sentry initialization failed; continuing startup.',
+      ),
+    );
+    expect(Sentry.setTag).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
 });

@@ -22,7 +22,8 @@ Update:
 Required commands/evidence:
 
 - `npm run verify:docker-image`
-- security workflow run for the same SHA/image
+- security workflow run for the same SHA/image (`https://github.com/micahjatau/shopcity_LP/actions/runs/31630700891`)
+- CI workflow run for the same SHA/image (`https://github.com/micahjatau/shopcity_LP/actions/runs/31630700887`)
 - `k6 run scripts/performance/k6-pilot.js`
 - `node scripts/performance/validate-k6-summary.mjs --summary tmp/k6-pilot-summary.json`
 - `npx jest test/financial-state-invariants.int-spec.ts --config ./test/jest-int.json --runInBand`
@@ -57,6 +58,8 @@ Recommended real files to add:
 ## 5. Final verification
 
 After real evidence is in place, run:
+
+- If available, attach the external staging URL and ZAP baseline run URL for the same candidate
 
 - `npm run format:release`
 - `npm run openspec:validate`
