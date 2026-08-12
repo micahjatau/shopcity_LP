@@ -12509,6 +12509,278 @@ export type ReportsControllerListAuditReportV1503 = {
   meta: ReportsControllerListAuditReportV1503Meta;
 };
 
+export type ReportsControllerGetPilotOperationsSummaryV1200DataRelease = {
+  version: string;
+  sha: string;
+  sentryConfigured: boolean;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200DataOutbox = {
+  backlogCount: number;
+  staleCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200DataSms = {
+  failedCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200DataOfflineSync = {
+  failureCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200DataFraud = {
+  openCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200DataReports = {
+  staleCount: number;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200DataReconciliation =
+  {
+    healthy: boolean;
+    mismatchCount: number;
+  };
+
+export type ReportsControllerGetPilotOperationsSummaryV1200Data = {
+  release: ReportsControllerGetPilotOperationsSummaryV1200DataRelease;
+  generatedAt: string;
+  outbox: ReportsControllerGetPilotOperationsSummaryV1200DataOutbox;
+  sms: ReportsControllerGetPilotOperationsSummaryV1200DataSms;
+  offlineSync: ReportsControllerGetPilotOperationsSummaryV1200DataOfflineSync;
+  fraud: ReportsControllerGetPilotOperationsSummaryV1200DataFraud;
+  reports: ReportsControllerGetPilotOperationsSummaryV1200DataReports;
+  reconciliation: ReportsControllerGetPilotOperationsSummaryV1200DataReconciliation;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1200 = {
+  success: boolean;
+  data: ReportsControllerGetPilotOperationsSummaryV1200Data;
+  meta: ReportsControllerGetPilotOperationsSummaryV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1400ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1400 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1400Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1401ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1401 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1401Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1403ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1403 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1403Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1404ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1404 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1404Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1409ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1409 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1409Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1422ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1422 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1422Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1429ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1429 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1429Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetPilotOperationsSummaryV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetPilotOperationsSummaryV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetPilotOperationsSummaryV1503ErrorDetails;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetPilotOperationsSummaryV1503 = {
+  success: boolean;
+  error: ReportsControllerGetPilotOperationsSummaryV1503Error;
+  meta: ReportsControllerGetPilotOperationsSummaryV1503Meta;
+};
+
 export type ReportsControllerListMaterializationStateV1Params = {
   branchId?: string;
   timezone?: string;
@@ -18373,6 +18645,102 @@ export const reportsControllerListAuditReportV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerListAuditReportV1Response;
+};
+
+/**
+ * Get pilot operations summary
+ * @summary Get pilot operations summary
+ */
+export type reportsControllerGetPilotOperationsSummaryV1Response200 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1200;
+  status: 200;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response400 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1400;
+  status: 400;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response401 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1401;
+  status: 401;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response403 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1403;
+  status: 403;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response404 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1404;
+  status: 404;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response409 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1409;
+  status: 409;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response422 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1422;
+  status: 422;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response429 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1429;
+  status: 429;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response503 = {
+  data: ReportsControllerGetPilotOperationsSummaryV1503;
+  status: 503;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1ResponseSuccess =
+  reportsControllerGetPilotOperationsSummaryV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetPilotOperationsSummaryV1ResponseError = (
+  | reportsControllerGetPilotOperationsSummaryV1Response400
+  | reportsControllerGetPilotOperationsSummaryV1Response401
+  | reportsControllerGetPilotOperationsSummaryV1Response403
+  | reportsControllerGetPilotOperationsSummaryV1Response404
+  | reportsControllerGetPilotOperationsSummaryV1Response409
+  | reportsControllerGetPilotOperationsSummaryV1Response422
+  | reportsControllerGetPilotOperationsSummaryV1Response429
+  | reportsControllerGetPilotOperationsSummaryV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetPilotOperationsSummaryV1Response =
+  | reportsControllerGetPilotOperationsSummaryV1ResponseSuccess
+  | reportsControllerGetPilotOperationsSummaryV1ResponseError;
+
+export const getReportsControllerGetPilotOperationsSummaryV1Url = () => {
+  return `/api/v1/reports/pilot-operations-summary`;
+};
+
+export const reportsControllerGetPilotOperationsSummaryV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerGetPilotOperationsSummaryV1Response> => {
+  const res = await fetch(
+    getReportsControllerGetPilotOperationsSummaryV1Url(),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetPilotOperationsSummaryV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetPilotOperationsSummaryV1Response;
 };
 
 /**
