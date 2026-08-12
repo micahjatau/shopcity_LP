@@ -1,62 +1,63 @@
 ## Context
 
-Sprint 5 implementation is now ahead of certification. Repo review 46 shows the remaining work is not new product behavior; it is release-evidence integrity. The codebase needs one frozen candidate, one truthful evidence bundle, and one verifier that refuses stale, future-dated, or mismatched artifacts.
+Repo review 46 says Sprint 5 implementation is complete enough for pilot use, but certification is still not trustworthy. The release bundle currently mixes the wrong candidate SHA, skipped security jobs, synthetic restore evidence, local-only performance output, placeholder approval text, and verifier rules that are not strict enough about frozen-candidate provenance.
+
+This change is about release integrity, not product scope.
 
 ## Goals / Non-Goals
 
 **Goals**
 
-- Bind every required Sprint 5 certification artifact to one immutable release SHA and image digest.
-- Replace asserted or future-dated evidence with observed run data, timestamps, and execution references.
-- Make the readiness verifier fail closed when any artifact is missing, stale, or inconsistent.
-- Make Sentry initialization non-blocking so observability setup cannot prevent runtime startup.
-- Bring OpenSpec/release-tracker docs back into alignment with the chosen candidate.
+- Bind every Sprint 5 closure artifact to one frozen release SHA and one real registry digest.
+- Replace synthetic, placeholder, or future-dated evidence with observed certification evidence.
+- Make the readiness verifier fail closed when any mandatory gate is skipped, mismatched, or not tied to the frozen candidate.
+- Prove the release was actually deployed, validated, restored, and approved rather than inferred from a local or narrative artifact.
 
 **Non-Goals**
 
-- Adding new Sprint 5 product features.
-- Reworking the ledger, reminder, restore, or performance implementation beyond evidence/certification needs.
-- Changing the release-evidence schema in incompatible ways.
+- Adding new Sprint 5 functionality.
+- Reworking the ledger, reporting, restore, or performance implementations beyond what certification evidence requires.
+- Moving the evidence bundle to a different platform unless the implementation later decides to reference external artifacts by design.
 
 ## Decisions
 
 1. Freeze the candidate first, then regenerate evidence.
 
 - The review explicitly says the current bundle certifies the wrong head.
-- All evidence must be regenerated after the candidate is frozen so the SHA/image digest remains stable and auditable.
+- All evidence must be recaptured after the candidate is frozen so the SHA and digest remain auditable and stable.
 
-2. Treat observed evidence as mandatory, not descriptive text.
+2. Treat observed evidence as mandatory.
 
 - Future timestamps, placeholder approvals, and narrative-only pass claims do not prove execution.
-- The readiness bundle must carry execution identifiers and measured values so the verifier can validate the artifacts rather than trust prose.
+- Each mandatory gate must have run identifiers, timestamps, and observed outputs that the verifier can check.
 
-3. Require verifier consistency across all evidence files.
+3. Require end-to-end provenance for the release artifact.
 
-- A single readiness file is not enough if the related artifacts can point at different SHAs or digests.
-- The verifier should reject any bundle where release SHA, image digest, or gate references disagree.
+- A real registry digest is required, not a reused digest string.
+- Security and staging evidence must tie back to the same frozen artifact and same deployment target.
 
-4. Fail open on Sentry initialization.
+4. Fail closed on skipped gates.
 
-- Observability should improve the runtime but never become a startup blocker.
-- If Sentry setup throws, log the failure and continue booting.
+- CodeQL and ZAP are not optional for the certification bundle.
+- A skipped mandatory job is a failure, not a pass.
 
-5. Keep the tracker aligned with the certified artifact.
+5. Keep the verifier strict about freeze time and target reality.
 
-- Proposal-time tracker notes, release evidence, and the final approval record should all name the same frozen candidate.
-- This prevents a repeat of the review-46 mismatch between the source head and the certified bundle.
+- Evidence cannot predate the candidate freeze.
+- Staging evidence must include a real deployment target and the executed validation steps.
 
 ## Risks / Trade-offs
 
-- Tightening the verifier will invalidate the current evidence bundle until fresh observed artifacts are captured.
-- Requiring run IDs and measured metrics may force small updates to the security, staging, and performance capture process.
-- Failing open on Sentry can hide transient configuration errors if logs are ignored, so the initializer must emit an explicit warning.
-- Regenerating the bundle after freezing the candidate adds one more release step, but it is necessary to avoid certifying stale code.
+- Tightening the verifier will invalidate the current bundle until fresh evidence is captured.
+- Requiring a pushed digest and real staging evidence may force a small amount of release-process work before the bundle can close.
+- Replacing the synthetic restore proof with provider-backed restore evidence is operationally heavier, but it is required for TRD-aligned launch confidence.
+- Identifying real approvers/trainers makes the bundle honest, but it also removes the convenience of placeholder sign-off text.
 
 ## Migration Plan
 
-1. Choose and freeze the release candidate SHA/image digest.
-2. Capture fresh observed evidence for restore, security, performance, staging, training, and approval.
-3. Patch the readiness verifier to enforce digest/SHA/timestamp consistency and reject fixture evidence.
-4. Wrap Sentry bootstrap so init failures log and continue.
-5. Update the proposal-time tracker and release evidence docs to reference the same frozen candidate.
+1. Freeze the new minimum candidate SHA.
+2. Build and push the exact image and record the pushed digest.
+3. Recapture CI, security, staging, performance, restore, training, and approval evidence for that exact artifact.
+4. Patch the readiness verifier to require same-SHA/same-digest/same-freeze-time evidence and to reject skipped mandatory gates.
+5. Update the production-readiness checklist and release evidence docs to point at the same frozen candidate.
 6. Run `npm run openspec:validate` and the readiness verifier against the completed bundle.
