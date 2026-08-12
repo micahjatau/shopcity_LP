@@ -109,7 +109,11 @@ async function createNestApp(
     },
   );
 
-  await app.register(helmet, {
+  const helmetPlugin = helmet as Parameters<
+    NestFastifyApplication['register']
+  >[0];
+
+  await app.register(helmetPlugin, {
     global: true,
   });
 
