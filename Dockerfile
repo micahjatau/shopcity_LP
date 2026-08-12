@@ -18,7 +18,8 @@ ARG RELEASE_VERSION=0.0.0-dev
 WORKDIR /app
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV NODE_ENV=production
 ENV SHOPCITY_RUNTIME=api
 ENV RELEASE_SHA=${RELEASE_SHA}
