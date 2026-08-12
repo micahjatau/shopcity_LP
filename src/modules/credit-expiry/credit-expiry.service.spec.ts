@@ -1,16 +1,17 @@
 import type { AuditService } from '../audit/audit.service';
 import type { SystemActorService } from '../../common/system/system-actor.service';
+import type { PrismaService } from '../../database/prisma.service';
 import { CreditExpiryService } from './credit-expiry.service';
 
 describe('CreditExpiryService', () => {
   it('returns an empty result when no due lots are found', async () => {
-    const prisma = prismaStub({ lots: [] });
+    const { prisma } = prismaStub({ lots: [] });
     const auditService = {
       recordWithClient: jest.fn(),
-    } satisfies Pick<AuditService, 'recordWithClient'>;
+    } as unknown as AuditService;
     const systemActorService = {
       getOrCreate: jest.fn(),
-    } satisfies Pick<SystemActorService, 'getOrCreate'>;
+    } as unknown as SystemActorService;
     const service = new CreditExpiryService(
       prisma,
       auditService,
@@ -26,7 +27,12 @@ describe('CreditExpiryService', () => {
   });
 
   it('expires locked due lots and reuses one system actor per tenant', async () => {
-    const prisma = prismaStub({
+    const {
+      prisma,
+      loyaltyLedgerEntryCreate,
+      creditExpiryCreate,
+      creditLotUpdateMany,
+    } = prismaStub({
       lots: [
         {
           id: 'lot-1',
@@ -44,12 +50,16 @@ describe('CreditExpiryService', () => {
         },
       ],
     });
-    const auditService = { recordWithClient: jest.fn().mockResolvedValue({}) };
+    const recordWithClient = jest.fn().mockResolvedValue({});
+    const getOrCreate = jest
+      .fn()
+      .mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' });
+    const auditService = {
+      recordWithClient,
+    } as unknown as AuditService;
     const systemActorService = {
-      getOrCreate: jest
-        .fn()
-        .mockResolvedValue({ id: 'system-user-id', tenantId: 'tenant-1' }),
-    } satisfies Pick<SystemActorService, 'getOrCreate'>;
+      getOrCreate,
+    } as unknown as SystemActorService;
     const service = new CreditExpiryService(
       prisma,
       auditService,
@@ -67,21 +77,21 @@ describe('CreditExpiryService', () => {
       expiredAmountKobo: 1500n,
     });
 
-    expect(systemActorService.getOrCreate).toHaveBeenCalledTimes(1);
-    expect(prisma.loyaltyLedgerEntry.create).toHaveBeenCalledTimes(2);
-    expect(prisma.creditExpiry.create).toHaveBeenCalledTimes(2);
-    expect(prisma.creditLot.updateMany).toHaveBeenCalledTimes(2);
-    expect(auditService.recordWithClient).toHaveBeenCalledTimes(2);
+    expect(getOrCreate).toHaveBeenCalledTimes(1);
+    expect(loyaltyLedgerEntryCreate).toHaveBeenCalledTimes(2);
+    expect(creditExpiryCreate).toHaveBeenCalledTimes(2);
+    expect(creditLotUpdateMany).toHaveBeenCalledTimes(2);
+    expect(recordWithClient).toHaveBeenCalledTimes(2);
   });
 
   it('rejects invalid inputs before opening a transaction', async () => {
-    const prisma = prismaStub({ lots: [] });
+    const { prisma, transaction } = prismaStub({ lots: [] });
     const auditService = {
       recordWithClient: jest.fn(),
-    } satisfies Pick<AuditService, 'recordWithClient'>;
+    } as unknown as AuditService;
     const systemActorService = {
       getOrCreate: jest.fn(),
-    } satisfies Pick<SystemActorService, 'getOrCreate'>;
+    } as unknown as SystemActorService;
     const service = new CreditExpiryService(
       prisma,
       auditService,
@@ -94,7 +104,7 @@ describe('CreditExpiryService', () => {
     await expect(
       service.expireDueCredit({ now: new Date(), batchSize: 0 }),
     ).rejects.toThrow(/positive integer/i);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 });
 
@@ -109,19 +119,20 @@ function prismaStub({
     expiresAt: Date;
   }>;
 }) {
+  const loyaltyLedgerEntryCreate = jest
+    .fn()
+    .mockImplementation(({ data }: { data: { correlationId: string } }) => ({
+      id: `${data.correlationId}-ledger`,
+    }));
+  const creditExpiryCreate = jest.fn().mockResolvedValue({});
+  const creditLotUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
   const tx = {
     $queryRaw: jest.fn().mockResolvedValue(lots),
     loyaltyLedgerEntry: {
-      create: jest
-        .fn()
-        .mockImplementation(
-          ({ data }: { data: { correlationId: string } }) => ({
-            id: `${data.correlationId}-ledger`,
-          }),
-        ),
+      create: loyaltyLedgerEntryCreate,
     },
-    creditExpiry: { create: jest.fn().mockResolvedValue({}) },
-    creditLot: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    creditExpiry: { create: creditExpiryCreate },
+    creditLot: { updateMany: creditLotUpdateMany },
     user: {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest
@@ -130,14 +141,22 @@ function prismaStub({
     },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
   };
+  const transaction = jest
+    .fn()
+    .mockImplementation(
+      async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    );
+
+  const prisma = {
+    $transaction: transaction,
+    ...tx,
+  } as unknown as PrismaService;
 
   return {
-    $transaction: jest
-      .fn()
-      .mockImplementation(
-        async (callback: (client: typeof tx) => Promise<unknown>) =>
-          callback(tx),
-      ),
-    ...tx,
+    prisma,
+    loyaltyLedgerEntryCreate,
+    creditExpiryCreate,
+    creditLotUpdateMany,
+    transaction,
   };
 }

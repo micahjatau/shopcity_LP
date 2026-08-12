@@ -40,7 +40,8 @@ describe('ReportsController', () => {
   });
 
   it('delegates pilot operations summary reads', async () => {
-    const reportsService = reportsServiceStub();
+    const { service: reportsService, getPilotOperationsSummary } =
+      reportsServiceStub();
     const controller = new ReportsController(
       reportsService,
       exportServiceStub().service,
@@ -60,7 +61,7 @@ describe('ReportsController', () => {
   it('schedules report refresh', async () => {
     const exportService = exportServiceStub();
     const controller = new ReportsController(
-      reportsServiceStub(),
+      reportsServiceStub().service,
       exportService.service,
     );
 
