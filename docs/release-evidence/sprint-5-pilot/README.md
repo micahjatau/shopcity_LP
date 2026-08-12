@@ -7,6 +7,7 @@ Use this directory to store the final pilot certification bundle for one approve
 - `deployment-checklist.md`
 - `rollback-checklist.md`
 - `production-readiness-checklist.md`
+- `final-approval-template.md`
 - `readiness.schema.json`
 - `readiness.example.json`
 - performance summary and validation output
