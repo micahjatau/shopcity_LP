@@ -16,7 +16,7 @@ import {
   LockedDueCreditLot,
 } from './credit-expiry.types';
 
-const CREDIT_EXPIRY_TRANSACTION_RETRY_ATTEMPTS = 3;
+const CREDIT_EXPIRY_TRANSACTION_RETRY_ATTEMPTS = 5;
 
 @Injectable()
 export class CreditExpiryService {

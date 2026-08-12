@@ -463,7 +463,7 @@ describe('immutable earn ledger (int)', () => {
         data: { remainingAmountKobo: creditLot.remainingAmountKobo - 1n },
       }),
     ).rejects.toThrow(
-      /credit lot remaining balance (is temporarily immutable|must match immutable allocation and restoration evidence)/i,
+      /credit lot remaining balance (is temporarily immutable|must match immutable allocation and restoration evidence|must match allocation, restoration, and expiry evidence)/i,
     );
 
     await expect(
