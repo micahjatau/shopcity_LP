@@ -90,6 +90,7 @@ describe('report materialization (int)', () => {
     );
 
     const occurredAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const expectedReportDate = toReportDateUtc(occurredAt, 'Africa/Lagos');
     const earn = await loyaltyService.earn(
       tenant.id,
       makeContext(
@@ -179,7 +180,7 @@ describe('report materialization (int)', () => {
 
     expect(summary).toHaveLength(1);
     expect(summary[0]).toMatchObject({
-      reportDate: new Date('2026-08-11T00:00:00.000Z'),
+      reportDate: expectedReportDate,
       registeredCustomers: 1,
       activeCustomers: 1,
       transactionCount: 1,
@@ -311,6 +312,25 @@ async function createEarnFixture(
     card,
     posReceiptNumber: receiptNumber,
   };
+}
+
+function toReportDateUtc(value: string, timeZone: string): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value));
+
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+
+  return new Date(
+    `${year.toString().padStart(4, '0')}-${month
+      .toString()
+      .padStart(2, '0')}-${day.toString().padStart(2, '0')}T00:00:00.000Z`,
+  );
 }
 
 function makeContext(
