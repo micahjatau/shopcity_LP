@@ -18555,7 +18555,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Receipt-backed transaction details",
+            "description": "Transaction details",
             "content": {
               "application/json": {
                 "schema": {
@@ -18607,7 +18607,13 @@
                         },
                         "type": {
                           "type": "string",
-                          "enum": ["EARN", "REDEEM", "REVERSAL", "ADJUSTMENT"]
+                          "enum": [
+                            "EARN",
+                            "REDEEM",
+                            "REVERSAL",
+                            "ADJUSTMENT",
+                            "EXPIRY"
+                          ]
                         },
                         "direction": {
                           "type": "string",
@@ -18736,7 +18742,8 @@
                                 "EARN",
                                 "REDEEM",
                                 "REVERSAL",
-                                "ADJUSTMENT"
+                                "ADJUSTMENT",
+                                "EXPIRY"
                               ]
                             },
                             "direction": {
@@ -19341,7 +19348,7 @@
                       "error": {
                         "statusCode": 422,
                         "code": "UNSUPPORTED_TRANSACTION_TYPE",
-                        "message": "This transaction type is not available through the earn transaction read model yet"
+                        "message": "This transaction type is not available through this transaction read model yet"
                       },
                       "meta": {
                         "timestamp": "2026-07-19T00:00:00.000Z",
@@ -19477,9 +19484,9 @@
             "bearer": []
           }
         ],
-        "summary": "Get receipt-backed transaction details",
+        "summary": "Get transaction details",
         "tags": ["transactions"],
-        "description": "Get receipt-backed transaction details"
+        "description": "Get transaction details"
       }
     },
     "/api/v1/customers/{id}/ledger": {
@@ -19513,7 +19520,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Customer ledger for receipt-backed transactions",
+            "description": "Customer ledger for transactions",
             "content": {
               "application/json": {
                 "schema": {
@@ -19574,7 +19581,8 @@
                                   "EARN",
                                   "REDEEM",
                                   "REVERSAL",
-                                  "ADJUSTMENT"
+                                  "ADJUSTMENT",
+                                  "EXPIRY"
                                 ]
                               },
                               "direction": {
@@ -20224,9 +20232,9 @@
             "bearer": []
           }
         ],
-        "summary": "Get receipt-backed customer ledger",
+        "summary": "Get customer transaction ledger",
         "tags": ["transactions"],
-        "description": "Get receipt-backed customer ledger"
+        "description": "Get customer transaction ledger"
       }
     },
     "/api/v1/transactions/redeem": {

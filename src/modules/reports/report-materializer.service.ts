@@ -76,6 +76,12 @@ interface RedemptionRecord {
   reversedAt: Date | null;
 }
 
+interface CreditExpiryRecord {
+  creditLotId: string;
+  amountKobo: bigint;
+  expiredAt: Date;
+}
+
 interface SmsMessageRecord {
   id: string;
   receiptId: string | null;
@@ -129,6 +135,7 @@ interface SourceData {
   ledgerEntries: LedgerEntryRecord[];
   creditLots: CreditLotRecord[];
   redemptions: RedemptionRecord[];
+  creditExpiries: CreditExpiryRecord[];
   smsMessages: SmsMessageRecord[];
   approvals: ApprovalRecord[];
   redemptionAllocations: RedemptionAllocationRecord[];
@@ -267,6 +274,7 @@ export class ReportMaterializerService {
       ledgerEntries,
       creditLots,
       redemptions,
+      creditExpiries,
       smsMessages,
       approvals,
       redemptionAllocations,
@@ -345,6 +353,14 @@ export class ReportMaterializerService {
           reversedAt: true,
         },
       }),
+      client.creditExpiry.findMany({
+        where: { tenantId, expiredAt: { lte: asOf } },
+        select: {
+          creditLotId: true,
+          amountKobo: true,
+          expiredAt: true,
+        },
+      }),
       client.smsMessage.findMany({
         where: { tenantId },
         select: {
@@ -416,6 +432,7 @@ export class ReportMaterializerService {
       redemptions: redemptions.filter(
         (redemption) => redemption.requestedAt <= asOf,
       ),
+      creditExpiries,
       smsMessages: smsMessages.filter((sms) => sms.queuedAt <= asOf),
       approvals: approvals.filter((approval) => approval.requestedAt <= asOf),
       redemptionAllocations,
@@ -742,9 +759,8 @@ function buildDailyFinancialSummaries(
 
   const registeredCustomers = customers.length;
   const activeLots = lots.filter((lot) => lot.expiresAt > asOf);
-  const expiredLots = lots.filter((lot) => lot.expiresAt <= asOf);
   const outstandingLiabilityKobo = sumLots(activeLots, lotBalances);
-  const creditExpiredKobo = sumLots(expiredLots, lotBalances);
+  const creditExpiredKobo = sumExpiredCredit(lots, source.creditExpiries, asOf);
 
   return Array.from(reportDates)
     .sort()
@@ -1530,6 +1546,17 @@ function buildLotBalances(source: SourceData, asOf: Date): Map<string, bigint> {
     );
   }
 
+  for (const expiry of source.creditExpiries) {
+    if (expiry.expiredAt > asOf) {
+      continue;
+    }
+
+    balances.set(
+      expiry.creditLotId,
+      (balances.get(expiry.creditLotId) ?? 0n) - expiry.amountKobo,
+    );
+  }
+
   for (const [lotId, balance] of balances.entries()) {
     balances.set(lotId, balance < 0n ? 0n : balance);
   }
@@ -1542,6 +1569,22 @@ function sumLots(
   balances: Map<string, bigint>,
 ): bigint {
   return lots.reduce((sum, lot) => sum + (balances.get(lot.id) ?? 0n), 0n);
+}
+
+function sumExpiredCredit(
+  lots: CreditLotRecord[],
+  expiries: CreditExpiryRecord[],
+  asOf: Date,
+): bigint {
+  const lotIds = new Set(lots.map((lot) => lot.id));
+
+  return expiries.reduce((sum, expiry) => {
+    if (expiry.expiredAt > asOf || !lotIds.has(expiry.creditLotId)) {
+      return sum;
+    }
+
+    return sum + expiry.amountKobo;
+  }, 0n);
 }
 
 function addBigInt(map: Map<string, bigint>, key: string, value: bigint): void {

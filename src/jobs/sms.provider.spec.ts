@@ -12,6 +12,7 @@ import {
 import { createSmsProvider } from './sms.provider.factory';
 import {
   buildBalanceAdjustedSmsPayload,
+  buildCreditExpiryReminderSmsPayload,
   buildEarnConfirmedSmsPayload,
   buildRedemptionConfirmedSmsPayload,
   buildTransactionReversedSmsPayload,
@@ -229,6 +230,51 @@ describe('sms provider selection', () => {
     }
   });
 
+  it('renders credit expiry reminder SMS messages', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+
+      return {
+        statusCode: 200,
+        body: { response: { status: 'SUCCESS', batch_id: 'sms-5' } },
+      };
+    });
+
+    const provider = newEbulkSmsProvider(server.url);
+
+    try {
+      await expect(
+        provider.send({
+          ...smsInput(),
+          receiptId: null,
+          template: 'credit-expiry-reminder-v1',
+          payload: buildCreditExpiryReminderSmsPayload({
+            customerId: 'customer-1',
+            phoneE164: '+2348000000000',
+            totalExpiringKobo: 4500n,
+            earliestExpiresAt: new Date('2026-09-10T10:00:00.000Z'),
+            latestExpiresAt: new Date('2026-09-10T10:00:00.000Z'),
+          }),
+        }),
+      ).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'sms-5',
+      });
+
+      expect(requests[0]?.body).toMatchObject({
+        SMS: {
+          message: {
+            messagetext:
+              'ShopCity: NGN 45.00 expires soon. Expiry window 2026-09-10T10:00:00.000Z to 2026-09-10T10:00:00.000Z.',
+          },
+        },
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
   it('preserves zero remaining balances in balance-adjusted payloads', () => {
     expect(
       buildBalanceAdjustedSmsPayload({
@@ -283,6 +329,25 @@ describe('sms provider selection', () => {
           phoneE164: '+2348000000000',
           template: 'earn-confirmed',
           creditKobo: '12.5',
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'terminal',
+    });
+  });
+
+  it('rejects incomplete credit expiry reminder payloads', async () => {
+    await expect(
+      newEbulkSmsProvider().send({
+        ...smsInput(),
+        receiptId: null,
+        template: 'credit-expiry-reminder-v1',
+        payload: {
+          version: 1,
+          customerId: 'customer-1',
+          phoneE164: '+2348000000000',
+          template: 'credit-expiry-reminder-v1',
         },
       }),
     ).resolves.toMatchObject({

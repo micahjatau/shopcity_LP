@@ -69,7 +69,7 @@ const transactionLedgerItemSchema = {
     redemptionId: { type: 'string', format: 'uuid', nullable: true },
     type: {
       type: 'string',
-      enum: ['EARN', 'REDEEM', 'REVERSAL', 'ADJUSTMENT'],
+      enum: ['EARN', 'REDEEM', 'REVERSAL', 'ADJUSTMENT', 'EXPIRY'],
     },
     direction: { type: 'string', enum: ['CREDIT', 'DEBIT'] },
     amountKobo: { type: 'integer' },
@@ -168,7 +168,7 @@ const transactionResponseSchema = {
     transactionId: { type: 'string', format: 'uuid' },
     type: {
       type: 'string',
-      enum: ['EARN', 'REDEEM', 'REVERSAL', 'ADJUSTMENT'],
+      enum: ['EARN', 'REDEEM', 'REVERSAL', 'ADJUSTMENT', 'EXPIRY'],
     },
     direction: { type: 'string', enum: ['CREDIT', 'DEBIT'] },
     tenantId: { type: 'string', format: 'uuid' },
@@ -471,15 +471,15 @@ export class LoyaltyController {
         statusCode: 422,
         code: 'UNSUPPORTED_TRANSACTION_TYPE',
         message:
-          'This transaction type is not available through the earn transaction read model yet',
+          'This transaction type is not available through this transaction read model yet',
       },
     },
   })
   @apiSuccessEnvelopeResponse({
-    description: 'Receipt-backed transaction details',
+    description: 'Transaction details',
     dataSchema: transactionResponseSchema,
   })
-  @ApiOperation({ summary: 'Get receipt-backed transaction details' })
+  @ApiOperation({ summary: 'Get transaction details' })
   getTransaction(
     @Req() request: AuthenticatedRequest,
     @Param('id') transactionId: string,
@@ -495,10 +495,10 @@ export class LoyaltyController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
-    description: 'Customer ledger for receipt-backed transactions',
+    description: 'Customer ledger for transactions',
     dataSchema: customerLedgerResponseSchema,
   })
-  @ApiOperation({ summary: 'Get receipt-backed customer ledger' })
+  @ApiOperation({ summary: 'Get customer transaction ledger' })
   getCustomerLedger(
     @Req() request: AuthenticatedRequest,
     @Param('id') customerId: string,

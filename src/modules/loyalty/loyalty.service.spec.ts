@@ -845,6 +845,90 @@ describe('LoyaltyService redemption approvals', () => {
     );
   });
 
+  it('returns expiry transaction details with immutable lot evidence', async () => {
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(expiryLedgerEntryFixture()),
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(0n),
+    );
+
+    await expect(
+      service.getTransaction('tenant-1', supervisorAuthContext(), 'ledger-expiry-1'),
+    ).resolves.toMatchObject({
+      transactionId: 'ledger-expiry-1',
+      type: 'EXPIRY',
+      direction: 'DEBIT',
+      redeemedAmountKobo: 4_500,
+      creditKobo: 0,
+      posReceiptNumber: null,
+      ledger: {
+        type: 'EXPIRY',
+        creditLot: {
+          id: 'lot-expiry-1',
+          remainingAmountKobo: 0,
+          expiresAt: '2026-09-10T10:00:00.000Z',
+        },
+      },
+    });
+  });
+
+  it('includes expiry rows in the customer ledger', async () => {
+    const findMany = jest.fn().mockResolvedValue([expiryLedgerEntryFixture()]);
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: {
+          findMany,
+        },
+        smsMessage: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(0n),
+    );
+
+    await expect(
+      service.listCustomerLedger(
+        'tenant-1',
+        supervisorAuthContext(),
+        'customer-1',
+      ),
+    ).resolves.toMatchObject({
+      customerId: 'customer-1',
+      items: [
+        {
+          id: 'ledger-expiry-1',
+          type: 'EXPIRY',
+          direction: 'DEBIT',
+          amountKobo: 4_500,
+          creditLot: {
+            id: 'lot-expiry-1',
+            remainingAmountKobo: 0,
+          },
+        },
+      ],
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant-1',
+          customerId: 'customer-1',
+          customer: { is: { branchId: 'branch-1' } },
+        },
+      }),
+    );
+  });
+
   it('returns receiptless adjustment transaction details', async () => {
     const ledgerEntry = {
       id: 'ledger-3',
@@ -1305,6 +1389,37 @@ function redemptionApprovalTransactionClient() {
     smsMessage: {
       create: jest.fn().mockResolvedValue({ id: 'sms-1' }),
     },
+  };
+}
+
+function expiryLedgerEntryFixture() {
+  const now = new Date('2026-09-10T10:00:00.000Z');
+
+  return {
+    id: 'ledger-expiry-1',
+    tenantId: 'tenant-1',
+    customerId: 'customer-1',
+    receiptId: null,
+    type: 'EXPIRY',
+    direction: 'DEBIT',
+    amountKobo: 4_500n,
+    status: 'CONFIRMED',
+    effectiveAt: now,
+    createdAt: now,
+    creditLot: {
+      id: 'lot-expiry-1',
+      originalAmountKobo: 4_500n,
+      remainingAmountKobo: 0n,
+      earnedAt: new Date('2026-08-10T10:00:00.000Z'),
+      expiresAt: now,
+    },
+    adjustment: null,
+    redemption: null,
+    redemptionAllocations: [],
+    allocationRestorations: [],
+    customer: { branchId: 'branch-1' },
+    receipt: null,
+    reversesEntryId: null,
   };
 }
 

@@ -64,6 +64,55 @@ describe('ReportMaterializerService', () => {
     });
   });
 
+  it('reconstructs outstanding and expired liability from expiry evidence across as-of boundaries', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert, {
+      creditExpiries: [
+        {
+          creditLotId: 'lot-1',
+          amountKobo: 1000n,
+          expiredAt: new Date('2026-09-10T10:00:00.000Z'),
+        },
+      ],
+    });
+    const service = new ReportMaterializerService(prisma, configService());
+
+    await service.materializeTenant('tenant-1', {
+      materializedAt: new Date('2026-09-09T12:00:00.000Z'),
+      asOf: new Date('2026-09-09T12:00:00.000Z'),
+    });
+
+    const preExpiryRows =
+      tx.reportDailyFinancialSummary.createMany.mock.calls[0]?.[0].data;
+    const preExpiryTenantRow = preExpiryRows.find(
+      (row) => row.scopeKey === 'tenant-1',
+    );
+
+    expect(preExpiryTenantRow).toMatchObject({
+      creditExpiredKobo: 0n,
+      outstandingLiabilityKobo: 1000n,
+    });
+
+    tx.reportDailyFinancialSummary.createMany.mockClear();
+
+    await service.materializeTenant('tenant-1', {
+      materializedAt: new Date('2026-09-11T12:00:00.000Z'),
+      asOf: new Date('2026-09-11T12:00:00.000Z'),
+    });
+
+    const postExpiryRows =
+      tx.reportDailyFinancialSummary.createMany.mock.calls[0]?.[0].data;
+    const postExpiryTenantRow = postExpiryRows.find(
+      (row) => row.scopeKey === 'tenant-1',
+    );
+
+    expect(postExpiryTenantRow).toMatchObject({
+      creditExpiredKobo: 1000n,
+      outstandingLiabilityKobo: 0n,
+    });
+  });
+
   it('rebuilds redemption and SMS summaries from as-of status snapshots', async () => {
     const tx = reportTxStub();
     const stateUpsert = jest.fn().mockResolvedValue(undefined);
@@ -149,6 +198,9 @@ describe('ReportMaterializerService', () => {
                   reversedAt: new Date('2026-08-10T13:00:00.000Z'),
                 },
               ]),
+            },
+            creditExpiry: {
+              findMany: jest.fn().mockResolvedValue([]),
             },
             smsMessage: {
               findMany: jest.fn().mockResolvedValue([
@@ -237,6 +289,9 @@ type ReportMaterializationTx = {
   redemption: {
     findMany: jest.Mock;
   };
+  creditExpiry: {
+    findMany: jest.Mock;
+  };
   smsMessage: {
     findMany: jest.Mock;
   };
@@ -254,7 +309,17 @@ type ReportMaterializationTx = {
   };
 };
 
-function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
+function prismaStub(
+  tx: ReportTxStub,
+  stateUpsert: jest.Mock,
+  options: {
+    creditExpiries?: Array<{
+      creditLotId: string;
+      amountKobo: bigint;
+      expiredAt: Date;
+    }>;
+  } = {},
+): PrismaService {
   return {
     branch: {
       findMany: jest
@@ -316,6 +381,9 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
     },
     redemption: {
       findMany: jest.fn().mockResolvedValue([]),
+    },
+    creditExpiry: {
+      findMany: jest.fn().mockResolvedValue(options.creditExpiries ?? []),
     },
     smsMessage: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -402,6 +470,11 @@ function prismaStub(tx: ReportTxStub, stateUpsert: jest.Mock): PrismaService {
             },
             redemption: {
               findMany: jest.fn().mockResolvedValue([]),
+            },
+            creditExpiry: {
+              findMany: jest.fn().mockResolvedValue(
+                options.creditExpiries ?? [],
+              ),
             },
             smsMessage: {
               findMany: jest.fn().mockResolvedValue([]),
