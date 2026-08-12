@@ -1,0 +1,23 @@
+{
+  "releaseSha": "0123456789abcdef0123456789abcdef01234567",
+  "releaseArtifact": "ghcr.io/shopcity/shopcity-lp@sha256:example",
+  "backupCompletedAt": "2026-08-13T08:00:00.000Z",
+  "restoreStartedAt": "2026-08-13T08:20:00.000Z",
+  "restoreCompletedAt": "2026-08-13T09:05:00.000Z",
+  "verificationCompletedAt": "2026-08-13T09:25:00.000Z",
+  "providerBackupControl": "Supabase managed encrypted scheduled backups with PITR enabled for the pilot project.",
+  "commands": [
+    {
+      "command": "npx jest test/financial-repair-restore.int-spec.ts --config ./test/jest-int.json --runInBand -t protected shared-backup",
+      "status": "passed"
+    },
+    {
+      "command": "npm run prisma:validate",
+      "status": "passed"
+    },
+    {
+      "command": "node scripts/restore/verify-restore-drill.mjs --evidence docs/release-evidence/sprint-5-pilot/restore-drill.json --max-rpo-minutes 60 --max-rto-minutes 120",
+      "status": "passed"
+    }
+  ]
+}
