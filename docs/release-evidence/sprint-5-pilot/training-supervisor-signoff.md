@@ -1,6 +1,7 @@
 # Supervisor training sign-off
 
-Candidate SHA: 41afe775b8abf985173c58c8de244bcb617be8c5
+Candidate SHA: 58e760b6cdbb01e96e2b654b2caa013985dd6f9f
 Image digest: ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b
-Completed at: 2026-08-12T19:15:00.000Z
-Signed by: Amina Bello
+Completed at: pending
+Signed by: pending
+Status: not certified

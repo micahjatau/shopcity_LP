@@ -29,7 +29,6 @@ jobs:
 
   codeql:
     name: CodeQL
-    if: ${{ vars.CODEQL_SCAN_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

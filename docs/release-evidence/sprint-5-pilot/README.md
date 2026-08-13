@@ -2,6 +2,8 @@
 
 Use this directory to store the final pilot certification bundle for one approved release candidate.
 
+Current Review 47 status: **NO-GO**. The files in this directory are placeholders or pending records until same-SHA CI/security, real staging, real k6, provider-managed restore, training, and approval evidence are captured.
+
 ## Required contents
 
 - `deployment-checklist.md`

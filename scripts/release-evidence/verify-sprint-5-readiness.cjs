@@ -513,9 +513,12 @@ function validateStagingEvidence(filePath, rawText, document, referenceTime) {
     /staging/i.test(rawText),
     `staging evidence must mention staging validation: ${filePath}`,
   );
+  const deploymentUrl = matchFirst(rawText, [
+    /(?:Deployment|Staging) URL:\s*(https:\/\/\S+)/i,
+  ]);
   assert(
-    /(?:Deployment|Staging) URL:\s*https:\/\/\S+/i.test(rawText),
-    `staging evidence must include a real deployment URL: ${filePath}`,
+    deploymentUrl && !isPlaceholderCertificationUrl(deploymentUrl),
+    `staging evidence must include a real non-placeholder deployment URL: ${filePath}`,
   );
   assert(
     /migration/i.test(rawText),
@@ -577,8 +580,8 @@ function validatePerformanceEvidence(filePath, rawText, document) {
   assert(
     typeof evidence.baseUrl === 'string' &&
       /^https:\/\//i.test(evidence.baseUrl) &&
-      !/127\.0\.0\.1|localhost/i.test(evidence.baseUrl),
-    'performance evidence baseUrl must be a non-local certification URL',
+      !isPlaceholderCertificationUrl(evidence.baseUrl),
+    'performance evidence baseUrl must be a real non-placeholder certification URL',
   );
   assert(
     typeof evidence.lookupP95Ms === 'number' && evidence.lookupP95Ms < 500,
@@ -783,6 +786,12 @@ function validateFinalApprovalEvidence(
   assert(
     !/placeholder/i.test(rawText),
     `final approval must not use placeholder language: ${filePath}`,
+  );
+}
+
+function isPlaceholderCertificationUrl(value) {
+  return /(^https?:\/\/)?([^/]+\.)?example(?:[/:]|$)|127\.0\.0\.1|localhost/i.test(
+    value,
   );
 }
 

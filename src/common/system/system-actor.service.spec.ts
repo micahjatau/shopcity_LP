@@ -1,4 +1,4 @@
-import { UserRole, UserStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 import { SYSTEM_USERNAME, SystemActorService } from './system-actor.service';
 
 describe('SystemActorService', () => {
@@ -47,6 +47,42 @@ describe('SystemActorService', () => {
     });
   });
 
+  it('re-reads the canonical SYSTEM actor after a concurrent create race', async () => {
+    const prisma = prismaStub({
+      existingSequence: [
+        null,
+        {
+          id: 'raced-system-user-id',
+          tenantId: 'tenant-id',
+          role: UserRole.SYSTEM,
+          status: UserStatus.ACTIVE,
+        },
+      ],
+      createError: uniqueConstraintError(),
+    });
+    const service = new SystemActorService();
+
+    await expect(
+      service.getOrCreate(prisma as never, 'tenant-id'),
+    ).resolves.toEqual({
+      id: 'raced-system-user-id',
+      tenantId: 'tenant-id',
+    });
+
+    expect(prisma.user.findFirst).toHaveBeenCalledTimes(2);
+    expect(prisma.user.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rethrows unexpected create errors', async () => {
+    const createError = new Error('database unavailable');
+    const prisma = prismaStub({ createError });
+    const service = new SystemActorService();
+
+    await expect(
+      service.getOrCreate(prisma as never, 'tenant-id'),
+    ).rejects.toThrow(createError);
+  });
+
   it('fails closed when the reserved username is not bound to an active SYSTEM actor', async () => {
     const service = new SystemActorService();
 
@@ -82,6 +118,8 @@ describe('SystemActorService', () => {
 
 function prismaStub({
   existing = null,
+  existingSequence,
+  createError,
 }: {
   existing?: {
     id: string;
@@ -89,14 +127,49 @@ function prismaStub({
     role: UserRole;
     status: UserStatus;
   } | null;
+  existingSequence?: Array<{
+    id: string;
+    tenantId: string;
+    role: UserRole;
+    status: UserStatus;
+  } | null>;
+  createError?: Error;
 } = {}) {
+  const findFirst = jest.fn();
+
+  if (existingSequence) {
+    for (const value of existingSequence) {
+      findFirst.mockResolvedValueOnce(value);
+    }
+  } else {
+    findFirst.mockResolvedValue(existing);
+  }
+
+  const create = jest.fn();
+  if (createError) {
+    create.mockRejectedValue(createError);
+  } else {
+    create.mockResolvedValue({
+      id: 'created-system-user-id',
+      tenantId: 'tenant-id',
+    });
+  }
+
   return {
     user: {
-      findFirst: jest.fn().mockResolvedValue(existing),
-      create: jest.fn().mockResolvedValue({
-        id: 'created-system-user-id',
-        tenantId: 'tenant-id',
-      }),
+      findFirst,
+      create,
     },
   };
+}
+
+function uniqueConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Unique constraint failed on the fields: (`tenantId`,`username`)',
+    {
+      code: 'P2002',
+      clientVersion: 'test',
+      meta: { target: ['tenantId', 'username'] },
+    },
+  );
 }

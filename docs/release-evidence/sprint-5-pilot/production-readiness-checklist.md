@@ -1,5 +1,7 @@
 # Sprint 5 Production Readiness Checklist
 
+Current Review 47 status: **NO-GO**. Leave every certification checkbox unchecked until observed external evidence exists for the same frozen SHA and pushed image digest.
+
 ## Release candidate stages
 
 - [ ] Engineering complete on one identified release SHA.

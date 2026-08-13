@@ -30,18 +30,52 @@ export class SystemActorService {
       return { id: existing.id, tenantId: existing.tenantId };
     }
 
-    const created = await client.user.create({
-      data: {
-        tenantId,
-        branchId: null,
-        username: SYSTEM_USERNAME,
-        role: UserRole.SYSTEM,
-        status: UserStatus.ACTIVE,
-        supabaseAuthId: null,
-      },
-      select: { id: true, tenantId: true },
-    });
+    try {
+      return await client.user.create({
+        data: {
+          tenantId,
+          branchId: null,
+          username: SYSTEM_USERNAME,
+          role: UserRole.SYSTEM,
+          status: UserStatus.ACTIVE,
+          supabaseAuthId: null,
+        },
+        select: { id: true, tenantId: true },
+      });
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
 
-    return created;
+      const racedActor = await client.user.findFirst({
+        where: { tenantId, username: SYSTEM_USERNAME },
+        select: { id: true, tenantId: true, role: true, status: true },
+      });
+
+      if (!racedActor) {
+        throw error;
+      }
+
+      if (racedActor.role !== UserRole.SYSTEM) {
+        throw new Error(
+          'existing system actor username is not bound to SYSTEM role',
+        );
+      }
+
+      if (racedActor.status !== UserStatus.ACTIVE) {
+        throw new Error('existing system actor must remain ACTIVE');
+      }
+
+      return { id: racedActor.id, tenantId: racedActor.tenantId };
+    }
   }
+}
+
+function isUniqueConstraintError(
+  error: unknown,
+): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }

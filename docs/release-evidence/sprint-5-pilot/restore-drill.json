@@ -1,28 +1,12 @@
 {
-  "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+  "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
   "releaseArtifact": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
-  "restoreTarget": "isolated Supabase pilot restore target",
-  "backupCompletedAt": "2026-08-12T18:50:00.000Z",
-  "restoreStartedAt": "2026-08-12T19:00:00.000Z",
-  "restoreCompletedAt": "2026-08-12T19:08:00.000Z",
-  "verificationCompletedAt": "2026-08-12T19:10:00.000Z",
-  "providerBackupControl": "Supabase managed encrypted scheduled backups with PITR enabled for the pilot project.",
-  "commands": [
-    {
-      "command": "npx jest test/financial-repair-restore.int-spec.ts --config ./test/jest-int.json --runInBand -t protected shared-backup",
-      "status": "passed"
-    },
-    {
-      "command": "npm run prisma:validate",
-      "status": "passed"
-    },
-    {
-      "command": "node scripts/restore/verify-restore-drill.mjs --evidence docs/release-evidence/sprint-5-pilot/restore-drill.json --max-rpo-minutes 1440 --max-rto-minutes 1440",
-      "status": "passed"
-    },
-    {
-      "command": "npx jest test/financial-state-invariants.int-spec.ts --config ./test/jest-int.json --runInBand",
-      "status": "passed"
-    }
-  ]
+  "restoreTarget": "pending isolated Supabase restore target",
+  "status": "missing",
+  "providerBackupControl": "pending observed provider-managed Supabase backup restore",
+  "notes": [
+    "Review 47 rejected the synthetic restore drill as launch evidence.",
+    "Replace this file after restoring a real provider-managed Supabase backup into an isolated target and running invariant checks."
+  ],
+  "commands": []
 }

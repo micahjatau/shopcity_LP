@@ -1,13 +1,13 @@
 # Docker verification
 
-Candidate SHA: 41afe775b8abf985173c58c8de244bcb617be8c5
+Candidate SHA: 58e760b6cdbb01e96e2b654b2caa013985dd6f9f
 Image digest: ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b
-RecordedAt: 2026-08-12T18:08:08Z
-CI run: https://github.com/micahjatau/shopcity_LP/actions/runs/31630700887/job/94229882789
+RecordedAt: 2026-08-12T23:05:05Z
+CI run: pending same-SHA Docker verification run
 
-Verified locally:
+Current status:
 
-- `npm run build`
-- `npm run verify:prod-entrypoints`
+- engineering CI for current head is green
+- final pushed GHCR digest provenance is still pending
 
-Result: passed
+Result: pending release certification

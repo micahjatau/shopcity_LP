@@ -1,57 +1,57 @@
 {
   "schemaVersion": "1",
-  "releaseFreezeAt": "2026-08-12T18:00:00.000Z",
-  "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+  "releaseFreezeAt": "2026-08-12T23:05:05.000Z",
+  "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
   "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
   "releaseCandidate": {
     "engineeringComplete": true,
-    "stagingCertified": true,
-    "productionApproved": true,
+    "stagingCertified": false,
+    "productionApproved": false,
     "pilotStarted": false
   },
   "gates": {
     "dockerVerification": {
       "status": "passed",
-      "recordedAt": "2026-08-12T18:08:08.000Z",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/docker-verification.md"
     },
     "security": {
-      "status": "passed",
-      "recordedAt": "2026-08-12T18:15:00.000Z",
+      "status": "failed",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/security-results.md"
     },
     "performance": {
-      "status": "passed",
-      "recordedAt": "2026-08-12T18:40:00.000Z",
+      "status": "missing",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/performance-summary.json"
     },
     "restore": {
-      "status": "passed",
-      "recordedAt": "2026-08-12T19:10:00.000Z",
+      "status": "missing",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/restore-drill.json"
     },
     "staging": {
-      "status": "passed",
-      "recordedAt": "2026-08-12T19:20:00.000Z",
+      "status": "missing",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/staging-certification.md"
     },
     "training": {
-      "status": "passed",
-      "recordedAt": "2026-08-12T19:30:00.000Z",
+      "status": "missing",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/training-signoff.md"
     },
     "signOff": {
-      "status": "passed",
-      "recordedAt": "2026-08-12T19:35:00.000Z",
+      "status": "missing",
+      "recordedAt": "2026-08-12T23:05:05.000Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/final-approval.md"
     }
   },
   "approvals": [
     {
       "role": "owner-admin",
-      "name": "Amina Bello",
-      "approvedAt": "2026-08-12T19:35:00.000Z",
-      "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+      "name": "pending real approver",
+      "approvedAt": "2026-08-12T23:05:05.000Z",
+      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
       "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
     }
   ],
@@ -59,22 +59,22 @@
     {
       "role": "cashier",
       "reference": "docs/release-evidence/sprint-5-pilot/training-cashier-signoff.md",
-      "completedAt": "2026-08-12T19:00:00.000Z",
-      "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+      "completedAt": "2026-08-12T23:05:05.000Z",
+      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
       "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
     },
     {
       "role": "supervisor",
       "reference": "docs/release-evidence/sprint-5-pilot/training-supervisor-signoff.md",
-      "completedAt": "2026-08-12T19:15:00.000Z",
-      "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+      "completedAt": "2026-08-12T23:05:05.000Z",
+      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
       "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
     },
     {
       "role": "owner-admin",
       "reference": "docs/release-evidence/sprint-5-pilot/training-owner-admin-signoff.md",
-      "completedAt": "2026-08-12T19:30:00.000Z",
-      "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+      "completedAt": "2026-08-12T23:05:05.000Z",
+      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
       "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
     }
   ]

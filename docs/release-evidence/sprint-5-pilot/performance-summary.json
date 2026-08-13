@@ -1,25 +1,12 @@
 {
-  "releaseSha": "41afe775b8abf985173c58c8de244bcb617be8c5",
+  "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
   "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
   "tool": "k6",
-  "status": "passed",
-  "recordedAt": "2026-08-12T18:40:00.000Z",
-  "runDurationMs": 35398.244356,
-  "baseUrl": "https://staging.shopcity.example",
-  "vusMax": 4,
-  "lookupP95Ms": 44.61111850000006,
-  "earnCheckoutP95Ms": 112.87204739999999,
-  "redeemCheckoutP95Ms": 91.45691559999992,
-  "reportIsolationP95Ms": 22.078456550000002,
-  "httpFailureRate": 0,
-  "reconciliationMismatchCount": 0,
-  "syntheticFailureRate": 0,
-  "checksPassRate": 1,
+  "status": "missing",
+  "recordedAt": "2026-08-12T23:05:05.000Z",
+  "baseUrl": "pending real certification URL",
   "notes": [
-    "lookup p95 < 500 ms",
-    "earn p95 < 1200 ms",
-    "redeem p95 < 1200 ms",
-    "failure rate < 1%",
-    "reconciliation mismatch = 0"
+    "Review 47 rejected the relabelled .example staging URL as certification evidence.",
+    "Rerun k6 against the actual deployed certification environment and replace this file with raw observed output."
   ]
 }
