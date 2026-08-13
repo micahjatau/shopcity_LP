@@ -1,12 +1,111 @@
 {
-  "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-  "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
-  "tool": "k6",
-  "status": "missing",
-  "recordedAt": "2026-08-12T23:05:05.000Z",
-  "baseUrl": "pending real certification URL",
-  "notes": [
-    "Review 47 rejected the relabelled .example staging URL as certification evidence.",
-    "Rerun k6 against the actual deployed certification environment and replace this file with raw observed output."
-  ]
+  "candidate": {
+    "commit": "176c654b2394366e4a7a0ecf5d84ce695b954dae",
+    "deploymentUrl": "https://shopcity-o9fgp5xqw-micah-s-projects-bb6507fe.vercel.app",
+    "alias": "https://shopcity-lp.vercel.app",
+    "region": "fra1",
+    "testedAt": "2026-08-13T16:41:16.639Z"
+  },
+  "thresholds": {
+    "httpFailureRate": {
+      "rate<0.01": {
+        "ok": true
+      }
+    },
+    "syntheticFailureRate": {
+      "rate<0.01": {
+        "ok": true
+      }
+    },
+    "invariantCheckFailures": {
+      "count==0": {
+        "ok": true
+      }
+    },
+    "cardLookup": {
+      "p(95)<500": {
+        "ok": true
+      }
+    },
+    "earnCheckout": {
+      "p(95)<1200": {
+        "ok": true
+      }
+    },
+    "redeemCheckout": {
+      "p(95)<1200": {
+        "ok": true
+      }
+    },
+    "reportIsolation": {
+      "p(95)<1800": {
+        "ok": true
+      }
+    }
+  },
+  "metrics": {
+    "httpFailureRate": {
+      "rate": 0,
+      "passes": 0,
+      "fails": 76
+    },
+    "syntheticFailureRate": {
+      "rate": 0,
+      "passes": 0,
+      "fails": 73
+    },
+    "invariantCheckFailures": {
+      "count": 0,
+      "rate": 0
+    },
+    "cardLookup": {
+      "max": 127.080879,
+      "avg": 80.28566378947367,
+      "min": 59.644742,
+      "med": 77.398127,
+      "p(90)": 87.827685,
+      "p(95)": 92.20634519999992
+    },
+    "earnCheckout": {
+      "avg": 156.01608716666667,
+      "min": 127.498804,
+      "med": 149.911723,
+      "p(90)": 186.02187450000002,
+      "p(95)": 197.36942014999997,
+      "max": 221.887722
+    },
+    "redeemCheckout": {
+      "avg": 183.7160384117647,
+      "min": 155.212242,
+      "med": 172.623474,
+      "p(90)": 246.4139146,
+      "p(95)": 257.0212244,
+      "max": 258.646614
+    },
+    "reportIsolation": {
+      "p(90)": 100.99051459999998,
+      "p(95)": 125.18175509999999,
+      "max": 132.53391,
+      "avg": 76.75139315789475,
+      "min": 52.665474,
+      "med": 71.77116
+    }
+  },
+  "teardown": [
+    {
+      "name": "pilot operations summary returned 200",
+      "path": "::teardown::pilot operations summary returned 200",
+      "id": "1fe8176b4486c4c1d4a4b5689c8fab3b",
+      "passes": 1,
+      "fails": 0
+    },
+    {
+      "fails": 0,
+      "name": "pilot reconciliation remains healthy",
+      "path": "::teardown::pilot reconciliation remains healthy",
+      "id": "fd2e49a12dfbdf9da6197206c9af126a",
+      "passes": 1
+    }
+  ],
+  "result": "pass"
 }
