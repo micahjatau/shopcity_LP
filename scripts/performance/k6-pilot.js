@@ -78,13 +78,14 @@ function requestParams(data, scenario) {
 }
 
 export function setup() {
-  const session = preissuedSessionToken && preissuedCsrfToken
-    ? {
-        sessionToken: preissuedSessionToken,
-        csrfToken: preissuedCsrfToken,
-        source: 'preissued',
-      }
-    : login();
+  const session =
+    preissuedSessionToken && preissuedCsrfToken
+      ? {
+          sessionToken: preissuedSessionToken,
+          csrfToken: preissuedCsrfToken,
+          source: 'preissued',
+        }
+      : login();
 
   const verificationResponse = http.get(
     `${baseUrl}/api/v1/auth/me`,
@@ -244,7 +245,10 @@ function withIdempotencyKey(data, scenario, requestId) {
 }
 
 function assertAccessible(response) {
-  if (response.status === 401 && safeText(response).includes('Protected deployment')) {
+  if (
+    response.status === 401 &&
+    safeText(response).includes('Protected deployment')
+  ) {
     throw new Error(
       `K6_BASE_URL is protected by Vercel auth; use an accessible staging URL instead: ${baseUrl}`,
     );
