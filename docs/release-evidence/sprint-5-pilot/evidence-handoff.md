@@ -11,6 +11,12 @@ Record one real release candidate:
 - staging environment URL/name
 - decision owner
 
+Current observed candidate for the runtime readiness pass:
+
+- release SHA: `a8b4506726915a2ee1b0c204e15d277a30f4d1cb`
+- image digest: `dpl_CTZ2BoVhHkwG6KprB6q2jST3ZeTa`
+- staging environment URL: `https://shopcity-jmnacoqq6-micah-s-projects-bb6507fe.vercel.app`
+
 Update:
 
 - `docs/release-evidence/sprint-5-pilot/readiness.json`
@@ -22,8 +28,8 @@ Update:
 Required commands/evidence:
 
 - `npm run verify:docker-image`
-- security workflow run for the same SHA/image (`https://github.com/micahjatau/shopcity_LP/actions/runs/31630700891`)
-- CI workflow run for the same SHA/image (`https://github.com/micahjatau/shopcity_LP/actions/runs/31630700887`)
+- security workflow run for the same SHA/image (`https://github.com/micahjatau/shopcity_LP/actions/runs/31709623536`)
+- CI workflow run for the same SHA/image (`https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465`)
 - `k6 run scripts/performance/k6-pilot.js`
 - `node scripts/performance/validate-k6-summary.mjs --summary tmp/k6-pilot-summary.json`
 - `npx jest test/financial-state-invariants.int-spec.ts --config ./test/jest-int.json --runInBand`
@@ -53,6 +59,7 @@ Recommended real files to add:
 
 - Record the observed restore RPO/RTO and note the restore target and policy used.
 - If the pilot ever defers a mandatory gate, record the approver, rationale, and follow-up issue in final approval evidence.
+- Do not mark the pilot certified until the immutable candidate, restore, performance, training, and approval evidence all reference the same release identity.
 
 ## 5. Final verification
 

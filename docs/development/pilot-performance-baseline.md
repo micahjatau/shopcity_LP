@@ -23,7 +23,8 @@ Use synthetic users, cards, receipts, and branches only. Never use production cu
 
 ## Evidence commands
 
-- `k6 run scripts/performance/k6-pilot.js`
+- `K6_BASE_URL=https://<public-certification-host> K6_PASSWORD=<synthetic-admin-password> k6 run scripts/performance/k6-pilot.js`
+- If login throttling is active, pre-issue a synthetic session and run `K6_BASE_URL=https://<public-certification-host> K6_SESSION_TOKEN=<session-token> K6_CSRF_TOKEN=<csrf-token> k6 run scripts/performance/k6-pilot.js`; the script sends the session token as bearer auth to avoid deployment cookie forwarding variance.
 - `node scripts/performance/validate-k6-summary.mjs --summary tmp/k6-pilot-summary.json`
 - `npx jest test/financial-state-invariants.int-spec.ts --config ./test/jest-int.json --runInBand`
 
@@ -32,3 +33,4 @@ Use synthetic users, cards, receipts, and branches only. Never use production cu
 - Record release SHA and image digest alongside the k6 summary.
 - Treat any reconciliation mismatch as a failed performance run even if latency thresholds pass.
 - Capture any approved threshold exception explicitly in the release evidence.
+- The script verifies authentication with `GET /api/v1/auth/me` before starting load so protected deployments, bad credentials, expired sessions, and login throttling fail before performance metrics are collected.

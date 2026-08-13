@@ -3,8 +3,10 @@ import { check, sleep } from 'k6';
 import { Counter, Rate } from 'k6/metrics';
 
 const baseUrl = __ENV.K6_BASE_URL || 'http://127.0.0.1:3000';
-const csrfToken = __ENV.K6_CSRF_TOKEN || 'synthetic-csrf-token';
-const bearerToken = __ENV.K6_BEARER_TOKEN || 'synthetic-session-token';
+const username = __ENV.K6_USERNAME || 'admin@shopcity.local';
+const password = __ENV.K6_PASSWORD || 'Strong-password-123!';
+const preissuedSessionToken = __ENV.K6_SESSION_TOKEN;
+const preissuedCsrfToken = __ENV.K6_CSRF_TOKEN;
 const cardSerial = __ENV.K6_CARD_SERIAL || 'SYNTHETIC-CARD-0001';
 const customerId =
   __ENV.K6_CUSTOMER_ID || '00000000-0000-4000-8000-000000000201';
@@ -64,25 +66,93 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'max'],
 };
 
-function headers() {
+function requestParams(data, scenario) {
   return {
-    Authorization: `Bearer ${bearerToken}`,
-    'x-csrf-token': csrfToken,
-    'content-type': 'application/json',
+    headers: {
+      Authorization: `Bearer ${data.sessionToken}`,
+      'x-csrf-token': data.csrfToken,
+      'content-type': 'application/json',
+    },
+    tags: { scenario },
   };
 }
 
 export function setup() {
+  const session = preissuedSessionToken && preissuedCsrfToken
+    ? {
+        sessionToken: preissuedSessionToken,
+        csrfToken: preissuedCsrfToken,
+        source: 'preissued',
+      }
+    : login();
+
+  const verificationResponse = http.get(
+    `${baseUrl}/api/v1/auth/me`,
+    requestParams(session, 'auth_verify'),
+  );
+
+  assertAccessible(verificationResponse);
+
+  if (verificationResponse.status !== 200) {
+    throw new Error(
+      `auth verification failed with status ${verificationResponse.status} using ${session.source} session: ${safeText(verificationResponse)}`,
+    );
+  }
+
+  const cardWarmupResponse = http.get(
+    `${baseUrl}/api/v1/cards/lookup/${encodeURIComponent(cardSerial)}`,
+    requestParams(session, 'auth_warmup'),
+  );
+
+  if (cardWarmupResponse.status !== 200) {
+    throw new Error(
+      `card lookup warmup failed with status ${cardWarmupResponse.status}: ${safeText(cardWarmupResponse)}`,
+    );
+  }
+
   return {
     baseUrl,
-    headers: headers(),
+    sessionToken: session.sessionToken,
+    csrfToken: session.csrfToken,
+  };
+}
+
+function login() {
+  if (!password) {
+    throw new Error('K6_PASSWORD is required');
+  }
+
+  const loginResponse = http.post(
+    `${baseUrl}/api/v1/auth/login`,
+    JSON.stringify({
+      username,
+      password,
+    }),
+    {
+      headers: { 'content-type': 'application/json' },
+      tags: { scenario: 'auth_login' },
+    },
+  );
+
+  assertAccessible(loginResponse);
+
+  if (loginResponse.status !== 200) {
+    throw new Error(
+      `login failed with status ${loginResponse.status}: ${safeText(loginResponse)}`,
+    );
+  }
+
+  return {
+    sessionToken: cookieValue(loginResponse, 'shopcity_session'),
+    csrfToken: cookieValue(loginResponse, 'shopcity_csrf'),
+    source: 'login',
   };
 }
 
 export function lookupScenario(data) {
   const response = http.get(
     `${data.baseUrl}/api/v1/cards/lookup/${encodeURIComponent(cardSerial)}`,
-    { headers: data.headers, tags: { scenario: 'card_lookup' } },
+    requestParams(data, 'card_lookup'),
   );
 
   recordOutcome(response, 'lookup');
@@ -99,13 +169,7 @@ export function earnScenario(data) {
       purchaseAmountKobo: earnAmountKobo,
       occurredAt: new Date().toISOString(),
     }),
-    {
-      headers: {
-        ...data.headers,
-        'idempotency-key': requestId,
-      },
-      tags: { scenario: 'earn_checkout' },
-    },
+    withIdempotencyKey(data, 'earn_checkout', requestId),
   );
 
   recordOutcome(response, 'earn');
@@ -123,13 +187,7 @@ export function redeemScenario(data) {
       basketAmountKobo: earnAmountKobo,
       occurredAt: new Date().toISOString(),
     }),
-    {
-      headers: {
-        ...data.headers,
-        'idempotency-key': requestId,
-      },
-      tags: { scenario: 'redeem_checkout' },
-    },
+    withIdempotencyKey(data, 'redeem_checkout', requestId),
   );
 
   recordOutcome(response, 'redeem');
@@ -139,7 +197,7 @@ export function redeemScenario(data) {
 export function reportIsolationScenario(data) {
   const response = http.get(
     `${data.baseUrl}/api/v1/reports/executive-summary?branchId=${encodeURIComponent(reportBranchId)}`,
-    { headers: data.headers, tags: { scenario: 'report_isolation' } },
+    requestParams(data, 'report_isolation'),
   );
 
   recordOutcome(response, 'report');
@@ -149,7 +207,7 @@ export function reportIsolationScenario(data) {
 export function teardown(data) {
   const response = http.get(
     `${data.baseUrl}/api/v1/reports/pilot-operations-summary`,
-    { headers: data.headers, tags: { scenario: 'post_load_reconciliation' } },
+    requestParams(data, 'post_load_reconciliation'),
   );
 
   const ok = check(response, {
@@ -179,10 +237,41 @@ function recordOutcome(response, label) {
   syntheticFailureRate.add(!ok);
 }
 
+function withIdempotencyKey(data, scenario, requestId) {
+  const params = requestParams(data, scenario);
+  params.headers['idempotency-key'] = requestId;
+  return params;
+}
+
+function assertAccessible(response) {
+  if (response.status === 401 && safeText(response).includes('Protected deployment')) {
+    throw new Error(
+      `K6_BASE_URL is protected by Vercel auth; use an accessible staging URL instead: ${baseUrl}`,
+    );
+  }
+}
+
 function safeJson(response) {
   try {
     return response.json();
   } catch {
     return null;
   }
+}
+
+function safeText(response) {
+  try {
+    return response.body || '';
+  } catch {
+    return '';
+  }
+}
+
+function cookieValue(response, name) {
+  const cookies = response.cookies?.[name];
+  if (!cookies || cookies.length === 0 || !cookies[0]?.value) {
+    throw new Error(`login response missing ${name} cookie`);
+  }
+
+  return cookies[0].value;
 }
