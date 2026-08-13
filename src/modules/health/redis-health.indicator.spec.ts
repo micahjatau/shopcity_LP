@@ -14,4 +14,18 @@ describe('RedisHealthIndicator', () => {
     expect(pingMock).toHaveBeenCalledTimes(1);
     expect(result.redis.status).toBe('up');
   });
+
+  it('reports redis unavailability when ping fails', async () => {
+    const pingMock = jest.fn().mockRejectedValue(new Error('redis offline'));
+    const redisClientService = {
+      ping: pingMock,
+    } as unknown as RedisClientService;
+    const indicator = new RedisHealthIndicator(redisClientService);
+
+    const result = await indicator.pingCheck('redis');
+
+    expect(result.redis.status).toBe('down');
+    expect(result.redis.message).toBe('Redis is unavailable');
+    expect(result.redis.error).toBe('redis offline');
+  });
 });

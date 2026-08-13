@@ -1,22 +1,34 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient, type RedisClientType } from 'redis';
+import { Redis as UpstashRedis } from '@upstash/redis';
+import { createClient } from 'redis';
+
+type RedisAdapter = {
+  ping(): Promise<string>;
+  eval<T>(
+    script: string,
+    keys: string[],
+    args: Array<string | number>,
+  ): Promise<T>;
+  quit?(): Promise<void>;
+};
 
 @Injectable()
 export class RedisClientService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisClientService.name);
-  private clientPromise?: Promise<RedisClientType>;
+  private clientPromise?: Promise<RedisAdapter>;
+  private lastConnectionFailure?: string;
+  private lastClientError?: string;
 
   constructor(private readonly configService: ConfigService) {}
 
   async ping(): Promise<string> {
-    const client = await this.getClient();
-    return client.ping();
+    try {
+      const client = await this.getClient();
+      return await client.ping();
+    } catch (error) {
+      throw new Error(this.describeAvailabilityError(error));
+    }
   }
 
   async eval<T>(
@@ -24,18 +36,25 @@ export class RedisClientService implements OnModuleDestroy {
     keys: string[],
     args: Array<string | number>,
   ): Promise<T> {
-    const client = await this.getClient();
-    return client.eval(script, {
-      keys,
-      arguments: args.map((value) => String(value)),
-    }) as Promise<T>;
+    try {
+      const client = await this.getClient();
+      return await client.eval<T>(script, keys, args);
+    } catch (error) {
+      throw new Error(this.describeAvailabilityError(error));
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
     const client = await this.clientPromise?.catch(() => undefined);
-    if (client?.isOpen) {
+    if (!client) {
+      this.clientPromise = undefined;
+      return;
+    }
+
+    if ('quit' in client && typeof client.quit === 'function') {
       await client.quit();
     }
+
     this.clientPromise = undefined;
   }
 
@@ -50,12 +69,33 @@ export class RedisClientService implements OnModuleDestroy {
     return this.clientPromise;
   }
 
-  private async connectClient(): Promise<RedisClientType> {
+  private async connectClient(): Promise<RedisAdapter> {
     const redisUrl = this.configService.get<string>('REDIS_URL');
-    if (!redisUrl) {
-      throw new ServiceUnavailableException('Redis is unavailable');
+    const upstashCredentials = this.getUpstashCredentials();
+
+    if (redisUrl && !this.isLocalRedisUrl(redisUrl)) {
+      this.logger.log('Redis client using REDIS_URL');
+      this.lastConnectionFailure = undefined;
+      return this.connectNodeRedis(redisUrl);
     }
 
+    if (upstashCredentials) {
+      this.logger.log('Redis client using Upstash REST integration');
+      this.lastConnectionFailure = undefined;
+      return new UpstashRedis(upstashCredentials);
+    }
+
+    if (redisUrl) {
+      this.logger.log('Redis client using local REDIS_URL');
+      this.lastConnectionFailure = undefined;
+      return this.connectNodeRedis(redisUrl);
+    }
+
+    this.lastConnectionFailure = 'Redis URL is not configured';
+    throw new Error(this.lastConnectionFailure);
+  }
+
+  private async connectNodeRedis(redisUrl: string): Promise<RedisAdapter> {
     const client = createClient({
       url: redisUrl,
       socket: {
@@ -65,6 +105,7 @@ export class RedisClientService implements OnModuleDestroy {
     });
 
     client.on('error', (error) => {
+      this.lastClientError = `Redis client error: ${this.describeError(error)}`;
       this.logger.error(
         'Redis client error',
         error instanceof Error ? error.stack : String(error),
@@ -74,6 +115,7 @@ export class RedisClientService implements OnModuleDestroy {
       this.logger.warn(`Redis reconnecting in ${delay}ms`);
     });
     client.on('end', () => {
+      this.lastClientError = this.lastClientError ?? 'Redis connection ended';
       this.logger.warn('Redis connection ended');
       this.clientPromise = undefined;
     });
@@ -81,7 +123,21 @@ export class RedisClientService implements OnModuleDestroy {
     try {
       await client.connect();
       this.logger.log('Redis client connected');
-      return client;
+      return {
+        ping: () => client.ping(),
+        eval: async <T>(
+          script: string,
+          keys: string[],
+          args: Array<string | number>,
+        ) =>
+          (await client.eval(script, {
+            keys,
+            arguments: args.map((value) => String(value)),
+          })) as T,
+        quit: async () => {
+          await client.quit();
+        },
+      };
     } catch (error) {
       await client.disconnect().catch(() => undefined);
       this.logger.error(
@@ -89,8 +145,56 @@ export class RedisClientService implements OnModuleDestroy {
         error instanceof Error ? error.stack : String(error),
       );
       this.clientPromise = undefined;
-      throw new ServiceUnavailableException('Redis is unavailable');
+      this.lastConnectionFailure = `Redis connection failed: ${this.describeError(error)}`;
+      throw new Error(this.lastConnectionFailure);
     }
+  }
+
+  private isLocalRedisUrl(redisUrl: string): boolean {
+    try {
+      const url = new URL(redisUrl);
+      return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(
+        url.hostname,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private getUpstashCredentials(): { url: string; token: string } | undefined {
+    const candidates = [
+      ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
+      ['UPSTASH_REDIS_REST_API_URL', 'UPSTASH_REDIS_REST_API_TOKEN'],
+      ['UPSTASH_KV_REST_API_URL', 'UPSTASH_KV_REST_API_TOKEN'],
+      ['KV_REST_API_URL', 'KV_REST_API_TOKEN'],
+    ] as const;
+
+    for (const [urlKey, tokenKey] of candidates) {
+      const url = this.configService.get<string>(urlKey);
+      const token = this.configService.get<string>(tokenKey);
+      if (url && token) {
+        return { url, token };
+      }
+    }
+
+    return undefined;
+  }
+
+  private describeAvailabilityError(error: unknown): string {
+    const message = this.describeError(error);
+    return this.lastConnectionFailure ?? this.lastClientError ?? message;
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return '[diagnostic unavailable]';
   }
 
   private reconnectStrategy() {

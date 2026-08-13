@@ -9,10 +9,30 @@ export class RedisHealthIndicator extends HealthIndicator {
   }
 
   async pingCheck(key: string): Promise<HealthIndicatorResult> {
-    await this.redisClientService.ping();
+    try {
+      await this.redisClientService.ping();
 
-    return this.getStatus(key, true, {
-      status: 'up',
-    });
+      return this.getStatus(key, true, {
+        status: 'up',
+      });
+    } catch (error) {
+      return this.getStatus(key, false, {
+        status: 'down',
+        message: 'Redis is unavailable',
+        error: this.describeError(error),
+      });
+    }
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return '[diagnostic unavailable]';
   }
 }

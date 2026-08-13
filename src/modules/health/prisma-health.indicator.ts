@@ -9,10 +9,32 @@ export class PrismaHealthIndicator extends HealthIndicator {
   }
 
   async pingCheck(key: string): Promise<HealthIndicatorResult> {
-    await this.prismaService.$queryRaw<{ one: number }[]>`SELECT 1::int AS one`;
+    try {
+      await this.prismaService.$queryRaw<
+        { one: number }[]
+      >`SELECT 1::int AS one`;
 
-    return this.getStatus(key, true, {
-      database: 'postgresql',
-    });
+      return this.getStatus(key, true, {
+        database: 'postgresql',
+      });
+    } catch (error) {
+      return this.getStatus(key, false, {
+        database: 'postgresql',
+        message: 'Postgres is unavailable',
+        error: this.describeError(error),
+      });
+    }
+  }
+
+  private describeError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return '[diagnostic unavailable]';
   }
 }

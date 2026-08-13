@@ -1,11 +1,30 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { HealthController } from './health.controller';
 
 describe('HealthController', () => {
-  it('maps readiness failures to 503', async () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('maps readiness failures to 503 and logs dependency diagnostics', async () => {
+    const warnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
     const controller = new HealthController(
       {
-        check: () => Promise.reject(new Error('unavailable')),
+        check: () =>
+          Promise.reject(
+            new ServiceUnavailableException({
+              error: {
+                database: { status: 'down', message: 'postgres unavailable' },
+                redis: { status: 'down', message: 'redis unavailable' },
+              },
+              details: {
+                database: { status: 'down', message: 'postgres unavailable' },
+                redis: { status: 'down', message: 'redis unavailable' },
+              },
+            }),
+          ),
       } as never,
       {
         pingCheck: () =>
@@ -21,12 +40,16 @@ describe('HealthController', () => {
       } as never,
     );
 
-    try {
-      await controller.ready();
-      throw new Error('Expected readiness to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ServiceUnavailableException);
-      expect((error as ServiceUnavailableException).getStatus()).toBe(503);
-    }
+    await expect(controller.ready()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'database=status=down message=postgres unavailable',
+      ),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('redis=status=down message=redis unavailable'),
+    );
   });
 });

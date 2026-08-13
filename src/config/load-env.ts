@@ -3,6 +3,9 @@ import { resolve } from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 
 const localEnvPath = resolve(process.cwd(), '.env.local');
-if (existsSync(localEnvPath)) {
+if (
+  (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') &&
+  existsSync(localEnvPath)
+) {
   loadDotenv({ path: localEnvPath });
 }

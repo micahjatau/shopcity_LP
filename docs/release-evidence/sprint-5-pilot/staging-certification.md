@@ -16,3 +16,18 @@ Validation steps:
 - ZAP against actual staging URL: complete (`security-gates` run 31694340876, ZAP job success, `FAIL-NEW: 0`)
 
 Staging validation: not certified; ZAP gap closed, remaining staging gates listed above
+
+Latest readiness diagnosis on the current preview deployment:
+
+- `/health/live` returns 200
+- `/health/ready` returns 200
+- Postgres status: `up`
+- Redis status: `up`
+- Result: preview wiring is now healthy after switching Redis to Upstash and Postgres to the Supabase session pooler
+
+Historical failure record preserved for the previous preview wiring issue:
+
+- `/health/live` returns 200
+- `/health/ready` returned 503
+- Postgres failure detail: `FATAL: (ENOTFOUND) tenant/user postgres.nmuedccamqacgszvosvm not found`
+- Redis failure detail: `Redis client error: connect ECONNREFUSED 127.0.0.1:6379`
