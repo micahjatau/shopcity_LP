@@ -1,33 +1,22 @@
 # Staging certification
 
-Candidate SHA: a8b4506726915a2ee1b0c204e15d277a30f4d1cb
-Image digest: Vercel deployment dpl_CTZ2BoVhHkwG6KprB6q2jST3ZeTa
-RecordedAt: 2026-08-13T14:20:06Z
-Deployment URL: https://shopcity-jmnacoqq6-micah-s-projects-bb6507fe.vercel.app
-Staging workflow run: https://github.com/micahjatau/shopcity_LP/actions/runs/31709623536
+Candidate SHA: 78b186af8b1aa63a41eb4ac4619f4b79ed565899
+Image digest: docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb
+RecordedAt: 2026-08-13T17:16:15Z
+Deployment URL: https://shopcity-n0izs6ynq-micah-s-projects-bb6507fe.vercel.app
+Staging URL: https://shopcity-lp.vercel.app
+Staging workflow run: https://github.com/micahjatau/shopcity_LP/actions/runs/31724647994
+CI workflow run: https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222
 
 Validation steps:
 
-- exact Vercel deployment available at approved HTTPS target: complete (`dpl_CTZ2BoVhHkwG6KprB6q2jST3ZeTa`)
-- staging migrations: pending
-- readiness probes: complete (`/health/live` returns 200; `/health/ready` returns 200)
-- Bruno smoke checks: pending
-- contract tests: pending
-- ZAP against actual staging URL: complete (`security-gates` run 31709623536, ZAP job success, `FAIL-NEW: 0`)
+- exact Vercel deployment available at approved HTTPS target: passed (`dpl_AFpY6dqyVm7EvUnnyvWThNVEScSB`)
+- runtime region: passed (`fra1`, verified by Vercel deployment build output and `x-vercel-id` on readiness/performance traffic)
+- staging migrations: passed (remote Supabase schema was brought current with the committed migration set; Prisma diff retained only the intentionally un-applied destructive `ReceiptLegacyIdentityQuarantine` drop)
+- readiness checks: passed (`/health/live` returned 200; `/health/ready` returned 200 with Postgres and Redis up)
+- Bruno smoke checks: passed (`BRUNO_BASE_URL=https://shopcity-lp.vercel.app npm run bruno:test`, 2 requests passed, 4/4 tests passed)
+- contract tests: passed (CI Static Checks run included `npm run openapi:lint`, `npm run openapi:diff`, `npm run client:generate`, and `npm run client:typecheck`)
+- ZAP baseline: passed (security-gates workflow-dispatch run 31724647994 against the approved HTTPS target)
+- k6 authenticated pilot performance: passed (see `docs/release-evidence/sprint-5-pilot/performance-summary.json`)
 
-Staging validation: not certified; readiness is healthy, but Bruno, contract, and migration-gated evidence still need same-candidate confirmation
-
-Latest readiness diagnosis on the current preview deployment:
-
-- `/health/live` returns 200
-- `/health/ready` returns 200
-- Postgres status: `up`
-- Redis status: `up`
-- Result: preview wiring is healthy after switching Redis to Upstash and Postgres to the Supabase session pooler
-
-Historical failure record preserved for the previous preview wiring issue:
-
-- `/health/live` returns 200
-- `/health/ready` returned 503
-- Postgres failure detail: `FATAL: (ENOTFOUND) tenant/user postgres.nmuedccamqacgszvosvm not found`
-- Redis failure detail: `Redis client error: connect ECONNREFUSED 127.0.0.1:6379`
+Staging validation: passed for this candidate SHA and deployment.

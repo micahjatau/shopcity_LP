@@ -1,21 +1,74 @@
 {
-  "tool": "k6",
-  "status": "passed",
-  "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
-  "imageDigest": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb",
-  "baseUrl": "https://shopcity-lp.vercel.app",
-  "deploymentUrl": "https://shopcity-n0izs6ynq-micah-s-projects-bb6507fe.vercel.app",
-  "region": "fra1",
-  "recordedAt": "2026-08-13T17:11:48.554Z",
-  "lookupP95Ms": 93.02773789999999,
-  "earnCheckoutP95Ms": 224.41259969999996,
-  "redeemCheckoutP95Ms": 280.7027527999999,
-  "reportIsolationP95Ms": 150.93205489999875,
-  "httpFailureRate": 0,
-  "syntheticFailureRate": 0,
-  "invariantCheckFailures": 0,
-  "reconciliationMismatchCount": 0,
-  "thresholds": {
+  "root_group": {
+    "name": "",
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e",
+    "groups": [
+      {
+        "path": "::teardown",
+        "id": "a8a9942382e8ffe2e56ef29e664b8229",
+        "groups": [],
+        "checks": [
+          {
+            "name": "pilot operations summary returned 200",
+            "path": "::teardown::pilot operations summary returned 200",
+            "id": "1fe8176b4486c4c1d4a4b5689c8fab3b",
+            "passes": 1,
+            "fails": 0
+          },
+          {
+            "name": "pilot reconciliation remains healthy",
+            "path": "::teardown::pilot reconciliation remains healthy",
+            "id": "fd2e49a12dfbdf9da6197206c9af126a",
+            "passes": 1,
+            "fails": 0
+          }
+        ],
+        "name": "teardown"
+      }
+    ],
+    "checks": [
+      {
+        "path": "::lookup returned success envelope",
+        "id": "0a528585fd1771cbd13f96ada4007584",
+        "passes": 19,
+        "fails": 0,
+        "name": "lookup returned success envelope"
+      },
+      {
+        "path": "::earn returned success envelope",
+        "id": "e379796779bb1765a83ad23c0b41f2c9",
+        "passes": 18,
+        "fails": 0,
+        "name": "earn returned success envelope"
+      },
+      {
+        "name": "redeem returned success envelope",
+        "path": "::redeem returned success envelope",
+        "id": "fd1a95cddeef9e5f7429121e72ecd687",
+        "passes": 17,
+        "fails": 0
+      },
+      {
+        "path": "::report returned success envelope",
+        "id": "d6c34425749005fabb6bbd216a0ec1ce",
+        "passes": 19,
+        "fails": 0,
+        "name": "report returned success envelope"
+      }
+    ]
+  },
+  "options": {
+    "summaryTrendStats": ["avg", "min", "med", "p(90)", "p(95)", "max"],
+    "summaryTimeUnit": "",
+    "noColor": false
+  },
+  "state": {
+    "isStdOutTTY": false,
+    "isStdErrTTY": false,
+    "testRunDurationMs": 36639.014996
+  },
+  "metrics": {
     "synthetic_failure_rate": {
       "values": {
         "rate": 0,
@@ -293,24 +346,9 @@
       "type": "trend"
     }
   },
-  "teardown": [
-    {
-      "name": "pilot operations summary returned 200",
-      "path": "::teardown::pilot operations summary returned 200",
-      "id": "1fe8176b4486c4c1d4a4b5689c8fab3b",
-      "passes": 1,
-      "fails": 0
-    },
-    {
-      "name": "pilot reconciliation remains healthy",
-      "path": "::teardown::pilot reconciliation remains healthy",
-      "id": "fd2e49a12dfbdf9da6197206c9af126a",
-      "passes": 1,
-      "fails": 0
-    }
-  ],
-  "artifacts": [
-    "docs/release-evidence/sprint-5-pilot/k6-pilot-summary-78b186a.json",
-    "docs/release-evidence/sprint-5-pilot/k6-pilot-78b186a.log"
-  ]
+  "setup_data": {
+    "baseUrl": "https://shopcity-lp.vercel.app",
+    "sessionToken": "[redacted-revoked]",
+    "csrfToken": "[redacted-revoked]"
+  }
 }

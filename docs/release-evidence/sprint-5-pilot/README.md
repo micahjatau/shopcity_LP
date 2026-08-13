@@ -2,7 +2,7 @@
 
 Use this directory to store the final pilot certification bundle for one approved release candidate.
 
-Current Review 49 status: **NO-GO**. Runtime readiness is now healthy on the latest preview deployment, but pilot certification still needs same-candidate k6, provider-managed restore, training, and approval evidence.
+Current Review 49 status: **NO-GO**. Runtime readiness, CI, security, staging smoke, Docker verification, and same-candidate k6 are complete for `78b186af8b1aa63a41eb4ac4619f4b79ed565899`, but pilot certification still needs provider-managed restore, training, and owner/admin approval evidence.
 
 ## Required contents
 

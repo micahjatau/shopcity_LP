@@ -1,11 +1,12 @@
 {
-  "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-  "releaseArtifact": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
+  "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
+  "releaseArtifact": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb",
   "restoreTarget": "pending isolated Supabase restore target",
   "status": "missing",
-  "providerBackupControl": "pending observed provider-managed Supabase backup restore",
+  "providerBackupControl": "pending observed provider-managed Supabase backup or PITR restore",
   "notes": [
-    "Review 47 rejected the synthetic restore drill as launch evidence.",
+    "Review 47 rejected synthetic restore drill evidence as launch evidence.",
+    "Supabase changelog review on 2026-08-13 noted restore credential resync fixes; credential verification must be included after any provider-managed restore.",
     "Replace this file after restoring a real provider-managed Supabase backup into an isolated target and running invariant checks."
   ],
   "commands": []

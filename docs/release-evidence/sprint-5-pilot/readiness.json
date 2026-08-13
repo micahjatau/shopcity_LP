@@ -1,48 +1,48 @@
 {
   "schemaVersion": "1",
-  "releaseFreezeAt": "2026-08-12T23:05:05.000Z",
-  "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-  "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b",
+  "releaseFreezeAt": "2026-08-13T17:16:15Z",
+  "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
+  "imageDigest": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb",
   "releaseCandidate": {
     "engineeringComplete": true,
-    "stagingCertified": false,
+    "stagingCertified": true,
     "productionApproved": false,
     "pilotStarted": false
   },
   "gates": {
     "dockerVerification": {
       "status": "passed",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/docker-verification.md"
     },
     "security": {
-      "status": "failed",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "status": "passed",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/security-results.md"
     },
     "performance": {
-      "status": "missing",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "status": "passed",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/performance-summary.json"
     },
     "restore": {
       "status": "missing",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/restore-drill.json"
     },
     "staging": {
-      "status": "missing",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "status": "passed",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/staging-certification.md"
     },
     "training": {
       "status": "missing",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/training-signoff.md"
     },
     "signOff": {
       "status": "missing",
-      "recordedAt": "2026-08-12T23:05:05.000Z",
+      "recordedAt": "2026-08-13T17:16:15Z",
       "evidence": "docs/release-evidence/sprint-5-pilot/final-approval.md"
     }
   },
@@ -50,32 +50,32 @@
     {
       "role": "owner-admin",
       "name": "pending real approver",
-      "approvedAt": "2026-08-12T23:05:05.000Z",
-      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
+      "approvedAt": "2026-08-13T17:16:15Z",
+      "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
+      "imageDigest": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb"
     }
   ],
   "trainingSignOffs": [
     {
       "role": "cashier",
       "reference": "docs/release-evidence/sprint-5-pilot/training-cashier-signoff.md",
-      "completedAt": "2026-08-12T23:05:05.000Z",
-      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
+      "completedAt": "2026-08-13T17:16:15Z",
+      "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
+      "imageDigest": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb"
     },
     {
       "role": "supervisor",
       "reference": "docs/release-evidence/sprint-5-pilot/training-supervisor-signoff.md",
-      "completedAt": "2026-08-12T23:05:05.000Z",
-      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
+      "completedAt": "2026-08-13T17:16:15Z",
+      "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
+      "imageDigest": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb"
     },
     {
       "role": "owner-admin",
       "reference": "docs/release-evidence/sprint-5-pilot/training-owner-admin-signoff.md",
-      "completedAt": "2026-08-12T23:05:05.000Z",
-      "releaseSha": "58e760b6cdbb01e96e2b654b2caa013985dd6f9f",
-      "imageDigest": "ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b"
+      "completedAt": "2026-08-13T17:16:15Z",
+      "releaseSha": "78b186af8b1aa63a41eb4ac4619f4b79ed565899",
+      "imageDigest": "docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb"
     }
   ]
 }

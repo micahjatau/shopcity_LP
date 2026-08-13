@@ -1,17 +1,17 @@
 # CI results
 
-Candidate SHA: a8b4506726915a2ee1b0c204e15d277a30f4d1cb
-Image digest: ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b
-RecordedAt: 2026-08-13T14:25:34Z
-Workflow run URL: https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465
-Workflow run ID: 31709623465
+Candidate SHA: 78b186af8b1aa63a41eb4ac4619f4b79ed565899
+Image digest: docker-daemon:shopcity-lp@sha256:4648c34f98b531e4e23881934a318911bd3470200f853beecc8f2e7292c06efb
+RecordedAt: 2026-08-13T17:16:15Z
+Workflow run URL: https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222
+Workflow run ID: 31724029222
 
 Jobs:
 
-- Static Checks — https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465/job/94478978007
-- GitNexus — https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465/job/94480510090
-- End-to-End Tests — https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465/job/94480510120
-- Docker Build Verification — https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465/job/94480510094
-- Integration Tests — https://github.com/micahjatau/shopcity_LP/actions/runs/31709623465/job/94480510158
+- Static Checks — https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222/job/94527820941
+- GitNexus — https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222/job/94529147616
+- End-to-End Tests — https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222/job/94529147537
+- Docker Build Verification — https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222/job/94529147538
+- Integration Tests — https://github.com/micahjatau/shopcity_LP/actions/runs/31724029222/job/94529147568
 
 Status: passed
