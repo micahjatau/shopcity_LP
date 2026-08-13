@@ -82,7 +82,28 @@ describe('ReportsService', () => {
       reportMaterializationState: {
         count: jest.fn().mockResolvedValue(1),
       },
-      $queryRaw: jest.fn().mockResolvedValue([{ mismatchCount: 0n }]),
+      creditLot: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'lot-1',
+            originalAmountKobo: 100n,
+            remainingAmountKobo: 70n,
+          },
+        ]),
+      },
+      redemptionAllocation: {
+        groupBy: jest
+          .fn()
+          .mockResolvedValue([
+            { creditLotId: 'lot-1', _sum: { amountKobo: 30n } },
+          ]),
+      },
+      creditExpiry: {
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
+      allocationRestoration: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     } as unknown as PrismaService;
     const service = new ReportsService(prisma, configService());
 
@@ -134,7 +155,32 @@ describe('ReportsService', () => {
       reportMaterializationState: {
         count: jest.fn().mockResolvedValue(0),
       },
-      $queryRaw: jest.fn().mockResolvedValue([{ mismatchCount: 2n }]),
+      creditLot: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'lot-1',
+            originalAmountKobo: 100n,
+            remainingAmountKobo: 100n,
+          },
+          {
+            id: 'lot-2',
+            originalAmountKobo: 200n,
+            remainingAmountKobo: 150n,
+          },
+        ]),
+      },
+      redemptionAllocation: {
+        groupBy: jest.fn().mockResolvedValue([
+          { creditLotId: 'lot-1', _sum: { amountKobo: 20n } },
+          { creditLotId: 'lot-2', _sum: { amountKobo: 10n } },
+        ]),
+      },
+      creditExpiry: {
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
+      allocationRestoration: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     } as unknown as PrismaService;
     const service = new ReportsService(prisma, configService());
 

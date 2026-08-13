@@ -5,12 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  OutboxEventStatus,
-  Prisma,
-  SmsMessageStatus,
-  UserRole,
-} from '@prisma/client';
+import { OutboxEventStatus, SmsMessageStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
 
@@ -244,7 +239,7 @@ export class ReportsService {
       offlineFailureCount,
       fraudOpenCount,
       staleReportCount,
-      reconciliationRows,
+      mismatchCount,
     ] = await Promise.all([
       this.prisma.outboxEvent.count({
         where: {
@@ -298,42 +293,8 @@ export class ReportsService {
           ],
         },
       }),
-      this.prisma.$queryRaw<Array<{ mismatchCount: bigint }>>(Prisma.sql`
-        WITH allocation_totals AS (
-          SELECT "creditLotId", COALESCE(SUM("amountKobo"), 0)::bigint AS amount
-          FROM "RedemptionAllocation"
-          WHERE "tenantId" = ${tenantId}
-          GROUP BY "creditLotId"
-        ),
-        restoration_totals AS (
-          SELECT ra."creditLotId", COALESCE(SUM(ar."amountKobo"), 0)::bigint AS amount
-          FROM "AllocationRestoration" ar
-          JOIN "RedemptionAllocation" ra
-            ON ra."tenantId" = ar."tenantId"
-           AND ra."id" = ar."allocationId"
-          WHERE ar."tenantId" = ${tenantId}
-          GROUP BY ra."creditLotId"
-        ),
-        expiry_totals AS (
-          SELECT "creditLotId", COALESCE(SUM("amountKobo"), 0)::bigint AS amount
-          FROM "CreditExpiry"
-          WHERE "tenantId" = ${tenantId}
-          GROUP BY "creditLotId"
-        )
-        SELECT COUNT(*)::bigint AS "mismatchCount"
-        FROM "CreditLot" cl
-        LEFT JOIN allocation_totals at ON at."creditLotId" = cl."id"
-        LEFT JOIN restoration_totals rt ON rt."creditLotId" = cl."id"
-        LEFT JOIN expiry_totals et ON et."creditLotId" = cl."id"
-        WHERE cl."tenantId" = ${tenantId}
-          AND cl."remainingAmountKobo" <> GREATEST(
-            0,
-            cl."originalAmountKobo" - COALESCE(at.amount, 0) + COALESCE(rt.amount, 0) - COALESCE(et.amount, 0)
-          )
-      `),
+      this.countCreditLotMismatches(tenantId),
     ]);
-
-    const mismatchCount = Number(reconciliationRows[0]?.mismatchCount ?? 0n);
 
     return {
       release: {
@@ -364,6 +325,68 @@ export class ReportsService {
         mismatchCount,
       },
     };
+  }
+
+  private async countCreditLotMismatches(tenantId: string): Promise<number> {
+    const [creditLots, allocationTotals, expiryTotals, restorations] =
+      await Promise.all([
+        this.prisma.creditLot.findMany({
+          where: { tenantId },
+          select: {
+            id: true,
+            originalAmountKobo: true,
+            remainingAmountKobo: true,
+          },
+        }),
+        this.prisma.redemptionAllocation.groupBy({
+          by: ['creditLotId'],
+          where: { tenantId },
+          _sum: { amountKobo: true },
+        }),
+        this.prisma.creditExpiry.groupBy({
+          by: ['creditLotId'],
+          where: { tenantId },
+          _sum: { amountKobo: true },
+        }),
+        this.prisma.allocationRestoration.findMany({
+          where: { tenantId },
+          select: {
+            amountKobo: true,
+            allocation: { select: { creditLotId: true } },
+          },
+        }),
+      ]);
+
+    const allocatedByLot = new Map(
+      allocationTotals.map((row) => [
+        row.creditLotId,
+        row._sum.amountKobo ?? 0n,
+      ]),
+    );
+    const expiredByLot = new Map(
+      expiryTotals.map((row) => [row.creditLotId, row._sum.amountKobo ?? 0n]),
+    );
+    const restoredByLot = new Map<string, bigint>();
+
+    for (const restoration of restorations) {
+      const creditLotId = restoration.allocation.creditLotId;
+      restoredByLot.set(
+        creditLotId,
+        (restoredByLot.get(creditLotId) ?? 0n) + restoration.amountKobo,
+      );
+    }
+
+    return creditLots.filter((creditLot) => {
+      const expected = maxBigInt(
+        0n,
+        creditLot.originalAmountKobo -
+          (allocatedByLot.get(creditLot.id) ?? 0n) +
+          (restoredByLot.get(creditLot.id) ?? 0n) -
+          (expiredByLot.get(creditLot.id) ?? 0n),
+      );
+
+      return creditLot.remainingAmountKobo !== expected;
+    }).length;
   }
 
   async listMaterializationState(
@@ -479,6 +502,10 @@ export class ReportsService {
       timezone: timezoneHint ?? branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
     };
   }
+}
+
+function maxBigInt(left: bigint, right: bigint): bigint {
+  return left > right ? left : right;
 }
 
 function buildDateFilter(from?: string, to?: string) {
