@@ -47,6 +47,8 @@ jobs:
       - run: npm run prisma:generate
       - run: npm run build
       - uses: github/codeql-action/analyze@v3
+        with:
+          upload: false
 
   trivy:
     name: Trivy Image Scan
