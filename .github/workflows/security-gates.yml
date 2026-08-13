@@ -92,3 +92,5 @@ jobs:
         with:
           target: ${{ inputs.staging_base_url }}
           fail_action: true
+          allow_issue_writing: false
+          cmd_options: '-I'
