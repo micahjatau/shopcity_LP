@@ -1,16 +1,19 @@
 # Security results
 
-Candidate SHA: 58e760b6cdbb01e96e2b654b2caa013985dd6f9f
-Image digest: ghcr.io/shopcity/shopcity-lp@sha256:385fe391d928599741535e16395a33c894ea589e05effb5e1e323367ccf6b53b
-RecordedAt: 2026-08-12T23:05:05Z
-Workflow run URL: pending same-SHA security run with CodeQL and ZAP enabled
-Workflow run ID: pending
+Candidate SHA: 2511acc2dc70e27c7e1892ecfbcf414ab78c2707
+Image digest: Vercel serverless deployment dpl_2e3TRMYKQ8DMWaFzC7mhrtRcf8f5
+RecordedAt: 2026-08-13T11:22:33Z
+Workflow run URL: https://github.com/micahjatau/shopcity_LP/actions/runs/31694340876
+Workflow run ID: 31694340876
+Approved staging target: https://shopcity-lp.vercel.app
 
 Recorded jobs:
 
-- Gitleaks — pending same-SHA certification evidence
-- Trivy Image Scan — pending same-SHA certification evidence
-- CodeQL — missing; previous referenced runs skipped this mandatory job
-- ZAP Baseline (approved staging) — missing; previous referenced runs skipped this mandatory job
+- Gitleaks — success
+- Trivy Image Scan — success
+- CodeQL — success
+- ZAP Baseline (approved staging) — success
 
-Status: not certified
+ZAP summary: `FAIL-NEW: 0`; baseline warnings were reported without failing the job via `cmd_options: '-I'`.
+
+Status: certified for the recorded candidate SHA and Vercel deployment
