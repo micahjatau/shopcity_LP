@@ -122,6 +122,8 @@ async function createNestApp(
     global: true,
   });
 
+  registerZapFriendlyUtilityRoutes(app);
+
   const originAllowlist = parseCsvList(process.env.CORS_ORIGIN_ALLOWLIST);
   const allowedOrigins =
     originAllowlist.length > 0
@@ -156,6 +158,44 @@ async function createNestApp(
   await app.init();
 
   return app;
+}
+
+function registerZapFriendlyUtilityRoutes(app: NestFastifyApplication): void {
+  const fastify = app.getHttpAdapter().getInstance();
+  const noStore = 'no-store, max-age=0';
+
+  fastify.get('/', (_request, reply) => {
+    reply.header('cache-control', noStore).send({
+      status: 'ok',
+      service: 'shopcity-api',
+      health: '/health/live',
+    });
+  });
+
+  fastify.get('/health', (_request, reply) => {
+    reply.header('cache-control', noStore).send({
+      status: 'ok',
+      live: '/health/live',
+      ready: '/health/ready',
+    });
+  });
+
+  fastify.get('/robots.txt', (_request, reply) => {
+    reply
+      .type('text/plain')
+      .header('cache-control', noStore)
+      .send('User-agent: *\nDisallow:\n');
+  });
+
+  fastify.get('/sitemap.xml', (_request, reply) => {
+    reply
+      .type('application/xml')
+      .header('cache-control', noStore)
+      .send(
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" />\n',
+      );
+  });
 }
 
 function registerOpenApi(app: NestFastifyApplication): void {
