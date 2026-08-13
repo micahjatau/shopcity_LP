@@ -71,7 +71,7 @@ describe('financial transaction retry helpers', () => {
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
-  it('classifies Prisma P2034 as a financial transaction conflict', () => {
+  it('classifies Prisma transaction and SQL serialization conflicts', () => {
     expect(
       isFinancialTransactionConflict(prismaKnownRequestError('P2034')),
     ).toBe(true);
@@ -79,14 +79,20 @@ describe('financial transaction retry helpers', () => {
       isFinancialTransactionConflict(prismaKnownRequestError('40001')),
     ).toBe(true);
     expect(
+      isFinancialTransactionConflict(
+        prismaKnownRequestError('P2010', { code: '40001' }),
+      ),
+    ).toBe(true);
+    expect(
       isFinancialTransactionConflict(prismaKnownRequestError('P2002')),
     ).toBe(false);
   });
 });
 
-function prismaKnownRequestError(code: string) {
+function prismaKnownRequestError(code: string, meta?: Record<string, unknown>) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {
     code,
     clientVersion: 'test',
+    meta,
   });
 }

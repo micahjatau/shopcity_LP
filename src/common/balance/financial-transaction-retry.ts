@@ -49,10 +49,23 @@ export async function runWithBoundedFinancialRetries<T>(
 
 export function isFinancialTransactionConflict(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === 'P2034' || error.code === '40001';
+    return (
+      error.code === 'P2034' ||
+      error.code === '40001' ||
+      (error.code === 'P2010' && hasPostgresSerializationCode(error.meta))
+    );
   }
 
   return false;
+}
+
+function hasPostgresSerializationCode(meta: unknown): boolean {
+  return (
+    typeof meta === 'object' &&
+    meta !== null &&
+    'code' in meta &&
+    meta.code === '40001'
+  );
 }
 
 async function waitForFinancialRetryJitter(maxJitterMs: number): Promise<void> {
