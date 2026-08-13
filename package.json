@@ -57,7 +57,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:integration:prime": "node ./scripts/prime-testcontainers.cjs",
     "test:integration": "jest --config ./test/jest-int.json --runInBand",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
