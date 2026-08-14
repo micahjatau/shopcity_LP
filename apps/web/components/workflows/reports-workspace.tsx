@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { reportsControllerListExecutiveSummaryV1 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Button, Table } from '../ui';
+import { Alert, Button, Table } from '../ui';
 import { StatusBadge } from '../shopcity';
 
 export function ReportsWorkspace() {
@@ -41,25 +41,31 @@ export function ReportsWorkspace() {
             <StatusBadge label={summary.branchId ?? 'Tenant-wide'} tone="neutral" />
             <StatusBadge label={summary.timezone} tone="success" />
           </div>
-          <Table>
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.items.slice(0, 5).map((item: Record<string, unknown>, index: number) => {
-                const [label, value] = Object.entries(item)[0] ?? [`item-${index + 1}`, 'Unknown'];
-                return (
-                  <tr key={label}>
-                    <td>{label}</td>
-                    <td>{String(value)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
+          {summary.items.length === 0 ? (
+            <Alert tone="warning" title="No report rows">
+              The executive summary returned no metrics for this scope.
+            </Alert>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.items.slice(0, 5).map((item: Record<string, unknown>, index: number) => {
+                  const [label, value] = Object.entries(item)[0] ?? [`item-${index + 1}`, 'Unknown'];
+                  return (
+                    <tr key={label}>
+                      <td>{label}</td>
+                      <td>{String(value)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          )}
         </>
       ) : null}
     </section>

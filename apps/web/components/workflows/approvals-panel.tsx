@@ -7,7 +7,7 @@ import {
   type ApprovalDecisionDtoDecision,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Button, RadioGroup } from '../ui';
+import { Alert, Button, RadioGroup } from '../ui';
 import { StatusBadge } from '../shopcity';
 
 export function ApprovalsPanel() {
@@ -60,17 +60,23 @@ export function ApprovalsPanel() {
         <Button onClick={() => void handleDecision()} disabled={!selectedId}>Submit decision</Button>
       </div>
       <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-        {items.slice(0, 3).map((item) => (
-          <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} style={{ textAlign: 'left', padding: 'var(--sc-spacing-4)', borderRadius: 'var(--sc-radius-lg)', border: `1px solid ${selectedId === item.id ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`, background: 'var(--sc-color-neutral-0)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}>
-              <strong>{item.customer?.fullName ?? item.id}</strong>
-              <StatusBadge label={item.status} tone={item.status === 'PENDING' ? 'warning' : 'neutral'} />
-            </div>
-            <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{item.reasonCode ?? 'No reason code'}</p>
-          </button>
-        ))}
-      </div>
+      {items.length === 0 ? (
+        <Alert tone="warning" title="No approvals">
+          No approval records matched the current filters.
+        </Alert>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          {items.slice(0, 3).map((item) => (
+            <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} style={{ textAlign: 'left', padding: 'var(--sc-spacing-4)', borderRadius: 'var(--sc-radius-lg)', border: `1px solid ${selectedId === item.id ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`, background: 'var(--sc-color-neutral-0)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}>
+                <strong>{item.customer?.fullName ?? item.id}</strong>
+                <StatusBadge label={item.status} tone={item.status === 'PENDING' ? 'warning' : 'neutral'} />
+              </div>
+              <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{item.reasonCode ?? 'No reason code'}</p>
+            </button>
+          ))}
+        </div>
+      )}
       <RadioGroup name="approval-decision" legend="Decision" options={[{ value: 'APPROVED', label: 'Approve' }, { value: 'REJECTED', label: 'Reject' }]} value={decision} onValueChange={(value) => setDecision(value as ApprovalDecisionDtoDecision)} />
     </section>
   );

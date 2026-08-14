@@ -8,7 +8,7 @@ import {
   type FraudFlagDecisionDtoDecision as FraudFlagDecision,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Button, RadioGroup, Table } from '../ui';
+import { Alert, Button, RadioGroup, Table } from '../ui';
 import { StatusBadge } from '../shopcity';
 
 type FraudFlagRecord = Record<string, unknown> & {
@@ -100,37 +100,43 @@ export function FraudFlagsPanel() {
         {message}
       </p>
 
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-        {items.slice(0, 3).map((item) => {
-          const selected = item.id === selectedId;
-          return (
-            <button
-              key={item.id ?? `${item.ruleCode ?? 'fraud'}-${item.customer?.fullName ?? 'item'}`}
-              type="button"
-              onClick={() => setSelectedId(item.id ?? null)}
-              style={{
-                textAlign: 'left',
-                padding: 'var(--sc-spacing-4)',
-                borderRadius: 'var(--sc-radius-lg)',
-                border: `1px solid ${selected ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`,
-                background: 'var(--sc-color-neutral-0)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}>
-                <strong>{item.ruleCode ?? item.reasonCode ?? item.id ?? 'Fraud flag'}</strong>
-                <StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'OPEN' ? 'warning' : 'neutral'} />
-              </div>
-              <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-                {item.customer?.fullName ?? item.actorId ?? 'Contract-shaped fraud event'}
-              </p>
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap', marginTop: 'var(--sc-spacing-2)' }}>
-                <StatusBadge label={item.severity ?? 'LOW'} tone={severityTone(item.severity)} />
-                <StatusBadge label={item.branchId ?? 'Tenant-wide'} tone="info" />
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {items.length === 0 ? (
+        <Alert tone="warning" title="No fraud flags">
+          No fraud review items matched the current filters.
+        </Alert>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          {items.slice(0, 3).map((item) => {
+            const selected = item.id === selectedId;
+            return (
+              <button
+                key={item.id ?? `${item.ruleCode ?? 'fraud'}-${item.customer?.fullName ?? 'item'}`}
+                type="button"
+                onClick={() => setSelectedId(item.id ?? null)}
+                style={{
+                  textAlign: 'left',
+                  padding: 'var(--sc-spacing-4)',
+                  borderRadius: 'var(--sc-radius-lg)',
+                  border: `1px solid ${selected ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`,
+                  background: 'var(--sc-color-neutral-0)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}>
+                  <strong>{item.ruleCode ?? item.reasonCode ?? item.id ?? 'Fraud flag'}</strong>
+                  <StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'OPEN' ? 'warning' : 'neutral'} />
+                </div>
+                <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+                  {item.customer?.fullName ?? item.actorId ?? 'Contract-shaped fraud event'}
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap', marginTop: 'var(--sc-spacing-2)' }}>
+                  <StatusBadge label={item.severity ?? 'LOW'} tone={severityTone(item.severity)} />
+                  <StatusBadge label={item.branchId ?? 'Tenant-wide'} tone="info" />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {selectedItem ? (
         <Table>

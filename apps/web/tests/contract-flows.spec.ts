@@ -314,4 +314,123 @@ test.describe('contract-faithful frontend flows', () => {
     await page.getByRole('button', { name: /update role/i }).click();
     await page.getByRole('button', { name: /update device status/i }).click();
   });
+
+  test('shows empty states and retry messaging on supervisor and admin shells', async ({
+    page,
+  }) => {
+    let approvalsFailure = false;
+    let userFailure = false;
+
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(sessionPayload('ADMIN')),
+      });
+    });
+
+    await page.route('**/api/v1/approvals**', async (route) => {
+      if (approvalsFailure) {
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: false,
+            error: { statusCode: 503, code: 'UNAVAILABLE', message: 'Approvals unavailable' },
+            meta: {},
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { items: [], nextCursor: null, hasMore: false },
+          meta: {},
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/fraud-flags**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { scope: 'TENANT', scopeKey: 'tenant-1', branchId: null, items: [], nextCursor: null, hasMore: false },
+          meta: {},
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/reports/executive-summary', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { scope: 'TENANT', scopeKey: 'tenant-1', branchId: null, timezone: 'Africa/Lagos', items: [] },
+          meta: {},
+        }),
+      });
+    });
+
+    await page.goto('/supervisor');
+    await expect(page.getByText(/No approvals/i)).toBeVisible();
+    await expect(page.getByText(/No fraud flags/i)).toBeVisible();
+    await expect(page.getByText(/No report rows/i)).toBeVisible();
+
+    approvalsFailure = true;
+    await page.getByRole('button', { name: /refresh approvals/i }).click();
+    await expect(page.getByText(/approvals unavailable \(503\)/i)).toBeVisible();
+
+    await page.route('**/api/v1/users', async (route) => {
+      if (userFailure) {
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: false,
+            error: { statusCode: 403, code: 'FORBIDDEN', message: 'Users unavailable' },
+            meta: {},
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], meta: {} }),
+      });
+    });
+
+    await page.route('**/api/v1/devices', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], meta: {} }),
+      });
+    });
+
+    await page.route('**/api/v1/audit*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], meta: {} }),
+      });
+    });
+
+    await page.goto('/admin');
+    await expect(page.getByText(/No users/i)).toBeVisible();
+    await expect(page.getByText(/No devices/i)).toBeVisible();
+    await expect(page.getByText(/No audit rows/i)).toBeVisible();
+
+    userFailure = true;
+    await page.getByRole('button', { name: /refresh users/i }).click();
+    await expect(page.getByText(/users unavailable \(403\)/i)).toBeVisible();
+  });
 });

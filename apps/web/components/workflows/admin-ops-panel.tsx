@@ -189,30 +189,36 @@ export function AdminOperationsPanel() {
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
         <section style={cardStyle} aria-label="Users workspace">
           <h3 style={{ marginTop: 0 }}>Users workspace</h3>
-          <Table>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Branch</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.slice(0, 5).map((item) => (
-                <tr key={item.id ?? item.username ?? JSON.stringify(item)}>
-                  <td>
-                    <button type="button" onClick={() => setSelectedUserId(item.id ?? null)} style={rowButtonStyle}>
-                      {item.username ?? item.id ?? 'User'}
-                    </button>
-                  </td>
-                  <td>{item.role ?? '—'}</td>
-                  <td>{item.status ?? '—'}</td>
-                  <td>{item.branchId ?? 'Tenant-wide'}</td>
+          {users.length === 0 ? (
+            <Alert tone="warning" title="No users">
+              No user records matched the current filter.
+            </Alert>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Branch</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {users.slice(0, 5).map((item) => (
+                  <tr key={item.id ?? item.username ?? JSON.stringify(item)}>
+                    <td>
+                      <button type="button" onClick={() => setSelectedUserId(item.id ?? null)} style={rowButtonStyle}>
+                        {item.username ?? item.id ?? 'User'}
+                      </button>
+                    </td>
+                    <td>{item.role ?? '—'}</td>
+                    <td>{item.status ?? '—'}</td>
+                    <td>{item.branchId ?? 'Tenant-wide'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
           {selectedUser ? (
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', marginTop: 'var(--sc-spacing-4)' }}>
               <Separator />
@@ -250,30 +256,36 @@ export function AdminOperationsPanel() {
 
         <section style={cardStyle} aria-label="Devices workspace">
           <h3 style={{ marginTop: 0 }}>Devices workspace</h3>
-          <Table>
-            <thead>
-              <tr>
-                <th>Device</th>
-                <th>Status</th>
-                <th>Branch</th>
-                <th>Fingerprint</th>
-              </tr>
-            </thead>
-            <tbody>
-              {devices.slice(0, 5).map((item) => (
-                <tr key={item.id ?? item.name ?? JSON.stringify(item)}>
-                  <td>
-                    <button type="button" onClick={() => setSelectedDeviceId(item.id ?? null)} style={rowButtonStyle}>
-                      {item.name ?? item.id ?? 'Device'}
-                    </button>
-                  </td>
-                  <td>{item.status ?? '—'}</td>
-                  <td>{item.branchId ?? 'Tenant-wide'}</td>
-                  <td>{item.fingerprintHash ?? '—'}</td>
+          {devices.length === 0 ? (
+            <Alert tone="warning" title="No devices">
+              No device records matched the current filter.
+            </Alert>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th>Status</th>
+                  <th>Branch</th>
+                  <th>Fingerprint</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {devices.slice(0, 5).map((item) => (
+                  <tr key={item.id ?? item.name ?? JSON.stringify(item)}>
+                    <td>
+                      <button type="button" onClick={() => setSelectedDeviceId(item.id ?? null)} style={rowButtonStyle}>
+                        {item.name ?? item.id ?? 'Device'}
+                      </button>
+                    </td>
+                    <td>{item.status ?? '—'}</td>
+                    <td>{item.branchId ?? 'Tenant-wide'}</td>
+                    <td>{item.fingerprintHash ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
           {selectedDevice ? (
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', marginTop: 'var(--sc-spacing-4)' }}>
               <Separator />
@@ -306,26 +318,32 @@ export function AdminOperationsPanel() {
             <Input aria-label="Audit actor" value={actorId} onChange={(event) => setActorId(event.target.value)} />
             <Button variant="secondary" onClick={() => void refreshAudit()}>Load audit trail</Button>
           </div>
-          <Table>
-            <thead>
-              <tr>
-                <th>Action</th>
-                <th>Subject</th>
-                <th>Actor</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditRows.slice(0, 5).map((item) => (
-                <tr key={item.id ?? `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`}>
-                  <td>{item.action ?? '—'}</td>
-                  <td>{item.subjectType ?? item.subjectId ?? '—'}</td>
-                  <td>{item.actorId ?? '—'}</td>
-                  <td>{item.createdAt ?? '—'}</td>
+          {auditRows.length === 0 ? (
+            <Alert tone="warning" title="No audit rows">
+              No audit entries matched the current filter.
+            </Alert>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Subject</th>
+                  <th>Actor</th>
+                  <th>Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {auditRows.slice(0, 5).map((item) => (
+                  <tr key={item.id ?? `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`}>
+                    <td>{item.action ?? '—'}</td>
+                    <td>{item.subjectType ?? item.subjectId ?? '—'}</td>
+                    <td>{item.actorId ?? '—'}</td>
+                    <td>{item.createdAt ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
           <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap', marginTop: 'var(--sc-spacing-3)' }}>
             <StatusBadge label={`Users: ${users.length}`} tone="info" />
             <StatusBadge label={`Devices: ${devices.length}`} tone="info" />
