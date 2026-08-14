@@ -23,12 +23,7 @@ Feature code composes these rather than creating bespoke button/input/status imp
 Use predictable props:
 
 ```tsx
-<Button
-  variant="primary"
-  size="lg"
-  loading={isPending}
-  disabled={!isValid}
->
+<Button variant="primary" size="lg" loading={isPending} disabled={!isValid}>
   Add credit
 </Button>
 ```
@@ -66,21 +61,21 @@ Loading buttons maintain width, prevent repeated activation, retain action-aware
 
 Backend values should not leak directly when a clearer UX label exists.
 
-| API/domain state | UI label | Semantic | Terminal? | Typical action |
-|---|---|---|---|---|
-| `CONFIRMED` | Confirmed | success | yes | View details |
-| `PENDING_APPROVAL` | Awaiting approval | warning | no | View approval |
-| `REJECTED` | Rejected | danger | yes | View reason |
-| `RETRYABLE` | Retry required | warning | no | Retry sync |
-| `CAPTURED` | Recorded | neutral/info | depends | View |
-| Fraud `OPEN` | Needs review | warning | no | Review |
-| Fraud `ACKNOWLEDGED` | Under review | info | no | Continue review |
-| Fraud `RESOLVED` | Resolved | success | yes | View decision |
-| SMS `QUEUED` | Queued | neutral | no | none |
-| SMS `SENT` | Sent | info | no | none |
-| SMS `DELIVERED` | Delivered | success | yes | none |
-| SMS `FAILED` | Delivery failed | danger | maybe | Retry/inspect |
-| SMS `SUPPRESSED` | Not sent | neutral | yes | Inspect reason |
+| API/domain state     | UI label          | Semantic     | Terminal? | Typical action  |
+| -------------------- | ----------------- | ------------ | --------- | --------------- |
+| `CONFIRMED`          | Confirmed         | success      | yes       | View details    |
+| `PENDING_APPROVAL`   | Awaiting approval | warning      | no        | View approval   |
+| `REJECTED`           | Rejected          | danger       | yes       | View reason     |
+| `RETRYABLE`          | Retry required    | warning      | no        | Retry sync      |
+| `CAPTURED`           | Recorded          | neutral/info | depends   | View            |
+| Fraud `OPEN`         | Needs review      | warning      | no        | Review          |
+| Fraud `ACKNOWLEDGED` | Under review      | info         | no        | Continue review |
+| Fraud `RESOLVED`     | Resolved          | success      | yes       | View decision   |
+| SMS `QUEUED`         | Queued            | neutral      | no        | none            |
+| SMS `SENT`           | Sent              | info         | no        | none            |
+| SMS `DELIVERED`      | Delivered         | success      | yes       | none            |
+| SMS `FAILED`         | Delivery failed   | danger       | maybe     | Retry/inspect   |
+| SMS `SUPPRESSED`     | Not sent          | neutral      | yes       | Inspect reason  |
 
 Status components use text + icon + semantic color. New backend enums require an explicit mapping before frontend release.
 

@@ -4,18 +4,18 @@ The generated `docs/api/openapi.json` and Orval client are the frontend source o
 
 ## Domain map
 
-| Domain | Frontend surface | Main components |
-|---|---|---|
-| Session | Login and app bootstrap | `LoginForm`, `SessionProvider` |
-| Customers | Search, registration and detail | `CustomerLookup`, `CustomerForm`, `CustomerDetail` |
-| Cards | Lookup and card management | `CardScannerLookup`, `CardAssignmentForm`, `CardReplacementWizard` |
-| Earn | Earn workflow | `EarnTransactionForm`, `EarnConfirmation` |
-| Redeem | Redeem workflow | `RedeemTransactionForm`, `RedemptionConfirmation` |
-| Approvals | Queue and detail | `ApprovalTable`, `ApprovalDecisionPanel` |
-| Offline sync | Local queue and synchronization | `OfflineEarnQueue`, `OfflineSyncResult` |
-| Operational review | Queue and detail | `ReviewTable`, `ReviewPanel` |
-| Reports | Reports, exports and freshness | `ReportWorkspace`, `ExportAction` |
-| Operations | Pilot health | `PilotHealthPanel` |
+| Domain             | Frontend surface                | Main components                                                    |
+| ------------------ | ------------------------------- | ------------------------------------------------------------------ |
+| Session            | Login and app bootstrap         | `LoginForm`, `SessionProvider`                                     |
+| Customers          | Search, registration and detail | `CustomerLookup`, `CustomerForm`, `CustomerDetail`                 |
+| Cards              | Lookup and card management      | `CardScannerLookup`, `CardAssignmentForm`, `CardReplacementWizard` |
+| Earn               | Earn workflow                   | `EarnTransactionForm`, `EarnConfirmation`                          |
+| Redeem             | Redeem workflow                 | `RedeemTransactionForm`, `RedemptionConfirmation`                  |
+| Approvals          | Queue and detail                | `ApprovalTable`, `ApprovalDecisionPanel`                           |
+| Offline sync       | Local queue and synchronization | `OfflineEarnQueue`, `OfflineSyncResult`                            |
+| Operational review | Queue and detail                | `ReviewTable`, `ReviewPanel`                                       |
+| Reports            | Reports, exports and freshness  | `ReportWorkspace`, `ExportAction`                                  |
+| Operations         | Pilot health                    | `PilotHealthPanel`                                                 |
 
 ## Endpoint families already represented by the backend
 

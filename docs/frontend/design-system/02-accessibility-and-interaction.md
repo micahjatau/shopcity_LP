@@ -175,13 +175,13 @@ Each queue row shows local time/reference, customer/card context, receipt, amoun
 
 ## Notification hierarchy
 
-| Mechanism | Use |
-|---|---|
-| Toast | transient low-risk confirmation |
-| Inline alert | persistent contextual issue |
-| Banner | system-wide state such as offline |
-| Dialog | explicit decision |
-| Activity/inbox | work requiring later action |
+| Mechanism      | Use                               |
+| -------------- | --------------------------------- |
+| Toast          | transient low-risk confirmation   |
+| Inline alert   | persistent contextual issue       |
+| Banner         | system-wide state such as offline |
+| Dialog         | explicit decision                 |
+| Activity/inbox | work requiring later action       |
 
 Financial confirmation remains on-screen as a result, not only as a toast.
 

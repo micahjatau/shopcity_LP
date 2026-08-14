@@ -254,11 +254,11 @@ Example:
 
 ```css
 :root {
-  --sc-color-canvas: #F8F9FA;
-  --sc-color-surface: #FFFFFF;
+  --sc-color-canvas: #f8f9fa;
+  --sc-color-surface: #ffffff;
   --sc-color-text: #111827;
-  --sc-color-action-primary: #B10000;
-  --sc-color-action-primary-hover: #9F0001;
+  --sc-color-action-primary: #b10000;
+  --sc-color-action-primary-hover: #9f0001;
 }
 ```
 

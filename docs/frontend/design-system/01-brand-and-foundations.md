@@ -44,29 +44,29 @@ Brand red is **not** the default canvas and is **not** the only danger color. Hi
 
 ### Brand palette
 
-| Token | Hex | Intended use |
-|---|---:|---|
-| `brand.50` | `#FFF1F1` | subtle selected/background tint |
-| `brand.100` | `#FFE0E0` | soft brand surface |
-| `brand.200` | `#FFC2C2` | borders/illustrative tint |
-| `brand.300` | `#FF9999` | decorative only |
-| `brand.400` | `#F45D5D` | decorative/secondary emphasis |
-| `brand.500` | `#B10000` | primary ShopCity red sampled from artwork |
-| `brand.600` | `#9F0001` | primary pressed/hover |
-| `brand.700` | `#8E0101` | strong branded surface |
-| `brand.800` | `#6F0101` | sidebar/header dark red |
-| `brand.900` | `#530001` | deepest branded surface |
-| `brand.950` | `#310000` | exceptional dark accent |
-| `brand.bright` | `#D00607` | artwork highlight/accent |
+| Token          |       Hex | Intended use                              |
+| -------------- | --------: | ----------------------------------------- |
+| `brand.50`     | `#FFF1F1` | subtle selected/background tint           |
+| `brand.100`    | `#FFE0E0` | soft brand surface                        |
+| `brand.200`    | `#FFC2C2` | borders/illustrative tint                 |
+| `brand.300`    | `#FF9999` | decorative only                           |
+| `brand.400`    | `#F45D5D` | decorative/secondary emphasis             |
+| `brand.500`    | `#B10000` | primary ShopCity red sampled from artwork |
+| `brand.600`    | `#9F0001` | primary pressed/hover                     |
+| `brand.700`    | `#8E0101` | strong branded surface                    |
+| `brand.800`    | `#6F0101` | sidebar/header dark red                   |
+| `brand.900`    | `#530001` | deepest branded surface                   |
+| `brand.950`    | `#310000` | exceptional dark accent                   |
+| `brand.bright` | `#D00607` | artwork highlight/accent                  |
 
 White on `brand.500` has approximately 7.3:1 contrast; white on `brand.600` about 8.5:1. These combinations are suitable for normal text. Avoid dark text on core brand red.
 
 ### Neutral palette
 
-| Token | Hex |
-|---|---:|
-| `neutral.0` | `#FFFFFF` |
-| `neutral.50` | `#F8F9FA` |
+| Token         |       Hex |
+| ------------- | --------: |
+| `neutral.0`   | `#FFFFFF` |
+| `neutral.50`  | `#F8F9FA` |
 | `neutral.100` | `#F1F3F5` |
 | `neutral.200` | `#E4E7EB` |
 | `neutral.300` | `#CDD2D8` |
@@ -80,12 +80,12 @@ White on `brand.500` has approximately 7.3:1 contrast; white on `brand.600` abou
 
 ### Semantic palettes
 
-| Meaning | Strong | Surface | Border |
-|---|---:|---:|---:|
+| Meaning |    Strong |   Surface |    Border |
+| ------- | --------: | --------: | --------: |
 | Success | `#147D3F` | `#EAF7EF` | `#A9DAB9` |
 | Warning | `#8A5A00` | `#FFF7E2` | `#E8C56A` |
-| Danger | `#B42318` | `#FFF1F1` | `#F2B8B5` |
-| Info | `#1D4ED8` | `#EFF6FF` | `#B6CEFA` |
+| Danger  | `#B42318` | `#FFF1F1` | `#F2B8B5` |
+| Info    | `#1D4ED8` | `#EFF6FF` | `#B6CEFA` |
 
 Never communicate a state by color alone. Pair semantic color with icon and explicit language.
 
@@ -163,7 +163,7 @@ font-family:
   system-ui,
   -apple-system,
   BlinkMacSystemFont,
-  "Segoe UI",
+  'Segoe UI',
   sans-serif;
 ```
 
@@ -171,19 +171,19 @@ The logo is artwork and is never recreated using Inter.
 
 ### Type scale
 
-| Style | Size / line | Weight | Use |
-|---|---|---|---|
-| Display | 40/48 | 700 | rare brand/marketing surfaces |
-| H1 | 32/40 | 700 | primary page title |
-| H2 | 24/32 | 700 | major section |
-| H3 | 20/28 | 600 | card/section title |
-| Body LG | 18/28 | 400/500 | high-priority explanatory copy |
-| Body | 16/24 | 400 | normal UI |
-| Body SM | 14/20 | 400 | support/metadata |
-| Label | 14/20 | 600 | form/control labels |
-| Caption | 12/16 | 500 | secondary metadata; not critical instructions |
-| Numeric LG | 32/38 | 700 | balances/KPIs |
-| Numeric | 16/24 | 600 | table/transaction amounts |
+| Style      | Size / line | Weight  | Use                                           |
+| ---------- | ----------- | ------- | --------------------------------------------- |
+| Display    | 40/48       | 700     | rare brand/marketing surfaces                 |
+| H1         | 32/40       | 700     | primary page title                            |
+| H2         | 24/32       | 700     | major section                                 |
+| H3         | 20/28       | 600     | card/section title                            |
+| Body LG    | 18/28       | 400/500 | high-priority explanatory copy                |
+| Body       | 16/24       | 400     | normal UI                                     |
+| Body SM    | 14/20       | 400     | support/metadata                              |
+| Label      | 14/20       | 600     | form/control labels                           |
+| Caption    | 12/16       | 500     | secondary metadata; not critical instructions |
+| Numeric LG | 32/38       | 700     | balances/KPIs                                 |
+| Numeric    | 16/24       | 600     | table/transaction amounts                     |
 
 All currency and tabular report numbers should use:
 
@@ -226,20 +226,20 @@ Recommended visual treatment:
 
 Use a 4px base grid.
 
-| Token | px |
-|---|---:|
-| `space.0` | 0 |
-| `space.1` | 4 |
-| `space.2` | 8 |
-| `space.3` | 12 |
-| `space.4` | 16 |
-| `space.5` | 20 |
-| `space.6` | 24 |
-| `space.8` | 32 |
-| `space.10` | 40 |
-| `space.12` | 48 |
-| `space.16` | 64 |
-| `space.20` | 80 |
+| Token      |  px |
+| ---------- | --: |
+| `space.0`  |   0 |
+| `space.1`  |   4 |
+| `space.2`  |   8 |
+| `space.3`  |  12 |
+| `space.4`  |  16 |
+| `space.5`  |  20 |
+| `space.6`  |  24 |
+| `space.8`  |  32 |
+| `space.10` |  40 |
+| `space.12` |  48 |
+| `space.16` |  64 |
+| `space.20` |  80 |
 
 Prefer 16–24px internal card spacing, 24–32px section spacing, and 32–48px page rhythm.
 
@@ -287,21 +287,21 @@ The main cashier flow is optimized for POS first.
 
 Use **Lucide** as the default application icon family. Canonical meanings:
 
-| Domain | Icon |
-|---|---|
-| Customer | `User` |
-| Card | `CreditCard` |
-| Earn | `CirclePlus` |
-| Redeem | `CircleMinus` |
-| Approval | `ClipboardCheck` |
-| Fraud | `ShieldAlert` |
-| Reports | `ChartNoAxesCombined` |
-| Audit | `ScrollText` |
-| Offline | `WifiOff` |
-| Sync | `RefreshCw` |
-| Success | `CircleCheck` |
-| Warning | `TriangleAlert` |
-| Error | `CircleX` |
+| Domain   | Icon                  |
+| -------- | --------------------- |
+| Customer | `User`                |
+| Card     | `CreditCard`          |
+| Earn     | `CirclePlus`          |
+| Redeem   | `CircleMinus`         |
+| Approval | `ClipboardCheck`      |
+| Fraud    | `ShieldAlert`         |
+| Reports  | `ChartNoAxesCombined` |
+| Audit    | `ScrollText`          |
+| Offline  | `WifiOff`             |
+| Sync     | `RefreshCw`           |
+| Success  | `CircleCheck`         |
+| Warning  | `TriangleAlert`       |
+| Error    | `CircleX`             |
 
 Default icon sizes: 16 compact, 20 standard, 24 primary control. Decorative icons may be larger. Icons never replace text labels for consequential actions.
 
