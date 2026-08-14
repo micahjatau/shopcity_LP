@@ -1,8 +1,10 @@
 import type { CSSProperties } from 'react';
+import { ScannerContextScope } from '../../../components/scanner-context-scope';
 
 export default function CashierPage() {
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+      <ScannerContextScope context="earn" />
       <h1 style={{ margin: 0 }}>Cashier shell</h1>
       <p
         style={{

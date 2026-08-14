@@ -1,8 +1,10 @@
 import type { CSSProperties } from 'react';
+import { ScannerContextScope } from '../../../components/scanner-context-scope';
 
 export default function AdminPage() {
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+      <ScannerContextScope context="sync" />
       <h1 style={{ margin: 0 }}>Admin shell</h1>
       <p
         style={{

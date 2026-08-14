@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AppShell } from '../../components/app-shell';
+import { ScannerContextScope } from '../../components/scanner-context-scope';
 
 export default function ShellLayout({
   children,
@@ -34,6 +35,7 @@ export default function ShellLayout({
           <Link href="/admin">Admin</Link>
         </div>
       </div>
+      <ScannerContextScope context="disabled" />
       {children}
     </AppShell>
   );

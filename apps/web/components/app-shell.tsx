@@ -1,7 +1,13 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { BrowserStateBootstrap } from './browser-state-bootstrap';
 import { SessionBootstrap } from './session-bootstrap';
+import {
+  ConnectionStatus,
+  OfflineIndicator,
+  SyncQueueIndicator,
+} from './offline';
 
 type RouteHref = '/login' | '/cashier' | '/supervisor' | '/admin';
 
@@ -94,7 +100,21 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           padding: 'var(--sc-spacing-6)',
         }}
       >
-        <SessionBootstrap />
+        <BrowserStateBootstrap />
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--sc-spacing-3)',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            marginBottom: 'var(--sc-spacing-4)',
+          }}
+        >
+          <SessionBootstrap />
+          <ConnectionStatus />
+          <SyncQueueIndicator />
+        </div>
+        <OfflineIndicator />
         {children}
       </main>
     </div>
