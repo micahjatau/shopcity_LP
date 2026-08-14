@@ -5,9 +5,13 @@ import {
   SyncQueueIndicator,
 } from '../../../components/offline';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Button, Input } from '../../../components/ui';
-import { Money, MoneyInput, StatusBadge } from '../../../components/shopcity';
-import { WorkflowSection } from '../../../components/workflows';
+import { Button, Input, Alert, Separator } from '../../../components/ui';
+import { Money, StatusBadge } from '../../../components/shopcity';
+import {
+  EarnTransactionForm,
+  RedeemTransactionForm,
+  WorkflowSection,
+} from '../../../components/workflows';
 
 export default function CashierPage() {
   return (
@@ -36,7 +40,7 @@ export default function CashierPage() {
 
       <WorkflowSection
         title="Primary cashier actions"
-        description="The shell keeps the most common working surfaces visible while backend wiring lands."
+        description="The shell now exposes real earn and redeem forms alongside lookup and sync entry points."
       >
         <div
           style={{
@@ -47,8 +51,8 @@ export default function CashierPage() {
         >
           {[
             { title: 'Lookup', body: 'Scan card, receipt or customer reference.' },
-            { title: 'Earn', body: 'Capture purchase amount and receipt details.' },
-            { title: 'Redeem', body: 'Review balance and policy before confirmation.' },
+            { title: 'Earn', body: 'Submit a contract-backed earn transaction.' },
+            { title: 'Redeem', body: 'Submit a contract-backed redemption.' },
             { title: 'Customers', body: 'Check identity, cards and loyalty balance.' },
             { title: 'Sync', body: 'Track local queue and reconciliation state.' },
           ].map((item) => (
@@ -67,26 +71,27 @@ export default function CashierPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
         }}
       >
-        <article style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Earn preview</h2>
+        <article style={cardStyle} aria-label="Lookup and status">
+          <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             <Input placeholder="Scan card serial or receipt" aria-label="Lookup" />
-            <MoneyInput label="Earn amount" hint="Naira only; pasted formats are normalized" />
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              gap: 'var(--sc-spacing-3)',
-              flexWrap: 'wrap',
-              marginTop: 'var(--sc-spacing-4)',
-            }}
-          >
-            <Button variant="primary">Prepare earn</Button>
-            <Button variant="secondary">Open sync queue</Button>
+            <Alert tone="info" title="Session-aware shell">
+              The backend remains authoritative for final earn and redeem state.
+            </Alert>
           </div>
         </article>
 
-        <article style={cardStyle}>
+        <article style={cardStyle} aria-label="Earn transaction">
+          <h2 style={{ marginTop: 0 }}>Earn transaction</h2>
+          <EarnTransactionForm />
+        </article>
+
+        <article style={cardStyle} aria-label="Redeem transaction">
+          <h2 style={{ marginTop: 0 }}>Redeem transaction</h2>
+          <RedeemTransactionForm />
+        </article>
+
+        <article style={cardStyle} aria-label="Shift snapshot">
           <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             <div style={statRow}>
@@ -102,6 +107,8 @@ export default function CashierPage() {
               <StatusBadge label="Stable" tone="success" />
             </div>
           </div>
+          <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
+          <Button variant="secondary">Open sync queue</Button>
         </article>
       </div>
     </section>

@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Button } from '../../../components/ui';
+import { Alert, Button, Dialog, Sheet } from '../../../components/ui';
 import {
   PilotHealthPanel,
+  ReportsWorkspace,
   WorkflowSection,
 } from '../../../components/workflows';
 import { StatusBadge } from '../../../components/shopcity';
@@ -22,51 +23,78 @@ export default function AdminPage() {
 
       <PilotHealthPanel />
 
-      <WorkflowSection
-        title="Admin routes"
-        description="Cross-branch and system-level screens for operations and review."
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--sc-spacing-4)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gap: 'var(--sc-spacing-4)',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          }}
-        >
-          {[
-            {
-              title: 'Operations',
-              body: 'Release health, queue state and operational incident signals.',
-            },
-            { title: 'Audit', body: 'Actor, branch, device and timeline tracing.' },
-            {
-              title: 'Users & Devices',
-              body: 'Role assignment and device administration boundaries.',
-            },
-            { title: 'Settings', body: 'Tenant configuration and platform controls.' },
-          ].map((item) => (
-            <article key={item.title} style={cardStyle}>
-              <strong>{item.title}</strong>
-              <p style={muted}>{item.body}</p>
-            </article>
-          ))}
-        </div>
-        <div style={statusRow}>
-          <StatusBadge label="Contract-backed data pending" tone="warning" />
-          <StatusBadge label="Role-scoped" tone="info" />
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--sc-spacing-3)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Button variant="primary">View operations</Button>
-          <Button variant="secondary">Open audit trail</Button>
-          <Button variant="secondary">Manage devices</Button>
-        </div>
-      </WorkflowSection>
+        <article style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Operations summary</h2>
+          <ReportsWorkspace />
+        </article>
+
+        <article style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Admin routes</h2>
+          <WorkflowSection
+            title="Cross-branch and system-level screens"
+            description="These screens are reserved for tenant-wide review and administration."
+          >
+            <div
+              style={{
+                display: 'grid',
+                gap: 'var(--sc-spacing-4)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              }}
+            >
+              {[
+                {
+                  title: 'Operations',
+                  body: 'Release health, queue state and operational incident signals.',
+                },
+                { title: 'Audit', body: 'Actor, branch, device and timeline tracing.' },
+                {
+                  title: 'Users & Devices',
+                  body: 'Role assignment and device administration boundaries.',
+                },
+                { title: 'Settings', body: 'Tenant configuration and platform controls.' },
+              ].map((item) => (
+                <article key={item.title} style={cardStyle}>
+                  <strong>{item.title}</strong>
+                  <p style={muted}>{item.body}</p>
+                </article>
+              ))}
+            </div>
+            <div style={statusRow}>
+              <StatusBadge label="Contract-backed data pending" tone="warning" />
+              <StatusBadge label="Role-scoped" tone="info" />
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--sc-spacing-3)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <Button variant="primary">View operations</Button>
+              <Button variant="secondary">Open audit trail</Button>
+              <Button variant="secondary">Manage devices</Button>
+            </div>
+          </WorkflowSection>
+        </article>
+
+        <article style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Operational notices</h2>
+          <Alert tone="info" title="Admin workspace">
+            Tenant-wide operations, audit and device controls remain separate from cashier and supervisor tasks.
+          </Alert>
+          <Sheet open title="Release note">
+            <p>Contract-backed admin surfaces should remain data-driven as the backend endpoints land.</p>
+          </Sheet>
+          <Dialog open={false} title="Hidden dialog">No-op</Dialog>
+        </article>
+      </div>
     </section>
   );
 }

@@ -39,9 +39,9 @@ describe('frontend accessibility gates', () => {
   it('keeps the login route accessible and keyboard navigable', async () => {
     const user = userEvent.setup();
     render(
-      <main>
+      <div>
         <LoginPage />
-      </main>,
+      </div>,
     );
 
     expect(

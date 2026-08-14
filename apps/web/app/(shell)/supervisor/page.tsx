@@ -1,12 +1,16 @@
 import type { CSSProperties } from 'react';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Button } from '../../../components/ui';
+import { Accordion, Button, Tabs } from '../../../components/ui';
 import {
   ApprovalBadge,
   FraudSeverityBadge,
   TransactionStateBadge,
 } from '../../../components/shopcity';
-import { WorkflowSection } from '../../../components/workflows';
+import {
+  ApprovalsPanel,
+  ReportsWorkspace,
+  WorkflowSection,
+} from '../../../components/workflows';
 
 export default function SupervisorPage() {
   return (
@@ -23,7 +27,7 @@ export default function SupervisorPage() {
 
       <WorkflowSection
         title="Attention queue"
-        description="These are the first items a supervisor should inspect."
+        description="The supervisor shell now surfaces contract-backed approval and reporting panels."
       >
         <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
           <div style={statRow}>
@@ -45,40 +49,52 @@ export default function SupervisorPage() {
         style={{
           display: 'grid',
           gap: 'var(--sc-spacing-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         }}
       >
-        {[
-          {
-            title: 'Overview',
-            body: 'Branch health, queue pressure and freshness signals.',
-          },
-          {
-            title: 'Transactions',
-            body: 'Search, inspect and trace recent branch activity.',
-          },
-          { title: 'Approvals', body: 'Pending earn and redeem decisions.' },
-          { title: 'Fraud', body: 'Rule matches, reviews and escalation notes.' },
-          { title: 'Reports', body: 'Freshness, export and reconciliation views.' },
-        ].map((item) => (
-          <article key={item.title} style={cardStyle}>
-            <strong>{item.title}</strong>
-            <p style={muted}>{item.body}</p>
-          </article>
-        ))}
+        <article style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Approvals panel</h2>
+          <ApprovalsPanel />
+        </article>
+
+        <article style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Review lanes</h2>
+          <Tabs
+            defaultValue="overview"
+            items={[
+              { value: 'overview', label: 'Overview', panel: <p style={muted}>Branch health, queue pressure and freshness signals.</p> },
+              { value: 'transactions', label: 'Transactions', panel: <p style={muted}>Search, inspect and trace recent branch activity.</p> },
+              { value: 'fraud', label: 'Fraud', panel: <p style={muted}>Rule matches, reviews and escalation notes.</p> },
+            ]}
+          />
+        </article>
+
+        <article style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Reports workspace</h2>
+          <ReportsWorkspace />
+        </article>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-3)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <Button variant="primary">Review approvals</Button>
-        <Button variant="secondary">Open reports</Button>
-        <Button variant="secondary">Inspect fraud queue</Button>
-      </div>
+      <Accordion
+        items={[
+          {
+            value: 'support',
+            label: 'Supervisor support notes',
+            content: <p style={muted}>Use the approval queue and reports workspace for the primary review tasks.</p>,
+          },
+          {
+            value: 'actions',
+            label: 'Action shortcuts',
+            content: (
+              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+                <Button variant="primary">Review approvals</Button>
+                <Button variant="secondary">Inspect fraud queue</Button>
+                <Button variant="secondary">Open reports</Button>
+              </div>
+            ),
+          },
+        ]}
+      />
     </section>
   );
 }
