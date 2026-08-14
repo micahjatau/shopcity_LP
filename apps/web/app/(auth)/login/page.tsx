@@ -1,9 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { LoginForm } from '../../../components/auth/login-form';
 
 export default function LoginPage() {
   return (
-    <section
+    <main
       style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 420px) 1fr',
@@ -40,8 +41,8 @@ export default function LoginPage() {
           Sign in to the ShopCity retail operations shell.
         </h1>
         <p style={{ margin: 0, maxWidth: 420 }}>
-          This login surface will later connect to the backend session
-          bootstrap, CSRF handling and current-user contract.
+          Sign in with a backend-authenticated ShopCity session to reach role-
+          scoped cashier, supervisor and admin workflows.
         </p>
         <Link
           href="/"
@@ -70,55 +71,15 @@ export default function LoginPage() {
           alignContent: 'start',
         }}
       >
-        <h2 style={{ margin: 0 }}>Session bootstrap stub</h2>
+        <h2 style={{ margin: 0 }}>Session bootstrap</h2>
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
         >
-          The next iteration will call the backend current-user endpoint and
-          branch users into the appropriate shell.
+          The form calls the backend current-user and login contracts, then
+          routes the session into the correct shell.
         </p>
-        <form style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-          <label style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-            <span>Tenant / email / username</span>
-            <input
-              type="text"
-              placeholder="cashier@shopcity.local"
-              style={{
-                minHeight: 'var(--sc-size-control)',
-                padding: '0 var(--sc-spacing-4)',
-                borderRadius: 'var(--sc-radius-md)',
-                border: '1px solid var(--sc-color-semantic-borderStrong)',
-              }}
-            />
-          </label>
-          <label style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-            <span>Password</span>
-            <input
-              type="password"
-              placeholder="••••••••"
-              style={{
-                minHeight: 'var(--sc-size-control)',
-                padding: '0 var(--sc-spacing-4)',
-                borderRadius: 'var(--sc-radius-md)',
-                border: '1px solid var(--sc-color-semantic-borderStrong)',
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            style={{
-              minHeight: 'var(--sc-size-control)',
-              border: 0,
-              borderRadius: 'var(--sc-radius-full)',
-              background: 'var(--sc-color-semantic-actionPrimary)',
-              color: 'var(--sc-color-semantic-actionPrimaryText)',
-              fontWeight: 600,
-            }}
-          >
-            Sign in
-          </button>
-        </form>
+        <LoginForm />
       </article>
-    </section>
+    </main>
   );
 }

@@ -3,10 +3,22 @@
 import { StatusBadge } from '../shopcity';
 
 const items = [
-  { label: 'Outbox backlog', value: '12 pending', tone: 'warning' as const },
-  { label: 'SMS delivery', value: '98% delivered', tone: 'success' as const },
-  { label: 'Offline sync', value: '2 failed', tone: 'danger' as const },
-  { label: 'Report freshness', value: 'Fresh', tone: 'success' as const },
+  {
+    label: 'Outbox backlog',
+    value: 'Demo data',
+    tone: 'warning' as const,
+  },
+  {
+    label: 'SMS delivery',
+    value: 'Shell preview',
+    tone: 'success' as const,
+  },
+  {
+    label: 'Offline sync',
+    value: 'Preview state',
+    tone: 'danger' as const,
+  },
+  { label: 'Report freshness', value: 'Pending data', tone: 'success' as const },
 ];
 
 export function PilotHealthPanel() {
@@ -30,7 +42,7 @@ export function PilotHealthPanel() {
             color: 'var(--sc-color-semantic-textSecondary)',
           }}
         >
-          Backend operations summary for admin review.
+          Operations summary shell — backend contract pending.
         </p>
       </header>
       <div
@@ -70,10 +82,10 @@ export function PilotHealthPanel() {
               <StatusBadge
                 label={
                   item.tone === 'warning'
-                    ? 'Attention'
+                    ? 'Preview'
                     : item.tone === 'danger'
-                      ? 'Needs review'
-                      : 'Healthy'
+                      ? 'Unresolved'
+                      : 'Shell'
                 }
                 tone={item.tone}
               />

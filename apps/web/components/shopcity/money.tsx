@@ -13,6 +13,15 @@ export type MoneyProps = {
   className?: string;
 };
 
+function splitKobo(amountKobo: number) {
+  const absolute = Math.abs(Math.trunc(amountKobo));
+  return {
+    sign: amountKobo < 0 ? '-' : '',
+    whole: Math.trunc(absolute / 100),
+    fraction: absolute % 100,
+  };
+}
+
 export function formatMoney(amountKobo: number, locale = 'en-NG') {
   const currency = new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -21,7 +30,15 @@ export function formatMoney(amountKobo: number, locale = 'en-NG') {
     maximumFractionDigits: 2,
   });
 
-  return currency.format(Math.abs(amountKobo) / 100);
+  return currency.format(amountKobo / 100);
+}
+
+export function formatMoneyInputDraft(amountKobo: number, locale = 'en-NG') {
+  const { sign, whole, fraction } = splitKobo(amountKobo);
+  const wholeText = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 0,
+  }).format(whole);
+  return `${sign}${wholeText}.${fraction.toString().padStart(2, '0')}`;
 }
 
 export function Money({
@@ -32,16 +49,15 @@ export function Money({
   label,
   className = '',
 }: MoneyProps) {
-  const amount = useMemo(
-    () => formatMoney(amountKobo, locale),
-    [amountKobo, locale],
-  );
-  const sign =
-    signed && amountKobo > 0 ? '+' : signed && amountKobo < 0 ? '−' : '';
+  const amount = useMemo(() => formatMoney(amountKobo, locale), [
+    amountKobo,
+    locale,
+  ]);
+  const sign = signed && amountKobo > 0 ? '+' : '';
 
   return (
     <span
-      aria-label={label ?? `${amountKobo < 0 ? 'negative ' : ''}${amount}`}
+      aria-label={label ?? amount}
       className={['sc-money', `sc-money--${emphasis}`, className]
         .filter(Boolean)
         .join(' ')}
@@ -63,21 +79,88 @@ export type MoneyInputProps = Omit<
   hint?: string;
 };
 
-function parseNaira(input: string) {
-  const cleaned = input.replace(/[^0-9.,-]/g, '');
-  if (!cleaned) return null;
+function parseIntegerPart(value: string, separator: ',' | '.') {
+  if (!value) return null;
 
-  const normalized = cleaned.replace(/,/g, '.');
-  const lastSeparator = normalized.lastIndexOf('.');
+  if (value.includes(separator)) {
+    const grouped = new RegExp(`^\\d{1,3}(\\${separator}\\d{3})+$`);
+    if (!grouped.test(value)) {
+      return null;
+    }
 
-  let numeric = normalized;
-  if (lastSeparator !== -1) {
-    numeric = `${normalized.slice(0, lastSeparator).replace(/\./g, '')}.${normalized.slice(lastSeparator + 1)}`;
+    return value.split(separator).join('');
   }
 
-  const parsed = Number(numeric);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.round(parsed * 100);
+  return /^\d+$/.test(value) ? value : null;
+}
+
+export function parseNaira(input: string) {
+  const cleaned = input.trim().replace(/[₦\s\u00a0]/g, '');
+  if (!cleaned) return null;
+
+  let sign = '';
+  let body = cleaned;
+  if (body.startsWith('+') || body.startsWith('-')) {
+    sign = body[0] === '-' ? '-' : '';
+    body = body.slice(1);
+  }
+
+  if (!body || /[+-]/.test(body) || !/^[\d.,]+$/.test(body)) {
+    return null;
+  }
+
+  const commaCount = (body.match(/,/g) ?? []).length;
+  const dotCount = (body.match(/\./g) ?? []).length;
+
+  let whole = '';
+  let fraction = '';
+
+  if (commaCount > 0 && dotCount > 0) {
+    const decimalSeparator = body.lastIndexOf(',') > body.lastIndexOf('.') ? ',' : '.';
+    const thousandSeparator = decimalSeparator === ',' ? '.' : ',';
+    const parts = body.split(decimalSeparator);
+    if (parts.length !== 2) return null;
+
+    const [integerPart, decimalPart] = parts;
+    if (!decimalPart || decimalPart.length > 2 || !/^\d+$/.test(decimalPart)) {
+      return null;
+    }
+
+    const normalizedInteger = parseIntegerPart(integerPart, thousandSeparator);
+    if (!normalizedInteger) return null;
+
+    whole = normalizedInteger;
+    fraction = decimalPart;
+  } else if (commaCount > 0) {
+    if (/^\d{1,3}(,\d{3})+$/.test(body)) {
+      whole = body.split(',').join('');
+      fraction = '00';
+    } else if (/^\d+,\d{1,2}$/.test(body)) {
+      const [integerPart, decimalPart] = body.split(',');
+      whole = integerPart;
+      fraction = decimalPart;
+    } else {
+      return null;
+    }
+  } else if (dotCount > 0) {
+    if (!/^\d+\.\d{1,2}$/.test(body)) {
+      return null;
+    }
+    const [integerPart, decimalPart] = body.split('.');
+    whole = integerPart;
+    fraction = decimalPart;
+  } else {
+    whole = body;
+    fraction = '00';
+  }
+
+  if (!/^\d+$/.test(whole) || !/^\d{1,2}$/.test(fraction)) {
+    return null;
+  }
+
+  const koboText = `${sign}${whole}${fraction.padEnd(2, '0')}`;
+  const parsed = Number(koboText);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
@@ -99,15 +182,14 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
     const fieldId = useId();
     const inputId = id ?? fieldId;
     const hintId = hint ? `${inputId}-hint` : undefined;
+    const initialKobo = valueKobo ?? defaultValueKobo ?? null;
     const [draft, setDraft] = useState(() =>
-      (valueKobo ?? defaultValueKobo ?? null) === null
-        ? ''
-        : (Math.abs(valueKobo ?? defaultValueKobo ?? 0) / 100).toFixed(2),
+      initialKobo === null ? '' : formatMoneyInputDraft(initialKobo),
     );
 
     useEffect(() => {
       if (typeof valueKobo === 'number') {
-        setDraft((Math.abs(valueKobo) / 100).toFixed(2));
+        setDraft(formatMoneyInputDraft(valueKobo));
       }
     }, [valueKobo]);
 
@@ -135,7 +217,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
               setDraft('');
             } else {
               onValueChange?.(parsed);
-              setDraft((parsed / 100).toFixed(2));
+              setDraft(formatMoneyInputDraft(parsed));
             }
             onBlur?.(event);
           }}

@@ -1,24 +1,71 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useEffect, useMemo } from 'react';
 import { BrowserStateBootstrap } from './browser-state-bootstrap';
-import { SessionBootstrap } from './session-bootstrap';
+import { useSessionBootstrapState } from './session-bootstrap';
 import {
   ConnectionStatus,
   OfflineIndicator,
   SyncQueueIndicator,
 } from './offline';
+import { logoutSession } from '../lib/api';
 
 type RouteHref = '/login' | '/cashier' | '/supervisor' | '/admin';
 
-const navItems: Array<{ href: RouteHref; label: string }> = [
-  { href: '/login', label: 'Login' },
-  { href: '/cashier', label: 'Cashier' },
-  { href: '/supervisor', label: 'Supervisor' },
-  { href: '/admin', label: 'Admin' },
-];
+type Role = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | 'SYSTEM';
+
+const roleRoutes: Record<Exclude<Role, 'SYSTEM'>, RouteHref[]> = {
+  CASHIER: ['/cashier'],
+  SUPERVISOR: ['/supervisor'],
+  ADMIN: ['/admin'],
+};
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  const router = useRouter();
+  const { status, role, sessionLabel } = useSessionBootstrapState();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login');
+    }
+  }, [router, status]);
+
+  const navItems = useMemo(() => {
+    if (status === 'ready' && role) {
+      const routeGroup =
+        role === 'SYSTEM'
+          ? roleRoutes.ADMIN
+          : roleRoutes[role as Exclude<Role, 'SYSTEM'>];
+
+      return routeGroup.map((href) => ({
+        href,
+        label:
+          href === '/cashier'
+            ? 'Cashier'
+            : href === '/supervisor'
+              ? 'Supervisor'
+              : 'Admin',
+      }));
+    }
+
+    return [{ href: '/login' as const, label: 'Login' }];
+  }, [role, status]);
+
+  async function handleLogout() {
+    try {
+      await logoutSession();
+    } finally {
+      router.replace('/login');
+      router.refresh();
+    }
+  }
+
+  const showProtectedContent = status === 'ready';
+
   return (
     <div style={{ minHeight: '100vh' }}>
       <header
@@ -110,12 +157,55 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             marginBottom: 'var(--sc-spacing-4)',
           }}
         >
-          <SessionBootstrap />
+          <p data-status={status}>
+            {status === 'loading'
+              ? 'Checking session…'
+              : status === 'ready'
+                ? `Session ready${sessionLabel ? ` · ${sessionLabel}` : ''}`
+                : status === 'unauthenticated'
+                  ? 'Sign in required'
+                  : 'Session check unavailable'}
+          </p>
           <ConnectionStatus />
           <SyncQueueIndicator />
+          {showProtectedContent ? (
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              style={{
+                borderRadius: 'var(--sc-radius-full)',
+                border: '1px solid var(--sc-color-semantic-borderStrong)',
+                background: 'var(--sc-color-neutral-0)',
+                color: 'var(--sc-color-semantic-textPrimary)',
+                padding: '6px 12px',
+              }}
+            >
+              Sign out
+            </button>
+          ) : null}
         </div>
         <OfflineIndicator />
-        {children}
+        {showProtectedContent ? (
+          children
+        ) : (
+          <section
+            style={{
+              borderRadius: 'var(--sc-radius-xl)',
+              background: 'var(--sc-color-neutral-0)',
+              border: '1px solid var(--sc-color-semantic-border)',
+              padding: 'var(--sc-spacing-6)',
+              boxShadow: 'var(--sc-shadow-level1)',
+              display: 'grid',
+              gap: 'var(--sc-spacing-3)',
+            }}
+          >
+            <h1 style={{ margin: 0 }}>Protected shell</h1>
+            <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+              Sign in to access cashier, supervisor and admin workflows.
+            </p>
+            <Link href="/login">Go to sign in</Link>
+          </section>
+        )}
       </main>
     </div>
   );

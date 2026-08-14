@@ -49,10 +49,17 @@ export default function SupervisorPage() {
         }}
       >
         {[
-          { title: 'Overview', body: 'Branch health and workload.' },
-          { title: 'Transactions', body: "Today's activity and search." },
-          { title: 'Approvals', body: 'Requests awaiting decision.' },
-          { title: 'Fraud', body: 'Rule matches and reviews.' },
+          {
+            title: 'Overview',
+            body: 'Branch health, queue pressure and freshness signals.',
+          },
+          {
+            title: 'Transactions',
+            body: 'Search, inspect and trace recent branch activity.',
+          },
+          { title: 'Approvals', body: 'Pending earn and redeem decisions.' },
+          { title: 'Fraud', body: 'Rule matches, reviews and escalation notes.' },
+          { title: 'Reports', body: 'Freshness, export and reconciliation views.' },
         ].map((item) => (
           <article key={item.title} style={cardStyle}>
             <strong>{item.title}</strong>
@@ -70,6 +77,7 @@ export default function SupervisorPage() {
       >
         <Button variant="primary">Review approvals</Button>
         <Button variant="secondary">Open reports</Button>
+        <Button variant="secondary">Inspect fraud queue</Button>
       </div>
     </section>
   );

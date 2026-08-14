@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run tokens:check",
     "a11y:test": "jest --config ./jest.a11y.config.cjs --runInBand",
+    "a11y:browser": "playwright test --config ./playwright.config.ts tests/browser-a11y.spec.ts",
     "critical:test": "playwright test --config ./playwright.config.ts --grep @critical",
     "critical:update": "playwright test --config ./playwright.config.ts --grep @critical --update-snapshots",
     "visual:test": "playwright test --config ./playwright.config.ts --grep-invert @critical",

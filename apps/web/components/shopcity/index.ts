@@ -1,4 +1,10 @@
-export { Money, MoneyInput, formatMoney } from './money';
+export {
+  Money,
+  MoneyInput,
+  formatMoney,
+  formatMoneyInputDraft,
+  parseNaira,
+} from './money';
 export type { MoneyInputProps, MoneyProps } from './money';
 export { CustomerIdentity, CardIdentity, ReceiptIdentity } from './identity';
 export type {

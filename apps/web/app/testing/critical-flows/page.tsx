@@ -36,11 +36,12 @@ export default function CriticalFlowsPage() {
       }}
     >
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <p style={eyebrow}>Playwright fixtures</p>
+        <p style={eyebrow}>Playwright fixture harness</p>
         <h1 style={{ margin: 0 }}>Critical flow states</h1>
         <p style={muted}>
-          Hidden fixture surface for login, lookup, earning, redemption,
-          approvals, offline sync, fraud review and reporting.
+          Deterministic fixture surface for login, lookup, earning, redemption,
+          approvals, offline sync, fraud review and reporting. This is not a
+          substitute for backend-connected E2E.
         </p>
         <Link href="/login" style={linkStyle}>
           Open real login route
@@ -67,7 +68,7 @@ export default function CriticalFlowsPage() {
               />
             </div>
             <div style={actionsStyle}>
-              <Button>Sign in</Button>
+              <Button>Fixture sign in</Button>
               <Button variant="secondary">Recover session</Button>
             </div>
           </article>
@@ -97,7 +98,7 @@ export default function CriticalFlowsPage() {
               placeholder="Scan card serial or receipt"
             />
             <div style={actionsStyle}>
-              <Button>Lookup customer</Button>
+              <Button>Fixture lookup customer</Button>
               <Button variant="secondary">Open duplicate receipt review</Button>
             </div>
           </article>
@@ -106,7 +107,7 @@ export default function CriticalFlowsPage() {
             <Money amountKobo={375000} signed emphasis="positive" />
             <StatusBadge label="Confirmed" tone="success" />
             <div style={actionsStyle}>
-              <Button>Print receipt</Button>
+              <Button>Fixture print receipt</Button>
               <Button variant="secondary">Add another earn</Button>
             </div>
           </article>
@@ -171,7 +172,7 @@ export default function CriticalFlowsPage() {
               defaultValue="approve"
             />
             <div style={actionsStyle}>
-              <Button>Submit decision</Button>
+              <Button>Fixture submit decision</Button>
               <Button variant="secondary">Escalate</Button>
             </div>
           </article>
@@ -214,7 +215,7 @@ export default function CriticalFlowsPage() {
             <StatusBadge label="Fresh" tone="success" />
             <p style={muted}>Last materialized 08:30 WAT.</p>
             <div style={actionsStyle}>
-              <Button>Refresh report</Button>
+              <Button>Fixture refresh report</Button>
               <Button variant="secondary">Export CSV</Button>
             </div>
           </article>

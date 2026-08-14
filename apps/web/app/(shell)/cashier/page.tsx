@@ -6,7 +6,7 @@ import {
 } from '../../../components/offline';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
 import { Button, Input } from '../../../components/ui';
-import { Money, StatusBadge } from '../../../components/shopcity';
+import { Money, MoneyInput, StatusBadge } from '../../../components/shopcity';
 import { WorkflowSection } from '../../../components/workflows';
 
 export default function CashierPage() {
@@ -36,7 +36,7 @@ export default function CashierPage() {
 
       <WorkflowSection
         title="Primary cashier actions"
-        description="These are the entry points that should stay visible on a POS screen."
+        description="The shell keeps the most common working surfaces visible while backend wiring lands."
       >
         <div
           style={{
@@ -45,10 +45,16 @@ export default function CashierPage() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           }}
         >
-          {['Lookup', 'Earn', 'Redeem', 'Customers', 'Sync'].map((item) => (
-            <article key={item} style={cardStyle}>
-              <strong>{item}</strong>
-              <p style={muted}>Route placeholder</p>
+          {[
+            { title: 'Lookup', body: 'Scan card, receipt or customer reference.' },
+            { title: 'Earn', body: 'Capture purchase amount and receipt details.' },
+            { title: 'Redeem', body: 'Review balance and policy before confirmation.' },
+            { title: 'Customers', body: 'Check identity, cards and loyalty balance.' },
+            { title: 'Sync', body: 'Track local queue and reconciliation state.' },
+          ].map((item) => (
+            <article key={item.title} style={cardStyle}>
+              <strong>{item.title}</strong>
+              <p style={muted}>{item.body}</p>
             </article>
           ))}
         </div>
@@ -62,11 +68,11 @@ export default function CashierPage() {
         }}
       >
         <article style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Scan or search</h2>
-          <Input
-            placeholder="Scan card serial or receipt"
-            aria-label="Lookup"
-          />
+          <h2 style={{ marginTop: 0 }}>Earn preview</h2>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+            <Input placeholder="Scan card serial or receipt" aria-label="Lookup" />
+            <MoneyInput label="Earn amount" hint="Naira only; pasted formats are normalized" />
+          </div>
           <div
             style={{
               display: 'flex',
@@ -75,7 +81,7 @@ export default function CashierPage() {
               marginTop: 'var(--sc-spacing-4)',
             }}
           >
-            <Button variant="primary">Lookup customer</Button>
+            <Button variant="primary">Prepare earn</Button>
             <Button variant="secondary">Open sync queue</Button>
           </div>
         </article>

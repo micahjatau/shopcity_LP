@@ -5,6 +5,7 @@ import {
   PilotHealthPanel,
   WorkflowSection,
 } from '../../../components/workflows';
+import { StatusBadge } from '../../../components/shopcity';
 
 export default function AdminPage() {
   return (
@@ -32,14 +33,27 @@ export default function AdminPage() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           }}
         >
-          {['Operations', 'Audit', 'Users & Devices', 'Settings'].map(
-            (item) => (
-              <article key={item} style={cardStyle}>
-                <strong>{item}</strong>
-                <p style={muted}>Route placeholder</p>
-              </article>
-            ),
-          )}
+          {[
+            {
+              title: 'Operations',
+              body: 'Release health, queue state and operational incident signals.',
+            },
+            { title: 'Audit', body: 'Actor, branch, device and timeline tracing.' },
+            {
+              title: 'Users & Devices',
+              body: 'Role assignment and device administration boundaries.',
+            },
+            { title: 'Settings', body: 'Tenant configuration and platform controls.' },
+          ].map((item) => (
+            <article key={item.title} style={cardStyle}>
+              <strong>{item.title}</strong>
+              <p style={muted}>{item.body}</p>
+            </article>
+          ))}
+        </div>
+        <div style={statusRow}>
+          <StatusBadge label="Contract-backed data pending" tone="warning" />
+          <StatusBadge label="Role-scoped" tone="info" />
         </div>
         <div
           style={{
@@ -50,6 +64,7 @@ export default function AdminPage() {
         >
           <Button variant="primary">View operations</Button>
           <Button variant="secondary">Open audit trail</Button>
+          <Button variant="secondary">Manage devices</Button>
         </div>
       </WorkflowSection>
     </section>
@@ -67,4 +82,10 @@ const cardStyle: CSSProperties = {
 const muted: CSSProperties = {
   color: 'var(--sc-color-semantic-textSecondary)',
   marginBottom: 0,
+};
+
+const statusRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
 };

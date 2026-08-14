@@ -3,11 +3,26 @@
 import { useEffect, useState } from 'react';
 import { bootstrapSession } from '../lib/api';
 
-export function SessionBootstrap() {
-  const [status, setStatus] = useState<
-    'loading' | 'ready' | 'unauthenticated' | 'error'
-  >('loading');
-  const [sessionLabel, setSessionLabel] = useState<string | null>(null);
+export type SessionBootstrapStatus =
+  | 'loading'
+  | 'ready'
+  | 'unauthenticated'
+  | 'error';
+
+export type SessionRole = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | 'SYSTEM';
+
+export type SessionBootstrapState = {
+  status: SessionBootstrapStatus;
+  role: SessionRole | null;
+  sessionLabel: string | null;
+};
+
+export function useSessionBootstrapState() {
+  const [state, setState] = useState<SessionBootstrapState>({
+    status: 'loading',
+    role: null,
+    sessionLabel: null,
+  });
 
   useEffect(() => {
     let ignore = false;
@@ -20,15 +35,18 @@ export function SessionBootstrap() {
         }
 
         if (session) {
-          setStatus('ready');
-          setSessionLabel(`${session.user.role} · ${session.user.username}`);
+          setState({
+            status: 'ready',
+            role: session.user.role,
+            sessionLabel: `${session.user.role} · ${session.user.username}`,
+          });
           return;
         }
 
-        setStatus('unauthenticated');
+        setState({ status: 'unauthenticated', role: null, sessionLabel: null });
       } catch {
         if (!ignore) {
-          setStatus('error');
+          setState({ status: 'error', role: null, sessionLabel: null });
         }
       }
     }
@@ -39,6 +57,12 @@ export function SessionBootstrap() {
       ignore = true;
     };
   }, []);
+
+  return state;
+}
+
+export function SessionBootstrap() {
+  const { status, sessionLabel } = useSessionBootstrapState();
 
   const label =
     status === 'loading'
