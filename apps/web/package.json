@@ -11,8 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run tokens:check",
     "a11y:test": "jest --config ./jest.a11y.config.cjs --runInBand",
-    "visual:test": "playwright test --config ./playwright.config.ts",
-    "visual:update": "playwright test --config ./playwright.config.ts --update-snapshots",
+    "critical:test": "playwright test --config ./playwright.config.ts --grep @critical",
+    "critical:update": "playwright test --config ./playwright.config.ts --grep @critical --update-snapshots",
+    "visual:test": "playwright test --config ./playwright.config.ts --grep-invert @critical",
+    "visual:update": "playwright test --config ./playwright.config.ts --grep-invert @critical --update-snapshots",
     "tokens:generate": "node ./scripts/generate-tokens.mjs",
     "tokens:check": "node ./scripts/check-token-drift.mjs"
   },

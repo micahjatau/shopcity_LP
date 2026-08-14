@@ -72,9 +72,9 @@
 
 ## 10. End-to-end and visual regression
 
-- [ ] 10.1 Add Playwright coverage for login/session, lookup, earn confirmed, earn awaiting approval and duplicate receipt.
-- [ ] 10.2 Add Playwright coverage for redeem confirmed, insufficient balance/cap and approval decision.
-- [ ] 10.3 Add Playwright coverage for offline earn sync outcomes, fraud review, report freshness/export and session/device revocation.
+- [x] 10.1 Add Playwright coverage for login/session, lookup, earn confirmed, earn awaiting approval and duplicate receipt.
+- [x] 10.2 Add Playwright coverage for redeem confirmed, insufficient balance/cap and approval decision.
+- [x] 10.3 Add Playwright coverage for offline earn sync outcomes, fraud review, report freshness/export and session/device revocation.
 - [x] 10.4 Add visual-regression baselines for primitives, status badges, transaction confirmation, approval decision, offline queue, dialogs, table, report workspace and role shells.
 - [x] 10.5 Document and approve the visual-regression tool/baseline strategy.
 

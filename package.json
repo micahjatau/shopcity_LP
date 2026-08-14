@@ -21,6 +21,8 @@
     "web:typecheck": "npm --prefix apps/web run typecheck",
     "web:test": "npm --prefix apps/web run test && npm --prefix apps/web run a11y:test",
     "web:a11y:test": "npm --prefix apps/web run a11y:test",
+    "web:critical:test": "npm --prefix apps/web run critical:test",
+    "web:critical:update": "npm --prefix apps/web run critical:update",
     "web:visual:test": "npm --prefix apps/web run visual:test",
     "web:visual:update": "npm --prefix apps/web run visual:update",
     "web:tokens:generate": "npm --prefix apps/web run tokens:generate",

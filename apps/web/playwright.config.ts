@@ -4,7 +4,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: /visual-regression\.spec\.ts$/,
+  testMatch: /.*\.spec\.ts$/,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
