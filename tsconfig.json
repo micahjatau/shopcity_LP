@@ -22,11 +22,10 @@
     "strictBindCallApply": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "api/**/*.ts", "scripts/**/*.ts"],
+  "include": ["src/**/*.ts", "api/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
-    "test",
     "apps/web",
     "docs",
     "openspec",

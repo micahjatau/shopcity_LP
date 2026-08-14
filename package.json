@@ -43,7 +43,7 @@
     "lint": "npm run lint:src && npm run lint:test",
     "lint:fix": "npm run lint:src -- --fix && npm run lint:test -- --fix",
     "verify:fast": "NODE_OPTIONS=--max-old-space-size=4096 prettier --check \"src/**/*.{ts,js,mjs,cjs}\" \"apps/web/**/*.{ts,tsx,js,mjs,cjs,css,md,json,yml,yaml}\" \"test/**/*.{ts,js,mjs,cjs}\" \"scripts/**/*.{ts,js,mjs,cjs}\" \"docs/**/*.{md,json,yml,yaml}\" \"openspec/**/*.{md,yml,yaml}\" \".github/workflows/**/*.{yml,yaml}\" \"*.{md,json,yml,yaml}\" && npm run lint && npm run typecheck && npm run build && npm run verify:prod-entrypoints",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "prisma:generate": "DATABASE_URL=${DATABASE_URL:-postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public} prisma generate",
     "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public} prisma validate",
     "prisma:seed": "ts-node prisma/seed.ts",
