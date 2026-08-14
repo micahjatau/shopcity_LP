@@ -1,41 +1,75 @@
 import type { CSSProperties } from 'react';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
+import { Button } from '../../../components/ui';
+import {
+  ApprovalBadge,
+  FraudSeverityBadge,
+  TransactionStateBadge,
+} from '../../../components/shopcity';
+import { WorkflowSection } from '../../../components/workflows';
 
 export default function SupervisorPage() {
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+    <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
       <ScannerContextScope context="lookup" />
-      <h1 style={{ margin: 0 }}>Supervisor shell</h1>
-      <p
-        style={{
-          color: 'var(--sc-color-semantic-textSecondary)',
-          marginTop: 0,
-        }}
+      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+        <h1 style={{ margin: 0 }}>Supervisor shell</h1>
+        <p
+          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
+        >
+          Approvals, fraud review, customer support and reports.
+        </p>
+      </header>
+
+      <WorkflowSection
+        title="Attention queue"
+        description="These are the first items a supervisor should inspect."
       >
-        Approvals, fraud review, customer operations and reporting will live
-        here.
-      </p>
+        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          <div style={statRow}>
+            <span>High-value approval</span>
+            <ApprovalBadge state="PENDING" />
+          </div>
+          <div style={statRow}>
+            <span>Fraud review</span>
+            <FraudSeverityBadge severity="HIGH" />
+          </div>
+          <div style={statRow}>
+            <span>Transaction state</span>
+            <TransactionStateBadge state="CONFIRMED" />
+          </div>
+        </div>
+      </WorkflowSection>
+
       <div
         style={{
           display: 'grid',
           gap: 'var(--sc-spacing-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         }}
       >
         {[
-          'Overview',
-          'Transactions',
-          'Customers',
-          'Cards',
-          'Approvals',
-          'Fraud',
-          'Reports',
+          { title: 'Overview', body: 'Branch health and workload.' },
+          { title: 'Transactions', body: "Today's activity and search." },
+          { title: 'Approvals', body: 'Requests awaiting decision.' },
+          { title: 'Fraud', body: 'Rule matches and reviews.' },
         ].map((item) => (
-          <article key={item} style={cardStyle}>
-            <strong>{item}</strong>
-            <p style={muted}>Route placeholder</p>
+          <article key={item.title} style={cardStyle}>
+            <strong>{item.title}</strong>
+            <p style={muted}>{item.body}</p>
           </article>
         ))}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Button variant="primary">Review approvals</Button>
+        <Button variant="secondary">Open reports</Button>
       </div>
     </section>
   );
@@ -52,4 +86,11 @@ const cardStyle: CSSProperties = {
 const muted: CSSProperties = {
   color: 'var(--sc-color-semantic-textSecondary)',
   marginBottom: 0,
+};
+
+const statRow: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 'var(--sc-spacing-3)',
+  alignItems: 'center',
 };

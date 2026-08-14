@@ -1,34 +1,57 @@
 import type { CSSProperties } from 'react';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
+import { Button } from '../../../components/ui';
+import {
+  PilotHealthPanel,
+  WorkflowSection,
+} from '../../../components/workflows';
 
 export default function AdminPage() {
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+    <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
       <ScannerContextScope context="sync" />
-      <h1 style={{ margin: 0 }}>Admin shell</h1>
-      <p
-        style={{
-          color: 'var(--sc-color-semantic-textSecondary)',
-          marginTop: 0,
-        }}
+      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+        <h1 style={{ margin: 0 }}>Admin shell</h1>
+        <p
+          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
+        >
+          Operations, audit, users, devices and settings.
+        </p>
+      </header>
+
+      <PilotHealthPanel />
+
+      <WorkflowSection
+        title="Admin routes"
+        description="Cross-branch and system-level screens for operations and review."
       >
-        Operations, audit, users, devices and settings will anchor here once
-        backend contracts are wired.
-      </p>
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--sc-spacing-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        }}
-      >
-        {['Operations', 'Audit', 'Users & Devices', 'Settings'].map((item) => (
-          <article key={item} style={cardStyle}>
-            <strong>{item}</strong>
-            <p style={muted}>Route placeholder</p>
-          </article>
-        ))}
-      </div>
+        <div
+          style={{
+            display: 'grid',
+            gap: 'var(--sc-spacing-4)',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          }}
+        >
+          {['Operations', 'Audit', 'Users & Devices', 'Settings'].map(
+            (item) => (
+              <article key={item} style={cardStyle}>
+                <strong>{item}</strong>
+                <p style={muted}>Route placeholder</p>
+              </article>
+            ),
+          )}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--sc-spacing-3)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <Button variant="primary">View operations</Button>
+          <Button variant="secondary">Open audit trail</Button>
+        </div>
+      </WorkflowSection>
     </section>
   );
 }
