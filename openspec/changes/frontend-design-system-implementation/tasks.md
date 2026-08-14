@@ -80,8 +80,8 @@
 
 ## 11. Release readiness
 
-- [ ] 11.1 Run OpenAPI export/lint/diff and frontend client generation without uncommitted drift.
-- [ ] 11.2 Run frontend typecheck, lint, tests, accessibility checks, Playwright critical flows and production build.
-- [ ] 11.3 Review telemetry/privacy configuration for frontend routes and domain-error reporting.
-- [ ] 11.4 Update release/runbook evidence to include frontend build artifacts once deployable.
-- [ ] 11.5 Close this change only after `npm run openspec:validate` passes and frontend release gates are documented.
+- [x] 11.1 Run OpenAPI export/lint/diff and frontend client generation without uncommitted drift.
+- [x] 11.2 Run frontend typecheck, lint, tests, accessibility checks, Playwright critical flows and production build.
+- [x] 11.3 Review telemetry/privacy configuration for frontend routes and domain-error reporting.
+- [x] 11.4 Update release/runbook evidence to include frontend build artifacts once deployable.
+- [x] 11.5 Close this change only after `npm run openspec:validate` passes and frontend release gates are documented.

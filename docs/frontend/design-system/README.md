@@ -28,15 +28,16 @@ The system deliberately avoids a generic "red admin dashboard." ShopCity's red i
 
 ## Documentation map
 
-| Document | Scope |
-|---|---|
-| [01 — Brand & Foundations](./01-brand-and-foundations.md) | Brand assets, color, tokens, typography, money, spacing, elevation, motion, icons |
-| [02 — Accessibility & Interaction](./02-accessibility-and-interaction.md) | WCAG 2.2 AA, keyboard/touch, forms, search, errors, async states, notifications, destructive actions, scanner/print |
-| [03 — Components & Patterns](./03-components-and-patterns.md) | Primitive, ShopCity, workflow and data components; status language; tables; dashboards; charts |
-| [04 — Workflows & Application Shells](./04-workflows-and-application-shells.md) | Cashier/supervisor/admin IA, earn/redeem/approval/fraud/offline flows, responsive/security/audit UX |
-| [05 — Engineering & Governance](./05-engineering-and-governance.md) | Repo structure, API client, state management, Storybook, tests, performance, Figma, governance |
-| [06 — API to Screen Mapping](./06-api-screen-mapping.md) | Backend endpoint → role → screen → component → UX-state mapping |
-| [tokens.json](./tokens.json) | Machine-readable v1 token seed |
+| Document                                                                        | Scope                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [01 — Brand & Foundations](./01-brand-and-foundations.md)                       | Brand assets, color, tokens, typography, money, spacing, elevation, motion, icons                                   |
+| [02 — Accessibility & Interaction](./02-accessibility-and-interaction.md)       | WCAG 2.2 AA, keyboard/touch, forms, search, errors, async states, notifications, destructive actions, scanner/print |
+| [03 — Components & Patterns](./03-components-and-patterns.md)                   | Primitive, ShopCity, workflow and data components; status language; tables; dashboards; charts                      |
+| [04 — Workflows & Application Shells](./04-workflows-and-application-shells.md) | Cashier/supervisor/admin IA, earn/redeem/approval/fraud/offline flows, responsive/security/audit UX                 |
+| [05 — Engineering & Governance](./05-engineering-and-governance.md)             | Repo structure, API client, state management, Storybook, tests, performance, Figma, governance                      |
+| [06 — API to Screen Mapping](./06-api-screen-mapping.md)                        | Backend endpoint → role → screen → component → UX-state mapping                                                     |
+| [Release readiness](./release-readiness.md)                                     | Frontend release-gate evidence and validation summary                                                               |
+| [tokens.json](./tokens.json)                                                    | Machine-readable v1 token seed                                                                                      |
 
 ## Coverage of the agreed design-system scope
 
