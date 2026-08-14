@@ -29,3 +29,107 @@ main {
   background: color-mix(in srgb, var(--sc-color-brand-500) 20%, white);
   color: var(--sc-color-neutral-950);
 }
+
+.visual-grid {
+  display: grid;
+  gap: var(--sc-spacing-4);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.visual-badges,
+.visual-actions,
+.visual-stack {
+  display: grid;
+  gap: var(--sc-spacing-3);
+}
+
+.visual-stack--large {
+  gap: var(--sc-spacing-5);
+}
+
+.visual-panel {
+  display: grid;
+  gap: var(--sc-spacing-3);
+  padding: var(--sc-spacing-5);
+  border-radius: var(--sc-radius-lg);
+  border: 1px solid var(--sc-color-semantic-border);
+  background: var(--sc-color-neutral-0);
+}
+
+.visual-panel--brand {
+  background: linear-gradient(
+    135deg,
+    var(--sc-color-brand-700),
+    var(--sc-color-brand-500)
+  );
+  color: var(--sc-color-neutral-0);
+  border-color: transparent;
+}
+
+.visual-eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--sc-font-size-caption);
+  font-weight: 700;
+}
+
+.visual-dialog {
+  position: relative;
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-color-neutral-50);
+}
+
+.visual-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.35);
+}
+
+.visual-dialog__panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--sc-spacing-3);
+  width: min(100%, 480px);
+  padding: var(--sc-spacing-5);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-color-neutral-0);
+  border: 1px solid var(--sc-color-semantic-border);
+  box-shadow: var(--sc-shadow-level2);
+}
+
+.visual-table-wrap {
+  overflow: auto;
+  border-radius: var(--sc-radius-lg);
+  border: 1px solid var(--sc-color-semantic-border);
+}
+
+.visual-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--sc-color-neutral-0);
+}
+
+.visual-table th,
+.visual-table td {
+  padding: var(--sc-spacing-4);
+  border-bottom: 1px solid var(--sc-color-semantic-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.visual-table th {
+  background: var(--sc-color-semantic-surfaceSubtle);
+}
+
+.visual-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-spacing-2);
+  font-weight: 500;
+}

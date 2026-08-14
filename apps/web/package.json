@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run tokens:check",
     "a11y:test": "jest --config ./jest.a11y.config.cjs --runInBand",
+    "visual:test": "playwright test --config ./playwright.config.ts",
+    "visual:update": "playwright test --config ./playwright.config.ts --update-snapshots",
     "tokens:generate": "node ./scripts/generate-tokens.mjs",
     "tokens:check": "node ./scripts/check-token-drift.mjs"
   },
@@ -20,6 +22,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@swc/core": "^1.15.47",
     "@swc/jest": "^0.2.39",
     "@testing-library/jest-dom": "^7.0.1",

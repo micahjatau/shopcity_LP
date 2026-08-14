@@ -52,8 +52,10 @@ export const RadioGroup = forwardRef<HTMLFieldSetElement, RadioGroupProps>(
               type="radio"
               name={name}
               value={option.value}
-              checked={value === option.value}
-              defaultChecked={defaultValue === option.value}
+              checked={value !== undefined ? value === option.value : undefined}
+              defaultChecked={
+                value === undefined ? defaultValue === option.value : undefined
+              }
               disabled={option.disabled}
               onChange={() => onValueChange?.(option.value)}
             />
