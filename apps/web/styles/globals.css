@@ -1,0 +1,30 @@
+@import './tokens.css';
+
+:root {
+  font-family: var(--sc-font-family-sans);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(177, 0, 0, 0.06), transparent 30%),
+    linear-gradient(
+      180deg,
+      var(--sc-color-neutral-0),
+      var(--sc-color-neutral-50)
+    );
+  color: var(--sc-color-semantic-textPrimary);
+}
+
+main {
+  display: block;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--sc-color-brand-500) 20%, white);
+  color: var(--sc-color-neutral-950);
+}

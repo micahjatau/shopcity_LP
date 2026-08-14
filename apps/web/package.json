@@ -1,0 +1,29 @@
+{
+  "name": "@shopcity/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "npm run tokens:generate && next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run tokens:check",
+    "tokens:generate": "node ./scripts/generate-tokens.mjs",
+    "tokens:check": "node ./scripts/check-token-drift.mjs"
+  },
+  "dependencies": {
+    "next": "^15.4.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.4.6",
+    "typescript": "^5.7.3"
+  }
+}

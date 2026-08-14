@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-label="ShopCity Supermarket on red">
+  <rect width="420" height="96" rx="24" fill="#B10000"/>
+  <g transform="translate(0 0)">
+    <rect x="0" y="0" width="96" height="96" rx="24" fill="#9F0001"/>
+    <path d="M30 23c0-4 3-7 7-7h22c11 0 20 9 20 20 0 8-5 15-12 18 7 3 12 10 12 18 0 11-9 20-20 20H37c-4 0-7-3-7-7V70h18c6 0 10-4 10-10s-4-10-10-10H30V23Z" fill="#fff"/>
+    <path d="M26 69c0-4 3-7 7-7h17v14H33c-4 0-7-3-7-7Z" fill="#fff" opacity="0.94"/>
+  </g>
+  <g fill="#fff">
+    <rect x="122" y="18" width="214" height="12" rx="6"/>
+    <rect x="122" y="38" width="172" height="10" rx="5" opacity="0.88"/>
+    <rect x="122" y="56" width="198" height="10" rx="5" opacity="0.76"/>
+    <rect x="122" y="74" width="138" height="10" rx="5" opacity="0.64"/>
+  </g>
+</svg>
