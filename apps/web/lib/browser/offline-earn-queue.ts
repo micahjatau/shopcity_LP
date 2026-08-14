@@ -47,6 +47,10 @@ function notifyQueueChanged() {
 }
 
 function openDatabase() {
+  if (typeof indexedDB === 'undefined') {
+    return Promise.reject(new Error('IndexedDB is unavailable'));
+  }
+
   return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -91,66 +95,87 @@ async function withStore<T>(
 }
 
 export async function saveOfflineEarnRecord(record: OfflineEarnRecord) {
-  await withStore('readwrite', (store) => {
-    store.put(record);
-  });
-  notifyQueueChanged();
+  try {
+    await withStore('readwrite', (store) => {
+      store.put(record);
+    });
+    notifyQueueChanged();
+  } catch {
+    return;
+  }
 }
 
 export async function listOfflineEarnRecords() {
-  return withStore<OfflineEarnRecord[]>('readonly', (store) => {
-    return new Promise<OfflineEarnRecord[]>((resolve, reject) => {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result as OfflineEarnRecord[]);
-      request.onerror = () =>
-        reject(request.error ?? new Error('Failed to read offline queue'));
+  try {
+    return await withStore<OfflineEarnRecord[]>('readonly', (store) => {
+      return new Promise<OfflineEarnRecord[]>((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () =>
+          resolve(request.result as OfflineEarnRecord[]);
+        request.onerror = () =>
+          reject(request.error ?? new Error('Failed to read offline queue'));
+      });
     });
-  });
+  } catch {
+    return [];
+  }
 }
 
 export async function getOfflineEarnRecordCount() {
-  return withStore<number>('readonly', (store) => {
-    return new Promise<number>((resolve, reject) => {
-      const request = store.count();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () =>
-        reject(request.error ?? new Error('Failed to count offline queue'));
+  try {
+    return await withStore<number>('readonly', (store) => {
+      return new Promise<number>((resolve, reject) => {
+        const request = store.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () =>
+          reject(request.error ?? new Error('Failed to count offline queue'));
+      });
     });
-  });
+  } catch {
+    return 0;
+  }
 }
 
 export async function updateOfflineEarnRecord(
   localId: string,
   updater: (record: OfflineEarnRecord) => OfflineEarnRecord,
 ) {
-  await withStore('readwrite', (store) => {
-    return new Promise<void>((resolve, reject) => {
-      const request = store.get(localId);
-      request.onsuccess = () => {
-        const current = request.result as OfflineEarnRecord | undefined;
-        if (!current) {
-          resolve();
-          return;
-        }
+  try {
+    await withStore('readwrite', (store) => {
+      return new Promise<void>((resolve, reject) => {
+        const request = store.get(localId);
+        request.onsuccess = () => {
+          const current = request.result as OfflineEarnRecord | undefined;
+          if (!current) {
+            resolve();
+            return;
+          }
 
-        const next = updater(current);
-        const putRequest = store.put(next);
-        putRequest.onsuccess = () => resolve();
-        putRequest.onerror = () =>
-          reject(
-            putRequest.error ?? new Error('Failed to update offline record'),
-          );
-      };
-      request.onerror = () =>
-        reject(request.error ?? new Error('Failed to load offline record'));
+          const next = updater(current);
+          const putRequest = store.put(next);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () =>
+            reject(
+              putRequest.error ?? new Error('Failed to update offline record'),
+            );
+        };
+        request.onerror = () =>
+          reject(request.error ?? new Error('Failed to load offline record'));
+      });
     });
-  });
-  notifyQueueChanged();
+    notifyQueueChanged();
+  } catch {
+    return;
+  }
 }
 
 export async function deleteOfflineEarnRecord(localId: string) {
-  await withStore('readwrite', (store) => {
-    store.delete(localId);
-  });
-  notifyQueueChanged();
+  try {
+    await withStore('readwrite', (store) => {
+      store.delete(localId);
+    });
+    notifyQueueChanged();
+  } catch {
+    return;
+  }
 }
