@@ -1,33 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { bootstrapSession } from '../lib/api';
 
 export function SessionBootstrap() {
   const [status, setStatus] = useState<
     'loading' | 'ready' | 'unauthenticated' | 'error'
   >('loading');
+  const [sessionLabel, setSessionLabel] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
 
     async function run() {
       try {
-        const response = await fetch('/auth/me', { credentials: 'include' });
+        const session = await bootstrapSession();
         if (ignore) {
           return;
         }
 
-        if (response.ok) {
+        if (session) {
           setStatus('ready');
+          setSessionLabel(`${session.user.role} · ${session.user.username}`);
           return;
         }
 
-        if (response.status === 401 || response.status === 403) {
-          setStatus('unauthenticated');
-          return;
-        }
-
-        setStatus('error');
+        setStatus('unauthenticated');
       } catch {
         if (!ignore) {
           setStatus('error');
@@ -46,7 +44,7 @@ export function SessionBootstrap() {
     status === 'loading'
       ? 'Checking session…'
       : status === 'ready'
-        ? 'Session ready'
+        ? `Session ready${sessionLabel ? ` · ${sessionLabel}` : ''}`
         : status === 'unauthenticated'
           ? 'Sign in required'
           : 'Session check unavailable';
