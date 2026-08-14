@@ -271,3 +271,110 @@
   padding: 0.75rem 0.875rem;
   color: var(--sc-color-semantic-textSecondary);
 }
+
+.sc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.625rem;
+  border-radius: var(--sc-radius-full);
+  border: 1px solid transparent;
+  font-size: var(--sc-font-size-sm);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.sc-badge__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: currentColor;
+  flex: none;
+}
+
+.sc-badge--neutral {
+  background: var(--sc-color-semantic-surfaceSubtle);
+  color: var(--sc-color-semantic-textSecondary);
+  border-color: var(--sc-color-semantic-borderStrong);
+}
+
+.sc-badge--success {
+  background: var(--sc-color-success-surface);
+  color: var(--sc-color-success-strong);
+  border-color: var(--sc-color-success-border);
+}
+
+.sc-badge--warning {
+  background: var(--sc-color-warning-surface);
+  color: var(--sc-color-warning-strong);
+  border-color: var(--sc-color-warning-border);
+}
+
+.sc-badge--danger {
+  background: var(--sc-color-danger-surface);
+  color: var(--sc-color-danger-strong);
+  border-color: var(--sc-color-danger-border);
+}
+
+.sc-badge--info {
+  background: var(--sc-color-info-surface);
+  color: var(--sc-color-info-strong);
+  border-color: var(--sc-color-info-border);
+}
+
+.sc-badge--brand {
+  background: var(--sc-color-brand-50);
+  color: var(--sc-color-brand-700);
+  border-color: var(--sc-color-brand-100);
+}
+
+.sc-identity {
+  display: grid;
+  gap: var(--sc-spacing-1);
+}
+
+.sc-identity__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-spacing-2);
+  flex-wrap: wrap;
+}
+
+.sc-identity__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-2);
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-sm);
+}
+
+.sc-money {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.sc-money--positive {
+  color: var(--sc-color-success-strong);
+}
+
+.sc-money--negative {
+  color: var(--sc-color-danger-strong);
+}
+
+.sc-money--muted {
+  color: var(--sc-color-semantic-textSecondary);
+}
+
+.sc-money-input {
+  display: grid;
+  gap: var(--sc-spacing-2);
+}
+
+.sc-money-input__hint {
+  margin: 0;
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-sm);
+}
