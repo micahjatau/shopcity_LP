@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
 import { Alert, Button, Dialog, Sheet } from '../../../components/ui';
 import {
+  AdminOperationsPanel,
   PilotHealthPanel,
   ReportsWorkspace,
   WorkflowSection,
@@ -30,12 +31,17 @@ export default function AdminPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         }}
       >
-        <article style={cardStyle}>
+        <article style={cardStyle} aria-label="Operations summary">
           <h2 style={{ marginTop: 0 }}>Operations summary</h2>
           <ReportsWorkspace />
         </article>
 
-        <article style={cardStyle}>
+        <article style={cardStyle} aria-label="Admin contracts">
+          <h2 style={{ marginTop: 0 }}>Admin contracts</h2>
+          <AdminOperationsPanel />
+        </article>
+
+        <article style={cardStyle} aria-label="Admin routes">
           <h2 style={{ marginTop: 0 }}>Admin routes</h2>
           <WorkflowSection
             title="Cross-branch and system-level screens"

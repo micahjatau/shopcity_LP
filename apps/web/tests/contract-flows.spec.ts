@@ -150,6 +150,45 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
+    await page.route('**/api/v1/fraud-flags**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            scope: 'TENANT',
+            scopeKey: 'tenant-1',
+            branchId: null,
+            items: [
+              {
+                id: 'fraud-1',
+                ruleCode: 'HIGH_VALUE',
+                status: 'OPEN',
+                severity: 'HIGH',
+                branchId: 'branch-1',
+                customer: { fullName: 'Amina Bello' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: {},
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/fraud-flags/*/decision', async (route) => {
+      const body = route.request().postDataJSON() as { decision: string; reason: string };
+      expect(body.decision).toMatch(/ACKNOWLEDGED|RESOLVED/);
+      expect(body.reason).toContain('supervisor shell');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: {}, meta: {} }),
+      });
+    });
+
     await page.route('**/api/v1/reports/executive-summary', async (route) => {
       await route.fulfill({
         status: 200,
@@ -172,9 +211,107 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByRole('heading', { name: /supervisor shell/i })).toBeVisible();
     await expect(page.getByText(/approvals panel/i)).toBeVisible();
     await expect(page.getByText(/loaded 1 approvals/i)).toBeVisible();
+    await expect(page.getByRole('article', { name: /fraud review/i })).toContainText(/loaded 1 fraud flags/i);
+    await page.getByRole('article', { name: /fraud review/i }).getByRole('button', { name: /submit decision/i }).click();
+
+    await page.route('**/api/v1/users', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'user-1',
+              username: 'admin',
+              role: 'ADMIN',
+              status: 'ACTIVE',
+              branchId: 'branch-1',
+            },
+          ],
+          meta: {},
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/users/user-1/role', async (route) => {
+      const body = route.request().postDataJSON() as { role: string };
+      expect(body.role).toBeTruthy();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: {}, meta: {} }),
+      });
+    });
+
+    await page.route('**/api/v1/users/user-1/status', async (route) => {
+      const body = route.request().postDataJSON() as { status: string };
+      expect(body.status).toBeTruthy();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: {}, meta: {} }),
+      });
+    });
+
+    await page.route('**/api/v1/devices', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'device-1',
+              name: 'Front counter',
+              status: 'ACTIVE',
+              branchId: 'branch-1',
+              fingerprintHash: 'hash-1',
+            },
+          ],
+          meta: {},
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/devices/device-1', async (route) => {
+      const body = route.request().postDataJSON() as { status?: string };
+      expect(body.status).toBeTruthy();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: {}, meta: {} }),
+      });
+    });
+
+    await page.route('**/api/v1/audit*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'audit-1',
+              action: 'USER_ROLE_UPDATED',
+              subjectType: 'USER',
+              subjectId: 'user-1',
+              actorId: 'admin',
+              createdAt: '2030-01-01T12:00:00.000Z',
+            },
+          ],
+          meta: {},
+        }),
+      });
+    });
 
     await page.goto('/admin');
     await expect(page.getByRole('heading', { name: /admin shell/i })).toBeVisible();
     await expect(page.getByText(/report summary loaded/i)).toBeVisible();
+    await expect(page.getByText(/users: 1/i)).toBeVisible();
+    await expect(page.getByText(/devices: 1/i)).toBeVisible();
+    await expect(page.getByText(/audit rows: 1/i)).toBeVisible();
+    await page.getByRole('button', { name: /update role/i }).click();
+    await page.getByRole('button', { name: /update device status/i }).click();
   });
 });

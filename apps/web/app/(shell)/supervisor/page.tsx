@@ -8,6 +8,7 @@ import {
 } from '../../../components/shopcity';
 import {
   ApprovalsPanel,
+  FraudFlagsPanel,
   ReportsWorkspace,
   WorkflowSection,
 } from '../../../components/workflows';
@@ -52,12 +53,17 @@ export default function SupervisorPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         }}
       >
-        <article style={cardStyle}>
+        <article style={cardStyle} aria-label="Approvals panel">
           <h2 style={{ marginTop: 0 }}>Approvals panel</h2>
           <ApprovalsPanel />
         </article>
 
-        <article style={cardStyle}>
+        <article style={cardStyle} aria-label="Fraud review">
+          <h2 style={{ marginTop: 0 }}>Fraud review</h2>
+          <FraudFlagsPanel />
+        </article>
+
+        <article style={cardStyle} aria-label="Review lanes">
           <h2 style={{ marginTop: 0 }}>Review lanes</h2>
           <Tabs
             defaultValue="overview"
