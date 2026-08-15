@@ -210,24 +210,24 @@ export function PilotHealthPanel() {
 
 const cardStyle: CSSProperties = {
   borderRadius: 'var(--sc-radius-xl)',
-  padding: 'var(--sc-spacing-5)',
+  padding: 'var(--sc-spacing-4)',
   background: 'var(--sc-color-neutral-0)',
   border: '1px solid var(--sc-color-semantic-border)',
   boxShadow: 'var(--sc-shadow-level1)',
   display: 'grid',
-  gap: 'var(--sc-spacing-4)',
+  gap: 'var(--sc-spacing-3)',
 };
 
 const routeRow: CSSProperties = {
   display: 'flex',
-  gap: 'var(--sc-spacing-3)',
+  gap: 'var(--sc-spacing-2)',
   flexWrap: 'wrap',
 };
 
 const routeLink: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
+  padding: 'var(--sc-spacing-2)',
   background: 'var(--sc-color-neutral-0)',
   textDecoration: 'none',
 };
@@ -235,25 +235,25 @@ const routeLink: CSSProperties = {
 const emptyStateStyle: CSSProperties = {
   border: '1px dashed var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-lg)',
-  padding: 'var(--sc-spacing-4)',
+  padding: 'var(--sc-spacing-3)',
   display: 'grid',
-  gap: 'var(--sc-spacing-2)',
+  gap: 'var(--sc-spacing-1)',
 };
 
 const metricCardStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-lg)',
-  padding: 'var(--sc-spacing-4)',
+  padding: 'var(--sc-spacing-3)',
   background: 'var(--sc-color-semantic-surfaceSubtle)',
   display: 'grid',
-  gap: 'var(--sc-spacing-2)',
+  gap: 'var(--sc-spacing-1)',
 };
 
 const metricRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 'var(--sc-spacing-3)',
+  gap: 'var(--sc-spacing-2)',
 };
 
 function renderValue(value: unknown): string {
