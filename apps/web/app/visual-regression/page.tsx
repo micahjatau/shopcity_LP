@@ -29,7 +29,7 @@ import {
   OfflineIndicator,
   SyncQueueIndicator,
 } from '../../components/offline';
-import { WorkflowSection, PilotHealthPanel } from '../../components/workflows';
+import { WorkflowSection } from '../../components/workflows';
 import HomePage from '../page';
 import LoginPage from '../(auth)/login/page';
 
@@ -337,7 +337,27 @@ export default function VisualRegressionPage() {
               <Button>Refresh</Button>
             </div>
           </WorkflowSection>
-          <PilotHealthPanel compact />
+          <article className="visual-panel">
+            <div className="visual-badges">
+              <StatusBadge label="Live" tone="success" />
+              <StatusBadge label="Reconciliation available" tone="info" />
+            </div>
+            <h3 style={{ margin: 0 }}>Pilot health</h3>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
+              Pilot health loaded from deterministic visual fixture data.
+            </p>
+            <div className="visual-grid">
+              <StatusBadge label="Outbox healthy" tone="success" />
+              <StatusBadge label="SMS clear" tone="success" />
+              <StatusBadge label="Offline sync review" tone="warning" />
+              <StatusBadge label="Reports fresh" tone="success" />
+            </div>
+          </article>
         </div>
       </GallerySection>
 
