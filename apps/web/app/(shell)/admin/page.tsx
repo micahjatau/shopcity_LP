@@ -42,6 +42,11 @@ export default function AdminPage() {
         <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
           Operations, audit, users, devices, branches and settings.
         </p>
+        <div style={statusRow}>
+          <StatusBadge label={`${adminRoutes.length} routes`} tone="success" />
+          <StatusBadge label="Contract-backed" tone="info" />
+          <StatusBadge label="Role-scoped" tone="neutral" />
+        </div>
       </header>
 
       <WorkflowSection
