@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
 import { Alert } from '../../../components/ui';
 import { StatusBadge } from '../../../components/shopcity';
-import { WorkflowSection } from '../../../components/workflows';
+import {
+  AdminOperationsPanel,
+  WorkflowSection,
+} from '../../../components/workflows';
 
 const adminRoutes = [
   ['/admin/operations', 'Operations'],
@@ -144,6 +147,10 @@ export default function AdminPage() {
           </p>
         </article>
       </div>
+
+      <article style={cardStyle} aria-label="Admin operations review">
+        <AdminOperationsPanel />
+      </article>
     </section>
   );
 }

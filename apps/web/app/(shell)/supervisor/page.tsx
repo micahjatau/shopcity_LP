@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../components/shopcity';
 import {
   ApprovalsPanel,
   FraudFlagsPanel,
+  ReportsWorkspace,
   WorkflowSection,
 } from '../../../components/workflows';
 
@@ -136,6 +137,10 @@ export default function SupervisorPage() {
           <FraudFlagsPanel />
         </article>
       </div>
+
+      <article style={cardStyle} aria-label="Reports review">
+        <ReportsWorkspace />
+      </article>
     </section>
   );
 }

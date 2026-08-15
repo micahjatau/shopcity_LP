@@ -256,27 +256,6 @@ const metricRow: CSSProperties = {
   gap: 'var(--sc-spacing-3)',
 };
 
-const reconciliationStyle: CSSProperties = {
-  borderRadius: 'var(--sc-radius-lg)',
-  border: '1px solid var(--sc-color-semantic-border)',
-  padding: 'var(--sc-spacing-4)',
-  display: 'grid',
-  gap: 'var(--sc-spacing-3)',
-};
-
-function renderReconciliationSummary(
-  reconciliation: Record<string, unknown>,
-): string {
-  const entries = Object.entries(reconciliation)
-    .filter(([key]) => key !== 'items')
-    .slice(0, 3)
-    .map(([key, value]) => `${key}: ${renderValue(value)}`);
-
-  return entries.length > 0
-    ? entries.join(' · ')
-    : 'Reconciliation summary available.';
-}
-
 function renderValue(value: unknown): string {
   if (value === null || value === undefined) return '—';
   if (
