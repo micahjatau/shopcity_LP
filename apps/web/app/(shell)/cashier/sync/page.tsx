@@ -18,6 +18,26 @@ import {
 import { Alert, Button, Input, Table } from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
+const routeLinks = [
+  ['/cashier', 'Cashier'],
+  ['/cashier/customers', 'Customers'],
+] as const;
+
+const queueNotes = [
+  [
+    'Local queue first',
+    'Review waiting, retryable, and approval-bound records before submitting the batch.',
+  ],
+  [
+    'Backend reconciliation',
+    'The batch response updates local records with confirmed, rejected, or retry-required results.',
+  ],
+  [
+    'Route-backed recovery',
+    'Retry and cleanup stay inside this queue-focused route instead of hidden shell state.',
+  ],
+] as const;
+
 export default function CashierSyncPage() {
   const [records, setRecords] = useState<OfflineEarnRecord[]>([]);
   const [deviceId, setDeviceId] = useState('');
@@ -26,6 +46,13 @@ export default function CashierSyncPage() {
   const [lastBatchResults, setLastBatchResults] = useState<
     OfflineSyncControllerEarnBatchV1200DataRecordsItem[]
   >([]);
+  const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
+  const [clearConfirmation, setClearConfirmation] = useState('');
+
+  const selectedRecord = useMemo(
+    () => records.find((record) => record.localId === selectedLocalId) ?? null,
+    [records, selectedLocalId],
+  );
 
   const queueableRecords = useMemo(
     () =>
@@ -52,6 +79,7 @@ export default function CashierSyncPage() {
     try {
       const next = await listOfflineEarnRecords();
       setRecords(next);
+      setSelectedLocalId((current) => current ?? next[0]?.localId ?? null);
       setMessage(`Loaded ${next.length} local record(s).`);
     } catch {
       setMessage('Offline queue unavailable.');
@@ -131,11 +159,17 @@ export default function CashierSyncPage() {
   }
 
   async function clearConfirmed() {
+    if (clearConfirmation.trim().toUpperCase() !== 'CLEAR') {
+      setMessage('Type CLEAR to remove confirmed records.');
+      return;
+    }
+
     await Promise.all(
       records
         .filter((record) => record.syncState === 'confirmed')
         .map((record) => deleteOfflineEarnRecord(record.localId)),
     );
+    setClearConfirmation('');
     await refresh();
   }
 
@@ -158,9 +192,27 @@ export default function CashierSyncPage() {
         </p>
         <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
           <Link href="/cashier">Back to cashier</Link>
-          <Link href="/cashier/customers">Open customers</Link>
+          {routeLinks.map(([href, label]) => (
+            <Link key={href} href={href}>{label}</Link>
+          ))}
         </div>
       </header>
+
+      <Alert tone="info" title="Sync route context">
+        This queue view is for local offline earn records, batch reconciliation, and retry cleanup.
+      </Alert>
+
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Queue notes</h2>
+        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          {queueNotes.map(([title, body]) => (
+            <div key={title} style={noteStyle}>
+              <strong>{title}</strong>
+              <p style={muted}>{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', gap: 'var(--sc-spacing-3)' }}>
         <Input aria-label="Device ID" placeholder="Device ID" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} />
@@ -178,92 +230,144 @@ export default function CashierSyncPage() {
         <StatusBadge label={`Retryable ${statusCounts.retryRequired}`} tone="warning" />
       </div>
 
-      {records.length === 0 ? (
-        <Alert tone="warning" title="No offline records">
-          There are no local offline earn records to sync.
+      {selectedRecord ? (
+        <Alert tone="info" title="Selected record">
+          {selectedRecord.localId} · {selectedRecord.cardBarcode ?? 'Card pending'} · {selectedRecord.syncState}
         </Alert>
-      ) : (
-        <Table>
-          <thead>
-            <tr>
-              <th>Local ID</th>
-              <th>Card</th>
-              <th>Receipt</th>
-              <th>Amount</th>
-              <th>State</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((record) => (
-              <tr key={record.localId}>
-                <td>{record.localId}</td>
-                <td>{record.cardBarcode}</td>
-                <td>{record.receiptNumber}</td>
-                <td><Money amountKobo={record.purchaseAmountKobo} /></td>
-                <td>
-                  <StatusBadge
-                    label={record.syncState}
-                    tone={toneForState(record.syncState)}
-                  />
-                  {record.lastError ? <div style={{ fontSize: 'var(--sc-font-size-sm)' }}>{record.lastError}</div> : null}
-                  {record.serverTransactionId || record.serverApprovalId ? (
-                    <div style={{ fontSize: 'var(--sc-font-size-sm)' }}>
-                      {record.serverTransactionId ? `Txn ${record.serverTransactionId}` : null}
-                      {record.serverApprovalId ? ` Approval ${record.serverApprovalId}` : null}
-                    </div>
-                  ) : null}
-                </td>
-                <td>
-                  {record.syncState === 'retry-required' ? (
-                    <Button variant="ghost" onClick={() => void retryRecord(record.localId)}>
-                      Retry now
-                    </Button>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-
-      {lastBatchResults.length > 0 ? (
-        <Table>
-          <thead>
-            <tr>
-              <th>Local ID</th>
-              <th>Status</th>
-              <th>Transaction</th>
-              <th>Approval</th>
-              <th>Credit</th>
-              <th>Retryable</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lastBatchResults.map((result) => (
-              <tr key={result.localId}>
-                <td>{result.localId}</td>
-                <td><StatusBadge label={result.status} tone={toneForResult(result.status)} /></td>
-                <td>{result.transactionId ?? '—'}</td>
-                <td>{result.approvalId ?? '—'}</td>
-                <td>{typeof result.creditEarnedKobo === 'number' ? <Money amountKobo={result.creditEarnedKobo} /> : '—'}</td>
-                <td>{result.retryable ? 'Yes' : 'No'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
       ) : null}
+
+      <div style={{ display: 'grid', gap: 'var(--sc-spacing-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Queue</h2>
+          {records.length === 0 ? (
+            <Alert tone="warning" title="No offline records">
+              There are no local offline earn records to sync.
+            </Alert>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Local ID</th>
+                  <th>Card</th>
+                  <th>Receipt</th>
+                  <th>Amount</th>
+                  <th>State</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((record) => (
+                  <tr key={record.localId}>
+                    <td>
+                      <button type="button" onClick={() => setSelectedLocalId(record.localId)} style={rowButton}>
+                        {record.localId}
+                      </button>
+                    </td>
+                    <td>{record.cardBarcode}</td>
+                    <td>{record.receiptNumber}</td>
+                    <td><Money amountKobo={record.purchaseAmountKobo} /></td>
+                    <td>
+                      <StatusBadge
+                        label={record.syncState}
+                        tone={toneForState(record.syncState)}
+                      />
+                      {record.lastError ? <div style={smallText}>{record.lastError}</div> : null}
+                      {record.serverTransactionId || record.serverApprovalId ? (
+                        <div style={smallText}>
+                          {record.serverTransactionId ? `Txn ${record.serverTransactionId}` : null}
+                          {record.serverApprovalId ? ` Approval ${record.serverApprovalId}` : null}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td>
+                      {record.syncState === 'retry-required' ? (
+                        <Button variant="ghost" onClick={() => void retryRecord(record.localId)}>
+                          Retry now
+                        </Button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Selected details</h2>
+          {selectedRecord ? (
+            <Table>
+              <tbody>
+                {Object.entries(selectedRecord)
+                  .slice(0, 8)
+                  .map(([key, value]) => (
+                    <tr key={key}>
+                      <th scope="row">{key}</th>
+                      <td>{renderValue(value)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </Table>
+          ) : (
+            <Alert tone="warning" title="No selected record">
+              Pick a queue entry to inspect its local metadata.
+            </Alert>
+          )}
+        </section>
+
+        {lastBatchResults.length > 0 ? (
+          <section style={cardStyle}>
+            <h2 style={{ marginTop: 0 }}>Last batch results</h2>
+            <Table>
+              <thead>
+                <tr>
+                  <th>Local ID</th>
+                  <th>Status</th>
+                  <th>Transaction</th>
+                  <th>Approval</th>
+                  <th>Credit</th>
+                  <th>Retryable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastBatchResults.map((result) => (
+                  <tr key={result.localId}>
+                    <td>{result.localId}</td>
+                    <td><StatusBadge label={result.status} tone={toneForResult(result.status)} /></td>
+                    <td>{result.transactionId ?? '—'}</td>
+                    <td>{result.approvalId ?? '—'}</td>
+                    <td>{typeof result.creditEarnedKobo === 'number' ? <Money amountKobo={result.creditEarnedKobo} /> : '—'}</td>
+                    <td>{result.retryable ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </section>
+        ) : null}
+      </div>
 
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <StatusBadge label={`Queueable: ${queueableRecords.length}`} tone="info" />
+        <Input
+          aria-label="Clear confirmation"
+          placeholder="Type CLEAR to remove confirmed"
+          value={clearConfirmation}
+          onChange={(event) => setClearConfirmation(event.target.value)}
+        />
         <Button variant="ghost" onClick={() => void clearConfirmed()} disabled={!records.some((record) => record.syncState === 'confirmed')}>
           Clear confirmed
         </Button>
       </div>
     </section>
   );
+}
+
+function renderValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
 }
 
 function mapSyncState(
@@ -292,3 +396,37 @@ function toneForResult(
   if (status === 'REJECTED') return 'danger';
   return 'warning';
 }
+
+const cardStyle = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-lg)',
+  padding: 'var(--sc-spacing-5)',
+  background: 'var(--sc-color-neutral-0)',
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+};
+
+const noteStyle = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
+};
+
+const muted = {
+  color: 'var(--sc-color-semantic-textSecondary)',
+  marginBottom: 0,
+};
+
+const smallText = {
+  fontSize: 'var(--sc-font-size-sm)',
+};
+
+const rowButton = {
+  padding: 0,
+  border: 0,
+  background: 'transparent',
+  cursor: 'pointer',
+  font: 'inherit',
+  textAlign: 'left' as const,
+};
