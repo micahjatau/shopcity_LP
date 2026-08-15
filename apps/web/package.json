@@ -16,6 +16,7 @@
     "critical:update": "playwright test --config ./playwright.config.ts --grep @critical --update-snapshots",
     "visual:test": "playwright test --config ./playwright.config.ts --grep-invert @critical",
     "visual:update": "playwright test --config ./playwright.config.ts --grep-invert @critical --update-snapshots",
+    "live:test": "playwright test --config ./playwright.config.ts tests/live-backend-e2e.spec.ts",
     "tokens:generate": "node ./scripts/generate-tokens.mjs",
     "tokens:check": "node ./scripts/check-token-drift.mjs"
   },

@@ -15,6 +15,7 @@ jest.mock('../lib/browser/offline-earn-queue', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
+  usePathname: () => '/cashier',
   useRouter: () => ({
     replace: jest.fn(),
     refresh: jest.fn(),

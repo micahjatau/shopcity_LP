@@ -25,10 +25,14 @@ export default defineConfig({
       scale: 'css',
     },
   },
-  webServer: {
-    command: 'npm run dev -- --port 3100',
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  ...(process.env.PLAYWRIGHT_SKIP_WEBSERVER
+    ? {}
+    : {
+        webServer: {
+          command: 'npm run dev -- --port 3100',
+          url: baseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120000,
+        },
+      }),
 });

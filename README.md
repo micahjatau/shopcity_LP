@@ -91,6 +91,28 @@ Receipt capture now requires a physical POS receipt number and an active device.
 - `npm run test:e2e`
 - `npm run test:integration`
 - `npm run test:cov`
+- `npm run dev:full`
+
+## Frontend Live E2E
+
+Prepare the backend, then run the backend-connected frontend suite:
+
+```bash
+npm run e2e:live:prepare
+npm run e2e:live:test
+```
+
+Or run both with:
+
+```bash
+npm run e2e:live
+```
+
+For the full backend + frontend + Playwright flow:
+
+```bash
+npm run e2e:live:full
+```
 
 ## CLI Workflow
 

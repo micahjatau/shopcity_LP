@@ -1330,6 +1330,17 @@ export class LoyaltyService {
           approval.receipt ?? approval.redemption?.receipt ?? null;
         const receiptId =
           approval.receiptId ?? approval.redemption?.receiptId ?? null;
+        const serializedReceipt = receipt
+          ? {
+              id: receipt.id,
+              customerId: receipt.customerId,
+              posReceiptNumber: receipt.posReceiptNumber,
+              purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
+              captureStatus: receipt.captureStatus,
+              reviewStatus: receipt.reviewStatus,
+              branchId: receipt.branchId,
+            }
+          : null;
 
         return [
           {
@@ -1361,7 +1372,7 @@ export class LoyaltyService {
                 receipt?.branchId ??
                 null,
             },
-            receipt,
+            receipt: serializedReceipt,
           },
         ];
       }),

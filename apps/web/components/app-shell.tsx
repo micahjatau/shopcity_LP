@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo } from 'react';
 import { BrowserStateBootstrap } from './browser-state-bootstrap';
@@ -26,21 +26,35 @@ const roleRoutes: Record<Exclude<Role, 'SYSTEM'>, RouteHref[]> = {
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
+  const pathname = usePathname();
   const { status, role, sessionLabel } = useSessionBootstrapState();
+
+  const routeGroup = useMemo(() => {
+    if (status !== 'ready' || !role) {
+      return [] as RouteHref[];
+    }
+
+    return role === 'SYSTEM'
+      ? roleRoutes.ADMIN
+      : roleRoutes[role as Exclude<Role, 'SYSTEM'>];
+  }, [role, status]);
+
+  const primaryRoute = routeGroup[0] ?? '/login';
+  const isAuthorizedRoute = routeGroup.length === 0 || routeGroup.includes(pathname as RouteHref);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.replace('/login');
+      return;
     }
-  }, [router, status]);
+
+    if (status === 'ready' && routeGroup.length > 0 && !routeGroup.includes(pathname as RouteHref)) {
+      router.replace(primaryRoute);
+    }
+  }, [pathname, primaryRoute, routeGroup, router, status]);
 
   const navItems = useMemo(() => {
     if (status === 'ready' && role) {
-      const routeGroup =
-        role === 'SYSTEM'
-          ? roleRoutes.ADMIN
-          : roleRoutes[role as Exclude<Role, 'SYSTEM'>];
-
       return routeGroup.map((href) => ({
         href,
         label:
@@ -53,7 +67,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     }
 
     return [{ href: '/login' as const, label: 'Login' }];
-  }, [role, status]);
+  }, [routeGroup, role, status]);
 
   async function handleLogout() {
     try {
@@ -64,7 +78,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     }
   }
 
-  const showProtectedContent = status === 'ready';
+  const showProtectedContent = status === 'ready' && isAuthorizedRoute;
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -201,9 +215,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           >
             <h1 style={{ margin: 0 }}>Protected shell</h1>
             <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-              Sign in to access cashier, supervisor and admin workflows.
+              {status === 'ready'
+                ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                : 'Sign in to access cashier, supervisor and admin workflows.'}
             </p>
-            <Link href="/login">Go to sign in</Link>
+            <Link href={status === 'ready' ? primaryRoute : '/login'}>
+              {status === 'ready' ? 'Go to my workspace' : 'Go to sign in'}
+            </Link>
           </section>
         )}
       </main>

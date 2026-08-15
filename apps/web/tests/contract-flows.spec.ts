@@ -114,7 +114,7 @@ test.describe('contract-faithful frontend flows', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(sessionPayload('ADMIN')),
+        body: JSON.stringify(sessionPayload('SUPERVISOR')),
       });
     });
 
@@ -213,6 +213,15 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByText(/loaded 1 approvals/i)).toBeVisible();
     await expect(page.getByRole('article', { name: /fraud review/i })).toContainText(/loaded 1 fraud flags/i);
     await page.getByRole('article', { name: /fraud review/i }).getByRole('button', { name: /submit decision/i }).click();
+
+    await page.unroute('**/api/v1/auth/me');
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(sessionPayload('ADMIN')),
+      });
+    });
 
     await page.route('**/api/v1/users', async (route) => {
       await route.fulfill({
@@ -325,7 +334,7 @@ test.describe('contract-faithful frontend flows', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(sessionPayload('ADMIN')),
+        body: JSON.stringify(sessionPayload('SUPERVISOR')),
       });
     });
 
@@ -386,6 +395,15 @@ test.describe('contract-faithful frontend flows', () => {
     approvalsFailure = true;
     await page.getByRole('button', { name: /refresh approvals/i }).click();
     await expect(page.getByText(/approvals unavailable \(503\)/i)).toBeVisible();
+
+    await page.unroute('**/api/v1/auth/me');
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(sessionPayload('ADMIN')),
+      });
+    });
 
     await page.route('**/api/v1/users', async (route) => {
       if (userFailure) {
