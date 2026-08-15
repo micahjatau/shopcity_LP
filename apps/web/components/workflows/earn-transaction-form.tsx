@@ -8,7 +8,7 @@ import {
   type EarnTransactionDto,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, Input, Textarea } from '../ui';
+import { Alert, Button, Input, Textarea, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 
 function createDraftKey() {
@@ -37,6 +37,7 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
   const [message, setMessage] = useState('');
+  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!lookupContext) return;
@@ -48,13 +49,16 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
     }
   }, [lookupContext]);
 
+  const lookupReady = Boolean(lookupContext?.cardSerialNumber || lookupContext?.customerName);
+
   const draftSummary = useMemo(
     () => [
       { label: 'Card', value: cardSerialNumber || 'Scan or type a card serial' },
       { label: 'Receipt', value: receiptNumber || 'Optional' },
       {
         label: 'Purchase',
-        value: purchaseAmount === null ? 'Enter an amount' : <Money amountKobo={purchaseAmount} />,
+        value:
+          purchaseAmount === null ? 'Enter an amount' : <Money amountKobo={purchaseAmount} />,
       },
       { label: 'Draft key', value: idempotencyKeyRef.current.slice(0, 8) },
     ],
@@ -70,12 +74,14 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
     setOverrideReason('');
     setStatus('idle');
     setMessage('Draft cleared.');
+    setResponseData(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus('submitting');
     setMessage('Reviewing earn transaction…');
+    setResponseData(null);
 
     if (purchaseAmount === null) {
       setStatus('error');
@@ -103,6 +109,11 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
           response.status === 201
             ? 'Earn confirmed by backend contract.'
             : 'Earn awaiting approval.',
+        );
+        setResponseData(
+          response.data && typeof response.data === 'object'
+            ? (response.data as Record<string, unknown>)
+            : null,
         );
         router.refresh();
         return;
@@ -140,7 +151,15 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
             </>
           ) : null}
         </Alert>
-      ) : null}
+      ) : (
+        <Alert tone="warning" title="Lookup recommended">
+          Lookup first so the cashier can review the customer and card context before submitting.
+        </Alert>
+      )}
+      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+        <StatusBadge label={lookupReady ? 'Context ready' : 'Awaiting lookup'} tone={lookupReady ? 'success' : 'warning'} />
+        <StatusBadge label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`} tone="info" />
+      </div>
       <Input
         aria-label="Card serial number"
         placeholder="Card serial"
@@ -194,7 +213,7 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
           Reset draft
         </Button>
       </div>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center', flexWrap: 'wrap' }}>
         <StatusBadge
           label={status === 'pending' ? 'Awaiting approval' : status === 'confirmed' ? 'Confirmed' : status === 'error' ? 'Error' : 'Draft'}
           tone={status === 'error' ? 'danger' : status === 'pending' ? 'warning' : status === 'confirmed' ? 'success' : 'neutral'}
@@ -203,6 +222,32 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
           {message || 'The backend decides the final state.'}
         </p>
       </div>
+      {responseData ? (
+        <section style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          <Alert tone={status === 'confirmed' ? 'success' : 'warning'} title="Backend response">
+            The backend returned a {status === 'confirmed' ? 'confirmed' : 'pending'} earn result.
+          </Alert>
+          <Table>
+            <tbody>
+              {Object.entries(responseData)
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        </section>
+      ) : null}
     </form>
   );
+}
+
+function renderValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'number') return <Money amountKobo={value} />;
+  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
 }

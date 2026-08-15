@@ -8,7 +8,7 @@ import {
   type RedeemTransactionDto,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, Input } from '../ui';
+import { Alert, Button, Input, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 
 function createDraftKey() {
@@ -39,6 +39,7 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
   const [message, setMessage] = useState('');
+  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!lookupContext) return;
@@ -52,6 +53,8 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
       setBasketAmount(lookupContext.availableBalanceKobo);
     }
   }, [lookupContext]);
+
+  const lookupReady = Boolean(lookupContext?.cardSerialNumber || lookupContext?.customerName);
 
   const draftSummary = useMemo(
     () => [
@@ -84,12 +87,14 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
     setOccurredAt(new Date().toISOString());
     setStatus('idle');
     setMessage('Draft cleared.');
+    setResponseData(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus('submitting');
     setMessage('Reviewing redemption…');
+    setResponseData(null);
 
     if (basketAmount === null || requestedRedemption === null) {
       setStatus('error');
@@ -118,6 +123,11 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
             ? 'Redemption confirmed by backend contract.'
             : 'Redemption awaiting approval.',
         );
+        setResponseData(
+          response.data && typeof response.data === 'object'
+            ? (response.data as Record<string, unknown>)
+            : null,
+        );
         router.refresh();
         return;
       }
@@ -129,6 +139,9 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
       setMessage('Redemption could not be submitted.');
     }
   }
+
+  const availableBalance = lookupContext?.availableBalanceKobo ?? null;
+  const redemptionCeiling = availableBalance;
 
   return (
     <form
@@ -149,7 +162,18 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
             </>
           ) : null}
         </Alert>
-      ) : null}
+      ) : (
+        <Alert tone="warning" title="Lookup recommended">
+          Lookup first so the cashier can review the customer and card context before submitting.
+        </Alert>
+      )}
+      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+        <StatusBadge label={lookupReady ? 'Context ready' : 'Awaiting lookup'} tone={lookupReady ? 'success' : 'warning'} />
+        <StatusBadge label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`} tone="info" />
+        {typeof redemptionCeiling === 'number' ? (
+          <StatusBadge label={`Ceiling ${redemptionCeiling} kobo`} tone="neutral" />
+        ) : null}
+      </div>
       <Input
         aria-label="Card serial number"
         placeholder="Card serial"
@@ -202,7 +226,7 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
           Reset draft
         </Button>
       </div>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center', flexWrap: 'wrap' }}>
         <StatusBadge
           label={status === 'pending' ? 'Awaiting approval' : status === 'confirmed' ? 'Confirmed' : status === 'error' ? 'Error' : 'Draft'}
           tone={status === 'error' ? 'danger' : status === 'pending' ? 'warning' : status === 'confirmed' ? 'success' : 'neutral'}
@@ -211,6 +235,32 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
           {message || 'The backend decides the final state.'}
         </p>
       </div>
+      {responseData ? (
+        <section style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          <Alert tone={status === 'confirmed' ? 'success' : 'warning'} title="Backend response">
+            The backend returned a {status === 'confirmed' ? 'confirmed' : 'pending'} redemption result.
+          </Alert>
+          <Table>
+            <tbody>
+              {Object.entries(responseData)
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        </section>
+      ) : null}
     </form>
   );
+}
+
+function renderValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'number') return <Money amountKobo={value} />;
+  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
 }
