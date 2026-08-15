@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   approvalsControllerDecideApprovalV1,
   approvalsControllerListApprovalsV1,
   type ApprovalDecisionDtoDecision,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, RadioGroup } from '../ui';
+import { Alert, Button, Input, RadioGroup, Table } from '../ui';
 import { StatusBadge } from '../shopcity';
 
 export function ApprovalsPanel() {
@@ -17,6 +17,12 @@ export function ApprovalsPanel() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [decision, setDecision] =
     useState<ApprovalDecisionDtoDecision>('APPROVED');
+  const [reason, setReason] = useState('');
+
+  const selectedItem = useMemo(
+    () => items.find((item) => item.id === selectedId) ?? null,
+    [items, selectedId],
+  );
 
   async function refresh() {
     setLoading(true);
@@ -52,10 +58,7 @@ export function ApprovalsPanel() {
       selectedId,
       {
         decision,
-        reason:
-          decision === 'APPROVED'
-            ? 'Approved from frontend shell'
-            : 'Rejected from frontend shell',
+        reason: reason.trim() || (decision === 'APPROVED' ? 'Approved from frontend shell' : 'Rejected from frontend shell'),
       },
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );
@@ -86,6 +89,20 @@ export function ApprovalsPanel() {
       <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
         {message}
       </p>
+      {selectedItem ? (
+        <Table>
+          <tbody>
+            {Object.entries(selectedItem)
+              .slice(0, 6)
+              .map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key}</th>
+                  <td>{describeValue(value)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </Table>
+      ) : null}
       {items.length === 0 ? (
         <Alert tone="warning" title="No approvals">
           No approval records matched the current filters.
@@ -142,6 +159,20 @@ export function ApprovalsPanel() {
           setDecision(value as ApprovalDecisionDtoDecision)
         }
       />
+      <Input
+        aria-label="Approval reason"
+        placeholder="Decision reason"
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+      />
     </section>
   );
+}
+
+function describeValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
 }

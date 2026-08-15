@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-15
+goal: Deliver a line-by-line, exhaustive frontend workflow completion plan for repo review 51 so every identified subgap is mapped to a concrete route, component, contract adapter, or quality gate.

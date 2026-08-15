@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-15
+goal: Turn the workflows identified in repo review 51 into complete, role-aware frontend experiences that use the existing backend contract instead of static cards, demo metrics, or no-op buttons.

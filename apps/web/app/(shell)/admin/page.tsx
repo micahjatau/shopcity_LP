@@ -1,6 +1,9 @@
+'use client';
+
 import type { CSSProperties } from 'react';
+import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Alert, Button, Dialog, Sheet } from '../../../components/ui';
+import { Alert, Sheet } from '../../../components/ui';
 import {
   AdminOperationsPanel,
   PilotHealthPanel,
@@ -18,9 +21,25 @@ export default function AdminPage() {
         <p
           style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
         >
-          Operations, audit, users, devices and settings.
+          Operations, audit, users, devices, branches and settings.
         </p>
       </header>
+
+      <WorkflowSection
+        title="Admin routes"
+        description="Each admin function now has a route-backed entry point."
+      >
+        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+          <Link href="/admin/operations">Operations</Link>
+          <Link href="/admin/users">Users</Link>
+          <Link href="/admin/devices">Devices</Link>
+          <Link href="/admin/cards">Cards</Link>
+          <Link href="/admin/branches">Branches</Link>
+          <Link href="/admin/audit">Audit</Link>
+          <Link href="/admin/reports">Reports</Link>
+          <Link href="/admin/adjustments">Adjustments</Link>
+        </div>
+      </WorkflowSection>
 
       <PilotHealthPanel />
 
@@ -41,79 +60,38 @@ export default function AdminPage() {
           <AdminOperationsPanel />
         </article>
 
-        <article style={cardStyle} aria-label="Admin routes">
-          <h2 style={{ marginTop: 0 }}>Admin routes</h2>
-          <WorkflowSection
-            title="Cross-branch and system-level screens"
-            description="These screens are reserved for tenant-wide review and administration."
-          >
-            <div
-              style={{
-                display: 'grid',
-                gap: 'var(--sc-spacing-4)',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              }}
-            >
-              {[
-                {
-                  title: 'Operations',
-                  body: 'Release health, queue state and operational incident signals.',
-                },
-                {
-                  title: 'Audit',
-                  body: 'Actor, branch, device and timeline tracing.',
-                },
-                {
-                  title: 'Users & Devices',
-                  body: 'Role assignment and device administration boundaries.',
-                },
-                {
-                  title: 'Settings',
-                  body: 'Tenant configuration and platform controls.',
-                },
-              ].map((item) => (
-                <article key={item.title} style={cardStyle}>
-                  <strong>{item.title}</strong>
-                  <p style={muted}>{item.body}</p>
-                </article>
-              ))}
-            </div>
-            <div style={statusRow}>
-              <StatusBadge
-                label="Contract-backed data pending"
-                tone="warning"
-              />
-              <StatusBadge label="Role-scoped" tone="info" />
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--sc-spacing-3)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <Button variant="primary">View operations</Button>
-              <Button variant="secondary">Open audit trail</Button>
-              <Button variant="secondary">Manage devices</Button>
-            </div>
-          </WorkflowSection>
+        <article style={cardStyle} aria-label="Admin workspace map">
+          <h2 style={{ marginTop: 0 }}>Workspace map</h2>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+            {[
+              ['Operations', 'Release health, queue state and operational incident signals.'],
+              ['Audit', 'Actor, branch, device and timeline tracing.'],
+              ['Users & Devices', 'Role assignment and device administration boundaries.'],
+              ['Cards', 'Lookup, assign, replace, and block workflows.'],
+              ['Branches', 'Branch create and edit surfaces.'],
+            ].map(([title, body]) => (
+              <article key={title} style={cardStyle}>
+                <strong>{title}</strong>
+                <p style={muted}>{body}</p>
+              </article>
+            ))}
+          </div>
+          <div style={statusRow}>
+            <StatusBadge label="Contract-backed data" tone="success" />
+            <StatusBadge label="Role-scoped" tone="info" />
+          </div>
         </article>
 
         <article style={cardStyle}>
           <h2 style={{ marginTop: 0 }}>Operational notices</h2>
           <Alert tone="info" title="Admin workspace">
-            Tenant-wide operations, audit and device controls remain separate
-            from cashier and supervisor tasks.
+            Tenant-wide operations, audit and device controls remain separate from cashier and supervisor tasks.
           </Alert>
           <Sheet open title="Release note">
             <p>
-              Contract-backed admin surfaces should remain data-driven as the
-              backend endpoints land.
+              Contract-backed admin surfaces should remain data-driven as the backend endpoints land.
             </p>
           </Sheet>
-          <Dialog open={false} title="Hidden dialog">
-            No-op
-          </Dialog>
         </article>
       </div>
     </section>

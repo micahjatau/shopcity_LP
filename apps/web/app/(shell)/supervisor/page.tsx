@@ -1,6 +1,9 @@
+'use client';
+
 import type { CSSProperties } from 'react';
+import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Accordion, Button, Tabs } from '../../../components/ui';
+import { Alert, Accordion, Tabs } from '../../../components/ui';
 import {
   ApprovalBadge,
   FraudSeverityBadge,
@@ -22,13 +25,25 @@ export default function SupervisorPage() {
         <p
           style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
         >
-          Approvals, fraud review, customer support and reports.
+          Approvals, fraud review, transaction detail and reports.
         </p>
       </header>
 
       <WorkflowSection
+        title="Review lanes"
+        description="Each lane has its own route so the supervisor can jump straight to the work item."
+      >
+        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+          <Link href="/supervisor/transactions">Transactions</Link>
+          <Link href="/supervisor/approvals">Approvals</Link>
+          <Link href="/supervisor/fraud">Fraud</Link>
+          <Link href="/supervisor/reports">Reports</Link>
+        </div>
+      </WorkflowSection>
+
+      <WorkflowSection
         title="Attention queue"
-        description="The supervisor shell now surfaces contract-backed approval and reporting panels."
+        description="Live summary cards still surface the most urgent contract-backed items."
       >
         <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
           <div style={statRow}>
@@ -63,8 +78,8 @@ export default function SupervisorPage() {
           <FraudFlagsPanel />
         </article>
 
-        <article style={cardStyle} aria-label="Review lanes">
-          <h2 style={{ marginTop: 0 }}>Review lanes</h2>
+        <article style={cardStyle} aria-label="Transaction lanes">
+          <h2 style={{ marginTop: 0 }}>Transaction lanes</h2>
           <Tabs
             defaultValue="overview"
             items={[
@@ -112,8 +127,7 @@ export default function SupervisorPage() {
             label: 'Supervisor support notes',
             content: (
               <p style={muted}>
-                Use the approval queue and reports workspace for the primary
-                review tasks.
+                Use the dedicated transaction, approval, fraud and reports routes for the primary review tasks.
               </p>
             ),
           },
@@ -121,21 +135,18 @@ export default function SupervisorPage() {
             value: 'actions',
             label: 'Action shortcuts',
             content: (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 'var(--sc-spacing-3)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Button variant="primary">Review approvals</Button>
-                <Button variant="secondary">Inspect fraud queue</Button>
-                <Button variant="secondary">Open reports</Button>
+              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+                <Link href="/supervisor/approvals">Review approvals</Link>
+                <Link href="/supervisor/fraud">Inspect fraud queue</Link>
+                <Link href="/supervisor/reports">Open reports</Link>
               </div>
             ),
           },
         ]}
       />
+      <Alert tone="info" title="Next step">
+        Transaction detail and reversal each have their own route now.
+      </Alert>
     </section>
   );
 }
