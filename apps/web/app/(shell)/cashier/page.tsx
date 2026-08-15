@@ -23,6 +23,26 @@ import {
 } from '../../../lib/api/generated-client';
 import { createApiRequest } from '../../../lib/api/request';
 
+const cashierRoutes = [
+  ['/cashier/customers', 'Customers'],
+  ['/cashier/sync', 'Sync queue'],
+] as const;
+
+const cashierNotes = [
+  [
+    'Lookup first',
+    'Scan a card or receipt to seed the customer context before earn or redeem actions.',
+  ],
+  [
+    'Route-backed follow-up',
+    'Use the customer and sync routes for detail, queue state, and reconciliation work.',
+  ],
+  [
+    'Backend contracts',
+    'Earn and redeem stay driven by the generated API contract rather than demo state.',
+  ],
+] as const;
+
 export default function CashierPage() {
   const [lookupValue, setLookupValue] = useState('');
   const [lookupMessage, setLookupMessage] = useState('Scan or type a card serial.');
@@ -147,77 +167,37 @@ export default function CashierPage() {
       <ScannerContextScope context="lookup" />
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Cashier shell</h1>
-        <p
-          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
-        >
+        <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
           Fast lookup, earn, redeem, customer detail and sync entry points.
         </p>
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--sc-spacing-3)',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div style={routeRow}>
           <ConnectionStatus />
           <SyncQueueIndicator />
-          <Link href="/cashier/customers">Open customers</Link>
-          <Link href="/cashier/sync">Open sync queue</Link>
+          {cashierRoutes.map(([href, label]) => (
+            <Link key={href} href={href} style={routeLink}>
+              {label}
+            </Link>
+          ))}
         </div>
       </header>
 
       <OfflineIndicator />
 
       <WorkflowSection
-        title="Primary cashier actions"
-        description="Lookup now resolves context before earn/redeem; sync and customer management have their own routes."
+        title="Cashier workflow"
+        description="Scan first, then move into earn, redeem, customer detail, or sync follow-up."
       >
-        <div
-          style={{
-            display: 'grid',
-            gap: 'var(--sc-spacing-4)',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          }}
-        >
-          {[
-            {
-              title: 'Lookup',
-              body: 'Scan card, receipt or customer reference.',
-              href: '/cashier/customers',
-            },
-            {
-              title: 'Earn',
-              body: 'Submit a contract-backed earn transaction.',
-              href: '#earn',
-            },
-            { title: 'Redeem', body: 'Submit a contract-backed redemption.', href: '#redeem' },
-            {
-              title: 'Customers',
-              body: 'Check identity, cards and loyalty balance.',
-              href: '/cashier/customers',
-            },
-            {
-              title: 'Sync',
-              body: 'Track local queue and reconciliation state.',
-              href: '/cashier/sync',
-            },
-          ].map((item) => (
-            <article key={item.title} style={cardStyle}>
-              <strong>{item.title}</strong>
-              <p style={muted}>{item.body}</p>
-              <Link href={item.href}>Open</Link>
+        <div style={gridStyle}>
+          {cashierNotes.map(([title, body]) => (
+            <article key={title} style={noteStyle}>
+              <strong>{title}</strong>
+              <p style={muted}>{body}</p>
             </article>
           ))}
         </div>
       </WorkflowSection>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--sc-spacing-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        }}
-      >
+      <div style={gridStyle}>
         <article style={cardStyle} aria-label="Lookup and status">
           <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
           <form onSubmit={handleLookup} style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
@@ -240,7 +220,7 @@ export default function CashierPage() {
                   <span>{value}</span>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+              <div style={tagRow}>
                 <StatusBadge label={lookupRecord.status ?? 'LOOKUP'} tone="success" />
                 {lookupRecord.customer?.id || lookupRecord.customerId ? (
                   <Link href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}>
@@ -323,6 +303,34 @@ const cardStyle: CSSProperties = {
   boxShadow: 'var(--sc-shadow-level1)',
 };
 
+const gridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+};
+
+const noteStyle: CSSProperties = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
+};
+
+const routeRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+};
+
+const routeLink: CSSProperties = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
+  textDecoration: 'none',
+};
+
 const muted: CSSProperties = {
   color: 'var(--sc-color-semantic-textSecondary)',
   marginBottom: 0,
@@ -333,4 +341,10 @@ const statRow: CSSProperties = {
   justifyContent: 'space-between',
   gap: 'var(--sc-spacing-3)',
   alignItems: 'center',
+};
+
+const tagRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-2)',
+  flexWrap: 'wrap',
 };
