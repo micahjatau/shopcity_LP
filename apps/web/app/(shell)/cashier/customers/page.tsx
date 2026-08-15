@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -77,6 +78,7 @@ export default function CashierCustomersPage() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [replaceConfirmation, setReplaceConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
+  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
   const selectedCard = useMemo(
@@ -152,6 +154,11 @@ export default function CashierCustomersPage() {
         { q: term, limit: '10' } as any,
         createApiRequest({ csrf: true }),
       );
+      setActionResponse(
+        response.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : null,
+      );
       if (response.status === 200) {
         const nextItems = (response.data.data.items ?? response.data.data ?? []) as CustomerRecord[];
         setItems(nextItems);
@@ -187,6 +194,11 @@ export default function CashierCustomersPage() {
         { customerId: selectedId, serialNumber: cardSerialNumber.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
+      setActionResponse(
+        response.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : null,
+      );
       setCardMessage(
         response.status === 201
           ? 'Card assigned.'
@@ -219,6 +231,11 @@ export default function CashierCustomersPage() {
         { serialNumber: replacementSerialNumber.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
+      setActionResponse(
+        response.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : null,
+      );
       setCardMessage(
         response.status === 201
           ? 'Card replacement created.'
@@ -247,6 +264,11 @@ export default function CashierCustomersPage() {
         selectedCardId,
         { status: cardStatus },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+      );
+      setActionResponse(
+        response.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : null,
       );
       setCardMessage(
         response.status === 200
@@ -278,6 +300,11 @@ export default function CashierCustomersPage() {
         selectedId,
         { status: customerStatus },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+      );
+      setActionResponse(
+        response.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : null,
       );
       setMessage(
         response.status === 200
@@ -319,6 +346,15 @@ export default function CashierCustomersPage() {
   const selectedLabel = selectedCustomer
     ? `${selectedCustomer.fullName ?? selectedCustomer.name ?? selectedCustomer.id}`
     : 'No customer selected';
+  const selectedPreview = selectedCustomer
+    ? [
+        ['Name', selectedCustomer.fullName ?? selectedCustomer.name ?? selectedCustomer.id ?? '—'],
+        ['Status', selectedCustomer.status ?? '—'],
+        ['Balance', selectedCustomer.balanceKobo],
+        ['Phone', selectedCustomer.phoneE164 ?? selectedCustomer.phone ?? '—'],
+        ['Cards', linkedCards.length],
+      ]
+    : [];
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
@@ -338,6 +374,21 @@ export default function CashierCustomersPage() {
       <Alert tone="info" title="Customer route context">
         Use this route for customer detail, card assignment, replacement, and status changes.
       </Alert>
+
+      <div style={summaryRow}>
+        <StatusBadge label="Detail-led" tone="success" />
+        <StatusBadge label="Route-backed" tone="info" />
+        <StatusBadge label="Contract-driven" tone="neutral" />
+      </div>
+
+      <div style={notesGrid}>
+        {pageNotes.map(([title, body]) => (
+          <article key={title} style={noteCardStyle}>
+            <strong>{title}</strong>
+            <p style={muted}>{body}</p>
+          </article>
+        ))}
+      </div>
 
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <StatusBadge label="Detail-led" tone="success" />
@@ -514,6 +565,35 @@ export default function CashierCustomersPage() {
           <span>History</span>
           <StatusBadge label={Array.isArray(ledger?.items) ? `${ledger.items.length} ledger rows` : 'No ledger loaded'} tone="neutral" />
         </div>
+        <Table>
+          <tbody>
+            {selectedPreview.map(([key, value]) => (
+              <tr key={key}>
+                <th scope="row">{key}</th>
+                <td>{renderValue(value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Action response</h2>
+        <p style={muted}>{actionResponse ? 'Last backend response is shown below.' : 'Submit a search or mutation to inspect the backend response.'}</p>
+        {actionResponse ? (
+          <Table>
+            <tbody>
+              {Object.entries(actionResponse)
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        ) : null}
       </section>
     </section>
   );
@@ -558,7 +638,7 @@ function normalizeCardRecord(value: unknown): CardRecord | null {
   return card;
 }
 
-const cardStyle = {
+const cardStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-lg)',
   padding: 'var(--sc-spacing-5)',
@@ -567,18 +647,49 @@ const cardStyle = {
   gap: 'var(--sc-spacing-4)',
 };
 
-const statRow = {
+const statRow: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   gap: 'var(--sc-spacing-3)',
   alignItems: 'center',
 };
 
-const rowButton = {
+const summaryRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const notesGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+};
+
+const noteCardStyle: CSSProperties = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
+};
+
+const muted: CSSProperties = {
+  color: 'var(--sc-color-semantic-textSecondary)',
+  marginBottom: 0,
+};
+
+const rowButton: CSSProperties = {
   padding: 0,
   border: 0,
   background: 'transparent',
   cursor: 'pointer',
   font: 'inherit',
-  textAlign: 'left' as const,
+  textAlign: 'left',
 };
+
+function renderValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'number') return <Money amountKobo={value} />;
+  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
