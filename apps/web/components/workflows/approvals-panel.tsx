@@ -90,18 +90,26 @@ export function ApprovalsPanel() {
         {message}
       </p>
       {selectedItem ? (
-        <Table>
-          <tbody>
-            {Object.entries(selectedItem)
-              .slice(0, 6)
-              .map(([key, value]) => (
-                <tr key={key}>
-                  <th scope="row">{key}</th>
-                  <td>{describeValue(value)}</td>
-                </tr>
-              ))}
-          </tbody>
-        </Table>
+        <>
+          <Alert tone="info" title="Selected approval">
+            {describeApproval(selectedItem)}
+          </Alert>
+          <Table>
+            <tbody>
+              {Object.entries(selectedItem)
+                .filter(([key]) =>
+                  ['id', 'status', 'customer', 'customerId', 'reasonCode', 'branchId', 'receipt', 'amountKobo'].includes(key),
+                )
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{describeValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        </>
       ) : null}
       {items.length === 0 ? (
         <Alert tone="warning" title="No approvals">
@@ -165,8 +173,18 @@ export function ApprovalsPanel() {
         value={reason}
         onChange={(event) => setReason(event.target.value)}
       />
+      <Alert tone="info" title="Decision context">
+        The selected approval is shown above before any decision is submitted.
+      </Alert>
     </section>
   );
+}
+
+function describeApproval(item: Record<string, unknown>) {
+  const customer = describeValue(item.customer ?? item.customerId);
+  const status = describeValue(item.status);
+  const reasonCode = describeValue(item.reasonCode ?? item.ruleCode ?? item.reason);
+  return `${customer} · ${status} · ${reasonCode}`;
 }
 
 function describeValue(value: unknown) {
@@ -174,5 +192,12 @@ function describeValue(value: unknown) {
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
   }
-  return JSON.stringify(value);
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (record.fullName || record.id) {
+      return String(record.fullName ?? record.id);
+    }
+    return JSON.stringify(record);
+  }
+  return String(value);
 }

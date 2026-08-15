@@ -200,7 +200,12 @@ export function ReportsWorkspace() {
             {summary.materializationState ? (
               <StatusBadge label={summary.materializationState} tone="warning" />
             ) : null}
+            {typeof summary.freshCount === 'number' ? <StatusBadge label={`Fresh ${summary.freshCount}`} tone="success" /> : null}
+            {typeof summary.staleCount === 'number' ? <StatusBadge label={`Stale ${summary.staleCount}`} tone="warning" /> : null}
           </div>
+          <Alert tone="info" title="Current filters">
+            {describeReportContext(summary, report, branchId, timezone, from, to)}
+          </Alert>
           {Array.isArray(summary.items) && summary.items.length > 0 ? (
             <Table>
               <thead>
@@ -227,12 +232,52 @@ export function ReportsWorkspace() {
             </Alert>
           )}
           {summary.reconciliation ? (
-            <Alert tone={summary.reconciliation.unhealthy ? 'danger' : 'success'} title="Reconciliation">
-              {JSON.stringify(summary.reconciliation)}
-            </Alert>
+            <>
+              <Alert tone={summary.reconciliation.unhealthy ? 'danger' : 'success'} title="Reconciliation">
+                {JSON.stringify(summary.reconciliation)}
+              </Alert>
+              {Array.isArray(summary.reconciliation.items) ? (
+                <Table>
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.reconciliation.items.slice(0, 5).map((item: Record<string, unknown>, index: number) => {
+                      const [label, value] = Object.entries(item)[0] ?? [`recon-${index + 1}`, 'Unknown'];
+                      return (
+                        <tr key={`${label}-${index}`}>
+                          <td>{label}</td>
+                          <td>{String(value)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : null}
     </section>
   );
+}
+
+function describeReportContext(
+  summary: any,
+  report: ReportKey,
+  branchId: string,
+  timezone: string,
+  from: string,
+  to: string,
+) {
+  const parts = [
+    `Report ${summary.scope ?? report}`,
+    `branch ${(summary.branchId ?? branchId) || 'Tenant-wide'}`,
+    `timezone ${(summary.timezone ?? timezone) || 'pending'}`,
+    `window ${(from || 'start')} → ${(to || 'now')}`,
+  ];
+  return parts.join(' · ');
 }

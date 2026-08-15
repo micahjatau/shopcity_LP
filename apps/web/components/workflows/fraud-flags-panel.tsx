@@ -186,18 +186,26 @@ export function FraudFlagsPanel() {
       )}
 
       {selectedItem ? (
-        <Table>
-          <tbody>
-            {Object.entries(selectedItem)
-              .slice(0, 5)
-              .map(([key, value]) => (
-                <tr key={key}>
-                  <th scope="row">{key}</th>
-                  <td>{describeValue(value)}</td>
-                </tr>
-              ))}
-          </tbody>
-        </Table>
+        <>
+          <Alert tone="info" title="Selected fraud flag">
+            {describeFraudItem(selectedItem)}
+          </Alert>
+          <Table>
+            <tbody>
+              {Object.entries(selectedItem)
+                .filter(([key]) =>
+                  ['id', 'status', 'severity', 'ruleCode', 'reasonCode', 'branchId', 'actorId', 'customer', 'receipt'].includes(key),
+                )
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{describeValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        </>
       ) : null}
 
       <RadioGroup
@@ -209,6 +217,9 @@ export function FraudFlagsPanel() {
         value={decision}
         onValueChange={(value) => setDecision(value as FraudFlagDecision)}
       />
+      <Alert tone="info" title="Decision context">
+        The selected fraud item above includes the branch, rule, and subject details.
+      </Alert>
     </section>
   );
 }
@@ -220,6 +231,11 @@ function severityTone(severity?: string) {
   return 'neutral';
 }
 
+function describeFraudItem(item: FraudFlagRecord) {
+  const subject = item.customer?.fullName ?? item.actorId ?? item.ruleCode ?? 'Fraud flag';
+  return `${subject} · ${item.severity ?? 'LOW'} · ${item.status ?? 'UNKNOWN'}`;
+}
+
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (
@@ -229,5 +245,12 @@ function describeValue(value: unknown) {
   ) {
     return String(value);
   }
-  return JSON.stringify(value);
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (record.fullName || record.id) {
+      return String(record.fullName ?? record.id);
+    }
+    return JSON.stringify(record);
+  }
+  return String(value);
 }
