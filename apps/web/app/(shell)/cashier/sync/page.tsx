@@ -291,75 +291,23 @@ export default function CashierSyncPage() {
         </Alert>
       ) : null}
 
-      <div style={gridStyle}>
-        <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Queue</h2>
-          {records.length === 0 ? (
-            <Alert tone="warning" title="No offline records">
-              There are no local offline earn records to sync.
-            </Alert>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <th>Local ID</th>
-                  <th>Card</th>
-                  <th>Receipt</th>
-                  <th>Amount</th>
-                  <th>State</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((record) => (
-                  <tr key={record.localId}>
-                    <td>
-                      <button type="button" onClick={() => setSelectedLocalId(record.localId)} style={rowButton}>
-                        {record.localId}
-                      </button>
-                    </td>
-                    <td>{record.cardBarcode}</td>
-                    <td>{record.receiptNumber}</td>
-                    <td><Money amountKobo={record.purchaseAmountKobo} /></td>
-                    <td>
-                      <StatusBadge label={record.syncState} tone={toneForState(record.syncState)} />
-                      {record.lastError ? <div style={smallText}>{record.lastError}</div> : null}
-                      {record.serverTransactionId || record.serverApprovalId ? (
-                        <div style={smallText}>
-                          {record.serverTransactionId ? `Txn ${record.serverTransactionId}` : null}
-                          {record.serverApprovalId ? ` Approval ${record.serverApprovalId}` : null}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td>
-                      {record.syncState === 'retry-required' ? (
-                        <Button variant="ghost" onClick={() => void retryRecord(record.localId)}>
-                          Retry now
-                        </Button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </section>
-
-        <section style={cardStyle}>
+      <div style={priorityGrid}>
+        <section style={highlightCardStyle}>
           <h2 style={{ marginTop: 0 }}>Selected details</h2>
           {selectedRecord ? (
-            <Table>
-              <tbody>
-                {selectedPreview.map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{renderValue(value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <>
+              <p style={muted}>This card stays ahead of the queue so the active record is always obvious.</p>
+              <Table>
+                <tbody>
+                  {selectedPreview.map(([key, value]) => (
+                    <tr key={key}>
+                      <th scope="row">{key}</th>
+                      <td>{renderValue(value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </>
           ) : (
             <Alert tone="warning" title="No selected record">
               Pick a queue entry to inspect its local metadata.
@@ -367,8 +315,35 @@ export default function CashierSyncPage() {
           )}
         </section>
 
-        <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Last batch results</h2>
+        <section style={highlightCardStyle}>
+          <h2 style={{ marginTop: 0 }}>Backend response</h2>
+          <p style={muted}>
+            {actionResponse
+              ? 'The latest backend payload and batch outcomes are visible here.'
+              : 'Submit a batch to inspect the backend response and reconciliation results.'}
+          </p>
+          {actionResponse ? (
+            <Table>
+              <tbody>
+                {Object.entries(actionResponse)
+                  .slice(0, 8)
+                  .map(([key, value]) => (
+                    <tr key={key}>
+                      <th scope="row">{key}</th>
+                      <td>{renderValue(value)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </Table>
+          ) : (
+            <Alert tone="warning" title="No backend response">
+              Sync a batch to surface the response payload.
+            </Alert>
+          )}
+          <div style={statusRow}>
+            <StatusBadge label={`Batch results ${lastBatchResults.length}`} tone="info" />
+            <StatusBadge label={`Queueable ${queueableRecords.length}`} tone="neutral" />
+          </div>
           {lastBatchResults.length > 0 ? (
             <Table>
               <thead>
@@ -394,42 +369,74 @@ export default function CashierSyncPage() {
                 ))}
               </tbody>
             </Table>
-          ) : (
-            <Alert tone="warning" title="No batch results">
-              Submit a batch to see per-record reconciliation results.
-            </Alert>
-          )}
+          ) : null}
+          <div style={toolbarRow}>
+            <Input
+              aria-label="Clear confirmation"
+              placeholder="Type CLEAR to remove confirmed"
+              value={clearConfirmation}
+              onChange={(event) => setClearConfirmation(event.target.value)}
+            />
+            <Button variant="ghost" onClick={() => void clearConfirmed()} disabled={!records.some((record) => record.syncState === 'confirmed')}>
+              Clear confirmed
+            </Button>
+          </div>
         </section>
       </div>
 
       <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionResponse ? 'Backend response is shown below.' : 'Submit a batch or clear action to inspect the backend response.'}</p>
-        {actionResponse ? (
+        <h2 style={{ marginTop: 0 }}>Queue</h2>
+        {records.length === 0 ? (
+          <Alert tone="warning" title="No offline records">
+            There are no local offline earn records to sync.
+          </Alert>
+        ) : (
           <Table>
+            <thead>
+              <tr>
+                <th>Local ID</th>
+                <th>Card</th>
+                <th>Receipt</th>
+                <th>Amount</th>
+                <th>State</th>
+                <th>Action</th>
+              </tr>
+            </thead>
             <tbody>
-              {Object.entries(actionResponse)
-                .slice(0, 8)
-                .map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{renderValue(value)}</td>
-                  </tr>
-                ))}
+              {records.map((record) => (
+                <tr key={record.localId}>
+                  <td>
+                    <button type="button" onClick={() => setSelectedLocalId(record.localId)} style={rowButton}>
+                      {record.localId}
+                    </button>
+                  </td>
+                  <td>{record.cardBarcode}</td>
+                  <td>{record.receiptNumber}</td>
+                  <td><Money amountKobo={record.purchaseAmountKobo} /></td>
+                  <td>
+                    <StatusBadge label={record.syncState} tone={toneForState(record.syncState)} />
+                    {record.lastError ? <div style={smallText}>{record.lastError}</div> : null}
+                    {record.serverTransactionId || record.serverApprovalId ? (
+                      <div style={smallText}>
+                        {record.serverTransactionId ? `Txn ${record.serverTransactionId}` : null}
+                        {record.serverApprovalId ? ` Approval ${record.serverApprovalId}` : null}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
+                    {record.syncState === 'retry-required' ? (
+                      <Button variant="ghost" onClick={() => void retryRecord(record.localId)}>
+                        Retry now
+                      </Button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </Table>
-        ) : null}
-        <div style={toolbarRow}>
-          <Input
-            aria-label="Clear confirmation"
-            placeholder="Type CLEAR to remove confirmed"
-            value={clearConfirmation}
-            onChange={(event) => setClearConfirmation(event.target.value)}
-          />
-          <Button variant="ghost" onClick={() => void clearConfirmed()} disabled={!records.some((record) => record.syncState === 'confirmed')}>
-            Clear confirmed
-          </Button>
-        </div>
+        )}
       </section>
     </section>
   );
@@ -529,10 +536,16 @@ const statusRow: CSSProperties = {
   flexWrap: 'wrap',
 };
 
-const gridStyle: CSSProperties = {
+const priorityGrid: CSSProperties = {
   display: 'grid',
   gap: 'var(--sc-spacing-4)',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+};
+
+const highlightCardStyle: CSSProperties = {
+  ...cardStyle,
+  borderColor: 'var(--sc-color-brand-300)',
+  boxShadow: 'var(--sc-shadow-level2)',
 };
 
 const controlRow: CSSProperties = {

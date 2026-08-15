@@ -18,6 +18,50 @@ const adminRoutes = [
   ['/admin/adjustments', 'Adjustments'],
 ] as const;
 
+const adminRouteCards = [
+  {
+    href: '/admin/operations',
+    label: 'Operations',
+    body: 'Queue health, control work, and the fast path into daily action.',
+    featured: true,
+  },
+  {
+    href: '/admin/users',
+    label: 'Users',
+    body: 'Role review, account access, and identity management.',
+  },
+  {
+    href: '/admin/devices',
+    label: 'Devices',
+    body: 'Device registration, ownership, and sync readiness.',
+  },
+  {
+    href: '/admin/cards',
+    label: 'Cards',
+    body: 'Card lifecycle and assignment detail.',
+  },
+  {
+    href: '/admin/branches',
+    label: 'Branches',
+    body: 'Branch policy, scope, and localized operations.',
+  },
+  {
+    href: '/admin/audit',
+    label: 'Audit',
+    body: 'Review traceable system and operator history.',
+  },
+  {
+    href: '/admin/reports',
+    label: 'Reports',
+    body: 'Operational reporting, separated from control.',
+  },
+  {
+    href: '/admin/adjustments',
+    label: 'Adjustments',
+    body: 'Explicit ledger corrections and approvals.',
+  },
+] as const;
+
 const workspaceNotes = [
   [
     'Contract-backed controls',
@@ -54,9 +98,14 @@ export default function AdminPage() {
         description="Use the dedicated route-backed workspaces for each admin action."
       >
         <div style={routeGrid}>
-          {adminRoutes.map(([href, label]) => (
-            <Link key={href} href={href} style={routeLink}>
-              {label}
+          {adminRouteCards.map((route) => (
+            <Link
+              key={route.href}
+              href={route.href}
+              style={'featured' in route ? featuredRouteLink : routeLink}
+            >
+              <strong>{route.label}</strong>
+              <span style={routeBody}>{route.body}</span>
             </Link>
           ))}
         </div>
@@ -112,17 +161,30 @@ const gridStyle: CSSProperties = {
 };
 
 const routeGrid: CSSProperties = {
-  display: 'flex',
+  display: 'grid',
   gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
 };
 
 const routeLink: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
+  padding: 'var(--sc-spacing-3)',
   background: 'var(--sc-color-neutral-0)',
   textDecoration: 'none',
+  display: 'grid',
+  gap: 'var(--sc-spacing-1)',
+};
+
+const featuredRouteLink: CSSProperties = {
+  ...routeLink,
+  gridColumn: 'span 2',
+  padding: 'var(--sc-spacing-4)',
+};
+
+const routeBody: CSSProperties = {
+  color: 'var(--sc-color-semantic-textSecondary)',
+  fontSize: 'var(--sc-font-size-sm)',
 };
 
 const noteStyle: CSSProperties = {

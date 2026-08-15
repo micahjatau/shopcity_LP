@@ -14,6 +14,30 @@ const supervisorRoutes = [
   ['/supervisor/reports', 'Reports'],
 ] as const;
 
+const supervisorRouteCards = [
+  {
+    href: '/supervisor/transactions',
+    label: 'Transactions',
+    body: 'Start with the queue, then drill into a single item.',
+    featured: true,
+  },
+  {
+    href: '/supervisor/approvals',
+    label: 'Approvals',
+    body: 'Review evidence-led decisions and pending actions.',
+  },
+  {
+    href: '/supervisor/fraud',
+    label: 'Fraud',
+    body: 'Investigate flags, severity, and supporting evidence.',
+  },
+  {
+    href: '/supervisor/reports',
+    label: 'Reports',
+    body: 'Compare the report view against live queue health.',
+  },
+] as const;
+
 const supervisorNotes = [
   [
     'Review lanes',
@@ -50,9 +74,14 @@ export default function SupervisorPage() {
         description="Jump straight into the route-backed workspace for the item you need to investigate."
       >
         <div style={routeGrid}>
-          {supervisorRoutes.map(([href, label]) => (
-            <Link key={href} href={href} style={routeLink}>
-              {label}
+          {supervisorRouteCards.map((route) => (
+            <Link
+              key={route.href}
+              href={route.href}
+              style={'featured' in route ? featuredRouteLink : routeLink}
+            >
+              <strong>{route.label}</strong>
+              <span style={routeBody}>{route.body}</span>
             </Link>
           ))}
         </div>
@@ -108,17 +137,30 @@ const gridStyle: CSSProperties = {
 };
 
 const routeGrid: CSSProperties = {
-  display: 'flex',
+  display: 'grid',
   gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
 };
 
 const routeLink: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
+  padding: 'var(--sc-spacing-3)',
   background: 'var(--sc-color-neutral-0)',
   textDecoration: 'none',
+  display: 'grid',
+  gap: 'var(--sc-spacing-1)',
+};
+
+const featuredRouteLink: CSSProperties = {
+  ...routeLink,
+  gridColumn: 'span 2',
+  padding: 'var(--sc-spacing-4)',
+};
+
+const routeBody: CSSProperties = {
+  color: 'var(--sc-color-semantic-textSecondary)',
+  fontSize: 'var(--sc-font-size-sm)',
 };
 
 const noteStyle: CSSProperties = {

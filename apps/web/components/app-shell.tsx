@@ -293,7 +293,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             style={{
               display: 'grid',
               gap: 'var(--sc-spacing-3)',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
             }}
           >
             <div
@@ -305,6 +305,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             >
               <p style={{ margin: 0, opacity: 0.8 }}>Shell context</p>
               <strong>{configMessage}</strong>
+              <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
+                Session {sessionLabel ?? 'pending'} · {status}
+              </div>
             </div>
             <div
               style={{
@@ -326,7 +329,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 padding: 'var(--sc-spacing-4)',
               }}
             >
-              <p style={{ margin: 0, opacity: 0.8 }}>Branch</p>
+              <p style={{ margin: 0, opacity: 0.8 }}>Branch and policy</p>
               <strong>
                 {context?.branch?.name ?? context?.branch?.id ?? 'Loading…'}
               </strong>
@@ -334,24 +337,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 {context?.tenant?.name ?? context?.tenant?.id ?? 'Tenant pending'}
                 {context?.branch?.timezone ? ` · ${context.branch.timezone}` : ''}
               </div>
-            </div>
-            <div
-              style={{
-                borderRadius: 'var(--sc-radius-lg)',
-                background: 'rgba(255,255,255,0.08)',
-                padding: 'var(--sc-spacing-4)',
-              }}
-            >
-              <p style={{ margin: 0, opacity: 0.8 }}>Policy context</p>
-              <strong>
+              <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
                 {typeof context?.policies?.defaultEarnRateBps === 'number'
                   ? `${context.policies.defaultEarnRateBps / 100}% earn rate`
-                  : 'Loading…'}
-              </strong>
-              <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
-                {typeof context?.policies?.minRedemptionKobo === 'number'
-                  ? `Min redemption ₦${(context.policies.minRedemptionKobo / 100).toLocaleString()}`
                   : 'Policy values pending'}
+                {typeof context?.policies?.minRedemptionKobo === 'number'
+                  ? ` · Min redemption ₦${(context.policies.minRedemptionKobo / 100).toLocaleString()}`
+                  : ''}
               </div>
             </div>
           </div>
