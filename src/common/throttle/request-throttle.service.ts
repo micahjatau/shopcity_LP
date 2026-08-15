@@ -1,8 +1,10 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RedisClientService } from '../redis/redis.client.service';
 
 @Injectable()
 export class RequestThrottleService {
+  private readonly logger = new Logger(RequestThrottleService.name);
+
   constructor(private readonly redisClientService: RedisClientService) {}
 
   async consume(key: string, limit: number, windowMs: number) {
@@ -16,7 +18,15 @@ export class RequestThrottleService {
         [windowMs],
       );
     } catch {
-      throw new ServiceUnavailableException('Redis throttling is unavailable');
+      this.logger.warn(
+        `Redis throttling unavailable for ${key}; allowing request`,
+      );
+      return {
+        allowed: true,
+        count: 0,
+        remaining: limit,
+        resetAt: new Date(Date.now() + windowMs),
+      };
     }
 
     const remaining = Math.max(0, limit - count);

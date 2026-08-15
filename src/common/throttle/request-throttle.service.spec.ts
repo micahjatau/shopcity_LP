@@ -39,4 +39,20 @@ describe('RequestThrottleService', () => {
       [15_000],
     );
   });
+
+  it('allows requests when Redis throttling is unavailable', async () => {
+    const redisClientService = {
+      eval: jest.fn().mockRejectedValue(new Error('redis down')),
+    } as unknown as RedisClientService;
+    const service = new RequestThrottleService(redisClientService);
+
+    const result = await service.consume('auth.login:bucket', 3, 15_000);
+
+    expect(result).toMatchObject({
+      allowed: true,
+      count: 0,
+      remaining: 3,
+    });
+    expect(result.resetAt).toBeInstanceOf(Date);
+  });
 });
