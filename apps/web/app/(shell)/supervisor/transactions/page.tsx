@@ -10,6 +10,12 @@ import { createApiRequest } from '../../../../lib/api/request';
 import { Alert, Button, Input, Textarea, Table } from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
+const relatedRoutes = [
+  ['/supervisor/approvals', 'Approvals'],
+  ['/supervisor/fraud', 'Fraud'],
+  ['/supervisor/reports', 'Reports'],
+] as const;
+
 export default function SupervisorTransactionsPage() {
   const [transactionId, setTransactionId] = useState('');
   const [reason, setReason] = useState('');
@@ -104,9 +110,21 @@ export default function SupervisorTransactionsPage() {
         </p>
         <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
           <Link href="/supervisor">Back to supervisor</Link>
-          <Link href="/supervisor/approvals">Approvals</Link>
+          {relatedRoutes.map(([href, label]) => (
+            <Link key={href} href={href}>{label}</Link>
+          ))}
         </div>
       </header>
+
+      <Alert tone="info" title="Transaction route context">
+        Use this route for search, detail inspection, and compensating reversals.
+      </Alert>
+
+      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <StatusBadge label="Immutable reversal flow" tone="success" />
+        <StatusBadge label="Backend contract" tone="info" />
+        <StatusBadge label="Investigative review" tone="neutral" />
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--sc-spacing-3)' }}>
         <Input aria-label="Transaction ID" placeholder="Transaction ID" value={transactionId} onChange={(event) => setTransactionId(event.target.value)} />
@@ -122,6 +140,11 @@ export default function SupervisorTransactionsPage() {
 
       {transaction ? (
         <>
+          <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+            <StatusBadge label={transaction.status ?? 'UNKNOWN'} tone="info" />
+            <StatusBadge label={transaction.type ?? 'Transaction'} tone="neutral" />
+            <StatusBadge label={transaction.direction ?? 'Direction pending'} tone="success" />
+          </div>
           <Table>
             <tbody>
               {summaryRows.map(([key, value]) => (
