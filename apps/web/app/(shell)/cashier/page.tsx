@@ -115,7 +115,7 @@ export default function CashierPage() {
         ['Card status', lookupRecord.status ?? lookupRecord.cardStatus ?? '—'],
         [
           'Available balance',
-          lookupRecord.availableBalanceKobo ? (
+          typeof lookupRecord.availableBalanceKobo === 'number' ? (
             <Money amountKobo={lookupRecord.availableBalanceKobo} />
           ) : (
             '—'
@@ -123,7 +123,7 @@ export default function CashierPage() {
         ],
         [
           'Expiring credit',
-          lookupRecord.expiringCreditKobo ? (
+          typeof lookupRecord.expiringCreditKobo === 'number' ? (
             <Money amountKobo={lookupRecord.expiringCreditKobo} />
           ) : (
             '—'
@@ -131,6 +131,16 @@ export default function CashierPage() {
         ],
       ]
     : [];
+
+  const lookupContext = lookupRecord
+    ? {
+        cardSerialNumber:
+          lookupRecord.serialNumber ?? lookupRecord.cardSerialNumber ?? lookupValue.trim(),
+        customerName: lookupRecord.customer?.fullName ?? lookupRecord.customerName,
+        availableBalanceKobo: lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
+        expiringCreditKobo: lookupRecord.expiringCreditKobo,
+      }
+    : undefined;
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
@@ -244,12 +254,12 @@ export default function CashierPage() {
 
         <article id="earn" style={cardStyle} aria-label="Earn transaction">
           <h2 style={{ marginTop: 0 }}>Earn transaction</h2>
-          <EarnTransactionForm />
+          <EarnTransactionForm lookupContext={lookupContext} />
         </article>
 
         <article id="redeem" style={cardStyle} aria-label="Redeem transaction">
           <h2 style={{ marginTop: 0 }}>Redeem transaction</h2>
-          <RedeemTransactionForm />
+          <RedeemTransactionForm lookupContext={lookupContext} />
         </article>
 
         <article style={cardStyle} aria-label="Customer detail">
@@ -292,15 +302,10 @@ export default function CashierPage() {
 
         <article style={cardStyle} aria-label="Shift snapshot">
           <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
+          <p style={muted}>Offline queue state is shown in the header and on the sync route.</p>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            <div style={statRow}>
-              <span>Pending sync</span>
-              <StatusBadge label="3 saved locally" tone="warning" />
-            </div>
-            <div style={statRow}>
-              <span>Sync health</span>
-              <StatusBadge label="Stable" tone="success" />
-            </div>
+            <ConnectionStatus />
+            <SyncQueueIndicator />
           </div>
           <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
           <Link href="/cashier/sync">Open sync queue</Link>

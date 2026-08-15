@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   redemptionsControllerRedeemV1,
   type RedeemTransactionDto,
@@ -15,7 +15,17 @@ function createDraftKey() {
   return crypto.randomUUID();
 }
 
-export function RedeemTransactionForm() {
+type RedeemTransactionFormProps = {
+  lookupContext?: {
+    cardSerialNumber?: string;
+    customerName?: string;
+    availableBalanceKobo?: number | null;
+    expiringCreditKobo?: number | null;
+    receiptNumber?: string;
+  };
+};
+
+export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
   const [cardSerialNumber, setCardSerialNumber] = useState('');
@@ -29,6 +39,19 @@ export function RedeemTransactionForm() {
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!lookupContext) return;
+    if (lookupContext.cardSerialNumber) {
+      setCardSerialNumber(lookupContext.cardSerialNumber);
+    }
+    if (lookupContext.receiptNumber) {
+      setReceiptNumber(lookupContext.receiptNumber);
+    }
+    if (typeof lookupContext.availableBalanceKobo === 'number') {
+      setBasketAmount(lookupContext.availableBalanceKobo);
+    }
+  }, [lookupContext]);
 
   const draftSummary = useMemo(
     () => [
@@ -116,6 +139,17 @@ export function RedeemTransactionForm() {
         Use lookup first, verify the remaining balance and allowed redemption,
         then confirm the redemption.
       </Alert>
+      {lookupContext ? (
+        <Alert tone="success" title="Lookup context applied">
+          {lookupContext.customerName ?? 'Customer'} is loaded.
+          {typeof lookupContext.availableBalanceKobo === 'number' ? (
+            <>
+              {' '}
+              Available balance: <Money amountKobo={lookupContext.availableBalanceKobo} />.
+            </>
+          ) : null}
+        </Alert>
+      ) : null}
       <Input
         aria-label="Card serial number"
         placeholder="Card serial"
