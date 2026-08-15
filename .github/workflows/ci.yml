@@ -1,6 +1,7 @@
 name: ci
 
 # Touch to re-register the workflow after Actions delivery issues.
+# Retry touch to refresh GitHub Actions delivery.
 
 on:
   push:
