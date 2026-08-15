@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   branchesControllerCreateBranchV1,
@@ -9,6 +9,7 @@ import {
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
 import { Alert, Button, Input, Table } from '../../../../components/ui';
+import { StatusBadge } from '../../../../components/shopcity';
 
 export default function AdminBranchesPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -16,6 +17,11 @@ export default function AdminBranchesPage() {
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('Africa/Lagos');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const selectedBranch = useMemo(
+    () => items.find((item) => item.id === selectedId) ?? null,
+    [items, selectedId],
+  );
 
   async function refresh() {
     try {
@@ -34,10 +40,6 @@ export default function AdminBranchesPage() {
       setMessage('Branches unavailable.');
     }
   }
-
-  useEffect(() => {
-    void refresh();
-  }, []);
 
   async function createBranch() {
     try {
@@ -86,6 +88,11 @@ export default function AdminBranchesPage() {
         <Button variant="secondary" onClick={() => void updateBranch()} disabled={!selectedId}>Update branch</Button>
         <Button variant="ghost" onClick={() => void refresh()}>Refresh</Button>
       </div>
+      {selectedBranch ? (
+        <Alert tone="info" title="Selected branch">
+          {selectedBranch.name ?? selectedBranch.id} · {selectedBranch.timezone ?? 'Timezone pending'}
+        </Alert>
+      ) : null}
       {items.length === 0 ? (
         <Alert tone="warning" title="No branches">No branches were returned.</Alert>
       ) : (
@@ -96,7 +103,11 @@ export default function AdminBranchesPage() {
           <tbody>
             {items.map((item) => (
               <tr key={item.id ?? item.name}>
-                <td><button type="button" onClick={() => setSelectedId(item.id ?? null)} style={rowButton}>{item.name ?? 'Branch'}</button></td>
+                <td>
+                  <button type="button" onClick={() => setSelectedId(item.id ?? null)} style={rowButton}>
+                    {item.name ?? 'Branch'}
+                  </button>
+                </td>
                 <td>{item.timezone ?? '—'}</td>
                 <td>{item.id ?? '—'}</td>
               </tr>
@@ -104,6 +115,12 @@ export default function AdminBranchesPage() {
           </tbody>
         </Table>
       )}
+      {selectedBranch ? (
+        <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+          <StatusBadge label={`Week start ${selectedBranch.receiptWeekStartDay ?? '—'}`} tone="info" />
+          <StatusBadge label={`Timezone ${selectedBranch.timezone ?? '—'}`} tone="neutral" />
+        </div>
+      ) : null}
     </section>
   );
 }
