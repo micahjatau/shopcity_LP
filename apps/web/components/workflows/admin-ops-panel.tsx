@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   auditControllerListV1,
@@ -14,7 +15,7 @@ import {
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Select, Separator, Table } from '../ui';
-import { StatusBadge } from '../shopcity';
+import { StatusBadge, Money } from '../shopcity';
 
 type UserRecord = Record<string, unknown> & {
   id?: string;
@@ -60,6 +61,8 @@ export function AdminOperationsPanel() {
     useState<UpdateDeviceDtoStatus>('ACTIVE');
   const [userConfirmation, setUserConfirmation] = useState('');
   const [deviceConfirmation, setDeviceConfirmation] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedUserId) ?? null,
@@ -69,10 +72,7 @@ export function AdminOperationsPanel() {
     () => devices.find((item) => item.id === selectedDeviceId) ?? null,
     [devices, selectedDeviceId],
   );
-  const selectedAudit = useMemo(
-    () => auditRows.find((item) => item.id === auditRows[0]?.id) ?? null,
-    [auditRows],
-  );
+  const selectedAudit = useMemo(() => auditRows[0] ?? null, [auditRows]);
 
   useEffect(() => {
     if (selectedUser) {
@@ -154,14 +154,20 @@ export function AdminOperationsPanel() {
       setMessage('Type UPDATE to confirm the user change.');
       return;
     }
-    await usersControllerUpdateRoleV1(
+    setActionMessage(`Updating role for ${selectedUserId}…`);
+    const response = await usersControllerUpdateRoleV1(
       selectedUserId,
       { role },
-      createApiRequest({ csrf: true }),
+      createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+    );
+    setActionResponse(
+      response.data && typeof response.data === 'object'
+        ? (response.data as Record<string, unknown>)
+        : null,
     );
     setMessage(`Updated role for ${selectedUserId}.`);
     setUserConfirmation('');
-    void refreshUsers();
+    await refreshUsers();
   }
 
   async function updateSelectedUserStatus() {
@@ -170,14 +176,20 @@ export function AdminOperationsPanel() {
       setMessage('Type UPDATE to confirm the user change.');
       return;
     }
-    await usersControllerUpdateStatusV1(
+    setActionMessage(`Updating status for ${selectedUserId}…`);
+    const response = await usersControllerUpdateStatusV1(
       selectedUserId,
       { status },
-      createApiRequest({ csrf: true }),
+      createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+    );
+    setActionResponse(
+      response.data && typeof response.data === 'object'
+        ? (response.data as Record<string, unknown>)
+        : null,
     );
     setMessage(`Updated status for ${selectedUserId}.`);
     setUserConfirmation('');
-    void refreshUsers();
+    await refreshUsers();
   }
 
   async function updateSelectedDeviceStatus() {
@@ -186,30 +198,26 @@ export function AdminOperationsPanel() {
       setMessage('Type UPDATE to confirm the device change.');
       return;
     }
-    await branchesControllerUpdateDeviceV1(
+    setActionMessage(`Updating device ${selectedDeviceId}…`);
+    const response = await branchesControllerUpdateDeviceV1(
       selectedDeviceId,
       { status: deviceStatus },
-      createApiRequest({ csrf: true }),
+      createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+    );
+    setActionResponse(
+      response.data && typeof response.data === 'object'
+        ? (response.data as Record<string, unknown>)
+        : null,
     );
     setMessage(`Updated device ${selectedDeviceId}.`);
     setDeviceConfirmation('');
-    void refreshDevices();
+    await refreshDevices();
   }
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-3)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <Button
-          variant="secondary"
-          loading={loading}
-          onClick={() => void refreshAll()}
-        >
+    <section style={layoutGrid}>
+      <div style={toolbarRow}>
+        <Button variant="secondary" loading={loading} onClick={() => void refreshAll()}>
           Refresh admin data
         </Button>
         <Button variant="ghost" onClick={() => void refreshUsers()}>
@@ -220,16 +228,20 @@ export function AdminOperationsPanel() {
         </Button>
       </div>
 
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-        {message}
-      </p>
+      <p style={muted}>{message}</p>
 
       <Alert tone="info" title="Admin contract surfaces">
-        Use the backend contracts to review users, devices and audit trails
-        before making role or status changes.
+        Use the backend contracts to review users, devices and audit trails before making role or status changes.
       </Alert>
 
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
+      <div style={summaryRow}>
+        <StatusBadge label={`Users ${users.length}`} tone="info" />
+        <StatusBadge label={`Devices ${devices.length}`} tone="info" />
+        <StatusBadge label={`Audit ${auditRows.length}`} tone="success" />
+        <StatusBadge label={actorId || 'Audit actor pending'} tone="neutral" />
+      </div>
+
+      <div style={gridStyle}>
         <section style={cardStyle} aria-label="Users workspace">
           <h3 style={{ marginTop: 0 }}>Users workspace</h3>
           {users.length === 0 ? (
@@ -267,24 +279,17 @@ export function AdminOperationsPanel() {
             </Table>
           )}
           {selectedUser ? (
-            <div
-              style={{
-                display: 'grid',
-                gap: 'var(--sc-spacing-3)',
-                marginTop: 'var(--sc-spacing-4)',
-              }}
-            >
+            <div style={detailGrid}>
               <Alert tone="info" title="Selected user">
                 {selectedUser.username ?? selectedUser.id} is ready for role and status review.
               </Alert>
+              <div style={summaryRow}>
+                <StatusBadge label={selectedUser.role ?? 'Unknown role'} tone="info" />
+                <StatusBadge label={selectedUser.status ?? 'Unknown status'} tone={selectedUser.status === 'ACTIVE' ? 'success' : 'warning'} />
+                <StatusBadge label={selectedUser.branchId ?? 'Tenant-wide'} tone="neutral" />
+              </div>
               <Separator />
-              <div
-                style={{
-                  display: 'grid',
-                  gap: 'var(--sc-spacing-3)',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                }}
-              >
+              <div style={formGrid}>
                 <Select
                   aria-label="Role"
                   value={role}
@@ -314,27 +319,18 @@ export function AdminOperationsPanel() {
                 value={userConfirmation}
                 onChange={(event) => setUserConfirmation(event.target.value)}
               />
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 'var(--sc-spacing-3)',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div style={toolbarRow}>
                 <Button onClick={() => void updateSelectedUserRole()}>
                   Update role
                 </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => void updateSelectedUserStatus()}
-                >
+                <Button variant="secondary" onClick={() => void updateSelectedUserStatus()}>
                   Update status
                 </Button>
               </div>
               <Table>
                 <tbody>
                   {Object.entries(selectedUser)
-                    .slice(0, 5)
+                    .slice(0, 6)
                     .map(([key, value]) => (
                       <tr key={key}>
                         <th scope="row">{key}</th>
@@ -384,16 +380,14 @@ export function AdminOperationsPanel() {
             </Table>
           )}
           {selectedDevice ? (
-            <div
-              style={{
-                display: 'grid',
-                gap: 'var(--sc-spacing-3)',
-                marginTop: 'var(--sc-spacing-4)',
-              }}
-            >
+            <div style={detailGrid}>
               <Alert tone="info" title="Selected device">
                 {selectedDevice.name ?? selectedDevice.id} is ready for status or rotation review.
               </Alert>
+              <div style={summaryRow}>
+                <StatusBadge label={selectedDevice.status ?? 'Unknown status'} tone={selectedDevice.status === 'ACTIVE' ? 'success' : 'warning'} />
+                <StatusBadge label={selectedDevice.branchId ?? 'Tenant-wide'} tone="neutral" />
+              </div>
               <Separator />
               <Select
                 aria-label="Device status"
@@ -412,21 +406,13 @@ export function AdminOperationsPanel() {
                 value={deviceConfirmation}
                 onChange={(event) => setDeviceConfirmation(event.target.value)}
               />
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 'var(--sc-spacing-3)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Button onClick={() => void updateSelectedDeviceStatus()}>
-                  Update device status
-                </Button>
-              </div>
+              <Button onClick={() => void updateSelectedDeviceStatus()}>
+                Update device status
+              </Button>
               <Table>
                 <tbody>
                   {Object.entries(selectedDevice)
-                    .slice(0, 5)
+                    .slice(0, 6)
                     .map(([key, value]) => (
                       <tr key={key}>
                         <th scope="row">{key}</th>
@@ -441,13 +427,7 @@ export function AdminOperationsPanel() {
 
         <section style={cardStyle} aria-label="Audit workspace">
           <h3 style={{ marginTop: 0 }}>Audit workspace</h3>
-          <div
-            style={{
-              display: 'grid',
-              gap: 'var(--sc-spacing-3)',
-              gridTemplateColumns: 'minmax(0, 1fr) auto',
-            }}
-          >
+          <div style={auditFilterRow}>
             <Input
               aria-label="Audit actor"
               value={actorId}
@@ -473,12 +453,7 @@ export function AdminOperationsPanel() {
               </thead>
               <tbody>
                 {auditRows.slice(0, 5).map((item) => (
-                  <tr
-                    key={
-                      item.id ??
-                      `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`
-                    }
-                  >
+                  <tr key={item.id ?? `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`}>
                     <td>{item.action ?? '—'}</td>
                     <td>{item.subjectType ?? item.subjectId ?? '—'}</td>
                     <td>{item.actorId ?? '—'}</td>
@@ -489,14 +464,14 @@ export function AdminOperationsPanel() {
             </Table>
           )}
           {selectedAudit ? (
-            <>
+            <div style={detailGrid}>
               <Alert tone="info" title="Selected audit row">
                 {selectedAudit.action ?? selectedAudit.subjectType ?? selectedAudit.subjectId ?? 'Audit event'}
               </Alert>
               <Table>
                 <tbody>
                   {Object.entries(selectedAudit)
-                    .slice(0, 5)
+                    .slice(0, 6)
                     .map(([key, value]) => (
                       <tr key={key}>
                         <th scope="row">{key}</th>
@@ -505,41 +480,52 @@ export function AdminOperationsPanel() {
                     ))}
                 </tbody>
               </Table>
-            </>
+            </div>
           ) : null}
-          <div
-            style={{
-              display: 'flex',
-              gap: 'var(--sc-spacing-3)',
-              flexWrap: 'wrap',
-              marginTop: 'var(--sc-spacing-3)',
-            }}
-          >
-            <StatusBadge label={`Users: ${users.length}`} tone="info" />
-            <StatusBadge label={`Devices: ${devices.length}`} tone="info" />
-            <StatusBadge
-              label={`Audit rows: ${auditRows.length}`}
-              tone="success"
-            />
-          </div>
         </section>
       </div>
+
+      <section style={cardStyle} aria-label="Action response">
+        <h3 style={{ marginTop: 0 }}>Action response</h3>
+        <p style={muted}>{actionMessage || 'Select a record and submit a change to see the backend response here.'}</p>
+        {actionResponse ? (
+          <Table>
+            <tbody>
+              {Object.entries(actionResponse)
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{describeValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        ) : null}
+      </section>
     </section>
   );
 }
 
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  )
-    return String(value);
-  return JSON.stringify(value);
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
-const cardStyle = {
+const layoutGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+};
+
+const gridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+};
+
+const cardStyle: CSSProperties = {
   display: 'grid',
   gap: 'var(--sc-spacing-4)',
   border: '1px solid var(--sc-color-semantic-border)',
@@ -549,12 +535,46 @@ const cardStyle = {
   boxShadow: 'var(--sc-shadow-level1)',
 };
 
-const rowButtonStyle = {
+const rowButtonStyle: CSSProperties = {
   padding: 0,
   border: 0,
   background: 'transparent',
   color: 'inherit',
   cursor: 'pointer',
   font: 'inherit',
-  textAlign: 'left' as const,
+  textAlign: 'left',
+};
+
+const toolbarRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const summaryRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const formGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+};
+
+const auditFilterRow: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+};
+
+const detailGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+};
+
+const muted: CSSProperties = {
+  color: 'var(--sc-color-semantic-textSecondary)',
+  marginBottom: 0,
 };
