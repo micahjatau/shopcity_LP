@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   cardsControllerCreateCardV1,
@@ -17,12 +17,21 @@ export default function AdminCardsPage() {
   const [customerId, setCustomerId] = useState('');
   const [newSerialNumber, setNewSerialNumber] = useState('');
   const [reason, setReason] = useState('');
+  const [assignConfirmation, setAssignConfirmation] = useState('');
   const [replaceConfirmation, setReplaceConfirmation] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'BLOCKED'>('ACTIVE');
   const [statusConfirmation, setStatusConfirmation] = useState('');
-  const [message, setMessage] = useState('Lookup a card, then assign, replace, or change status.');
+  const [message, setMessage] = useState(
+    'Lookup a card, then assign, replace, or change status.',
+  );
   const [card, setCard] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const cardStatusTone = useMemo(() => {
+    if (card?.status === 'ACTIVE') return 'success';
+    if (card?.status === 'BLOCKED') return 'warning';
+    return 'neutral';
+  }, [card?.status]);
 
   async function lookup() {
     const serial = serialNumber.trim();
@@ -59,13 +68,25 @@ export default function AdminCardsPage() {
       setMessage('Enter both card serial and customer ID.');
       return;
     }
+    if (assignConfirmation.trim().toUpperCase() !== 'ASSIGN') {
+      setMessage('Type ASSIGN to confirm the card assignment.');
+      return;
+    }
     setBusy(true);
     try {
       const response = await cardsControllerCreateCardV1(
-        { serialNumber: serialNumber.trim(), customerId: customerId.trim() } as any,
+        {
+          serialNumber: serialNumber.trim(),
+          customerId: customerId.trim(),
+        } as any,
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 201 ? 'Card assigned.' : `Assign unavailable (${response.status}).`);
+      setMessage(
+        response.status === 201
+          ? 'Card assigned.'
+          : `Assign unavailable (${response.status}).`,
+      );
+      setAssignConfirmation('');
       await lookup();
     } catch {
       setMessage('Card assignment unavailable.');
@@ -79,18 +100,25 @@ export default function AdminCardsPage() {
       setMessage('Load a card and enter a replacement serial first.');
       return;
     }
+    if (replaceConfirmation.trim().toUpperCase() !== 'REPLACE') {
+      setMessage('Type REPLACE to confirm the replacement.');
+      return;
+    }
     setBusy(true);
     try {
-      if (replaceConfirmation.trim().toUpperCase() !== 'REPLACE') {
-        setMessage('Type REPLACE to confirm the replacement.');
-        return;
-      }
       const response = await cardsControllerReplaceCardV1(
         card.id,
-        { replacementSerialNumber: newSerialNumber.trim(), reason } as any,
+        {
+          replacementSerialNumber: newSerialNumber.trim(),
+          reason,
+        } as any,
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 201 ? 'Replacement created.' : `Replacement unavailable (${response.status}).`);
+      setMessage(
+        response.status === 201
+          ? 'Replacement created.'
+          : `Replacement unavailable (${response.status}).`,
+      );
       setReplaceConfirmation('');
       await lookup();
     } catch {
@@ -105,18 +133,22 @@ export default function AdminCardsPage() {
       setMessage('Load a card first.');
       return;
     }
+    if (statusConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the status change.');
+      return;
+    }
     setBusy(true);
     try {
-      if (statusConfirmation.trim().toUpperCase() !== 'UPDATE') {
-        setMessage('Type UPDATE to confirm the status change.');
-        return;
-      }
       const response = await cardsControllerUpdateStatusV1(
         card.id,
         { status, reason } as any,
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 200 ? 'Card status updated.' : `Status update unavailable (${response.status}).`);
+      setMessage(
+        response.status === 200
+          ? 'Card status updated.'
+          : `Status update unavailable (${response.status}).`,
+      );
       setStatusConfirmation('');
       await lookup();
     } catch {
@@ -137,23 +169,68 @@ export default function AdminCardsPage() {
       </header>
       <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
 
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        <Input aria-label="Card serial" placeholder="Card serial" value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} />
-        <Input aria-label="Customer ID" placeholder="Customer ID" value={customerId} onChange={(event) => setCustomerId(event.target.value)} />
-        <Input aria-label="Replacement serial" placeholder="Replacement serial" value={newSerialNumber} onChange={(event) => setNewSerialNumber(event.target.value)} />
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--sc-spacing-3)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        }}
+      >
+        <Input
+          aria-label="Card serial"
+          placeholder="Card serial"
+          value={serialNumber}
+          onChange={(event) => setSerialNumber(event.target.value)}
+        />
+        <Input
+          aria-label="Customer ID"
+          placeholder="Customer ID"
+          value={customerId}
+          onChange={(event) => setCustomerId(event.target.value)}
+        />
+        <Input
+          aria-label="Replacement serial"
+          placeholder="Replacement serial"
+          value={newSerialNumber}
+          onChange={(event) => setNewSerialNumber(event.target.value)}
+        />
       </div>
-      <Input aria-label="Reason" placeholder="Reason" value={reason} onChange={(event) => setReason(event.target.value)} />
-      <Input aria-label="Replacement confirmation" placeholder="Type REPLACE to confirm" value={replaceConfirmation} onChange={(event) => setReplaceConfirmation(event.target.value)} />
+      <Input
+        aria-label="Reason"
+        placeholder="Reason"
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+      />
+      <Input
+        aria-label="Assign confirmation"
+        placeholder="Type ASSIGN to confirm"
+        value={assignConfirmation}
+        onChange={(event) => setAssignConfirmation(event.target.value)}
+      />
+      <Input
+        aria-label="Replacement confirmation"
+        placeholder="Type REPLACE to confirm"
+        value={replaceConfirmation}
+        onChange={(event) => setReplaceConfirmation(event.target.value)}
+      />
       <RadioGroup
         name="card-status"
         legend="Status"
         value={status}
         onValueChange={(value) => setStatus(value as 'ACTIVE' | 'BLOCKED')}
-        options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
+        options={[
+          { value: 'ACTIVE', label: 'Active' },
+          { value: 'BLOCKED', label: 'Blocked' },
+        ]}
       />
-      <Input aria-label="Status confirmation" placeholder="Type UPDATE to confirm" value={statusConfirmation} onChange={(event) => setStatusConfirmation(event.target.value)} />
+      <Input
+        aria-label="Status confirmation"
+        placeholder="Type UPDATE to confirm"
+        value={statusConfirmation}
+        onChange={(event) => setStatusConfirmation(event.target.value)}
+      />
       <Alert tone="info" title="Deliberate changes">
-        Card replacement and status updates require explicit confirmation words before submission.
+        Card assignment, replacement, and status updates require explicit confirmation words before submission.
       </Alert>
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <Button onClick={() => void lookup()} loading={busy}>Lookup card</Button>
@@ -166,9 +243,15 @@ export default function AdminCardsPage() {
         <>
           <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
             {card?.serialNumber ? <StatusBadge label={String(card.serialNumber)} tone="info" /> : null}
-            {card?.status ? <StatusBadge label={String(card.status)} tone={card.status === 'ACTIVE' ? 'success' : 'warning'} /> : null}
+            {card?.status ? <StatusBadge label={String(card.status)} tone={cardStatusTone as any} /> : null}
             {card?.customer?.fullName ? <StatusBadge label={String(card.customer.fullName)} tone="neutral" /> : null}
+            {typeof card?.availableBalanceKobo === 'number' ? (
+              <StatusBadge label={`Balance ${card.availableBalanceKobo} kobo`} tone="info" />
+            ) : null}
           </div>
+          <Alert tone="info" title="Selected card">
+            {card?.customer?.fullName ?? card?.customerId ?? 'Customer'} · {card?.status ?? 'Status pending'}
+          </Alert>
           <Table>
             <tbody>
               {Object.entries(card).slice(0, 10).map(([key, value]) => (
@@ -189,7 +272,6 @@ export default function AdminCardsPage() {
       {typeof card?.availableBalanceKobo === 'number' ? (
         <Money amountKobo={card.availableBalanceKobo} />
       ) : null}
-      {card?.status ? <StatusBadge label={card.status} tone="info" /> : null}
     </section>
   );
 }
