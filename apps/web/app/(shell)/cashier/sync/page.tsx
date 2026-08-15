@@ -92,6 +92,8 @@ export default function CashierSyncPage() {
         ['Card', selectedRecord.cardBarcode ?? '—'],
         ['Receipt', selectedRecord.receiptNumber ?? '—'],
         ['State', selectedRecord.syncState],
+        ['Server transaction', selectedRecord.serverTransactionId ?? '—'],
+        ['Server approval', selectedRecord.serverApprovalId ?? '—'],
         ['Device', deviceId || 'Enter a device ID'],
         ['Last error', selectedRecord.lastError ?? '—'],
       ]
@@ -281,6 +283,8 @@ export default function CashierSyncPage() {
         <StatusBadge label={`Retryable ${statusCounts.retryRequired}`} tone="warning" />
       </div>
 
+      <p style={muted}>Queue summary above stays aligned with the selected record and batch result panels below.</p>
+
       {selectedRecord ? (
         <Alert tone="info" title="Selected record">
           {selectedRecord.localId} · {selectedRecord.cardBarcode ?? 'Card pending'} · {selectedRecord.syncState}
@@ -434,7 +438,7 @@ export default function CashierSyncPage() {
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return JSON.stringify(value);
+  return JSON.stringify(value, null, 2);
 }
 
 function mapSyncState(
