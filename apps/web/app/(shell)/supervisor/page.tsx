@@ -3,18 +3,31 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Alert, Accordion, Tabs } from '../../../components/ui';
-import {
-  ApprovalBadge,
-  FraudSeverityBadge,
-  TransactionStateBadge,
-} from '../../../components/shopcity';
-import {
-  ApprovalsPanel,
-  FraudFlagsPanel,
-  ReportsWorkspace,
-  WorkflowSection,
-} from '../../../components/workflows';
+import { Alert } from '../../../components/ui';
+import { StatusBadge } from '../../../components/shopcity';
+import { WorkflowSection } from '../../../components/workflows';
+
+const supervisorRoutes = [
+  ['/supervisor/transactions', 'Transactions'],
+  ['/supervisor/approvals', 'Approvals'],
+  ['/supervisor/fraud', 'Fraud'],
+  ['/supervisor/reports', 'Reports'],
+] as const;
+
+const supervisorNotes = [
+  [
+    'Review lanes',
+    'Transactions, approvals, fraud, and reports each keep their own focused route.',
+  ],
+  [
+    'Detail-led work',
+    'Use the dedicated workspaces for selected-item context and contract-backed review.',
+  ],
+  [
+    'Operational scope',
+    'The supervisor shell stays focused on queue health and investigative action.',
+  ],
+] as const;
 
 export default function SupervisorPage() {
   return (
@@ -22,131 +35,53 @@ export default function SupervisorPage() {
       <ScannerContextScope context="lookup" />
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Supervisor shell</h1>
-        <p
-          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
-        >
+        <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
           Approvals, fraud review, transaction detail and reports.
         </p>
       </header>
 
       <WorkflowSection
         title="Review lanes"
-        description="Each lane has its own route so the supervisor can jump straight to the work item."
+        description="Jump straight into the route-backed workspace for the item you need to investigate."
       >
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-          <Link href="/supervisor/transactions">Transactions</Link>
-          <Link href="/supervisor/approvals">Approvals</Link>
-          <Link href="/supervisor/fraud">Fraud</Link>
-          <Link href="/supervisor/reports">Reports</Link>
+        <div style={routeGrid}>
+          {supervisorRoutes.map(([href, label]) => (
+            <Link key={href} href={href} style={routeLink}>
+              {label}
+            </Link>
+          ))}
         </div>
       </WorkflowSection>
 
-      <WorkflowSection
-        title="Attention queue"
-        description="Live summary cards still surface the most urgent contract-backed items."
-      >
-        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-          <div style={statRow}>
-            <span>High-value approval</span>
-            <ApprovalBadge state="PENDING" />
-          </div>
-          <div style={statRow}>
-            <span>Fraud review</span>
-            <FraudSeverityBadge severity="HIGH" />
-          </div>
-          <div style={statRow}>
-            <span>Transaction state</span>
-            <TransactionStateBadge state="CONFIRMED" />
-          </div>
-        </div>
-      </WorkflowSection>
+      <Alert tone="info" title="Supervisor landing page">
+        Investigative detail and queue actions live in the dedicated review routes.
+      </Alert>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--sc-spacing-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        }}
-      >
-        <article style={cardStyle} aria-label="Approvals panel">
-          <h2 style={{ marginTop: 0 }}>Approvals panel</h2>
-          <ApprovalsPanel />
+      <div style={gridStyle}>
+        <article style={cardStyle} aria-label="Supervisor overview">
+          <h2 style={{ marginTop: 0 }}>Overview</h2>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+            {supervisorNotes.map(([title, body]) => (
+              <div key={title} style={noteStyle}>
+                <strong>{title}</strong>
+                <p style={muted}>{body}</p>
+              </div>
+            ))}
+          </div>
         </article>
 
-        <article style={cardStyle} aria-label="Fraud review">
-          <h2 style={{ marginTop: 0 }}>Fraud review</h2>
-          <FraudFlagsPanel />
-        </article>
-
-        <article style={cardStyle} aria-label="Transaction lanes">
-          <h2 style={{ marginTop: 0 }}>Transaction lanes</h2>
-          <Tabs
-            defaultValue="overview"
-            items={[
-              {
-                value: 'overview',
-                label: 'Overview',
-                panel: (
-                  <p style={muted}>
-                    Branch health, queue pressure and freshness signals.
-                  </p>
-                ),
-              },
-              {
-                value: 'transactions',
-                label: 'Transactions',
-                panel: (
-                  <p style={muted}>
-                    Search, inspect and trace recent branch activity.
-                  </p>
-                ),
-              },
-              {
-                value: 'fraud',
-                label: 'Fraud',
-                panel: (
-                  <p style={muted}>
-                    Rule matches, reviews and escalation notes.
-                  </p>
-                ),
-              },
-            ]}
-          />
-        </article>
-
-        <article style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Reports workspace</h2>
-          <ReportsWorkspace />
+        <article style={cardStyle} aria-label="Supervisor status">
+          <h2 style={{ marginTop: 0 }}>Status</h2>
+          <div style={statusRow}>
+            <StatusBadge label="Route-backed" tone="success" />
+            <StatusBadge label="Contract-driven" tone="info" />
+            <StatusBadge label="Investigative" tone="neutral" />
+          </div>
+          <p style={muted}>
+            Queue pressure, fraud review, and report reconciliation stay visible without duplicating the workspaces here.
+          </p>
         </article>
       </div>
-
-      <Accordion
-        items={[
-          {
-            value: 'support',
-            label: 'Supervisor support notes',
-            content: (
-              <p style={muted}>
-                Use the dedicated transaction, approval, fraud and reports routes for the primary review tasks.
-              </p>
-            ),
-          },
-          {
-            value: 'actions',
-            label: 'Action shortcuts',
-            content: (
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-                <Link href="/supervisor/approvals">Review approvals</Link>
-                <Link href="/supervisor/fraud">Inspect fraud queue</Link>
-                <Link href="/supervisor/reports">Open reports</Link>
-              </div>
-            ),
-          },
-        ]}
-      />
-      <Alert tone="info" title="Next step">
-        Transaction detail and reversal each have their own route now.
-      </Alert>
     </section>
   );
 }
@@ -157,6 +92,35 @@ const cardStyle: CSSProperties = {
   borderRadius: 'var(--sc-radius-lg)',
   padding: 'var(--sc-spacing-5)',
   boxShadow: 'var(--sc-shadow-level1)',
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+};
+
+const gridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+};
+
+const routeGrid: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const routeLink: CSSProperties = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
+  textDecoration: 'none',
+};
+
+const noteStyle: CSSProperties = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
 };
 
 const muted: CSSProperties = {
@@ -164,9 +128,8 @@ const muted: CSSProperties = {
   marginBottom: 0,
 };
 
-const statRow: CSSProperties = {
+const statusRow: CSSProperties = {
   display: 'flex',
-  justifyContent: 'space-between',
   gap: 'var(--sc-spacing-3)',
-  alignItems: 'center',
+  flexWrap: 'wrap',
 };
