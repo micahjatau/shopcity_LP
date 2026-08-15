@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -48,6 +49,7 @@ export default function CashierSyncPage() {
   >([]);
   const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
   const [clearConfirmation, setClearConfirmation] = useState('');
+  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.localId === selectedLocalId) ?? null,
@@ -75,12 +77,33 @@ export default function CashierSyncPage() {
     [records],
   );
 
+  const queueSummary = [
+    ['Waiting', statusCounts.waiting],
+    ['Syncing', statusCounts.syncing],
+    ['Approval', statusCounts.awaitingApproval],
+    ['Confirmed', statusCounts.confirmed],
+    ['Rejected', statusCounts.rejected],
+    ['Retryable', statusCounts.retryRequired],
+  ] as const;
+
+  const selectedPreview = selectedRecord
+    ? [
+        ['Local ID', selectedRecord.localId],
+        ['Card', selectedRecord.cardBarcode ?? '—'],
+        ['Receipt', selectedRecord.receiptNumber ?? '—'],
+        ['State', selectedRecord.syncState],
+        ['Device', deviceId || 'Enter a device ID'],
+        ['Last error', selectedRecord.lastError ?? '—'],
+      ]
+    : [];
+
   async function refresh() {
     try {
       const next = await listOfflineEarnRecords();
       setRecords(next);
       setSelectedLocalId((current) => current ?? next[0]?.localId ?? null);
       setMessage(`Loaded ${next.length} local record(s).`);
+      setActionResponse(null);
     } catch {
       setMessage('Offline queue unavailable.');
     }
@@ -123,6 +146,11 @@ export default function CashierSyncPage() {
       const response = await offlineSyncControllerEarnBatchV1(
         { deviceId: deviceId.trim(), records: recordsDto },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+      );
+      setActionResponse(
+        response.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : null,
       );
 
       if (response.status === 200) {
@@ -169,6 +197,7 @@ export default function CashierSyncPage() {
         .filter((record) => record.syncState === 'confirmed')
         .map((record) => deleteOfflineEarnRecord(record.localId)),
     );
+    setActionResponse(null);
     setClearConfirmation('');
     await refresh();
   }
@@ -184,16 +213,18 @@ export default function CashierSyncPage() {
   }
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+    <section style={layoutGrid}>
+      <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Sync queue</h1>
         <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
           Review local offline earn records, then submit a batch for reconciliation.
         </p>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <div style={routeRow}>
           <Link href="/cashier">Back to cashier</Link>
           {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>{label}</Link>
+            <Link key={href} href={href}>
+              {label}
+            </Link>
           ))}
         </div>
       </header>
@@ -204,24 +235,44 @@ export default function CashierSyncPage() {
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Queue notes</h2>
-        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+        <div style={statusRow}>
+          <StatusBadge label={`Queueable ${queueableRecords.length}`} tone="info" />
+          <StatusBadge label={`Waiting ${statusCounts.waiting}`} tone="neutral" />
+          <StatusBadge label={`Retryable ${statusCounts.retryRequired}`} tone="warning" />
+        </div>
+        <Table>
+          <tbody>
+            {queueSummary.map(([label, value]) => (
+              <tr key={label}>
+                <th scope="row">{label}</th>
+                <td>{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+        <div style={notesGrid}>
           {queueNotes.map(([title, body]) => (
-            <div key={title} style={noteStyle}>
+            <article key={title} style={noteStyle}>
               <strong>{title}</strong>
               <p style={muted}>{body}</p>
-            </div>
+            </article>
           ))}
         </div>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', gap: 'var(--sc-spacing-3)' }}>
-        <Input aria-label="Device ID" placeholder="Device ID" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} />
-        <Button onClick={() => void refresh()} variant="secondary">Refresh</Button>
-        <Button onClick={() => void syncBatch()} loading={busy}>Submit batch</Button>
-      </div>
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Batch controls</h2>
+        <div style={controlRow}>
+          <Input aria-label="Device ID" placeholder="Device ID" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} />
+          <Button onClick={() => void refresh()} variant="secondary">Refresh</Button>
+          <Button onClick={() => void syncBatch()} loading={busy}>Submit batch</Button>
+        </div>
+        <p style={muted}>{message}</p>
+        <p style={muted}>Device ID: {deviceId || '—'}</p>
+        <p style={muted}>Batchable records will be sent in a single backend reconciliation request.</p>
+      </section>
 
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+      <div style={statusRow}>
         <StatusBadge label={`Waiting ${statusCounts.waiting}`} tone="info" />
         <StatusBadge label={`Syncing ${statusCounts.syncing}`} tone="neutral" />
         <StatusBadge label={`Approval ${statusCounts.awaitingApproval}`} tone="warning" />
@@ -236,7 +287,7 @@ export default function CashierSyncPage() {
         </Alert>
       ) : null}
 
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+      <div style={gridStyle}>
         <section style={cardStyle}>
           <h2 style={{ marginTop: 0 }}>Queue</h2>
           {records.length === 0 ? (
@@ -267,10 +318,7 @@ export default function CashierSyncPage() {
                     <td>{record.receiptNumber}</td>
                     <td><Money amountKobo={record.purchaseAmountKobo} /></td>
                     <td>
-                      <StatusBadge
-                        label={record.syncState}
-                        tone={toneForState(record.syncState)}
-                      />
+                      <StatusBadge label={record.syncState} tone={toneForState(record.syncState)} />
                       {record.lastError ? <div style={smallText}>{record.lastError}</div> : null}
                       {record.serverTransactionId || record.serverApprovalId ? (
                         <div style={smallText}>
@@ -300,14 +348,12 @@ export default function CashierSyncPage() {
           {selectedRecord ? (
             <Table>
               <tbody>
-                {Object.entries(selectedRecord)
-                  .slice(0, 8)
-                  .map(([key, value]) => (
-                    <tr key={key}>
-                      <th scope="row">{key}</th>
-                      <td>{renderValue(value)}</td>
-                    </tr>
-                  ))}
+                {selectedPreview.map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
               </tbody>
             </Table>
           ) : (
@@ -317,9 +363,9 @@ export default function CashierSyncPage() {
           )}
         </section>
 
-        {lastBatchResults.length > 0 ? (
-          <section style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Last batch results</h2>
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Last batch results</h2>
+          {lastBatchResults.length > 0 ? (
             <Table>
               <thead>
                 <tr>
@@ -344,22 +390,43 @@ export default function CashierSyncPage() {
                 ))}
               </tbody>
             </Table>
-          </section>
-        ) : null}
+          ) : (
+            <Alert tone="warning" title="No batch results">
+              Submit a batch to see per-record reconciliation results.
+            </Alert>
+          )}
+        </section>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-        <StatusBadge label={`Queueable: ${queueableRecords.length}`} tone="info" />
-        <Input
-          aria-label="Clear confirmation"
-          placeholder="Type CLEAR to remove confirmed"
-          value={clearConfirmation}
-          onChange={(event) => setClearConfirmation(event.target.value)}
-        />
-        <Button variant="ghost" onClick={() => void clearConfirmed()} disabled={!records.some((record) => record.syncState === 'confirmed')}>
-          Clear confirmed
-        </Button>
-      </div>
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Action response</h2>
+        <p style={muted}>{actionResponse ? 'Backend response is shown below.' : 'Submit a batch or clear action to inspect the backend response.'}</p>
+        {actionResponse ? (
+          <Table>
+            <tbody>
+              {Object.entries(actionResponse)
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        ) : null}
+        <div style={toolbarRow}>
+          <Input
+            aria-label="Clear confirmation"
+            placeholder="Type CLEAR to remove confirmed"
+            value={clearConfirmation}
+            onChange={(event) => setClearConfirmation(event.target.value)}
+          />
+          <Button variant="ghost" onClick={() => void clearConfirmed()} disabled={!records.some((record) => record.syncState === 'confirmed')}>
+            Clear confirmed
+          </Button>
+        </div>
+      </section>
     </section>
   );
 }
@@ -397,7 +464,17 @@ function toneForResult(
   return 'warning';
 }
 
-const cardStyle = {
+const layoutGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+};
+
+const headerGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-2)',
+};
+
+const cardStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-lg)',
   padding: 'var(--sc-spacing-5)',
@@ -406,27 +483,63 @@ const cardStyle = {
   gap: 'var(--sc-spacing-4)',
 };
 
-const noteStyle = {
+const noteStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-md)',
   padding: 'var(--sc-spacing-3)',
   background: 'var(--sc-color-neutral-0)',
 };
 
-const muted = {
+const notesGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+};
+
+const muted: CSSProperties = {
   color: 'var(--sc-color-semantic-textSecondary)',
   marginBottom: 0,
 };
 
-const smallText = {
+const smallText: CSSProperties = {
   fontSize: 'var(--sc-font-size-sm)',
 };
 
-const rowButton = {
+const rowButton: CSSProperties = {
   padding: 0,
   border: 0,
   background: 'transparent',
   cursor: 'pointer',
   font: 'inherit',
-  textAlign: 'left' as const,
+  textAlign: 'left',
+};
+
+const routeRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const statusRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const gridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+};
+
+const controlRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+  gap: 'var(--sc-spacing-3)',
+};
+
+const toolbarRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+  alignItems: 'center',
 };
