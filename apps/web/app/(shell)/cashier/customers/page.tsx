@@ -40,6 +40,25 @@ type CardRecord = Record<string, unknown> & {
 };
 
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
+const routeLinks = [
+  ['/cashier', 'Cashier'],
+  ['/cashier/sync', 'Sync queue'],
+] as const;
+
+const pageNotes = [
+  [
+    'Search first',
+    'Use a name, phone, or customer ID to load the detailed customer record.',
+  ],
+  [
+    'Card context',
+    'Assign, replace, and status-manage cards from the same selected customer view.',
+  ],
+  [
+    'Linked history',
+    'Ledger and card details are refreshed from backend contracts, not local demo state.',
+  ],
+] as const;
 
 export default function CashierCustomersPage() {
   const searchParams = useSearchParams();
@@ -168,7 +187,11 @@ export default function CashierCustomersPage() {
         { customerId: selectedId, serialNumber: cardSerialNumber.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setCardMessage(response.status === 201 ? 'Card assigned.' : `Assign unavailable (${response.status}).`);
+      setCardMessage(
+        response.status === 201
+          ? 'Card assigned.'
+          : `Assign unavailable (${response.status}).`,
+      );
       await search();
       await reloadSelectedCustomer();
     } catch {
@@ -196,7 +219,11 @@ export default function CashierCustomersPage() {
         { serialNumber: replacementSerialNumber.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setCardMessage(response.status === 201 ? 'Card replacement created.' : `Replacement unavailable (${response.status}).`);
+      setCardMessage(
+        response.status === 201
+          ? 'Card replacement created.'
+          : `Replacement unavailable (${response.status}).`,
+      );
       setReplacementSerialNumber('');
       setReplaceConfirmation('');
       await reloadSelectedCustomer();
@@ -221,7 +248,11 @@ export default function CashierCustomersPage() {
         { status: cardStatus },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setCardMessage(response.status === 200 ? 'Card status updated.' : `Status update unavailable (${response.status}).`);
+      setCardMessage(
+        response.status === 200
+          ? 'Card status updated.'
+          : `Status update unavailable (${response.status}).`,
+      );
       await reloadSelectedCustomer();
     } catch {
       setCardMessage('Status update unavailable.');
@@ -248,7 +279,11 @@ export default function CashierCustomersPage() {
         { status: customerStatus },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 200 ? 'Customer status updated.' : `Customer status unavailable (${response.status}).`);
+      setMessage(
+        response.status === 200
+          ? 'Customer status updated.'
+          : `Customer status unavailable (${response.status}).`,
+      );
       setCustomerStatusConfirmation('');
       await reloadSelectedCustomer();
       await search();
@@ -281,6 +316,10 @@ export default function CashierCustomersPage() {
     }
   }
 
+  const selectedLabel = selectedCustomer
+    ? `${selectedCustomer.fullName ?? selectedCustomer.name ?? selectedCustomer.id}`
+    : 'No customer selected';
+
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
@@ -290,16 +329,31 @@ export default function CashierCustomersPage() {
         </p>
         <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
           <Link href="/cashier">Back to cashier</Link>
-          <Link href="/cashier/sync">Open sync queue</Link>
+          {routeLinks.map(([href, label]) => (
+            <Link key={href} href={href}>{label}</Link>
+          ))}
         </div>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--sc-spacing-3)' }}>
-        <Input aria-label="Customer search" placeholder="Name, phone, or ID" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <Button onClick={() => void search()}>Search</Button>
+      <Alert tone="info" title="Customer route context">
+        Use this route for customer detail, card assignment, replacement, and status changes.
+      </Alert>
+
+      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <StatusBadge label="Detail-led" tone="success" />
+        <StatusBadge label="Route-backed" tone="info" />
+        <StatusBadge label="Contract-driven" tone="neutral" />
       </div>
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{cardMessage}</p>
+
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Lookup</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--sc-spacing-3)' }}>
+          <Input aria-label="Customer search" placeholder="Name, phone, or ID" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <Button onClick={() => void search()}>Search</Button>
+        </div>
+        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
+        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{cardMessage}</p>
+      </section>
 
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
         <article style={cardStyle}>
@@ -328,7 +382,7 @@ export default function CashierCustomersPage() {
                           {item.fullName ?? item.name ?? item.id}
                         </button>
                       </td>
-                      <td>{item.status ?? '—'}</td>
+                      <td><StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'ACTIVE' ? 'success' : 'warning'} /></td>
                       <td>{typeof item.balanceKobo === 'number' ? <Money amountKobo={item.balanceKobo} /> : '—'}</td>
                       <td>{cards.length || '—'}</td>
                     </tr>
@@ -399,10 +453,14 @@ export default function CashierCustomersPage() {
                 {linkedCards.map((card) => (
                   <tr key={card.id ?? card.serialNumber}>
                     <td>
-                      <button type="button" onClick={() => {
-                        setSelectedCardId(card.id ?? null);
-                        setCardSerialNumber(card.serialNumber ?? '');
-                      }} style={rowButton}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCardId(card.id ?? null);
+                          setCardSerialNumber(card.serialNumber ?? '');
+                        }}
+                        style={rowButton}
+                      >
                         {card.serialNumber ?? card.id ?? 'Card'}
                       </button>
                     </td>
@@ -441,6 +499,22 @@ export default function CashierCustomersPage() {
           </div>
         </article>
       </div>
+
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Selected context</h2>
+        <div style={statRow}>
+          <span>Customer</span>
+          <strong>{selectedLabel}</strong>
+        </div>
+        <div style={statRow}>
+          <span>Cards</span>
+          <StatusBadge label={`${linkedCards.length} linked`} tone="info" />
+        </div>
+        <div style={statRow}>
+          <span>History</span>
+          <StatusBadge label={Array.isArray(ledger?.items) ? `${ledger.items.length} ledger rows` : 'No ledger loaded'} tone="neutral" />
+        </div>
+      </section>
     </section>
   );
 }
@@ -489,6 +563,8 @@ const cardStyle = {
   borderRadius: 'var(--sc-radius-lg)',
   padding: 'var(--sc-spacing-5)',
   background: 'var(--sc-color-neutral-0)',
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
 };
 
 const statRow = {
