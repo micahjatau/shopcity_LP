@@ -19,9 +19,14 @@ export default function AdminAuditPage() {
   const [actorId, setActorId] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [message, setMessage] = useState('Enter an actor ID to load audit rows.');
+  const [message, setMessage] = useState(
+    'Enter an actor ID to load audit rows.',
+  );
   const [loading, setLoading] = useState(false);
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedRow = useMemo(
     () => rows.find((item) => item.id === selectedId) ?? null,
@@ -75,7 +80,9 @@ export default function AdminAuditPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Audit</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Actor-based audit trail lookup.
         </p>
         <Link href="/admin">Back to admin</Link>
@@ -90,7 +97,10 @@ export default function AdminAuditPage() {
 
       <div style={summaryRow}>
         <StatusBadge label={`Rows ${rows.length}`} tone="info" />
-        <StatusBadge label={selectedRow ? 'Selected' : 'No selection'} tone="neutral" />
+        <StatusBadge
+          label={selectedRow ? 'Selected' : 'No selection'}
+          tone="neutral"
+        />
         <StatusBadge label={actorId || 'Actor pending'} tone="success" />
       </div>
 
@@ -108,7 +118,8 @@ export default function AdminAuditPage() {
           </Button>
         </div>
         <Alert tone="info" title="Audit route context">
-          Use actor-based lookup to review the events behind a specific staff or admin action.
+          Use actor-based lookup to review the events behind a specific staff or
+          admin action.
         </Alert>
       </section>
 
@@ -135,7 +146,11 @@ export default function AdminAuditPage() {
                 {rows.map((item) => (
                   <tr key={item.id ?? `${item.action}-${item.subjectId}`}>
                     <td>
-                      <button type="button" onClick={() => setSelectedId(item.id ?? null)} style={rowButton}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(item.id ?? null)}
+                        style={rowButton}
+                      >
                         {item.action ?? '—'}
                       </button>
                     </td>
@@ -153,12 +168,24 @@ export default function AdminAuditPage() {
             {selectedRow ? (
               <>
                 <Alert tone="info" title="Selected audit row">
-                  {selectedRow.action ?? selectedRow.subjectType ?? selectedRow.subjectId ?? 'Audit event'}
+                  {selectedRow.action ??
+                    selectedRow.subjectType ??
+                    selectedRow.subjectId ??
+                    'Audit event'}
                 </Alert>
                 <div style={summaryRow}>
-                  <StatusBadge label={selectedRow.action ?? 'Action pending'} tone="info" />
-                  <StatusBadge label={selectedRow.subjectType ?? 'Subject pending'} tone="neutral" />
-                  <StatusBadge label={selectedRow.actorId ?? 'Actor pending'} tone="success" />
+                  <StatusBadge
+                    label={selectedRow.action ?? 'Action pending'}
+                    tone="info"
+                  />
+                  <StatusBadge
+                    label={selectedRow.subjectType ?? 'Subject pending'}
+                    tone="neutral"
+                  />
+                  <StatusBadge
+                    label={selectedRow.actorId ?? 'Actor pending'}
+                    tone="success"
+                  />
                 </div>
                 <Table>
                   <tbody>
@@ -194,7 +221,11 @@ export default function AdminAuditPage() {
 
       <section style={cardStyle} aria-label="Audit response">
         <h2 style={{ marginTop: 0 }}>Audit response</h2>
-        <p style={muted}>{actionResponse ? 'Backend response for the last load is shown below.' : 'Load an audit trail to see backend response details.'}</p>
+        <p style={muted}>
+          {actionResponse
+            ? 'Backend response for the last load is shown below.'
+            : 'Load an audit trail to see backend response details.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -216,7 +247,12 @@ export default function AdminAuditPage() {
 
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   return JSON.stringify(value);
 }
 

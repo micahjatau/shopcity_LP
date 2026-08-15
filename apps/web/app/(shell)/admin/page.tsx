@@ -83,7 +83,9 @@ export default function AdminPage() {
       <ScannerContextScope context="sync" />
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Admin shell</h1>
-        <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
+        <p
+          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
+        >
           Operations, audit, users, devices, branches and settings.
         </p>
         <div style={statusRow}>
@@ -112,7 +114,8 @@ export default function AdminPage() {
       </WorkflowSection>
 
       <Alert tone="info" title="Admin landing page">
-        This shell is intentionally lightweight: use the focused workspaces for contract-backed review and changes.
+        This shell is intentionally lightweight: use the focused workspaces for
+        contract-backed review and changes.
       </Alert>
 
       <div style={gridStyle}>
@@ -136,7 +139,8 @@ export default function AdminPage() {
             <StatusBadge label="Role-scoped" tone="neutral" />
           </div>
           <p style={muted}>
-            Detailed health and report information now live on the admin operations and reports routes.
+            Detailed health and report information now live on the admin
+            operations and reports routes.
           </p>
         </article>
       </div>

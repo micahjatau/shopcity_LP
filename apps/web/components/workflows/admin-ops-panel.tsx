@@ -62,7 +62,10 @@ export function AdminOperationsPanel() {
   const [userConfirmation, setUserConfirmation] = useState('');
   const [deviceConfirmation, setDeviceConfirmation] = useState('');
   const [actionMessage, setActionMessage] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedUserId) ?? null,
@@ -217,7 +220,11 @@ export function AdminOperationsPanel() {
   return (
     <section style={layoutGrid}>
       <div style={toolbarRow}>
-        <Button variant="secondary" loading={loading} onClick={() => void refreshAll()}>
+        <Button
+          variant="secondary"
+          loading={loading}
+          onClick={() => void refreshAll()}
+        >
           Refresh admin data
         </Button>
         <Button variant="ghost" onClick={() => void refreshUsers()}>
@@ -231,7 +238,8 @@ export function AdminOperationsPanel() {
       <p style={muted}>{message}</p>
 
       <Alert tone="info" title="Admin contract surfaces">
-        Use the backend contracts to review users, devices and audit trails before making role or status changes.
+        Use the backend contracts to review users, devices and audit trails
+        before making role or status changes.
       </Alert>
 
       <div style={summaryRow}>
@@ -281,12 +289,24 @@ export function AdminOperationsPanel() {
           {selectedUser ? (
             <div style={detailGrid}>
               <Alert tone="info" title="Selected user">
-                {selectedUser.username ?? selectedUser.id} is ready for role and status review.
+                {selectedUser.username ?? selectedUser.id} is ready for role and
+                status review.
               </Alert>
               <div style={summaryRow}>
-                <StatusBadge label={selectedUser.role ?? 'Unknown role'} tone="info" />
-                <StatusBadge label={selectedUser.status ?? 'Unknown status'} tone={selectedUser.status === 'ACTIVE' ? 'success' : 'warning'} />
-                <StatusBadge label={selectedUser.branchId ?? 'Tenant-wide'} tone="neutral" />
+                <StatusBadge
+                  label={selectedUser.role ?? 'Unknown role'}
+                  tone="info"
+                />
+                <StatusBadge
+                  label={selectedUser.status ?? 'Unknown status'}
+                  tone={
+                    selectedUser.status === 'ACTIVE' ? 'success' : 'warning'
+                  }
+                />
+                <StatusBadge
+                  label={selectedUser.branchId ?? 'Tenant-wide'}
+                  tone="neutral"
+                />
               </div>
               <Separator />
               <div style={formGrid}>
@@ -323,7 +343,10 @@ export function AdminOperationsPanel() {
                 <Button onClick={() => void updateSelectedUserRole()}>
                   Update role
                 </Button>
-                <Button variant="secondary" onClick={() => void updateSelectedUserStatus()}>
+                <Button
+                  variant="secondary"
+                  onClick={() => void updateSelectedUserStatus()}
+                >
                   Update status
                 </Button>
               </div>
@@ -382,11 +405,20 @@ export function AdminOperationsPanel() {
           {selectedDevice ? (
             <div style={detailGrid}>
               <Alert tone="info" title="Selected device">
-                {selectedDevice.name ?? selectedDevice.id} is ready for status or rotation review.
+                {selectedDevice.name ?? selectedDevice.id} is ready for status
+                or rotation review.
               </Alert>
               <div style={summaryRow}>
-                <StatusBadge label={selectedDevice.status ?? 'Unknown status'} tone={selectedDevice.status === 'ACTIVE' ? 'success' : 'warning'} />
-                <StatusBadge label={selectedDevice.branchId ?? 'Tenant-wide'} tone="neutral" />
+                <StatusBadge
+                  label={selectedDevice.status ?? 'Unknown status'}
+                  tone={
+                    selectedDevice.status === 'ACTIVE' ? 'success' : 'warning'
+                  }
+                />
+                <StatusBadge
+                  label={selectedDevice.branchId ?? 'Tenant-wide'}
+                  tone="neutral"
+                />
               </div>
               <Separator />
               <Select
@@ -453,7 +485,12 @@ export function AdminOperationsPanel() {
               </thead>
               <tbody>
                 {auditRows.slice(0, 5).map((item) => (
-                  <tr key={item.id ?? `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`}>
+                  <tr
+                    key={
+                      item.id ??
+                      `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`
+                    }
+                  >
                     <td>{item.action ?? '—'}</td>
                     <td>{item.subjectType ?? item.subjectId ?? '—'}</td>
                     <td>{item.actorId ?? '—'}</td>
@@ -466,7 +503,10 @@ export function AdminOperationsPanel() {
           {selectedAudit ? (
             <div style={detailGrid}>
               <Alert tone="info" title="Selected audit row">
-                {selectedAudit.action ?? selectedAudit.subjectType ?? selectedAudit.subjectId ?? 'Audit event'}
+                {selectedAudit.action ??
+                  selectedAudit.subjectType ??
+                  selectedAudit.subjectId ??
+                  'Audit event'}
               </Alert>
               <Table>
                 <tbody>
@@ -487,7 +527,10 @@ export function AdminOperationsPanel() {
 
       <section style={cardStyle} aria-label="Action response">
         <h3 style={{ marginTop: 0 }}>Action response</h3>
-        <p style={muted}>{actionMessage || 'Select a record and submit a change to see the backend response here.'}</p>
+        <p style={muted}>
+          {actionMessage ||
+            'Select a record and submit a change to see the backend response here.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -509,7 +552,12 @@ export function AdminOperationsPanel() {
 
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }

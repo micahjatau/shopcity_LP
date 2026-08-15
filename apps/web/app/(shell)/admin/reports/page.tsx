@@ -36,14 +36,17 @@ export default function AdminReportsPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Reports</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Administrative reporting with filter, refresh, and export controls.
         </p>
         <Link href="/admin">Back to admin</Link>
       </header>
 
       <Alert tone="info" title="Reporting workspace">
-        Reports stay contract-backed while controls for users, devices, and adjustments remain on their own routes.
+        Reports stay contract-backed while controls for users, devices, and
+        adjustments remain on their own routes.
       </Alert>
 
       <section style={cardStyle} aria-label="Related admin routes">

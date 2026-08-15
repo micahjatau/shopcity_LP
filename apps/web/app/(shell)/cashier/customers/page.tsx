@@ -16,7 +16,13 @@ import {
   type UpdateCustomerStatusDtoStatus,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Table } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  RadioGroup,
+  Table,
+} from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
 type CustomerRecord = Record<string, unknown> & {
@@ -64,25 +70,38 @@ const pageNotes = [
 export default function CashierCustomersPage() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
-  const [message, setMessage] = useState('Search customers by name, phone, or ID.');
+  const [message, setMessage] = useState(
+    'Search customers by name, phone, or ID.',
+  );
   const [items, setItems] = useState<CustomerRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
   const [ledger, setLedger] = useState<any | null>(null);
   const [cardSerialNumber, setCardSerialNumber] = useState('');
   const [replacementSerialNumber, setReplacementSerialNumber] = useState('');
-  const [cardStatus, setCardStatus] = useState<UpdateCardStatusDtoStatus>('ACTIVE');
-  const [customerStatus, setCustomerStatus] = useState<UpdateCustomerStatusDtoStatus>('ACTIVE');
-  const [customerStatusConfirmation, setCustomerStatusConfirmation] = useState('');
-  const [cardMessage, setCardMessage] = useState('Select a customer, then assign or manage cards.');
+  const [cardStatus, setCardStatus] =
+    useState<UpdateCardStatusDtoStatus>('ACTIVE');
+  const [customerStatus, setCustomerStatus] =
+    useState<UpdateCustomerStatusDtoStatus>('ACTIVE');
+  const [customerStatusConfirmation, setCustomerStatusConfirmation] =
+    useState('');
+  const [cardMessage, setCardMessage] = useState(
+    'Select a customer, then assign or manage cards.',
+  );
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [replaceConfirmation, setReplaceConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
   const selectedCard = useMemo(
-    () => linkedCards.find((item) => item.id === selectedCardId) ?? linkedCards[0] ?? null,
+    () =>
+      linkedCards.find((item) => item.id === selectedCardId) ??
+      linkedCards[0] ??
+      null,
     [linkedCards, selectedCardId],
   );
   const selectedCustomer = customer;
@@ -115,11 +134,15 @@ export default function CashierCustomersPage() {
         if (!ignore && customerResponse.status === 200) {
           const nextCustomer = customerResponse.data.data as CustomerRecord;
           setCustomer(nextCustomer);
-          setCustomerStatus((nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE');
+          setCustomerStatus(
+            (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
+          );
           const cards = extractCustomerCards(nextCustomer);
           setSelectedCardId(cards[0]?.id ?? null);
           if (cards[0]?.serialNumber) {
-            setCardSerialNumber((current) => current || String(cards[0]?.serialNumber ?? ''));
+            setCardSerialNumber(
+              (current) => current || String(cards[0]?.serialNumber ?? ''),
+            );
           }
         }
       } catch {
@@ -160,7 +183,9 @@ export default function CashierCustomersPage() {
           : null,
       );
       if (response.status === 200) {
-        const nextItems = (response.data.data.items ?? response.data.data ?? []) as CustomerRecord[];
+        const nextItems = (response.data.data.items ??
+          response.data.data ??
+          []) as CustomerRecord[];
         setItems(nextItems);
         setSelectedId(nextItems[0]?.id ?? null);
         setMessage(`Loaded ${nextItems.length ?? 0} customers.`);
@@ -215,7 +240,9 @@ export default function CashierCustomersPage() {
 
   async function replaceCard() {
     if (!selectedCardId || !replacementSerialNumber.trim()) {
-      setCardMessage('Select a current card and enter a replacement serial first.');
+      setCardMessage(
+        'Select a current card and enter a replacement serial first.',
+      );
       return;
     }
     if (replaceConfirmation.trim().toUpperCase() !== 'REPLACE') {
@@ -331,7 +358,9 @@ export default function CashierCustomersPage() {
       if (response.status === 200) {
         const nextCustomer = response.data.data as CustomerRecord;
         setCustomer(nextCustomer);
-        setCustomerStatus((nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE');
+        setCustomerStatus(
+          (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
+        );
         const cards = extractCustomerCards(nextCustomer);
         setSelectedCardId(cards[0]?.id ?? null);
         if (cards[0]?.serialNumber) {
@@ -348,7 +377,13 @@ export default function CashierCustomersPage() {
     : 'No customer selected';
   const selectedPreview = selectedCustomer
     ? [
-        ['Name', selectedCustomer.fullName ?? selectedCustomer.name ?? selectedCustomer.id ?? '—'],
+        [
+          'Name',
+          selectedCustomer.fullName ??
+            selectedCustomer.name ??
+            selectedCustomer.id ??
+            '—',
+        ],
         ['Status', selectedCustomer.status ?? '—'],
         ['Balance', selectedCustomer.balanceKobo],
         ['Phone', selectedCustomer.phoneE164 ?? selectedCustomer.phone ?? '—'],
@@ -360,19 +395,30 @@ export default function CashierCustomersPage() {
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Customers</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Search, inspect, and trace customer balance, history, and card state.
         </p>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--sc-spacing-3)',
+            flexWrap: 'wrap',
+          }}
+        >
           <Link href="/cashier">Back to cashier</Link>
           {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>{label}</Link>
+            <Link key={href} href={href}>
+              {label}
+            </Link>
           ))}
         </div>
       </header>
 
       <Alert tone="info" title="Customer route context">
-        Use this route for customer detail, card assignment, replacement, and status changes.
+        Use this route for customer detail, card assignment, replacement, and
+        status changes.
       </Alert>
 
       <div style={summaryRow}>
@@ -390,7 +436,13 @@ export default function CashierCustomersPage() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
         <StatusBadge label="Detail-led" tone="success" />
         <StatusBadge label="Route-backed" tone="info" />
         <StatusBadge label="Contract-driven" tone="neutral" />
@@ -398,15 +450,40 @@ export default function CashierCustomersPage() {
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Lookup</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--sc-spacing-3)' }}>
-          <Input aria-label="Customer search" placeholder="Name, phone, or ID" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
+            gap: 'var(--sc-spacing-3)',
+          }}
+        >
+          <Input
+            aria-label="Customer search"
+            placeholder="Name, phone, or ID"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
           <Button onClick={() => void search()}>Search</Button>
         </div>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{cardMessage}</p>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
+          {message}
+        </p>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
+          {cardMessage}
+        </p>
       </section>
 
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--sc-spacing-4)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        }}
+      >
         <article style={cardStyle}>
           <h2 style={{ marginTop: 0 }}>Results</h2>
           {items.length === 0 ? (
@@ -429,12 +506,29 @@ export default function CashierCustomersPage() {
                   return (
                     <tr key={item.id ?? item.phoneE164 ?? item.fullName}>
                       <td>
-                        <button type="button" onClick={() => setSelectedId(item.id ?? null)} style={rowButton}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(item.id ?? null)}
+                          style={rowButton}
+                        >
                           {item.fullName ?? item.name ?? item.id}
                         </button>
                       </td>
-                      <td><StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'ACTIVE' ? 'success' : 'warning'} /></td>
-                      <td>{typeof item.balanceKobo === 'number' ? <Money amountKobo={item.balanceKobo} /> : '—'}</td>
+                      <td>
+                        <StatusBadge
+                          label={item.status ?? 'UNKNOWN'}
+                          tone={
+                            item.status === 'ACTIVE' ? 'success' : 'warning'
+                          }
+                        />
+                      </td>
+                      <td>
+                        {typeof item.balanceKobo === 'number' ? (
+                          <Money amountKobo={item.balanceKobo} />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td>{cards.length || '—'}</td>
                     </tr>
                   );
@@ -448,20 +542,51 @@ export default function CashierCustomersPage() {
           <h2 style={{ marginTop: 0 }}>Detail</h2>
           {selectedCustomer ? (
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              <div style={statRow}><span>Name</span><strong>{selectedCustomer.fullName ?? selectedCustomer.name ?? selectedCustomer.id}</strong></div>
-              <div style={statRow}><span>Status</span><StatusBadge label={selectedCustomer.status ?? 'UNKNOWN'} tone="info" /></div>
-              <div style={statRow}><span>Balance</span><Money amountKobo={selectedCustomer.balanceKobo ?? 0} /></div>
-              <div style={statRow}><span>Phone</span><span>{selectedCustomer.phoneE164 ?? selectedCustomer.phone ?? '—'}</span></div>
+              <div style={statRow}>
+                <span>Name</span>
+                <strong>
+                  {selectedCustomer.fullName ??
+                    selectedCustomer.name ??
+                    selectedCustomer.id}
+                </strong>
+              </div>
+              <div style={statRow}>
+                <span>Status</span>
+                <StatusBadge
+                  label={selectedCustomer.status ?? 'UNKNOWN'}
+                  tone="info"
+                />
+              </div>
+              <div style={statRow}>
+                <span>Balance</span>
+                <Money amountKobo={selectedCustomer.balanceKobo ?? 0} />
+              </div>
+              <div style={statRow}>
+                <span>Phone</span>
+                <span>
+                  {selectedCustomer.phoneE164 ?? selectedCustomer.phone ?? '—'}
+                </span>
+              </div>
               <Alert tone="info" title="History">
                 Recent ledger entries are shown below.
               </Alert>
-              {Array.isArray(ledger?.items) && ledger.items.length > 0 ? ledger.items.slice(0, 5).map((item: any) => (
-                <div key={item.id ?? JSON.stringify(item)} style={statRow}>
-                  <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
-                  <span>{item.amountKobo ? <Money amountKobo={item.amountKobo} /> : '—'}</span>
-                </div>
-              )) : (
-                <p style={{ color: 'var(--sc-color-semantic-textSecondary)' }}>No ledger history loaded.</p>
+              {Array.isArray(ledger?.items) && ledger.items.length > 0 ? (
+                ledger.items.slice(0, 5).map((item: any) => (
+                  <div key={item.id ?? JSON.stringify(item)} style={statRow}>
+                    <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
+                    <span>
+                      {item.amountKobo ? (
+                        <Money amountKobo={item.amountKobo} />
+                      ) : (
+                        '—'
+                      )}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p style={{ color: 'var(--sc-color-semantic-textSecondary)' }}>
+                  No ledger history loaded.
+                </p>
               )}
               <Alert tone="info" title="Customer status">
                 Status changes require confirmation before submission.
@@ -470,12 +595,36 @@ export default function CashierCustomersPage() {
                 name="customer-status"
                 legend="Customer status"
                 value={customerStatus}
-                onValueChange={(value) => setCustomerStatus(value as UpdateCustomerStatusDtoStatus)}
-                options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
+                onValueChange={(value) =>
+                  setCustomerStatus(value as UpdateCustomerStatusDtoStatus)
+                }
+                options={[
+                  { value: 'ACTIVE', label: 'Active' },
+                  { value: 'BLOCKED', label: 'Blocked' },
+                ]}
               />
-              <Input aria-label="Customer status confirmation" placeholder="Type UPDATE to confirm" value={customerStatusConfirmation} onChange={(event) => setCustomerStatusConfirmation(event.target.value)} />
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-                <Button variant="secondary" onClick={() => void updateCustomerStatus()} loading={busy}>Update customer status</Button>
+              <Input
+                aria-label="Customer status confirmation"
+                placeholder="Type UPDATE to confirm"
+                value={customerStatusConfirmation}
+                onChange={(event) =>
+                  setCustomerStatusConfirmation(event.target.value)
+                }
+              />
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--sc-spacing-3)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Button
+                  variant="secondary"
+                  onClick={() => void updateCustomerStatus()}
+                  loading={busy}
+                >
+                  Update customer status
+                </Button>
               </div>
             </div>
           ) : (
@@ -515,8 +664,19 @@ export default function CashierCustomersPage() {
                         {card.serialNumber ?? card.id ?? 'Card'}
                       </button>
                     </td>
-                    <td><StatusBadge label={card.status ?? 'UNKNOWN'} tone={card.status === 'ACTIVE' ? 'success' : 'warning'} /></td>
-                    <td>{typeof card.availableBalanceKobo === 'number' ? <Money amountKobo={card.availableBalanceKobo} /> : '—'}</td>
+                    <td>
+                      <StatusBadge
+                        label={card.status ?? 'UNKNOWN'}
+                        tone={card.status === 'ACTIVE' ? 'success' : 'warning'}
+                      />
+                    </td>
+                    <td>
+                      {typeof card.availableBalanceKobo === 'number' ? (
+                        <Money amountKobo={card.availableBalanceKobo} />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -527,25 +687,67 @@ export default function CashierCustomersPage() {
         <article style={cardStyle}>
           <h2 style={{ marginTop: 0 }}>Card management</h2>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            <Input aria-label="Card serial" placeholder="Card serial" value={cardSerialNumber} onChange={(event) => setCardSerialNumber(event.target.value)} />
-            <Input aria-label="Replacement serial" placeholder="Replacement serial" value={replacementSerialNumber} onChange={(event) => setReplacementSerialNumber(event.target.value)} />
-            <Input aria-label="Replacement confirmation" placeholder="Type REPLACE to confirm" value={replaceConfirmation} onChange={(event) => setReplaceConfirmation(event.target.value)} />
+            <Input
+              aria-label="Card serial"
+              placeholder="Card serial"
+              value={cardSerialNumber}
+              onChange={(event) => setCardSerialNumber(event.target.value)}
+            />
+            <Input
+              aria-label="Replacement serial"
+              placeholder="Replacement serial"
+              value={replacementSerialNumber}
+              onChange={(event) =>
+                setReplacementSerialNumber(event.target.value)
+              }
+            />
+            <Input
+              aria-label="Replacement confirmation"
+              placeholder="Type REPLACE to confirm"
+              value={replaceConfirmation}
+              onChange={(event) => setReplaceConfirmation(event.target.value)}
+            />
             <RadioGroup
               name="card-status"
               legend="Card status"
               value={cardStatus}
-              onValueChange={(value) => setCardStatus(value as UpdateCardStatusDtoStatus)}
+              onValueChange={(value) =>
+                setCardStatus(value as UpdateCardStatusDtoStatus)
+              }
               options={cardStatuses.map((value) => ({ value, label: value }))}
             />
             {selectedCard ? (
               <Alert tone="info" title="Selected card">
-                {selectedCard.serialNumber ?? selectedCard.id ?? 'Card'} is ready for replacement or status change.
+                {selectedCard.serialNumber ?? selectedCard.id ?? 'Card'} is
+                ready for replacement or status change.
               </Alert>
             ) : null}
-            <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-              <Button onClick={() => void assignCard()} loading={busy}>Assign card</Button>
-              <Button variant="secondary" onClick={() => void replaceCard()} loading={busy} disabled={!selectedCardId}>Replace card</Button>
-              <Button variant="ghost" onClick={() => void updateCardStatus()} loading={busy} disabled={!selectedCardId}>Update status</Button>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--sc-spacing-3)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <Button onClick={() => void assignCard()} loading={busy}>
+                Assign card
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void replaceCard()}
+                loading={busy}
+                disabled={!selectedCardId}
+              >
+                Replace card
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => void updateCardStatus()}
+                loading={busy}
+                disabled={!selectedCardId}
+              >
+                Update status
+              </Button>
             </div>
           </div>
         </article>
@@ -563,7 +765,14 @@ export default function CashierCustomersPage() {
         </div>
         <div style={statRow}>
           <span>History</span>
-          <StatusBadge label={Array.isArray(ledger?.items) ? `${ledger.items.length} ledger rows` : 'No ledger loaded'} tone="neutral" />
+          <StatusBadge
+            label={
+              Array.isArray(ledger?.items)
+                ? `${ledger.items.length} ledger rows`
+                : 'No ledger loaded'
+            }
+            tone="neutral"
+          />
         </div>
         <Table>
           <tbody>
@@ -579,7 +788,11 @@ export default function CashierCustomersPage() {
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionResponse ? 'Last backend response is shown below.' : 'Submit a search or mutation to inspect the backend response.'}</p>
+        <p style={muted}>
+          {actionResponse
+            ? 'Last backend response is shown below.'
+            : 'Submit a search or mutation to inspect the backend response.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -601,7 +814,12 @@ export default function CashierCustomersPage() {
 
 function extractCustomerCards(customer: CustomerRecord | null) {
   if (!customer) return [] as CardRecord[];
-  const candidates = [customer.cards, customer.linkedCards, customer.card, customer.activeCard];
+  const candidates = [
+    customer.cards,
+    customer.linkedCards,
+    customer.card,
+    customer.activeCard,
+  ];
   const records: CardRecord[] = [];
 
   for (const candidate of candidates) {
@@ -632,7 +850,12 @@ function extractCustomerCards(customer: CustomerRecord | null) {
 function normalizeCardRecord(value: unknown): CardRecord | null {
   if (!value || typeof value !== 'object') return null;
   const card = value as CardRecord;
-  if (!card.id && !card.serialNumber && !card.status && typeof card.availableBalanceKobo !== 'number') {
+  if (
+    !card.id &&
+    !card.serialNumber &&
+    !card.status &&
+    typeof card.availableBalanceKobo !== 'number'
+  ) {
     return null;
   }
   return card;
@@ -690,6 +913,7 @@ const rowButton: CSSProperties = {
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }

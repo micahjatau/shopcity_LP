@@ -8,7 +8,13 @@ import {
   reversalsControllerReverseV1,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
-import { Alert, Button, Input, Textarea, Table } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  Textarea,
+  Table,
+} from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
 const relatedRoutes = [
@@ -25,7 +31,10 @@ export default function SupervisorTransactionsPage() {
     'Search a transaction by ID to inspect and reverse it.',
   );
   const [transaction, setTransaction] = useState<any | null>(null);
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [busy, setBusy] = useState(false);
 
   const summaryRows = useMemo(
@@ -35,7 +44,10 @@ export default function SupervisorTransactionsPage() {
             ['State', transaction.state ?? transaction.status ?? '—'],
             ['Type', transaction.type ?? '—'],
             ['Direction', transaction.direction ?? '—'],
-            ['Customer', transaction.customerId ?? transaction.customer?.fullName ?? '—'],
+            [
+              'Customer',
+              transaction.customerId ?? transaction.customer?.fullName ?? '—',
+            ],
             ['Card', transaction.cardSerialNumber ?? '—'],
             ['Receipt', transaction.posReceiptNumber ?? '—'],
             ['Credit', transaction.creditKobo],
@@ -128,8 +140,11 @@ export default function SupervisorTransactionsPage() {
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Transaction review</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-          Inspect a transaction and create an immutable compensating reversal where allowed.
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
+          Inspect a transaction and create an immutable compensating reversal
+          where allowed.
         </p>
         <div style={routeRow}>
           <Link href="/supervisor">Back to supervisor</Link>
@@ -142,20 +157,31 @@ export default function SupervisorTransactionsPage() {
       </header>
 
       <Alert tone="info" title="Transaction route context">
-        Use this route for search, detail inspection, and compensating reversals.
+        Use this route for search, detail inspection, and compensating
+        reversals.
       </Alert>
 
       <div style={statusRow}>
         <StatusBadge label="Immutable reversal flow" tone="success" />
         <StatusBadge label="Backend contract" tone="info" />
-        <StatusBadge label={transaction ? 'Transaction loaded' : 'No transaction'} tone={transaction ? 'success' : 'warning'} />
+        <StatusBadge
+          label={transaction ? 'Transaction loaded' : 'No transaction'}
+          tone={transaction ? 'success' : 'warning'}
+        />
       </div>
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Load transaction</h2>
         <div style={inputRow}>
-          <Input aria-label="Transaction ID" placeholder="Transaction ID" value={transactionId} onChange={(event) => setTransactionId(event.target.value)} />
-          <Button onClick={() => void loadTransaction()} loading={busy}>Load</Button>
+          <Input
+            aria-label="Transaction ID"
+            placeholder="Transaction ID"
+            value={transactionId}
+            onChange={(event) => setTransactionId(event.target.value)}
+          />
+          <Button onClick={() => void loadTransaction()} loading={busy}>
+            Load
+          </Button>
         </div>
       </section>
 
@@ -165,9 +191,18 @@ export default function SupervisorTransactionsPage() {
           {transaction ? (
             <>
               <div style={statusRow}>
-                <StatusBadge label={transaction.status ?? 'UNKNOWN'} tone="info" />
-                <StatusBadge label={transaction.type ?? 'Transaction'} tone="neutral" />
-                <StatusBadge label={transaction.direction ?? 'Direction pending'} tone="success" />
+                <StatusBadge
+                  label={transaction.status ?? 'UNKNOWN'}
+                  tone="info"
+                />
+                <StatusBadge
+                  label={transaction.type ?? 'Transaction'}
+                  tone="neutral"
+                />
+                <StatusBadge
+                  label={transaction.direction ?? 'Direction pending'}
+                  tone="success"
+                />
               </div>
               <Table>
                 <tbody>
@@ -181,7 +216,11 @@ export default function SupervisorTransactionsPage() {
               </Table>
               {transaction.reversal ? (
                 <Alert tone="warning" title="Existing reversal">
-                  Original transaction {transaction.reversal.originalTransactionId ?? transaction.transactionId} was reversed by {transaction.reversal.createdBy ?? 'the backend'}.
+                  Original transaction{' '}
+                  {transaction.reversal.originalTransactionId ??
+                    transaction.transactionId}{' '}
+                  was reversed by{' '}
+                  {transaction.reversal.createdBy ?? 'the backend'}.
                 </Alert>
               ) : null}
               <Table>
@@ -209,7 +248,8 @@ export default function SupervisorTransactionsPage() {
           {transaction ? (
             <>
               <Alert tone="info" title="Compensating action">
-                Reversals preserve the original transaction and write a compensating ledger entry.
+                Reversals preserve the original transaction and write a
+                compensating ledger entry.
               </Alert>
               <Table>
                 <tbody>
@@ -221,15 +261,31 @@ export default function SupervisorTransactionsPage() {
                   ))}
                 </tbody>
               </Table>
-              <Textarea aria-label="Reversal reason" placeholder="Reason for reversal" value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
-              <Input aria-label="Reversal confirmation" placeholder="Type REVERSE to confirm" value={reverseConfirmation} onChange={(event) => setReverseConfirmation(event.target.value)} />
-              <Button onClick={() => void reverseTransaction()} loading={busy} disabled={!transaction}>
+              <Textarea
+                aria-label="Reversal reason"
+                placeholder="Reason for reversal"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                rows={3}
+              />
+              <Input
+                aria-label="Reversal confirmation"
+                placeholder="Type REVERSE to confirm"
+                value={reverseConfirmation}
+                onChange={(event) => setReverseConfirmation(event.target.value)}
+              />
+              <Button
+                onClick={() => void reverseTransaction()}
+                loading={busy}
+                disabled={!transaction}
+              >
                 Reverse transaction
               </Button>
             </>
           ) : (
             <Alert tone="warning" title="No reversal available">
-              Load a transaction to review its balance impact and reversal outcome.
+              Load a transaction to review its balance impact and reversal
+              outcome.
             </Alert>
           )}
         </article>
@@ -237,7 +293,11 @@ export default function SupervisorTransactionsPage() {
 
       <section style={cardStyle} aria-label="Reversal result">
         <h2 style={{ marginTop: 0 }}>Reversal result</h2>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
+          {message}
+        </p>
         {responseData ? (
           <Table>
             <tbody>
@@ -260,7 +320,8 @@ export default function SupervisorTransactionsPage() {
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }
 

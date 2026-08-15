@@ -47,7 +47,10 @@ export function FraudFlagsPanel() {
     FraudFlagDecisionDtoDecision.ACKNOWLEDGED,
   );
   const [reason, setReason] = useState('');
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedItem = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
@@ -55,10 +58,15 @@ export function FraudFlagsPanel() {
   );
 
   const openCount = items.filter((item) => item.status === 'OPEN').length;
-  const highSeverityCount = items.filter((item) => item.severity === 'HIGH').length;
+  const highSeverityCount = items.filter(
+    (item) => item.severity === 'HIGH',
+  ).length;
   const selectedPreview = selectedItem
     ? [
-        ['Subject', selectedItem.customer?.fullName ?? selectedItem.actorId ?? '—'],
+        [
+          'Subject',
+          selectedItem.customer?.fullName ?? selectedItem.actorId ?? '—',
+        ],
         ['Status', selectedItem.status ?? '—'],
         ['Severity', selectedItem.severity ?? 'LOW'],
         ['Rule code', selectedItem.ruleCode ?? '—'],
@@ -127,7 +135,10 @@ export function FraudFlagsPanel() {
         <StatusBadge label={`Loaded ${items.length}`} tone="info" />
         <StatusBadge label={`Open ${openCount}`} tone="warning" />
         <StatusBadge label={`High ${highSeverityCount}`} tone="danger" />
-        <StatusBadge label={selectedItem ? 'Selected' : 'No selection'} tone="neutral" />
+        <StatusBadge
+          label={selectedItem ? 'Selected' : 'No selection'}
+          tone="neutral"
+        />
       </div>
 
       <div style={routeRow}>
@@ -139,7 +150,11 @@ export function FraudFlagsPanel() {
       </div>
 
       <div style={toolbarRow}>
-        <Button variant="secondary" onClick={() => void refresh()} loading={loading}>
+        <Button
+          variant="secondary"
+          onClick={() => void refresh()}
+          loading={loading}
+        >
           Refresh fraud flags
         </Button>
         <Button onClick={() => void handleDecision()} disabled={!selectedId}>
@@ -162,7 +177,10 @@ export function FraudFlagsPanel() {
                 const selected = item.id === selectedId;
                 return (
                   <button
-                    key={item.id ?? `${item.ruleCode ?? 'fraud'}-${item.customer?.fullName ?? 'item'}`}
+                    key={
+                      item.id ??
+                      `${item.ruleCode ?? 'fraud'}-${item.customer?.fullName ?? 'item'}`
+                    }
                     type="button"
                     onClick={() => setSelectedId(item.id ?? null)}
                     style={{
@@ -174,18 +192,31 @@ export function FraudFlagsPanel() {
                     }}
                   >
                     <div style={listHeaderRow}>
-                      <strong>{item.ruleCode ?? item.reasonCode ?? item.id ?? 'Fraud flag'}</strong>
+                      <strong>
+                        {item.ruleCode ??
+                          item.reasonCode ??
+                          item.id ??
+                          'Fraud flag'}
+                      </strong>
                       <StatusBadge
                         label={item.status ?? 'UNKNOWN'}
                         tone={item.status === 'OPEN' ? 'warning' : 'neutral'}
                       />
                     </div>
                     <p style={listBodyText}>
-                      {item.customer?.fullName ?? item.actorId ?? 'Contract-shaped fraud event'}
+                      {item.customer?.fullName ??
+                        item.actorId ??
+                        'Contract-shaped fraud event'}
                     </p>
                     <div style={chipRow}>
-                      <StatusBadge label={item.severity ?? 'LOW'} tone={severityTone(item.severity)} />
-                      <StatusBadge label={item.branchId ?? 'Tenant-wide'} tone="info" />
+                      <StatusBadge
+                        label={item.severity ?? 'LOW'}
+                        tone={severityTone(item.severity)}
+                      />
+                      <StatusBadge
+                        label={item.branchId ?? 'Tenant-wide'}
+                        tone="info"
+                      />
                     </div>
                   </button>
                 );
@@ -229,7 +260,8 @@ export function FraudFlagsPanel() {
 
               <section style={cardStyle} aria-label="Fraud decision preview">
                 <Alert tone="warning" title="Decision preview">
-                  Review the evidence above before the backend records a resolution.
+                  Review the evidence above before the backend records a
+                  resolution.
                 </Alert>
                 <Table>
                   <tbody>
@@ -252,7 +284,9 @@ export function FraudFlagsPanel() {
         <RadioGroup
           name="fraud-decision"
           legend="Decision"
-          options={decisionOptions as unknown as { value: string; label: string }[]}
+          options={
+            decisionOptions as unknown as { value: string; label: string }[]
+          }
           value={decision}
           onValueChange={(value) => setDecision(value as FraudFlagDecision)}
         />
@@ -264,13 +298,25 @@ export function FraudFlagsPanel() {
         />
         <div style={statusRow}>
           <StatusBadge
-            label={decision === FraudFlagDecisionDtoDecision.RESOLVED ? 'Resolve' : 'Acknowledge'}
-            tone={decision === FraudFlagDecisionDtoDecision.RESOLVED ? 'success' : 'info'}
+            label={
+              decision === FraudFlagDecisionDtoDecision.RESOLVED
+                ? 'Resolve'
+                : 'Acknowledge'
+            }
+            tone={
+              decision === FraudFlagDecisionDtoDecision.RESOLVED
+                ? 'success'
+                : 'info'
+            }
           />
-          <StatusBadge label={reason.trim() ? 'Reason ready' : 'Reason required'} tone={reason.trim() ? 'success' : 'warning'} />
+          <StatusBadge
+            label={reason.trim() ? 'Reason ready' : 'Reason required'}
+            tone={reason.trim() ? 'success' : 'warning'}
+          />
         </div>
         <Alert tone="info" title="Decision context">
-          The selected fraud item above includes the branch, rule, and subject details.
+          The selected fraud item above includes the branch, rule, and subject
+          details.
         </Alert>
       </section>
 
@@ -305,7 +351,8 @@ function severityTone(severity?: string) {
 }
 
 function describeFraudItem(item: FraudFlagRecord) {
-  const subject = item.customer?.fullName ?? item.actorId ?? item.ruleCode ?? 'Fraud flag';
+  const subject =
+    item.customer?.fullName ?? item.actorId ?? item.ruleCode ?? 'Fraud flag';
   return `${subject} · ${item.severity ?? 'LOW'} · ${item.status ?? 'UNKNOWN'}`;
 }
 

@@ -15,21 +15,32 @@ export default function SupervisorApprovalsPage() {
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Approvals</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Detail-led approval review with live backend data.
         </p>
         <Link href="/supervisor">Back to supervisor</Link>
       </header>
 
       <Alert tone="info" title="Approval route context">
-        Review decisions happen here while transaction, fraud, and report detail stay on their own routes.
+        Review decisions happen here while transaction, fraud, and report detail
+        stay on their own routes.
       </Alert>
 
       <section style={cardStyle} aria-label="Related routes">
         <h2 style={{ marginTop: 0 }}>Route map</h2>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--sc-spacing-3)',
+            flexWrap: 'wrap',
+          }}
+        >
           {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>{label}</Link>
+            <Link key={href} href={href}>
+              {label}
+            </Link>
           ))}
         </div>
         <div style={statusRow}>

@@ -12,7 +12,10 @@ import {
   OfflineIndicator,
   SyncQueueIndicator,
 } from './offline';
-import { logoutSession, configurationControllerGetPublicConfigV1 } from '../lib/api';
+import {
+  logoutSession,
+  configurationControllerGetPublicConfigV1,
+} from '../lib/api';
 import { createApiRequest } from '../lib/api/request';
 
 type Role = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | 'SYSTEM';
@@ -65,9 +68,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
     async function loadPublicConfig() {
       try {
-        const response = await configurationControllerGetPublicConfigV1(
-          createApiRequest(),
-        );
+        const response =
+          await configurationControllerGetPublicConfigV1(createApiRequest());
 
         if (ignore) return;
 
@@ -99,12 +101,15 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       return [] as RouteItem[];
     }
 
-    return role === 'SYSTEM' ? roleRoutes.ADMIN : roleRoutes[role as Exclude<Role, 'SYSTEM'>];
+    return role === 'SYSTEM'
+      ? roleRoutes.ADMIN
+      : roleRoutes[role as Exclude<Role, 'SYSTEM'>];
   }, [role, status]);
 
   const primaryRoute = routeGroup[0]?.href ?? '/login';
   const isAuthorizedRoute =
-    routeGroup.length === 0 || routeGroup.some((item) => matchesRoute(pathname, item.href));
+    routeGroup.length === 0 ||
+    routeGroup.some((item) => matchesRoute(pathname, item.href));
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -115,7 +120,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     if (status === 'ready' && routeGroup.length > 0 && !isAuthorizedRoute) {
       router.replace(primaryRoute);
     }
-  }, [isAuthorizedRoute, pathname, primaryRoute, routeGroup.length, router, status]);
+  }, [
+    isAuthorizedRoute,
+    pathname,
+    primaryRoute,
+    routeGroup.length,
+    router,
+    status,
+  ]);
 
   const navItems = useMemo<RouteItem[]>(() => {
     if (status === 'ready' && role) {
@@ -126,7 +138,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }, [routeGroup, role, status]);
 
   const activeRoute =
-    navItems.find((item) => matchesRoute(pathname, item.href)) ?? navItems[0] ?? null;
+    navItems.find((item) => matchesRoute(pathname, item.href)) ??
+    navItems[0] ??
+    null;
   const workspaceLabel =
     status === 'ready'
       ? role === 'ADMIN'
@@ -148,26 +162,24 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }
 
   const showProtectedContent = status === 'ready' && isAuthorizedRoute;
-  const context = publicConfig as
-    | {
-        tenant?: { id?: string; name?: string };
-        branch?: {
-          id?: string;
-          name?: string;
-          timezone?: string;
-          receiptWeekStartDay?: number;
-        };
-        policies?: {
-          defaultEarnRateBps?: number;
-          minRedemptionKobo?: number;
-          maxRedemptionBasketPercent?: number;
-          purchaseFlagThresholdKobo?: number;
-          purchaseApprovalThresholdKobo?: number;
-          redemptionApprovalThresholdKobo?: number;
-          offlineRedemptionDisabled?: boolean;
-        };
-      }
-    | null;
+  const context = publicConfig as {
+    tenant?: { id?: string; name?: string };
+    branch?: {
+      id?: string;
+      name?: string;
+      timezone?: string;
+      receiptWeekStartDay?: number;
+    };
+    policies?: {
+      defaultEarnRateBps?: number;
+      minRedemptionKobo?: number;
+      maxRedemptionBasketPercent?: number;
+      purchaseFlagThresholdKobo?: number;
+      purchaseApprovalThresholdKobo?: number;
+      redemptionApprovalThresholdKobo?: number;
+      offlineRedemptionDisabled?: boolean;
+    };
+  } | null;
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -213,7 +225,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 <div style={{ fontWeight: 700, letterSpacing: '0.04em' }}>
                   SHOPCITY
                 </div>
-                <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
+                <div
+                  style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}
+                >
                   Loyalty operations
                 </div>
               </div>
@@ -334,8 +348,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 {context?.branch?.name ?? context?.branch?.id ?? 'Loading…'}
               </strong>
               <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
-                {context?.tenant?.name ?? context?.tenant?.id ?? 'Tenant pending'}
-                {context?.branch?.timezone ? ` · ${context.branch.timezone}` : ''}
+                {context?.tenant?.name ??
+                  context?.tenant?.id ??
+                  'Tenant pending'}
+                {context?.branch?.timezone
+                  ? ` · ${context.branch.timezone}`
+                  : ''}
               </div>
               <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
                 {typeof context?.policies?.defaultEarnRateBps === 'number'
@@ -367,7 +385,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           }}
         >
           {showProtectedContent ? null : (
-            <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
               {status === 'ready'
                 ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
                 : 'Sign in to access cashier, supervisor and admin workflows.'}

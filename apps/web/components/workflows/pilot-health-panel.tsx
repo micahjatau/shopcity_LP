@@ -58,27 +58,52 @@ export function PilotHealthPanel() {
             {
               label: 'Outbox backlog',
               value:
-                summary.outbox?.backlogCount ?? summary.outbox?.pendingCount ?? '—',
-              tone: summary.outbox?.hasBacklog ? ('warning' as const) : ('success' as const),
-              detail: summary.outbox?.lastDispatchAt ? `Last dispatch ${summary.outbox.lastDispatchAt}` : 'No backlog detected',
+                summary.outbox?.backlogCount ??
+                summary.outbox?.pendingCount ??
+                '—',
+              tone: summary.outbox?.hasBacklog
+                ? ('warning' as const)
+                : ('success' as const),
+              detail: summary.outbox?.lastDispatchAt
+                ? `Last dispatch ${summary.outbox.lastDispatchAt}`
+                : 'No backlog detected',
             },
             {
               label: 'SMS delivery',
-              value: summary.sms?.failedCount ?? summary.sms?.queuedCount ?? '—',
-              tone: summary.sms?.failedCount ? ('danger' as const) : ('success' as const),
-              detail: summary.sms?.queuedCount ? `${summary.sms.queuedCount} queued` : 'Delivery queue clear',
+              value:
+                summary.sms?.failedCount ?? summary.sms?.queuedCount ?? '—',
+              tone: summary.sms?.failedCount
+                ? ('danger' as const)
+                : ('success' as const),
+              detail: summary.sms?.queuedCount
+                ? `${summary.sms.queuedCount} queued`
+                : 'Delivery queue clear',
             },
             {
               label: 'Offline sync',
-              value: summary.offlineSync?.failedCount ?? summary.offlineSync?.pendingCount ?? '—',
-              tone: summary.offlineSync?.failedCount ? ('danger' as const) : ('warning' as const),
-              detail: summary.offlineSync?.pendingCount ? `${summary.offlineSync.pendingCount} pending` : 'No offline backlog',
+              value:
+                summary.offlineSync?.failedCount ??
+                summary.offlineSync?.pendingCount ??
+                '—',
+              tone: summary.offlineSync?.failedCount
+                ? ('danger' as const)
+                : ('warning' as const),
+              detail: summary.offlineSync?.pendingCount
+                ? `${summary.offlineSync.pendingCount} pending`
+                : 'No offline backlog',
             },
             {
               label: 'Report freshness',
-              value: summary.reports?.staleCount ?? summary.reports?.freshCount ?? '—',
-              tone: summary.reports?.staleCount ? ('warning' as const) : ('success' as const),
-              detail: summary.reports?.freshCount ? `${summary.reports.freshCount} fresh` : 'No freshness warnings',
+              value:
+                summary.reports?.staleCount ??
+                summary.reports?.freshCount ??
+                '—',
+              tone: summary.reports?.staleCount
+                ? ('warning' as const)
+                : ('success' as const),
+              detail: summary.reports?.freshCount
+                ? `${summary.reports.freshCount} fresh`
+                : 'No freshness warnings',
             },
           ]
         : [],
@@ -87,7 +112,11 @@ export function PilotHealthPanel() {
 
   const overallTone = useMemo(() => {
     if (!summary) return 'neutral' as const;
-    if (summary.outbox?.hasBacklog || summary.sms?.failedCount || summary.offlineSync?.failedCount) {
+    if (
+      summary.outbox?.hasBacklog ||
+      summary.sms?.failedCount ||
+      summary.offlineSync?.failedCount
+    ) {
       return 'warning' as const;
     }
     if (summary.reports?.staleCount) return 'info' as const;
@@ -95,13 +124,22 @@ export function PilotHealthPanel() {
   }, [summary]);
 
   return (
-    <section
-      style={cardStyle}
-    >
+    <section style={cardStyle}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-          <StatusBadge label={summary ? 'Live' : 'Loading'} tone={overallTone} />
-          {summary?.reconciliation ? <StatusBadge label="Reconciliation available" tone="info" /> : null}
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--sc-spacing-3)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <StatusBadge
+            label={summary ? 'Live' : 'Loading'}
+            tone={overallTone}
+          />
+          {summary?.reconciliation ? (
+            <StatusBadge label="Reconciliation available" tone="info" />
+          ) : null}
         </div>
         <h2 style={{ margin: 0 }}>Pilot health</h2>
         <p
@@ -132,14 +170,14 @@ export function PilotHealthPanel() {
         {items.length === 0 ? (
           <div style={emptyStateStyle}>
             <strong>Waiting for live operations data</strong>
-            <p style={muted}>Health, queue, and report signals will appear once the backend responds.</p>
+            <p style={muted}>
+              Health, queue, and report signals will appear once the backend
+              responds.
+            </p>
           </div>
         ) : (
           items.map((item) => (
-            <article
-              key={item.label}
-              style={metricCardStyle}
-            >
+            <article key={item.label} style={metricCardStyle}>
               <p
                 style={{
                   margin: 0,
@@ -169,9 +207,21 @@ export function PilotHealthPanel() {
 
       {summary?.reconciliation ? (
         <div style={reconciliationStyle}>
-          <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--sc-spacing-2)',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
             <strong>Reconciliation</strong>
-            <StatusBadge label={summary.reconciliation.unhealthy ? 'Needs review' : 'Healthy'} tone={summary.reconciliation.unhealthy ? 'warning' : 'success'} />
+            <StatusBadge
+              label={
+                summary.reconciliation.unhealthy ? 'Needs review' : 'Healthy'
+              }
+              tone={summary.reconciliation.unhealthy ? 'warning' : 'success'}
+            />
           </div>
           <pre style={preStyle}>
             {JSON.stringify(summary.reconciliation, null, 2)}

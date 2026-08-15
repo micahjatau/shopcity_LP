@@ -33,7 +33,10 @@ type RedeemTransactionFormProps = {
   policyContext?: CashierPolicyContext | null;
 };
 
-export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTransactionFormProps) {
+export function RedeemTransactionForm({
+  lookupContext,
+  policyContext,
+}: RedeemTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
   const [cardSerialNumber, setCardSerialNumber] = useState('');
@@ -47,7 +50,10 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
   const [message, setMessage] = useState('');
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   useEffect(() => {
     if (!lookupContext) return;
@@ -62,7 +68,9 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
     }
   }, [lookupContext]);
 
-  const lookupReady = Boolean(lookupContext?.cardSerialNumber || lookupContext?.customerName);
+  const lookupReady = Boolean(
+    lookupContext?.cardSerialNumber || lookupContext?.customerName,
+  );
   const maxAllowedByBasketKobo =
     basketAmount === null || !policyContext?.maxRedemptionBasketPercent
       ? null
@@ -70,13 +78,15 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
           (basketAmount * policyContext.maxRedemptionBasketPercent) / 100,
         );
   const maxAllowedRedemptionKobo =
-    typeof lookupContext?.availableBalanceKobo === 'number' && maxAllowedByBasketKobo !== null
+    typeof lookupContext?.availableBalanceKobo === 'number' &&
+    maxAllowedByBasketKobo !== null
       ? Math.min(lookupContext.availableBalanceKobo, maxAllowedByBasketKobo)
       : typeof lookupContext?.availableBalanceKobo === 'number'
         ? lookupContext.availableBalanceKobo
         : maxAllowedByBasketKobo;
   const resultingBalanceKobo =
-    typeof lookupContext?.availableBalanceKobo === 'number' && requestedRedemption !== null
+    typeof lookupContext?.availableBalanceKobo === 'number' &&
+    requestedRedemption !== null
       ? lookupContext.availableBalanceKobo - requestedRedemption
       : null;
   const needsReview =
@@ -86,11 +96,19 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
 
   const draftSummary = useMemo(
     () => [
-      { label: 'Card', value: cardSerialNumber || 'Scan or type a card serial' },
+      {
+        label: 'Card',
+        value: cardSerialNumber || 'Scan or type a card serial',
+      },
       { label: 'Receipt', value: receiptNumber || 'Optional' },
       {
         label: 'Basket',
-        value: basketAmount === null ? 'Enter basket amount' : <Money amountKobo={basketAmount} />,
+        value:
+          basketAmount === null ? (
+            'Enter basket amount'
+          ) : (
+            <Money amountKobo={basketAmount} />
+          ),
       },
       {
         label: 'Requested',
@@ -141,7 +159,10 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
     try {
       const response = await redemptionsControllerRedeemV1(
         payload,
-        createApiRequest({ csrf: true, idempotencyKey: idempotencyKeyRef.current }),
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: idempotencyKeyRef.current,
+        }),
       );
 
       if (response.status === 201 || response.status === 202) {
@@ -183,22 +204,41 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
           {typeof lookupContext.availableBalanceKobo === 'number' ? (
             <>
               {' '}
-              Available balance: <Money amountKobo={lookupContext.availableBalanceKobo} />.
+              Available balance:{' '}
+              <Money amountKobo={lookupContext.availableBalanceKobo} />.
             </>
           ) : null}
         </Alert>
       ) : (
         <Alert tone="warning" title="Lookup recommended">
-          Lookup first so the cashier can review the customer and card context before submitting.
+          Lookup first so the cashier can review the customer and card context
+          before submitting.
         </Alert>
       )}
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
-        <StatusBadge label={lookupReady ? 'Context ready' : 'Awaiting lookup'} tone={lookupReady ? 'success' : 'warning'} />
-        <StatusBadge label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`} tone="info" />
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-2)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <StatusBadge
+          label={lookupReady ? 'Context ready' : 'Awaiting lookup'}
+          tone={lookupReady ? 'success' : 'warning'}
+        />
+        <StatusBadge
+          label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`}
+          tone="info"
+        />
         {typeof maxAllowedRedemptionKobo === 'number' ? (
-          <StatusBadge label={`Ceiling ${maxAllowedRedemptionKobo} kobo`} tone="neutral" />
+          <StatusBadge
+            label={`Ceiling ${maxAllowedRedemptionKobo} kobo`}
+            tone="neutral"
+          />
         ) : null}
-        {policyContext?.offlineRedemptionDisabled ? <StatusBadge label="Offline disabled" tone="danger" /> : null}
+        {policyContext?.offlineRedemptionDisabled ? (
+          <StatusBadge label="Offline disabled" tone="danger" />
+        ) : null}
       </div>
       <Input
         aria-label="Card serial number"
@@ -237,7 +277,11 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
         {draftSummary.map((item) => (
           <div
             key={item.label}
-            style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 'var(--sc-spacing-3)',
+            }}
           >
             <span>{item.label}</span>
             <span>{item.value}</span>
@@ -248,19 +292,45 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
         <tbody>
           <tr>
             <th scope="row">Minimum redemption</th>
-            <td>{policyContext?.minRedemptionKobo ? <Money amountKobo={policyContext.minRedemptionKobo} /> : '—'}</td>
+            <td>
+              {policyContext?.minRedemptionKobo ? (
+                <Money amountKobo={policyContext.minRedemptionKobo} />
+              ) : (
+                '—'
+              )}
+            </td>
           </tr>
           <tr>
             <th scope="row">Maximum allowed</th>
-            <td>{typeof maxAllowedRedemptionKobo === 'number' ? <Money amountKobo={maxAllowedRedemptionKobo} /> : '—'}</td>
+            <td>
+              {typeof maxAllowedRedemptionKobo === 'number' ? (
+                <Money amountKobo={maxAllowedRedemptionKobo} />
+              ) : (
+                '—'
+              )}
+            </td>
           </tr>
           <tr>
             <th scope="row">Approval threshold</th>
-            <td>{policyContext?.redemptionApprovalThresholdKobo ? <Money amountKobo={policyContext.redemptionApprovalThresholdKobo} /> : '—'}</td>
+            <td>
+              {policyContext?.redemptionApprovalThresholdKobo ? (
+                <Money
+                  amountKobo={policyContext.redemptionApprovalThresholdKobo}
+                />
+              ) : (
+                '—'
+              )}
+            </td>
           </tr>
           <tr>
             <th scope="row">Resulting balance</th>
-            <td>{typeof resultingBalanceKobo === 'number' ? <Money amountKobo={resultingBalanceKobo} /> : '—'}</td>
+            <td>
+              {typeof resultingBalanceKobo === 'number' ? (
+                <Money amountKobo={resultingBalanceKobo} />
+              ) : (
+                '—'
+              )}
+            </td>
           </tr>
         </tbody>
       </Table>
@@ -269,7 +339,13 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
           The requested redemption exceeds the current calculated maximum.
         </Alert>
       ) : null}
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
         <Button type="submit" loading={status === 'submitting'}>
           Submit redemption
         </Button>
@@ -277,10 +353,33 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
           Reset draft
         </Button>
       </div>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-2)',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
         <StatusBadge
-          label={status === 'pending' ? 'Awaiting approval' : status === 'confirmed' ? 'Confirmed' : status === 'error' ? 'Error' : 'Draft'}
-          tone={status === 'error' ? 'danger' : status === 'pending' ? 'warning' : status === 'confirmed' ? 'success' : 'neutral'}
+          label={
+            status === 'pending'
+              ? 'Awaiting approval'
+              : status === 'confirmed'
+                ? 'Confirmed'
+                : status === 'error'
+                  ? 'Error'
+                  : 'Draft'
+          }
+          tone={
+            status === 'error'
+              ? 'danger'
+              : status === 'pending'
+                ? 'warning'
+                : status === 'confirmed'
+                  ? 'success'
+                  : 'neutral'
+          }
         />
         <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>
           {message || 'The backend decides the final state.'}
@@ -288,8 +387,13 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
       </div>
       {responseData ? (
         <section style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-          <Alert tone={status === 'confirmed' ? 'success' : 'warning'} title="Backend response">
-            The backend returned a {status === 'confirmed' ? 'confirmed' : 'pending'} redemption result.
+          <Alert
+            tone={status === 'confirmed' ? 'success' : 'warning'}
+            title="Backend response"
+          >
+            The backend returned a{' '}
+            {status === 'confirmed' ? 'confirmed' : 'pending'} redemption
+            result.
           </Alert>
           <Table>
             <tbody>
@@ -312,6 +416,7 @@ export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTr
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }

@@ -36,7 +36,10 @@ type EarnTransactionFormProps = {
   policyContext?: CashierPolicyContext | null;
 };
 
-export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransactionFormProps) {
+export function EarnTransactionForm({
+  lookupContext,
+  policyContext,
+}: EarnTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
   const [cardSerialNumber, setCardSerialNumber] = useState('');
@@ -48,7 +51,10 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
   const [message, setMessage] = useState('');
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   useEffect(() => {
     if (!lookupContext) return;
@@ -60,24 +66,33 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
     }
   }, [lookupContext]);
 
-  const lookupReady = Boolean(lookupContext?.cardSerialNumber || lookupContext?.customerName);
+  const lookupReady = Boolean(
+    lookupContext?.cardSerialNumber || lookupContext?.customerName,
+  );
   const expectedCreditKobo =
     purchaseAmount === null || !policyContext?.defaultEarnRateBps
       ? null
-      : Math.round(
-          (purchaseAmount * policyContext.defaultEarnRateBps) / 10000,
-        );
-  const approvalFlagThresholdKobo = policyContext?.purchaseFlagThresholdKobo ?? null;
-  const approvalThresholdKobo = policyContext?.purchaseApprovalThresholdKobo ?? null;
+      : Math.round((purchaseAmount * policyContext.defaultEarnRateBps) / 10000);
+  const approvalFlagThresholdKobo =
+    policyContext?.purchaseFlagThresholdKobo ?? null;
+  const approvalThresholdKobo =
+    policyContext?.purchaseApprovalThresholdKobo ?? null;
 
   const draftSummary = useMemo(
     () => [
-      { label: 'Card', value: cardSerialNumber || 'Scan or type a card serial' },
+      {
+        label: 'Card',
+        value: cardSerialNumber || 'Scan or type a card serial',
+      },
       { label: 'Receipt', value: receiptNumber || 'Optional' },
       {
         label: 'Purchase',
         value:
-          purchaseAmount === null ? 'Enter an amount' : <Money amountKobo={purchaseAmount} />,
+          purchaseAmount === null ? (
+            'Enter an amount'
+          ) : (
+            <Money amountKobo={purchaseAmount} />
+          ),
       },
       { label: 'Draft key', value: idempotencyKeyRef.current.slice(0, 8) },
     ],
@@ -119,7 +134,10 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
     try {
       const response = await loyaltyControllerEarnV1(
         payload,
-        createApiRequest({ csrf: true, idempotencyKey: idempotencyKeyRef.current }),
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: idempotencyKeyRef.current,
+        }),
       );
 
       if (response.status === 201 || response.status === 202) {
@@ -160,26 +178,44 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
           {typeof lookupContext.availableBalanceKobo === 'number' ? (
             <>
               {' '}
-              Available balance: <Money amountKobo={lookupContext.availableBalanceKobo} />.
+              Available balance:{' '}
+              <Money amountKobo={lookupContext.availableBalanceKobo} />.
             </>
           ) : null}
           {typeof lookupContext.expiringCreditKobo === 'number' ? (
             <>
               {' '}
-              Expiring credit: <Money amountKobo={lookupContext.expiringCreditKobo} />.
+              Expiring credit:{' '}
+              <Money amountKobo={lookupContext.expiringCreditKobo} />.
             </>
           ) : null}
         </Alert>
       ) : (
         <Alert tone="warning" title="Lookup recommended">
-          Lookup first so the cashier can review the customer and card context before submitting.
+          Lookup first so the cashier can review the customer and card context
+          before submitting.
         </Alert>
       )}
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
-        <StatusBadge label={lookupReady ? 'Context ready' : 'Awaiting lookup'} tone={lookupReady ? 'success' : 'warning'} />
-        <StatusBadge label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`} tone="info" />
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-2)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <StatusBadge
+          label={lookupReady ? 'Context ready' : 'Awaiting lookup'}
+          tone={lookupReady ? 'success' : 'warning'}
+        />
+        <StatusBadge
+          label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`}
+          tone="info"
+        />
         {policyContext?.defaultEarnRateBps ? (
-          <StatusBadge label={`Earn ${policyContext.defaultEarnRateBps / 100}%`} tone="neutral" />
+          <StatusBadge
+            label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
+            tone="neutral"
+          />
         ) : null}
       </div>
       <Input
@@ -220,7 +256,11 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
         {draftSummary.map((item) => (
           <div
             key={item.label}
-            style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 'var(--sc-spacing-3)',
+            }}
           >
             <span>{item.label}</span>
             <span>{item.value}</span>
@@ -232,20 +272,44 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
           <tbody>
             <tr>
               <th scope="row">Expected credit</th>
-              <td>{expectedCreditKobo === null ? 'Enter purchase amount' : <Money amountKobo={expectedCreditKobo} />}</td>
+              <td>
+                {expectedCreditKobo === null ? (
+                  'Enter purchase amount'
+                ) : (
+                  <Money amountKobo={expectedCreditKobo} />
+                )}
+              </td>
             </tr>
             <tr>
               <th scope="row">Flag threshold</th>
-              <td>{approvalFlagThresholdKobo === null ? '—' : <Money amountKobo={approvalFlagThresholdKobo} />}</td>
+              <td>
+                {approvalFlagThresholdKobo === null ? (
+                  '—'
+                ) : (
+                  <Money amountKobo={approvalFlagThresholdKobo} />
+                )}
+              </td>
             </tr>
             <tr>
               <th scope="row">Approval threshold</th>
-              <td>{approvalThresholdKobo === null ? '—' : <Money amountKobo={approvalThresholdKobo} />}</td>
+              <td>
+                {approvalThresholdKobo === null ? (
+                  '—'
+                ) : (
+                  <Money amountKobo={approvalThresholdKobo} />
+                )}
+              </td>
             </tr>
           </tbody>
         </Table>
       ) : null}
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
         <Button type="submit" loading={status === 'submitting'}>
           Submit earn
         </Button>
@@ -253,10 +317,33 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
           Reset draft
         </Button>
       </div>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-2)',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
         <StatusBadge
-          label={status === 'pending' ? 'Awaiting approval' : status === 'confirmed' ? 'Confirmed' : status === 'error' ? 'Error' : 'Draft'}
-          tone={status === 'error' ? 'danger' : status === 'pending' ? 'warning' : status === 'confirmed' ? 'success' : 'neutral'}
+          label={
+            status === 'pending'
+              ? 'Awaiting approval'
+              : status === 'confirmed'
+                ? 'Confirmed'
+                : status === 'error'
+                  ? 'Error'
+                  : 'Draft'
+          }
+          tone={
+            status === 'error'
+              ? 'danger'
+              : status === 'pending'
+                ? 'warning'
+                : status === 'confirmed'
+                  ? 'success'
+                  : 'neutral'
+          }
         />
         <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>
           {message || 'The backend decides the final state.'}
@@ -264,8 +351,12 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
       </div>
       {responseData ? (
         <section style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-          <Alert tone={status === 'confirmed' ? 'success' : 'warning'} title="Backend response">
-            The backend returned a {status === 'confirmed' ? 'confirmed' : 'pending'} earn result.
+          <Alert
+            tone={status === 'confirmed' ? 'success' : 'warning'}
+            title="Backend response"
+          >
+            The backend returned a{' '}
+            {status === 'confirmed' ? 'confirmed' : 'pending'} earn result.
           </Alert>
           <Table>
             <tbody>
@@ -288,6 +379,7 @@ export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransa
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }

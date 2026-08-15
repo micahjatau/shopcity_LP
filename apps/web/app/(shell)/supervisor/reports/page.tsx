@@ -30,14 +30,17 @@ export default function SupervisorReportsPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Reports</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Selectable reports with filters, freshness, refresh, and export.
         </p>
         <Link href="/supervisor">Back to supervisor</Link>
       </header>
 
       <Alert tone="info" title="Reports route context">
-        Reporting stays separate from transaction, approval, and fraud review so each workflow can stay focused.
+        Reporting stays separate from transaction, approval, and fraud review so
+        each workflow can stay focused.
       </Alert>
 
       <section style={cardStyle} aria-label="Related routes">

@@ -16,9 +16,13 @@ export function ApprovalsPanel() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('Loading approvals…');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [decision, setDecision] = useState<ApprovalDecisionDtoDecision>('APPROVED');
+  const [decision, setDecision] =
+    useState<ApprovalDecisionDtoDecision>('APPROVED');
   const [reason, setReason] = useState('');
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedItem = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
@@ -28,9 +32,15 @@ export function ApprovalsPanel() {
   const pendingCount = items.filter((item) => item.status === 'PENDING').length;
   const selectedPreview = selectedItem
     ? [
-        ['Customer', selectedItem.customer?.fullName ?? selectedItem.customerId ?? '—'],
+        [
+          'Customer',
+          selectedItem.customer?.fullName ?? selectedItem.customerId ?? '—',
+        ],
         ['Status', selectedItem.status ?? '—'],
-        ['Reason code', selectedItem.reasonCode ?? selectedItem.ruleCode ?? '—'],
+        [
+          'Reason code',
+          selectedItem.reasonCode ?? selectedItem.ruleCode ?? '—',
+        ],
         ['Branch', selectedItem.branchId ?? '—'],
         ['Receipt', selectedItem.receipt ?? '—'],
         ['Amount', selectedItem.amountKobo],
@@ -49,7 +59,9 @@ export function ApprovalsPanel() {
       if (response.status === 200) {
         const nextItems = response.data.data.items as any[];
         setItems(nextItems);
-        setSelectedId((nextItems[0] as { id?: string } | undefined)?.id ?? null);
+        setSelectedId(
+          (nextItems[0] as { id?: string } | undefined)?.id ?? null,
+        );
         setResponseData(null);
         setMessage(`Loaded ${nextItems.length} approvals.`);
       } else {
@@ -95,7 +107,10 @@ export function ApprovalsPanel() {
       <div style={statusRow}>
         <StatusBadge label={`Loaded ${items.length}`} tone="info" />
         <StatusBadge label={`Pending ${pendingCount}`} tone="warning" />
-        <StatusBadge label={selectedItem ? 'Selected' : 'No selection'} tone="neutral" />
+        <StatusBadge
+          label={selectedItem ? 'Selected' : 'No selection'}
+          tone="neutral"
+        />
         {selectedItem ? (
           <StatusBadge
             label={selectedItem.status ?? 'Unknown'}
@@ -105,7 +120,11 @@ export function ApprovalsPanel() {
       </div>
 
       <div style={toolbarRow}>
-        <Button variant="secondary" onClick={() => void refresh()} loading={loading}>
+        <Button
+          variant="secondary"
+          onClick={() => void refresh()}
+          loading={loading}
+        >
           Refresh approvals
         </Button>
         <Button onClick={() => void handleDecision()} disabled={!selectedId}>
@@ -150,7 +169,8 @@ export function ApprovalsPanel() {
           </section>
           <section style={cardStyle}>
             <Alert tone="warning" title="Decision preview">
-              The selected approval is reviewed before the backend records the final decision.
+              The selected approval is reviewed before the backend records the
+              final decision.
             </Alert>
             <Table>
               <tbody>
@@ -198,7 +218,9 @@ export function ApprovalsPanel() {
               </div>
               <p style={listBodyText}>{item.reasonCode ?? 'No reason code'}</p>
               <div style={listMetaRow}>
-                <span>{describeValue(item.receipt ?? item.referenceNumber ?? '—')}</span>
+                <span>
+                  {describeValue(item.receipt ?? item.referenceNumber ?? '—')}
+                </span>
                 <span>{describeValue(item.amountKobo)}</span>
               </div>
             </button>

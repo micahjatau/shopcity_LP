@@ -52,7 +52,10 @@ export function ReportsWorkspace() {
   const [message, setMessage] = useState('Loading report summary…');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
-  const [actionResult, setActionResult] = useState<Record<string, unknown> | null>(null);
+  const [actionResult, setActionResult] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const params = useMemo(
     () => ({
@@ -64,7 +67,9 @@ export function ReportsWorkspace() {
     [branchId, from, timezone, to],
   );
 
-  const items = Array.isArray(summary?.items) ? (summary.items as Record<string, unknown>[]) : [];
+  const items = Array.isArray(summary?.items)
+    ? (summary.items as Record<string, unknown>[])
+    : [];
   const selectedItem = items[selectedItemIndex] ?? null;
 
   useEffect(() => {
@@ -93,20 +98,44 @@ export function ReportsWorkspace() {
 
       const response =
         report === 'liability-ageing'
-          ? await reportsControllerListLiabilityAgeingV1(params as any, createApiRequest({ csrf: true }))
+          ? await reportsControllerListLiabilityAgeingV1(
+              params as any,
+              createApiRequest({ csrf: true }),
+            )
           : report === 'customer-performance'
-            ? await reportsControllerListCustomerPerformanceV1(params as any, createApiRequest({ csrf: true }))
+            ? await reportsControllerListCustomerPerformanceV1(
+                params as any,
+                createApiRequest({ csrf: true }),
+              )
             : report === 'cashier-activity'
-              ? await reportsControllerListCashierActivityV1(params as any, createApiRequest({ csrf: true }))
+              ? await reportsControllerListCashierActivityV1(
+                  params as any,
+                  createApiRequest({ csrf: true }),
+                )
               : report === 'redemption-summary'
-                ? await reportsControllerListRedemptionSummaryV1(params as any, createApiRequest({ csrf: true }))
+                ? await reportsControllerListRedemptionSummaryV1(
+                    params as any,
+                    createApiRequest({ csrf: true }),
+                  )
                 : report === 'sms-operations'
-                  ? await reportsControllerListSmsOperationsV1(params as any, createApiRequest({ csrf: true }))
+                  ? await reportsControllerListSmsOperationsV1(
+                      params as any,
+                      createApiRequest({ csrf: true }),
+                    )
                   : report === 'audit-report'
-                    ? await reportsControllerListAuditReportV1(params as any, createApiRequest({ csrf: true }))
+                    ? await reportsControllerListAuditReportV1(
+                        params as any,
+                        createApiRequest({ csrf: true }),
+                      )
                     : report === 'materialization-state'
-                      ? await reportsControllerListMaterializationStateV1(params as any, createApiRequest({ csrf: true }))
-                      : await reportsControllerListExecutiveSummaryV1(params as any, createApiRequest({ csrf: true }));
+                      ? await reportsControllerListMaterializationStateV1(
+                          params as any,
+                          createApiRequest({ csrf: true }),
+                        )
+                      : await reportsControllerListExecutiveSummaryV1(
+                          params as any,
+                          createApiRequest({ csrf: true }),
+                        );
 
       if (response.status === 200) {
         setSummary(response.data.data);
@@ -128,7 +157,9 @@ export function ReportsWorkspace() {
   async function refreshReport() {
     try {
       if (report === 'pilot-operations-summary') {
-        setActionMessage('Pilot summary is read-only and refreshes from live data.');
+        setActionMessage(
+          'Pilot summary is read-only and refreshes from live data.',
+        );
         return;
       }
       const response = await reportsControllerRefreshReportV1(
@@ -155,7 +186,9 @@ export function ReportsWorkspace() {
   async function exportReport() {
     try {
       if (report === 'pilot-operations-summary') {
-        setActionMessage('Pilot summary does not support export in this workspace.');
+        setActionMessage(
+          'Pilot summary does not support export in this workspace.',
+        );
         return;
       }
       const response = await reportsControllerExportReportV1(
@@ -187,13 +220,23 @@ export function ReportsWorkspace() {
       <section style={cardStyle} aria-label="Report controls">
         <div style={toolbarRow}>
           <StatusBadge label={summary?.scope ?? report} tone="info" />
-          <StatusBadge label={(summary?.branchId ?? branchId) || 'Tenant-wide'} tone="neutral" />
-          <StatusBadge label={(summary?.timezone ?? timezone) || 'Timezone pending'} tone="success" />
+          <StatusBadge
+            label={(summary?.branchId ?? branchId) || 'Tenant-wide'}
+            tone="neutral"
+          />
+          <StatusBadge
+            label={(summary?.timezone ?? timezone) || 'Timezone pending'}
+            tone="success"
+          />
           {summary?.materializationState ? (
             <StatusBadge label={summary.materializationState} tone="warning" />
           ) : null}
-          {typeof summary?.freshCount === 'number' ? <StatusBadge label={`Fresh ${summary.freshCount}`} tone="success" /> : null}
-          {typeof summary?.staleCount === 'number' ? <StatusBadge label={`Stale ${summary.staleCount}`} tone="warning" /> : null}
+          {typeof summary?.freshCount === 'number' ? (
+            <StatusBadge label={`Fresh ${summary.freshCount}`} tone="success" />
+          ) : null}
+          {typeof summary?.staleCount === 'number' ? (
+            <StatusBadge label={`Stale ${summary.staleCount}`} tone="warning" />
+          ) : null}
         </div>
 
         <Select
@@ -203,19 +246,49 @@ export function ReportsWorkspace() {
           options={reportOptions}
         />
         <div style={filterGrid}>
-          <Input aria-label="Branch filter" placeholder="Branch ID" value={branchId} onChange={(event) => setBranchId(event.target.value)} />
-          <Input aria-label="Timezone filter" placeholder="Timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
-          <Input aria-label="From date" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-          <Input aria-label="To date" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+          <Input
+            aria-label="Branch filter"
+            placeholder="Branch ID"
+            value={branchId}
+            onChange={(event) => setBranchId(event.target.value)}
+          />
+          <Input
+            aria-label="Timezone filter"
+            placeholder="Timezone"
+            value={timezone}
+            onChange={(event) => setTimezone(event.target.value)}
+          />
+          <Input
+            aria-label="From date"
+            type="date"
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+          />
+          <Input
+            aria-label="To date"
+            type="date"
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+          />
         </div>
         <div style={toolbarRow}>
           <Button onClick={() => void refresh()}>
-            {report === 'pilot-operations-summary' ? 'Reload summary' : 'Load report'}
+            {report === 'pilot-operations-summary'
+              ? 'Reload summary'
+              : 'Load report'}
           </Button>
-          <Button variant="secondary" onClick={() => void refreshReport()} disabled={report === 'pilot-operations-summary'}>
+          <Button
+            variant="secondary"
+            onClick={() => void refreshReport()}
+            disabled={report === 'pilot-operations-summary'}
+          >
             Refresh materialization
           </Button>
-          <Button variant="ghost" onClick={() => void exportReport()} disabled={report === 'pilot-operations-summary'}>
+          <Button
+            variant="ghost"
+            onClick={() => void exportReport()}
+            disabled={report === 'pilot-operations-summary'}
+          >
             Export
           </Button>
         </div>
@@ -255,7 +328,10 @@ export function ReportsWorkspace() {
             <div style={itemsGrid}>
               {items.slice(0, 6).map((item, index) => {
                 const entries = Object.entries(item);
-                const [label, value] = entries[0] ?? [`item-${index + 1}`, 'Unknown'];
+                const [label, value] = entries[0] ?? [
+                  `item-${index + 1}`,
+                  'Unknown',
+                ];
                 const selected = index === selectedItemIndex;
                 return (
                   <button
@@ -272,12 +348,18 @@ export function ReportsWorkspace() {
                   >
                     <div style={listHeaderRow}>
                       <strong>{label}</strong>
-                      <StatusBadge label={selected ? 'Selected' : 'Item'} tone={selected ? 'success' : 'neutral'} />
+                      <StatusBadge
+                        label={selected ? 'Selected' : 'Item'}
+                        tone={selected ? 'success' : 'neutral'}
+                      />
                     </div>
                     <p style={listBodyText}>{renderValue(value)}</p>
                     <div style={chipRow}>
                       <StatusBadge label={report} tone="info" />
-                      <StatusBadge label={branchId || 'Tenant-wide'} tone="neutral" />
+                      <StatusBadge
+                        label={branchId || 'Tenant-wide'}
+                        tone="neutral"
+                      />
                     </div>
                   </button>
                 );
@@ -320,7 +402,10 @@ export function ReportsWorkspace() {
 
       {summary?.reconciliation ? (
         <section style={cardStyle} aria-label="Reconciliation">
-          <Alert tone={summary.reconciliation.unhealthy ? 'danger' : 'success'} title="Reconciliation">
+          <Alert
+            tone={summary.reconciliation.unhealthy ? 'danger' : 'success'}
+            title="Reconciliation"
+          >
             {JSON.stringify(summary.reconciliation)}
           </Alert>
           {Array.isArray(summary.reconciliation.items) ? (
@@ -332,15 +417,20 @@ export function ReportsWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {summary.reconciliation.items.slice(0, 5).map((item: Record<string, unknown>, index: number) => {
-                  const [label, value] = Object.entries(item)[0] ?? [`recon-${index + 1}`, 'Unknown'];
-                  return (
-                    <tr key={`${label}-${index}`}>
-                      <td>{label}</td>
-                      <td>{renderValue(value)}</td>
-                    </tr>
-                  );
-                })}
+                {summary.reconciliation.items
+                  .slice(0, 5)
+                  .map((item: Record<string, unknown>, index: number) => {
+                    const [label, value] = Object.entries(item)[0] ?? [
+                      `recon-${index + 1}`,
+                      'Unknown',
+                    ];
+                    return (
+                      <tr key={`${label}-${index}`}>
+                        <td>{label}</td>
+                        <td>{renderValue(value)}</td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </Table>
           ) : null}
@@ -353,7 +443,8 @@ export function ReportsWorkspace() {
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return String(value);
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }
 
@@ -375,7 +466,7 @@ function describeReportContext(
     `Report ${summary.scope ?? report}`,
     `branch ${(summary.branchId ?? branchId) || 'Tenant-wide'}`,
     `timezone ${(summary.timezone ?? timezone) || 'pending'}`,
-    `window ${(from || 'start')} → ${(to || 'now')}`,
+    `window ${from || 'start'} → ${to || 'now'}`,
   ];
   return parts.join(' · ');
 }

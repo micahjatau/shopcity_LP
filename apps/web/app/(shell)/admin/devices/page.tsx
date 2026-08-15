@@ -10,7 +10,15 @@ import {
   branchesControllerUpdateDeviceV1,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Select, Separator, Table } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  RadioGroup,
+  Select,
+  Separator,
+  Table,
+} from '../../../../components/ui';
 import { StatusBadge } from '../../../../components/shopcity';
 
 const statuses = ['ACTIVE', 'INACTIVE'] as const;
@@ -36,7 +44,10 @@ export default function AdminDevicesPage() {
   const [createConfirmation, setCreateConfirmation] = useState('');
   const [updateConfirmation, setUpdateConfirmation] = useState('');
   const [actionMessage, setActionMessage] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedDevice = useMemo(
     () => devices.find((item) => item.id === selectedId) ?? null,
@@ -94,7 +105,9 @@ export default function AdminDevicesPage() {
 
   async function createDevice() {
     if (!branchId || !name.trim() || !fingerprintHash.trim()) {
-      setMessage('Enter branch, name, and fingerprint hash before creating a device.');
+      setMessage(
+        'Enter branch, name, and fingerprint hash before creating a device.',
+      );
       return;
     }
     if (createConfirmation.trim().toUpperCase() !== 'CREATE') {
@@ -105,7 +118,11 @@ export default function AdminDevicesPage() {
     try {
       setActionMessage('Creating device…');
       const response = await branchesControllerCreateDeviceV1(
-        { branchId, name: name.trim(), fingerprintHash: fingerprintHash.trim() },
+        {
+          branchId,
+          name: name.trim(),
+          fingerprintHash: fingerprintHash.trim(),
+        },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
@@ -175,8 +192,11 @@ export default function AdminDevicesPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Devices</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-          Create devices, update their status, and rotate attestation where required.
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
+          Create devices, update their status, and rotate attestation where
+          required.
         </p>
         <Link href="/admin">Back to admin</Link>
         <div style={routeRow}>
@@ -191,7 +211,10 @@ export default function AdminDevicesPage() {
       <div style={summaryRow}>
         <StatusBadge label={`Devices ${devices.length}`} tone="info" />
         <StatusBadge label={`Branches ${branches.length}`} tone="success" />
-        <StatusBadge label={selectedDevice ? 'Selected' : 'No selection'} tone="neutral" />
+        <StatusBadge
+          label={selectedDevice ? 'Selected' : 'No selection'}
+          tone="neutral"
+        />
       </div>
 
       <p style={muted}>{message}</p>
@@ -222,7 +245,9 @@ export default function AdminDevicesPage() {
           name="device-status"
           legend="Status"
           value={status}
-          onValueChange={(value) => setStatus(value as (typeof statuses)[number])}
+          onValueChange={(value) =>
+            setStatus(value as (typeof statuses)[number])
+          }
           options={statuses.map((value) => ({ value, label: value }))}
         />
         <Input
@@ -235,7 +260,11 @@ export default function AdminDevicesPage() {
           <Button onClick={() => void createDevice()} loading={loading}>
             Create device
           </Button>
-          <Button variant="secondary" onClick={() => void refresh()} loading={loading}>
+          <Button
+            variant="secondary"
+            onClick={() => void refresh()}
+            loading={loading}
+          >
             Refresh
           </Button>
         </div>
@@ -245,12 +274,24 @@ export default function AdminDevicesPage() {
         <section style={cardStyle} aria-label="Selected device">
           <h2 style={{ marginTop: 0 }}>Selected device</h2>
           <Alert tone="info" title="Selected device">
-            {selectedDevice.name ?? selectedDevice.id} is ready for status or rotation review.
+            {selectedDevice.name ?? selectedDevice.id} is ready for status or
+            rotation review.
           </Alert>
           <div style={summaryRow}>
-            <StatusBadge label={selectedDevice.status ?? 'Unknown status'} tone={selectedDevice.status === 'ACTIVE' ? 'success' : 'warning'} />
-            <StatusBadge label={selectedDevice.branchId ?? 'Tenant-wide'} tone="neutral" />
-            {rotateAttestationSecret ? <StatusBadge label="Attestation rotation requested" tone="warning" /> : null}
+            <StatusBadge
+              label={selectedDevice.status ?? 'Unknown status'}
+              tone={selectedDevice.status === 'ACTIVE' ? 'success' : 'warning'}
+            />
+            <StatusBadge
+              label={selectedDevice.branchId ?? 'Tenant-wide'}
+              tone="neutral"
+            />
+            {rotateAttestationSecret ? (
+              <StatusBadge
+                label="Attestation rotation requested"
+                tone="warning"
+              />
+            ) : null}
           </div>
           <Table>
             <tbody>
@@ -272,7 +313,9 @@ export default function AdminDevicesPage() {
             <Select
               aria-label="Device status"
               value={status}
-              onChange={(event) => setStatus(event.target.value as (typeof statuses)[number])}
+              onChange={(event) =>
+                setStatus(event.target.value as (typeof statuses)[number])
+              }
               options={statuses.map((value) => ({ value, label: value }))}
             />
           </div>
@@ -281,7 +324,9 @@ export default function AdminDevicesPage() {
               <input
                 type="checkbox"
                 checked={rotateAttestationSecret}
-                onChange={(event) => setRotateAttestationSecret(event.target.checked)}
+                onChange={(event) =>
+                  setRotateAttestationSecret(event.target.checked)
+                }
               />
               Rotate attestation secret
             </label>
@@ -313,7 +358,9 @@ export default function AdminDevicesPage() {
       ) : null}
 
       {devices.length === 0 ? (
-        <Alert tone="warning" title="No devices">No device records returned.</Alert>
+        <Alert tone="warning" title="No devices">
+          No device records returned.
+        </Alert>
       ) : (
         <section style={cardStyle} aria-label="Devices table">
           <h2 style={{ marginTop: 0 }}>Device list</h2>
@@ -355,7 +402,10 @@ export default function AdminDevicesPage() {
 
       <section style={cardStyle} aria-label="Action response">
         <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionMessage || 'Select a record and submit a change to see the backend response here.'}</p>
+        <p style={muted}>
+          {actionMessage ||
+            'Select a record and submit a change to see the backend response here.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -374,7 +424,8 @@ export default function AdminDevicesPage() {
 
       {selectedBranch ? (
         <Alert tone="info" title="Selected branch">
-          {selectedBranch.name ?? selectedBranch.id} · {selectedBranch.timezone ?? 'Timezone pending'}
+          {selectedBranch.name ?? selectedBranch.id} ·{' '}
+          {selectedBranch.timezone ?? 'Timezone pending'}
         </Alert>
       ) : null}
     </section>
@@ -383,7 +434,12 @@ export default function AdminDevicesPage() {
 
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   return JSON.stringify(value);
 }
 

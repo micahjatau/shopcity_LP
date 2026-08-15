@@ -21,7 +21,10 @@ import {
   customersControllerGetCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../../../lib/api/generated-client';
-import { configurationControllerGetPublicConfigV1, createApiRequest } from '../../../lib/api';
+import {
+  configurationControllerGetPublicConfigV1,
+  createApiRequest,
+} from '../../../lib/api';
 
 const cashierRoutes = [
   ['/cashier/customers', 'Customers'],
@@ -45,7 +48,9 @@ const cashierNotes = [
 
 export default function CashierPage() {
   const [lookupValue, setLookupValue] = useState('');
-  const [lookupMessage, setLookupMessage] = useState('Scan or type a card serial.');
+  const [lookupMessage, setLookupMessage] = useState(
+    'Scan or type a card serial.',
+  );
   const [lookupRecord, setLookupRecord] = useState<any | null>(null);
   const [customerRecord, setCustomerRecord] = useState<any | null>(null);
   const [ledgerRecord, setLedgerRecord] = useState<any | null>(null);
@@ -62,12 +67,13 @@ export default function CashierPage() {
 
     async function loadPolicy() {
       try {
-        const response = await configurationControllerGetPublicConfigV1(
-          createApiRequest(),
-        );
+        const response =
+          await configurationControllerGetPublicConfigV1(createApiRequest());
         if (!ignore && response.status === 200) {
           setPolicyConfig(response.data.data);
-          setPolicyMessage('Branch policy loaded from the public config endpoint.');
+          setPolicyMessage(
+            'Branch policy loaded from the public config endpoint.',
+          );
           return;
         }
         if (!ignore) {
@@ -142,7 +148,9 @@ export default function CashierPage() {
       if (response.status === 200) {
         const record = response.data.data;
         setLookupRecord(record);
-        setLookupMessage('Lookup resolved. Earn and redeem can now use this context.');
+        setLookupMessage(
+          'Lookup resolved. Earn and redeem can now use this context.',
+        );
         return;
       }
 
@@ -156,7 +164,10 @@ export default function CashierPage() {
 
   const lookupSummary = lookupRecord
     ? [
-        ['Customer', lookupRecord.customer?.fullName ?? lookupRecord.customerName ?? '—'],
+        [
+          'Customer',
+          lookupRecord.customer?.fullName ?? lookupRecord.customerName ?? '—',
+        ],
         ['Card status', lookupRecord.status ?? lookupRecord.cardStatus ?? '—'],
         [
           'Available balance',
@@ -180,9 +191,13 @@ export default function CashierPage() {
   const lookupContext = lookupRecord
     ? {
         cardSerialNumber:
-          lookupRecord.serialNumber ?? lookupRecord.cardSerialNumber ?? lookupValue.trim(),
-        customerName: lookupRecord.customer?.fullName ?? lookupRecord.customerName,
-        availableBalanceKobo: lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
+          lookupRecord.serialNumber ??
+          lookupRecord.cardSerialNumber ??
+          lookupValue.trim(),
+        customerName:
+          lookupRecord.customer?.fullName ?? lookupRecord.customerName,
+        availableBalanceKobo:
+          lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
         expiringCreditKobo: lookupRecord.expiringCreditKobo,
       }
     : undefined;
@@ -195,7 +210,9 @@ export default function CashierPage() {
       <ScannerContextScope context="lookup" />
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Cashier shell</h1>
-        <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
+        <p
+          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
+        >
           Fast lookup, earn, redeem, customer detail and sync entry points.
         </p>
         <div style={routeRow}>
@@ -208,11 +225,23 @@ export default function CashierPage() {
           ))}
         </div>
         <div style={policyRow}>
-          <StatusBadge label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'} tone="info" />
-          <StatusBadge label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'} tone="neutral" />
-          <StatusBadge label={branchContext?.timezone ?? 'Timezone pending'} tone="success" />
+          <StatusBadge
+            label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'}
+            tone="info"
+          />
+          <StatusBadge
+            label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'}
+            tone="neutral"
+          />
+          <StatusBadge
+            label={branchContext?.timezone ?? 'Timezone pending'}
+            tone="success"
+          />
           {policyContext ? (
-            <StatusBadge label={`Earn ${policyContext.defaultEarnRateBps / 100}%`} tone="info" />
+            <StatusBadge
+              label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
+              tone="info"
+            />
           ) : null}
         </div>
       </header>
@@ -229,15 +258,49 @@ export default function CashierPage() {
             <p style={muted}>{policyMessage}</p>
             {policyContext ? (
               <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                <div style={statRow}><span>Earn rate</span><strong>{policyContext.defaultEarnRateBps / 100}%</strong></div>
-                <div style={statRow}><span>Min redemption</span>{typeof policyContext.minRedemptionKobo === 'number' ? <Money amountKobo={policyContext.minRedemptionKobo} /> : '—'}</div>
-                <div style={statRow}><span>Basket cap</span><strong>{policyContext.maxRedemptionBasketPercent}%</strong></div>
-                <div style={statRow}><span>Purchase flag</span>{typeof policyContext.purchaseFlagThresholdKobo === 'number' ? <Money amountKobo={policyContext.purchaseFlagThresholdKobo} /> : '—'}</div>
-                <div style={statRow}><span>Approval threshold</span>{typeof policyContext.redemptionApprovalThresholdKobo === 'number' ? <Money amountKobo={policyContext.redemptionApprovalThresholdKobo} /> : '—'}</div>
+                <div style={statRow}>
+                  <span>Earn rate</span>
+                  <strong>{policyContext.defaultEarnRateBps / 100}%</strong>
+                </div>
+                <div style={statRow}>
+                  <span>Min redemption</span>
+                  {typeof policyContext.minRedemptionKobo === 'number' ? (
+                    <Money amountKobo={policyContext.minRedemptionKobo} />
+                  ) : (
+                    '—'
+                  )}
+                </div>
+                <div style={statRow}>
+                  <span>Basket cap</span>
+                  <strong>{policyContext.maxRedemptionBasketPercent}%</strong>
+                </div>
+                <div style={statRow}>
+                  <span>Purchase flag</span>
+                  {typeof policyContext.purchaseFlagThresholdKobo ===
+                  'number' ? (
+                    <Money
+                      amountKobo={policyContext.purchaseFlagThresholdKobo}
+                    />
+                  ) : (
+                    '—'
+                  )}
+                </div>
+                <div style={statRow}>
+                  <span>Approval threshold</span>
+                  {typeof policyContext.redemptionApprovalThresholdKobo ===
+                  'number' ? (
+                    <Money
+                      amountKobo={policyContext.redemptionApprovalThresholdKobo}
+                    />
+                  ) : (
+                    '—'
+                  )}
+                </div>
               </div>
             ) : (
               <Alert tone="warning" title="Policy unavailable">
-                The cashier workflow can still run, but policy-aware previews are unavailable.
+                The cashier workflow can still run, but policy-aware previews
+                are unavailable.
               </Alert>
             )}
           </article>
@@ -253,7 +316,10 @@ export default function CashierPage() {
       <div style={gridStyle}>
         <article style={cardStyle} aria-label="Lookup and status">
           <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-          <form onSubmit={handleLookup} style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+          <form
+            onSubmit={handleLookup}
+            style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+          >
             <Input
               placeholder="Scan card serial or receipt"
               aria-label="Lookup"
@@ -274,9 +340,14 @@ export default function CashierPage() {
                 </div>
               ))}
               <div style={tagRow}>
-                <StatusBadge label={lookupRecord.status ?? 'LOOKUP'} tone="success" />
+                <StatusBadge
+                  label={lookupRecord.status ?? 'LOOKUP'}
+                  tone="success"
+                />
                 {lookupRecord.customer?.id || lookupRecord.customerId ? (
-                  <Link href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}>
+                  <Link
+                    href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
+                  >
                     View customer
                   </Link>
                 ) : null}
@@ -287,12 +358,18 @@ export default function CashierPage() {
 
         <article id="earn" style={cardStyle} aria-label="Earn transaction">
           <h2 style={{ marginTop: 0 }}>Earn transaction</h2>
-          <EarnTransactionForm lookupContext={lookupContext} policyContext={policyContext} />
+          <EarnTransactionForm
+            lookupContext={lookupContext}
+            policyContext={policyContext}
+          />
         </article>
 
         <article id="redeem" style={cardStyle} aria-label="Redeem transaction">
           <h2 style={{ marginTop: 0 }}>Redeem transaction</h2>
-          <RedeemTransactionForm lookupContext={lookupContext} policyContext={policyContext} />
+          <RedeemTransactionForm
+            lookupContext={lookupContext}
+            policyContext={policyContext}
+          />
         </article>
 
         <article style={cardStyle} aria-label="Customer detail">
@@ -301,28 +378,50 @@ export default function CashierPage() {
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
               <div style={statRow}>
                 <span>Name</span>
-                <strong>{customerRecord.fullName ?? customerRecord.name ?? '—'}</strong>
+                <strong>
+                  {customerRecord.fullName ?? customerRecord.name ?? '—'}
+                </strong>
               </div>
               <div style={statRow}>
                 <span>Status</span>
-                <StatusBadge label={customerRecord.status ?? 'UNKNOWN'} tone="info" />
+                <StatusBadge
+                  label={customerRecord.status ?? 'UNKNOWN'}
+                  tone="info"
+                />
               </div>
               <div style={statRow}>
                 <span>Balance</span>
-                <Money amountKobo={customerRecord.balanceKobo ?? customerRecord.availableBalanceKobo ?? 0} />
+                <Money
+                  amountKobo={
+                    customerRecord.balanceKobo ??
+                    customerRecord.availableBalanceKobo ??
+                    0
+                  }
+                />
               </div>
               <Separator />
               <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
                 <strong>Recent ledger</strong>
-                {Array.isArray(ledgerRecord?.items) && ledgerRecord.items.length > 0 ? (
+                {Array.isArray(ledgerRecord?.items) &&
+                ledgerRecord.items.length > 0 ? (
                   ledgerRecord.items.slice(0, 4).map((item: any) => (
                     <div key={item.id ?? JSON.stringify(item)} style={statRow}>
-                      <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
-                      <span>{item.amountKobo ? <Money amountKobo={item.amountKobo} /> : '—'}</span>
+                      <span>
+                        {item.type ?? item.transactionType ?? 'Entry'}
+                      </span>
+                      <span>
+                        {item.amountKobo ? (
+                          <Money amountKobo={item.amountKobo} />
+                        ) : (
+                          '—'
+                        )}
+                      </span>
                     </div>
                   ))
                 ) : (
-                  <p style={muted}>Ledger history will appear once the customer is loaded.</p>
+                  <p style={muted}>
+                    Ledger history will appear once the customer is loaded.
+                  </p>
                 )}
               </div>
             </div>
@@ -335,7 +434,9 @@ export default function CashierPage() {
 
         <article style={cardStyle} aria-label="Shift snapshot">
           <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
-          <p style={muted}>Offline queue state is shown in the header and on the sync route.</p>
+          <p style={muted}>
+            Offline queue state is shown in the header and on the sync route.
+          </p>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             <ConnectionStatus />
             <SyncQueueIndicator />

@@ -5,7 +5,14 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { adjustmentsControllerCreateV1 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Table, Textarea } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  RadioGroup,
+  Table,
+  Textarea,
+} from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
 const routeLinks = [
@@ -22,9 +29,14 @@ export default function AdminAdjustmentsPage() {
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [kind, setKind] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
-  const [message, setMessage] = useState('Prepare an adjustment with consequence preview.');
+  const [message, setMessage] = useState(
+    'Prepare an adjustment with consequence preview.',
+  );
   const [actionMessage, setActionMessage] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const amountKobo = Number(amount);
 
   const preview = useMemo(() => {
@@ -91,7 +103,9 @@ export default function AdminAdjustmentsPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Adjustments</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Manual credit and debit adjustments with consequence preview.
         </p>
         <Link href="/admin">Back to admin</Link>
@@ -105,8 +119,16 @@ export default function AdminAdjustmentsPage() {
       </header>
 
       <div style={summaryRow}>
-        <StatusBadge label={kind === 'CREDIT' ? 'Credit' : 'Debit'} tone={kind === 'CREDIT' ? 'success' : 'warning'} />
-        <StatusBadge label={confirmation.trim() ? 'Confirmation ready' : 'Confirmation required'} tone={confirmation.trim() ? 'info' : 'warning'} />
+        <StatusBadge
+          label={kind === 'CREDIT' ? 'Credit' : 'Debit'}
+          tone={kind === 'CREDIT' ? 'success' : 'warning'}
+        />
+        <StatusBadge
+          label={
+            confirmation.trim() ? 'Confirmation ready' : 'Confirmation required'
+          }
+          tone={confirmation.trim() ? 'info' : 'warning'}
+        />
         <StatusBadge label={customerId || 'Customer pending'} tone="neutral" />
       </div>
 
@@ -117,12 +139,42 @@ export default function AdminAdjustmentsPage() {
       <section style={cardStyle} aria-label="Adjustment form">
         <h2 style={{ marginTop: 0 }}>Adjustment form</h2>
         <div style={formGrid}>
-          <Input aria-label="Customer ID" placeholder="Customer ID" value={customerId} onChange={(e) => setCustomerId(e.target.value)} />
-          <Input aria-label="Amount" placeholder="Amount in kobo" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input
+            aria-label="Customer ID"
+            placeholder="Customer ID"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+          />
+          <Input
+            aria-label="Amount"
+            placeholder="Amount in kobo"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
         </div>
-        <RadioGroup name="adjustment-kind" legend="Adjustment type" value={kind} onValueChange={(value) => setKind(value as 'CREDIT' | 'DEBIT')} options={[{ value: 'CREDIT', label: 'Credit' }, { value: 'DEBIT', label: 'Debit' }]} />
-        <Textarea aria-label="Reason" placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
-        <Input aria-label="Confirmation" placeholder="Type SUBMIT to confirm" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
+        <RadioGroup
+          name="adjustment-kind"
+          legend="Adjustment type"
+          value={kind}
+          onValueChange={(value) => setKind(value as 'CREDIT' | 'DEBIT')}
+          options={[
+            { value: 'CREDIT', label: 'Credit' },
+            { value: 'DEBIT', label: 'Debit' },
+          ]}
+        />
+        <Textarea
+          aria-label="Reason"
+          placeholder="Reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+        />
+        <Input
+          aria-label="Confirmation"
+          placeholder="Type SUBMIT to confirm"
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+        />
         <div style={toolbarRow}>
           <Button onClick={() => void submit()}>Submit adjustment</Button>
         </div>
@@ -130,9 +182,15 @@ export default function AdminAdjustmentsPage() {
 
       {preview ? (
         <section style={cardStyle} aria-label="Consequence preview">
-          <Alert tone={kind === 'CREDIT' ? 'success' : 'warning'} title="Consequence preview">
+          <Alert
+            tone={kind === 'CREDIT' ? 'success' : 'warning'}
+            title="Consequence preview"
+          >
             <div style={previewHeaderRow}>
-              <StatusBadge label={preview.label} tone={kind === 'CREDIT' ? 'success' : 'warning'} />
+              <StatusBadge
+                label={preview.label}
+                tone={kind === 'CREDIT' ? 'success' : 'warning'}
+              />
               <StatusBadge label={preview.impact} tone="info" />
             </div>
             <Money amountKobo={preview.amountKobo} />
@@ -152,7 +210,10 @@ export default function AdminAdjustmentsPage() {
 
       <section style={cardStyle} aria-label="Action response">
         <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionMessage || 'Submit an adjustment to see the backend response here.'}</p>
+        <p style={muted}>
+          {actionMessage ||
+            'Submit an adjustment to see the backend response here.'}
+        </p>
         <p style={muted}>{message}</p>
         {actionResponse ? (
           <Table>
@@ -176,7 +237,8 @@ export default function AdminAdjustmentsPage() {
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }
 

@@ -11,7 +11,15 @@ import {
   usersControllerUpdateStatusV1,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Select, Separator, Table } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  RadioGroup,
+  Select,
+  Separator,
+  Table,
+} from '../../../../components/ui';
 import { StatusBadge } from '../../../../components/shopcity';
 
 const roles = ['CASHIER', 'SUPERVISOR', 'ADMIN'] as const;
@@ -21,7 +29,9 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [message, setMessage] = useState('Load users, then create or update staff accounts.');
+  const [message, setMessage] = useState(
+    'Load users, then create or update staff accounts.',
+  );
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -31,7 +41,10 @@ export default function AdminUsersPage() {
   const [createConfirmation, setCreateConfirmation] = useState('');
   const [updateConfirmation, setUpdateConfirmation] = useState('');
   const [actionMessage, setActionMessage] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedId) ?? null,
@@ -45,8 +58,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (selectedUser) {
-      setRole((selectedUser.role as typeof roles[number]) ?? 'CASHIER');
-      setStatus((selectedUser.status as typeof statuses[number]) ?? 'ACTIVE');
+      setRole((selectedUser.role as (typeof roles)[number]) ?? 'CASHIER');
+      setStatus((selectedUser.status as (typeof statuses)[number]) ?? 'ACTIVE');
       setBranchId((current) => selectedUser.branchId ?? current);
       setUpdateConfirmation('');
     }
@@ -203,7 +216,9 @@ export default function AdminUsersPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Users</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Create staff, assign role and branch, and keep status changes visible.
         </p>
         <Link href="/admin">Back to admin</Link>
@@ -212,7 +227,10 @@ export default function AdminUsersPage() {
       <div style={summaryRow}>
         <StatusBadge label={`Users ${users.length}`} tone="info" />
         <StatusBadge label={`Branches ${branches.length}`} tone="success" />
-        <StatusBadge label={selectedUser ? 'Selected' : 'No selection'} tone="neutral" />
+        <StatusBadge
+          label={selectedUser ? 'Selected' : 'No selection'}
+          tone="neutral"
+        />
       </div>
 
       <p style={muted}>{message}</p>
@@ -220,9 +238,25 @@ export default function AdminUsersPage() {
       <section style={cardStyle} aria-label="Create user">
         <h2 style={{ marginTop: 0 }}>Create user</h2>
         <div style={formGrid}>
-          <Input aria-label="Username" placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
-          <Input aria-label="Password" type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          <Select aria-label="Branch" value={branchId} onChange={(event) => setBranchId(event.target.value)} options={[{ value: '', label: 'Tenant-wide' }, ...branchOptions]} />
+          <Input
+            aria-label="Username"
+            placeholder="Username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+          <Input
+            aria-label="Password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <Select
+            aria-label="Branch"
+            value={branchId}
+            onChange={(event) => setBranchId(event.target.value)}
+            options={[{ value: '', label: 'Tenant-wide' }, ...branchOptions]}
+          />
         </div>
         <RadioGroup
           name="user-role"
@@ -238,8 +272,16 @@ export default function AdminUsersPage() {
           onChange={(event) => setCreateConfirmation(event.target.value)}
         />
         <div style={toolbarRow}>
-          <Button onClick={() => void createUser()} loading={loading}>Create user</Button>
-          <Button variant="secondary" onClick={() => void refresh()} loading={loading}>Refresh</Button>
+          <Button onClick={() => void createUser()} loading={loading}>
+            Create user
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void refresh()}
+            loading={loading}
+          >
+            Refresh
+          </Button>
         </div>
       </section>
 
@@ -247,12 +289,22 @@ export default function AdminUsersPage() {
         <section style={cardStyle} aria-label="Selected user">
           <h2 style={{ marginTop: 0 }}>Selected user</h2>
           <Alert tone="info" title="Selected user">
-            {selectedUser.username ?? selectedUser.id} is ready for role and status review.
+            {selectedUser.username ?? selectedUser.id} is ready for role and
+            status review.
           </Alert>
           <div style={summaryRow}>
-            <StatusBadge label={selectedUser.role ?? 'Unknown role'} tone="info" />
-            <StatusBadge label={selectedUser.status ?? 'Unknown status'} tone={selectedUser.status === 'ACTIVE' ? 'success' : 'warning'} />
-            <StatusBadge label={selectedUser.branchId ?? 'Tenant-wide'} tone="neutral" />
+            <StatusBadge
+              label={selectedUser.role ?? 'Unknown role'}
+              tone="info"
+            />
+            <StatusBadge
+              label={selectedUser.status ?? 'Unknown status'}
+              tone={selectedUser.status === 'ACTIVE' ? 'success' : 'warning'}
+            />
+            <StatusBadge
+              label={selectedUser.branchId ?? 'Tenant-wide'}
+              tone="neutral"
+            />
           </div>
           <Table>
             <tbody>
@@ -269,13 +321,17 @@ export default function AdminUsersPage() {
             <Select
               aria-label="Role"
               value={role}
-              onChange={(event) => setRole(event.target.value as (typeof roles)[number])}
+              onChange={(event) =>
+                setRole(event.target.value as (typeof roles)[number])
+              }
               options={roles.map((value) => ({ value, label: value }))}
             />
             <Select
               aria-label="Status"
               value={status}
-              onChange={(event) => setStatus(event.target.value as (typeof statuses)[number])}
+              onChange={(event) =>
+                setStatus(event.target.value as (typeof statuses)[number])
+              }
               options={statuses.map((value) => ({ value, label: value }))}
             />
           </div>
@@ -295,7 +351,9 @@ export default function AdminUsersPage() {
       ) : null}
 
       {users.length === 0 ? (
-        <Alert tone="warning" title="No users">No user records returned.</Alert>
+        <Alert tone="warning" title="No users">
+          No user records returned.
+        </Alert>
       ) : (
         <section style={cardStyle} aria-label="Users table">
           <h2 style={{ marginTop: 0 }}>Staff list</h2>
@@ -312,10 +370,21 @@ export default function AdminUsersPage() {
               {users.map((item) => (
                 <tr key={item.id ?? item.username}>
                   <td>
-                    <button type="button" onClick={() => setSelectedId(item.id ?? null)} style={rowButton}>{item.username ?? item.id}</button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(item.id ?? null)}
+                      style={rowButton}
+                    >
+                      {item.username ?? item.id}
+                    </button>
                   </td>
                   <td>{item.role ?? '—'}</td>
-                  <td><StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'ACTIVE' ? 'success' : 'warning'} /></td>
+                  <td>
+                    <StatusBadge
+                      label={item.status ?? 'UNKNOWN'}
+                      tone={item.status === 'ACTIVE' ? 'success' : 'warning'}
+                    />
+                  </td>
                   <td>{item.branchId ?? 'Tenant-wide'}</td>
                 </tr>
               ))}
@@ -326,7 +395,10 @@ export default function AdminUsersPage() {
 
       <section style={cardStyle} aria-label="Action response">
         <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionMessage || 'Select a record and submit a change to see the backend response here.'}</p>
+        <p style={muted}>
+          {actionMessage ||
+            'Select a record and submit a change to see the backend response here.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -348,7 +420,12 @@ export default function AdminUsersPage() {
 
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   return JSON.stringify(value);
 }
 

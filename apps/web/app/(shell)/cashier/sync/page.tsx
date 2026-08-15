@@ -49,7 +49,10 @@ export default function CashierSyncPage() {
   >([]);
   const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
   const [clearConfirmation, setClearConfirmation] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.localId === selectedLocalId) ?? null,
@@ -60,19 +63,29 @@ export default function CashierSyncPage() {
     () =>
       records.filter(
         (record) =>
-          record.syncState === 'waiting-to-sync' || record.syncState === 'retry-required',
+          record.syncState === 'waiting-to-sync' ||
+          record.syncState === 'retry-required',
       ),
     [records],
   );
 
   const statusCounts = useMemo(
     () => ({
-      waiting: records.filter((record) => record.syncState === 'waiting-to-sync').length,
-      syncing: records.filter((record) => record.syncState === 'syncing').length,
-      awaitingApproval: records.filter((record) => record.syncState === 'awaiting-approval').length,
-      confirmed: records.filter((record) => record.syncState === 'confirmed').length,
-      rejected: records.filter((record) => record.syncState === 'rejected').length,
-      retryRequired: records.filter((record) => record.syncState === 'retry-required').length,
+      waiting: records.filter(
+        (record) => record.syncState === 'waiting-to-sync',
+      ).length,
+      syncing: records.filter((record) => record.syncState === 'syncing')
+        .length,
+      awaitingApproval: records.filter(
+        (record) => record.syncState === 'awaiting-approval',
+      ).length,
+      confirmed: records.filter((record) => record.syncState === 'confirmed')
+        .length,
+      rejected: records.filter((record) => record.syncState === 'rejected')
+        .length,
+      retryRequired: records.filter(
+        (record) => record.syncState === 'retry-required',
+      ).length,
     }),
     [records],
   );
@@ -132,17 +145,19 @@ export default function CashierSyncPage() {
     setBusy(true);
     setMessage('Submitting offline batch…');
 
-    const recordsDto: OfflineEarnBatchRecordDto[] = queueableRecords.map((record) => ({
-      localId: record.localId,
-      idempotencyKey: record.idempotencyKey,
-      cashierId: record.cashierId,
-      branchId: record.branchId,
-      cardBarcode: record.cardBarcode,
-      receiptNumber: record.receiptNumber,
-      receiptWeekStart: record.receiptWeekStart,
-      purchaseAmountKobo: record.purchaseAmountKobo,
-      occurredAtLocal: record.occurredAtLocal,
-    }));
+    const recordsDto: OfflineEarnBatchRecordDto[] = queueableRecords.map(
+      (record) => ({
+        localId: record.localId,
+        idempotencyKey: record.idempotencyKey,
+        cashierId: record.cashierId,
+        branchId: record.branchId,
+        cardBarcode: record.cardBarcode,
+        receiptNumber: record.receiptNumber,
+        receiptWeekStart: record.receiptWeekStart,
+        purchaseAmountKobo: record.purchaseAmountKobo,
+        occurredAtLocal: record.occurredAtLocal,
+      }),
+    );
 
     try {
       const response = await offlineSyncControllerEarnBatchV1(
@@ -218,8 +233,11 @@ export default function CashierSyncPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Sync queue</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-          Review local offline earn records, then submit a batch for reconciliation.
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
+          Review local offline earn records, then submit a batch for
+          reconciliation.
         </p>
         <div style={routeRow}>
           <Link href="/cashier">Back to cashier</Link>
@@ -232,15 +250,25 @@ export default function CashierSyncPage() {
       </header>
 
       <Alert tone="info" title="Sync route context">
-        This queue view is for local offline earn records, batch reconciliation, and retry cleanup.
+        This queue view is for local offline earn records, batch reconciliation,
+        and retry cleanup.
       </Alert>
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Queue notes</h2>
         <div style={statusRow}>
-          <StatusBadge label={`Queueable ${queueableRecords.length}`} tone="info" />
-          <StatusBadge label={`Waiting ${statusCounts.waiting}`} tone="neutral" />
-          <StatusBadge label={`Retryable ${statusCounts.retryRequired}`} tone="warning" />
+          <StatusBadge
+            label={`Queueable ${queueableRecords.length}`}
+            tone="info"
+          />
+          <StatusBadge
+            label={`Waiting ${statusCounts.waiting}`}
+            tone="neutral"
+          />
+          <StatusBadge
+            label={`Retryable ${statusCounts.retryRequired}`}
+            tone="warning"
+          />
         </div>
         <Table>
           <tbody>
@@ -265,29 +293,58 @@ export default function CashierSyncPage() {
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Batch controls</h2>
         <div style={controlRow}>
-          <Input aria-label="Device ID" placeholder="Device ID" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} />
-          <Button onClick={() => void refresh()} variant="secondary">Refresh</Button>
-          <Button onClick={() => void syncBatch()} loading={busy}>Submit batch</Button>
+          <Input
+            aria-label="Device ID"
+            placeholder="Device ID"
+            value={deviceId}
+            onChange={(event) => setDeviceId(event.target.value)}
+          />
+          <Button onClick={() => void refresh()} variant="secondary">
+            Refresh
+          </Button>
+          <Button onClick={() => void syncBatch()} loading={busy}>
+            Submit batch
+          </Button>
         </div>
         <p style={muted}>{message}</p>
         <p style={muted}>Device ID: {deviceId || '—'}</p>
-        <p style={muted}>Batchable records will be sent in a single backend reconciliation request.</p>
+        <p style={muted}>
+          Batchable records will be sent in a single backend reconciliation
+          request.
+        </p>
       </section>
 
       <div style={statusRow}>
         <StatusBadge label={`Waiting ${statusCounts.waiting}`} tone="info" />
         <StatusBadge label={`Syncing ${statusCounts.syncing}`} tone="neutral" />
-        <StatusBadge label={`Approval ${statusCounts.awaitingApproval}`} tone="warning" />
-        <StatusBadge label={`Confirmed ${statusCounts.confirmed}`} tone="success" />
-        <StatusBadge label={`Rejected ${statusCounts.rejected}`} tone="danger" />
-        <StatusBadge label={`Retryable ${statusCounts.retryRequired}`} tone="warning" />
+        <StatusBadge
+          label={`Approval ${statusCounts.awaitingApproval}`}
+          tone="warning"
+        />
+        <StatusBadge
+          label={`Confirmed ${statusCounts.confirmed}`}
+          tone="success"
+        />
+        <StatusBadge
+          label={`Rejected ${statusCounts.rejected}`}
+          tone="danger"
+        />
+        <StatusBadge
+          label={`Retryable ${statusCounts.retryRequired}`}
+          tone="warning"
+        />
       </div>
 
-      <p style={muted}>Queue summary above stays aligned with the selected record and batch result panels below.</p>
+      <p style={muted}>
+        Queue summary above stays aligned with the selected record and batch
+        result panels below.
+      </p>
 
       {selectedRecord ? (
         <Alert tone="info" title="Selected record">
-          {selectedRecord.localId} · {selectedRecord.cardBarcode ?? 'Card pending'} · {selectedRecord.syncState}
+          {selectedRecord.localId} ·{' '}
+          {selectedRecord.cardBarcode ?? 'Card pending'} ·{' '}
+          {selectedRecord.syncState}
         </Alert>
       ) : null}
 
@@ -296,7 +353,10 @@ export default function CashierSyncPage() {
           <h2 style={{ marginTop: 0 }}>Selected details</h2>
           {selectedRecord ? (
             <>
-              <p style={muted}>This card stays ahead of the queue so the active record is always obvious.</p>
+              <p style={muted}>
+                This card stays ahead of the queue so the active record is
+                always obvious.
+              </p>
               <Table>
                 <tbody>
                   {selectedPreview.map(([key, value]) => (
@@ -341,8 +401,14 @@ export default function CashierSyncPage() {
             </Alert>
           )}
           <div style={statusRow}>
-            <StatusBadge label={`Batch results ${lastBatchResults.length}`} tone="info" />
-            <StatusBadge label={`Queueable ${queueableRecords.length}`} tone="neutral" />
+            <StatusBadge
+              label={`Batch results ${lastBatchResults.length}`}
+              tone="info"
+            />
+            <StatusBadge
+              label={`Queueable ${queueableRecords.length}`}
+              tone="neutral"
+            />
           </div>
           {lastBatchResults.length > 0 ? (
             <Table>
@@ -360,10 +426,21 @@ export default function CashierSyncPage() {
                 {lastBatchResults.map((result) => (
                   <tr key={result.localId}>
                     <td>{result.localId}</td>
-                    <td><StatusBadge label={result.status} tone={toneForResult(result.status)} /></td>
+                    <td>
+                      <StatusBadge
+                        label={result.status}
+                        tone={toneForResult(result.status)}
+                      />
+                    </td>
                     <td>{result.transactionId ?? '—'}</td>
                     <td>{result.approvalId ?? '—'}</td>
-                    <td>{typeof result.creditEarnedKobo === 'number' ? <Money amountKobo={result.creditEarnedKobo} /> : '—'}</td>
+                    <td>
+                      {typeof result.creditEarnedKobo === 'number' ? (
+                        <Money amountKobo={result.creditEarnedKobo} />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td>{result.retryable ? 'Yes' : 'No'}</td>
                   </tr>
                 ))}
@@ -377,7 +454,13 @@ export default function CashierSyncPage() {
               value={clearConfirmation}
               onChange={(event) => setClearConfirmation(event.target.value)}
             />
-            <Button variant="ghost" onClick={() => void clearConfirmed()} disabled={!records.some((record) => record.syncState === 'confirmed')}>
+            <Button
+              variant="ghost"
+              onClick={() => void clearConfirmed()}
+              disabled={
+                !records.some((record) => record.syncState === 'confirmed')
+              }
+            >
               Clear confirmed
             </Button>
           </div>
@@ -406,26 +489,44 @@ export default function CashierSyncPage() {
               {records.map((record) => (
                 <tr key={record.localId}>
                   <td>
-                    <button type="button" onClick={() => setSelectedLocalId(record.localId)} style={rowButton}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLocalId(record.localId)}
+                      style={rowButton}
+                    >
                       {record.localId}
                     </button>
                   </td>
                   <td>{record.cardBarcode}</td>
                   <td>{record.receiptNumber}</td>
-                  <td><Money amountKobo={record.purchaseAmountKobo} /></td>
                   <td>
-                    <StatusBadge label={record.syncState} tone={toneForState(record.syncState)} />
-                    {record.lastError ? <div style={smallText}>{record.lastError}</div> : null}
+                    <Money amountKobo={record.purchaseAmountKobo} />
+                  </td>
+                  <td>
+                    <StatusBadge
+                      label={record.syncState}
+                      tone={toneForState(record.syncState)}
+                    />
+                    {record.lastError ? (
+                      <div style={smallText}>{record.lastError}</div>
+                    ) : null}
                     {record.serverTransactionId || record.serverApprovalId ? (
                       <div style={smallText}>
-                        {record.serverTransactionId ? `Txn ${record.serverTransactionId}` : null}
-                        {record.serverApprovalId ? ` Approval ${record.serverApprovalId}` : null}
+                        {record.serverTransactionId
+                          ? `Txn ${record.serverTransactionId}`
+                          : null}
+                        {record.serverApprovalId
+                          ? ` Approval ${record.serverApprovalId}`
+                          : null}
                       </div>
                     ) : null}
                   </td>
                   <td>
                     {record.syncState === 'retry-required' ? (
-                      <Button variant="ghost" onClick={() => void retryRecord(record.localId)}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => void retryRecord(record.localId)}
+                      >
                         Retry now
                       </Button>
                     ) : (
@@ -444,7 +545,12 @@ export default function CashierSyncPage() {
 
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   return JSON.stringify(value, null, 2);
 }
 

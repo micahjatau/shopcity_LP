@@ -15,21 +15,32 @@ export default function SupervisorFraudPage() {
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Fraud</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Evidence-led fraud review and decisioning.
         </p>
         <Link href="/supervisor">Back to supervisor</Link>
       </header>
 
       <Alert tone="info" title="Fraud route context">
-        Keep evidence review, acknowledgment, and resolution on this dedicated route.
+        Keep evidence review, acknowledgment, and resolution on this dedicated
+        route.
       </Alert>
 
       <section style={cardStyle} aria-label="Related routes">
         <h2 style={{ marginTop: 0 }}>Route map</h2>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--sc-spacing-3)',
+            flexWrap: 'wrap',
+          }}
+        >
           {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>{label}</Link>
+            <Link key={href} href={href}>
+              {label}
+            </Link>
           ))}
         </div>
         <div style={statusRow}>

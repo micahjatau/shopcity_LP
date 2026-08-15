@@ -18,7 +18,10 @@ export default function AdminBranchesPage() {
   const [devices, setDevices] = useState<any[]>([]);
   const [message, setMessage] = useState('Loading branches…');
   const [actionMessage, setActionMessage] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('Africa/Lagos');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -156,7 +159,9 @@ export default function AdminBranchesPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Branches</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Branch list, create and edit surfaces.
         </p>
         <Link href="/admin">Back to admin</Link>
@@ -172,7 +177,10 @@ export default function AdminBranchesPage() {
       <div style={summaryRow}>
         <StatusBadge label={`Branches ${items.length}`} tone="info" />
         <StatusBadge label={`Devices ${devices.length}`} tone="success" />
-        <StatusBadge label={selectedBranch ? 'Selected' : 'No selection'} tone="neutral" />
+        <StatusBadge
+          label={selectedBranch ? 'Selected' : 'No selection'}
+          tone="neutral"
+        />
       </div>
 
       <p style={muted}>{message}</p>
@@ -201,7 +209,9 @@ export default function AdminBranchesPage() {
         />
         <div style={toolbarRow}>
           <Button onClick={() => void createBranch()}>Create branch</Button>
-          <Button variant="secondary" onClick={() => void refresh()}>Refresh</Button>
+          <Button variant="secondary" onClick={() => void refresh()}>
+            Refresh
+          </Button>
         </div>
       </section>
 
@@ -209,12 +219,22 @@ export default function AdminBranchesPage() {
         <section style={cardStyle} aria-label="Selected branch">
           <h2 style={{ marginTop: 0 }}>Selected branch</h2>
           <Alert tone="info" title="Selected branch">
-            {selectedBranch.name ?? selectedBranch.id} · {selectedBranch.timezone ?? 'Timezone pending'}
+            {selectedBranch.name ?? selectedBranch.id} ·{' '}
+            {selectedBranch.timezone ?? 'Timezone pending'}
           </Alert>
           <div style={summaryRow}>
-            <StatusBadge label={`Week start ${selectedBranch.receiptWeekStartDay ?? '—'}`} tone="info" />
-            <StatusBadge label={`Timezone ${selectedBranch.timezone ?? '—'}`} tone="neutral" />
-            <StatusBadge label={`Devices ${selectedDevices.length}`} tone="success" />
+            <StatusBadge
+              label={`Week start ${selectedBranch.receiptWeekStartDay ?? '—'}`}
+              tone="info"
+            />
+            <StatusBadge
+              label={`Timezone ${selectedBranch.timezone ?? '—'}`}
+              tone="neutral"
+            />
+            <StatusBadge
+              label={`Devices ${selectedDevices.length}`}
+              tone="success"
+            />
           </div>
           <Table>
             <tbody>
@@ -241,7 +261,9 @@ export default function AdminBranchesPage() {
       ) : null}
 
       {items.length === 0 ? (
-        <Alert tone="warning" title="No branches">No branches were returned.</Alert>
+        <Alert tone="warning" title="No branches">
+          No branches were returned.
+        </Alert>
       ) : (
         <section style={cardStyle} aria-label="Branch list">
           <h2 style={{ marginTop: 0 }}>Branch list</h2>
@@ -278,7 +300,10 @@ export default function AdminBranchesPage() {
 
       <section style={cardStyle} aria-label="Action response">
         <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionMessage || 'Select a branch and submit a change to see the backend response here.'}</p>
+        <p style={muted}>
+          {actionMessage ||
+            'Select a branch and submit a change to see the backend response here.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -324,7 +349,12 @@ export default function AdminBranchesPage() {
 
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   return JSON.stringify(value);
 }
 

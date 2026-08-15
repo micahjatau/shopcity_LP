@@ -10,7 +10,13 @@ import {
   cardsControllerUpdateStatusV1,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Table } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  RadioGroup,
+  Table,
+} from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
 const routeLinks = [
@@ -29,9 +35,14 @@ export default function AdminCardsPage() {
   const [replaceConfirmation, setReplaceConfirmation] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'BLOCKED'>('ACTIVE');
   const [statusConfirmation, setStatusConfirmation] = useState('');
-  const [message, setMessage] = useState('Lookup a card, then assign, replace, or change status.');
+  const [message, setMessage] = useState(
+    'Lookup a card, then assign, replace, or change status.',
+  );
   const [actionMessage, setActionMessage] = useState('');
-  const [actionResponse, setActionResponse] = useState<Record<string, unknown> | null>(null);
+  const [actionResponse, setActionResponse] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [card, setCard] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -217,7 +228,9 @@ export default function AdminCardsPage() {
     <section style={layoutGrid}>
       <header style={headerGrid}>
         <h1 style={{ margin: 0 }}>Cards</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Lookup, assign, replace, and status-manage cards.
         </p>
         <Link href="/admin">Back to admin</Link>
@@ -231,9 +244,20 @@ export default function AdminCardsPage() {
       </header>
 
       <div style={summaryRow}>
-        <StatusBadge label={card ? 'Card loaded' : 'Awaiting lookup'} tone={card ? 'success' : 'warning'} />
-        <StatusBadge label={card?.status ?? 'No status'} tone={card?.status === 'ACTIVE' ? 'success' : 'neutral'} />
-        <StatusBadge label={card?.customer?.fullName ?? card?.customerId ?? 'Customer pending'} tone="info" />
+        <StatusBadge
+          label={card ? 'Card loaded' : 'Awaiting lookup'}
+          tone={card ? 'success' : 'warning'}
+        />
+        <StatusBadge
+          label={card?.status ?? 'No status'}
+          tone={card?.status === 'ACTIVE' ? 'success' : 'neutral'}
+        />
+        <StatusBadge
+          label={
+            card?.customer?.fullName ?? card?.customerId ?? 'Customer pending'
+          }
+          tone="info"
+        />
       </div>
 
       <p style={muted}>{message}</p>
@@ -255,7 +279,9 @@ export default function AdminCardsPage() {
           />
         </div>
         <div style={toolbarRow}>
-          <Button onClick={() => void lookup()} loading={busy}>Lookup card</Button>
+          <Button onClick={() => void lookup()} loading={busy}>
+            Lookup card
+          </Button>
         </div>
       </section>
 
@@ -263,14 +289,30 @@ export default function AdminCardsPage() {
         <section style={cardStyle} aria-label="Selected card">
           <h2 style={{ marginTop: 0 }}>Selected card</h2>
           <Alert tone="info" title="Selected card">
-            {card?.customer?.fullName ?? card?.customerId ?? 'Customer'} · {card?.status ?? 'Status pending'}
+            {card?.customer?.fullName ?? card?.customerId ?? 'Customer'} ·{' '}
+            {card?.status ?? 'Status pending'}
           </Alert>
           <div style={summaryRow}>
-            {card?.serialNumber ? <StatusBadge label={String(card.serialNumber)} tone="info" /> : null}
-            {card?.status ? <StatusBadge label={String(card.status)} tone={cardStatusTone as any} /> : null}
-            {card?.customer?.fullName ? <StatusBadge label={String(card.customer.fullName)} tone="neutral" /> : null}
+            {card?.serialNumber ? (
+              <StatusBadge label={String(card.serialNumber)} tone="info" />
+            ) : null}
+            {card?.status ? (
+              <StatusBadge
+                label={String(card.status)}
+                tone={cardStatusTone as any}
+              />
+            ) : null}
+            {card?.customer?.fullName ? (
+              <StatusBadge
+                label={String(card.customer.fullName)}
+                tone="neutral"
+              />
+            ) : null}
             {typeof card?.availableBalanceKobo === 'number' ? (
-              <StatusBadge label={`Balance ${card.availableBalanceKobo} kobo`} tone="info" />
+              <StatusBadge
+                label={`Balance ${card.availableBalanceKobo} kobo`}
+                tone="info"
+              />
             ) : null}
           </div>
           <Table>
@@ -308,7 +350,8 @@ export default function AdminCardsPage() {
             </tbody>
           </Table>
           <Alert tone="info" title="Card context">
-            Use the loaded card before assignment, replacement, or status changes.
+            Use the loaded card before assignment, replacement, or status
+            changes.
           </Alert>
         </section>
       ) : null}
@@ -351,12 +394,17 @@ export default function AdminCardsPage() {
           onChange={(event) => setReplaceConfirmation(event.target.value)}
         />
         <div style={toolbarRow}>
-          <Button variant="secondary" onClick={() => void replaceCard()} loading={busy}>
+          <Button
+            variant="secondary"
+            onClick={() => void replaceCard()}
+            loading={busy}
+          >
             Replace card
           </Button>
         </div>
         <Alert tone="warning" title="Replacement preview">
-          Replacement preserves the original card and records a deliberate compensating action.
+          Replacement preserves the original card and records a deliberate
+          compensating action.
         </Alert>
       </section>
 
@@ -379,18 +427,27 @@ export default function AdminCardsPage() {
           onChange={(event) => setStatusConfirmation(event.target.value)}
         />
         <div style={toolbarRow}>
-          <Button variant="ghost" onClick={() => void changeStatus()} loading={busy}>
+          <Button
+            variant="ghost"
+            onClick={() => void changeStatus()}
+            loading={busy}
+          >
             Update status
           </Button>
         </div>
-        <Alert tone={status === 'ACTIVE' ? 'success' : 'warning'} title="Status preview">
+        <Alert
+          tone={status === 'ACTIVE' ? 'success' : 'warning'}
+          title="Status preview"
+        >
           The next update will mark this card as {status}.
         </Alert>
       </section>
 
       <section style={cardStyle} aria-label="Action response">
         <h2 style={{ marginTop: 0 }}>Action response</h2>
-        <p style={muted}>{actionMessage || 'Submit a change to see the backend response here.'}</p>
+        <p style={muted}>
+          {actionMessage || 'Submit a change to see the backend response here.'}
+        </p>
         {actionResponse ? (
           <Table>
             <tbody>
@@ -413,7 +470,8 @@ export default function AdminCardsPage() {
 function renderValue(value: unknown) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string' || typeof value === 'boolean')
+    return String(value);
   return JSON.stringify(value);
 }
 

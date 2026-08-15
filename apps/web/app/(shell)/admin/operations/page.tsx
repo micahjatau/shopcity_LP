@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { PilotHealthPanel, ReportsWorkspace } from '../../../../components/workflows';
+import {
+  PilotHealthPanel,
+  ReportsWorkspace,
+} from '../../../../components/workflows';
 import { Alert } from '../../../../components/ui';
 import { StatusBadge } from '../../../../components/shopcity';
 
@@ -34,7 +37,9 @@ export default function AdminOperationsPage() {
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Operations</h1>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Live pilot operations summary and operational reporting.
         </p>
         <div style={statusRow}>
@@ -46,7 +51,8 @@ export default function AdminOperationsPage() {
       </header>
 
       <Alert tone="info" title="Admin operations at a glance">
-        Keep review, reporting, and control actions on separate route-backed surfaces.
+        Keep review, reporting, and control actions on separate route-backed
+        surfaces.
       </Alert>
 
       <section style={cardStyle} aria-label="Admin route links">
@@ -64,7 +70,8 @@ export default function AdminOperationsPage() {
         <article style={cardStyle} aria-label="Pilot health">
           <h2 style={{ marginTop: 0 }}>Health</h2>
           <p style={muted}>
-            Pilot readiness, release signals, and queue pressure stay visible before operator actions.
+            Pilot readiness, release signals, and queue pressure stay visible
+            before operator actions.
           </p>
           <PilotHealthPanel />
         </article>
@@ -72,7 +79,8 @@ export default function AdminOperationsPage() {
         <article style={cardStyle} aria-label="Operational reporting">
           <h2 style={{ marginTop: 0 }}>Reporting</h2>
           <p style={muted}>
-            Operational reporting should remain contract-backed and traceable to live backend data.
+            Operational reporting should remain contract-backed and traceable to
+            live backend data.
           </p>
           <ReportsWorkspace />
         </article>

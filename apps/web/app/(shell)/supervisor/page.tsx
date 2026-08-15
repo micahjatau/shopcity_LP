@@ -59,11 +59,16 @@ export default function SupervisorPage() {
       <ScannerContextScope context="lookup" />
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <h1 style={{ margin: 0 }}>Supervisor shell</h1>
-        <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
+        <p
+          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
+        >
           Approvals, fraud review, transaction detail and reports.
         </p>
         <div style={statusRow}>
-          <StatusBadge label={`${supervisorRoutes.length} routes`} tone="success" />
+          <StatusBadge
+            label={`${supervisorRoutes.length} routes`}
+            tone="success"
+          />
           <StatusBadge label="Investigative" tone="info" />
           <StatusBadge label="Route-backed" tone="neutral" />
         </div>
@@ -88,7 +93,8 @@ export default function SupervisorPage() {
       </WorkflowSection>
 
       <Alert tone="info" title="Supervisor landing page">
-        Investigative detail and queue actions live in the dedicated review routes.
+        Investigative detail and queue actions live in the dedicated review
+        routes.
       </Alert>
 
       <div style={gridStyle}>
@@ -112,7 +118,8 @@ export default function SupervisorPage() {
             <StatusBadge label="Investigative" tone="neutral" />
           </div>
           <p style={muted}>
-            Queue pressure, fraud review, and report reconciliation stay visible without duplicating the workspaces here.
+            Queue pressure, fraud review, and report reconciliation stay visible
+            without duplicating the workspaces here.
           </p>
         </article>
       </div>
