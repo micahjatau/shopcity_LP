@@ -30,6 +30,12 @@ main {
   color: var(--sc-color-neutral-950);
 }
 
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dev-tools-button] {
+  display: none !important;
+}
+
 .visual-grid {
   display: grid;
   gap: var(--sc-spacing-4);
