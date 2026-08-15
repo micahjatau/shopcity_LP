@@ -25,16 +25,33 @@ export default function AdminDevicesPage() {
   const [fingerprintHash, setFingerprintHash] = useState('');
   const [status, setStatus] = useState<(typeof statuses)[number]>('ACTIVE');
   const [rotateAttestationSecret, setRotateAttestationSecret] = useState(false);
+  const [createConfirmation, setCreateConfirmation] = useState('');
+  const [updateConfirmation, setUpdateConfirmation] = useState('');
 
   const selectedDevice = useMemo(
     () => devices.find((item) => item.id === selectedId) ?? null,
     [devices, selectedId],
   );
+  const selectedBranch = useMemo(
+    () => branches.find((item) => item.id === branchId) ?? null,
+    [branches, branchId],
+  );
+  const statusTone = status === 'ACTIVE' ? 'success' : 'warning';
 
   const branchOptions = branches.map((branch) => ({
     value: branch.id,
     label: branch.name ?? branch.id,
   }));
+
+  useEffect(() => {
+    if (selectedDevice) {
+      setName(selectedDevice.name ?? '');
+      setStatus((selectedDevice.status as (typeof statuses)[number]) ?? 'ACTIVE');
+      setBranchId((current) => selectedDevice.branchId ?? current);
+      setUpdateConfirmation('');
+      setRotateAttestationSecret(false);
+    }
+  }, [selectedDevice]);
 
   async function refresh() {
     setLoading(true);
@@ -66,17 +83,13 @@ export default function AdminDevicesPage() {
     void refresh();
   }, []);
 
-  useEffect(() => {
-    if (selectedDevice) {
-      setName(selectedDevice.name ?? '');
-      setStatus((selectedDevice.status as (typeof statuses)[number]) ?? 'ACTIVE');
-      setBranchId((current) => selectedDevice.branchId ?? current);
-    }
-  }, [selectedDevice]);
-
   async function createDevice() {
     if (!branchId || !name.trim() || !fingerprintHash.trim()) {
       setMessage('Enter branch, name, and fingerprint hash before creating a device.');
+      return;
+    }
+    if (createConfirmation.trim().toUpperCase() !== 'CREATE') {
+      setMessage('Type CREATE to confirm device creation.');
       return;
     }
 
@@ -85,7 +98,14 @@ export default function AdminDevicesPage() {
         { branchId, name: name.trim(), fingerprintHash: fingerprintHash.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 201 ? 'Device created.' : `Create unavailable (${response.status}).`);
+      setMessage(
+        response.status === 201
+          ? 'Device created.'
+          : `Create unavailable (${response.status}).`,
+      );
+      if (response.status === 201) {
+        setCreateConfirmation('');
+      }
       await refresh();
     } catch {
       setMessage('Device create unavailable.');
@@ -94,13 +114,24 @@ export default function AdminDevicesPage() {
 
   async function updateDevice() {
     if (!selectedId) return;
+    if (updateConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the device change.');
+      return;
+    }
+
     try {
       const response = await branchesControllerUpdateDeviceV1(
         selectedId,
         { name, status, rotateAttestationSecret } as any,
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 200 ? 'Device updated.' : `Update unavailable (${response.status}).`);
+      setMessage(
+        response.status === 200
+          ? 'Device updated.'
+          : `Update unavailable (${response.status}).`,
+      );
+      setUpdateConfirmation('');
+      setRotateAttestationSecret(false);
       await refresh();
     } catch {
       setMessage('Device update unavailable.');
@@ -118,10 +149,31 @@ export default function AdminDevicesPage() {
       </header>
 
       <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-        <Select aria-label="Branch" value={branchId} onChange={(event) => setBranchId(event.target.value)} options={branchOptions} />
-        <Input aria-label="Device name" placeholder="Device name" value={name} onChange={(event) => setName(event.target.value)} />
-        <Input aria-label="Fingerprint hash" placeholder="Fingerprint hash" value={fingerprintHash} onChange={(event) => setFingerprintHash(event.target.value)} />
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--sc-spacing-3)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        }}
+      >
+        <Select
+          aria-label="Branch"
+          value={branchId}
+          onChange={(event) => setBranchId(event.target.value)}
+          options={branchOptions}
+        />
+        <Input
+          aria-label="Device name"
+          placeholder="Device name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <Input
+          aria-label="Fingerprint hash"
+          placeholder="Fingerprint hash"
+          value={fingerprintHash}
+          onChange={(event) => setFingerprintHash(event.target.value)}
+        />
       </div>
       <RadioGroup
         name="device-status"
@@ -130,17 +182,48 @@ export default function AdminDevicesPage() {
         onValueChange={(value) => setStatus(value as (typeof statuses)[number])}
         options={statuses.map((value) => ({ value, label: value }))}
       />
+      <Input
+        aria-label="Create confirmation"
+        placeholder="Type CREATE to confirm"
+        value={createConfirmation}
+        onChange={(event) => setCreateConfirmation(event.target.value)}
+      />
+      <Input
+        aria-label="Update confirmation"
+        placeholder="Type UPDATE to confirm"
+        value={updateConfirmation}
+        onChange={(event) => setUpdateConfirmation(event.target.value)}
+      />
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sc-spacing-2)' }}>
-          <input type="checkbox" checked={rotateAttestationSecret} onChange={(event) => setRotateAttestationSecret(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={rotateAttestationSecret}
+            onChange={(event) => setRotateAttestationSecret(event.target.checked)}
+          />
           Rotate attestation secret
         </label>
       </div>
+      <Alert tone="info" title="Deliberate changes">
+        Device creation and updates require confirmation words before submission.
+      </Alert>
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-        <Button onClick={() => void createDevice()} loading={loading}>Create device</Button>
-        <Button variant="secondary" onClick={() => void updateDevice()} disabled={!selectedId}>Update device</Button>
-        <Button variant="secondary" onClick={() => void refresh()} loading={loading}>Refresh</Button>
+        <Button onClick={() => void createDevice()} loading={loading}>
+          Create device
+        </Button>
+        <Button variant="secondary" onClick={() => void updateDevice()} disabled={!selectedId}>
+          Update device
+        </Button>
+        <Button variant="secondary" onClick={() => void refresh()} loading={loading}>
+          Refresh
+        </Button>
       </div>
+
+      {selectedBranch ? (
+        <Alert tone="info" title="Selected branch">
+          {selectedBranch.name ?? selectedBranch.id} · {selectedBranch.timezone ?? 'Timezone pending'}
+        </Alert>
+      ) : null}
 
       {devices.length === 0 ? (
         <Alert tone="warning" title="No devices">No device records returned.</Alert>
@@ -158,9 +241,20 @@ export default function AdminDevicesPage() {
             {devices.map((item) => (
               <tr key={item.id ?? item.name}>
                 <td>
-                  <button type="button" onClick={() => setSelectedId(item.id ?? null)} style={rowButton}>{item.name ?? item.id}</button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(item.id ?? null)}
+                    style={rowButton}
+                  >
+                    {item.name ?? item.id}
+                  </button>
                 </td>
-                <td><StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'ACTIVE' ? 'success' : 'warning'} /></td>
+                <td>
+                  <StatusBadge
+                    label={item.status ?? 'UNKNOWN'}
+                    tone={item.status === 'ACTIVE' ? 'success' : 'warning'}
+                  />
+                </td>
                 <td>{item.branchId ?? '—'}</td>
                 <td>{item.fingerprintHash ?? '—'}</td>
               </tr>
@@ -170,12 +264,45 @@ export default function AdminDevicesPage() {
       )}
 
       {selectedDevice ? (
-        <Alert tone="info" title="Selected device">
-          {selectedDevice.name ?? selectedDevice.id} is ready for status or rotation review.
+        <>
+          <Alert tone="info" title="Selected device">
+            <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+              <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+                <StatusBadge label={selectedDevice.name ?? selectedDevice.id} tone="info" />
+                <StatusBadge label={selectedDevice.status ?? 'STATUS pending'} tone={selectedDevice.status === 'ACTIVE' ? 'success' : 'warning'} />
+                {rotateAttestationSecret ? <StatusBadge label="Attestation rotate requested" tone="warning" /> : null}
+              </div>
+              <span>{selectedDevice.branchId ?? 'Tenant-wide'} · ready for status review</span>
+            </div>
+          </Alert>
+          <Table>
+            <tbody>
+              {Object.entries(selectedDevice)
+                .slice(0, 8)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        </>
+      ) : null}
+
+      {status ? (
+        <Alert tone={statusTone as 'success' | 'warning'} title="Status preview">
+          The next update will mark this device as {status}.
         </Alert>
       ) : null}
     </section>
   );
+}
+
+function renderValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
 }
 
 const rowButton = {
