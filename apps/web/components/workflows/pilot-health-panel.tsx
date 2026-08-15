@@ -14,7 +14,9 @@ const routeLinks = [
   ['/supervisor/reports', 'Supervisor reports'],
 ] as const;
 
-export function PilotHealthPanel() {
+export function PilotHealthPanel({
+  compact = false,
+}: { compact?: boolean } = {}) {
   const [summary, setSummary] = useState<any | null>(null);
   const [message, setMessage] = useState('Loading pilot health…');
 
@@ -124,8 +126,13 @@ export function PilotHealthPanel() {
   }, [summary]);
 
   return (
-    <section style={cardStyle}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+    <section style={compact ? compactCardStyle : cardStyle}>
+      <header
+        style={{
+          display: 'grid',
+          gap: compact ? 'var(--sc-spacing-1)' : 'var(--sc-spacing-2)',
+        }}
+      >
         <div
           style={{
             display: 'flex',
@@ -152,23 +159,25 @@ export function PilotHealthPanel() {
         </p>
       </header>
 
-      <div style={routeRow}>
-        {routeLinks.map(([href, label]) => (
-          <Link key={href} href={href} style={routeLink}>
-            {label}
-          </Link>
-        ))}
-      </div>
+      {compact ? null : (
+        <div style={routeRow}>
+          {routeLinks.map(([href, label]) => (
+            <Link key={href} href={href} style={routeLink}>
+              {label}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div
         style={{
           display: 'grid',
-          gap: 'var(--sc-spacing-3)',
+          gap: compact ? 'var(--sc-spacing-2)' : 'var(--sc-spacing-3)',
           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
         }}
       >
         {items.length === 0 ? (
-          <div style={emptyStateStyle}>
+          <div style={compact ? compactEmptyStateStyle : emptyStateStyle}>
             <strong>Waiting for live operations data</strong>
             <p style={muted}>
               Health, queue, and report signals will appear once the backend
@@ -177,7 +186,10 @@ export function PilotHealthPanel() {
           </div>
         ) : (
           items.map((item) => (
-            <article key={item.label} style={metricCardStyle}>
+            <article
+              key={item.label}
+              style={compact ? compactMetricCardStyle : metricCardStyle}
+            >
               <p
                 style={{
                   margin: 0,
@@ -218,6 +230,12 @@ const cardStyle: CSSProperties = {
   gap: 'var(--sc-spacing-3)',
 };
 
+const compactCardStyle: CSSProperties = {
+  ...cardStyle,
+  padding: 'var(--sc-spacing-3)',
+  gap: 'var(--sc-spacing-2)',
+};
+
 const routeRow: CSSProperties = {
   display: 'flex',
   gap: 'var(--sc-spacing-2)',
@@ -240,6 +258,11 @@ const emptyStateStyle: CSSProperties = {
   gap: 'var(--sc-spacing-1)',
 };
 
+const compactEmptyStateStyle: CSSProperties = {
+  ...emptyStateStyle,
+  padding: 'var(--sc-spacing-2)',
+};
+
 const metricCardStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-lg)',
@@ -247,6 +270,11 @@ const metricCardStyle: CSSProperties = {
   background: 'var(--sc-color-semantic-surfaceSubtle)',
   display: 'grid',
   gap: 'var(--sc-spacing-1)',
+};
+
+const compactMetricCardStyle: CSSProperties = {
+  ...metricCardStyle,
+  padding: 'var(--sc-spacing-2)',
 };
 
 const metricRow: CSSProperties = {

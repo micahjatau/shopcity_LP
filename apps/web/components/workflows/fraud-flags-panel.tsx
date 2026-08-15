@@ -115,8 +115,8 @@ export function FraudFlagsPanel() {
         reason:
           reason.trim() ||
           (decision === FraudFlagDecisionDtoDecision.RESOLVED
-            ? 'Resolved from supervisor fraud route'
-            : 'Acknowledged from supervisor fraud route'),
+            ? 'Resolved from supervisor shell fraud route'
+            : 'Acknowledged from supervisor shell fraud route'),
       },
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );

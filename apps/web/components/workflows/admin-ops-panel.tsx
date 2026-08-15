@@ -243,9 +243,9 @@ export function AdminOperationsPanel() {
       </Alert>
 
       <div style={summaryRow}>
-        <StatusBadge label={`Users ${users.length}`} tone="info" />
-        <StatusBadge label={`Devices ${devices.length}`} tone="info" />
-        <StatusBadge label={`Audit ${auditRows.length}`} tone="success" />
+        <StatusBadge label={`Users: ${users.length}`} tone="info" />
+        <StatusBadge label={`Devices: ${devices.length}`} tone="info" />
+        <StatusBadge label={`Audit rows: ${auditRows.length}`} tone="success" />
         <StatusBadge label={actorId || 'Audit actor pending'} tone="neutral" />
       </div>
 

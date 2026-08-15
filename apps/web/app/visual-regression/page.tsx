@@ -337,7 +337,7 @@ export default function VisualRegressionPage() {
               <Button>Refresh</Button>
             </div>
           </WorkflowSection>
-          <PilotHealthPanel />
+          <PilotHealthPanel compact />
         </div>
       </GallerySection>
 

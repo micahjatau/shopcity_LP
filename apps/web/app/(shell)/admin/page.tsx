@@ -143,7 +143,8 @@ export default function AdminPage() {
           </div>
           <p style={muted}>
             Detailed health and report information now live on the admin
-            operations and reports routes.
+            operations and reports routes. Report summary loaded from the admin
+            reports route.
           </p>
         </article>
       </div>
