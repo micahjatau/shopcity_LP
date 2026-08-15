@@ -38,6 +38,11 @@ export default function SupervisorPage() {
         <p style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}>
           Approvals, fraud review, transaction detail and reports.
         </p>
+        <div style={statusRow}>
+          <StatusBadge label={`${supervisorRoutes.length} routes`} tone="success" />
+          <StatusBadge label="Investigative" tone="info" />
+          <StatusBadge label="Route-backed" tone="neutral" />
+        </div>
       </header>
 
       <WorkflowSection
