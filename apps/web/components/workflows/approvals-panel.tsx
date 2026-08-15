@@ -104,6 +104,7 @@ export function ApprovalsPanel() {
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+      <h2 style={{ margin: 0 }}>Approvals panel</h2>
       <div style={statusRow}>
         <StatusBadge label={`Loaded ${items.length}`} tone="info" />
         <StatusBadge label={`Pending ${pendingCount}`} tone="warning" />

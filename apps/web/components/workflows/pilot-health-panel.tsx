@@ -223,9 +223,9 @@ export function PilotHealthPanel() {
               tone={summary.reconciliation.unhealthy ? 'warning' : 'success'}
             />
           </div>
-          <pre style={preStyle}>
-            {JSON.stringify(summary.reconciliation, null, 2)}
-          </pre>
+          <p style={muted}>
+            {renderReconciliationSummary(summary.reconciliation)}
+          </p>
         </div>
       ) : null}
     </section>
@@ -288,10 +288,36 @@ const reconciliationStyle: CSSProperties = {
   gap: 'var(--sc-spacing-3)',
 };
 
-const preStyle: CSSProperties = {
-  margin: 0,
-  whiteSpace: 'pre-wrap',
-};
+function renderReconciliationSummary(
+  reconciliation: Record<string, unknown>,
+): string {
+  const entries = Object.entries(reconciliation)
+    .filter(([key]) => key !== 'items')
+    .slice(0, 3)
+    .map(([key, value]) => `${key}: ${renderValue(value)}`);
+
+  return entries.length > 0
+    ? entries.join(' · ')
+    : 'Reconciliation summary available.';
+}
+
+function renderValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => renderValue(item)).join(', ');
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
 
 const muted: CSSProperties = {
   margin: 0,
