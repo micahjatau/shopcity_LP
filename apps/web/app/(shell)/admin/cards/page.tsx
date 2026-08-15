@@ -39,7 +39,10 @@ export default function AdminCardsPage() {
         createApiRequest({ csrf: true }),
       );
       if (response.status === 200) {
-        setCard(response.data.data);
+        const nextCard = response.data.data;
+        setCard(nextCard);
+        setSerialNumber(String(nextCard.serialNumber ?? serial));
+        setCustomerId(String(nextCard.customerId ?? customerId));
         setMessage(`Loaded card ${serial}.`);
         return;
       }
@@ -88,6 +91,7 @@ export default function AdminCardsPage() {
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setMessage(response.status === 201 ? 'Replacement created.' : `Replacement unavailable (${response.status}).`);
+      setReplaceConfirmation('');
       await lookup();
     } catch {
       setMessage('Replacement unavailable.');
@@ -113,6 +117,7 @@ export default function AdminCardsPage() {
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setMessage(response.status === 200 ? 'Card status updated.' : `Status update unavailable (${response.status}).`);
+      setStatusConfirmation('');
       await lookup();
     } catch {
       setMessage('Status update unavailable.');

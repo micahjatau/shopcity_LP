@@ -9,8 +9,10 @@ import {
   cardsControllerUpdateStatusV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
+  customersControllerUpdateStatusV1,
   loyaltyControllerGetCustomerLedgerV1,
   type UpdateCardStatusDtoStatus,
+  type UpdateCustomerStatusDtoStatus,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
 import { Alert, Button, Input, RadioGroup, Table } from '../../../../components/ui';
@@ -50,6 +52,8 @@ export default function CashierCustomersPage() {
   const [cardSerialNumber, setCardSerialNumber] = useState('');
   const [replacementSerialNumber, setReplacementSerialNumber] = useState('');
   const [cardStatus, setCardStatus] = useState<UpdateCardStatusDtoStatus>('ACTIVE');
+  const [customerStatus, setCustomerStatus] = useState<UpdateCustomerStatusDtoStatus>('ACTIVE');
+  const [customerStatusConfirmation, setCustomerStatusConfirmation] = useState('');
   const [cardMessage, setCardMessage] = useState('Select a customer, then assign or manage cards.');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [replaceConfirmation, setReplaceConfirmation] = useState('');
@@ -67,11 +71,18 @@ export default function CashierCustomersPage() {
       setCustomer(null);
       setLedger(null);
       setSelectedCardId(null);
+      setCardSerialNumber('');
+      setReplacementSerialNumber('');
+      setReplaceConfirmation('');
+      setCustomerStatusConfirmation('');
       return;
     }
 
     const customerId = selectedId;
     setSelectedCardId(null);
+    setReplacementSerialNumber('');
+    setReplaceConfirmation('');
+    setCustomerStatusConfirmation('');
     let ignore = false;
 
     async function load() {
@@ -83,6 +94,7 @@ export default function CashierCustomersPage() {
         if (!ignore && customerResponse.status === 200) {
           const nextCustomer = customerResponse.data.data as CustomerRecord;
           setCustomer(nextCustomer);
+          setCustomerStatus((nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE');
           const cards = extractCustomerCards(nextCustomer);
           setSelectedCardId(cards[0]?.id ?? null);
           if (cards[0]?.serialNumber) {
@@ -218,6 +230,35 @@ export default function CashierCustomersPage() {
     }
   }
 
+  async function updateCustomerStatus() {
+    if (!selectedId) {
+      setMessage('Select a customer first.');
+      return;
+    }
+    if (customerStatusConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the customer status change.');
+      return;
+    }
+
+    setBusy(true);
+    setMessage('Updating customer status…');
+    try {
+      const response = await customersControllerUpdateStatusV1(
+        selectedId,
+        { status: customerStatus },
+        createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+      );
+      setMessage(response.status === 200 ? 'Customer status updated.' : `Customer status unavailable (${response.status}).`);
+      setCustomerStatusConfirmation('');
+      await reloadSelectedCustomer();
+      await search();
+    } catch {
+      setMessage('Customer status unavailable.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function reloadSelectedCustomer() {
     if (!selectedId) return;
     try {
@@ -228,8 +269,12 @@ export default function CashierCustomersPage() {
       if (response.status === 200) {
         const nextCustomer = response.data.data as CustomerRecord;
         setCustomer(nextCustomer);
+        setCustomerStatus((nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE');
         const cards = extractCustomerCards(nextCustomer);
-        setSelectedCardId((current) => current ?? cards[0]?.id ?? null);
+        setSelectedCardId(cards[0]?.id ?? null);
+        if (cards[0]?.serialNumber) {
+          setCardSerialNumber(String(cards[0].serialNumber));
+        }
       }
     } catch {
       // Keep current UI state.
@@ -313,6 +358,20 @@ export default function CashierCustomersPage() {
               )) : (
                 <p style={{ color: 'var(--sc-color-semantic-textSecondary)' }}>No ledger history loaded.</p>
               )}
+              <Alert tone="info" title="Customer status">
+                Status changes require confirmation before submission.
+              </Alert>
+              <RadioGroup
+                name="customer-status"
+                legend="Customer status"
+                value={customerStatus}
+                onValueChange={(value) => setCustomerStatus(value as UpdateCustomerStatusDtoStatus)}
+                options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
+              />
+              <Input aria-label="Customer status confirmation" placeholder="Type UPDATE to confirm" value={customerStatusConfirmation} onChange={(event) => setCustomerStatusConfirmation(event.target.value)} />
+              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+                <Button variant="secondary" onClick={() => void updateCustomerStatus()} loading={busy}>Update customer status</Button>
+              </div>
             </div>
           ) : (
             <Alert tone="warning" title="No customer selected">
