@@ -41,9 +41,9 @@ type AuditRecord = Record<string, unknown> & {
   createdAt?: string;
 };
 
-const roleOptions = ['CASHIER', 'SUPERVISOR', 'ADMIN', 'SYSTEM'];
-const userStatusOptions = ['ACTIVE', 'DISABLED', 'SUSPENDED'];
-const deviceStatusOptions = ['ACTIVE', 'INACTIVE'];
+const roleOptions = ['CASHIER', 'SUPERVISOR', 'ADMIN'] as const;
+const userStatusOptions = ['ACTIVE', 'DISABLED', 'SUSPENDED'] as const;
+const deviceStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 
 export function AdminOperationsPanel() {
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -58,6 +58,8 @@ export function AdminOperationsPanel() {
   const [status, setStatus] = useState<UpdateUserStatusDtoStatus>('ACTIVE');
   const [deviceStatus, setDeviceStatus] =
     useState<UpdateDeviceDtoStatus>('ACTIVE');
+  const [userConfirmation, setUserConfirmation] = useState('');
+  const [deviceConfirmation, setDeviceConfirmation] = useState('');
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedUserId) ?? null,
@@ -67,11 +69,16 @@ export function AdminOperationsPanel() {
     () => devices.find((item) => item.id === selectedDeviceId) ?? null,
     [devices, selectedDeviceId],
   );
+  const selectedAudit = useMemo(
+    () => auditRows.find((item) => item.id === auditRows[0]?.id) ?? null,
+    [auditRows],
+  );
 
   useEffect(() => {
     if (selectedUser) {
       setRole((selectedUser.role as UpdateUserRoleDtoRole) ?? 'ADMIN');
       setStatus((selectedUser.status as UpdateUserStatusDtoStatus) ?? 'ACTIVE');
+      setUserConfirmation('');
     }
   }, [selectedUser]);
 
@@ -80,6 +87,7 @@ export function AdminOperationsPanel() {
       setDeviceStatus(
         (selectedDevice.status as UpdateDeviceDtoStatus) ?? 'ACTIVE',
       );
+      setDeviceConfirmation('');
     }
   }, [selectedDevice]);
 
@@ -142,34 +150,49 @@ export function AdminOperationsPanel() {
 
   async function updateSelectedUserRole() {
     if (!selectedUserId) return;
+    if (userConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the user change.');
+      return;
+    }
     await usersControllerUpdateRoleV1(
       selectedUserId,
       { role },
       createApiRequest({ csrf: true }),
     );
     setMessage(`Updated role for ${selectedUserId}.`);
+    setUserConfirmation('');
     void refreshUsers();
   }
 
   async function updateSelectedUserStatus() {
     if (!selectedUserId) return;
+    if (userConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the user change.');
+      return;
+    }
     await usersControllerUpdateStatusV1(
       selectedUserId,
       { status },
       createApiRequest({ csrf: true }),
     );
     setMessage(`Updated status for ${selectedUserId}.`);
+    setUserConfirmation('');
     void refreshUsers();
   }
 
   async function updateSelectedDeviceStatus() {
     if (!selectedDeviceId) return;
+    if (deviceConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the device change.');
+      return;
+    }
     await branchesControllerUpdateDeviceV1(
       selectedDeviceId,
       { status: deviceStatus },
       createApiRequest({ csrf: true }),
     );
     setMessage(`Updated device ${selectedDeviceId}.`);
+    setDeviceConfirmation('');
     void refreshDevices();
   }
 
@@ -251,6 +274,9 @@ export function AdminOperationsPanel() {
                 marginTop: 'var(--sc-spacing-4)',
               }}
             >
+              <Alert tone="info" title="Selected user">
+                {selectedUser.username ?? selectedUser.id} is ready for role and status review.
+              </Alert>
               <Separator />
               <div
                 style={{
@@ -282,6 +308,12 @@ export function AdminOperationsPanel() {
                   }))}
                 />
               </div>
+              <Input
+                aria-label="User change confirmation"
+                placeholder="Type UPDATE to confirm"
+                value={userConfirmation}
+                onChange={(event) => setUserConfirmation(event.target.value)}
+              />
               <div
                 style={{
                   display: 'flex',
@@ -359,6 +391,9 @@ export function AdminOperationsPanel() {
                 marginTop: 'var(--sc-spacing-4)',
               }}
             >
+              <Alert tone="info" title="Selected device">
+                {selectedDevice.name ?? selectedDevice.id} is ready for status or rotation review.
+              </Alert>
               <Separator />
               <Select
                 aria-label="Device status"
@@ -370,6 +405,12 @@ export function AdminOperationsPanel() {
                   value,
                   label: value,
                 }))}
+              />
+              <Input
+                aria-label="Device change confirmation"
+                placeholder="Type UPDATE to confirm"
+                value={deviceConfirmation}
+                onChange={(event) => setDeviceConfirmation(event.target.value)}
               />
               <div
                 style={{
@@ -447,6 +488,25 @@ export function AdminOperationsPanel() {
               </tbody>
             </Table>
           )}
+          {selectedAudit ? (
+            <>
+              <Alert tone="info" title="Selected audit row">
+                {selectedAudit.action ?? selectedAudit.subjectType ?? selectedAudit.subjectId ?? 'Audit event'}
+              </Alert>
+              <Table>
+                <tbody>
+                  {Object.entries(selectedAudit)
+                    .slice(0, 5)
+                    .map(([key, value]) => (
+                      <tr key={key}>
+                        <th scope="row">{key}</th>
+                        <td>{describeValue(value)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </Table>
+            </>
+          ) : null}
           <div
             style={{
               display: 'flex',
