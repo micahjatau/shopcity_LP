@@ -37,6 +37,11 @@ export default function AdminOperationsPage() {
         <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
           Live pilot operations summary and operational reporting.
         </p>
+        <div style={statusRow}>
+          <StatusBadge label={`${routeLinks.length} routes`} tone="success" />
+          <StatusBadge label="Health + reports" tone="info" />
+          <StatusBadge label="Route-backed" tone="neutral" />
+        </div>
         <Link href="/admin">Back to admin</Link>
       </header>
 
@@ -46,9 +51,9 @@ export default function AdminOperationsPage() {
 
       <section style={cardStyle} aria-label="Admin route links">
         <h2 style={{ marginTop: 0 }}>Route map</h2>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+        <div style={routeRow}>
           {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>
+            <Link key={href} href={href} style={routeLink}>
               {label}
             </Link>
           ))}
@@ -114,6 +119,20 @@ const gridStyle: CSSProperties = {
   display: 'grid',
   gap: 'var(--sc-spacing-4)',
   gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+};
+
+const routeRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const routeLink: CSSProperties = {
+  border: '1px solid var(--sc-color-semantic-border)',
+  borderRadius: 'var(--sc-radius-md)',
+  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
+  background: 'var(--sc-color-neutral-0)',
+  textDecoration: 'none',
 };
 
 const muted: CSSProperties = {
