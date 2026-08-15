@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   loyaltyControllerGetTransactionV1,
@@ -13,9 +13,27 @@ import { Money, StatusBadge } from '../../../../components/shopcity';
 export default function SupervisorTransactionsPage() {
   const [transactionId, setTransactionId] = useState('');
   const [reason, setReason] = useState('');
+  const [reverseConfirmation, setReverseConfirmation] = useState('');
   const [message, setMessage] = useState('Search a transaction by ID to inspect and reverse it.');
   const [transaction, setTransaction] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const summaryRows = useMemo(
+    () =>
+      transaction
+        ? [
+            ['State', transaction.state ?? transaction.status ?? '—'],
+            ['Type', transaction.type ?? '—'],
+            ['Direction', transaction.direction ?? '—'],
+            ['Customer', transaction.customerId ?? '—'],
+            ['Card', transaction.cardSerialNumber ?? '—'],
+            ['Receipt', transaction.posReceiptNumber ?? '—'],
+            ['Credit', transaction.creditKobo],
+            ['Available balance', transaction.availableBalanceKobo],
+          ]
+        : [],
+    [transaction],
+  );
 
   async function loadTransaction() {
     const id = transactionId.trim();
@@ -50,6 +68,10 @@ export default function SupervisorTransactionsPage() {
       setMessage('Enter a transaction ID and reversal reason first.');
       return;
     }
+    if (reverseConfirmation.trim().toUpperCase() !== 'REVERSE') {
+      setMessage('Type REVERSE to confirm the compensating action.');
+      return;
+    }
 
     setBusy(true);
     setMessage('Submitting reversal…');
@@ -61,6 +83,7 @@ export default function SupervisorTransactionsPage() {
       );
       if (response.status === 201) {
         setMessage('Reversal created. Reloading transaction detail…');
+        setReverseConfirmation('');
         await loadTransaction();
         return;
       }
@@ -90,22 +113,63 @@ export default function SupervisorTransactionsPage() {
         <Button onClick={() => void loadTransaction()} loading={busy}>Load</Button>
       </div>
       <Textarea aria-label="Reversal reason" placeholder="Reason for reversal" value={reason} onChange={(event) => setReason(event.target.value)} rows={3} />
-      <Button onClick={() => void reverseTransaction()} loading={busy}>Reverse transaction</Button>
+      <Input aria-label="Reversal confirmation" placeholder="Type REVERSE to confirm" value={reverseConfirmation} onChange={(event) => setReverseConfirmation(event.target.value)} />
+      <Alert tone="info" title="Reversal preview">
+        Reversals preserve the original transaction and write a compensating ledger entry.
+      </Alert>
+      <Button onClick={() => void reverseTransaction()} loading={busy} disabled={!transaction}>Reverse transaction</Button>
       <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
 
       {transaction ? (
-        <Table>
-          <tbody>
-            {Object.entries(transaction)
-              .slice(0, 10)
-              .map(([key, value]) => (
+        <>
+          <Table>
+            <tbody>
+              {summaryRows.map(([key, value]) => (
                 <tr key={key}>
                   <th scope="row">{key}</th>
                   <td>{renderValue(value)}</td>
                 </tr>
               ))}
-          </tbody>
-        </Table>
+            </tbody>
+          </Table>
+          {transaction.reversal ? (
+            <Alert tone="warning" title="Existing reversal">
+              Original transaction {transaction.reversal.originalTransactionId ?? transaction.transactionId} was reversed by {transaction.reversal.createdBy ?? 'the backend'}.
+            </Alert>
+          ) : null}
+          {transaction.reversal?.restorations?.length ? (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Restoration</th>
+                  <th>Amount</th>
+                  <th>Ledger entry</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transaction.reversal.restorations.map((restoration: any) => (
+                  <tr key={restoration.id}>
+                    <td>{restoration.creditLotId ?? restoration.allocationId}</td>
+                    <td>{typeof restoration.amountKobo === 'number' ? <Money amountKobo={restoration.amountKobo} /> : '—'}</td>
+                    <td>{restoration.reversalLedgerEntryId ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : null}
+          <Table>
+            <tbody>
+              {Object.entries(transaction)
+                .slice(0, 10)
+                .map(([key, value]) => (
+                  <tr key={key}>
+                    <th scope="row">{key}</th>
+                    <td>{renderValue(value)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
+        </>
       ) : (
         <Alert tone="warning" title="No transaction selected">
           Load a transaction to see reversal context.
