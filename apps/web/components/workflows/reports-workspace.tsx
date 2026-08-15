@@ -152,6 +152,8 @@ export function ReportsWorkspace() {
     }
   }
 
+  const selectedSummary = summary ? describeReportContext(summary, report, branchId, timezone, from, to) : 'No report loaded yet.';
+
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
@@ -204,7 +206,7 @@ export function ReportsWorkspace() {
             {typeof summary.staleCount === 'number' ? <StatusBadge label={`Stale ${summary.staleCount}`} tone="warning" /> : null}
           </div>
           <Alert tone="info" title="Current filters">
-            {describeReportContext(summary, report, branchId, timezone, from, to)}
+            {selectedSummary}
           </Alert>
           {Array.isArray(summary.items) && summary.items.length > 0 ? (
             <Table>

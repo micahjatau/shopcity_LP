@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   approvalsControllerDecideApprovalV1,
@@ -24,6 +25,8 @@ export function ApprovalsPanel() {
     [items, selectedId],
   );
 
+  const pendingCount = items.filter((item) => item.status === 'PENDING').length;
+
   async function refresh() {
     setLoading(true);
     try {
@@ -32,12 +35,10 @@ export function ApprovalsPanel() {
         createApiRequest({ csrf: true }),
       );
       if (response.status === 200) {
-        setItems(response.data.data.items as any[]);
-        setSelectedId(
-          (response.data.data.items[0] as { id?: string } | undefined)?.id ??
-            null,
-        );
-        setMessage(`Loaded ${response.data.data.items.length} approvals.`);
+        const nextItems = response.data.data.items as any[];
+        setItems(nextItems);
+        setSelectedId((nextItems[0] as { id?: string } | undefined)?.id ?? null);
+        setMessage(`Loaded ${nextItems.length} approvals.`);
       } else {
         setMessage(`Approvals unavailable (${response.status}).`);
       }
@@ -58,7 +59,11 @@ export function ApprovalsPanel() {
       selectedId,
       {
         decision,
-        reason: reason.trim() || (decision === 'APPROVED' ? 'Approved from frontend shell' : 'Rejected from frontend shell'),
+        reason:
+          reason.trim() ||
+          (decision === 'APPROVED'
+            ? 'Approved from supervisor review route'
+            : 'Rejected from supervisor review route'),
       },
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );
@@ -68,6 +73,11 @@ export function ApprovalsPanel() {
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+      <div style={statusRow}>
+        <StatusBadge label={`Loaded ${items.length}`} tone="info" />
+        <StatusBadge label={`Pending ${pendingCount}`} tone="warning" />
+        <StatusBadge label={selectedItem ? 'Selected' : 'No selection'} tone="neutral" />
+      </div>
       <div
         style={{
           display: 'flex',
@@ -98,7 +108,16 @@ export function ApprovalsPanel() {
             <tbody>
               {Object.entries(selectedItem)
                 .filter(([key]) =>
-                  ['id', 'status', 'customer', 'customerId', 'reasonCode', 'branchId', 'receipt', 'amountKobo'].includes(key),
+                  [
+                    'id',
+                    'status',
+                    'customer',
+                    'customerId',
+                    'reasonCode',
+                    'branchId',
+                    'receipt',
+                    'amountKobo',
+                  ].includes(key),
                 )
                 .slice(0, 8)
                 .map(([key, value]) => (
@@ -126,7 +145,11 @@ export function ApprovalsPanel() {
                 textAlign: 'left',
                 padding: 'var(--sc-spacing-4)',
                 borderRadius: 'var(--sc-radius-lg)',
-                border: `1px solid ${selectedId === item.id ? 'var(--sc-color-brand-600)' : 'var(--sc-color-semantic-border)'}`,
+                border: `1px solid ${
+                  selectedId === item.id
+                    ? 'var(--sc-color-brand-600)'
+                    : 'var(--sc-color-semantic-border)'
+                }`,
                 background: 'var(--sc-color-neutral-0)',
               }}
             >
@@ -183,13 +206,19 @@ export function ApprovalsPanel() {
 function describeApproval(item: Record<string, unknown>) {
   const customer = describeValue(item.customer ?? item.customerId);
   const status = describeValue(item.status);
-  const reasonCode = describeValue(item.reasonCode ?? item.ruleCode ?? item.reason);
+  const reasonCode = describeValue(
+    item.reasonCode ?? item.ruleCode ?? item.reason,
+  );
   return `${customer} · ${status} · ${reasonCode}`;
 }
 
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
     return String(value);
   }
   if (typeof value === 'object') {
@@ -201,3 +230,9 @@ function describeValue(value: unknown) {
   }
   return String(value);
 }
+
+const statusRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
