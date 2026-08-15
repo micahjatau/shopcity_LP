@@ -125,6 +125,19 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     return [{ href: '/login', label: 'Login' }];
   }, [routeGroup, role, status]);
 
+  const activeRoute =
+    navItems.find((item) => matchesRoute(pathname, item.href)) ?? navItems[0] ?? null;
+  const workspaceLabel =
+    status === 'ready'
+      ? role === 'ADMIN'
+        ? 'Admin workspace'
+        : role === 'SUPERVISOR'
+          ? 'Supervisor workspace'
+          : role === 'CASHIER'
+            ? 'Cashier workspace'
+            : 'Operational workspace'
+      : 'Protected shell';
+
   async function handleLogout() {
     try {
       await logoutSession();
@@ -300,6 +313,19 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 padding: 'var(--sc-spacing-4)',
               }}
             >
+              <p style={{ margin: 0, opacity: 0.8 }}>Workspace</p>
+              <strong>{workspaceLabel}</strong>
+              <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
+                {activeRoute?.label ?? 'Route pending'}
+              </div>
+            </div>
+            <div
+              style={{
+                borderRadius: 'var(--sc-radius-lg)',
+                background: 'rgba(255,255,255,0.08)',
+                padding: 'var(--sc-spacing-4)',
+              }}
+            >
               <p style={{ margin: 0, opacity: 0.8 }}>Branch</p>
               <strong>
                 {context?.branch?.name ?? context?.branch?.id ?? 'Loading…'}
@@ -371,7 +397,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               gap: 'var(--sc-spacing-3)',
             }}
           >
-            <h1 style={{ margin: 0 }}>Protected shell</h1>
+            <h1 style={{ margin: 0 }}>{workspaceLabel}</h1>
             <p
               style={{
                 margin: 0,
