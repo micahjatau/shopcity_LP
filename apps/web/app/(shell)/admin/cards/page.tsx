@@ -17,7 +17,9 @@ export default function AdminCardsPage() {
   const [customerId, setCustomerId] = useState('');
   const [newSerialNumber, setNewSerialNumber] = useState('');
   const [reason, setReason] = useState('');
+  const [replaceConfirmation, setReplaceConfirmation] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'BLOCKED'>('ACTIVE');
+  const [statusConfirmation, setStatusConfirmation] = useState('');
   const [message, setMessage] = useState('Lookup a card, then assign, replace, or change status.');
   const [card, setCard] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,10 @@ export default function AdminCardsPage() {
     }
     setBusy(true);
     try {
+      if (replaceConfirmation.trim().toUpperCase() !== 'REPLACE') {
+        setMessage('Type REPLACE to confirm the replacement.');
+        return;
+      }
       const response = await cardsControllerReplaceCardV1(
         card.id,
         { replacementSerialNumber: newSerialNumber.trim(), reason } as any,
@@ -97,6 +103,10 @@ export default function AdminCardsPage() {
     }
     setBusy(true);
     try {
+      if (statusConfirmation.trim().toUpperCase() !== 'UPDATE') {
+        setMessage('Type UPDATE to confirm the status change.');
+        return;
+      }
       const response = await cardsControllerUpdateStatusV1(
         card.id,
         { status, reason } as any,
@@ -128,6 +138,7 @@ export default function AdminCardsPage() {
         <Input aria-label="Replacement serial" placeholder="Replacement serial" value={newSerialNumber} onChange={(event) => setNewSerialNumber(event.target.value)} />
       </div>
       <Input aria-label="Reason" placeholder="Reason" value={reason} onChange={(event) => setReason(event.target.value)} />
+      <Input aria-label="Replacement confirmation" placeholder="Type REPLACE to confirm" value={replaceConfirmation} onChange={(event) => setReplaceConfirmation(event.target.value)} />
       <RadioGroup
         name="card-status"
         legend="Status"
@@ -135,6 +146,10 @@ export default function AdminCardsPage() {
         onValueChange={(value) => setStatus(value as 'ACTIVE' | 'BLOCKED')}
         options={[{ value: 'ACTIVE', label: 'Active' }, { value: 'BLOCKED', label: 'Blocked' }]}
       />
+      <Input aria-label="Status confirmation" placeholder="Type UPDATE to confirm" value={statusConfirmation} onChange={(event) => setStatusConfirmation(event.target.value)} />
+      <Alert tone="info" title="Deliberate changes">
+        Card replacement and status updates require explicit confirmation words before submission.
+      </Alert>
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <Button onClick={() => void lookup()} loading={busy}>Lookup card</Button>
         <Button variant="secondary" onClick={() => void assignCard()} loading={busy}>Assign card</Button>
@@ -143,16 +158,23 @@ export default function AdminCardsPage() {
       </div>
 
       {card ? (
-        <Table>
-          <tbody>
-            {Object.entries(card).slice(0, 10).map(([key, value]) => (
-              <tr key={key}>
-                <th scope="row">{key}</th>
-                <td>{renderValue(value)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <>
+          <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+            {card?.serialNumber ? <StatusBadge label={String(card.serialNumber)} tone="info" /> : null}
+            {card?.status ? <StatusBadge label={String(card.status)} tone={card.status === 'ACTIVE' ? 'success' : 'warning'} /> : null}
+            {card?.customer?.fullName ? <StatusBadge label={String(card.customer.fullName)} tone="neutral" /> : null}
+          </div>
+          <Table>
+            <tbody>
+              {Object.entries(card).slice(0, 10).map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key}</th>
+                  <td>{renderValue(value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
       ) : (
         <Alert tone="warning" title="No card loaded">
           Use lookup to inspect the current card state.
