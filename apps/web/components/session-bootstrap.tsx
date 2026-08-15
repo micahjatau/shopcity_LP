@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react';
 import { bootstrapSession } from '../lib/api';
 
 export type SessionBootstrapStatus =
-  | 'loading'
-  | 'ready'
-  | 'unauthenticated'
-  | 'error';
+  'loading' | 'ready' | 'unauthenticated' | 'error';
 
 export type SessionRole = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | 'SYSTEM';
 

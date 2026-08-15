@@ -18,7 +18,11 @@ const items = [
     value: 'Preview state',
     tone: 'danger' as const,
   },
-  { label: 'Report freshness', value: 'Pending data', tone: 'success' as const },
+  {
+    label: 'Report freshness',
+    value: 'Pending data',
+    tone: 'success' as const,
+  },
 ];
 
 export function PilotHealthPanel() {

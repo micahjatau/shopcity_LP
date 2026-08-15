@@ -54,7 +54,9 @@ export function Combobox({
 
   const activeOption =
     highlightedIndex >= 0 ? filteredOptions[highlightedIndex] : null;
-  const activeOptionId = activeOption ? `${id}-${activeOption.value}` : undefined;
+  const activeOptionId = activeOption
+    ? `${id}-${activeOption.value}`
+    : undefined;
 
   useEffect(() => {
     const selected = options.find((option) => option.value === value);
@@ -126,7 +128,10 @@ export function Combobox({
         if (!option.disabled) {
           return next;
         }
-        next = delta > 0 ? (next + 1) % filteredOptions.length : (next - 1 + filteredOptions.length) % filteredOptions.length;
+        next =
+          delta > 0
+            ? (next + 1) % filteredOptions.length
+            : (next - 1 + filteredOptions.length) % filteredOptions.length;
       }
 
       return current;
@@ -199,7 +204,9 @@ export function Combobox({
                   }}
                 >
                   <strong>{option.label}</strong>
-                  {option.description ? <span>{option.description}</span> : null}
+                  {option.description ? (
+                    <span>{option.description}</span>
+                  ) : null}
                 </li>
               );
             })

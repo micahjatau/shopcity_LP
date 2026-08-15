@@ -48,11 +48,12 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+    >
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <label htmlFor={usernameId}>
-          Tenant / email / username
-        </label>
+        <label htmlFor={usernameId}>Tenant / email / username</label>
         <Input
           id={usernameId}
           aria-label="Tenant / email / username"
@@ -82,7 +83,10 @@ export function LoginForm() {
         style={{
           margin: 0,
           minHeight: '1.25rem',
-          color: status === 'error' ? 'var(--sc-color-danger-strong)' : 'var(--sc-color-semantic-textSecondary)',
+          color:
+            status === 'error'
+              ? 'var(--sc-color-danger-strong)'
+              : 'var(--sc-color-semantic-textSecondary)',
         }}
       >
         {message ?? 'Use your backend-authenticated ShopCity credentials.'}

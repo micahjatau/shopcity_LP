@@ -2,7 +2,17 @@
 
 import type { ReactNode } from 'react';
 
-export function Dialog({ open, title, children, onClose }: Readonly<{ open: boolean; title: ReactNode; children: ReactNode; onClose?: () => void }>) {
+export function Dialog({
+  open,
+  title,
+  children,
+  onClose,
+}: Readonly<{
+  open: boolean;
+  title: ReactNode;
+  children: ReactNode;
+  onClose?: () => void;
+}>) {
   if (!open) return null;
   return (
     <div role="presentation" className="sc-dialog">

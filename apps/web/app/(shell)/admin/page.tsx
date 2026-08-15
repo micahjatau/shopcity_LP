@@ -59,12 +59,18 @@ export default function AdminPage() {
                   title: 'Operations',
                   body: 'Release health, queue state and operational incident signals.',
                 },
-                { title: 'Audit', body: 'Actor, branch, device and timeline tracing.' },
+                {
+                  title: 'Audit',
+                  body: 'Actor, branch, device and timeline tracing.',
+                },
                 {
                   title: 'Users & Devices',
                   body: 'Role assignment and device administration boundaries.',
                 },
-                { title: 'Settings', body: 'Tenant configuration and platform controls.' },
+                {
+                  title: 'Settings',
+                  body: 'Tenant configuration and platform controls.',
+                },
               ].map((item) => (
                 <article key={item.title} style={cardStyle}>
                   <strong>{item.title}</strong>
@@ -73,7 +79,10 @@ export default function AdminPage() {
               ))}
             </div>
             <div style={statusRow}>
-              <StatusBadge label="Contract-backed data pending" tone="warning" />
+              <StatusBadge
+                label="Contract-backed data pending"
+                tone="warning"
+              />
               <StatusBadge label="Role-scoped" tone="info" />
             </div>
             <div
@@ -93,12 +102,18 @@ export default function AdminPage() {
         <article style={cardStyle}>
           <h2 style={{ marginTop: 0 }}>Operational notices</h2>
           <Alert tone="info" title="Admin workspace">
-            Tenant-wide operations, audit and device controls remain separate from cashier and supervisor tasks.
+            Tenant-wide operations, audit and device controls remain separate
+            from cashier and supervisor tasks.
           </Alert>
           <Sheet open title="Release note">
-            <p>Contract-backed admin surfaces should remain data-driven as the backend endpoints land.</p>
+            <p>
+              Contract-backed admin surfaces should remain data-driven as the
+              backend endpoints land.
+            </p>
           </Sheet>
-          <Dialog open={false} title="Hidden dialog">No-op</Dialog>
+          <Dialog open={false} title="Hidden dialog">
+            No-op
+          </Dialog>
         </article>
       </div>
     </section>

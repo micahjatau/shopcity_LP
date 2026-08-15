@@ -7,9 +7,21 @@ export type AlertProps = HTMLAttributes<HTMLDivElement> & {
   title?: ReactNode;
 };
 
-export function Alert({ tone = 'neutral', title, className = '', children, ...props }: Readonly<AlertProps>) {
+export function Alert({
+  tone = 'neutral',
+  title,
+  className = '',
+  children,
+  ...props
+}: Readonly<AlertProps>) {
   return (
-    <div role="alert" className={['sc-alert', `sc-alert--${tone}`, className].filter(Boolean).join(' ')} {...props}>
+    <div
+      role="alert"
+      className={['sc-alert', `sc-alert--${tone}`, className]
+        .filter(Boolean)
+        .join(' ')}
+      {...props}
+    >
       {title ? <strong>{title}</strong> : null}
       <div>{children}</div>
     </div>

@@ -27,9 +27,15 @@ const FORWARDED_HEADERS = new Set([
 export const runtime = 'nodejs';
 
 async function proxyRequest(request: NextRequest) {
-  const backendUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, BACKEND_BASE_URL);
+  const backendUrl = new URL(
+    request.nextUrl.pathname + request.nextUrl.search,
+    BACKEND_BASE_URL,
+  );
   const method = request.method.toUpperCase();
-  const body = method === 'GET' || method === 'HEAD' ? undefined : Buffer.from(await request.arrayBuffer());
+  const body =
+    method === 'GET' || method === 'HEAD'
+      ? undefined
+      : Buffer.from(await request.arrayBuffer());
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
@@ -39,7 +45,8 @@ async function proxyRequest(request: NextRequest) {
   });
   headers.set('accept', headers.get('accept') ?? 'application/json');
 
-  const transport = backendUrl.protocol === 'https:' ? httpsRequest : httpRequest;
+  const transport =
+    backendUrl.protocol === 'https:' ? httpsRequest : httpRequest;
 
   const response = await new Promise<{
     status: number;

@@ -49,10 +49,10 @@ export function Money({
   label,
   className = '',
 }: MoneyProps) {
-  const amount = useMemo(() => formatMoney(amountKobo, locale), [
-    amountKobo,
-    locale,
-  ]);
+  const amount = useMemo(
+    () => formatMoney(amountKobo, locale),
+    [amountKobo, locale],
+  );
   const sign = signed && amountKobo > 0 ? '+' : '';
 
   return (
@@ -116,7 +116,8 @@ export function parseNaira(input: string) {
   let fraction = '';
 
   if (commaCount > 0 && dotCount > 0) {
-    const decimalSeparator = body.lastIndexOf(',') > body.lastIndexOf('.') ? ',' : '.';
+    const decimalSeparator =
+      body.lastIndexOf(',') > body.lastIndexOf('.') ? ',' : '.';
     const thousandSeparator = decimalSeparator === ',' ? '.' : ',';
     const parts = body.split(decimalSeparator);
     if (parts.length !== 2) return null;

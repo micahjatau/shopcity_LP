@@ -2,16 +2,21 @@ import { createHmac, randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 const liveEnabled = process.env.SHOPCITY_LIVE_E2E === '1';
-const backendBaseUrl = process.env.SHOPCITY_BACKEND_URL ?? 'http://127.0.0.1:3000';
-const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
-const adminUsername = process.env.SHOPCITY_LIVE_ADMIN_USERNAME ?? 'admin@shopcity.local';
+const backendBaseUrl =
+  process.env.SHOPCITY_BACKEND_URL ?? 'http://127.0.0.1:3000';
+const frontendBaseUrl =
+  process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
+const adminUsername =
+  process.env.SHOPCITY_LIVE_ADMIN_USERNAME ?? 'admin@shopcity.local';
 const adminPassword =
   process.env.DEFAULT_ADMIN_PASSWORD ??
   process.env.SHOPCITY_LIVE_ADMIN_PASSWORD ??
   'microx009';
-const cashierUsername = process.env.SHOPCITY_LIVE_CASHIER_USERNAME ?? 'cashier-live@shopcity.local';
+const cashierUsername =
+  process.env.SHOPCITY_LIVE_CASHIER_USERNAME ?? 'cashier-live@shopcity.local';
 const supervisorUsername =
-  process.env.SHOPCITY_LIVE_SUPERVISOR_USERNAME ?? 'supervisor-live@shopcity.local';
+  process.env.SHOPCITY_LIVE_SUPERVISOR_USERNAME ??
+  'supervisor-live@shopcity.local';
 
 function requireLive() {
   test.skip(
@@ -33,12 +38,18 @@ test.describe('backend-connected frontend flows', () => {
     await login(page, adminUsername, adminPassword);
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByRole('heading', { name: /admin shell/i })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: /primary/i })).toContainText(/admin/i);
+    await expect(
+      page.getByRole('heading', { name: /admin shell/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: /primary/i }),
+    ).toContainText(/admin/i);
 
     await page.goto('/cashier');
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByRole('heading', { name: /admin shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /admin shell/i }),
+    ).toBeVisible();
 
     await page.getByRole('button', { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/login$/);
@@ -50,15 +61,21 @@ test.describe('backend-connected frontend flows', () => {
     ).toBeVisible();
   });
 
-  test('rejects invalid credentials and revokes live sessions', async ({ page }) => {
+  test('rejects invalid credentials and revokes live sessions', async ({
+    page,
+  }) => {
     await ensureSeeded(page);
 
     await login(page, adminUsername, 'wrong-password', 401);
 
     await login(page, adminUsername, adminPassword);
     const cookies = await page.context().cookies();
-    const sessionCookie = cookies.find((cookie) => cookie.name === 'shopcity_session')?.value;
-    const csrfCookie = cookies.find((cookie) => cookie.name === 'shopcity_csrf')?.value;
+    const sessionCookie = cookies.find(
+      (cookie) => cookie.name === 'shopcity_session',
+    )?.value;
+    const csrfCookie = cookies.find(
+      (cookie) => cookie.name === 'shopcity_csrf',
+    )?.value;
 
     expect(sessionCookie).toBeTruthy();
     expect(csrfCookie).toBeTruthy();
@@ -165,25 +182,40 @@ test.describe('backend-connected frontend flows', () => {
 
     const cardSerialNumber = card.data.serialNumber as string;
 
-    const cashierSession = await login(page, cashierAccount, cashierPassword, 200, {
-      id: device.data.id as string,
-      attestationSecret: device.data.attestationSecret as string,
-    });
+    const cashierSession = await login(
+      page,
+      cashierAccount,
+      cashierPassword,
+      200,
+      {
+        id: device.data.id as string,
+        attestationSecret: device.data.attestationSecret as string,
+      },
+    );
     await page.goto('/cashier');
-    await expect(page.getByRole('heading', { name: /cashier shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /cashier shell/i }),
+    ).toBeVisible();
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/cashier$/);
-    await expect(page.getByRole('heading', { name: /cashier shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /cashier shell/i }),
+    ).toBeVisible();
 
-    const earn = await apiJson(page, '/api/v1/transactions/earn', cashierSession, {
-      method: 'POST',
-      body: {
-        cardSerialNumber,
-        posReceiptNumber: `RCPT-${Date.now()}`,
-        purchaseAmountKobo: 30_000_000,
-        occurredAt: formatDateTimeLocal(new Date(Date.now() - 5 * 60_000)),
+    const earn = await apiJson(
+      page,
+      '/api/v1/transactions/earn',
+      cashierSession,
+      {
+        method: 'POST',
+        body: {
+          cardSerialNumber,
+          posReceiptNumber: `RCPT-${Date.now()}`,
+          purchaseAmountKobo: 30_000_000,
+          occurredAt: formatDateTimeLocal(new Date(Date.now() - 5 * 60_000)),
+        },
       },
-    });
+    );
     expect(earn.success).toBe(true);
 
     const approvalId = earn.data.approvalId as string | null;
@@ -203,37 +235,60 @@ test.describe('backend-connected frontend flows', () => {
       expect(approvalDecision.success).toBe(true);
     }
 
-    const redeem = await apiJson(page, '/api/v1/transactions/redeem', cashierSession, {
-      method: 'POST',
-      body: {
-        cardSerialNumber,
-        posReceiptNumber: `RDM-${Date.now()}`,
-        basketAmountKobo: 2_000_000,
-        requestedRedemptionKobo: 550_000,
-        occurredAt: formatDateTimeLocal(new Date(Date.now() - 2 * 60_000)),
+    const redeem = await apiJson(
+      page,
+      '/api/v1/transactions/redeem',
+      cashierSession,
+      {
+        method: 'POST',
+        body: {
+          cardSerialNumber,
+          posReceiptNumber: `RDM-${Date.now()}`,
+          basketAmountKobo: 2_000_000,
+          requestedRedemptionKobo: 550_000,
+          occurredAt: formatDateTimeLocal(new Date(Date.now() - 2 * 60_000)),
+        },
       },
-    });
+    );
     expect(redeem.success).toBe(true);
 
-    const supervisorSession = await login(page, supervisorAccount, supervisorPassword);
+    const supervisorSession = await login(
+      page,
+      supervisorAccount,
+      supervisorPassword,
+    );
     await page.goto('/supervisor');
-    await expect(page.getByRole('heading', { name: /supervisor shell/i })).toBeVisible();
-    await expect(page.getByRole('article', { name: /approvals panel/i })).toContainText(/loaded/i);
-    await expect(page.getByRole('article', { name: /fraud review/i })).toContainText(/loaded/i);
+    await expect(
+      page.getByRole('heading', { name: /supervisor shell/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('article', { name: /approvals panel/i }),
+    ).toContainText(/loaded/i);
+    await expect(
+      page.getByRole('article', { name: /fraud review/i }),
+    ).toContainText(/loaded/i);
 
     const fraudReview = page.getByRole('article', { name: /fraud review/i });
-    const fraudDecision = fraudReview.getByRole('button', { name: /submit decision/i });
+    const fraudDecision = fraudReview.getByRole('button', {
+      name: /submit decision/i,
+    });
     if (await fraudDecision.isEnabled()) {
       await fraudDecision.click();
       await expect(fraudReview).toContainText(/decision sent/i);
     } else {
-      await expect(fraudReview).toContainText(/no fraud flags|loaded 0 fraud flags|fraud flags unavailable/i);
+      await expect(fraudReview).toContainText(
+        /no fraud flags|loaded 0 fraud flags|fraud flags unavailable/i,
+      );
     }
 
     await applySession(page, adminSession.cookies);
     await page.goto('/admin');
-    await expect(page.getByRole('heading', { name: /admin shell/i })).toBeVisible();
-    await expect(page.getByRole('article', { name: /admin contracts/i })).toContainText(/loaded/i);
+    await expect(
+      page.getByRole('heading', { name: /admin shell/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('article', { name: /admin contracts/i }),
+    ).toContainText(/loaded/i);
   });
 });
 
@@ -293,10 +348,13 @@ async function login(
     );
   }
 
-  const response = await page.request.post(`${backendBaseUrl}/api/v1/auth/login`, {
-    data: JSON.stringify({ username, password }),
-    headers,
-  });
+  const response = await page.request.post(
+    `${backendBaseUrl}/api/v1/auth/login`,
+    {
+      data: JSON.stringify({ username, password }),
+      headers,
+    },
+  );
 
   expect(response.status()).toBe(expectedStatus);
 
@@ -319,7 +377,9 @@ async function login(
       })),
     );
 
-    const csrfCookie = cookies.find((cookie) => cookie.name === 'shopcity_csrf');
+    const csrfCookie = cookies.find(
+      (cookie) => cookie.name === 'shopcity_csrf',
+    );
     if (csrfCookie) {
       await page.evaluate(({ name, value }) => {
         document.cookie = `${name}=${encodeURIComponent(value)}; path=/`;
@@ -387,20 +447,26 @@ async function apiJson(
   auth: { cookies: Array<{ name: string; value: string }> },
   init: { method: 'POST' | 'PATCH' | 'PUT'; body: Record<string, unknown> },
 ) {
-  const csrf = auth.cookies.find((cookie) => cookie.name === 'shopcity_csrf')?.value;
-  const cookieHeader = auth.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
-  return page.request.fetch(`${backendBaseUrl}${path}`, {
-    method: init.method,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Cookie: cookieHeader,
-      ...(csrf ? { 'x-csrf-token': csrf } : {}),
-      'Idempotency-Key': randomUUID(),
-    },
-    data: init.body,
-  }).then(async (response) => {
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
-  });
+  const csrf = auth.cookies.find(
+    (cookie) => cookie.name === 'shopcity_csrf',
+  )?.value;
+  const cookieHeader = auth.cookies
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join('; ');
+  return page.request
+    .fetch(`${backendBaseUrl}${path}`, {
+      method: init.method,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Cookie: cookieHeader,
+        ...(csrf ? { 'x-csrf-token': csrf } : {}),
+        'Idempotency-Key': randomUUID(),
+      },
+      data: init.body,
+    })
+    .then(async (response) => {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    });
 }

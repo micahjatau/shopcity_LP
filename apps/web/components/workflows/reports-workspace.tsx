@@ -12,7 +12,10 @@ export function ReportsWorkspace() {
 
   async function refresh() {
     try {
-      const response = await reportsControllerListExecutiveSummaryV1({}, createApiRequest({ csrf: true }));
+      const response = await reportsControllerListExecutiveSummaryV1(
+        {},
+        createApiRequest({ csrf: true }),
+      );
       if (response.status === 200) {
         setSummary(response.data.data);
         setMessage(`Report summary loaded for ${response.data.data.scopeKey}.`);
@@ -30,15 +33,32 @@ export function ReportsWorkspace() {
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
         <Button onClick={() => void refresh()}>Refresh summary</Button>
       </div>
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
+      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        {message}
+      </p>
       {summary ? (
         <>
-          <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--sc-spacing-3)',
+              flexWrap: 'wrap',
+            }}
+          >
             <StatusBadge label={summary.scope} tone="info" />
-            <StatusBadge label={summary.branchId ?? 'Tenant-wide'} tone="neutral" />
+            <StatusBadge
+              label={summary.branchId ?? 'Tenant-wide'}
+              tone="neutral"
+            />
             <StatusBadge label={summary.timezone} tone="success" />
           </div>
           {summary.items.length === 0 ? (
@@ -54,15 +74,20 @@ export function ReportsWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {summary.items.slice(0, 5).map((item: Record<string, unknown>, index: number) => {
-                  const [label, value] = Object.entries(item)[0] ?? [`item-${index + 1}`, 'Unknown'];
-                  return (
-                    <tr key={label}>
-                      <td>{label}</td>
-                      <td>{String(value)}</td>
-                    </tr>
-                  );
-                })}
+                {summary.items
+                  .slice(0, 5)
+                  .map((item: Record<string, unknown>, index: number) => {
+                    const [label, value] = Object.entries(item)[0] ?? [
+                      `item-${index + 1}`,
+                      'Unknown',
+                    ];
+                    return (
+                      <tr key={label}>
+                        <td>{label}</td>
+                        <td>{String(value)}</td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </Table>
           )}

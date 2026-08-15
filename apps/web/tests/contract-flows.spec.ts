@@ -45,12 +45,16 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.goto('/login');
-    await page.getByLabel('Tenant / email / username').fill('cashier@shopcity.local');
+    await page
+      .getByLabel('Tenant / email / username')
+      .fill('cashier@shopcity.local');
     await page.getByLabel('Password').fill('secret');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/cashier$/);
-    await expect(page.getByRole('heading', { name: /cashier shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /cashier shell/i }),
+    ).toBeVisible();
   });
 
   test('submits earn and redeem through generated client contracts', async ({
@@ -65,7 +69,10 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.route('**/api/v1/transactions/earn', async (route) => {
-      const body = route.request().postDataJSON() as { cardSerialNumber: string; purchaseAmountKobo: number };
+      const body = route.request().postDataJSON() as {
+        cardSerialNumber: string;
+        purchaseAmountKobo: number;
+      };
       expect(body.cardSerialNumber).toBeTruthy();
       expect(body.purchaseAmountKobo).toBeGreaterThan(0);
       await route.fulfill({
@@ -76,7 +83,10 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.route('**/api/v1/transactions/redeem', async (route) => {
-      const body = route.request().postDataJSON() as { cardSerialNumber: string; requestedRedemptionKobo: number };
+      const body = route.request().postDataJSON() as {
+        cardSerialNumber: string;
+        requestedRedemptionKobo: number;
+      };
       expect(body.cardSerialNumber).toBeTruthy();
       expect(body.requestedRedemptionKobo).toBeGreaterThan(0);
       await route.fulfill({
@@ -87,7 +97,9 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.goto('/cashier');
-    await expect(page.getByRole('heading', { name: /cashier shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /cashier shell/i }),
+    ).toBeVisible();
 
     const earn = page.getByRole('article', { name: /earn transaction/i });
     await earn.getByLabel('Card serial number').fill('CARD-123');
@@ -179,7 +191,10 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.route('**/api/v1/fraud-flags/*/decision', async (route) => {
-      const body = route.request().postDataJSON() as { decision: string; reason: string };
+      const body = route.request().postDataJSON() as {
+        decision: string;
+        reason: string;
+      };
       expect(body.decision).toMatch(/ACKNOWLEDGED|RESOLVED/);
       expect(body.reason).toContain('supervisor shell');
       await route.fulfill({
@@ -208,11 +223,18 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.goto('/supervisor');
-    await expect(page.getByRole('heading', { name: /supervisor shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /supervisor shell/i }),
+    ).toBeVisible();
     await expect(page.getByText(/approvals panel/i)).toBeVisible();
     await expect(page.getByText(/loaded 1 approvals/i)).toBeVisible();
-    await expect(page.getByRole('article', { name: /fraud review/i })).toContainText(/loaded 1 fraud flags/i);
-    await page.getByRole('article', { name: /fraud review/i }).getByRole('button', { name: /submit decision/i }).click();
+    await expect(
+      page.getByRole('article', { name: /fraud review/i }),
+    ).toContainText(/loaded 1 fraud flags/i);
+    await page
+      .getByRole('article', { name: /fraud review/i })
+      .getByRole('button', { name: /submit decision/i })
+      .click();
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -315,7 +337,9 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.goto('/admin');
-    await expect(page.getByRole('heading', { name: /admin shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /admin shell/i }),
+    ).toBeVisible();
     await expect(page.getByText(/report summary loaded/i)).toBeVisible();
     await expect(page.getByText(/users: 1/i)).toBeVisible();
     await expect(page.getByText(/devices: 1/i)).toBeVisible();
@@ -345,7 +369,11 @@ test.describe('contract-faithful frontend flows', () => {
           contentType: 'application/json',
           body: JSON.stringify({
             success: false,
-            error: { statusCode: 503, code: 'UNAVAILABLE', message: 'Approvals unavailable' },
+            error: {
+              statusCode: 503,
+              code: 'UNAVAILABLE',
+              message: 'Approvals unavailable',
+            },
             meta: {},
           }),
         });
@@ -369,7 +397,14 @@ test.describe('contract-faithful frontend flows', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: { scope: 'TENANT', scopeKey: 'tenant-1', branchId: null, items: [], nextCursor: null, hasMore: false },
+          data: {
+            scope: 'TENANT',
+            scopeKey: 'tenant-1',
+            branchId: null,
+            items: [],
+            nextCursor: null,
+            hasMore: false,
+          },
           meta: {},
         }),
       });
@@ -381,7 +416,13 @@ test.describe('contract-faithful frontend flows', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: { scope: 'TENANT', scopeKey: 'tenant-1', branchId: null, timezone: 'Africa/Lagos', items: [] },
+          data: {
+            scope: 'TENANT',
+            scopeKey: 'tenant-1',
+            branchId: null,
+            timezone: 'Africa/Lagos',
+            items: [],
+          },
           meta: {},
         }),
       });
@@ -394,7 +435,9 @@ test.describe('contract-faithful frontend flows', () => {
 
     approvalsFailure = true;
     await page.getByRole('button', { name: /refresh approvals/i }).click();
-    await expect(page.getByText(/approvals unavailable \(503\)/i)).toBeVisible();
+    await expect(
+      page.getByText(/approvals unavailable \(503\)/i),
+    ).toBeVisible();
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -412,7 +455,11 @@ test.describe('contract-faithful frontend flows', () => {
           contentType: 'application/json',
           body: JSON.stringify({
             success: false,
-            error: { statusCode: 403, code: 'FORBIDDEN', message: 'Users unavailable' },
+            error: {
+              statusCode: 403,
+              code: 'FORBIDDEN',
+              message: 'Users unavailable',
+            },
             meta: {},
           }),
         });

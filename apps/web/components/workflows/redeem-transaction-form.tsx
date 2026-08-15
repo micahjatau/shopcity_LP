@@ -16,9 +16,13 @@ export function RedeemTransactionForm() {
   const [cardSerialNumber, setCardSerialNumber] = useState('');
   const [receiptNumber, setReceiptNumber] = useState('');
   const [basketAmount, setBasketAmount] = useState<number | null>(null);
-  const [requestedRedemption, setRequestedRedemption] = useState<number | null>(null);
+  const [requestedRedemption, setRequestedRedemption] = useState<number | null>(
+    null,
+  );
   const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString());
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'>('idle');
+  const [status, setStatus] = useState<
+    'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
+  >('idle');
   const [message, setMessage] = useState('');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,14 +73,48 @@ export function RedeemTransactionForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <Input aria-label="Card serial number" placeholder="Card serial" value={cardSerialNumber} onChange={(event) => setCardSerialNumber(event.target.value)} />
-      <Input aria-label="POS receipt number" placeholder="Receipt number" value={receiptNumber} onChange={(event) => setReceiptNumber(event.target.value)} />
-      <MoneyInput label="Basket amount" hint="Basket amount in naira" valueKobo={basketAmount} onValueChange={setBasketAmount} />
-      <MoneyInput label="Requested redemption" hint="Requested redemption in naira" valueKobo={requestedRedemption} onValueChange={setRequestedRedemption} />
-      <Input aria-label="Occurred at" type="datetime-local" value={occurredAt.slice(0, 16)} onChange={(event) => setOccurredAt(new Date(event.target.value).toISOString())} />
-      <Button type="submit" loading={status === 'submitting'}>Submit redemption</Button>
-      <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>{message || 'The backend decides the final state.'}</p>
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+    >
+      <Input
+        aria-label="Card serial number"
+        placeholder="Card serial"
+        value={cardSerialNumber}
+        onChange={(event) => setCardSerialNumber(event.target.value)}
+      />
+      <Input
+        aria-label="POS receipt number"
+        placeholder="Receipt number"
+        value={receiptNumber}
+        onChange={(event) => setReceiptNumber(event.target.value)}
+      />
+      <MoneyInput
+        label="Basket amount"
+        hint="Basket amount in naira"
+        valueKobo={basketAmount}
+        onValueChange={setBasketAmount}
+      />
+      <MoneyInput
+        label="Requested redemption"
+        hint="Requested redemption in naira"
+        valueKobo={requestedRedemption}
+        onValueChange={setRequestedRedemption}
+      />
+      <Input
+        aria-label="Occurred at"
+        type="datetime-local"
+        value={occurredAt.slice(0, 16)}
+        onChange={(event) =>
+          setOccurredAt(new Date(event.target.value).toISOString())
+        }
+      />
+      <Button type="submit" loading={status === 'submitting'}>
+        Submit redemption
+      </Button>
+      <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>
+        {message || 'The backend decides the final state.'}
+      </p>
     </form>
   );
 }

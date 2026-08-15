@@ -87,8 +87,18 @@ export function FraudFlagsPanel() {
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-        <Button variant="secondary" onClick={() => void refresh()} loading={loading}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Button
+          variant="secondary"
+          onClick={() => void refresh()}
+          loading={loading}
+        >
           Refresh fraud flags
         </Button>
         <Button onClick={() => void handleDecision()} disabled={!selectedId}>
@@ -110,7 +120,10 @@ export function FraudFlagsPanel() {
             const selected = item.id === selectedId;
             return (
               <button
-                key={item.id ?? `${item.ruleCode ?? 'fraud'}-${item.customer?.fullName ?? 'item'}`}
+                key={
+                  item.id ??
+                  `${item.ruleCode ?? 'fraud'}-${item.customer?.fullName ?? 'item'}`
+                }
                 type="button"
                 onClick={() => setSelectedId(item.id ?? null)}
                 style={{
@@ -121,16 +134,50 @@ export function FraudFlagsPanel() {
                   background: 'var(--sc-color-neutral-0)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sc-spacing-3)' }}>
-                  <strong>{item.ruleCode ?? item.reasonCode ?? item.id ?? 'Fraud flag'}</strong>
-                  <StatusBadge label={item.status ?? 'UNKNOWN'} tone={item.status === 'OPEN' ? 'warning' : 'neutral'} />
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 'var(--sc-spacing-3)',
+                  }}
+                >
+                  <strong>
+                    {item.ruleCode ??
+                      item.reasonCode ??
+                      item.id ??
+                      'Fraud flag'}
+                  </strong>
+                  <StatusBadge
+                    label={item.status ?? 'UNKNOWN'}
+                    tone={item.status === 'OPEN' ? 'warning' : 'neutral'}
+                  />
                 </div>
-                <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-                  {item.customer?.fullName ?? item.actorId ?? 'Contract-shaped fraud event'}
+                <p
+                  style={{
+                    margin: 0,
+                    color: 'var(--sc-color-semantic-textSecondary)',
+                  }}
+                >
+                  {item.customer?.fullName ??
+                    item.actorId ??
+                    'Contract-shaped fraud event'}
                 </p>
-                <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap', marginTop: 'var(--sc-spacing-2)' }}>
-                  <StatusBadge label={item.severity ?? 'LOW'} tone={severityTone(item.severity)} />
-                  <StatusBadge label={item.branchId ?? 'Tenant-wide'} tone="info" />
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 'var(--sc-spacing-2)',
+                    flexWrap: 'wrap',
+                    marginTop: 'var(--sc-spacing-2)',
+                  }}
+                >
+                  <StatusBadge
+                    label={item.severity ?? 'LOW'}
+                    tone={severityTone(item.severity)}
+                  />
+                  <StatusBadge
+                    label={item.branchId ?? 'Tenant-wide'}
+                    tone="info"
+                  />
                 </div>
               </button>
             );
@@ -141,12 +188,14 @@ export function FraudFlagsPanel() {
       {selectedItem ? (
         <Table>
           <tbody>
-            {Object.entries(selectedItem).slice(0, 5).map(([key, value]) => (
-              <tr key={key}>
-                <th scope="row">{key}</th>
-                <td>{describeValue(value)}</td>
-              </tr>
-            ))}
+            {Object.entries(selectedItem)
+              .slice(0, 5)
+              .map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key}</th>
+                  <td>{describeValue(value)}</td>
+                </tr>
+              ))}
           </tbody>
         </Table>
       ) : null}
@@ -154,7 +203,9 @@ export function FraudFlagsPanel() {
       <RadioGroup
         name="fraud-decision"
         legend="Decision"
-        options={decisionOptions as unknown as { value: string; label: string }[]}
+        options={
+          decisionOptions as unknown as { value: string; label: string }[]
+        }
         value={decision}
         onValueChange={(value) => setDecision(value as FraudFlagDecision)}
       />
@@ -171,7 +222,11 @@ function severityTone(severity?: string) {
 
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
     return String(value);
   }
   return JSON.stringify(value);

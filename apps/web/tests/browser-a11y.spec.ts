@@ -4,14 +4,13 @@ import axe from 'axe-core';
 async function runAxe(page: Page) {
   await page.addScriptTag({ content: axe.source });
   return page.evaluate(async () => {
-    const results = await (window as typeof window & { axe: typeof axe }).axe.run(
-      document,
-      {
-        rules: {
-          'color-contrast': { enabled: true },
-        },
+    const results = await (
+      window as typeof window & { axe: typeof axe }
+    ).axe.run(document, {
+      rules: {
+        'color-contrast': { enabled: true },
       },
-    );
+    });
     return results.violations;
   });
 }
@@ -21,7 +20,11 @@ test.describe('browser accessibility', () => {
     page,
   }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /sign in to the shopcity retail operations shell/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: /sign in to the shopcity retail operations shell/i,
+      }),
+    ).toBeVisible();
 
     let violations = await runAxe(page);
     expect(violations).toEqual([]);

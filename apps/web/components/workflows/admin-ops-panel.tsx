@@ -56,7 +56,8 @@ export function AdminOperationsPanel() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [role, setRole] = useState<UpdateUserRoleDtoRole>('ADMIN');
   const [status, setStatus] = useState<UpdateUserStatusDtoStatus>('ACTIVE');
-  const [deviceStatus, setDeviceStatus] = useState<UpdateDeviceDtoStatus>('ACTIVE');
+  const [deviceStatus, setDeviceStatus] =
+    useState<UpdateDeviceDtoStatus>('ACTIVE');
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedUserId) ?? null,
@@ -76,12 +77,16 @@ export function AdminOperationsPanel() {
 
   useEffect(() => {
     if (selectedDevice) {
-      setDeviceStatus((selectedDevice.status as UpdateDeviceDtoStatus) ?? 'ACTIVE');
+      setDeviceStatus(
+        (selectedDevice.status as UpdateDeviceDtoStatus) ?? 'ACTIVE',
+      );
     }
   }, [selectedDevice]);
 
   const refreshUsers = useCallback(async () => {
-    const response = await usersControllerListUsersV1(createApiRequest({ csrf: true }));
+    const response = await usersControllerListUsersV1(
+      createApiRequest({ csrf: true }),
+    );
     if (response.status === 200) {
       const nextUsers = response.data.data as UserRecord[];
       setUsers(nextUsers);
@@ -93,7 +98,9 @@ export function AdminOperationsPanel() {
   }, []);
 
   const refreshDevices = useCallback(async () => {
-    const response = await branchesControllerListDevicesV1(createApiRequest({ csrf: true }));
+    const response = await branchesControllerListDevicesV1(
+      createApiRequest({ csrf: true }),
+    );
     if (response.status === 200) {
       const nextDevices = response.data.data as DeviceRecord[];
       setDevices(nextDevices);
@@ -168,8 +175,18 @@ export function AdminOperationsPanel() {
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-        <Button variant="secondary" loading={loading} onClick={() => void refreshAll()}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--sc-spacing-3)',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Button
+          variant="secondary"
+          loading={loading}
+          onClick={() => void refreshAll()}
+        >
           Refresh admin data
         </Button>
         <Button variant="ghost" onClick={() => void refreshUsers()}>
@@ -180,10 +197,13 @@ export function AdminOperationsPanel() {
         </Button>
       </div>
 
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
+      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        {message}
+      </p>
 
       <Alert tone="info" title="Admin contract surfaces">
-        Use the backend contracts to review users, devices and audit trails before making role or status changes.
+        Use the backend contracts to review users, devices and audit trails
+        before making role or status changes.
       </Alert>
 
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
@@ -207,7 +227,11 @@ export function AdminOperationsPanel() {
                 {users.slice(0, 5).map((item) => (
                   <tr key={item.id ?? item.username ?? JSON.stringify(item)}>
                     <td>
-                      <button type="button" onClick={() => setSelectedUserId(item.id ?? null)} style={rowButtonStyle}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserId(item.id ?? null)}
+                        style={rowButtonStyle}
+                      >
                         {item.username ?? item.id ?? 'User'}
                       </button>
                     </td>
@@ -220,34 +244,71 @@ export function AdminOperationsPanel() {
             </Table>
           )}
           {selectedUser ? (
-            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', marginTop: 'var(--sc-spacing-4)' }}>
+            <div
+              style={{
+                display: 'grid',
+                gap: 'var(--sc-spacing-3)',
+                marginTop: 'var(--sc-spacing-4)',
+              }}
+            >
               <Separator />
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 'var(--sc-spacing-3)',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                }}
+              >
                 <Select
                   aria-label="Role"
                   value={role}
-                  onChange={(event) => setRole(event.target.value as UpdateUserRoleDtoRole)}
-                  options={roleOptions.map((value) => ({ value, label: value }))}
+                  onChange={(event) =>
+                    setRole(event.target.value as UpdateUserRoleDtoRole)
+                  }
+                  options={roleOptions.map((value) => ({
+                    value,
+                    label: value,
+                  }))}
                 />
                 <Select
                   aria-label="Status"
                   value={status}
-                  onChange={(event) => setStatus(event.target.value as UpdateUserStatusDtoStatus)}
-                  options={userStatusOptions.map((value) => ({ value, label: value }))}
+                  onChange={(event) =>
+                    setStatus(event.target.value as UpdateUserStatusDtoStatus)
+                  }
+                  options={userStatusOptions.map((value) => ({
+                    value,
+                    label: value,
+                  }))}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-                <Button onClick={() => void updateSelectedUserRole()}>Update role</Button>
-                <Button variant="secondary" onClick={() => void updateSelectedUserStatus()}>Update status</Button>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--sc-spacing-3)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Button onClick={() => void updateSelectedUserRole()}>
+                  Update role
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => void updateSelectedUserStatus()}
+                >
+                  Update status
+                </Button>
               </div>
               <Table>
                 <tbody>
-                  {Object.entries(selectedUser).slice(0, 5).map(([key, value]) => (
-                    <tr key={key}>
-                      <th scope="row">{key}</th>
-                      <td>{describeValue(value)}</td>
-                    </tr>
-                  ))}
+                  {Object.entries(selectedUser)
+                    .slice(0, 5)
+                    .map(([key, value]) => (
+                      <tr key={key}>
+                        <th scope="row">{key}</th>
+                        <td>{describeValue(value)}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </Table>
             </div>
@@ -274,7 +335,11 @@ export function AdminOperationsPanel() {
                 {devices.slice(0, 5).map((item) => (
                   <tr key={item.id ?? item.name ?? JSON.stringify(item)}>
                     <td>
-                      <button type="button" onClick={() => setSelectedDeviceId(item.id ?? null)} style={rowButtonStyle}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDeviceId(item.id ?? null)}
+                        style={rowButtonStyle}
+                      >
                         {item.name ?? item.id ?? 'Device'}
                       </button>
                     </td>
@@ -287,25 +352,46 @@ export function AdminOperationsPanel() {
             </Table>
           )}
           {selectedDevice ? (
-            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', marginTop: 'var(--sc-spacing-4)' }}>
+            <div
+              style={{
+                display: 'grid',
+                gap: 'var(--sc-spacing-3)',
+                marginTop: 'var(--sc-spacing-4)',
+              }}
+            >
               <Separator />
               <Select
                 aria-label="Device status"
                 value={deviceStatus}
-                onChange={(event) => setDeviceStatus(event.target.value as UpdateDeviceDtoStatus)}
-                options={deviceStatusOptions.map((value) => ({ value, label: value }))}
+                onChange={(event) =>
+                  setDeviceStatus(event.target.value as UpdateDeviceDtoStatus)
+                }
+                options={deviceStatusOptions.map((value) => ({
+                  value,
+                  label: value,
+                }))}
               />
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
-                <Button onClick={() => void updateSelectedDeviceStatus()}>Update device status</Button>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--sc-spacing-3)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Button onClick={() => void updateSelectedDeviceStatus()}>
+                  Update device status
+                </Button>
               </div>
               <Table>
                 <tbody>
-                  {Object.entries(selectedDevice).slice(0, 5).map(([key, value]) => (
-                    <tr key={key}>
-                      <th scope="row">{key}</th>
-                      <td>{describeValue(value)}</td>
-                    </tr>
-                  ))}
+                  {Object.entries(selectedDevice)
+                    .slice(0, 5)
+                    .map(([key, value]) => (
+                      <tr key={key}>
+                        <th scope="row">{key}</th>
+                        <td>{describeValue(value)}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </Table>
             </div>
@@ -314,9 +400,21 @@ export function AdminOperationsPanel() {
 
         <section style={cardStyle} aria-label="Audit workspace">
           <h3 style={{ marginTop: 0 }}>Audit workspace</h3>
-          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', gridTemplateColumns: 'minmax(0, 1fr) auto' }}>
-            <Input aria-label="Audit actor" value={actorId} onChange={(event) => setActorId(event.target.value)} />
-            <Button variant="secondary" onClick={() => void refreshAudit()}>Load audit trail</Button>
+          <div
+            style={{
+              display: 'grid',
+              gap: 'var(--sc-spacing-3)',
+              gridTemplateColumns: 'minmax(0, 1fr) auto',
+            }}
+          >
+            <Input
+              aria-label="Audit actor"
+              value={actorId}
+              onChange={(event) => setActorId(event.target.value)}
+            />
+            <Button variant="secondary" onClick={() => void refreshAudit()}>
+              Load audit trail
+            </Button>
           </div>
           {auditRows.length === 0 ? (
             <Alert tone="warning" title="No audit rows">
@@ -334,7 +432,12 @@ export function AdminOperationsPanel() {
               </thead>
               <tbody>
                 {auditRows.slice(0, 5).map((item) => (
-                  <tr key={item.id ?? `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`}>
+                  <tr
+                    key={
+                      item.id ??
+                      `${item.action ?? 'audit'}-${item.subjectId ?? 'row'}`
+                    }
+                  >
                     <td>{item.action ?? '—'}</td>
                     <td>{item.subjectType ?? item.subjectId ?? '—'}</td>
                     <td>{item.actorId ?? '—'}</td>
@@ -344,10 +447,20 @@ export function AdminOperationsPanel() {
               </tbody>
             </Table>
           )}
-          <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap', marginTop: 'var(--sc-spacing-3)' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--sc-spacing-3)',
+              flexWrap: 'wrap',
+              marginTop: 'var(--sc-spacing-3)',
+            }}
+          >
             <StatusBadge label={`Users: ${users.length}`} tone="info" />
             <StatusBadge label={`Devices: ${devices.length}`} tone="info" />
-            <StatusBadge label={`Audit rows: ${auditRows.length}`} tone="success" />
+            <StatusBadge
+              label={`Audit rows: ${auditRows.length}`}
+              tone="success"
+            />
           </div>
         </section>
       </div>
@@ -357,7 +470,12 @@ export function AdminOperationsPanel() {
 
 function describeValue(value: unknown) {
   if (value === null || value === undefined) return '—';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
   return JSON.stringify(value);
 }
 

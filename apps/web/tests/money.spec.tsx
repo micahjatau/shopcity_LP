@@ -31,7 +31,11 @@ describe('money parsing and formatting', () => {
     const onValueChange = jest.fn();
 
     render(
-      <MoneyInput label="Amount" defaultValueKobo={0} onValueChange={onValueChange} />,
+      <MoneyInput
+        label="Amount"
+        defaultValueKobo={0}
+        onValueChange={onValueChange}
+      />,
     );
 
     const input = screen.getByLabelText('Amount');

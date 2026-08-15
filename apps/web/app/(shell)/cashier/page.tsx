@@ -50,11 +50,23 @@ export default function CashierPage() {
           }}
         >
           {[
-            { title: 'Lookup', body: 'Scan card, receipt or customer reference.' },
-            { title: 'Earn', body: 'Submit a contract-backed earn transaction.' },
+            {
+              title: 'Lookup',
+              body: 'Scan card, receipt or customer reference.',
+            },
+            {
+              title: 'Earn',
+              body: 'Submit a contract-backed earn transaction.',
+            },
             { title: 'Redeem', body: 'Submit a contract-backed redemption.' },
-            { title: 'Customers', body: 'Check identity, cards and loyalty balance.' },
-            { title: 'Sync', body: 'Track local queue and reconciliation state.' },
+            {
+              title: 'Customers',
+              body: 'Check identity, cards and loyalty balance.',
+            },
+            {
+              title: 'Sync',
+              body: 'Track local queue and reconciliation state.',
+            },
           ].map((item) => (
             <article key={item.title} style={cardStyle}>
               <strong>{item.title}</strong>
@@ -74,7 +86,10 @@ export default function CashierPage() {
         <article style={cardStyle} aria-label="Lookup and status">
           <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            <Input placeholder="Scan card serial or receipt" aria-label="Lookup" />
+            <Input
+              placeholder="Scan card serial or receipt"
+              aria-label="Lookup"
+            />
             <Alert tone="info" title="Session-aware shell">
               The backend remains authoritative for final earn and redeem state.
             </Alert>

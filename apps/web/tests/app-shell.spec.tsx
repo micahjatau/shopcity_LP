@@ -65,6 +65,8 @@ describe('AppShell', () => {
       expect(screen.getByText(/sign in required/i)).toBeInTheDocument();
     });
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /go to sign in/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /go to sign in/i }),
+    ).toBeInTheDocument();
   });
 });

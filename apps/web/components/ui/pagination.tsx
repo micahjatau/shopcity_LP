@@ -7,7 +7,11 @@ export type PaginationProps = {
   hrefForPage: (page: number) => string;
 };
 
-export function Pagination({ currentPage, totalPages, hrefForPage }: Readonly<PaginationProps>) {
+export function Pagination({
+  currentPage,
+  totalPages,
+  hrefForPage,
+}: Readonly<PaginationProps>) {
   const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
   return (
     <nav aria-label="Pagination" className="sc-pagination">

@@ -251,7 +251,9 @@ export default function VisualRegressionPage() {
             <Badge tone="warning">Warning</Badge>
             <Badge tone="danger">Danger</Badge>
           </div>
-          <Alert tone="info" title="Info notice">Shared primitives now include feedback and navigation surfaces.</Alert>
+          <Alert tone="info" title="Info notice">
+            Shared primitives now include feedback and navigation surfaces.
+          </Alert>
           <Progress value={72} />
           <Skeleton style={{ height: 24, width: '60%' }} />
           <Separator />
@@ -264,28 +266,55 @@ export default function VisualRegressionPage() {
           />
           <Accordion
             items={[
-              { value: 'a', label: 'Accordion A', content: <p>Accordion content A.</p> },
-              { value: 'b', label: 'Accordion B', content: <p>Accordion content B.</p> },
+              {
+                value: 'a',
+                label: 'Accordion A',
+                content: <p>Accordion content A.</p>,
+              },
+              {
+                value: 'b',
+                label: 'Accordion B',
+                content: <p>Accordion content B.</p>,
+              },
             ]}
           />
           <div className="visual-actions">
-            <Tooltip content="Helpful tooltip"><Button>Tooltip target</Button></Tooltip>
+            <Tooltip content="Helpful tooltip">
+              <Button>Tooltip target</Button>
+            </Tooltip>
             <Button>Toast trigger</Button>
           </div>
-          <Dialog open title="Dialog">Dialog content.</Dialog>
-          <Sheet open title="Sheet">Sheet content.</Sheet>
+          <Dialog open title="Dialog">
+            Dialog content.
+          </Dialog>
+          <Sheet open title="Sheet">
+            Sheet content.
+          </Sheet>
           <Popover open>Popover content.</Popover>
           <DropdownMenu open>Menu item</DropdownMenu>
           <Toast>Saved locally.</Toast>
-          <Pagination currentPage={2} totalPages={4} hrefForPage={(page) => `?page=${page}`} />
+          <Pagination
+            currentPage={2}
+            totalPages={4}
+            hrefForPage={(page) => `?page=${page}`}
+          />
           <div className="visual-table-wrap">
             <Table>
               <thead>
-                <tr><th>Column</th><th>Value</th></tr>
+                <tr>
+                  <th>Column</th>
+                  <th>Value</th>
+                </tr>
               </thead>
               <tbody>
-                <tr><td>One</td><td>Alpha</td></tr>
-                <tr><td>Two</td><td>Beta</td></tr>
+                <tr>
+                  <td>One</td>
+                  <td>Alpha</td>
+                </tr>
+                <tr>
+                  <td>Two</td>
+                  <td>Beta</td>
+                </tr>
               </tbody>
             </Table>
           </div>
@@ -324,7 +353,9 @@ export default function VisualRegressionPage() {
             <article className="visual-panel">
               <p className="visual-eyebrow">Cashier</p>
               <h3 style={{ margin: 0 }}>Fast earn and redeem shell</h3>
-              <p style={{ margin: 0 }}>Lookup, earn, redeem and sync entry points.</p>
+              <p style={{ margin: 0 }}>
+                Lookup, earn, redeem and sync entry points.
+              </p>
               <div className="visual-actions">
                 <Button>Lookup</Button>
                 <Button variant="secondary">Sync</Button>
@@ -333,7 +364,9 @@ export default function VisualRegressionPage() {
             <article className="visual-panel">
               <p className="visual-eyebrow">Supervisor</p>
               <h3 style={{ margin: 0 }}>Approvals and fraud review shell</h3>
-              <p style={{ margin: 0 }}>Queue, approval and reports entry points.</p>
+              <p style={{ margin: 0 }}>
+                Queue, approval and reports entry points.
+              </p>
               <div className="visual-actions">
                 <Button>Approvals</Button>
                 <Button variant="secondary">Reports</Button>
@@ -342,7 +375,9 @@ export default function VisualRegressionPage() {
             <article className="visual-panel">
               <p className="visual-eyebrow">Admin</p>
               <h3 style={{ margin: 0 }}>Operations and audit shell</h3>
-              <p style={{ margin: 0 }}>Tenant-wide operations, audit and device controls.</p>
+              <p style={{ margin: 0 }}>
+                Tenant-wide operations, audit and device controls.
+              </p>
               <div className="visual-actions">
                 <Button>Operations</Button>
                 <Button variant="secondary">Audit</Button>

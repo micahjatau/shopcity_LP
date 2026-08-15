@@ -65,7 +65,8 @@ export function SyncQueueIndicator() {
     >
       <span aria-hidden="true">↻</span>
       <span>
-        {error ?? `Offline — ${count ?? 0} transaction${count === 1 ? '' : 's'} saved locally`}
+        {error ??
+          `Offline — ${count ?? 0} transaction${count === 1 ? '' : 's'} saved locally`}
       </span>
     </a>
   );

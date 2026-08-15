@@ -40,7 +40,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }, [role, status]);
 
   const primaryRoute = routeGroup[0] ?? '/login';
-  const isAuthorizedRoute = routeGroup.length === 0 || routeGroup.includes(pathname as RouteHref);
+  const isAuthorizedRoute =
+    routeGroup.length === 0 || routeGroup.includes(pathname as RouteHref);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -48,7 +49,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       return;
     }
 
-    if (status === 'ready' && routeGroup.length > 0 && !routeGroup.includes(pathname as RouteHref)) {
+    if (
+      status === 'ready' &&
+      routeGroup.length > 0 &&
+      !routeGroup.includes(pathname as RouteHref)
+    ) {
       router.replace(primaryRoute);
     }
   }, [pathname, primaryRoute, routeGroup, router, status]);
@@ -214,7 +219,12 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             }}
           >
             <h1 style={{ margin: 0 }}>Protected shell</h1>
-            <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
               {status === 'ready'
                 ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
                 : 'Sign in to access cashier, supervisor and admin workflows.'}

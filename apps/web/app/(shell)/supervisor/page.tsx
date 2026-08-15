@@ -68,9 +68,33 @@ export default function SupervisorPage() {
           <Tabs
             defaultValue="overview"
             items={[
-              { value: 'overview', label: 'Overview', panel: <p style={muted}>Branch health, queue pressure and freshness signals.</p> },
-              { value: 'transactions', label: 'Transactions', panel: <p style={muted}>Search, inspect and trace recent branch activity.</p> },
-              { value: 'fraud', label: 'Fraud', panel: <p style={muted}>Rule matches, reviews and escalation notes.</p> },
+              {
+                value: 'overview',
+                label: 'Overview',
+                panel: (
+                  <p style={muted}>
+                    Branch health, queue pressure and freshness signals.
+                  </p>
+                ),
+              },
+              {
+                value: 'transactions',
+                label: 'Transactions',
+                panel: (
+                  <p style={muted}>
+                    Search, inspect and trace recent branch activity.
+                  </p>
+                ),
+              },
+              {
+                value: 'fraud',
+                label: 'Fraud',
+                panel: (
+                  <p style={muted}>
+                    Rule matches, reviews and escalation notes.
+                  </p>
+                ),
+              },
             ]}
           />
         </article>
@@ -86,13 +110,24 @@ export default function SupervisorPage() {
           {
             value: 'support',
             label: 'Supervisor support notes',
-            content: <p style={muted}>Use the approval queue and reports workspace for the primary review tasks.</p>,
+            content: (
+              <p style={muted}>
+                Use the approval queue and reports workspace for the primary
+                review tasks.
+              </p>
+            ),
           },
           {
             value: 'actions',
             label: 'Action shortcuts',
             content: (
-              <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--sc-spacing-3)',
+                  flexWrap: 'wrap',
+                }}
+              >
                 <Button variant="primary">Review approvals</Button>
                 <Button variant="secondary">Inspect fraud queue</Button>
                 <Button variant="secondary">Open reports</Button>

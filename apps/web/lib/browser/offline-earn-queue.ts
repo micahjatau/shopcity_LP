@@ -27,9 +27,7 @@ export type OfflineEarnRecord = {
   serverApprovalId?: string | null;
 };
 
-export type OfflineWriteResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type OfflineWriteResult = { ok: true } | { ok: false; error: string };
 
 const DB_NAME = 'shopcity-offline';
 const STORE_NAME = 'earn-records';
@@ -98,7 +96,9 @@ async function withStore<T>(
   });
 }
 
-async function runWrite(action: () => Promise<void>): Promise<OfflineWriteResult> {
+async function runWrite(
+  action: () => Promise<void>,
+): Promise<OfflineWriteResult> {
   try {
     await action();
     notifyQueueChanged();
