@@ -21,7 +21,7 @@ import {
   customersControllerGetCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../../../lib/api/generated-client';
-import { createApiRequest } from '../../../lib/api/request';
+import { configurationControllerGetPublicConfigV1, createApiRequest } from '../../../lib/api';
 
 const cashierRoutes = [
   ['/cashier/customers', 'Customers'],
@@ -49,6 +49,8 @@ export default function CashierPage() {
   const [lookupRecord, setLookupRecord] = useState<any | null>(null);
   const [customerRecord, setCustomerRecord] = useState<any | null>(null);
   const [ledgerRecord, setLedgerRecord] = useState<any | null>(null);
+  const [policyConfig, setPolicyConfig] = useState<any | null>(null);
+  const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
 
   const customerId = useMemo(
     () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
@@ -57,6 +59,28 @@ export default function CashierPage() {
 
   useEffect(() => {
     let ignore = false;
+
+    async function loadPolicy() {
+      try {
+        const response = await configurationControllerGetPublicConfigV1(
+          createApiRequest(),
+        );
+        if (!ignore && response.status === 200) {
+          setPolicyConfig(response.data.data);
+          setPolicyMessage('Branch policy loaded from the public config endpoint.');
+          return;
+        }
+        if (!ignore) {
+          setPolicyConfig(null);
+          setPolicyMessage(`Branch policy unavailable (${response.status}).`);
+        }
+      } catch {
+        if (!ignore) {
+          setPolicyConfig(null);
+          setPolicyMessage('Branch policy unavailable.');
+        }
+      }
+    }
 
     async function loadCustomer() {
       if (!customerId) {
@@ -91,6 +115,7 @@ export default function CashierPage() {
       }
     }
 
+    void loadPolicy();
     void loadCustomer();
 
     return () => {
@@ -161,6 +186,9 @@ export default function CashierPage() {
         expiringCreditKobo: lookupRecord.expiringCreditKobo,
       }
     : undefined;
+  const policyContext = policyConfig?.policies ?? null;
+  const branchContext = policyConfig?.branch ?? null;
+  const tenantContext = policyConfig?.tenant ?? null;
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
@@ -179,6 +207,14 @@ export default function CashierPage() {
             </Link>
           ))}
         </div>
+        <div style={policyRow}>
+          <StatusBadge label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'} tone="info" />
+          <StatusBadge label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'} tone="neutral" />
+          <StatusBadge label={branchContext?.timezone ?? 'Timezone pending'} tone="success" />
+          {policyContext ? (
+            <StatusBadge label={`Earn ${policyContext.defaultEarnRateBps / 100}%`} tone="info" />
+          ) : null}
+        </div>
       </header>
 
       <OfflineIndicator />
@@ -188,6 +224,23 @@ export default function CashierPage() {
         description="Scan first, then move into earn, redeem, customer detail, or sync follow-up."
       >
         <div style={gridStyle}>
+          <article style={cardStyle} aria-label="Policy context">
+            <h2 style={{ marginTop: 0 }}>Policy context</h2>
+            <p style={muted}>{policyMessage}</p>
+            {policyContext ? (
+              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+                <div style={statRow}><span>Earn rate</span><strong>{policyContext.defaultEarnRateBps / 100}%</strong></div>
+                <div style={statRow}><span>Min redemption</span>{typeof policyContext.minRedemptionKobo === 'number' ? <Money amountKobo={policyContext.minRedemptionKobo} /> : '—'}</div>
+                <div style={statRow}><span>Basket cap</span><strong>{policyContext.maxRedemptionBasketPercent}%</strong></div>
+                <div style={statRow}><span>Purchase flag</span>{typeof policyContext.purchaseFlagThresholdKobo === 'number' ? <Money amountKobo={policyContext.purchaseFlagThresholdKobo} /> : '—'}</div>
+                <div style={statRow}><span>Approval threshold</span>{typeof policyContext.redemptionApprovalThresholdKobo === 'number' ? <Money amountKobo={policyContext.redemptionApprovalThresholdKobo} /> : '—'}</div>
+              </div>
+            ) : (
+              <Alert tone="warning" title="Policy unavailable">
+                The cashier workflow can still run, but policy-aware previews are unavailable.
+              </Alert>
+            )}
+          </article>
           {cashierNotes.map(([title, body]) => (
             <article key={title} style={noteStyle}>
               <strong>{title}</strong>
@@ -234,12 +287,12 @@ export default function CashierPage() {
 
         <article id="earn" style={cardStyle} aria-label="Earn transaction">
           <h2 style={{ marginTop: 0 }}>Earn transaction</h2>
-          <EarnTransactionForm lookupContext={lookupContext} />
+          <EarnTransactionForm lookupContext={lookupContext} policyContext={policyContext} />
         </article>
 
         <article id="redeem" style={cardStyle} aria-label="Redeem transaction">
           <h2 style={{ marginTop: 0 }}>Redeem transaction</h2>
-          <RedeemTransactionForm lookupContext={lookupContext} />
+          <RedeemTransactionForm lookupContext={lookupContext} policyContext={policyContext} />
         </article>
 
         <article style={cardStyle} aria-label="Customer detail">
@@ -329,6 +382,12 @@ const routeLink: CSSProperties = {
   padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
   background: 'var(--sc-color-neutral-0)',
   textDecoration: 'none',
+};
+
+const policyRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-2)',
+  flexWrap: 'wrap',
 };
 
 const muted: CSSProperties = {

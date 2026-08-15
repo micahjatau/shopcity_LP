@@ -15,6 +15,16 @@ function createDraftKey() {
   return crypto.randomUUID();
 }
 
+type CashierPolicyContext = {
+  defaultEarnRateBps?: number;
+  purchaseFlagThresholdKobo?: number;
+  purchaseApprovalThresholdKobo?: number;
+  redemptionApprovalThresholdKobo?: number;
+  minRedemptionKobo?: number;
+  maxRedemptionBasketPercent?: number;
+  offlineRedemptionDisabled?: boolean;
+};
+
 type EarnTransactionFormProps = {
   lookupContext?: {
     cardSerialNumber?: string;
@@ -23,9 +33,10 @@ type EarnTransactionFormProps = {
     expiringCreditKobo?: number | null;
     receiptNumber?: string;
   };
+  policyContext?: CashierPolicyContext | null;
 };
 
-export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps) {
+export function EarnTransactionForm({ lookupContext, policyContext }: EarnTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
   const [cardSerialNumber, setCardSerialNumber] = useState('');
@@ -50,6 +61,14 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
   }, [lookupContext]);
 
   const lookupReady = Boolean(lookupContext?.cardSerialNumber || lookupContext?.customerName);
+  const expectedCreditKobo =
+    purchaseAmount === null || !policyContext?.defaultEarnRateBps
+      ? null
+      : Math.round(
+          (purchaseAmount * policyContext.defaultEarnRateBps) / 10000,
+        );
+  const approvalFlagThresholdKobo = policyContext?.purchaseFlagThresholdKobo ?? null;
+  const approvalThresholdKobo = policyContext?.purchaseApprovalThresholdKobo ?? null;
 
   const draftSummary = useMemo(
     () => [
@@ -159,6 +178,9 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
         <StatusBadge label={lookupReady ? 'Context ready' : 'Awaiting lookup'} tone={lookupReady ? 'success' : 'warning'} />
         <StatusBadge label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`} tone="info" />
+        {policyContext?.defaultEarnRateBps ? (
+          <StatusBadge label={`Earn ${policyContext.defaultEarnRateBps / 100}%`} tone="neutral" />
+        ) : null}
       </div>
       <Input
         aria-label="Card serial number"
@@ -205,6 +227,24 @@ export function EarnTransactionForm({ lookupContext }: EarnTransactionFormProps)
           </div>
         ))}
       </div>
+      {policyContext ? (
+        <Table>
+          <tbody>
+            <tr>
+              <th scope="row">Expected credit</th>
+              <td>{expectedCreditKobo === null ? 'Enter purchase amount' : <Money amountKobo={expectedCreditKobo} />}</td>
+            </tr>
+            <tr>
+              <th scope="row">Flag threshold</th>
+              <td>{approvalFlagThresholdKobo === null ? '—' : <Money amountKobo={approvalFlagThresholdKobo} />}</td>
+            </tr>
+            <tr>
+              <th scope="row">Approval threshold</th>
+              <td>{approvalThresholdKobo === null ? '—' : <Money amountKobo={approvalThresholdKobo} />}</td>
+            </tr>
+          </tbody>
+        </Table>
+      ) : null}
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <Button type="submit" loading={status === 'submitting'}>
           Submit earn

@@ -15,6 +15,13 @@ function createDraftKey() {
   return crypto.randomUUID();
 }
 
+type CashierPolicyContext = {
+  minRedemptionKobo?: number;
+  maxRedemptionBasketPercent?: number;
+  redemptionApprovalThresholdKobo?: number;
+  offlineRedemptionDisabled?: boolean;
+};
+
 type RedeemTransactionFormProps = {
   lookupContext?: {
     cardSerialNumber?: string;
@@ -23,9 +30,10 @@ type RedeemTransactionFormProps = {
     expiringCreditKobo?: number | null;
     receiptNumber?: string;
   };
+  policyContext?: CashierPolicyContext | null;
 };
 
-export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormProps) {
+export function RedeemTransactionForm({ lookupContext, policyContext }: RedeemTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
   const [cardSerialNumber, setCardSerialNumber] = useState('');
@@ -55,6 +63,26 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
   }, [lookupContext]);
 
   const lookupReady = Boolean(lookupContext?.cardSerialNumber || lookupContext?.customerName);
+  const maxAllowedByBasketKobo =
+    basketAmount === null || !policyContext?.maxRedemptionBasketPercent
+      ? null
+      : Math.floor(
+          (basketAmount * policyContext.maxRedemptionBasketPercent) / 100,
+        );
+  const maxAllowedRedemptionKobo =
+    typeof lookupContext?.availableBalanceKobo === 'number' && maxAllowedByBasketKobo !== null
+      ? Math.min(lookupContext.availableBalanceKobo, maxAllowedByBasketKobo)
+      : typeof lookupContext?.availableBalanceKobo === 'number'
+        ? lookupContext.availableBalanceKobo
+        : maxAllowedByBasketKobo;
+  const resultingBalanceKobo =
+    typeof lookupContext?.availableBalanceKobo === 'number' && requestedRedemption !== null
+      ? lookupContext.availableBalanceKobo - requestedRedemption
+      : null;
+  const needsReview =
+    typeof maxAllowedRedemptionKobo === 'number' &&
+    requestedRedemption !== null &&
+    requestedRedemption > maxAllowedRedemptionKobo;
 
   const draftSummary = useMemo(
     () => [
@@ -140,9 +168,6 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
     }
   }
 
-  const availableBalance = lookupContext?.availableBalanceKobo ?? null;
-  const redemptionCeiling = availableBalance;
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -170,9 +195,10 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
         <StatusBadge label={lookupReady ? 'Context ready' : 'Awaiting lookup'} tone={lookupReady ? 'success' : 'warning'} />
         <StatusBadge label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`} tone="info" />
-        {typeof redemptionCeiling === 'number' ? (
-          <StatusBadge label={`Ceiling ${redemptionCeiling} kobo`} tone="neutral" />
+        {typeof maxAllowedRedemptionKobo === 'number' ? (
+          <StatusBadge label={`Ceiling ${maxAllowedRedemptionKobo} kobo`} tone="neutral" />
         ) : null}
+        {policyContext?.offlineRedemptionDisabled ? <StatusBadge label="Offline disabled" tone="danger" /> : null}
       </div>
       <Input
         aria-label="Card serial number"
@@ -218,6 +244,31 @@ export function RedeemTransactionForm({ lookupContext }: RedeemTransactionFormPr
           </div>
         ))}
       </div>
+      <Table>
+        <tbody>
+          <tr>
+            <th scope="row">Minimum redemption</th>
+            <td>{policyContext?.minRedemptionKobo ? <Money amountKobo={policyContext.minRedemptionKobo} /> : '—'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Maximum allowed</th>
+            <td>{typeof maxAllowedRedemptionKobo === 'number' ? <Money amountKobo={maxAllowedRedemptionKobo} /> : '—'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Approval threshold</th>
+            <td>{policyContext?.redemptionApprovalThresholdKobo ? <Money amountKobo={policyContext.redemptionApprovalThresholdKobo} /> : '—'}</td>
+          </tr>
+          <tr>
+            <th scope="row">Resulting balance</th>
+            <td>{typeof resultingBalanceKobo === 'number' ? <Money amountKobo={resultingBalanceKobo} /> : '—'}</td>
+          </tr>
+        </tbody>
+      </Table>
+      {needsReview ? (
+        <Alert tone="warning" title="Review required">
+          The requested redemption exceeds the current calculated maximum.
+        </Alert>
+      ) : null}
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <Button type="submit" loading={status === 'submitting'}>
           Submit redemption
