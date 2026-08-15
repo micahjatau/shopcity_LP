@@ -1,6 +1,8 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   FraudFlagDecisionDtoDecision,
   fraudControllerDecideFraudFlagV1,
@@ -28,6 +30,13 @@ const decisionOptions = [
   { value: FraudFlagDecisionDtoDecision.RESOLVED, label: 'Resolve' },
 ] as const;
 
+const routeLinks = [
+  ['/supervisor', 'Supervisor'],
+  ['/supervisor/transactions', 'Transactions'],
+  ['/supervisor/approvals', 'Approvals'],
+  ['/supervisor/reports', 'Reports'],
+] as const;
+
 export function FraudFlagsPanel() {
   const [items, setItems] = useState<FraudFlagRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +50,9 @@ export function FraudFlagsPanel() {
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
   );
+
+  const openCount = items.filter((item) => item.status === 'OPEN').length;
+  const highSeverityCount = items.filter((item) => item.severity === 'HIGH').length;
 
   async function refresh() {
     setLoading(true);
@@ -76,8 +88,8 @@ export function FraudFlagsPanel() {
         decision,
         reason:
           decision === FraudFlagDecisionDtoDecision.RESOLVED
-            ? 'Resolved from supervisor shell'
-            : 'Acknowledged from supervisor shell',
+            ? 'Resolved from supervisor fraud route'
+            : 'Acknowledged from supervisor fraud route',
       },
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );
@@ -87,6 +99,18 @@ export function FraudFlagsPanel() {
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
+      <div style={statusRow}>
+        <StatusBadge label={`Loaded ${items.length}`} tone="info" />
+        <StatusBadge label={`Open ${openCount}`} tone="warning" />
+        <StatusBadge label={`High ${highSeverityCount}`} tone="danger" />
+      </div>
+      <div style={routeRow}>
+        {routeLinks.map(([href, label]) => (
+          <Link key={href} href={href}>
+            {label}
+          </Link>
+        ))}
+      </div>
       <div
         style={{
           display: 'flex',
@@ -194,7 +218,17 @@ export function FraudFlagsPanel() {
             <tbody>
               {Object.entries(selectedItem)
                 .filter(([key]) =>
-                  ['id', 'status', 'severity', 'ruleCode', 'reasonCode', 'branchId', 'actorId', 'customer', 'receipt'].includes(key),
+                  [
+                    'id',
+                    'status',
+                    'severity',
+                    'ruleCode',
+                    'reasonCode',
+                    'branchId',
+                    'actorId',
+                    'customer',
+                    'receipt',
+                  ].includes(key),
                 )
                 .slice(0, 8)
                 .map(([key, value]) => (
@@ -254,3 +288,15 @@ function describeValue(value: unknown) {
   }
   return String(value);
 }
+
+const statusRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
+
+const routeRow: CSSProperties = {
+  display: 'flex',
+  gap: 'var(--sc-spacing-3)',
+  flexWrap: 'wrap',
+};
