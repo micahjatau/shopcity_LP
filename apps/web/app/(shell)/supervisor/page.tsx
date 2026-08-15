@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
 import { Alert } from '../../../components/ui';
 import { StatusBadge } from '../../../components/shopcity';
-import { WorkflowSection } from '../../../components/workflows';
+import {
+  ApprovalsPanel,
+  FraudFlagsPanel,
+  WorkflowSection,
+} from '../../../components/workflows';
 
 const supervisorRoutes = [
   ['/supervisor/transactions', 'Transactions'],
@@ -123,6 +127,15 @@ export default function SupervisorPage() {
           </p>
         </article>
       </div>
+
+      <div style={panelGrid}>
+        <article style={cardStyle} aria-label="Approvals review">
+          <ApprovalsPanel />
+        </article>
+        <article style={cardStyle} aria-label="Fraud review">
+          <FraudFlagsPanel />
+        </article>
+      </div>
     </section>
   );
 }
@@ -141,6 +154,12 @@ const gridStyle: CSSProperties = {
   display: 'grid',
   gap: 'var(--sc-spacing-4)',
   gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+};
+
+const panelGrid: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-4)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
 };
 
 const routeGrid: CSSProperties = {

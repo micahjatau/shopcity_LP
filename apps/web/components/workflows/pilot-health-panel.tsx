@@ -204,30 +204,6 @@ export function PilotHealthPanel() {
           ))
         )}
       </div>
-
-      {summary?.reconciliation ? (
-        <div style={reconciliationStyle}>
-          <div
-            style={{
-              display: 'flex',
-              gap: 'var(--sc-spacing-2)',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <strong>Reconciliation</strong>
-            <StatusBadge
-              label={
-                summary.reconciliation.unhealthy ? 'Needs review' : 'Healthy'
-              }
-              tone={summary.reconciliation.unhealthy ? 'warning' : 'success'}
-            />
-          </div>
-          <p style={muted}>
-            {renderReconciliationSummary(summary.reconciliation)}
-          </p>
-        </div>
-      ) : null}
     </section>
   );
 }
