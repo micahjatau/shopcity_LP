@@ -27,6 +27,8 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<(typeof roles)[number]>('CASHIER');
   const [branchId, setBranchId] = useState('');
   const [status, setStatus] = useState<(typeof statuses)[number]>('ACTIVE');
+  const [createConfirmation, setCreateConfirmation] = useState('');
+  const [updateConfirmation, setUpdateConfirmation] = useState('');
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedId) ?? null,
@@ -37,6 +39,15 @@ export default function AdminUsersPage() {
     value: branch.id,
     label: branch.name ?? branch.id,
   }));
+
+  useEffect(() => {
+    if (selectedUser) {
+      setRole((selectedUser.role as typeof roles[number]) ?? 'CASHIER');
+      setStatus((selectedUser.status as typeof statuses[number]) ?? 'ACTIVE');
+      setBranchId((current) => selectedUser.branchId ?? current);
+      setUpdateConfirmation('');
+    }
+  }, [selectedUser]);
 
   async function refresh() {
     setLoading(true);
@@ -70,17 +81,13 @@ export default function AdminUsersPage() {
     void refresh();
   }, []);
 
-  useEffect(() => {
-    if (selectedUser) {
-      setRole((selectedUser.role as typeof roles[number]) ?? 'CASHIER');
-      setStatus((selectedUser.status as typeof statuses[number]) ?? 'ACTIVE');
-      setBranchId((current) => selectedUser.branchId ?? current);
-    }
-  }, [selectedUser]);
-
   async function createUser() {
     if (!username.trim() || !password.trim()) {
       setMessage('Enter username and password to create a user.');
+      return;
+    }
+    if (createConfirmation.trim().toUpperCase() !== 'CREATE') {
+      setMessage('Type CREATE to confirm the new user.');
       return;
     }
 
@@ -94,10 +101,15 @@ export default function AdminUsersPage() {
         },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 201 ? 'User created.' : `Create unavailable (${response.status}).`);
+      setMessage(
+        response.status === 201
+          ? 'User created.'
+          : `Create unavailable (${response.status}).`,
+      );
       if (response.status === 201) {
         setUsername('');
         setPassword('');
+        setCreateConfirmation('');
       }
       await refresh();
     } catch {
@@ -107,13 +119,22 @@ export default function AdminUsersPage() {
 
   async function updateUserRole() {
     if (!selectedId) return;
+    if (updateConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the user change.');
+      return;
+    }
     try {
       const response = await usersControllerUpdateRoleV1(
         selectedId,
         { role } as any,
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 200 ? 'Role updated.' : `Role update unavailable (${response.status}).`);
+      setMessage(
+        response.status === 200
+          ? 'Role updated.'
+          : `Role update unavailable (${response.status}).`,
+      );
+      setUpdateConfirmation('');
       await refresh();
     } catch {
       setMessage('Role update unavailable.');
@@ -122,13 +143,22 @@ export default function AdminUsersPage() {
 
   async function updateUserStatus() {
     if (!selectedId) return;
+    if (updateConfirmation.trim().toUpperCase() !== 'UPDATE') {
+      setMessage('Type UPDATE to confirm the user change.');
+      return;
+    }
     try {
       const response = await usersControllerUpdateStatusV1(
         selectedId,
         { status } as any,
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setMessage(response.status === 200 ? 'Status updated.' : `Status update unavailable (${response.status}).`);
+      setMessage(
+        response.status === 200
+          ? 'Status updated.'
+          : `Status update unavailable (${response.status}).`,
+      );
+      setUpdateConfirmation('');
       await refresh();
     } catch {
       setMessage('Status update unavailable.');
@@ -146,7 +176,13 @@ export default function AdminUsersPage() {
       </header>
 
       <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>{message}</p>
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--sc-spacing-3)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        }}
+      >
         <Input aria-label="Username" placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
         <Input aria-label="Password" type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
         <Select aria-label="Branch" value={branchId} onChange={(event) => setBranchId(event.target.value)} options={[{ value: '', label: 'Tenant-wide' }, ...branchOptions]} />
@@ -165,12 +201,34 @@ export default function AdminUsersPage() {
         onValueChange={(value) => setStatus(value as (typeof statuses)[number])}
         options={statuses.map((value) => ({ value, label: value }))}
       />
+      <Input
+        aria-label="Confirmation"
+        placeholder="Type CREATE or UPDATE to confirm"
+        value={createConfirmation || updateConfirmation}
+        onChange={(event) => {
+          setCreateConfirmation(event.target.value);
+          setUpdateConfirmation(event.target.value);
+        }}
+      />
       <div style={{ display: 'flex', gap: 'var(--sc-spacing-3)', flexWrap: 'wrap' }}>
         <Button onClick={() => void createUser()} loading={loading}>Create user</Button>
         <Button variant="secondary" onClick={() => void updateUserRole()} disabled={!selectedId}>Update role</Button>
         <Button variant="ghost" onClick={() => void updateUserStatus()} disabled={!selectedId}>Update status</Button>
         <Button variant="secondary" onClick={() => void refresh()} loading={loading}>Refresh</Button>
       </div>
+
+      {selectedUser ? (
+        <Alert tone="info" title="Selected user">
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+            <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)', flexWrap: 'wrap' }}>
+              <StatusBadge label={selectedUser.username ?? selectedUser.id} tone="info" />
+              <StatusBadge label={selectedUser.role ?? 'ROLE pending'} tone="neutral" />
+              <StatusBadge label={selectedUser.status ?? 'STATUS pending'} tone={selectedUser.status === 'ACTIVE' ? 'success' : 'warning'} />
+            </div>
+            <span>{selectedUser.branchId ?? 'Tenant-wide'} · ready for review</span>
+          </div>
+        </Alert>
+      ) : null}
 
       {users.length === 0 ? (
         <Alert tone="warning" title="No users">No user records returned.</Alert>
@@ -200,12 +258,27 @@ export default function AdminUsersPage() {
       )}
 
       {selectedUser ? (
-        <Alert tone="info" title="Selected user">
-          {selectedUser.username ?? selectedUser.id} is ready for role and status review.
-        </Alert>
+        <Table>
+          <tbody>
+            {Object.entries(selectedUser)
+              .slice(0, 6)
+              .map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key}</th>
+                  <td>{renderValue(value)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </Table>
       ) : null}
     </section>
   );
+}
+
+function renderValue(value: unknown) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
 }
 
 const rowButton = {
