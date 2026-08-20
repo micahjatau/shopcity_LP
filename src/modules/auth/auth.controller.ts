@@ -61,7 +61,7 @@ export class AuthController {
   @PublicRoute()
   @Throttle({
     bucket: 'auth.login',
-    limit: 20,
+    limit: 5,
     windowMs: 15 * 60 * 1000,
     keyFactory: buildLoginThrottleKey,
   })

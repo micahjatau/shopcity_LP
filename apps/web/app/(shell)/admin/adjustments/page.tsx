@@ -1,9 +1,12 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { adjustmentsControllerCreateV1 } from '../../../../lib/api/generated-client';
+import {
+  adjustmentsControllerCreateV1,
+  customersControllerGetCustomerV1,
+} from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
 import {
   Alert,
@@ -29,6 +32,11 @@ export default function AdminAdjustmentsPage() {
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [kind, setKind] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
+  const [customerRecord, setCustomerRecord] = useState<{
+    fullName?: string;
+    balanceKobo?: number;
+    availableBalanceKobo?: number;
+  } | null>(null);
   const [message, setMessage] = useState(
     'Prepare an adjustment with consequence preview.',
   );
@@ -39,24 +47,89 @@ export default function AdminAdjustmentsPage() {
   > | null>(null);
   const amountKobo = Number(amount);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadCustomer() {
+      if (!customerId.trim()) {
+        setCustomerRecord(null);
+        return;
+      }
+
+      try {
+        const response = await customersControllerGetCustomerV1(
+          customerId.trim(),
+          createApiRequest({ csrf: true }),
+        );
+        if (!ignore && response.status === 200) {
+          setCustomerRecord(response.data.data);
+          return;
+        }
+      } catch {
+        // fall through to clear the preview
+      }
+
+      if (!ignore) {
+        setCustomerRecord(null);
+      }
+    }
+
+    void loadCustomer();
+
+    return () => {
+      ignore = true;
+    };
+  }, [customerId]);
+
   const preview = useMemo(() => {
     if (!Number.isFinite(amountKobo) || amountKobo <= 0) return null;
+    const currentBalanceKobo =
+      customerRecord?.balanceKobo ??
+      customerRecord?.availableBalanceKobo ??
+      null;
+    const projectedBalanceKobo =
+      currentBalanceKobo === null
+        ? null
+        : kind === 'CREDIT'
+          ? currentBalanceKobo + amountKobo
+          : currentBalanceKobo - amountKobo;
     return {
       label: kind === 'CREDIT' ? 'Credit' : 'Debit',
       amountKobo,
+      currentBalanceKobo,
+      projectedBalanceKobo,
       impact: kind === 'CREDIT' ? 'Balance increases' : 'Balance decreases',
     };
-  }, [amountKobo, kind]);
+  }, [amountKobo, customerRecord, kind]);
 
   const selectedPreview = useMemo(
     () => [
-      ['Customer', customerId || 'Enter a customer ID'],
-      ['Amount', preview ? preview.amountKobo : amountKobo],
+      [
+        'Customer',
+        customerRecord?.fullName ?? customerId ?? 'Enter a customer ID',
+      ],
+      [
+        'Current balance',
+        preview?.currentBalanceKobo ??
+          customerRecord?.balanceKobo ??
+          customerRecord?.availableBalanceKobo ??
+          '—',
+      ],
+      ['Adjustment', preview ? preview.amountKobo : amountKobo],
+      ['Projected balance', preview?.projectedBalanceKobo ?? '—'],
       ['Reason', reason || 'Enter a reason'],
       ['Kind', kind],
       ['Confirmation', confirmation || 'Type SUBMIT'],
     ],
-    [amountKobo, confirmation, customerId, kind, preview, reason],
+    [
+      amountKobo,
+      confirmation,
+      customerId,
+      customerRecord,
+      kind,
+      preview,
+      reason,
+    ],
   );
 
   async function submit() {
@@ -83,7 +156,7 @@ export default function AdminAdjustmentsPage() {
       );
       setActionResponse(
         response.data && typeof response.data === 'object'
-          ? (response.data as Record<string, unknown>)
+          ? response.data
           : null,
       );
       setMessage(

@@ -30,6 +30,9 @@ export class AuthUserDto {
 export class AuthSessionDto {
   @ApiProperty({ format: 'date-time' })
   expiresAt!: string;
+
+  @ApiProperty({ format: 'uuid', nullable: true })
+  deviceId!: string | null;
 }
 
 export class AuthResponseDto {
@@ -57,9 +60,10 @@ export function authResponseSchema() {
       },
       session: {
         type: 'object',
-        required: ['expiresAt'],
+        required: ['expiresAt', 'deviceId'],
         properties: {
           expiresAt: { type: 'string', format: 'date-time' },
+          deviceId: { type: 'string', format: 'uuid', nullable: true },
         },
       },
     },

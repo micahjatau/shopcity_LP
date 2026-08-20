@@ -112,16 +112,24 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       return [] as RouteItem[];
     }
 
-    return roleRoutes[role as Exclude<Role, 'SYSTEM'>];
+    if (role === 'CASHIER') return roleRoutes.CASHIER;
+    if (role === 'SUPERVISOR') return roleRoutes.SUPERVISOR;
+    return roleRoutes.ADMIN;
   }, [role, status]);
 
   const primaryRoute = routeGroup[0]?.href ?? '/login';
   const isAuthorizedRoute =
-    routeGroup.length === 0 ||
+    status === 'ready' &&
+    role !== 'SYSTEM' &&
     routeGroup.some((item) => matchesRoute(pathname, item.href));
 
   useEffect(() => {
     if (status === 'unauthenticated') {
+      router.replace('/login');
+      return;
+    }
+
+    if (status === 'ready' && role === 'SYSTEM') {
       router.replace('/login');
       return;
     }

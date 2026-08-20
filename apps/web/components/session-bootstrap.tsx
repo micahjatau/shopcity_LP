@@ -11,6 +11,9 @@ export type SessionRole = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | 'SYSTEM';
 export type SessionBootstrapState = {
   status: SessionBootstrapStatus;
   role: SessionRole | null;
+  userId: string | null;
+  branchId: string | null;
+  deviceId: string | null;
   sessionLabel: string | null;
 };
 
@@ -18,6 +21,9 @@ export function useSessionBootstrapState(refreshKey: string | number = 0) {
   const [state, setState] = useState<SessionBootstrapState>({
     status: 'loading',
     role: null,
+    userId: null,
+    branchId: null,
+    deviceId: null,
     sessionLabel: null,
   });
 
@@ -26,6 +32,9 @@ export function useSessionBootstrapState(refreshKey: string | number = 0) {
     setState({
       status: 'loading',
       role: null,
+      userId: null,
+      branchId: null,
+      deviceId: null,
       sessionLabel: null,
     });
 
@@ -40,15 +49,32 @@ export function useSessionBootstrapState(refreshKey: string | number = 0) {
           setState({
             status: 'ready',
             role: session.user.role,
+            userId: session.user.id,
+            branchId: session.user.branchId,
+            deviceId: session.session.deviceId,
             sessionLabel: `${session.user.role} · ${session.user.username}`,
           });
           return;
         }
 
-        setState({ status: 'unauthenticated', role: null, sessionLabel: null });
+        setState({
+          status: 'unauthenticated',
+          role: null,
+          userId: null,
+          branchId: null,
+          deviceId: null,
+          sessionLabel: null,
+        });
       } catch {
         if (!ignore) {
-          setState({ status: 'error', role: null, sessionLabel: null });
+          setState({
+            status: 'error',
+            role: null,
+            userId: null,
+            branchId: null,
+            deviceId: null,
+            sessionLabel: null,
+          });
         }
       }
     }

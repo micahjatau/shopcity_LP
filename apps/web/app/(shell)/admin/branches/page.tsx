@@ -39,6 +39,7 @@ export default function AdminBranchesPage() {
   > | null>(null);
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('Africa/Lagos');
+  const [receiptWeekStartDay, setReceiptWeekStartDay] = useState('1');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nameConfirmation, setNameConfirmation] = useState('');
   const [updateConfirmation, setUpdateConfirmation] = useState('');
@@ -65,6 +66,11 @@ export default function AdminBranchesPage() {
     if (!selectedBranch) return;
     setName(selectedBranch.name ?? '');
     setTimezone(selectedBranch.timezone ?? 'Africa/Lagos');
+    setReceiptWeekStartDay(
+      typeof selectedBranch.receiptWeekStartDay === 'number'
+        ? String(selectedBranch.receiptWeekStartDay)
+        : '1',
+    );
     setUpdateConfirmation('');
     setNameConfirmation('');
   }, [selectedBranch]);
@@ -76,12 +82,12 @@ export default function AdminBranchesPage() {
         branchesControllerListDevicesV1(createApiRequest({ csrf: true })),
       ]);
       if (branchesResponse.status === 200) {
-        const nextItems = branchesResponse.data.data as BranchRecord[];
+        const nextItems = branchesResponse.data.data;
         setItems(nextItems);
         setSelectedId(nextItems[0]?.id ?? null);
       }
       if (devicesResponse.status === 200) {
-        setDevices(devicesResponse.data.data as DeviceRecord[]);
+        setDevices(devicesResponse.data.data);
       }
       setActionResponse(null);
       setMessage('Branch data loaded.');
@@ -107,12 +113,16 @@ export default function AdminBranchesPage() {
     try {
       setActionMessage('Creating branch…');
       const response = await branchesControllerCreateBranchV1(
-        { name: name.trim(), timezone: timezone.trim() },
+        {
+          name: name.trim(),
+          timezone: timezone.trim(),
+          receiptWeekStartDay: Number(receiptWeekStartDay),
+        },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
         response.data && typeof response.data === 'object'
-          ? (response.data as Record<string, unknown>)
+          ? response.data
           : null,
       );
       setMessage(
@@ -140,12 +150,16 @@ export default function AdminBranchesPage() {
       setActionMessage(`Updating branch ${selectedId}…`);
       const response = await branchesControllerUpdateBranchV1(
         selectedId,
-        { name: name.trim(), timezone: timezone.trim() },
+        {
+          name: name.trim(),
+          timezone: timezone.trim(),
+          receiptWeekStartDay: Number(receiptWeekStartDay),
+        },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
         response.data && typeof response.data === 'object'
-          ? (response.data as Record<string, unknown>)
+          ? response.data
           : null,
       );
       setMessage(
@@ -167,6 +181,7 @@ export default function AdminBranchesPage() {
         ['Receipt week start', selectedBranch.receiptWeekStartDay ?? '—'],
         ['Selected name', name || 'Enter branch name'],
         ['Selected timezone', timezone || 'Enter timezone'],
+        ['Selected receipt week start', receiptWeekStartDay || 'Enter weekday'],
       ]
     : [];
 
@@ -214,6 +229,15 @@ export default function AdminBranchesPage() {
             placeholder="Timezone"
             value={timezone}
             onChange={(event) => setTimezone(event.target.value)}
+          />
+          <Input
+            aria-label="Receipt week start day"
+            type="number"
+            min={0}
+            max={6}
+            placeholder="0-6"
+            value={receiptWeekStartDay}
+            onChange={(event) => setReceiptWeekStartDay(event.target.value)}
           />
         </div>
         <Input

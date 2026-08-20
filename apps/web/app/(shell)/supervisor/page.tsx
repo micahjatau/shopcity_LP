@@ -87,7 +87,7 @@ export default function SupervisorPage() {
             tone="success"
           />
           <StatusBadge label="Investigative" tone="info" />
-          <StatusBadge label="Route-backed" tone="neutral" />
+          <StatusBadge label="Materialization visible" tone="neutral" />
         </div>
       </header>
 
@@ -154,7 +154,7 @@ export default function SupervisorPage() {
         <ReportsWorkspace
           canRefreshReports={false}
           canUseAuditReport={false}
-          canUseMaterializationState={false}
+          canUseMaterializationState={true}
           canUsePilotOperationsSummary={false}
         />
       </article>

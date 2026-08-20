@@ -1,0 +1,2 @@
+schema: spec-driven
+goal: Close the frontend and contract gaps identified in docs/repo_review_53.md by making authentication, role gating, offline earn/sync, supervisor/admin operations, branch policy, release evidence, and deployment status truthful and production-safe.

@@ -103,7 +103,7 @@ export function PilotHealthPanel({
               tone:
                 (offlineSync.failureCount ?? 0) > 0
                   ? ('danger' as const)
-                  : ('warning' as const),
+                  : ('success' as const),
               detail:
                 (offlineSync.failureCount ?? 0) > 0
                   ? `${offlineSync.failureCount} failed`
@@ -342,24 +342,6 @@ const metricRow: CSSProperties = {
   justifyContent: 'space-between',
   gap: 'var(--sc-spacing-2)',
 };
-
-function renderValue(value: unknown): string {
-  if (value === null || value === undefined) return '—';
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => renderValue(item)).join(', ');
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
 
 const muted: CSSProperties = {
   margin: 0,

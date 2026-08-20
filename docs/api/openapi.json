@@ -1619,11 +1619,16 @@
                         },
                         "session": {
                           "type": "object",
-                          "required": ["expiresAt"],
+                          "required": ["expiresAt", "deviceId"],
                           "properties": {
                             "expiresAt": {
                               "type": "string",
                               "format": "date-time"
+                            },
+                            "deviceId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
                             }
                           }
                         }
@@ -2222,11 +2227,16 @@
                         },
                         "session": {
                           "type": "object",
-                          "required": ["expiresAt"],
+                          "required": ["expiresAt", "deviceId"],
                           "properties": {
                             "expiresAt": {
                               "type": "string",
                               "format": "date-time"
+                            },
+                            "deviceId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
                             }
                           }
                         }
@@ -3387,11 +3397,16 @@
                         },
                         "session": {
                           "type": "object",
-                          "required": ["expiresAt"],
+                          "required": ["expiresAt", "deviceId"],
                           "properties": {
                             "expiresAt": {
                               "type": "string",
                               "format": "date-time"
+                            },
+                            "deviceId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
                             }
                           }
                         }

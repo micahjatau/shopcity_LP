@@ -8,10 +8,7 @@ const frontendBaseUrl =
   process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 const adminUsername =
   process.env.SHOPCITY_LIVE_ADMIN_USERNAME ?? 'admin@shopcity.local';
-const adminPassword =
-  process.env.DEFAULT_ADMIN_PASSWORD ??
-  process.env.SHOPCITY_LIVE_ADMIN_PASSWORD ??
-  'microx009';
+const adminPassword = process.env.SHOPCITY_LIVE_ADMIN_PASSWORD;
 const cashierUsername =
   process.env.SHOPCITY_LIVE_CASHIER_USERNAME ?? 'cashier-live@shopcity.local';
 const supervisorUsername =
@@ -23,6 +20,18 @@ function requireLive() {
     !liveEnabled,
     'Set SHOPCITY_LIVE_E2E=1 to run the backend-connected E2E suite.',
   );
+
+  if (!adminPassword) {
+    throw new Error('SHOPCITY_LIVE_ADMIN_PASSWORD is required for live E2E.');
+  }
+}
+
+function getAdminPassword() {
+  if (!adminPassword) {
+    throw new Error('SHOPCITY_LIVE_ADMIN_PASSWORD is required for live E2E.');
+  }
+
+  return adminPassword;
 }
 
 test.describe('backend-connected frontend flows', () => {
@@ -35,7 +44,7 @@ test.describe('backend-connected frontend flows', () => {
   }) => {
     await ensureSeeded(page);
 
-    await login(page, adminUsername, adminPassword);
+    await login(page, adminUsername, getAdminPassword());
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin$/);
     await expect(
@@ -68,7 +77,7 @@ test.describe('backend-connected frontend flows', () => {
 
     await login(page, adminUsername, 'wrong-password', 401);
 
-    await login(page, adminUsername, adminPassword);
+    await login(page, adminUsername, getAdminPassword());
     const cookies = await page.context().cookies();
     const sessionCookie = cookies.find(
       (cookie) => cookie.name === 'shopcity_session',
@@ -110,7 +119,7 @@ test.describe('backend-connected frontend flows', () => {
   }) => {
     await ensureSeeded(page);
 
-    const adminSession = await login(page, adminUsername, adminPassword);
+    const adminSession = await login(page, adminUsername, getAdminPassword());
     const uniqueSuffix = Date.now().toString(36);
     const cashierAccount = `cashier-live-${uniqueSuffix}@shopcity.local`;
     const supervisorAccount = `supervisor-live-${uniqueSuffix}@shopcity.local`;

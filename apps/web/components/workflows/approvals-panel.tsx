@@ -37,13 +37,46 @@ export function ApprovalsPanel() {
     string,
     unknown
   > | null>(null);
+  const [limit, setLimit] = useState(3);
+  const [cursorHistory, setCursorHistory] = useState<string[]>(['']);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const selectedItem = useMemo(
-    () => items.find((item) => item.id === selectedId) ?? null,
-    [items, selectedId],
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        const matchesStatus =
+          statusFilter === 'ALL' || item.status === statusFilter;
+        const haystack = [
+          item.id,
+          item.customer?.fullName,
+          item.customerId,
+          item.reasonCode,
+          item.ruleCode,
+          item.branchId,
+          item.referenceNumber,
+          item.receipt ? JSON.stringify(item.receipt) : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        const matchesSearch =
+          !searchTerm.trim() ||
+          haystack.includes(searchTerm.trim().toLowerCase());
+        return matchesStatus && matchesSearch;
+      }),
+    [items, searchTerm, statusFilter],
   );
 
-  const pendingCount = items.filter((item) => item.status === 'PENDING').length;
+  const selectedItem = useMemo(
+    () => filteredItems.find((item) => item.id === selectedId) ?? null,
+    [filteredItems, selectedId],
+  );
+
+  const pendingCount = filteredItems.filter(
+    (item) => item.status === 'PENDING',
+  ).length;
   const selectedPreview: Array<[string, unknown]> = selectedItem
     ? [
         [
@@ -63,16 +96,19 @@ export function ApprovalsPanel() {
       ]
     : [];
 
-  async function refresh() {
+  async function refresh(cursorOverride?: string) {
     setLoading(true);
     try {
+      const activeCursor =
+        cursorOverride ?? cursorHistory[cursorHistory.length - 1] ?? '';
       const response = await approvalsControllerListApprovalsV1(
-        { limit: '3', cursor: '' },
+        { limit: String(limit), cursor: activeCursor },
         createApiRequest({ csrf: true }),
       );
       if (response.status === 200) {
         const nextItems = response.data.data.items as ApprovalRecord[];
         setItems(nextItems);
+        setNextCursor(response.data.data.nextCursor ?? null);
         setSelectedId(nextItems[0]?.id ?? null);
         setResponseData(null);
         setMessage(`Loaded ${nextItems.length} approvals.`);
@@ -88,7 +124,7 @@ export function ApprovalsPanel() {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [limit]);
 
   async function handleDecision() {
     if (!selectedId || !reason.trim()) {
@@ -104,19 +140,30 @@ export function ApprovalsPanel() {
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );
     setResponseData(
-      response.data && typeof response.data === 'object'
-        ? (response.data as Record<string, unknown>)
-        : null,
+      response.data && typeof response.data === 'object' ? response.data : null,
     );
     setMessage(`Decision sent for ${selectedId}.`);
     void refresh();
+  }
+
+  async function goToNextPage() {
+    if (!nextCursor) return;
+    setCursorHistory((current) => [...current, nextCursor]);
+    await refresh(nextCursor);
+  }
+
+  async function goToPreviousPage() {
+    if (cursorHistory.length <= 1) return;
+    const nextHistory = cursorHistory.slice(0, -1);
+    setCursorHistory(nextHistory);
+    await refresh(nextHistory[nextHistory.length - 1] ?? '');
   }
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <h2 style={{ margin: 0 }}>Approvals panel</h2>
       <div style={statusRow}>
-        <StatusBadge label={`Loaded ${items.length}`} tone="info" />
+        <StatusBadge label={`Loaded ${filteredItems.length}`} tone="info" />
         <StatusBadge label={`Pending ${pendingCount}`} tone="warning" />
         <StatusBadge
           label={selectedItem ? 'Selected' : 'No selection'}
@@ -131,12 +178,48 @@ export function ApprovalsPanel() {
       </div>
 
       <div style={toolbarRow}>
+        <Input
+          aria-label="Approval search"
+          placeholder="Search current page"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+        <Input
+          aria-label="Approval page size"
+          type="number"
+          min={1}
+          max={20}
+          value={limit}
+          onChange={(event) => setLimit(Number(event.target.value) || 3)}
+        />
+        <Input
+          aria-label="Approval status filter"
+          placeholder="ALL or PENDING"
+          value={statusFilter}
+          onChange={(event) =>
+            setStatusFilter(event.target.value.toUpperCase())
+          }
+        />
         <Button
           variant="secondary"
           onClick={() => void refresh()}
           loading={loading}
         >
           Refresh approvals
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => void goToPreviousPage()}
+          disabled={cursorHistory.length <= 1 || loading}
+        >
+          Previous page
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => void goToNextPage()}
+          disabled={!nextCursor || loading}
+        >
+          Next page
         </Button>
         <Button
           onClick={() => void handleDecision()}
@@ -200,13 +283,13 @@ export function ApprovalsPanel() {
         </div>
       ) : null}
 
-      {items.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <Alert tone="warning" title="No approvals">
           No approval records matched the current filters.
         </Alert>
       ) : (
         <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-          {items.slice(0, 3).map((item) => (
+          {filteredItems.slice(0, 3).map((item) => (
             <button
               key={approvalKey(item)}
               type="button"
@@ -332,7 +415,7 @@ function describeValue(value: unknown) {
     }
     return JSON.stringify(record);
   }
-  return String(value);
+  return JSON.stringify(value) ?? '';
 }
 
 const cardStyle: CSSProperties = {

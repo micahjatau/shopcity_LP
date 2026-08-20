@@ -49,14 +49,20 @@ type EarnTransactionFormProps = {
   };
   policyContext?: CashierPolicyContext | null;
   cashierId?: string | null;
+  deviceId?: string | null;
   branchId?: string | null;
+  branchTimezone?: string | null;
+  receiptWeekStartDay?: number | null;
 };
 
 export function EarnTransactionForm({
   lookupContext,
   policyContext,
   cashierId,
+  deviceId,
   branchId,
+  branchTimezone,
+  receiptWeekStartDay,
 }: EarnTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
@@ -220,7 +226,7 @@ export function EarnTransactionForm({
         );
         setResponseData(
           response.data && typeof response.data === 'object'
-            ? (response.data as Record<string, unknown>)
+            ? response.data
             : null,
         );
         if (typeof window !== 'undefined') {
@@ -242,24 +248,37 @@ export function EarnTransactionForm({
       setStatus('error');
       setMessage('Earn could not be submitted.');
       try {
-        await saveOfflineEarnRecord({
+        const offlineResult = await saveOfflineEarnRecord({
           localId: crypto.randomUUID(),
           idempotencyKey: idempotencyKeyRef.current,
-          cashierId: cashierId ?? 'unknown-cashier',
-          branchId: branchId ?? lookupContext?.branchId ?? 'unknown-branch',
-          deviceId: undefined,
+          cashierId: cashierId ?? '',
+          branchId: branchId ?? lookupContext?.branchId ?? '',
+          deviceId: deviceId ?? undefined,
           customerId: lookupContext?.customerId ?? undefined,
           cardBarcode: cardSerialNumber.trim(),
           receiptNumber: receiptNumber.trim(),
-          receiptWeekStart: 'unknown',
+          receiptWeekStart: deriveReceiptWeekStart(
+            branchTimezone ?? null,
+            receiptWeekStartDay ?? null,
+            occurredAt,
+          ),
           purchaseAmountKobo: purchaseAmount ?? 0,
           occurredAtLocal: occurredAt,
-          syncState: 'saved-on-device',
+          syncState: 'waiting-to-sync',
           lastError: 'Earn request failed before reaching the backend.',
           serverTransactionId: null,
           serverApprovalId: null,
         });
-        setMessage('Earn could not be submitted. Saved locally for sync.');
+
+        if (offlineResult.ok) {
+          setStatus('pending');
+          setMessage('Earn could not be submitted. Saved locally for sync.');
+          return;
+        }
+
+        setMessage(
+          `Earn could not be saved locally for sync (${offlineResult.error}).`,
+        );
       } catch {
         // Keep the network error state if offline capture fails.
       }
@@ -268,7 +287,7 @@ export function EarnTransactionForm({
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(event) => void handleSubmit(event)}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
     >
       <Alert tone="info" title="Review before submit">
@@ -480,6 +499,53 @@ export function EarnTransactionForm({
       ) : null}
     </form>
   );
+}
+
+function deriveReceiptWeekStart(
+  timezone: string | null,
+  receiptWeekStartDay: number | null,
+  occurredAt: string,
+) {
+  if (
+    typeof receiptWeekStartDay !== 'number' ||
+    receiptWeekStartDay < 0 ||
+    receiptWeekStartDay > 6
+  ) {
+    return occurredAt;
+  }
+
+  const reference = new Date(occurredAt);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone ?? 'UTC',
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(reference);
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
+    parts.find((part) => part.type === 'weekday')?.value ?? '',
+  );
+  if (weekday < 0) {
+    return occurredAt;
+  }
+
+  const deltaDays = (7 + weekday - receiptWeekStartDay) % 7;
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone ?? 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(reference);
+  const year = Number(dateParts.find((part) => part.type === 'year')?.value);
+  const month = Number(dateParts.find((part) => part.type === 'month')?.value);
+  const day = Number(dateParts.find((part) => part.type === 'day')?.value);
+  if (!year || !month || !day) {
+    return occurredAt;
+  }
+
+  const localDate = new Date(Date.UTC(year, month - 1, day));
+  localDate.setUTCDate(localDate.getUTCDate() - deltaDays);
+  return localDate.toISOString();
 }
 
 function renderValue(value: unknown) {

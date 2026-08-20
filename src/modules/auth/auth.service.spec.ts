@@ -49,6 +49,7 @@ describe('AuthService', () => {
       },
       session: {
         expiresAt: '2026-07-19T00:00:00.000Z',
+        deviceId: null,
       },
     });
   });

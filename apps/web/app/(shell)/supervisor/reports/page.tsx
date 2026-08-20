@@ -54,7 +54,7 @@ export default function SupervisorReportsPage() {
         </div>
         <div style={statusRow}>
           <StatusBadge label="Filterable" tone="success" />
-          <StatusBadge label="Refreshable" tone="info" />
+          <StatusBadge label="Read-only materialization" tone="info" />
           <StatusBadge label="Exportable" tone="neutral" />
         </div>
       </section>
@@ -77,7 +77,7 @@ export default function SupervisorReportsPage() {
           <ReportsWorkspace
             canRefreshReports={false}
             canUseAuditReport={false}
-            canUseMaterializationState={false}
+            canUseMaterializationState={true}
             canUsePilotOperationsSummary={false}
           />
         </section>

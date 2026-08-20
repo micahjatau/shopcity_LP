@@ -10,7 +10,6 @@ const routeByRole = {
   CASHIER: '/cashier',
   SUPERVISOR: '/supervisor',
   ADMIN: '/admin',
-  SYSTEM: '/admin',
 } as const;
 
 export function LoginForm() {
@@ -38,6 +37,14 @@ export function LoginForm() {
       }
 
       const role = response.data.data.user.role;
+      if (role === 'SYSTEM') {
+        setStatus('error');
+        setMessage(
+          'SYSTEM sessions are not available in the interactive UI. Use a machine-attested session instead.',
+        );
+        return;
+      }
+
       setStatus('success');
       router.replace(routeByRole[role] ?? '/cashier');
       router.refresh();
@@ -49,7 +56,7 @@ export function LoginForm() {
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(event) => void handleSubmit(event)}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
     >
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>

@@ -959,6 +959,8 @@ export type AuthControllerLoginV1200DataUser = {
 
 export type AuthControllerLoginV1200DataSession = {
   expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
 };
 
 export type AuthControllerLoginV1200Data = {
@@ -1215,6 +1217,8 @@ export type AuthControllerRefreshV1200DataUser = {
 
 export type AuthControllerRefreshV1200DataSession = {
   expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
 };
 
 export type AuthControllerRefreshV1200Data = {
@@ -1701,6 +1705,8 @@ export type AuthControllerMeV1200DataUser = {
 
 export type AuthControllerMeV1200DataSession = {
   expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
 };
 
 export type AuthControllerMeV1200Data = {

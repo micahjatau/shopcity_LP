@@ -28,7 +28,7 @@ const routeLinks = [
 const queueNotes = [
   [
     'Local queue first',
-    'Review waiting, retryable, and approval-bound records before submitting the batch.',
+    'Review waiting, saved, retryable, and approval-bound records before submitting the batch.',
   ],
   [
     'Backend reconciliation',
@@ -39,8 +39,6 @@ const queueNotes = [
     'Retry and cleanup stay inside this queue-focused route instead of hidden shell state.',
   ],
 ] as const;
-
-const DEVICE_ID_STORAGE_KEY = 'shopcity-sync-device-id-v1';
 
 export default function CashierSyncPage() {
   const [records, setRecords] = useState<OfflineEarnRecord[]>([]);
@@ -56,7 +54,7 @@ export default function CashierSyncPage() {
     string,
     unknown
   > | null>(null);
-  const { sessionLabel } = useSessionBootstrapState();
+  const { deviceId: sessionDeviceId } = useSessionBootstrapState();
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.localId === selectedLocalId) ?? null,
@@ -68,7 +66,8 @@ export default function CashierSyncPage() {
       records.filter(
         (record) =>
           record.syncState === 'waiting-to-sync' ||
-          record.syncState === 'retry-required',
+          record.syncState === 'retry-required' ||
+          record.syncState === 'saved-on-device',
       ),
     [records],
   );
@@ -111,7 +110,7 @@ export default function CashierSyncPage() {
         ['State', selectedRecord.syncState],
         ['Server transaction', selectedRecord.serverTransactionId ?? '—'],
         ['Server approval', selectedRecord.serverApprovalId ?? '—'],
-        ['Device', deviceId || 'Derived automatically'],
+        ['Device', deviceId || 'Authenticated device unavailable'],
         ['Last error', selectedRecord.lastError ?? '—'],
       ]
     : [];
@@ -129,34 +128,24 @@ export default function CashierSyncPage() {
   }
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedDeviceId = window.localStorage.getItem(DEVICE_ID_STORAGE_KEY);
-      if (storedDeviceId) {
-        setDeviceId(storedDeviceId);
-      } else if (sessionLabel) {
-        setDeviceId(sessionLabel);
-        window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, sessionLabel);
-      } else {
-        const nextDeviceId = `device-${crypto.randomUUID()}`;
-        setDeviceId(nextDeviceId);
-        window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, nextDeviceId);
-      }
-    }
+    setDeviceId(sessionDeviceId ?? '');
 
     void refresh();
     return subscribeOfflineQueue(() => {
       void refresh();
     });
-  }, [sessionLabel]);
+  }, [sessionDeviceId]);
 
   async function syncBatch() {
     if (!deviceId.trim()) {
-      setMessage('Enter a device ID before submitting the batch.');
+      setMessage(
+        'Authenticated device ID is unavailable. Reconnect the session.',
+      );
       return;
     }
 
     if (queueableRecords.length === 0) {
-      setMessage('No waiting or retryable offline records to sync.');
+      setMessage('No waiting, saved, or retryable offline records to sync.');
       return;
     }
 
@@ -184,7 +173,7 @@ export default function CashierSyncPage() {
       );
       setActionResponse(
         response.data && typeof response.data === 'object'
-          ? (response.data as Record<string, unknown>)
+          ? response.data
           : null,
       );
 
@@ -313,7 +302,7 @@ export default function CashierSyncPage() {
         <div style={controlRow}>
           <Input
             aria-label="Device ID"
-            placeholder="Derived automatically"
+            placeholder="Authenticated device"
             value={deviceId}
             readOnly
           />
@@ -325,7 +314,9 @@ export default function CashierSyncPage() {
           </Button>
         </div>
         <p style={muted}>{message}</p>
-        <p style={muted}>Device ID: {deviceId || 'Derived automatically'}</p>
+        <p style={muted}>
+          Device ID: {deviceId || 'Unavailable until device-bound login'}
+        </p>
         <p style={muted}>
           Batchable records will be sent in a single backend reconciliation
           request.
@@ -586,6 +577,7 @@ function toneForState(state: OfflineEarnRecord['syncState']) {
   if (state === 'awaiting-approval') return 'warning';
   if (state === 'rejected') return 'danger';
   if (state === 'retry-required') return 'warning';
+  if (state === 'saved-on-device') return 'info';
   if (state === 'syncing') return 'neutral';
   return 'info';
 }

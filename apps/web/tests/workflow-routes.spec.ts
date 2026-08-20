@@ -8,7 +8,7 @@ const sessionByRole = {
       role: 'CASHIER',
       branchId: 'branch-1',
     },
-    session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    session: { expiresAt: '2030-01-01T00:00:00.000Z', deviceId: null },
   },
   SUPERVISOR: {
     user: {
@@ -17,7 +17,7 @@ const sessionByRole = {
       role: 'SUPERVISOR',
       branchId: 'branch-1',
     },
-    session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    session: { expiresAt: '2030-01-01T00:00:00.000Z', deviceId: null },
   },
 } as const;
 
@@ -41,7 +41,7 @@ test.describe('workflow route coverage', () => {
     await expect(page.getByLabel('Device ID')).toHaveAttribute('readonly', '');
     await expect(page.getByLabel('Device ID')).toHaveAttribute(
       'placeholder',
-      'Derived automatically',
+      'Authenticated device',
     );
   });
 

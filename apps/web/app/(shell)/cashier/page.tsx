@@ -71,6 +71,7 @@ type CashierPolicyConfig = {
     id?: string;
     name?: string;
     timezone?: string;
+    receiptWeekStartDay?: number;
   };
   policies?: {
     defaultEarnRateBps?: number;
@@ -113,7 +114,7 @@ export default function CashierPage() {
     null,
   );
   const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
-  const { sessionLabel } = useSessionBootstrapState();
+  const { userId, deviceId } = useSessionBootstrapState();
 
   const customerId = useMemo(
     () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
@@ -191,7 +192,7 @@ export default function CashierPage() {
     event.preventDefault();
     const query = lookupValue.trim();
     if (!query) {
-      setLookupMessage('Enter a card serial or receipt first.');
+      setLookupMessage('Enter a card serial number first.');
       setLookupRecord(null);
       return;
     }
@@ -246,6 +247,13 @@ export default function CashierPage() {
       ]
     : [];
 
+  const policyContext = policyConfig?.policies ?? null;
+  const branchContext = policyConfig?.branch ?? null;
+  const tenantContext = policyConfig?.tenant ?? null;
+  const branchReceiptWeekStartDay =
+    typeof branchContext?.receiptWeekStartDay === 'number'
+      ? branchContext.receiptWeekStartDay
+      : null;
   const lookupContext = lookupRecord
     ? {
         cardSerialNumber:
@@ -261,9 +269,6 @@ export default function CashierPage() {
         branchId: lookupRecord.branchId ?? policyConfig?.branch?.id,
       }
     : undefined;
-  const policyContext = policyConfig?.policies ?? null;
-  const branchContext = policyConfig?.branch ?? null;
-  const tenantContext = policyConfig?.tenant ?? null;
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
@@ -379,11 +384,11 @@ export default function CashierPage() {
         <article style={cardStyle} aria-label="Lookup and status">
           <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
           <form
-            onSubmit={handleLookup}
+            onSubmit={(event) => void handleLookup(event)}
             style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
           >
             <Input
-              placeholder="Scan card serial or receipt"
+              placeholder="Scan card serial number"
               aria-label="Lookup"
               value={lookupValue}
               onChange={(event) => setLookupValue(event.target.value)}
@@ -423,8 +428,11 @@ export default function CashierPage() {
           <EarnTransactionForm
             lookupContext={lookupContext}
             policyContext={policyContext}
-            cashierId={sessionLabel?.split(' · ')[1] ?? sessionLabel ?? null}
+            cashierId={userId}
+            deviceId={deviceId}
             branchId={policyConfig?.branch?.id ?? null}
+            branchTimezone={branchContext?.timezone ?? null}
+            receiptWeekStartDay={branchReceiptWeekStartDay}
           />
         </article>
 
@@ -433,7 +441,7 @@ export default function CashierPage() {
           <RedeemTransactionForm
             lookupContext={lookupContext}
             policyContext={policyContext}
-            cashierId={sessionLabel?.split(' · ')[1] ?? sessionLabel ?? null}
+            cashierId={userId}
             branchId={policyConfig?.branch?.id ?? null}
           />
         </article>
@@ -470,23 +478,25 @@ export default function CashierPage() {
                 <strong>Recent ledger</strong>
                 {Array.isArray(ledgerRecord?.items) &&
                 ledgerRecord.items.length > 0 ? (
-                  ledgerRecord.items.slice(0, 4).map((item) => (
-                    <div
-                      key={item.id ?? item.type ?? JSON.stringify(item)}
-                      style={statRow}
-                    >
-                      <span>
-                        {item.type ?? item.transactionType ?? 'Entry'}
-                      </span>
-                      <span>
-                        {item.amountKobo ? (
-                          <Money amountKobo={item.amountKobo} />
-                        ) : (
-                          '—'
-                        )}
-                      </span>
-                    </div>
-                  ))
+                  ledgerRecord.items.slice(0, 4).map((item) => {
+                    const ledgerKey = String(
+                      item.id ?? item.type ?? item.transactionType ?? 'Entry',
+                    );
+                    return (
+                      <div key={ledgerKey} style={statRow}>
+                        <span>
+                          {item.type ?? item.transactionType ?? 'Entry'}
+                        </span>
+                        <span>
+                          {item.amountKobo ? (
+                            <Money amountKobo={item.amountKobo} />
+                          ) : (
+                            '—'
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })
                 ) : (
                   <p style={muted}>
                     Ledger history will appear once the customer is loaded.
