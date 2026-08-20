@@ -112,8 +112,10 @@ test.describe('contract-faithful frontend flows', () => {
     const redeem = page.getByRole('article', { name: /redeem transaction/i });
     await redeem.getByLabel('Card serial number').fill('CARD-123');
     await redeem.getByLabel('POS receipt number').fill('RCPT-124');
-    await redeem.getByLabel('Basket amount').fill('500.00');
-    await redeem.getByLabel('Requested redemption').fill('200.00');
+    await redeem.getByLabel('Basket amount').fill('1,000.00');
+    await redeem.getByLabel('Basket amount').blur();
+    await redeem.getByLabel('Requested redemption').fill('50.00');
+    await redeem.getByLabel('Requested redemption').blur();
     await redeem.getByLabel('Occurred at').fill('2030-01-01T12:00');
     await redeem.getByRole('button', { name: /submit redemption/i }).click();
     await expect(redeem).toContainText(/redemption awaiting approval/i);
@@ -222,7 +224,7 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/supervisor');
+    await page.goto('/supervisor', { waitUntil: 'domcontentloaded' });
     await expect(
       page.getByRole('heading', { name: /supervisor shell/i }),
     ).toBeVisible();
@@ -231,6 +233,13 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(
       page.getByRole('article', { name: /fraud review/i }),
     ).toContainText(/loaded 1 fraud flags/i);
+    await page
+      .getByRole('button', { name: /HIGH_VALUE OPEN Amina Bello/i })
+      .click();
+    await page
+      .getByRole('article', { name: /fraud review/i })
+      .getByLabel('Fraud decision reason')
+      .fill('supervisor shell review');
     await page
       .getByRole('article', { name: /fraud review/i })
       .getByRole('button', { name: /submit decision/i })
@@ -336,7 +345,10 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/admin');
+    await Promise.all([
+      page.waitForURL(/\/admin(?:\/.*)?$/),
+      page.goto('/admin').catch(() => undefined),
+    ]);
     await expect(
       page.getByRole('heading', { name: /admin shell/i }),
     ).toBeVisible();
@@ -428,7 +440,7 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/supervisor');
+    await page.goto('/supervisor', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText(/No approvals/i)).toBeVisible();
     await expect(page.getByText(/No fraud flags/i)).toBeVisible();
     await expect(page.getByText(/No report rows/i)).toBeVisible();
@@ -489,7 +501,10 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/admin');
+    await Promise.all([
+      page.waitForURL(/\/admin(?:\/.*)?$/),
+      page.goto('/admin').catch(() => undefined),
+    ]);
     await expect(page.getByText(/No users/i)).toBeVisible();
     await expect(page.getByText(/No devices/i)).toBeVisible();
     await expect(page.getByText(/No audit rows/i)).toBeVisible();

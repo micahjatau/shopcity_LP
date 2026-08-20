@@ -30,9 +30,9 @@ test.describe('workflow route coverage', () => {
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
     await expect(page.getByText(/read-only customer view/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /assign card/i })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole('button', { name: /assign card/i }),
+    ).toHaveCount(0);
 
     await page.goto('/cashier/sync');
     await expect(
@@ -45,32 +45,42 @@ test.describe('workflow route coverage', () => {
     );
   });
 
-  test('covers supervisor customer, card, and reports routes', async ({ page }) => {
+  test('covers supervisor customer, card, and reports routes', async ({
+    page,
+  }) => {
     await mockShell(page, 'SUPERVISOR');
 
     await page.goto('/supervisor/customers');
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
-    await expect(page.getByText(/manage customer and card state/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /assign card/i })).toBeVisible();
+    await expect(
+      page.getByText(/manage customer and card state/i),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /assign card/i }),
+    ).toBeVisible();
 
     await page.goto('/supervisor/cards');
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
-    await expect(page.getByText(/manage customer and card state/i)).toBeVisible();
+    await expect(
+      page.getByText(/manage customer and card state/i),
+    ).toBeVisible();
 
     await page.goto('/supervisor/reports');
     await expect(
       page.getByRole('heading', { name: 'Reports', exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: /refresh materialization/i })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: /refresh materialization/i }),
+    ).toBeDisabled();
     const reportOptions = await page
       .getByLabel('Report', { exact: true })
       .evaluate((element) =>
-        Array.from((element as HTMLSelectElement).options).map((option) =>
-          option.textContent?.trim() ?? '',
+        Array.from((element as HTMLSelectElement).options).map(
+          (option) => option.textContent?.trim() ?? '',
         ),
       );
     expect(reportOptions).not.toContain('Audit report');
@@ -94,8 +104,13 @@ async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
       );
     }
 
-    if (pathname === '/api/v1/auth/refresh' || pathname === '/api/v1/auth/logout') {
-      return route.fulfill(json({ success: true, data: null, meta: meta(pathname) }));
+    if (
+      pathname === '/api/v1/auth/refresh' ||
+      pathname === '/api/v1/auth/logout'
+    ) {
+      return route.fulfill(
+        json({ success: true, data: null, meta: meta(pathname) }),
+      );
     }
 
     if (pathname === '/api/v1/config/public') {
@@ -222,7 +237,10 @@ async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
       );
     }
 
-    if (pathname.startsWith('/api/v1/reports/') && pathname.endsWith('/export')) {
+    if (
+      pathname.startsWith('/api/v1/reports/') &&
+      pathname.endsWith('/export')
+    ) {
       return route.fulfill({
         status: 200,
         headers: { 'content-type': 'text/csv; charset=utf-8' },

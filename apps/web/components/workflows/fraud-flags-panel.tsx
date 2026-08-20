@@ -61,7 +61,8 @@ export function FraudFlagsPanel() {
   const filteredItems = useMemo(
     () =>
       items.filter((item) => {
-        if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
+        if (statusFilter !== 'ALL' && item.status !== statusFilter)
+          return false;
         if (severityFilter !== 'ALL' && item.severity !== severityFilter)
           return false;
         if (
@@ -81,7 +82,9 @@ export function FraudFlagsPanel() {
     [filteredItems, selectedId],
   );
 
-  const openCount = filteredItems.filter((item) => item.status === 'OPEN').length;
+  const openCount = filteredItems.filter(
+    (item) => item.status === 'OPEN',
+  ).length;
   const highSeverityCount = filteredItems.filter(
     (item) => item.severity === 'HIGH',
   ).length;

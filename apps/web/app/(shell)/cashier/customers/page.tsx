@@ -14,6 +14,7 @@ import {
   loyaltyControllerGetCustomerLedgerV1,
   type CustomersControllerListCustomersV1Params,
   type LoyaltyControllerGetCustomerLedgerV1Params,
+  type LoyaltyControllerGetCustomerLedgerV1200Data,
   type UpdateCardStatusDtoStatus,
   type UpdateCustomerStatusDtoStatus,
 } from '../../../../lib/api/generated-client';
@@ -84,7 +85,8 @@ export default function CashierCustomersPage() {
   const [items, setItems] = useState<CustomerRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
-  const [ledger, setLedger] = useState<any | null>(null);
+  const [ledger, setLedger] =
+    useState<LoyaltyControllerGetCustomerLedgerV1200Data | null>(null);
   const [cardSerialNumber, setCardSerialNumber] = useState('');
   const [replacementSerialNumber, setReplacementSerialNumber] = useState('');
   const [cardStatus, setCardStatus] =
@@ -162,7 +164,10 @@ export default function CashierCustomersPage() {
       try {
         const ledgerResponse = await loyaltyControllerGetCustomerLedgerV1(
           customerId,
-          { limit: '5', cursor: '' } satisfies LoyaltyControllerGetCustomerLedgerV1Params,
+          {
+            limit: '5',
+            cursor: '',
+          } satisfies LoyaltyControllerGetCustomerLedgerV1Params,
           createApiRequest({ csrf: true }),
         );
         if (!ignore && ledgerResponse.status === 200) {
@@ -184,7 +189,11 @@ export default function CashierCustomersPage() {
     setMessage(term ? `Searching for ${term}…` : 'Loading customers…');
     try {
       const response = await customersControllerListCustomersV1(
-        { q: term, limit: '10', cursor: '' } satisfies CustomersControllerListCustomersV1Params,
+        {
+          q: term,
+          limit: '10',
+          cursor: '',
+        } satisfies CustomersControllerListCustomersV1Params,
         createApiRequest({ csrf: true }),
       );
       setActionResponse(
@@ -582,10 +591,10 @@ export default function CashierCustomersPage() {
               <Alert tone="info" title="History">
                 Recent ledger entries are shown below.
               </Alert>
-              {Array.isArray(ledger?.items) && ledger.items.length > 0 ? (
-                ledger.items.slice(0, 5).map((item: any) => (
+              {ledger?.items && ledger.items.length > 0 ? (
+                ledger.items.slice(0, 5).map((item) => (
                   <div key={item.id ?? JSON.stringify(item)} style={statRow}>
-                    <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
+                    <span>{item.type ?? 'Entry'}</span>
                     <span>
                       {item.amountKobo ? (
                         <Money amountKobo={item.amountKobo} />

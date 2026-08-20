@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import axe from 'axe-core';
+import * as axe from 'axe-core';
 import HomePage from '../app/page';
 import LoginPage from '../app/(auth)/login/page';
 import CashierPage from '../app/(shell)/cashier/page';
@@ -14,7 +14,7 @@ async function runAxe(container: HTMLElement) {
   documentElement.lang = 'en';
   container.ownerDocument.title = 'ShopCity';
 
-  const { violations } = await (axe as any).run(container.ownerDocument, {
+  const { violations } = await axe.run(container.ownerDocument, {
     elementRef: container,
     rules: {
       'color-contrast': { enabled: false },

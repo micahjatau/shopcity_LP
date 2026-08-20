@@ -17,7 +17,11 @@ import {
   RadioGroup,
   Table,
 } from '../../../../components/ui';
-import { Money, StatusBadge, type StatusTone } from '../../../../components/shopcity';
+import {
+  Money,
+  StatusBadge,
+  type StatusTone,
+} from '../../../../components/shopcity';
 
 const routeLinks = [
   ['/admin/users', 'Users'],
@@ -25,6 +29,15 @@ const routeLinks = [
   ['/admin/branches', 'Branches'],
   ['/admin/audit', 'Audit'],
 ] as const;
+
+type CardRecord = {
+  id?: string;
+  serialNumber?: string;
+  customerId?: string;
+  customer?: { fullName?: string };
+  status?: string;
+  availableBalanceKobo?: number;
+};
 
 export default function AdminCardsPage() {
   const [serialNumber, setSerialNumber] = useState('');
@@ -43,7 +56,7 @@ export default function AdminCardsPage() {
     string,
     unknown
   > | null>(null);
-  const [card, setCard] = useState<any | null>(null);
+  const [card, setCard] = useState<CardRecord | null>(null);
   const [busy, setBusy] = useState(false);
 
   const cardStatusTone = useMemo<StatusTone>(() => {
@@ -296,10 +309,7 @@ export default function AdminCardsPage() {
               <StatusBadge label={String(card.serialNumber)} tone="info" />
             ) : null}
             {card?.status ? (
-              <StatusBadge
-                label={String(card.status)}
-                tone={cardStatusTone}
-              />
+              <StatusBadge label={String(card.status)} tone={cardStatusTone} />
             ) : null}
             {card?.customer?.fullName ? (
               <StatusBadge

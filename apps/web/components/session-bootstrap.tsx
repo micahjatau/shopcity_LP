@@ -14,7 +14,7 @@ export type SessionBootstrapState = {
   sessionLabel: string | null;
 };
 
-export function useSessionBootstrapState() {
+export function useSessionBootstrapState(refreshKey: string | number = 0) {
   const [state, setState] = useState<SessionBootstrapState>({
     status: 'loading',
     role: null,
@@ -23,6 +23,11 @@ export function useSessionBootstrapState() {
 
   useEffect(() => {
     let ignore = false;
+    setState({
+      status: 'loading',
+      role: null,
+      sessionLabel: null,
+    });
 
     async function run() {
       try {
@@ -53,7 +58,7 @@ export function useSessionBootstrapState() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   return state;
 }

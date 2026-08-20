@@ -15,6 +15,7 @@ import {
 import {
   logoutSession,
   configurationControllerGetPublicConfigV1,
+  type ConfigurationControllerGetPublicConfigV1200Data,
 } from '../lib/api';
 import { createApiRequest } from '../lib/api/request';
 
@@ -58,11 +59,15 @@ function matchesRoute(pathname: string | null, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+type PublicConfig = ConfigurationControllerGetPublicConfigV1200Data;
+
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const { status, role, sessionLabel } = useSessionBootstrapState();
-  const [publicConfig, setPublicConfig] = useState<any | null>(null);
+  const { status, role, sessionLabel } = useSessionBootstrapState(
+    pathname ?? 0,
+  );
+  const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
   const [configMessage, setConfigMessage] = useState('Loading public context…');
 
   useEffect(() => {
@@ -365,7 +370,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 {typeof context?.branch?.receiptWeekStartDay === 'number'
                   ? `Receipt week starts ${context.branch.receiptWeekStartDay}`
                   : 'Receipt week start pending'}
-                {typeof context?.policies?.offlineRedemptionDisabled === 'boolean'
+                {typeof context?.policies?.offlineRedemptionDisabled ===
+                'boolean'
                   ? context.policies.offlineRedemptionDisabled
                     ? ' · Offline redemption disabled'
                     : ' · Offline redemption available'

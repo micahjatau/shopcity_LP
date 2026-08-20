@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   loyaltyControllerGetTransactionV1,
   reversalsControllerReverseV1,
+  type LoyaltyControllerGetTransactionV1200Data,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
 import {
@@ -23,6 +24,20 @@ const relatedRoutes = [
   ['/supervisor/reports', 'Reports'],
 ] as const;
 
+type TransactionRecord = LoyaltyControllerGetTransactionV1200Data & {
+  status?: string;
+  customer?: { fullName?: string };
+  cardSerialNumber?: string;
+  posReceiptNumber?: string;
+  creditKobo?: number;
+  availableBalanceKobo?: number;
+  amountKobo?: number;
+  reversal?: {
+    originalTransactionId?: string;
+    createdBy?: string;
+  };
+};
+
 export default function SupervisorTransactionsPage() {
   const [transactionId, setTransactionId] = useState('');
   const [reason, setReason] = useState('');
@@ -30,7 +45,9 @@ export default function SupervisorTransactionsPage() {
   const [message, setMessage] = useState(
     'Search a transaction by ID to inspect and reverse it.',
   );
-  const [transaction, setTransaction] = useState<any | null>(null);
+  const [transaction, setTransaction] = useState<TransactionRecord | null>(
+    null,
+  );
   const [responseData, setResponseData] = useState<Record<
     string,
     unknown
@@ -83,7 +100,7 @@ export default function SupervisorTransactionsPage() {
         createApiRequest({ csrf: true }),
       );
       if (response.status === 200) {
-        setTransaction(response.data.data);
+        setTransaction(response.data.data as TransactionRecord);
         setMessage(`Loaded transaction ${id}.`);
         return;
       }

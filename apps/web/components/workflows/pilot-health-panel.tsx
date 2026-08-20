@@ -14,10 +14,19 @@ const routeLinks = [
   ['/supervisor/reports', 'Supervisor reports'],
 ] as const;
 
+type PilotSummary = {
+  outbox?: { backlogCount?: number; staleCount?: number };
+  sms?: { failedCount?: number };
+  offlineSync?: { failureCount?: number };
+  fraud?: { openCount?: number };
+  reports?: { staleCount?: number };
+  reconciliation?: { healthy?: boolean; mismatchCount?: number };
+};
+
 export function PilotHealthPanel({
   compact = false,
 }: { compact?: boolean } = {}) {
-  const [summary, setSummary] = useState<any | null>(null);
+  const [summary, setSummary] = useState<PilotSummary | null>(null);
   const [message, setMessage] = useState('Loading pilot health…');
 
   useEffect(() => {
@@ -54,69 +63,74 @@ export function PilotHealthPanel({
   }, []);
 
   const reconciliationHealthy = summary?.reconciliation?.healthy === true;
+  const outbox = summary?.outbox ?? {};
+  const sms = summary?.sms ?? {};
+  const offlineSync = summary?.offlineSync ?? {};
+  const fraud = summary?.fraud ?? {};
+  const reports = summary?.reports ?? {};
+
   const items = useMemo(
     () =>
       summary
         ? [
             {
               label: 'Outbox backlog',
-              value: summary.outbox?.backlogCount ?? '—',
+              value: outbox.backlogCount ?? '—',
               tone:
-                (summary.outbox?.backlogCount ?? 0) > 0 ||
-                (summary.outbox?.staleCount ?? 0) > 0
+                (outbox.backlogCount ?? 0) > 0 || (outbox.staleCount ?? 0) > 0
                   ? ('warning' as const)
                   : ('success' as const),
               detail:
-                (summary.outbox?.staleCount ?? 0) > 0
-                  ? `${summary.outbox.staleCount} stale`
+                (outbox.staleCount ?? 0) > 0
+                  ? `${outbox.staleCount} stale`
                   : 'No backlog detected',
             },
             {
               label: 'SMS failures',
-              value: summary.sms?.failedCount ?? '—',
+              value: sms.failedCount ?? '—',
               tone:
-                (summary.sms?.failedCount ?? 0) > 0
+                (sms.failedCount ?? 0) > 0
                   ? ('danger' as const)
                   : ('success' as const),
               detail:
-                (summary.sms?.failedCount ?? 0) > 0
+                (sms.failedCount ?? 0) > 0
                   ? 'Investigate SMS delivery'
                   : 'Delivery queue clear',
             },
             {
               label: 'Offline sync failures',
-              value: summary.offlineSync?.failureCount ?? '—',
+              value: offlineSync.failureCount ?? '—',
               tone:
-                (summary.offlineSync?.failureCount ?? 0) > 0
+                (offlineSync.failureCount ?? 0) > 0
                   ? ('danger' as const)
                   : ('warning' as const),
               detail:
-                (summary.offlineSync?.failureCount ?? 0) > 0
-                  ? `${summary.offlineSync.failureCount} failed`
+                (offlineSync.failureCount ?? 0) > 0
+                  ? `${offlineSync.failureCount} failed`
                   : 'No offline backlog',
             },
             {
               label: 'Fraud open',
-              value: summary.fraud?.openCount ?? '—',
+              value: fraud.openCount ?? '—',
               tone:
-                (summary.fraud?.openCount ?? 0) > 0
+                (fraud.openCount ?? 0) > 0
                   ? ('warning' as const)
                   : ('success' as const),
               detail:
-                (summary.fraud?.openCount ?? 0) > 0
+                (fraud.openCount ?? 0) > 0
                   ? 'Open fraud cases need review'
                   : 'No open fraud cases',
             },
             {
               label: 'Report freshness',
-              value: summary.reports?.staleCount ?? '—',
+              value: reports.staleCount ?? '—',
               tone:
-                (summary.reports?.staleCount ?? 0) > 0
+                (reports.staleCount ?? 0) > 0
                   ? ('warning' as const)
                   : ('success' as const),
               detail:
-                (summary.reports?.staleCount ?? 0) > 0
-                  ? `${summary.reports.staleCount} stale`
+                (reports.staleCount ?? 0) > 0
+                  ? `${reports.staleCount} stale`
                   : 'No freshness warnings',
             },
             {
@@ -125,29 +139,47 @@ export function PilotHealthPanel({
                 typeof summary.reconciliation?.mismatchCount === 'number'
                   ? summary.reconciliation.mismatchCount
                   : '—',
-              tone: reconciliationHealthy ? ('success' as const) : ('danger' as const),
+              tone: reconciliationHealthy
+                ? ('success' as const)
+                : ('danger' as const),
               detail: reconciliationHealthy
                 ? 'Ledger and operational signals are aligned'
                 : 'Ledger mismatch requires review',
             },
           ]
         : [],
-    [reconciliationHealthy, summary],
+    [
+      fraud.openCount,
+      offlineSync.failureCount,
+      outbox.backlogCount,
+      outbox.staleCount,
+      reconciliationHealthy,
+      reports.staleCount,
+      sms.failedCount,
+      summary,
+    ],
   );
 
   const overallTone = useMemo(() => {
     if (!summary) return 'neutral' as const;
     if (
       !reconciliationHealthy ||
-      (summary.outbox?.backlogCount ?? 0) > 0 ||
-      (summary.sms?.failedCount ?? 0) > 0 ||
-      (summary.offlineSync?.failureCount ?? 0) > 0
+      (outbox.backlogCount ?? 0) > 0 ||
+      (sms.failedCount ?? 0) > 0 ||
+      (offlineSync.failureCount ?? 0) > 0
     ) {
       return 'warning' as const;
     }
-    if ((summary.reports?.staleCount ?? 0) > 0) return 'info' as const;
+    if ((reports.staleCount ?? 0) > 0) return 'info' as const;
     return 'success' as const;
-  }, [reconciliationHealthy, summary]);
+  }, [
+    offlineSync.failureCount,
+    outbox.backlogCount,
+    reconciliationHealthy,
+    reports.staleCount,
+    sms.failedCount,
+    summary,
+  ]);
 
   return (
     <section style={compact ? compactCardStyle : cardStyle}>

@@ -41,6 +41,39 @@ type ReportsWorkspaceProps = {
   canUseMaterializationState?: boolean;
 };
 
+type ReportItem = Record<string, unknown>;
+
+type PilotSummary = {
+  release?: { version?: string; sha?: string };
+  generatedAt?: string;
+  outbox?: { backlogCount?: number; staleCount?: number };
+  sms?: { failedCount?: number };
+  offlineSync?: { failureCount?: number };
+  fraud?: { openCount?: number };
+  reports?: { staleCount?: number };
+  reconciliation?: {
+    healthy?: boolean;
+    mismatchCount?: number;
+    items?: unknown[];
+  };
+};
+
+type ReportSummary = {
+  scope?: string;
+  scopeKey?: string;
+  branchId?: string | null;
+  timezone?: string;
+  items?: ReportItem[];
+  materializationState?: string;
+  freshCount?: number;
+  staleCount?: number;
+  reconciliation?: {
+    healthy?: boolean;
+    mismatchCount?: number;
+    items?: unknown[];
+  };
+};
+
 const reportOptions: Array<{ value: ReportKey; label: string }> = [
   { value: 'executive-summary', label: 'Executive summary' },
   { value: 'liability-ageing', label: 'Liability ageing' },
@@ -65,7 +98,9 @@ export function ReportsWorkspace({
   const [timezone, setTimezone] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [summary, setSummary] = useState<any | null>(null);
+  const [summary, setSummary] = useState<ReportSummary | PilotSummary | null>(
+    null,
+  );
   const [message, setMessage] = useState('Loading report summary…');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
@@ -119,12 +154,14 @@ export function ReportsWorkspace({
     [params],
   );
 
-  const items =
-    !isPilotOperationsSummary && Array.isArray(summary?.items)
-      ? (summary.items as Record<string, unknown>[])
-      : [];
+  const reportSummary = !isPilotOperationsSummary
+    ? (summary as ReportSummary | null)
+    : null;
+  const pilotSummary = isPilotOperationsSummary
+    ? (summary as PilotSummary | null)
+    : null;
+  const items = (reportSummary?.items ?? []) as ReportItem[];
   const selectedItem = items[selectedItemIndex] ?? null;
-  const pilotSummary = isPilotOperationsSummary ? summary : null;
   const reconciliationHealthy = pilotSummary?.reconciliation?.healthy === true;
 
   useEffect(() => {
@@ -272,31 +309,47 @@ export function ReportsWorkspace({
 
   const selectedSummary = pilotSummary
     ? describePilotSummaryContext(pilotSummary)
-    : summary
-      ? describeReportContext(summary, report, branchId, timezone, from, to)
+    : reportSummary
+      ? describeReportContext(
+          reportSummary,
+          report,
+          branchId,
+          timezone,
+          from,
+          to,
+        )
       : 'No report loaded yet.';
 
   return (
     <section style={workspaceGrid}>
       <section style={cardStyle} aria-label="Report controls">
         <div style={toolbarRow}>
-          <StatusBadge label={summary?.scope ?? report} tone="info" />
+          <StatusBadge label={reportSummary?.scope ?? report} tone="info" />
           <StatusBadge
-            label={(summary?.branchId ?? branchId) || 'Tenant-wide'}
+            label={(reportSummary?.branchId ?? branchId) || 'Tenant-wide'}
             tone="neutral"
           />
           <StatusBadge
-            label={(summary?.timezone ?? timezone) || 'Timezone pending'}
+            label={(reportSummary?.timezone ?? timezone) || 'Timezone pending'}
             tone="success"
           />
-          {summary?.materializationState ? (
-            <StatusBadge label={summary.materializationState} tone="warning" />
+          {reportSummary?.materializationState ? (
+            <StatusBadge
+              label={reportSummary.materializationState}
+              tone="warning"
+            />
           ) : null}
-          {typeof summary?.freshCount === 'number' ? (
-            <StatusBadge label={`Fresh ${summary.freshCount}`} tone="success" />
+          {typeof reportSummary?.freshCount === 'number' ? (
+            <StatusBadge
+              label={`Fresh ${reportSummary.freshCount}`}
+              tone="success"
+            />
           ) : null}
-          {typeof summary?.staleCount === 'number' ? (
-            <StatusBadge label={`Stale ${summary.staleCount}`} tone="warning" />
+          {typeof reportSummary?.staleCount === 'number' ? (
+            <StatusBadge
+              label={`Stale ${reportSummary.staleCount}`}
+              tone="warning"
+            />
           ) : null}
         </div>
 
@@ -433,7 +486,9 @@ export function ReportsWorkspace({
               </tr>
               <tr>
                 <th scope="row">Reconciliation mismatches</th>
-                <td>{renderValue(pilotSummary.reconciliation?.mismatchCount)}</td>
+                <td>
+                  {renderValue(pilotSummary.reconciliation?.mismatchCount)}
+                </td>
               </tr>
             </tbody>
           </Table>
@@ -519,15 +574,15 @@ export function ReportsWorkspace({
         </section>
       </div>
 
-      {summary?.reconciliation ? (
+      {reportSummary?.reconciliation ? (
         <section style={cardStyle} aria-label="Reconciliation">
           <Alert
-            tone={summary.reconciliation.healthy ? 'success' : 'danger'}
+            tone={reportSummary.reconciliation.healthy ? 'success' : 'danger'}
             title="Reconciliation"
           >
-            {JSON.stringify(summary.reconciliation)}
+            {JSON.stringify(reportSummary.reconciliation)}
           </Alert>
-          {Array.isArray(summary.reconciliation.items) ? (
+          {Array.isArray(reportSummary.reconciliation.items) ? (
             <Table>
               <thead>
                 <tr>
@@ -536,9 +591,9 @@ export function ReportsWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {summary.reconciliation.items
+                {(reportSummary.reconciliation.items as ReportItem[])
                   .slice(0, 5)
-                  .map((item: Record<string, unknown>, index: number) => {
+                  .map((item: ReportItem, index: number) => {
                     const [label, value] = Object.entries(item)[0] ?? [
                       `recon-${index + 1}`,
                       'Unknown',
@@ -574,7 +629,7 @@ function describeSelectedItem(item: Record<string, unknown>) {
 }
 
 function describeReportContext(
-  summary: any,
+  summary: ReportSummary,
   report: ReportKey,
   branchId: string,
   timezone: string,
@@ -590,7 +645,7 @@ function describeReportContext(
   return parts.join(' · ');
 }
 
-function describePilotSummaryContext(summary: any) {
+function describePilotSummaryContext(summary: PilotSummary) {
   const parts = [
     `Release ${summary.release?.version ?? 'pending'}`,
     `Generated ${summary.generatedAt ?? 'pending'}`,

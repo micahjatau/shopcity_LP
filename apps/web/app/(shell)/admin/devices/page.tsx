@@ -72,7 +72,9 @@ export default function AdminDevicesPage() {
     [branches, branchId],
   );
   const branchOptions = branches
-    .filter((branch): branch is BranchRecord & { id: string } => Boolean(branch.id))
+    .filter((branch): branch is BranchRecord & { id: string } =>
+      Boolean(branch.id),
+    )
     .map((branch) => ({
       value: branch.id,
       label: branch.name ?? branch.id,

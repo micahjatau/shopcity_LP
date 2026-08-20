@@ -101,10 +101,17 @@ export default function CashierPage() {
   const [lookupMessage, setLookupMessage] = useState(
     'Scan or type a card serial.',
   );
-  const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(null);
-  const [customerRecord, setCustomerRecord] = useState<CashierCustomerRecord | null>(null);
-  const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(null);
-  const [policyConfig, setPolicyConfig] = useState<CashierPolicyConfig | null>(null);
+  const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(
+    null,
+  );
+  const [customerRecord, setCustomerRecord] =
+    useState<CashierCustomerRecord | null>(null);
+  const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(
+    null,
+  );
+  const [policyConfig, setPolicyConfig] = useState<CashierPolicyConfig | null>(
+    null,
+  );
   const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
   const { sessionLabel } = useSessionBootstrapState();
 
@@ -313,7 +320,9 @@ export default function CashierPage() {
               <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
                 <div style={statRow}>
                   <span>Earn rate</span>
-                  <strong>{(policyContext.defaultEarnRateBps ?? 0) / 100}%</strong>
+                  <strong>
+                    {(policyContext.defaultEarnRateBps ?? 0) / 100}%
+                  </strong>
                 </div>
                 <div style={statRow}>
                   <span>Min redemption</span>
@@ -462,7 +471,10 @@ export default function CashierPage() {
                 {Array.isArray(ledgerRecord?.items) &&
                 ledgerRecord.items.length > 0 ? (
                   ledgerRecord.items.slice(0, 4).map((item) => (
-                    <div key={item.id ?? item.type ?? JSON.stringify(item)} style={statRow}>
+                    <div
+                      key={item.id ?? item.type ?? JSON.stringify(item)}
+                      style={statRow}
+                    >
                       <span>
                         {item.type ?? item.transactionType ?? 'Entry'}
                       </span>

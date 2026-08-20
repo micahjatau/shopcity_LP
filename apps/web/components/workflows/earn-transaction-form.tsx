@@ -128,7 +128,14 @@ export function EarnTransactionForm({
       overrideReason,
     };
     window.localStorage.setItem(earnDraftStorageKey, JSON.stringify(draft));
-  }, [cardSerialNumber, draftHydrated, occurredAt, overrideReason, purchaseAmount, receiptNumber]);
+  }, [
+    cardSerialNumber,
+    draftHydrated,
+    occurredAt,
+    overrideReason,
+    purchaseAmount,
+    receiptNumber,
+  ]);
 
   const lookupReady = Boolean(
     lookupContext?.cardSerialNumber || lookupContext?.customerName,

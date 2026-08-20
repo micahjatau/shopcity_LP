@@ -125,7 +125,14 @@ export function RedeemTransactionForm({
       occurredAt,
     };
     window.localStorage.setItem(redeemDraftStorageKey, JSON.stringify(draft));
-  }, [basketAmount, cardSerialNumber, draftHydrated, occurredAt, receiptNumber, requestedRedemption]);
+  }, [
+    basketAmount,
+    cardSerialNumber,
+    draftHydrated,
+    occurredAt,
+    receiptNumber,
+    requestedRedemption,
+  ]);
 
   const lookupReady = Boolean(
     lookupContext?.cardSerialNumber || lookupContext?.customerName,
@@ -161,7 +168,10 @@ export function RedeemTransactionForm({
       },
       { label: 'Receipt', value: receiptNumber || 'Optional' },
       { label: 'Cashier', value: cashierId || 'Current session' },
-      { label: 'Branch', value: branchId || lookupContext?.branchId || 'Current branch' },
+      {
+        label: 'Branch',
+        value: branchId || lookupContext?.branchId || 'Current branch',
+      },
       {
         label: 'Basket',
         value:
@@ -428,9 +438,7 @@ export function RedeemTransactionForm({
           type="submit"
           loading={status === 'submitting'}
           disabled={
-            basketAmount === null ||
-            requestedRedemption === null ||
-            needsReview
+            basketAmount === null || requestedRedemption === null || needsReview
           }
         >
           Submit redemption
