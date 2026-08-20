@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   cardsControllerCreateCardV1,
   cardsControllerReplaceCardV1,
@@ -46,8 +46,6 @@ type CardRecord = Record<string, unknown> & {
   availableBalanceKobo?: number;
 };
 
-type CustomerWorkspaceMode = 'cashier' | 'supervisor';
-
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
 const cashierRouteLinks = [
   ['/cashier', 'Cashier'],
@@ -74,9 +72,8 @@ const pageNotes = [
   ],
 ] as const;
 
-export default function CashierCustomersPage({
-  workspace = 'cashier',
-}: Readonly<{ workspace?: CustomerWorkspaceMode }> = {}) {
+export default function CashierCustomersPage() {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState(
@@ -106,7 +103,7 @@ export default function CashierCustomersPage({
   > | null>(null);
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
-  const canManage = workspace !== 'cashier';
+  const canManage = pathname?.startsWith('/supervisor') ?? false;
   const routeLinks = canManage ? supervisorRouteLinks : cashierRouteLinks;
   const selectedCard = useMemo(
     () =>
