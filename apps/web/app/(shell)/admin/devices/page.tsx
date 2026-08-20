@@ -155,7 +155,7 @@ export default function AdminDevicesPage() {
       setActionMessage(`Updating device ${selectedId}…`);
       const response = await branchesControllerUpdateDeviceV1(
         selectedId,
-        { name: name.trim(), status, rotateAttestationSecret } as any,
+        { name: name.trim(), status, rotateAttestationSecret },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(

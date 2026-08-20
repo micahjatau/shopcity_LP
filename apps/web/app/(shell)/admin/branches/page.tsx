@@ -92,7 +92,7 @@ export default function AdminBranchesPage() {
     try {
       setActionMessage('Creating branch…');
       const response = await branchesControllerCreateBranchV1(
-        { name: name.trim(), timezone: timezone.trim() } as any,
+        { name: name.trim(), timezone: timezone.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
@@ -125,7 +125,7 @@ export default function AdminBranchesPage() {
       setActionMessage(`Updating branch ${selectedId}…`);
       const response = await branchesControllerUpdateBranchV1(
         selectedId,
-        { name: name.trim(), timezone: timezone.trim() } as any,
+        { name: name.trim(), timezone: timezone.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(

@@ -150,7 +150,7 @@ export default function AdminUsersPage() {
       setActionMessage(`Updating role for ${selectedId}…`);
       const response = await usersControllerUpdateRoleV1(
         selectedId,
-        { role } as any,
+        { role },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
@@ -180,7 +180,7 @@ export default function AdminUsersPage() {
       setActionMessage(`Updating status for ${selectedId}…`);
       const response = await usersControllerUpdateStatusV1(
         selectedId,
-        { status } as any,
+        { status },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(

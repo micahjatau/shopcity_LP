@@ -114,7 +114,7 @@ export default function SupervisorTransactionsPage() {
     try {
       const response = await reversalsControllerReverseV1(
         id,
-        { reason: reason.trim() } as any,
+        { reason: reason.trim() },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setResponseData(

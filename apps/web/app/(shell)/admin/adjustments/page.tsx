@@ -78,7 +78,7 @@ export default function AdminAdjustmentsPage() {
           reason: reason.trim(),
           kind,
           effectiveAt: new Date().toISOString(),
-        } as any,
+        },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
