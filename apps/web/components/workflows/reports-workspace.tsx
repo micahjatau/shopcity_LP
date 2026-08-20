@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
-  reportsControllerExportReportV1,
+  getReportsControllerExportReportV1Url,
   reportsControllerGetPilotOperationsSummaryV1,
   reportsControllerListAuditReportV1,
   reportsControllerListCashierActivityV1,
@@ -14,6 +14,9 @@ import {
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
   reportsControllerRefreshReportV1,
+  type ReportsControllerListExecutiveSummaryV1Params,
+  type ReportsControllerRefreshReportV1Params,
+  type ReportsControllerExportReportV1Params,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Select, Table } from '../ui';
@@ -30,6 +33,14 @@ type ReportKey =
   | 'materialization-state'
   | 'pilot-operations-summary';
 
+type ReportsWorkspaceProps = {
+  canRefreshReports?: boolean;
+  canExportReports?: boolean;
+  canUsePilotOperationsSummary?: boolean;
+  canUseAuditReport?: boolean;
+  canUseMaterializationState?: boolean;
+};
+
 const reportOptions: Array<{ value: ReportKey; label: string }> = [
   { value: 'executive-summary', label: 'Executive summary' },
   { value: 'liability-ageing', label: 'Liability ageing' },
@@ -42,7 +53,13 @@ const reportOptions: Array<{ value: ReportKey; label: string }> = [
   { value: 'pilot-operations-summary', label: 'Pilot operations summary' },
 ];
 
-export function ReportsWorkspace() {
+export function ReportsWorkspace({
+  canRefreshReports = true,
+  canExportReports = true,
+  canUsePilotOperationsSummary = true,
+  canUseAuditReport = true,
+  canUseMaterializationState = true,
+}: ReportsWorkspaceProps = {}) {
   const [report, setReport] = useState<ReportKey>('executive-summary');
   const [branchId, setBranchId] = useState('');
   const [timezone, setTimezone] = useState('');
@@ -52,12 +69,30 @@ export function ReportsWorkspace() {
   const [message, setMessage] = useState('Loading report summary…');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+
+  const availableReportOptions = useMemo(
+    () =>
+      reportOptions.filter((option) => {
+        if (option.value === 'audit-report') return canUseAuditReport;
+        if (option.value === 'materialization-state')
+          return canUseMaterializationState;
+        if (option.value === 'pilot-operations-summary')
+          return canUsePilotOperationsSummary;
+        return true;
+      }),
+    [
+      canUseAuditReport,
+      canUseMaterializationState,
+      canUsePilotOperationsSummary,
+    ],
+  );
+  const isPilotOperationsSummary = report === 'pilot-operations-summary';
   const [actionResult, setActionResult] = useState<Record<
     string,
     unknown
   > | null>(null);
 
-  const params = useMemo(
+  const params = useMemo<ReportsControllerListExecutiveSummaryV1Params>(
     () => ({
       branchId: branchId || undefined,
       timezone: timezone || undefined,
@@ -66,17 +101,43 @@ export function ReportsWorkspace() {
     }),
     [branchId, from, timezone, to],
   );
+  const refreshParams = useMemo<ReportsControllerRefreshReportV1Params>(
+    () => ({
+      branchId: branchId || undefined,
+      timezone: timezone || 'UTC',
+    }),
+    [branchId, timezone],
+  );
+  const exportParams = useMemo<ReportsControllerExportReportV1Params>(
+    () => ({
+      branchId: params.branchId,
+      from: params.from,
+      to: params.to,
+      timezone: params.timezone,
+      format: 'csv',
+    }),
+    [params],
+  );
 
-  const items = Array.isArray(summary?.items)
-    ? (summary.items as Record<string, unknown>[])
-    : [];
+  const items =
+    !isPilotOperationsSummary && Array.isArray(summary?.items)
+      ? (summary.items as Record<string, unknown>[])
+      : [];
   const selectedItem = items[selectedItemIndex] ?? null;
+  const pilotSummary = isPilotOperationsSummary ? summary : null;
+  const reconciliationHealthy = pilotSummary?.reconciliation?.healthy === true;
 
   useEffect(() => {
     if (selectedItemIndex >= items.length) {
       setSelectedItemIndex(0);
     }
   }, [items.length, selectedItemIndex]);
+
+  useEffect(() => {
+    if (!availableReportOptions.some((option) => option.value === report)) {
+      setReport(availableReportOptions[0]?.value ?? 'executive-summary');
+    }
+  }, [availableReportOptions, report]);
 
   async function refresh() {
     setActionMessage('');
@@ -99,41 +160,41 @@ export function ReportsWorkspace() {
       const response =
         report === 'liability-ageing'
           ? await reportsControllerListLiabilityAgeingV1(
-              params as any,
+              params,
               createApiRequest({ csrf: true }),
             )
           : report === 'customer-performance'
             ? await reportsControllerListCustomerPerformanceV1(
-                params as any,
+                params,
                 createApiRequest({ csrf: true }),
               )
             : report === 'cashier-activity'
               ? await reportsControllerListCashierActivityV1(
-                  params as any,
+                  params,
                   createApiRequest({ csrf: true }),
                 )
               : report === 'redemption-summary'
                 ? await reportsControllerListRedemptionSummaryV1(
-                    params as any,
+                    params,
                     createApiRequest({ csrf: true }),
                   )
                 : report === 'sms-operations'
                   ? await reportsControllerListSmsOperationsV1(
-                      params as any,
+                      params,
                       createApiRequest({ csrf: true }),
                     )
                   : report === 'audit-report'
                     ? await reportsControllerListAuditReportV1(
-                        params as any,
+                        params,
                         createApiRequest({ csrf: true }),
                       )
                     : report === 'materialization-state'
                       ? await reportsControllerListMaterializationStateV1(
-                          params as any,
+                          params,
                           createApiRequest({ csrf: true }),
                         )
                       : await reportsControllerListExecutiveSummaryV1(
-                          params as any,
+                          params,
                           createApiRequest({ csrf: true }),
                         );
 
@@ -156,15 +217,13 @@ export function ReportsWorkspace() {
 
   async function refreshReport() {
     try {
-      if (report === 'pilot-operations-summary') {
-        setActionMessage(
-          'Pilot summary is read-only and refreshes from live data.',
-        );
+      if (!canRefreshReports || isPilotOperationsSummary) {
+        setActionMessage('Refresh is not available for this report.');
         return;
       }
       const response = await reportsControllerRefreshReportV1(
         report,
-        params as any,
+        refreshParams,
         createApiRequest({ csrf: true }),
       );
       setActionResult(
@@ -185,35 +244,37 @@ export function ReportsWorkspace() {
 
   async function exportReport() {
     try {
-      if (report === 'pilot-operations-summary') {
-        setActionMessage(
-          'Pilot summary does not support export in this workspace.',
-        );
+      if (!canExportReports || isPilotOperationsSummary) {
+        setActionMessage('Export is not available for this report.');
         return;
       }
-      const response = await reportsControllerExportReportV1(
-        report,
-        params as any,
-        createApiRequest({ csrf: true }),
+      const request = createApiRequest({ csrf: true });
+      const headers = new Headers(request.headers);
+      headers.set('Accept', 'text/csv');
+      const response = await fetch(
+        getReportsControllerExportReportV1Url(report, exportParams),
+        {
+          ...request,
+          headers,
+        },
       );
-      setActionResult(
-        response.data && typeof response.data === 'object'
-          ? (response.data as Record<string, unknown>)
-          : null,
-      );
-      if (response.status === 200) {
-        setActionMessage('Export ready from backend contract.');
-      } else {
+      const csv = await response.text();
+      if (!response.ok) {
         setActionMessage(`Export unavailable (${response.status}).`);
+        return;
       }
+      setActionMessage('Export downloaded from backend CSV response.');
+      triggerCsvDownload(csv, `${report}.csv`);
     } catch {
       setActionMessage('Export unavailable.');
     }
   }
 
-  const selectedSummary = summary
-    ? describeReportContext(summary, report, branchId, timezone, from, to)
-    : 'No report loaded yet.';
+  const selectedSummary = pilotSummary
+    ? describePilotSummaryContext(pilotSummary)
+    : summary
+      ? describeReportContext(summary, report, branchId, timezone, from, to)
+      : 'No report loaded yet.';
 
   return (
     <section style={workspaceGrid}>
@@ -243,7 +304,7 @@ export function ReportsWorkspace() {
           aria-label="Report"
           value={report}
           onChange={(event) => setReport(event.target.value as ReportKey)}
-          options={reportOptions}
+          options={availableReportOptions}
         />
         <div style={filterGrid}>
           <Input
@@ -280,14 +341,14 @@ export function ReportsWorkspace() {
           <Button
             variant="secondary"
             onClick={() => void refreshReport()}
-            disabled={report === 'pilot-operations-summary'}
+            disabled={!canRefreshReports || isPilotOperationsSummary}
           >
             Refresh materialization
           </Button>
           <Button
             variant="ghost"
             onClick={() => void exportReport()}
-            disabled={report === 'pilot-operations-summary'}
+            disabled={!canExportReports || isPilotOperationsSummary}
           >
             Export
           </Button>
@@ -320,6 +381,64 @@ export function ReportsWorkspace() {
           </Table>
         ) : null}
       </section>
+
+      {pilotSummary ? (
+        <section style={cardStyle} aria-label="Pilot operations summary">
+          <h2 style={{ marginTop: 0 }}>Pilot operations summary</h2>
+          <Alert
+            tone={reconciliationHealthy ? 'success' : 'danger'}
+            title="Pilot summary"
+          >
+            {reconciliationHealthy
+              ? 'Live operational signals are reconciled.'
+              : 'Live operational signals require review.'}
+          </Alert>
+          <Table>
+            <tbody>
+              <tr>
+                <th scope="row">Release version</th>
+                <td>{renderValue(pilotSummary.release?.version)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Release SHA</th>
+                <td>{renderValue(pilotSummary.release?.sha)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Generated at</th>
+                <td>{renderValue(pilotSummary.generatedAt)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Outbox backlog</th>
+                <td>{renderValue(pilotSummary.outbox?.backlogCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Outbox stale</th>
+                <td>{renderValue(pilotSummary.outbox?.staleCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">SMS failures</th>
+                <td>{renderValue(pilotSummary.sms?.failedCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Offline sync failures</th>
+                <td>{renderValue(pilotSummary.offlineSync?.failureCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Fraud open</th>
+                <td>{renderValue(pilotSummary.fraud?.openCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Reports stale</th>
+                <td>{renderValue(pilotSummary.reports?.staleCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Reconciliation mismatches</th>
+                <td>{renderValue(pilotSummary.reconciliation?.mismatchCount)}</td>
+              </tr>
+            </tbody>
+          </Table>
+        </section>
+      ) : null}
 
       <div style={workspaceGrid}>
         <section style={cardStyle} aria-label="Report summary items">
@@ -403,7 +522,7 @@ export function ReportsWorkspace() {
       {summary?.reconciliation ? (
         <section style={cardStyle} aria-label="Reconciliation">
           <Alert
-            tone={summary.reconciliation.unhealthy ? 'danger' : 'success'}
+            tone={summary.reconciliation.healthy ? 'success' : 'danger'}
             title="Reconciliation"
           >
             {JSON.stringify(summary.reconciliation)}
@@ -469,6 +588,31 @@ function describeReportContext(
     `window ${from || 'start'} → ${to || 'now'}`,
   ];
   return parts.join(' · ');
+}
+
+function describePilotSummaryContext(summary: any) {
+  const parts = [
+    `Release ${summary.release?.version ?? 'pending'}`,
+    `Generated ${summary.generatedAt ?? 'pending'}`,
+    `Outbox ${summary.outbox?.backlogCount ?? 0} backlog`,
+    `SMS ${summary.sms?.failedCount ?? 0} failed`,
+    `Offline ${summary.offlineSync?.failureCount ?? 0} failed`,
+    summary.reconciliation?.healthy ? 'Reconciled' : 'Mismatch',
+  ];
+  return parts.join(' · ');
+}
+
+function triggerCsvDownload(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = 'noreferrer';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 const workspaceGrid: CSSProperties = {

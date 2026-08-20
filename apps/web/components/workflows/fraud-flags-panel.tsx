@@ -38,6 +38,8 @@ const routeLinks = [
   ['/supervisor/reports', 'Reports'],
 ] as const;
 
+const FRAUD_PAGE_SIZE = 5;
+
 export function FraudFlagsPanel() {
   const [items, setItems] = useState<FraudFlagRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,20 +49,46 @@ export function FraudFlagsPanel() {
     FraudFlagDecisionDtoDecision.ACKNOWLEDGED,
   );
   const [reason, setReason] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [severityFilter, setSeverityFilter] = useState('ALL');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [pageIndex, setPageIndex] = useState(0);
   const [responseData, setResponseData] = useState<Record<
     string,
     unknown
   > | null>(null);
 
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
+        if (severityFilter !== 'ALL' && item.severity !== severityFilter)
+          return false;
+        if (
+          branchFilter.trim() &&
+          !(item.branchId ?? 'Tenant-wide')
+            .toLowerCase()
+            .includes(branchFilter.trim().toLowerCase())
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [branchFilter, items, severityFilter, statusFilter],
+  );
   const selectedItem = useMemo(
-    () => items.find((item) => item.id === selectedId) ?? null,
-    [items, selectedId],
+    () => filteredItems.find((item) => item.id === selectedId) ?? null,
+    [filteredItems, selectedId],
   );
 
-  const openCount = items.filter((item) => item.status === 'OPEN').length;
-  const highSeverityCount = items.filter(
+  const openCount = filteredItems.filter((item) => item.status === 'OPEN').length;
+  const highSeverityCount = filteredItems.filter(
     (item) => item.severity === 'HIGH',
   ).length;
+  const pageItems = filteredItems.slice(
+    pageIndex * FRAUD_PAGE_SIZE,
+    pageIndex * FRAUD_PAGE_SIZE + FRAUD_PAGE_SIZE,
+  );
   const selectedPreview = selectedItem
     ? [
         [
@@ -79,17 +107,24 @@ export function FraudFlagsPanel() {
       ]
     : [];
 
+  useEffect(() => {
+    if (pageIndex * FRAUD_PAGE_SIZE >= filteredItems.length) {
+      setPageIndex(0);
+    }
+  }, [filteredItems.length, pageIndex]);
+
   async function refresh() {
     setLoading(true);
     try {
       const response = await fraudControllerListFraudFlagsV1(
-        { limit: '3', cursor: '' },
+        { limit: '25', cursor: '' },
         createApiRequest({ csrf: true }),
       );
       if (response.status === 200) {
         const nextItems = response.data.data.items as FraudFlagRecord[];
         setItems(nextItems);
         setSelectedId(nextItems[0]?.id ?? null);
+        setPageIndex(0);
         setResponseData(null);
         setMessage(`Loaded ${nextItems.length} fraud flags.`);
       } else {
@@ -107,16 +142,15 @@ export function FraudFlagsPanel() {
   }, []);
 
   async function handleDecision() {
-    if (!selectedId) return;
+    if (!selectedId || !reason.trim()) {
+      setMessage('Enter an explicit decision reason before submitting.');
+      return;
+    }
     const response = await fraudControllerDecideFraudFlagV1(
       selectedId,
       {
         decision,
-        reason:
-          reason.trim() ||
-          (decision === FraudFlagDecisionDtoDecision.RESOLVED
-            ? 'Resolved from supervisor shell fraud route'
-            : 'Acknowledged from supervisor shell fraud route'),
+        reason: reason.trim(),
       },
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );
@@ -149,6 +183,36 @@ export function FraudFlagsPanel() {
         ))}
       </div>
 
+      <div style={filterRow}>
+        <Input
+          aria-label="Fraud status filter"
+          placeholder="Status filter"
+          value={statusFilter}
+          onChange={(event) => {
+            setPageIndex(0);
+            setStatusFilter(event.target.value.toUpperCase() || 'ALL');
+          }}
+        />
+        <Input
+          aria-label="Fraud severity filter"
+          placeholder="Severity filter"
+          value={severityFilter}
+          onChange={(event) => {
+            setPageIndex(0);
+            setSeverityFilter(event.target.value.toUpperCase() || 'ALL');
+          }}
+        />
+        <Input
+          aria-label="Fraud branch filter"
+          placeholder="Branch ID"
+          value={branchFilter}
+          onChange={(event) => {
+            setPageIndex(0);
+            setBranchFilter(event.target.value);
+          }}
+        />
+      </div>
+
       <div style={toolbarRow}>
         <Button
           variant="secondary"
@@ -157,14 +221,17 @@ export function FraudFlagsPanel() {
         >
           Refresh fraud flags
         </Button>
-        <Button onClick={() => void handleDecision()} disabled={!selectedId}>
+        <Button
+          onClick={() => void handleDecision()}
+          disabled={!selectedId || !reason.trim()}
+        >
           Submit decision
         </Button>
       </div>
 
       <p style={mutedText}>{message}</p>
 
-      {items.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <Alert tone="warning" title="No fraud flags">
           No fraud review items matched the current filters.
         </Alert>
@@ -173,7 +240,7 @@ export function FraudFlagsPanel() {
           <section style={cardStyle} aria-label="Fraud flag list">
             <h2 style={{ marginTop: 0 }}>Cases</h2>
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              {items.slice(0, 3).map((item) => {
+              {pageItems.map((item) => {
                 const selected = item.id === selectedId;
                 return (
                   <button
@@ -278,6 +345,29 @@ export function FraudFlagsPanel() {
           ) : null}
         </div>
       )}
+
+      <div style={toolbarRow}>
+        <Button
+          variant="secondary"
+          onClick={() => setPageIndex((current) => Math.max(current - 1, 0))}
+          disabled={pageIndex === 0}
+        >
+          Previous page
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            setPageIndex((current) =>
+              (current + 1) * FRAUD_PAGE_SIZE >= filteredItems.length
+                ? current
+                : current + 1,
+            )
+          }
+          disabled={(pageIndex + 1) * FRAUD_PAGE_SIZE >= filteredItems.length}
+        >
+          Next page
+        </Button>
+      </div>
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Decision</h2>
@@ -407,6 +497,12 @@ const routeRow: CSSProperties = {
   display: 'flex',
   gap: 'var(--sc-spacing-3)',
   flexWrap: 'wrap',
+};
+
+const filterRow: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
 };
 
 const toolbarRow: CSSProperties = {

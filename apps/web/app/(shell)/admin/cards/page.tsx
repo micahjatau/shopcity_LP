@@ -127,7 +127,7 @@ export default function AdminCardsPage() {
         {
           serialNumber: serialNumber.trim(),
           customerId: customerId.trim(),
-        } as any,
+        },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
@@ -164,9 +164,8 @@ export default function AdminCardsPage() {
       const response = await cardsControllerReplaceCardV1(
         card.id,
         {
-          replacementSerialNumber: newSerialNumber.trim(),
-          reason,
-        } as any,
+          serialNumber: newSerialNumber.trim(),
+        },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(
@@ -202,7 +201,7 @@ export default function AdminCardsPage() {
       setActionMessage(`Updating card ${card.id}…`);
       const response = await cardsControllerUpdateStatusV1(
         card.id,
-        { status, reason } as any,
+        { status },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       setActionResponse(

@@ -7,6 +7,7 @@ import {
   loyaltyControllerEarnV1,
   type EarnTransactionDto,
 } from '../../lib/api/generated-client';
+import { saveOfflineEarnRecord } from '../../lib/browser/offline-earn-queue';
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Textarea, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
@@ -14,6 +15,17 @@ import { MoneyInput, Money, StatusBadge } from '../shopcity';
 function createDraftKey() {
   return crypto.randomUUID();
 }
+
+const earnDraftStorageKey = 'shopcity-earnedraft-v1';
+
+type EarnDraftState = {
+  idempotencyKey: string;
+  cardSerialNumber: string;
+  receiptNumber: string;
+  purchaseAmount: number | null;
+  occurredAt: string;
+  overrideReason: string;
+};
 
 type CashierPolicyContext = {
   defaultEarnRateBps?: number;
@@ -28,17 +40,23 @@ type CashierPolicyContext = {
 type EarnTransactionFormProps = {
   lookupContext?: {
     cardSerialNumber?: string;
+    customerId?: string | null;
     customerName?: string;
     availableBalanceKobo?: number | null;
     expiringCreditKobo?: number | null;
     receiptNumber?: string;
+    branchId?: string | null;
   };
   policyContext?: CashierPolicyContext | null;
+  cashierId?: string | null;
+  branchId?: string | null;
 };
 
 export function EarnTransactionForm({
   lookupContext,
   policyContext,
+  cashierId,
+  branchId,
 }: EarnTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
@@ -47,6 +65,7 @@ export function EarnTransactionForm({
   const [purchaseAmount, setPurchaseAmount] = useState<number | null>(null);
   const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString());
   const [overrideReason, setOverrideReason] = useState('');
+  const [draftHydrated, setDraftHydrated] = useState(false);
   const [status, setStatus] = useState<
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
@@ -57,6 +76,38 @@ export function EarnTransactionForm({
   > | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(earnDraftStorageKey);
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<EarnDraftState>;
+        if (typeof draft.idempotencyKey === 'string') {
+          idempotencyKeyRef.current = draft.idempotencyKey;
+        }
+        if (typeof draft.cardSerialNumber === 'string') {
+          setCardSerialNumber(draft.cardSerialNumber);
+        }
+        if (typeof draft.receiptNumber === 'string') {
+          setReceiptNumber(draft.receiptNumber);
+        }
+        if (typeof draft.purchaseAmount === 'number') {
+          setPurchaseAmount(draft.purchaseAmount);
+        }
+        if (typeof draft.occurredAt === 'string') {
+          setOccurredAt(draft.occurredAt);
+        }
+        if (typeof draft.overrideReason === 'string') {
+          setOverrideReason(draft.overrideReason);
+        }
+      }
+    } catch {
+      // Ignore malformed local drafts.
+    } finally {
+      setDraftHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!lookupContext) return;
     if (lookupContext.cardSerialNumber) {
       setCardSerialNumber(lookupContext.cardSerialNumber);
@@ -65,6 +116,19 @@ export function EarnTransactionForm({
       setReceiptNumber(lookupContext.receiptNumber);
     }
   }, [lookupContext]);
+
+  useEffect(() => {
+    if (!draftHydrated || typeof window === 'undefined') return;
+    const draft: EarnDraftState = {
+      idempotencyKey: idempotencyKeyRef.current,
+      cardSerialNumber,
+      receiptNumber,
+      purchaseAmount,
+      occurredAt,
+      overrideReason,
+    };
+    window.localStorage.setItem(earnDraftStorageKey, JSON.stringify(draft));
+  }, [cardSerialNumber, draftHydrated, occurredAt, overrideReason, purchaseAmount, receiptNumber]);
 
   const lookupReady = Boolean(
     lookupContext?.cardSerialNumber || lookupContext?.customerName,
@@ -152,6 +216,15 @@ export function EarnTransactionForm({
             ? (response.data as Record<string, unknown>)
             : null,
         );
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(earnDraftStorageKey);
+        }
+        idempotencyKeyRef.current = createDraftKey();
+        setCardSerialNumber('');
+        setReceiptNumber('');
+        setPurchaseAmount(null);
+        setOccurredAt(new Date().toISOString());
+        setOverrideReason('');
         router.refresh();
         return;
       }
@@ -161,6 +234,28 @@ export function EarnTransactionForm({
     } catch {
       setStatus('error');
       setMessage('Earn could not be submitted.');
+      try {
+        await saveOfflineEarnRecord({
+          localId: crypto.randomUUID(),
+          idempotencyKey: idempotencyKeyRef.current,
+          cashierId: cashierId ?? 'unknown-cashier',
+          branchId: branchId ?? lookupContext?.branchId ?? 'unknown-branch',
+          deviceId: undefined,
+          customerId: lookupContext?.customerId ?? undefined,
+          cardBarcode: cardSerialNumber.trim(),
+          receiptNumber: receiptNumber.trim(),
+          receiptWeekStart: 'unknown',
+          purchaseAmountKobo: purchaseAmount ?? 0,
+          occurredAtLocal: occurredAt,
+          syncState: 'saved-on-device',
+          lastError: 'Earn request failed before reaching the backend.',
+          serverTransactionId: null,
+          serverApprovalId: null,
+        });
+        setMessage('Earn could not be submitted. Saved locally for sync.');
+      } catch {
+        // Keep the network error state if offline capture fails.
+      }
     }
   }
 
@@ -310,7 +405,11 @@ export function EarnTransactionForm({
           flexWrap: 'wrap',
         }}
       >
-        <Button type="submit" loading={status === 'submitting'}>
+        <Button
+          type="submit"
+          loading={status === 'submitting'}
+          disabled={purchaseAmount === null}
+        >
           Submit earn
         </Button>
         <Button type="button" variant="secondary" onClick={resetDraft}>

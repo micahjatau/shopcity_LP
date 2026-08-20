@@ -13,6 +13,8 @@ import {
 } from '../../../components/workflows';
 
 const supervisorRoutes = [
+  ['/supervisor/customers', 'Customers'],
+  ['/supervisor/cards', 'Cards'],
   ['/supervisor/transactions', 'Transactions'],
   ['/supervisor/approvals', 'Approvals'],
   ['/supervisor/fraud', 'Fraud'],
@@ -21,10 +23,20 @@ const supervisorRoutes = [
 
 const supervisorRouteCards = [
   {
+    href: '/supervisor/customers',
+    label: 'Customers',
+    body: 'Search and manage customer detail, status, and cards.',
+    featured: true,
+  },
+  {
+    href: '/supervisor/cards',
+    label: 'Cards',
+    body: 'Assign, replace, and update card status from the management route.',
+  },
+  {
     href: '/supervisor/transactions',
     label: 'Transactions',
     body: 'Start with the queue, then drill into a single item.',
-    featured: true,
   },
   {
     href: '/supervisor/approvals',
@@ -139,7 +151,12 @@ export default function SupervisorPage() {
       </div>
 
       <article style={cardStyle} aria-label="Reports review">
-        <ReportsWorkspace />
+        <ReportsWorkspace
+          canRefreshReports={false}
+          canUseAuditReport={false}
+          canUseMaterializationState={false}
+          canUsePilotOperationsSummary={false}
+        />
       </article>
     </section>
   );

@@ -79,17 +79,15 @@ export function ApprovalsPanel() {
   }, []);
 
   async function handleDecision() {
-    if (!selectedId) return;
-    const decisionReason =
-      reason.trim() ||
-      (decision === 'APPROVED'
-        ? 'Approved from supervisor review route'
-        : 'Rejected from supervisor review route');
+    if (!selectedId || !reason.trim()) {
+      setMessage('Enter an explicit decision reason before submitting.');
+      return;
+    }
     const response = await approvalsControllerDecideApprovalV1(
       selectedId,
       {
         decision,
-        reason: decisionReason,
+        reason: reason.trim(),
       },
       createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
     );
@@ -128,7 +126,10 @@ export function ApprovalsPanel() {
         >
           Refresh approvals
         </Button>
-        <Button onClick={() => void handleDecision()} disabled={!selectedId}>
+        <Button
+          onClick={() => void handleDecision()}
+          disabled={!selectedId || !reason.trim()}
+        >
           Submit decision
         </Button>
       </div>

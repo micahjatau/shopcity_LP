@@ -15,6 +15,17 @@ function createDraftKey() {
   return crypto.randomUUID();
 }
 
+const redeemDraftStorageKey = 'shopcity-redeemdraft-v1';
+
+type RedeemDraftState = {
+  idempotencyKey: string;
+  cardSerialNumber: string;
+  receiptNumber: string;
+  basketAmount: number | null;
+  requestedRedemption: number | null;
+  occurredAt: string;
+};
+
 type CashierPolicyContext = {
   minRedemptionKobo?: number;
   maxRedemptionBasketPercent?: number;
@@ -29,13 +40,18 @@ type RedeemTransactionFormProps = {
     availableBalanceKobo?: number | null;
     expiringCreditKobo?: number | null;
     receiptNumber?: string;
+    branchId?: string | null;
   };
   policyContext?: CashierPolicyContext | null;
+  cashierId?: string | null;
+  branchId?: string | null;
 };
 
 export function RedeemTransactionForm({
   lookupContext,
   policyContext,
+  cashierId,
+  branchId,
 }: RedeemTransactionFormProps) {
   const router = useRouter();
   const idempotencyKeyRef = useRef(createDraftKey());
@@ -46,6 +62,7 @@ export function RedeemTransactionForm({
     null,
   );
   const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString());
+  const [draftHydrated, setDraftHydrated] = useState(false);
   const [status, setStatus] = useState<
     'idle' | 'submitting' | 'confirmed' | 'pending' | 'error'
   >('idle');
@@ -56,6 +73,38 @@ export function RedeemTransactionForm({
   > | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(redeemDraftStorageKey);
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<RedeemDraftState>;
+        if (typeof draft.idempotencyKey === 'string') {
+          idempotencyKeyRef.current = draft.idempotencyKey;
+        }
+        if (typeof draft.cardSerialNumber === 'string') {
+          setCardSerialNumber(draft.cardSerialNumber);
+        }
+        if (typeof draft.receiptNumber === 'string') {
+          setReceiptNumber(draft.receiptNumber);
+        }
+        if (typeof draft.basketAmount === 'number') {
+          setBasketAmount(draft.basketAmount);
+        }
+        if (typeof draft.requestedRedemption === 'number') {
+          setRequestedRedemption(draft.requestedRedemption);
+        }
+        if (typeof draft.occurredAt === 'string') {
+          setOccurredAt(draft.occurredAt);
+        }
+      }
+    } catch {
+      // Ignore malformed local drafts.
+    } finally {
+      setDraftHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!lookupContext) return;
     if (lookupContext.cardSerialNumber) {
       setCardSerialNumber(lookupContext.cardSerialNumber);
@@ -63,10 +112,20 @@ export function RedeemTransactionForm({
     if (lookupContext.receiptNumber) {
       setReceiptNumber(lookupContext.receiptNumber);
     }
-    if (typeof lookupContext.availableBalanceKobo === 'number') {
-      setBasketAmount(lookupContext.availableBalanceKobo);
-    }
   }, [lookupContext]);
+
+  useEffect(() => {
+    if (!draftHydrated || typeof window === 'undefined') return;
+    const draft: RedeemDraftState = {
+      idempotencyKey: idempotencyKeyRef.current,
+      cardSerialNumber,
+      receiptNumber,
+      basketAmount,
+      requestedRedemption,
+      occurredAt,
+    };
+    window.localStorage.setItem(redeemDraftStorageKey, JSON.stringify(draft));
+  }, [basketAmount, cardSerialNumber, draftHydrated, occurredAt, receiptNumber, requestedRedemption]);
 
   const lookupReady = Boolean(
     lookupContext?.cardSerialNumber || lookupContext?.customerName,
@@ -101,6 +160,8 @@ export function RedeemTransactionForm({
         value: cardSerialNumber || 'Scan or type a card serial',
       },
       { label: 'Receipt', value: receiptNumber || 'Optional' },
+      { label: 'Cashier', value: cashierId || 'Current session' },
+      { label: 'Branch', value: branchId || lookupContext?.branchId || 'Current branch' },
       {
         label: 'Basket',
         value:
@@ -121,7 +182,15 @@ export function RedeemTransactionForm({
       },
       { label: 'Draft key', value: idempotencyKeyRef.current.slice(0, 8) },
     ],
-    [basketAmount, cardSerialNumber, receiptNumber, requestedRedemption],
+    [
+      basketAmount,
+      branchId,
+      cardSerialNumber,
+      cashierId,
+      lookupContext?.branchId,
+      receiptNumber,
+      requestedRedemption,
+    ],
   );
 
   function resetDraft() {
@@ -177,6 +246,15 @@ export function RedeemTransactionForm({
             ? (response.data as Record<string, unknown>)
             : null,
         );
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(redeemDraftStorageKey);
+        }
+        idempotencyKeyRef.current = createDraftKey();
+        setCardSerialNumber('');
+        setReceiptNumber('');
+        setBasketAmount(null);
+        setRequestedRedemption(null);
+        setOccurredAt(new Date().toISOString());
         router.refresh();
         return;
       }
@@ -346,7 +424,15 @@ export function RedeemTransactionForm({
           flexWrap: 'wrap',
         }}
       >
-        <Button type="submit" loading={status === 'submitting'}>
+        <Button
+          type="submit"
+          loading={status === 'submitting'}
+          disabled={
+            basketAmount === null ||
+            requestedRedemption === null ||
+            needsReview
+          }
+        >
           Submit redemption
         </Button>
         <Button type="button" variant="secondary" onClick={resetDraft}>

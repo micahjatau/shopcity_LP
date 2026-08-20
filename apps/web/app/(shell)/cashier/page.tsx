@@ -2,6 +2,7 @@
 
 import type { CSSProperties, FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useSessionBootstrapState } from '../../../components/session-bootstrap';
 import Link from 'next/link';
 import {
   ConnectionStatus,
@@ -56,6 +57,7 @@ export default function CashierPage() {
   const [ledgerRecord, setLedgerRecord] = useState<any | null>(null);
   const [policyConfig, setPolicyConfig] = useState<any | null>(null);
   const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
+  const { sessionLabel } = useSessionBootstrapState();
 
   const customerId = useMemo(
     () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
@@ -194,11 +196,13 @@ export default function CashierPage() {
           lookupRecord.serialNumber ??
           lookupRecord.cardSerialNumber ??
           lookupValue.trim(),
+        customerId: lookupRecord.customer?.id ?? lookupRecord.customerId,
         customerName:
           lookupRecord.customer?.fullName ?? lookupRecord.customerName,
         availableBalanceKobo:
           lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
         expiringCreditKobo: lookupRecord.expiringCreditKobo,
+        branchId: lookupRecord.branchId ?? policyConfig?.branch?.id,
       }
     : undefined;
   const policyContext = policyConfig?.policies ?? null;
@@ -361,6 +365,8 @@ export default function CashierPage() {
           <EarnTransactionForm
             lookupContext={lookupContext}
             policyContext={policyContext}
+            cashierId={sessionLabel?.split(' · ')[1] ?? sessionLabel ?? null}
+            branchId={policyConfig?.branch?.id ?? null}
           />
         </article>
 
@@ -369,6 +375,8 @@ export default function CashierPage() {
           <RedeemTransactionForm
             lookupContext={lookupContext}
             policyContext={policyContext}
+            cashierId={sessionLabel?.split(' · ')[1] ?? sessionLabel ?? null}
+            branchId={policyConfig?.branch?.id ?? null}
           />
         </article>
 

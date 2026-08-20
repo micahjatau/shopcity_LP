@@ -74,7 +74,12 @@ export default function SupervisorReportsPage() {
 
         <section style={cardStyle} aria-label="Reports workspace">
           <h2 style={{ marginTop: 0 }}>Reports workspace</h2>
-          <ReportsWorkspace />
+          <ReportsWorkspace
+            canRefreshReports={false}
+            canUseAuditReport={false}
+            canUseMaterializationState={false}
+            canUsePilotOperationsSummary={false}
+          />
         </section>
       </div>
     </section>

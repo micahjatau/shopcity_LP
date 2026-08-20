@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useSessionBootstrapState } from '../../../../components/session-bootstrap';
 import Link from 'next/link';
 import {
   offlineSyncControllerEarnBatchV1,
@@ -39,6 +40,8 @@ const queueNotes = [
   ],
 ] as const;
 
+const DEVICE_ID_STORAGE_KEY = 'shopcity-sync-device-id-v1';
+
 export default function CashierSyncPage() {
   const [records, setRecords] = useState<OfflineEarnRecord[]>([]);
   const [deviceId, setDeviceId] = useState('');
@@ -53,6 +56,7 @@ export default function CashierSyncPage() {
     string,
     unknown
   > | null>(null);
+  const { sessionLabel } = useSessionBootstrapState();
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.localId === selectedLocalId) ?? null,
@@ -107,7 +111,7 @@ export default function CashierSyncPage() {
         ['State', selectedRecord.syncState],
         ['Server transaction', selectedRecord.serverTransactionId ?? '—'],
         ['Server approval', selectedRecord.serverApprovalId ?? '—'],
-        ['Device', deviceId || 'Enter a device ID'],
+        ['Device', deviceId || 'Derived automatically'],
         ['Last error', selectedRecord.lastError ?? '—'],
       ]
     : [];
@@ -125,11 +129,25 @@ export default function CashierSyncPage() {
   }
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedDeviceId = window.localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+      if (storedDeviceId) {
+        setDeviceId(storedDeviceId);
+      } else if (sessionLabel) {
+        setDeviceId(sessionLabel);
+        window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, sessionLabel);
+      } else {
+        const nextDeviceId = `device-${crypto.randomUUID()}`;
+        setDeviceId(nextDeviceId);
+        window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, nextDeviceId);
+      }
+    }
+
     void refresh();
     return subscribeOfflineQueue(() => {
       void refresh();
     });
-  }, []);
+  }, [sessionLabel]);
 
   async function syncBatch() {
     if (!deviceId.trim()) {
@@ -295,9 +313,9 @@ export default function CashierSyncPage() {
         <div style={controlRow}>
           <Input
             aria-label="Device ID"
-            placeholder="Device ID"
+            placeholder="Derived automatically"
             value={deviceId}
-            onChange={(event) => setDeviceId(event.target.value)}
+            readOnly
           />
           <Button onClick={() => void refresh()} variant="secondary">
             Refresh
@@ -307,7 +325,7 @@ export default function CashierSyncPage() {
           </Button>
         </div>
         <p style={muted}>{message}</p>
-        <p style={muted}>Device ID: {deviceId || '—'}</p>
+        <p style={muted}>Device ID: {deviceId || 'Derived automatically'}</p>
         <p style={muted}>
           Batchable records will be sent in a single backend reconciliation
           request.

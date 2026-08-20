@@ -46,10 +46,17 @@ type CardRecord = Record<string, unknown> & {
   availableBalanceKobo?: number;
 };
 
+type CustomerWorkspaceMode = 'cashier' | 'supervisor';
+
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
-const routeLinks = [
+const cashierRouteLinks = [
   ['/cashier', 'Cashier'],
   ['/cashier/sync', 'Sync queue'],
+] as const;
+const supervisorRouteLinks = [
+  ['/supervisor', 'Supervisor'],
+  ['/supervisor/cards', 'Cards'],
+  ['/supervisor/customers', 'Customers'],
 ] as const;
 
 const pageNotes = [
@@ -67,7 +74,9 @@ const pageNotes = [
   ],
 ] as const;
 
-export default function CashierCustomersPage() {
+export default function CashierCustomersPage({
+  workspace = 'cashier',
+}: Readonly<{ workspace?: CustomerWorkspaceMode }> = {}) {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState(
@@ -97,6 +106,8 @@ export default function CashierCustomersPage() {
   > | null>(null);
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
+  const canManage = workspace !== 'cashier';
+  const routeLinks = canManage ? supervisorRouteLinks : cashierRouteLinks;
   const selectedCard = useMemo(
     () =>
       linkedCards.find((item) => item.id === selectedCardId) ??
@@ -398,7 +409,9 @@ export default function CashierCustomersPage() {
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
         >
-          Search, inspect, and trace customer balance, history, and card state.
+          {canManage
+            ? 'Search, inspect, and manage customer and card state.'
+            : 'Search, inspect, and trace customer balance, history, and card state.'}
         </p>
         <div
           style={{
@@ -588,44 +601,53 @@ export default function CashierCustomersPage() {
                   No ledger history loaded.
                 </p>
               )}
-              <Alert tone="info" title="Customer status">
-                Status changes require confirmation before submission.
-              </Alert>
-              <RadioGroup
-                name="customer-status"
-                legend="Customer status"
-                value={customerStatus}
-                onValueChange={(value) =>
-                  setCustomerStatus(value as UpdateCustomerStatusDtoStatus)
-                }
-                options={[
-                  { value: 'ACTIVE', label: 'Active' },
-                  { value: 'BLOCKED', label: 'Blocked' },
-                ]}
-              />
-              <Input
-                aria-label="Customer status confirmation"
-                placeholder="Type UPDATE to confirm"
-                value={customerStatusConfirmation}
-                onChange={(event) =>
-                  setCustomerStatusConfirmation(event.target.value)
-                }
-              />
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 'var(--sc-spacing-3)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Button
-                  variant="secondary"
-                  onClick={() => void updateCustomerStatus()}
-                  loading={busy}
-                >
-                  Update customer status
-                </Button>
-              </div>
+              {canManage ? (
+                <>
+                  <Alert tone="info" title="Customer status">
+                    Status changes require confirmation before submission.
+                  </Alert>
+                  <RadioGroup
+                    name="customer-status"
+                    legend="Customer status"
+                    value={customerStatus}
+                    onValueChange={(value) =>
+                      setCustomerStatus(value as UpdateCustomerStatusDtoStatus)
+                    }
+                    options={[
+                      { value: 'ACTIVE', label: 'Active' },
+                      { value: 'BLOCKED', label: 'Blocked' },
+                    ]}
+                  />
+                  <Input
+                    aria-label="Customer status confirmation"
+                    placeholder="Type UPDATE to confirm"
+                    value={customerStatusConfirmation}
+                    onChange={(event) =>
+                      setCustomerStatusConfirmation(event.target.value)
+                    }
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 'var(--sc-spacing-3)',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Button
+                      variant="secondary"
+                      onClick={() => void updateCustomerStatus()}
+                      loading={busy}
+                    >
+                      Update customer status
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <Alert tone="neutral" title="Read-only customer view">
+                  Cashiers can review customer history and card state here.
+                  Management actions move to the supervisor workspace.
+                </Alert>
+              )}
             </div>
           ) : (
             <Alert tone="warning" title="No customer selected">
@@ -684,73 +706,75 @@ export default function CashierCustomersPage() {
           )}
         </article>
 
-        <article style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Card management</h2>
-          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            <Input
-              aria-label="Card serial"
-              placeholder="Card serial"
-              value={cardSerialNumber}
-              onChange={(event) => setCardSerialNumber(event.target.value)}
-            />
-            <Input
-              aria-label="Replacement serial"
-              placeholder="Replacement serial"
-              value={replacementSerialNumber}
-              onChange={(event) =>
-                setReplacementSerialNumber(event.target.value)
-              }
-            />
-            <Input
-              aria-label="Replacement confirmation"
-              placeholder="Type REPLACE to confirm"
-              value={replaceConfirmation}
-              onChange={(event) => setReplaceConfirmation(event.target.value)}
-            />
-            <RadioGroup
-              name="card-status"
-              legend="Card status"
-              value={cardStatus}
-              onValueChange={(value) =>
-                setCardStatus(value as UpdateCardStatusDtoStatus)
-              }
-              options={cardStatuses.map((value) => ({ value, label: value }))}
-            />
-            {selectedCard ? (
-              <Alert tone="info" title="Selected card">
-                {selectedCard.serialNumber ?? selectedCard.id ?? 'Card'} is
-                ready for replacement or status change.
-              </Alert>
-            ) : null}
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--sc-spacing-3)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <Button onClick={() => void assignCard()} loading={busy}>
-                Assign card
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => void replaceCard()}
-                loading={busy}
-                disabled={!selectedCardId}
+        {canManage ? (
+          <article style={cardStyle}>
+            <h2 style={{ marginTop: 0 }}>Card management</h2>
+            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+              <Input
+                aria-label="Card serial"
+                placeholder="Card serial"
+                value={cardSerialNumber}
+                onChange={(event) => setCardSerialNumber(event.target.value)}
+              />
+              <Input
+                aria-label="Replacement serial"
+                placeholder="Replacement serial"
+                value={replacementSerialNumber}
+                onChange={(event) =>
+                  setReplacementSerialNumber(event.target.value)
+                }
+              />
+              <Input
+                aria-label="Replacement confirmation"
+                placeholder="Type REPLACE to confirm"
+                value={replaceConfirmation}
+                onChange={(event) => setReplaceConfirmation(event.target.value)}
+              />
+              <RadioGroup
+                name="card-status"
+                legend="Card status"
+                value={cardStatus}
+                onValueChange={(value) =>
+                  setCardStatus(value as UpdateCardStatusDtoStatus)
+                }
+                options={cardStatuses.map((value) => ({ value, label: value }))}
+              />
+              {selectedCard ? (
+                <Alert tone="info" title="Selected card">
+                  {selectedCard.serialNumber ?? selectedCard.id ?? 'Card'} is
+                  ready for replacement or status change.
+                </Alert>
+              ) : null}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 'var(--sc-spacing-3)',
+                  flexWrap: 'wrap',
+                }}
               >
-                Replace card
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => void updateCardStatus()}
-                loading={busy}
-                disabled={!selectedCardId}
-              >
-                Update status
-              </Button>
+                <Button onClick={() => void assignCard()} loading={busy}>
+                  Assign card
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => void replaceCard()}
+                  loading={busy}
+                  disabled={!selectedCardId}
+                >
+                  Replace card
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => void updateCardStatus()}
+                  loading={busy}
+                  disabled={!selectedCardId}
+                >
+                  Update status
+                </Button>
+              </div>
             </div>
-          </div>
-        </article>
+          </article>
+        ) : null}
       </div>
 
       <section style={cardStyle}>

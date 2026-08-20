@@ -33,6 +33,8 @@ const roleRoutes: Record<Exclude<Role, 'SYSTEM'>, RouteItem[]> = {
   ],
   SUPERVISOR: [
     { href: '/supervisor', label: 'Supervisor home' },
+    { href: '/supervisor/customers', label: 'Customers' },
+    { href: '/supervisor/cards', label: 'Cards' },
     { href: '/supervisor/transactions', label: 'Transactions' },
     { href: '/supervisor/approvals', label: 'Approvals' },
     { href: '/supervisor/fraud', label: 'Fraud' },
@@ -101,9 +103,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       return [] as RouteItem[];
     }
 
-    return role === 'SYSTEM'
-      ? roleRoutes.ADMIN
-      : roleRoutes[role as Exclude<Role, 'SYSTEM'>];
+    if (role === 'SYSTEM') {
+      return [] as RouteItem[];
+    }
+
+    return roleRoutes[role as Exclude<Role, 'SYSTEM'>];
   }, [role, status]);
 
   const primaryRoute = routeGroup[0]?.href ?? '/login';
@@ -149,7 +153,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           ? 'Supervisor workspace'
           : role === 'CASHIER'
             ? 'Cashier workspace'
-            : 'Operational workspace'
+            : role === 'SYSTEM'
+              ? 'Operational session'
+              : 'Operational workspace'
       : 'Protected shell';
 
   async function handleLogout() {
@@ -353,6 +359,16 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   'Tenant pending'}
                 {context?.branch?.timezone
                   ? ` · ${context.branch.timezone}`
+                  : ''}
+              </div>
+              <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>
+                {typeof context?.branch?.receiptWeekStartDay === 'number'
+                  ? `Receipt week starts ${context.branch.receiptWeekStartDay}`
+                  : 'Receipt week start pending'}
+                {typeof context?.policies?.offlineRedemptionDisabled === 'boolean'
+                  ? context.policies.offlineRedemptionDisabled
+                    ? ' · Offline redemption disabled'
+                    : ' · Offline redemption available'
                   : ''}
               </div>
               <div style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.9 }}>

@@ -53,77 +53,101 @@ export function PilotHealthPanel({
     };
   }, []);
 
+  const reconciliationHealthy = summary?.reconciliation?.healthy === true;
   const items = useMemo(
     () =>
       summary
         ? [
             {
               label: 'Outbox backlog',
-              value:
-                summary.outbox?.backlogCount ??
-                summary.outbox?.pendingCount ??
-                '—',
-              tone: summary.outbox?.hasBacklog
-                ? ('warning' as const)
-                : ('success' as const),
-              detail: summary.outbox?.lastDispatchAt
-                ? `Last dispatch ${summary.outbox.lastDispatchAt}`
-                : 'No backlog detected',
+              value: summary.outbox?.backlogCount ?? '—',
+              tone:
+                (summary.outbox?.backlogCount ?? 0) > 0 ||
+                (summary.outbox?.staleCount ?? 0) > 0
+                  ? ('warning' as const)
+                  : ('success' as const),
+              detail:
+                (summary.outbox?.staleCount ?? 0) > 0
+                  ? `${summary.outbox.staleCount} stale`
+                  : 'No backlog detected',
             },
             {
-              label: 'SMS delivery',
-              value:
-                summary.sms?.failedCount ?? summary.sms?.queuedCount ?? '—',
-              tone: summary.sms?.failedCount
-                ? ('danger' as const)
-                : ('success' as const),
-              detail: summary.sms?.queuedCount
-                ? `${summary.sms.queuedCount} queued`
-                : 'Delivery queue clear',
+              label: 'SMS failures',
+              value: summary.sms?.failedCount ?? '—',
+              tone:
+                (summary.sms?.failedCount ?? 0) > 0
+                  ? ('danger' as const)
+                  : ('success' as const),
+              detail:
+                (summary.sms?.failedCount ?? 0) > 0
+                  ? 'Investigate SMS delivery'
+                  : 'Delivery queue clear',
             },
             {
-              label: 'Offline sync',
-              value:
-                summary.offlineSync?.failedCount ??
-                summary.offlineSync?.pendingCount ??
-                '—',
-              tone: summary.offlineSync?.failedCount
-                ? ('danger' as const)
-                : ('warning' as const),
-              detail: summary.offlineSync?.pendingCount
-                ? `${summary.offlineSync.pendingCount} pending`
-                : 'No offline backlog',
+              label: 'Offline sync failures',
+              value: summary.offlineSync?.failureCount ?? '—',
+              tone:
+                (summary.offlineSync?.failureCount ?? 0) > 0
+                  ? ('danger' as const)
+                  : ('warning' as const),
+              detail:
+                (summary.offlineSync?.failureCount ?? 0) > 0
+                  ? `${summary.offlineSync.failureCount} failed`
+                  : 'No offline backlog',
+            },
+            {
+              label: 'Fraud open',
+              value: summary.fraud?.openCount ?? '—',
+              tone:
+                (summary.fraud?.openCount ?? 0) > 0
+                  ? ('warning' as const)
+                  : ('success' as const),
+              detail:
+                (summary.fraud?.openCount ?? 0) > 0
+                  ? 'Open fraud cases need review'
+                  : 'No open fraud cases',
             },
             {
               label: 'Report freshness',
+              value: summary.reports?.staleCount ?? '—',
+              tone:
+                (summary.reports?.staleCount ?? 0) > 0
+                  ? ('warning' as const)
+                  : ('success' as const),
+              detail:
+                (summary.reports?.staleCount ?? 0) > 0
+                  ? `${summary.reports.staleCount} stale`
+                  : 'No freshness warnings',
+            },
+            {
+              label: 'Reconciliation',
               value:
-                summary.reports?.staleCount ??
-                summary.reports?.freshCount ??
-                '—',
-              tone: summary.reports?.staleCount
-                ? ('warning' as const)
-                : ('success' as const),
-              detail: summary.reports?.freshCount
-                ? `${summary.reports.freshCount} fresh`
-                : 'No freshness warnings',
+                typeof summary.reconciliation?.mismatchCount === 'number'
+                  ? summary.reconciliation.mismatchCount
+                  : '—',
+              tone: reconciliationHealthy ? ('success' as const) : ('danger' as const),
+              detail: reconciliationHealthy
+                ? 'Ledger and operational signals are aligned'
+                : 'Ledger mismatch requires review',
             },
           ]
         : [],
-    [summary],
+    [reconciliationHealthy, summary],
   );
 
   const overallTone = useMemo(() => {
     if (!summary) return 'neutral' as const;
     if (
-      summary.outbox?.hasBacklog ||
-      summary.sms?.failedCount ||
-      summary.offlineSync?.failedCount
+      !reconciliationHealthy ||
+      (summary.outbox?.backlogCount ?? 0) > 0 ||
+      (summary.sms?.failedCount ?? 0) > 0 ||
+      (summary.offlineSync?.failureCount ?? 0) > 0
     ) {
       return 'warning' as const;
     }
-    if (summary.reports?.staleCount) return 'info' as const;
+    if ((summary.reports?.staleCount ?? 0) > 0) return 'info' as const;
     return 'success' as const;
-  }, [summary]);
+  }, [reconciliationHealthy, summary]);
 
   return (
     <section style={compact ? compactCardStyle : cardStyle}>
@@ -145,7 +169,10 @@ export function PilotHealthPanel({
             tone={overallTone}
           />
           {summary?.reconciliation ? (
-            <StatusBadge label="Reconciliation available" tone="info" />
+            <StatusBadge
+              label={reconciliationHealthy ? 'Reconciled' : 'Mismatch'}
+              tone={reconciliationHealthy ? 'success' : 'danger'}
+            />
           ) : null}
         </div>
         <h2 style={{ margin: 0 }}>Pilot health</h2>
