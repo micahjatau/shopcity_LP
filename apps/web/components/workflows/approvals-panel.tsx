@@ -11,8 +11,22 @@ import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, RadioGroup, Table } from '../ui';
 import { StatusBadge } from '../shopcity';
 
+type ApprovalRecord = {
+  [key: string]: unknown;
+  id?: string;
+  status?: string;
+  customer?: { fullName?: string };
+  customerId?: string;
+  reasonCode?: string;
+  ruleCode?: string;
+  branchId?: string;
+  receipt?: unknown;
+  referenceNumber?: string;
+  amountKobo?: number;
+};
+
 export function ApprovalsPanel() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ApprovalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('Loading approvals…');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -30,7 +44,7 @@ export function ApprovalsPanel() {
   );
 
   const pendingCount = items.filter((item) => item.status === 'PENDING').length;
-  const selectedPreview = selectedItem
+  const selectedPreview: Array<[string, unknown]> = selectedItem
     ? [
         [
           'Customer',
@@ -57,11 +71,9 @@ export function ApprovalsPanel() {
         createApiRequest({ csrf: true }),
       );
       if (response.status === 200) {
-        const nextItems = response.data.data.items as any[];
+        const nextItems = response.data.data.items as ApprovalRecord[];
         setItems(nextItems);
-        setSelectedId(
-          (nextItems[0] as { id?: string } | undefined)?.id ?? null,
-        );
+        setSelectedId(nextItems[0]?.id ?? null);
         setResponseData(null);
         setMessage(`Loaded ${nextItems.length} approvals.`);
       } else {
@@ -196,9 +208,9 @@ export function ApprovalsPanel() {
         <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
           {items.slice(0, 3).map((item) => (
             <button
-              key={item.id}
+              key={approvalKey(item)}
               type="button"
-              onClick={() => setSelectedId(item.id)}
+              onClick={() => setSelectedId(item.id ?? null)}
               style={{
                 textAlign: 'left',
                 padding: 'var(--sc-spacing-4)',
@@ -212,9 +224,9 @@ export function ApprovalsPanel() {
               }}
             >
               <div style={listHeaderRow}>
-                <strong>{item.customer?.fullName ?? item.id}</strong>
+                <strong>{approvalLabel(item)}</strong>
                 <StatusBadge
-                  label={item.status}
+                  label={item.status ?? 'UNKNOWN'}
                   tone={item.status === 'PENDING' ? 'warning' : 'neutral'}
                 />
               </div>
@@ -287,13 +299,21 @@ export function ApprovalsPanel() {
   );
 }
 
-function describeApproval(item: Record<string, unknown>) {
+function describeApproval(item: ApprovalRecord) {
   const customer = describeValue(item.customer ?? item.customerId);
   const status = describeValue(item.status);
   const reasonCode = describeValue(
     item.reasonCode ?? item.ruleCode ?? item.reason,
   );
   return `${customer} · ${status} · ${reasonCode}`;
+}
+
+function approvalKey(item: ApprovalRecord) {
+  return String(item.id ?? item.reasonCode ?? item.ruleCode ?? 'approval');
+}
+
+function approvalLabel(item: ApprovalRecord) {
+  return item.customer?.fullName ?? item.id ?? 'Approval';
 }
 
 function describeValue(value: unknown) {

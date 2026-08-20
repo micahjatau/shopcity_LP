@@ -23,6 +23,20 @@ import { StatusBadge } from '../../../../components/shopcity';
 
 const statuses = ['ACTIVE', 'INACTIVE'] as const;
 
+type DeviceRecord = {
+  id?: string;
+  name?: string;
+  status?: (typeof statuses)[number];
+  branchId?: string;
+  fingerprintHash?: string;
+};
+
+type BranchRecord = {
+  id?: string;
+  name?: string;
+  timezone?: string;
+};
+
 const relatedRoutes = [
   ['/admin/users', 'Users'],
   ['/admin/branches', 'Branches'],
@@ -31,8 +45,8 @@ const relatedRoutes = [
 ] as const;
 
 export default function AdminDevicesPage() {
-  const [devices, setDevices] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [devices, setDevices] = useState<DeviceRecord[]>([]);
+  const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState('Create or update devices by branch.');
   const [loading, setLoading] = useState(true);
@@ -57,10 +71,12 @@ export default function AdminDevicesPage() {
     () => branches.find((item) => item.id === branchId) ?? null,
     [branches, branchId],
   );
-  const branchOptions = branches.map((branch) => ({
-    value: branch.id,
-    label: branch.name ?? branch.id,
-  }));
+  const branchOptions = branches
+    .filter((branch): branch is BranchRecord & { id: string } => Boolean(branch.id))
+    .map((branch) => ({
+      value: branch.id,
+      label: branch.name ?? branch.id,
+    }));
   const statusTone = status === 'ACTIVE' ? 'success' : 'warning';
 
   useEffect(() => {
@@ -81,12 +97,12 @@ export default function AdminDevicesPage() {
       ]);
 
       if (devicesResponse.status === 200) {
-        const nextDevices = devicesResponse.data.data as any[];
+        const nextDevices = devicesResponse.data.data as DeviceRecord[];
         setDevices(nextDevices);
         setSelectedId(nextDevices[0]?.id ?? null);
       }
       if (branchesResponse.status === 200) {
-        const nextBranches = branchesResponse.data.data as any[];
+        const nextBranches = branchesResponse.data.data as BranchRecord[];
         setBranches(nextBranches);
         setBranchId((current) => current || nextBranches[0]?.id || '');
       }

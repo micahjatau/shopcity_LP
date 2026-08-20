@@ -15,9 +15,18 @@ const routeLinks = [
   ['/admin/cards', 'Cards'],
 ] as const;
 
+type AuditRow = Record<string, unknown> & {
+  id?: string;
+  action?: string;
+  subjectType?: string;
+  subjectId?: string;
+  actorId?: string;
+  createdAt?: string;
+};
+
 export default function AdminAuditPage() {
   const [actorId, setActorId] = useState('');
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<AuditRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState(
     'Enter an actor ID to load audit rows.',
@@ -61,7 +70,7 @@ export default function AdminAuditPage() {
           : null,
       );
       if (response.status === 200) {
-        const nextRows = response.data.data as any[];
+        const nextRows = response.data.data as AuditRow[];
         setRows(nextRows);
         setSelectedId(nextRows[0]?.id ?? null);
         setMessage(`Loaded ${nextRows.length} audit row(s).`);

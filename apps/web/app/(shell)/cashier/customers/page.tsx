@@ -12,6 +12,8 @@ import {
   customersControllerListCustomersV1,
   customersControllerUpdateStatusV1,
   loyaltyControllerGetCustomerLedgerV1,
+  type CustomersControllerListCustomersV1Params,
+  type LoyaltyControllerGetCustomerLedgerV1Params,
   type UpdateCardStatusDtoStatus,
   type UpdateCustomerStatusDtoStatus,
 } from '../../../../lib/api/generated-client';
@@ -160,7 +162,7 @@ export default function CashierCustomersPage() {
       try {
         const ledgerResponse = await loyaltyControllerGetCustomerLedgerV1(
           customerId,
-          { limit: '5', cursor: '' } as any,
+          { limit: '5', cursor: '' } satisfies LoyaltyControllerGetCustomerLedgerV1Params,
           createApiRequest({ csrf: true }),
         );
         if (!ignore && ledgerResponse.status === 200) {
@@ -182,7 +184,7 @@ export default function CashierCustomersPage() {
     setMessage(term ? `Searching for ${term}…` : 'Loading customers…');
     try {
       const response = await customersControllerListCustomersV1(
-        { q: term, limit: '10' } as any,
+        { q: term, limit: '10', cursor: '' } satisfies CustomersControllerListCustomersV1Params,
         createApiRequest({ csrf: true }),
       );
       setActionResponse(

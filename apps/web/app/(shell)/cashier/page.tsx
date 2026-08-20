@@ -112,7 +112,7 @@ export default function CashierPage() {
       try {
         const response = await loyaltyControllerGetCustomerLedgerV1(
           customerId,
-          { limit: '5', cursor: '' } as any,
+          { limit: '5', cursor: '' },
           createApiRequest({ csrf: true }),
         );
         if (!ignore && response.status === 200) {

@@ -25,9 +25,22 @@ import { StatusBadge } from '../../../../components/shopcity';
 const roles = ['CASHIER', 'SUPERVISOR', 'ADMIN'] as const;
 const statuses = ['ACTIVE', 'DISABLED', 'SUSPENDED'] as const;
 
+type UserRecord = {
+  id?: string;
+  username?: string;
+  role?: (typeof roles)[number];
+  status?: (typeof statuses)[number];
+  branchId?: string;
+};
+
+type BranchRecord = {
+  id?: string;
+  name?: string;
+};
+
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState(
     'Load users, then create or update staff accounts.',
@@ -51,10 +64,12 @@ export default function AdminUsersPage() {
     [selectedId, users],
   );
 
-  const branchOptions = branches.map((branch) => ({
-    value: branch.id,
-    label: branch.name ?? branch.id,
-  }));
+  const branchOptions = branches
+    .filter((branch): branch is BranchRecord & { id: string } => Boolean(branch.id))
+    .map((branch) => ({
+      value: branch.id,
+      label: branch.name ?? branch.id,
+    }));
 
   useEffect(() => {
     if (selectedUser) {
@@ -74,13 +89,13 @@ export default function AdminUsersPage() {
       ]);
 
       if (usersResponse.status === 200) {
-        const nextUsers = usersResponse.data.data as any[];
+        const nextUsers = usersResponse.data.data as UserRecord[];
         setUsers(nextUsers);
         setSelectedId(nextUsers[0]?.id ?? null);
       }
 
       if (branchesResponse.status === 200) {
-        const nextBranches = branchesResponse.data.data as any[];
+        const nextBranches = branchesResponse.data.data as BranchRecord[];
         setBranches(nextBranches);
         setBranchId((current) => current || nextBranches[0]?.id || '');
       }

@@ -17,7 +17,7 @@ import {
   RadioGroup,
   Table,
 } from '../../../../components/ui';
-import { Money, StatusBadge } from '../../../../components/shopcity';
+import { Money, StatusBadge, type StatusTone } from '../../../../components/shopcity';
 
 const routeLinks = [
   ['/admin/users', 'Users'],
@@ -46,7 +46,7 @@ export default function AdminCardsPage() {
   const [card, setCard] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const cardStatusTone = useMemo(() => {
+  const cardStatusTone = useMemo<StatusTone>(() => {
     if (card?.status === 'ACTIVE') return 'success';
     if (card?.status === 'BLOCKED') return 'warning';
     return 'neutral';
@@ -298,7 +298,7 @@ export default function AdminCardsPage() {
             {card?.status ? (
               <StatusBadge
                 label={String(card.status)}
-                tone={cardStatusTone as any}
+                tone={cardStatusTone}
               />
             ) : null}
             {card?.customer?.fullName ? (

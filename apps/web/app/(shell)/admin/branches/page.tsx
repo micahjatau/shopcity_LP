@@ -13,9 +13,24 @@ import { createApiRequest } from '../../../../lib/api/request';
 import { Alert, Button, Input, Table } from '../../../../components/ui';
 import { StatusBadge } from '../../../../components/shopcity';
 
+type BranchRecord = {
+  id?: string;
+  name?: string;
+  timezone?: string;
+  receiptWeekStartDay?: number;
+};
+
+type DeviceRecord = {
+  id?: string;
+  branchId?: string;
+  name?: string;
+  status?: string;
+  fingerprintHash?: string;
+};
+
 export default function AdminBranchesPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [devices, setDevices] = useState<any[]>([]);
+  const [items, setItems] = useState<BranchRecord[]>([]);
+  const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [message, setMessage] = useState('Loading branches…');
   const [actionMessage, setActionMessage] = useState('');
   const [actionResponse, setActionResponse] = useState<Record<
@@ -61,12 +76,12 @@ export default function AdminBranchesPage() {
         branchesControllerListDevicesV1(createApiRequest({ csrf: true })),
       ]);
       if (branchesResponse.status === 200) {
-        const nextItems = branchesResponse.data.data as any[];
+        const nextItems = branchesResponse.data.data as BranchRecord[];
         setItems(nextItems);
         setSelectedId(nextItems[0]?.id ?? null);
       }
       if (devicesResponse.status === 200) {
-        setDevices(devicesResponse.data.data as any[]);
+        setDevices(devicesResponse.data.data as DeviceRecord[]);
       }
       setActionResponse(null);
       setMessage('Branch data loaded.');
