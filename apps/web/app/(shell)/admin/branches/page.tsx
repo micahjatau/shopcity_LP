@@ -82,12 +82,17 @@ export default function AdminBranchesPage() {
         branchesControllerListDevicesV1(createApiRequest({ csrf: true })),
       ]);
       if (branchesResponse.status === 200) {
-        const nextItems = branchesResponse.data.data;
+        const nextItems = Array.isArray(branchesResponse.data.data)
+          ? (branchesResponse.data.data as BranchRecord[])
+          : [];
         setItems(nextItems);
         setSelectedId(nextItems[0]?.id ?? null);
       }
       if (devicesResponse.status === 200) {
-        setDevices(devicesResponse.data.data);
+        const nextDevices = Array.isArray(devicesResponse.data.data)
+          ? (devicesResponse.data.data as DeviceRecord[])
+          : [];
+        setDevices(nextDevices);
       }
       setActionResponse(null);
       setMessage('Branch data loaded.');
