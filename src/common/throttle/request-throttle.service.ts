@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { DomainHttpException } from '../errors/domain.exception';
 import { RedisClientService } from '../redis/redis.client.service';
 
 @Injectable()
@@ -17,16 +18,16 @@ export class RequestThrottleService {
         [key],
         [windowMs],
       );
-    } catch {
+    } catch (error) {
       this.logger.warn(
-        `Redis throttling unavailable for ${key}; allowing request`,
+        `Redis throttling unavailable for ${key}; rejecting request`,
       );
-      return {
-        allowed: true,
-        count: 0,
-        remaining: limit,
-        resetAt: new Date(Date.now() + windowMs),
-      };
+      throw new DomainHttpException(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'THROTTLE_UNAVAILABLE',
+        'Request throttling is temporarily unavailable',
+        { key, cause: error instanceof Error ? error.message : 'unknown' },
+      );
     }
 
     const remaining = Math.max(0, limit - count);

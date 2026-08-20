@@ -1,3 +1,4 @@
+import { HttpStatus } from '@nestjs/common';
 import { RequestThrottleService } from './request-throttle.service';
 import { RedisClientService } from '../redis/redis.client.service';
 
@@ -40,19 +41,19 @@ describe('RequestThrottleService', () => {
     );
   });
 
-  it('allows requests when Redis throttling is unavailable', async () => {
+  it('fails closed when Redis throttling is unavailable', async () => {
     const redisClientService = {
       eval: jest.fn().mockRejectedValue(new Error('redis down')),
     } as unknown as RedisClientService;
     const service = new RequestThrottleService(redisClientService);
 
-    const result = await service.consume('auth.login:bucket', 3, 15_000);
-
-    expect(result).toMatchObject({
-      allowed: true,
-      count: 0,
-      remaining: 3,
+    await expect(
+      service.consume('auth.login:bucket', 3, 15_000),
+    ).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      response: {
+        code: 'THROTTLE_UNAVAILABLE',
+      },
     });
-    expect(result.resetAt).toBeInstanceOf(Date);
   });
 });
