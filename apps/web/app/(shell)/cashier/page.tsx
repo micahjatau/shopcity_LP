@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties, FormEvent } from 'react';
+import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSessionBootstrapState } from '../../../components/session-bootstrap';
 import Link from 'next/link';
@@ -32,6 +32,55 @@ const cashierRoutes = [
   ['/cashier/sync', 'Sync queue'],
 ] as const;
 
+type CashierLookupRecord = {
+  customer?: { id?: string; fullName?: string };
+  customerId?: string;
+  customerName?: string;
+  serialNumber?: string;
+  cardSerialNumber?: string;
+  status?: string;
+  cardStatus?: string;
+  availableBalanceKobo?: number;
+  balanceKobo?: number;
+  expiringCreditKobo?: number;
+  branchId?: string;
+};
+
+type CashierCustomerRecord = {
+  fullName?: string;
+  name?: string;
+  status?: string;
+  balanceKobo?: number;
+  availableBalanceKobo?: number;
+};
+
+type CashierLedgerItem = {
+  id?: string;
+  type?: string;
+  transactionType?: string;
+  amountKobo?: number;
+};
+
+type CashierLedgerRecord = {
+  items?: CashierLedgerItem[];
+};
+
+type CashierPolicyConfig = {
+  tenant?: { id?: string; name?: string };
+  branch?: {
+    id?: string;
+    name?: string;
+    timezone?: string;
+  };
+  policies?: {
+    defaultEarnRateBps?: number;
+    minRedemptionKobo?: number;
+    maxRedemptionBasketPercent?: number;
+    purchaseFlagThresholdKobo?: number;
+    redemptionApprovalThresholdKobo?: number;
+  };
+};
+
 const cashierNotes = [
   [
     'Lookup first',
@@ -52,10 +101,10 @@ export default function CashierPage() {
   const [lookupMessage, setLookupMessage] = useState(
     'Scan or type a card serial.',
   );
-  const [lookupRecord, setLookupRecord] = useState<any | null>(null);
-  const [customerRecord, setCustomerRecord] = useState<any | null>(null);
-  const [ledgerRecord, setLedgerRecord] = useState<any | null>(null);
-  const [policyConfig, setPolicyConfig] = useState<any | null>(null);
+  const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(null);
+  const [customerRecord, setCustomerRecord] = useState<CashierCustomerRecord | null>(null);
+  const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(null);
+  const [policyConfig, setPolicyConfig] = useState<CashierPolicyConfig | null>(null);
   const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
   const { sessionLabel } = useSessionBootstrapState();
 
@@ -164,7 +213,7 @@ export default function CashierPage() {
     }
   }
 
-  const lookupSummary = lookupRecord
+  const lookupSummary: Array<[string, ReactNode]> = lookupRecord
     ? [
         [
           'Customer',
@@ -241,7 +290,7 @@ export default function CashierPage() {
             label={branchContext?.timezone ?? 'Timezone pending'}
             tone="success"
           />
-          {policyContext ? (
+          {typeof policyContext?.defaultEarnRateBps === 'number' ? (
             <StatusBadge
               label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
               tone="info"
@@ -264,7 +313,7 @@ export default function CashierPage() {
               <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
                 <div style={statRow}>
                   <span>Earn rate</span>
-                  <strong>{policyContext.defaultEarnRateBps / 100}%</strong>
+                  <strong>{(policyContext.defaultEarnRateBps ?? 0) / 100}%</strong>
                 </div>
                 <div style={statRow}>
                   <span>Min redemption</span>
@@ -412,8 +461,8 @@ export default function CashierPage() {
                 <strong>Recent ledger</strong>
                 {Array.isArray(ledgerRecord?.items) &&
                 ledgerRecord.items.length > 0 ? (
-                  ledgerRecord.items.slice(0, 4).map((item: any) => (
-                    <div key={item.id ?? JSON.stringify(item)} style={statRow}>
+                  ledgerRecord.items.slice(0, 4).map((item) => (
+                    <div key={item.id ?? item.type ?? JSON.stringify(item)} style={statRow}>
                       <span>
                         {item.type ?? item.transactionType ?? 'Entry'}
                       </span>
