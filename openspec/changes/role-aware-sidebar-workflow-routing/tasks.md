@@ -57,7 +57,7 @@
 ## 7. Migration sequence
 
 - [x] 7.1 Add the navigation registry.
-- [ ] 7.2 Add AppSidebar.
+- [x] 7.2 Add AppSidebar.
 - [x] 7.3 Add compact AppTopbar.
 - [x] 7.4 Add the mobile navigation drawer.
 - [x] 7.5 Refactor AppShell to use the new shell components.

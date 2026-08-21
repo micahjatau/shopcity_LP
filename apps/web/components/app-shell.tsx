@@ -1,23 +1,19 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserStateBootstrap } from './browser-state-bootstrap';
 import { AppSidebar } from './app-sidebar';
+import { AppTopbar } from './app-topbar';
 import { useSessionBootstrapState } from './session-bootstrap';
-import {
-  ConnectionStatus,
-  OfflineIndicator,
-  SyncQueueIndicator,
-} from './offline';
+import { OfflineIndicator } from './offline';
+import { Badge } from './ui';
 import {
   getOfflineEarnRecordCount,
   subscribeOfflineQueue,
 } from '../lib/browser/offline-earn-queue';
-import { Badge } from './ui';
 import {
   getActiveShellNavigationSection,
   getShellNavigationSections,
@@ -234,99 +230,19 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <div className="shell-root">
-      <header className="shell-topbar">
-        <div className="shell-brand-row">
-          <Link href="/" className="shell-brand">
-            <Image
-              src="/brand/shopcity-mark-white.svg"
-              alt="ShopCity"
-              width={40}
-              height={40}
-            />
-            <div>
-              <div className="shell-brand-mark">SHOPCITY</div>
-              <div className="shell-brand-subtitle">Loyalty operations</div>
-            </div>
-          </Link>
-
-          <div className="shell-topbar-actions">
-            <p data-status={status} className="shell-session-label">
-              {status === 'loading'
-                ? 'Checking session…'
-                : status === 'ready'
-                  ? `Session ready${sessionLabel ? ` · ${sessionLabel}` : ''}`
-                  : status === 'unauthenticated'
-                    ? 'Sign in required'
-                    : 'Session check unavailable'}
-            </p>
-            <ConnectionStatus />
-            <SyncQueueIndicator />
-            {showProtectedContent ? (
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                className="shell-signout"
-              >
-                Sign out
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="shell-mobile-menu-button"
-              onClick={() => setMobileNavigationOpen(true)}
-            >
-              Menu
-            </button>
-          </div>
-        </div>
-
-        <div className="shell-context-grid">
-          <div className="shell-context-card">
-            <p className="shell-context-label">Shell context</p>
-            <strong>{configMessage}</strong>
-            <div className="shell-context-meta">
-              Session {sessionLabel ?? 'pending'} · {status}
-            </div>
-          </div>
-          <div className="shell-context-card">
-            <p className="shell-context-label">Workspace</p>
-            <strong>{workspaceLabel}</strong>
-            <div className="shell-context-meta">
-              {activeSection?.label ?? 'Section pending'}
-            </div>
-            <div className="shell-context-meta">{routeTrailLabel}</div>
-            <div className="shell-context-meta">{pageTitle}</div>
-          </div>
-          <div className="shell-context-card">
-            <p className="shell-context-label">Branch and policy</p>
-            <strong>
-              {context?.branch?.name ?? context?.branch?.id ?? 'Loading…'}
-            </strong>
-            <div className="shell-context-meta">
-              {context?.tenant?.name ?? context?.tenant?.id ?? 'Tenant pending'}
-              {context?.branch?.timezone ? ` · ${context.branch.timezone}` : ''}
-            </div>
-            <div className="shell-context-meta">
-              {typeof context?.branch?.receiptWeekStartDay === 'number'
-                ? `Receipt week starts ${context.branch.receiptWeekStartDay}`
-                : 'Receipt week start pending'}
-              {typeof context?.policies?.offlineRedemptionDisabled === 'boolean'
-                ? context.policies.offlineRedemptionDisabled
-                  ? ' · Offline redemption disabled'
-                  : ' · Offline redemption available'
-                : ''}
-            </div>
-            <div className="shell-context-meta">
-              {typeof context?.policies?.defaultEarnRateBps === 'number'
-                ? `${context.policies.defaultEarnRateBps / 100}% earn rate`
-                : 'Policy values pending'}
-              {typeof context?.policies?.minRedemptionKobo === 'number'
-                ? ` · Min redemption ₦${(context.policies.minRedemptionKobo / 100).toLocaleString()}`
-                : ''}
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppTopbar
+        status={status}
+        sessionLabel={sessionLabel}
+        configMessage={configMessage}
+        workspaceLabel={workspaceLabel}
+        activeSectionLabel={activeSection?.label ?? 'Section pending'}
+        routeTrailLabel={routeTrailLabel}
+        pageTitle={pageTitle}
+        context={context}
+        showProtectedContent={showProtectedContent}
+        onLogout={() => void handleLogout()}
+        onOpenMobileMenu={() => setMobileNavigationOpen(true)}
+      />
 
       <div className="shell-body">
         <AppSidebar
