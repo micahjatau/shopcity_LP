@@ -50,16 +50,6 @@ type CardRecord = Record<string, unknown> & {
 };
 
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
-const cashierRouteLinks = [
-  ['/cashier', 'Cashier'],
-  ['/cashier/sync', 'Sync queue'],
-] as const;
-const supervisorRouteLinks = [
-  ['/supervisor', 'Supervisor'],
-  ['/supervisor/cards', 'Cards'],
-  ['/supervisor/customers', 'Customers'],
-] as const;
-
 const pageNotes = [
   [
     'Search first',
@@ -108,7 +98,6 @@ export default function CashierCustomersPage() {
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
   const canManage = pathname?.startsWith('/supervisor') ?? false;
-  const routeLinks = canManage ? supervisorRouteLinks : cashierRouteLinks;
   const selectedCard = useMemo(
     () =>
       linkedCards.find((item) => item.id === selectedCardId) ??
@@ -421,20 +410,9 @@ export default function CashierCustomersPage() {
             ? 'Search, inspect, and manage customer and card state.'
             : 'Search, inspect, and trace customer balance, history, and card state.'}
         </p>
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--sc-spacing-3)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Link href="/cashier">Back to cashier</Link>
-          {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </div>
+        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+          Use the shell navigation for cashier, sync, and supervisor routes.
+        </p>
       </header>
 
       <Alert tone="info" title="Customer route context">

@@ -1,35 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import type { CSSProperties, FormEvent, ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { useSessionBootstrapState } from '../../../components/session-bootstrap';
+import { useSessionBootstrapState } from '../session-bootstrap';
+import { ScannerContextScope } from '../scanner-context-scope';
 import {
   ConnectionStatus,
-  OfflineIndicator,
   SyncQueueIndicator,
-} from '../../../components/offline';
-import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Alert, Button, Input, Separator } from '../../../components/ui';
-import { Money, StatusBadge } from '../../../components/shopcity';
-import { WorkflowSection } from '../../../components/workflows';
+} from '../offline';
+import { Alert, Button, Input, Separator } from '../ui';
+import { Money, StatusBadge } from '../shopcity';
+import { WorkflowSection, EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   cardsControllerLookupCardV1,
   customersControllerGetCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
-} from '../../../lib/api/generated-client';
+} from '../../lib/api/generated-client';
 import {
   configurationControllerGetPublicConfigV1,
   createApiRequest,
-} from '../../../lib/api';
-
-const cashierRoutes = [
-  ['/cashier', 'Overview'],
-  ['/cashier/earn', 'Earn'],
-  ['/cashier/redeem', 'Redeem'],
-  ['/cashier/customers', 'Customers'],
-  ['/cashier/sync', 'Sync queue'],
-] as const;
+} from '../../lib/api';
 
 type CashierLookupRecord = {
   customer?: { id?: string; fullName?: string };
@@ -78,28 +69,26 @@ type CashierPolicyConfig = {
     maxRedemptionBasketPercent?: number;
     purchaseFlagThresholdKobo?: number;
     redemptionApprovalThresholdKobo?: number;
+    offlineRedemptionDisabled?: boolean;
   };
 };
 
-const cashierNotes = [
-  [
-    'Dedicated routes',
-    'Earn and Redeem now live on separate pages so the overview can stay lightweight.',
-  ],
-  [
-    'Lookup first',
-    'Scan a card or receipt to seed the customer context before jumping into a workflow.',
-  ],
-  [
-    'Backend contracts',
-    'The overview still renders only authoritative state from the generated API contract.',
-  ],
-] as const;
+export type CashierWorkflowRouteProps = {
+  kind: 'earn' | 'redeem';
+  title: string;
+  description: string;
+  initialCardSerial?: string | null;
+};
 
-export default function CashierPage() {
-  const [lookupValue, setLookupValue] = useState('');
+export function CashierWorkflowRoute({
+  kind,
+  title,
+  description,
+  initialCardSerial,
+}: Readonly<CashierWorkflowRouteProps>) {
+  const [lookupValue, setLookupValue] = useState(initialCardSerial ?? '');
   const [lookupMessage, setLookupMessage] = useState(
-    'Scan or type a card serial.',
+    initialCardSerial ? 'Card context loaded from the route. Lookup to refresh if needed.' : 'Scan or type a card serial.',
   );
   const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(
     null,
@@ -113,7 +102,7 @@ export default function CashierPage() {
     null,
   );
   const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
-  const { userId } = useSessionBootstrapState();
+  const { userId, deviceId } = useSessionBootstrapState();
 
   const customerId = useMemo(
     () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
@@ -187,9 +176,23 @@ export default function CashierPage() {
     };
   }, [customerId]);
 
-  async function handleLookup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const query = lookupValue.trim();
+  useEffect(() => {
+    if (!initialCardSerial || lookupRecord) {
+      return;
+    }
+
+    setLookupValue(initialCardSerial);
+    void handleLookup(initialCardSerial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCardSerial, lookupRecord]);
+
+  async function handleLookup(eventOrValue: FormEvent<HTMLFormElement> | string) {
+    if (typeof eventOrValue !== 'string') {
+      eventOrValue.preventDefault();
+    }
+
+    const query =
+      typeof eventOrValue === 'string' ? eventOrValue.trim() : lookupValue.trim();
     if (!query) {
       setLookupMessage('Enter a card serial number first.');
       setLookupRecord(null);
@@ -206,7 +209,7 @@ export default function CashierPage() {
       if (response.status === 200) {
         const record = response.data.data;
         setLookupRecord(record);
-        setLookupMessage('Lookup resolved. Earn and redeem can now use this context.');
+        setLookupMessage('Lookup resolved. The workflow can now use this context.');
         return;
       }
 
@@ -247,69 +250,72 @@ export default function CashierPage() {
   const policyContext = policyConfig?.policies ?? null;
   const branchContext = policyConfig?.branch ?? null;
   const tenantContext = policyConfig?.tenant ?? null;
-  const selectedCardSerial =
-    lookupRecord?.serialNumber ?? lookupRecord?.cardSerialNumber ?? lookupValue.trim();
+  const branchReceiptWeekStartDay =
+    typeof branchContext?.receiptWeekStartDay === 'number'
+      ? branchContext.receiptWeekStartDay
+      : null;
+  const lookupContext = lookupRecord
+    ? {
+        cardSerialNumber:
+          lookupRecord.serialNumber ??
+          lookupRecord.cardSerialNumber ??
+          lookupValue.trim(),
+        customerId: lookupRecord.customer?.id ?? lookupRecord.customerId,
+        customerName:
+          lookupRecord.customer?.fullName ?? lookupRecord.customerName,
+        availableBalanceKobo:
+          lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
+        expiringCreditKobo: lookupRecord.expiringCreditKobo,
+        branchId: lookupRecord.branchId ?? branchContext?.id,
+      }
+    : undefined;
+
+  const routeHeader = (
+    <header className="cashier-route-header">
+      <h1 style={{ margin: 0 }}>{title}</h1>
+      <p className="cashier-route-description">{description}</p>
+      <div className="cashier-route-chip-row">
+        <StatusBadge
+          label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'}
+          tone="info"
+        />
+        <StatusBadge
+          label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'}
+          tone="neutral"
+        />
+        <StatusBadge
+          label={branchContext?.timezone ?? 'Timezone pending'}
+          tone="success"
+        />
+        {typeof policyContext?.defaultEarnRateBps === 'number' ? (
+          <StatusBadge
+            label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
+            tone="info"
+          />
+        ) : null}
+      </div>
+    </header>
+  );
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
       <ScannerContextScope context="lookup" />
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>Cashier overview</h1>
-        <p
-          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
-        >
-          Fast lookup, dedicated workflow launch, customer detail and sync entry points.
-        </p>
-        <div style={routeRow}>
-          <ConnectionStatus />
-          <SyncQueueIndicator />
-          {cashierRoutes.map(([href, label]) => (
-            <Link key={href} href={href} style={routeLink}>
-              {label}
-            </Link>
-          ))}
-        </div>
-        <div style={policyRow}>
-          <StatusBadge
-            label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'}
-            tone="info"
-          />
-          <StatusBadge
-            label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'}
-            tone="neutral"
-          />
-          <StatusBadge
-            label={branchContext?.timezone ?? 'Timezone pending'}
-            tone="success"
-          />
-          {typeof policyContext?.defaultEarnRateBps === 'number' ? (
-            <StatusBadge
-              label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
-              tone="info"
-            />
-          ) : null}
-        </div>
-      </header>
-
-      <OfflineIndicator />
-
+      {routeHeader}
       <WorkflowSection
-        title="Cashier workflow"
-        description="Scan first, then move into earn, redeem, customer detail, or sync follow-up."
+        title="Policy and lookup"
+        description="Rehydrate the customer context before the workflow submits a financial action."
       >
-        <div style={gridStyle}>
-          <article style={cardStyle} aria-label="Policy context">
+        <div className="cashier-workspace-grid">
+          <article className="cashier-card" aria-label="Policy context">
             <h2 style={{ marginTop: 0 }}>Policy context</h2>
-            <p style={muted}>{policyMessage}</p>
+            <p className="cashier-muted">{policyMessage}</p>
             {policyContext ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                <div style={statRow}>
+              <div className="cashier-stat-list">
+                <div className="cashier-stat-row">
                   <span>Earn rate</span>
-                  <strong>
-                    {(policyContext.defaultEarnRateBps ?? 0) / 100}%
-                  </strong>
+                  <strong>{(policyContext.defaultEarnRateBps ?? 0) / 100}%</strong>
                 </div>
-                <div style={statRow}>
+                <div className="cashier-stat-row">
                   <span>Min redemption</span>
                   {typeof policyContext.minRedemptionKobo === 'number' ? (
                     <Money amountKobo={policyContext.minRedemptionKobo} />
@@ -317,28 +323,24 @@ export default function CashierPage() {
                     '—'
                   )}
                 </div>
-                <div style={statRow}>
+                <div className="cashier-stat-row">
                   <span>Basket cap</span>
                   <strong>{policyContext.maxRedemptionBasketPercent}%</strong>
                 </div>
-                <div style={statRow}>
+                <div className="cashier-stat-row">
                   <span>Purchase flag</span>
                   {typeof policyContext.purchaseFlagThresholdKobo ===
                   'number' ? (
-                    <Money
-                      amountKobo={policyContext.purchaseFlagThresholdKobo}
-                    />
+                    <Money amountKobo={policyContext.purchaseFlagThresholdKobo} />
                   ) : (
                     '—'
                   )}
                 </div>
-                <div style={statRow}>
+                <div className="cashier-stat-row">
                   <span>Approval threshold</span>
                   {typeof policyContext.redemptionApprovalThresholdKobo ===
                   'number' ? (
-                    <Money
-                      amountKobo={policyContext.redemptionApprovalThresholdKobo}
-                    />
+                    <Money amountKobo={policyContext.redemptionApprovalThresholdKobo} />
                   ) : (
                     '—'
                   )}
@@ -346,110 +348,93 @@ export default function CashierPage() {
               </div>
             ) : (
               <Alert tone="warning" title="Policy unavailable">
-                The cashier workflow can still run, but policy-aware previews
-                are unavailable.
+                The workflow can still run, but policy-aware previews are unavailable.
               </Alert>
             )}
           </article>
-          {cashierNotes.map(([title, body]) => (
-            <article key={title} style={noteStyle}>
-              <strong>{title}</strong>
-              <p style={muted}>{body}</p>
-            </article>
-          ))}
+
+          <article className="cashier-card" aria-label="Lookup and status">
+            <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
+            <form
+              onSubmit={(event) => void handleLookup(event)}
+              style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+            >
+              <Input
+                placeholder="Scan card serial number"
+                aria-label="Lookup"
+                value={lookupValue}
+                onChange={(event) => setLookupValue(event.target.value)}
+              />
+              <Button type="submit">Lookup</Button>
+            </form>
+            <Alert tone="info" title="Session-aware workflow">
+              {lookupMessage}
+            </Alert>
+            {lookupRecord ? (
+              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+                {lookupSummary.map(([label, value]) => (
+                  <div key={label} className="cashier-stat-row">
+                    <span>{label}</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+                <div className="cashier-tag-row">
+                  <StatusBadge
+                    label={lookupRecord.status ?? 'LOOKUP'}
+                    tone="success"
+                  />
+                  {lookupRecord.customer?.id || lookupRecord.customerId ? (
+                    <Link
+                      href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
+                    >
+                      View customer
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </article>
         </div>
       </WorkflowSection>
 
-      <div style={gridStyle}>
-        <article style={cardStyle} aria-label="Lookup and status">
-          <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-          <form
-            onSubmit={(event) => void handleLookup(event)}
-            style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
-          >
-            <Input
-              placeholder="Scan card serial number"
-              aria-label="Lookup"
-              value={lookupValue}
-              onChange={(event) => setLookupValue(event.target.value)}
-            />
-            <Button type="submit">Lookup</Button>
-          </form>
-          <Alert tone="info" title="Session-aware shell">
-            {lookupMessage}
-          </Alert>
-          {lookupRecord ? (
-            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              {lookupSummary.map(([label, value]) => (
-                <div key={label} style={statRow}>
-                  <span>{label}</span>
-                  <span>{value}</span>
-                </div>
-              ))}
-              <div style={tagRow}>
-                <StatusBadge
-                  label={lookupRecord.status ?? 'LOOKUP'}
-                  tone="success"
-                />
-                {lookupRecord.customer?.id || lookupRecord.customerId ? (
-                  <Link
-                    href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
-                  >
-                    View customer
-                  </Link>
-                ) : null}
-                <Link href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
-                  Open Earn
-                </Link>
-                <Link href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
-                  Open Redeem
-                </Link>
-              </div>
-            </div>
-          ) : null}
-        </article>
-
-        <article style={cardStyle} aria-label="Action launchpad">
-          <h2 style={{ marginTop: 0 }}>Action launchpad</h2>
-          <p style={muted}>
-            Dedicated workflow pages keep the financial forms focused while this
-            overview stays lightweight.
+      <div className="cashier-workspace-grid">
+        <article className="cashier-card" aria-label="Action summary">
+          <h2 style={{ marginTop: 0 }}>Action summary</h2>
+          <p className="cashier-muted">
+            Dedicated workflow pages keep the transaction forms focused while this
+            route stays a launchpad and context screen.
           </p>
-          <div style={tagRow}>
-            <Link href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
+          <div className="cashier-tag-row">
+            <Link href={`/cashier/earn${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}>
               Go to Earn
             </Link>
-            <Link href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
+            <Link href={`/cashier/redeem${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}>
               Go to Redeem
             </Link>
             <Link href="/cashier/sync">Open sync queue</Link>
           </div>
           <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <p style={muted}>
-            {selectedCardSerial
-              ? `Current lookup context: ${selectedCardSerial}`
-              : 'No lookup context selected yet.'}
-          </p>
+          <p className="cashier-muted">{kind === 'earn' ? 'Earn' : 'Redeem'} actions continue on a dedicated route.</p>
         </article>
 
-        <article style={cardStyle} aria-label="Customer detail">
+        <article className="cashier-card" aria-label="Customer detail">
           <h2 style={{ marginTop: 0 }}>Customer detail</h2>
           {customerRecord ? (
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              <div style={statRow}>
+              <div className="cashier-stat-row">
                 <span>Name</span>
                 <strong>
                   {customerRecord.fullName ?? customerRecord.name ?? '—'}
                 </strong>
               </div>
-              <div style={statRow}>
+              <div className="cashier-stat-row">
                 <span>Status</span>
                 <StatusBadge
                   label={customerRecord.status ?? 'UNKNOWN'}
                   tone="info"
                 />
               </div>
-              <div style={statRow}>
+              <div className="cashier-stat-row">
                 <span>Balance</span>
                 <Money
                   amountKobo={
@@ -469,7 +454,7 @@ export default function CashierPage() {
                       item.id ?? item.type ?? item.transactionType ?? 'Entry',
                     );
                     return (
-                      <div key={ledgerKey} style={statRow}>
+                      <div key={ledgerKey} className="cashier-stat-row">
                         <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
                         <span>
                           {item.amountKobo ? (
@@ -482,7 +467,7 @@ export default function CashierPage() {
                     );
                   })
                 ) : (
-                  <p style={muted}>
+                  <p className="cashier-muted">
                     Ledger history will appear once the customer is loaded.
                   </p>
                 )}
@@ -495,86 +480,89 @@ export default function CashierPage() {
           )}
         </article>
 
-        <article style={cardStyle} aria-label="Shift snapshot">
+        <article className="cashier-card" aria-label="Shift snapshot">
           <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
-          <p style={muted}>
+          <p className="cashier-muted">
             Offline queue state is shown in the shell header and on the sync route.
           </p>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+            <Link href="/cashier/sync">Open sync queue</Link>
+          </div>
+          <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             <ConnectionStatus />
             <SyncQueueIndicator />
           </div>
-          <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <Link href="/cashier/sync">Open sync queue</Link>
         </article>
       </div>
 
+      <article className="cashier-card" aria-label={`${kind} transaction`}>
+        <h2 style={{ marginTop: 0 }}>{kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}</h2>
+        {kind === 'earn' ? (
+          <EarnTransactionForm
+            lookupContext={lookupContext}
+            policyContext={policyContext}
+            cashierId={userId}
+            deviceId={deviceId}
+            branchId={policyConfig?.branch?.id ?? null}
+            branchTimezone={branchContext?.timezone ?? null}
+            receiptWeekStartDay={branchReceiptWeekStartDay}
+          />
+        ) : (
+          <RedeemTransactionForm
+            lookupContext={lookupContext}
+            policyContext={policyContext}
+            cashierId={userId}
+            branchId={policyConfig?.branch?.id ?? null}
+          />
+        )}
+      </article>
+
       <style jsx>{`
+        .cashier-route-header {
+          display: grid;
+          gap: var(--sc-spacing-2);
+        }
+
+        .cashier-route-description,
         .cashier-muted {
           color: var(--sc-color-semantic-textSecondary);
           margin: 0;
+        }
+
+        .cashier-route-chip-row,
+        .cashier-tag-row {
+          display: flex;
+          gap: var(--sc-spacing-2);
+          flex-wrap: wrap;
+        }
+
+        .cashier-workspace-grid {
+          display: grid;
+          gap: var(--sc-spacing-4);
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .cashier-card {
+          background: var(--sc-color-neutral-0);
+          border: 1px solid var(--sc-color-semantic-border);
+          border-radius: var(--sc-radius-lg);
+          padding: var(--sc-spacing-5);
+          box-shadow: var(--sc-shadow-level1);
+        }
+
+        .cashier-stat-list {
+          display: grid;
+          gap: var(--sc-spacing-3);
+        }
+
+        .cashier-stat-row {
+          display: flex;
+          justify-content: space-between;
+          gap: var(--sc-spacing-3);
+          align-items: center;
         }
       `}</style>
     </section>
   );
 }
-
-const cardStyle: CSSProperties = {
-  background: 'var(--sc-color-neutral-0)',
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-lg)',
-  padding: 'var(--sc-spacing-5)',
-  boxShadow: 'var(--sc-shadow-level1)',
-};
-
-const gridStyle: CSSProperties = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-4)',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-};
-
-const noteStyle: CSSProperties = {
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-3)',
-  background: 'var(--sc-color-neutral-0)',
-};
-
-const routeRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-};
-
-const routeLink: CSSProperties = {
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
-  background: 'var(--sc-color-neutral-0)',
-  textDecoration: 'none',
-};
-
-const policyRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-2)',
-  flexWrap: 'wrap',
-};
-
-const muted: CSSProperties = {
-  color: 'var(--sc-color-semantic-textSecondary)',
-  marginBottom: 0,
-};
-
-const statRow: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 'var(--sc-spacing-3)',
-  alignItems: 'center',
-};
-
-const tagRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-2)',
-  flexWrap: 'wrap',
-};

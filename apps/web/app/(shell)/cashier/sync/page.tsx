@@ -20,11 +20,6 @@ import {
 import { Alert, Button, Input, Table } from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
-const routeLinks = [
-  ['/cashier', 'Cashier'],
-  ['/cashier/customers', 'Customers'],
-] as const;
-
 const queueNotes = [
   [
     'Local queue first',
@@ -246,14 +241,9 @@ export default function CashierSyncPage() {
           Review local offline earn records, then submit a batch for
           reconciliation.
         </p>
-        <div style={routeRow}>
-          <Link href="/cashier">Back to cashier</Link>
-          {routeLinks.map(([href, label]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </div>
+        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+          Use the shell navigation for cashier and customer routes.
+        </p>
       </header>
 
       <Alert tone="info" title="Sync route context">

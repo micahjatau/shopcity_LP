@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const baseUrl = 'http://127.0.0.1:3100';
+
 const sessionByRole = {
   CASHIER: {
     user: {
@@ -22,10 +24,22 @@ const sessionByRole = {
 } as const;
 
 test.describe('workflow route coverage', () => {
-  test('covers cashier customers and sync routes', async ({ page }) => {
+  test('covers cashier earn, redeem, customers and sync routes', async ({
+    page,
+  }) => {
     await mockShell(page, 'CASHIER');
 
-    await page.goto('/cashier/customers');
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await expect(page.getByRole('heading', { name: /cashier earn/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /lookup/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /earn transaction/i })).toBeVisible();
+
+    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await expect(page.getByRole('heading', { name: /cashier redeem/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /lookup/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /redeem transaction/i })).toBeVisible();
+
+    await page.goto(`${baseUrl}/cashier/customers`);
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
@@ -34,7 +48,7 @@ test.describe('workflow route coverage', () => {
       page.getByRole('button', { name: /assign card/i }),
     ).toHaveCount(0);
 
-    await page.goto('/cashier/sync');
+    await page.goto(`${baseUrl}/cashier/sync`);
     await expect(
       page.getByRole('heading', { name: /sync queue/i }),
     ).toBeVisible();
@@ -50,7 +64,7 @@ test.describe('workflow route coverage', () => {
   }) => {
     await mockShell(page, 'SUPERVISOR');
 
-    await page.goto('/supervisor/customers');
+    await page.goto(`${baseUrl}/supervisor/customers`);
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
@@ -61,7 +75,7 @@ test.describe('workflow route coverage', () => {
       page.getByRole('button', { name: /assign card/i }),
     ).toBeVisible();
 
-    await page.goto('/supervisor/cards');
+    await page.goto(`${baseUrl}/supervisor/cards`);
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
@@ -69,7 +83,7 @@ test.describe('workflow route coverage', () => {
       page.getByText(/manage customer and card state/i),
     ).toBeVisible();
 
-    await page.goto('/supervisor/reports');
+    await page.goto(`${baseUrl}/supervisor/reports`);
     await expect(
       page.getByRole('heading', { name: 'Reports', exact: true }),
     ).toBeVisible();
@@ -154,6 +168,28 @@ async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
                 balanceKobo: 5500,
               },
             ],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/cards/lookup/CARD-001') {
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            customer: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+            },
+            customerId: 'customer-1',
+            customerName: 'Ada Shopper',
+            serialNumber: 'CARD-001',
+            status: 'ACTIVE',
+            availableBalanceKobo: 5500,
+            expiringCreditKobo: 1000,
+            branchId: 'branch-1',
           },
           meta: meta(pathname),
         }),
