@@ -25,6 +25,7 @@ import {
 
 const cashierRoutes = [
   ['/cashier', 'Overview'],
+  ['/cashier/lookup', 'Lookup'],
   ['/cashier/earn', 'Earn'],
   ['/cashier/redeem', 'Redeem'],
   ['/cashier/customers', 'Customers'],
@@ -416,6 +417,7 @@ export default function CashierPage() {
             overview stays lightweight.
           </p>
           <div style={tagRow}>
+            <Link href="/cashier/lookup">Open lookup</Link>
             <Link href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
               Go to Earn
             </Link>

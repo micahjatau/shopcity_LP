@@ -78,6 +78,7 @@ describe('AppShell', () => {
       'page',
     );
     expect(screen.getByText('Workspace · Overview')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /lookup/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /earn/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /redeem/i })).toBeInTheDocument();
   });

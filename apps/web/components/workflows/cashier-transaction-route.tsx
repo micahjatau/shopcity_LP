@@ -74,7 +74,7 @@ type CashierPolicyConfig = {
 };
 
 export type CashierWorkflowRouteProps = {
-  kind: 'earn' | 'redeem';
+  kind: 'lookup' | 'earn' | 'redeem';
   title: string;
   description: string;
   initialCardSerial?: string | null;
@@ -269,6 +269,9 @@ export function CashierWorkflowRoute({
         branchId: lookupRecord.branchId ?? branchContext?.id,
       }
     : undefined;
+  const routeModeLabel =
+    kind === 'lookup' ? 'Lookup' : kind === 'earn' ? 'Earn' : 'Redeem';
+  const showTransactionForm = kind !== 'lookup';
 
   const routeHeader = (
     <header className="cashier-route-header">
@@ -303,7 +306,11 @@ export function CashierWorkflowRoute({
       {routeHeader}
       <WorkflowSection
         title="Policy and lookup"
-        description="Rehydrate the customer context before the workflow submits a financial action."
+        description={
+          kind === 'lookup'
+            ? 'Rehydrate the customer context before you move into cashier actions.'
+            : 'Rehydrate the customer context before the workflow submits a financial action.'
+        }
       >
         <div className="cashier-workspace-grid">
           <article className="cashier-card" aria-label="Policy context">
@@ -405,6 +412,8 @@ export function CashierWorkflowRoute({
             route stays a launchpad and context screen.
           </p>
           <div className="cashier-tag-row">
+            <Link href="/cashier">Open overview</Link>
+            <Link href="/cashier/lookup">Open lookup</Link>
             <Link href={`/cashier/earn${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}>
               Go to Earn
             </Link>
@@ -414,7 +423,7 @@ export function CashierWorkflowRoute({
             <Link href="/cashier/sync">Open sync queue</Link>
           </div>
           <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <p className="cashier-muted">{kind === 'earn' ? 'Earn' : 'Redeem'} actions continue on a dedicated route.</p>
+          <p className="cashier-muted">{routeModeLabel} actions continue on a dedicated route.</p>
         </article>
 
         <article className="cashier-card" aria-label="Customer detail">
@@ -496,27 +505,31 @@ export function CashierWorkflowRoute({
         </article>
       </div>
 
-      <article className="cashier-card" aria-label={`${kind} transaction`}>
-        <h2 style={{ marginTop: 0 }}>{kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}</h2>
-        {kind === 'earn' ? (
-          <EarnTransactionForm
-            lookupContext={lookupContext}
-            policyContext={policyContext}
-            cashierId={userId}
-            deviceId={deviceId}
-            branchId={policyConfig?.branch?.id ?? null}
-            branchTimezone={branchContext?.timezone ?? null}
-            receiptWeekStartDay={branchReceiptWeekStartDay}
-          />
-        ) : (
-          <RedeemTransactionForm
-            lookupContext={lookupContext}
-            policyContext={policyContext}
-            cashierId={userId}
-            branchId={policyConfig?.branch?.id ?? null}
-          />
-        )}
-      </article>
+      {showTransactionForm ? (
+        <article className="cashier-card" aria-label={`${kind} transaction`}>
+          <h2 style={{ marginTop: 0 }}>
+            {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
+          </h2>
+          {kind === 'earn' ? (
+            <EarnTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              deviceId={deviceId}
+              branchId={policyConfig?.branch?.id ?? null}
+              branchTimezone={branchContext?.timezone ?? null}
+              receiptWeekStartDay={branchReceiptWeekStartDay}
+            />
+          ) : (
+            <RedeemTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              branchId={policyConfig?.branch?.id ?? null}
+            />
+          )}
+        </article>
+      ) : null}
 
       <style jsx>{`
         .cashier-route-header {

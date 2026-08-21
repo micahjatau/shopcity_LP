@@ -22,6 +22,7 @@ export const shellNavigationByRole: Record<HumanRole, ShellNavigationSection[]> 
       label: 'Workspace',
       items: [
         { id: 'cashier-overview', label: 'Overview', href: '/cashier', exact: true },
+        { id: 'cashier-lookup', label: 'Lookup', href: '/cashier/lookup' },
         { id: 'cashier-earn', label: 'Earn', href: '/cashier/earn' },
         { id: 'cashier-redeem', label: 'Redeem', href: '/cashier/redeem' },
         { id: 'cashier-customers', label: 'Customers', href: '/cashier/customers' },

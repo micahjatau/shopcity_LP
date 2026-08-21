@@ -29,12 +29,12 @@ test.describe('workflow route coverage', () => {
   }) => {
     await mockShell(page, 'CASHIER');
 
-    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
-    await expect(page.getByRole('heading', { name: /cashier earn/i })).toBeVisible();
+    await page.goto(`${baseUrl}/cashier/lookup?card=CARD-001`);
+    await expect(page.getByRole('heading', { name: /cashier lookup/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /lookup/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /earn transaction/i })).toBeVisible();
+    await expect(page.getByText(/dedicated lookup workflow/i)).toBeVisible();
 
-    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
     await expect(page.getByRole('heading', { name: /cashier redeem/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /lookup/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /redeem transaction/i })).toBeVisible();
