@@ -33,3 +33,5 @@ Receipt capture now requires a physical POS receipt number, an active device, an
 - `npm run e2e:live:test`
 - `npm run e2e:live`
 - `npm run e2e:live:full`
+
+If Pi does not discover Graphiti automatically, see `docs/development/graphiti-workaround.md`.

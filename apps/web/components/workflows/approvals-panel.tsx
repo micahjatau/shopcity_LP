@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   approvalsControllerDecideApprovalV1,
   approvalsControllerListApprovalsV1,
@@ -39,9 +39,12 @@ export function ApprovalsPanel() {
   > | null>(null);
   const [limit, setLimit] = useState(3);
   const [cursorHistory, setCursorHistory] = useState<string[]>(['']);
+  const cursorHistoryRef = useRef(cursorHistory);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+
+  cursorHistoryRef.current = cursorHistory;
 
   const filteredItems = useMemo(
     () =>
@@ -96,35 +99,40 @@ export function ApprovalsPanel() {
       ]
     : [];
 
-  async function refresh(cursorOverride?: string) {
-    setLoading(true);
-    try {
-      const activeCursor =
-        cursorOverride ?? cursorHistory[cursorHistory.length - 1] ?? '';
-      const response = await approvalsControllerListApprovalsV1(
-        { limit: String(limit), cursor: activeCursor },
-        createApiRequest({ csrf: true }),
-      );
-      if (response.status === 200) {
-        const nextItems = response.data.data.items as ApprovalRecord[];
-        setItems(nextItems);
-        setNextCursor(response.data.data.nextCursor ?? null);
-        setSelectedId(nextItems[0]?.id ?? null);
-        setResponseData(null);
-        setMessage(`Loaded ${nextItems.length} approvals.`);
-      } else {
-        setMessage(`Approvals unavailable (${response.status}).`);
+  const refresh = useCallback(
+    async (cursorOverride?: string) => {
+      setLoading(true);
+      try {
+        const activeCursor =
+          cursorOverride ??
+          cursorHistoryRef.current[cursorHistoryRef.current.length - 1] ??
+          '';
+        const response = await approvalsControllerListApprovalsV1(
+          { limit: String(limit), cursor: activeCursor },
+          createApiRequest({ csrf: true }),
+        );
+        if (response.status === 200) {
+          const nextItems = response.data.data.items as ApprovalRecord[];
+          setItems(nextItems);
+          setNextCursor(response.data.data.nextCursor ?? null);
+          setSelectedId(nextItems[0]?.id ?? null);
+          setResponseData(null);
+          setMessage(`Loaded ${nextItems.length} approvals.`);
+        } else {
+          setMessage(`Approvals unavailable (${response.status}).`);
+        }
+      } catch {
+        setMessage('Approvals unavailable.');
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      setMessage('Approvals unavailable.');
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [limit],
+  );
 
   useEffect(() => {
     void refresh();
-  }, [limit]);
+  }, [refresh]);
 
   async function handleDecision() {
     if (!selectedId || !reason.trim()) {
