@@ -7,7 +7,7 @@
 - [x] 1.5 Surface live public branch, timezone, policy, tenant, and device context in shell-level UI.
 - [x] 1.6 Keep SYSTEM out of the interactive human shell and fail closed on unsupported access.
 - [x] 1.7 Show branch/device summary in the sidebar footer or equivalent shell context area.
-- [ ] 1.8 Define trustworthy sidebar badge sources and freshness/failure behavior for operational counts.
+- [x] 1.8 Define trustworthy sidebar badge sources and freshness/failure behavior for operational counts.
 - [ ] 1.9 Decide whether collapsed sidebar state persists per user/session and implement if required.
 
 ## 2. Cashier workflow routing
@@ -51,7 +51,7 @@
 - [x] 6.3 Add lookup → earn/redeem deep-link tests with authoritative rehydration.
 - [ ] 6.4 Add Playwright coverage for desktop, tablet, mobile, and drawer focus behavior.
 - [x] 6.5 Add visual regression coverage for expanded sidebar, collapsed rail, and drawer states.
-- [ ] 6.6 Add tests for SYSTEM denial and sidebar badge freshness/failure behavior.
+- [x] 6.6 Add tests for SYSTEM denial and sidebar badge freshness/failure behavior.
 - [x] 6.7 Run lint, typecheck, build, and targeted browser checks.
 
 ## 7. Migration sequence

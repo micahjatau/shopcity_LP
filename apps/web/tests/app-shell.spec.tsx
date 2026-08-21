@@ -4,6 +4,8 @@ import { AppShell } from '../components/app-shell';
 const mockBootstrapSession = jest.fn();
 const mockLogoutSession = jest.fn();
 const mockGetPublicConfig = jest.fn();
+const mockGetOfflineEarnRecordCount = jest.fn();
+const mockSubscribeOfflineQueue = jest.fn();
 
 jest.mock('../lib/api', () => ({
   bootstrapSession: (...args: unknown[]) => mockBootstrapSession(...args),
@@ -13,8 +15,10 @@ jest.mock('../lib/api', () => ({
 }));
 
 jest.mock('../lib/browser/offline-earn-queue', () => ({
-  getOfflineEarnRecordCount: jest.fn().mockResolvedValue(0),
-  subscribeOfflineQueue: jest.fn(() => () => undefined),
+  getOfflineEarnRecordCount: (...args: unknown[]) =>
+    mockGetOfflineEarnRecordCount(...args),
+  subscribeOfflineQueue: (...args: unknown[]) =>
+    mockSubscribeOfflineQueue(...args),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -30,6 +34,8 @@ describe('AppShell', () => {
     mockBootstrapSession.mockReset();
     mockLogoutSession.mockReset();
     mockGetPublicConfig.mockReset();
+    mockGetOfflineEarnRecordCount.mockReset();
+    mockSubscribeOfflineQueue.mockReset();
     mockGetPublicConfig.mockResolvedValue({
       status: 200,
       data: {
@@ -49,6 +55,8 @@ describe('AppShell', () => {
         },
       },
     });
+    mockGetOfflineEarnRecordCount.mockResolvedValue(2);
+    mockSubscribeOfflineQueue.mockImplementation(() => () => undefined);
   });
 
   it('renders protected content for authenticated sessions', async () => {
@@ -81,6 +89,65 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: /lookup/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /earn/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /redeem/i })).toBeInTheDocument();
+    expect(
+      screen.getByTitle(/2 offline transactions waiting to sync/i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows an unavailable sidebar badge when the offline queue cannot be read', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u1',
+        username: 'cashier',
+        role: 'CASHIER',
+        branchId: 'b1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+    mockGetOfflineEarnRecordCount.mockRejectedValue(new Error('boom'));
+
+    render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /sync queue/i })).toHaveTextContent(
+        /unavailable/i,
+      );
+    });
+  });
+
+  it('redirects system sessions to the login gate', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'system-1',
+        username: 'system',
+        role: 'SYSTEM',
+        branchId: null,
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(/you do not have access to this workspace/i),
+      ).not.toHaveLength(0);
+    });
+    expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /go to my workspace/i }),
+    ).toBeInTheDocument();
   });
 
   it('closes the mobile drawer from the explicit close action', async () => {

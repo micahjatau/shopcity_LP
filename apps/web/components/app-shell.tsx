@@ -13,6 +13,11 @@ import {
   SyncQueueIndicator,
 } from './offline';
 import {
+  getOfflineEarnRecordCount,
+  subscribeOfflineQueue,
+} from '../lib/browser/offline-earn-queue';
+import { Badge } from './ui';
+import {
   getActiveShellNavigationSection,
   getShellNavigationSections,
   getShellNavigationTrail,
@@ -37,6 +42,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   );
   const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
   const [configMessage, setConfigMessage] = useState('Loading public context…');
+  const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
+  const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -73,10 +80,69 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function refreshSyncQueueCount() {
+      try {
+        const count = await getOfflineEarnRecordCount();
+        if (mounted) {
+          setSyncQueueCount(count);
+          setSyncQueueError(null);
+        }
+      } catch {
+        if (mounted) {
+          setSyncQueueCount(null);
+          setSyncQueueError('Offline queue unavailable');
+        }
+      }
+    }
+
+    void refreshSyncQueueCount();
+    const unsubscribe = subscribeOfflineQueue(() => {
+      void refreshSyncQueueCount();
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
   const sections = useMemo(
     () => getShellNavigationSections(role, status),
     [role, status],
   );
+  const navigationSections = useMemo(() => {
+    if (status !== 'ready' || role !== 'CASHIER') {
+      return sections;
+    }
+
+    return sections.map((section) => ({
+      ...section,
+      items: section.items.map((item) =>
+        item.id === 'cashier-sync'
+          ? {
+              ...item,
+              badge:
+                syncQueueError !== null
+                  ? {
+                      label: 'Unavailable',
+                      tone: 'danger' as const,
+                      title: syncQueueError,
+                    }
+                  : typeof syncQueueCount === 'number' && syncQueueCount > 0
+                    ? {
+                        label: String(syncQueueCount),
+                        tone: 'warning' as const,
+                        title: `${syncQueueCount} offline transaction${syncQueueCount === 1 ? '' : 's'} waiting to sync`,
+                      }
+                    : undefined,
+            }
+          : item,
+      ),
+    }));
+  }, [role, sections, status, syncQueueCount, syncQueueError]);
   const primaryRoute = getShellPrimaryRoute(role, status);
   const isAuthorizedRoute =
     status === 'ready' &&
@@ -275,7 +341,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               <div className="shell-sidebar-brand-subtitle">{workspaceLabel}</div>
             </div>
           </div>
-          <ShellNavigation sections={sections} pathname={pathname} />
+          <ShellNavigation sections={navigationSections} pathname={pathname} />
           <div className="shell-sidebar-footer">
             <p className="shell-sidebar-footer-label">Branch and device</p>
             <div className="shell-sidebar-footer-meta">
@@ -337,7 +403,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               </button>
             </div>
             <ShellNavigation
-              sections={sections}
+              sections={navigationSections}
               pathname={pathname}
               onNavigate={() => setMobileNavigationOpen(false)}
             />
@@ -587,7 +653,16 @@ function ShellNavigation({
                     aria-current={active ? 'page' : undefined}
                     className={`shell-nav-link${active ? ' is-active' : ''}`}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    {item.badge ? (
+                      <Badge
+                        tone={item.badge.tone ?? 'neutral'}
+                        title={item.badge.title}
+                        className="shell-nav-badge"
+                      >
+                        {item.badge.label}
+                      </Badge>
+                    ) : null}
                   </Link>
                 </li>
               );
@@ -624,13 +699,21 @@ function ShellNavigation({
         }
 
         .shell-nav-link {
-          display: block;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--sc-spacing-2);
           border-radius: var(--sc-radius-md);
           border: 1px solid rgba(255, 255, 255, 0.18);
           padding: 10px 12px;
           text-decoration: none;
           color: inherit;
           background: transparent;
+        }
+
+        .shell-nav-badge {
+          flex: none;
+          white-space: nowrap;
         }
 
         .shell-nav-link.is-active {

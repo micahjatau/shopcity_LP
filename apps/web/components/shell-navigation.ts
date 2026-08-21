@@ -2,11 +2,18 @@ import type { SessionBootstrapStatus, SessionRole } from './session-bootstrap';
 
 export type HumanRole = Exclude<SessionRole, 'SYSTEM'>;
 
+export type ShellNavigationItemBadge = {
+  label: string;
+  tone?: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info';
+  title?: string;
+};
+
 export type ShellNavigationItem = {
   id: string;
   label: string;
   href: string;
   exact?: boolean;
+  badge?: ShellNavigationItemBadge;
 };
 
 export type ShellNavigationSection = {
