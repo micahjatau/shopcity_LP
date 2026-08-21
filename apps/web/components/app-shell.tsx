@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserStateBootstrap } from './browser-state-bootstrap';
+import { AppSidebar } from './app-sidebar';
 import { useSessionBootstrapState } from './session-bootstrap';
 import {
   ConnectionStatus,
@@ -328,30 +329,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       </header>
 
       <div className="shell-body">
-        <aside className="shell-sidebar" aria-label="Primary navigation">
-          <div className="shell-sidebar-brand">
-            <Image
-              src="/brand/shopcity-mark-white.svg"
-              alt="ShopCity"
-              width={28}
-              height={28}
-            />
-            <div>
-              <div className="shell-sidebar-brand-title">ShopCity</div>
-              <div className="shell-sidebar-brand-subtitle">{workspaceLabel}</div>
-            </div>
-          </div>
-          <ShellNavigation sections={navigationSections} pathname={pathname} />
-          <div className="shell-sidebar-footer">
-            <p className="shell-sidebar-footer-label">Branch and device</p>
-            <div className="shell-sidebar-footer-meta">
-              {context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'}
-            </div>
-            <div className="shell-sidebar-footer-meta">
-              {context?.branch?.timezone ?? 'Timezone pending'}
-            </div>
-          </div>
-        </aside>
+        <AppSidebar
+          sections={navigationSections}
+          pathname={pathname}
+          workspaceLabel={workspaceLabel}
+          branchLabel={context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'}
+          branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
+        />
 
         <main className="shell-main">
           <BrowserStateBootstrap />
@@ -523,22 +507,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           box-shadow: var(--sc-shadow-level2);
         }
 
-        .shell-sidebar-brand {
-          display: flex;
-          align-items: center;
-          gap: var(--sc-spacing-3);
-        }
-
-        .shell-sidebar-footer {
-          border-top: 1px solid rgba(255, 255, 255, 0.16);
-          padding-top: var(--sc-spacing-3);
-        }
-
-        .shell-sidebar-footer-meta {
-          font-size: var(--sc-font-size-sm);
-          opacity: 0.9;
-        }
-
         .shell-main {
           min-width: 0;
           display: grid;
@@ -613,9 +581,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             padding-top: var(--sc-spacing-4);
           }
 
-          .shell-sidebar {
-            display: none;
-          }
         }
 
         @media (min-width: 768px) and (max-width: 1199px) {
