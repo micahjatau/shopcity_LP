@@ -42,6 +42,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -191,13 +192,18 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        setMobileNavigationOpen(false);
+        closeMobileNavigation();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mobileNavigationOpen]);
+
+  function closeMobileNavigation() {
+    setMobileNavigationOpen(false);
+    mobileMenuButtonRef.current?.focus();
+  }
 
   async function handleLogout() {
     try {
@@ -240,6 +246,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         pageTitle={pageTitle}
         context={context}
         showProtectedContent={showProtectedContent}
+        mobileMenuButtonRef={mobileMenuButtonRef}
         onLogout={() => void handleLogout()}
         onOpenMobileMenu={() => setMobileNavigationOpen(true)}
       />
@@ -296,7 +303,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               <button
                 type="button"
                 ref={mobileCloseButtonRef}
-                onClick={() => setMobileNavigationOpen(false)}
+                onClick={closeMobileNavigation}
                 className="shell-mobile-close"
               >
                 Close
@@ -305,7 +312,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             <ShellNavigation
               sections={navigationSections}
               pathname={pathname}
-              onNavigate={() => setMobileNavigationOpen(false)}
+              onNavigate={closeMobileNavigation}
             />
           </div>
         </div>

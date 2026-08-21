@@ -177,6 +177,7 @@ describe('AppShell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(screen.queryByRole('dialog', { name: /primary navigation/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
   });
 
   it('closes the mobile drawer with Escape', async () => {
@@ -205,6 +206,7 @@ describe('AppShell', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: /primary navigation/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
   });
 
   it('shows the protected shell gate when unauthenticated', async () => {

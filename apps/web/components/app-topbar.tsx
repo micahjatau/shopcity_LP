@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { RefObject } from 'react';
 import { ConnectionStatus, SyncQueueIndicator } from './offline';
 
 export type AppTopbarContext = {
@@ -29,6 +30,7 @@ export type AppTopbarProps = Readonly<{
   showProtectedContent: boolean;
   onLogout: () => void;
   onOpenMobileMenu: () => void;
+  mobileMenuButtonRef: RefObject<HTMLButtonElement | null>;
 }>;
 
 export function AppTopbar({
@@ -43,6 +45,7 @@ export function AppTopbar({
   showProtectedContent,
   onLogout,
   onOpenMobileMenu,
+  mobileMenuButtonRef,
 }: AppTopbarProps) {
   return (
     <header className="shell-topbar">
@@ -83,6 +86,7 @@ export function AppTopbar({
           ) : null}
           <button
             type="button"
+            ref={mobileMenuButtonRef}
             className="shell-mobile-menu-button"
             onClick={onOpenMobileMenu}
           >
