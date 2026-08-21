@@ -48,7 +48,7 @@
 
 - [x] 6.1 Add route-visibility, role-gating, and auth-fallback tests.
 - [x] 6.2 Add active-state, breadcrumb, and navigation-metadata tests.
-- [ ] 6.3 Add lookup → earn/redeem deep-link tests with authoritative rehydration.
+- [x] 6.3 Add lookup → earn/redeem deep-link tests with authoritative rehydration.
 - [ ] 6.4 Add Playwright coverage for desktop, tablet, mobile, and drawer focus behavior.
 - [x] 6.5 Add visual regression coverage for expanded sidebar, collapsed rail, and drawer states.
 - [ ] 6.6 Add tests for SYSTEM denial and sidebar badge freshness/failure behavior.
