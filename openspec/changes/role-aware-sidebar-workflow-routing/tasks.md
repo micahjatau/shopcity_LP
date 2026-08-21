@@ -41,7 +41,7 @@
 
 - [x] 5.1 Remove page-local primary navigation blocks and back-link clusters where shell navigation now covers them.
 - [x] 5.2 Keep only context-specific next actions inside workflow pages.
-- [ ] 5.3 Hide, disable, or replace placeholder controls that do not trigger real workflows.
+- [x] 5.3 Hide, disable, or replace placeholder controls that do not trigger real workflows.
 - [x] 5.4 Keep cashier/supervisor/admin overview pages focused on truthful operational context instead of decorative analytics.
 
 ## 6. Verification

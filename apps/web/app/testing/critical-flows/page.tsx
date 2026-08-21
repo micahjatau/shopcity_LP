@@ -40,8 +40,8 @@ export default function CriticalFlowsPage() {
         <h1 style={{ margin: 0 }}>Critical flow states</h1>
         <p style={muted}>
           Deterministic fixture surface for login, lookup, earning, redemption,
-          approvals, offline sync, fraud review and reporting. This is not a
-          substitute for backend-connected E2E.
+          approvals, offline sync, fraud review and reporting. The interactive
+          controls are intentionally disabled fixture markers, not live workflows.
         </p>
         <Link href="/login" style={linkStyle}>
           Open real login route
@@ -68,8 +68,8 @@ export default function CriticalFlowsPage() {
               />
             </div>
             <div style={actionsStyle}>
-              <Button>Fixture sign in</Button>
-              <Button variant="secondary">Recover session</Button>
+              <Button disabled title="Fixture control only">Fixture sign in</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Recover session</Button>
             </div>
           </article>
           <article style={cardStyle} data-testid="flow-session-revocation">
@@ -79,8 +79,8 @@ export default function CriticalFlowsPage() {
               The session must be replaced before protected routes continue.
             </p>
             <div style={actionsStyle}>
-              <Button variant="secondary">Sign out everywhere</Button>
-              <Button variant="danger">Request re-authentication</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Sign out everywhere</Button>
+              <Button disabled title="Fixture control only" variant="danger">Request re-authentication</Button>
             </div>
           </article>
         </div>
@@ -98,8 +98,8 @@ export default function CriticalFlowsPage() {
               placeholder="Scan card serial or receipt"
             />
             <div style={actionsStyle}>
-              <Button>Fixture lookup customer</Button>
-              <Button variant="secondary">Open duplicate receipt review</Button>
+              <Button disabled title="Fixture control only">Fixture lookup customer</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Open duplicate receipt review</Button>
             </div>
           </article>
           <article style={cardStyle} data-testid="flow-earn-confirmed">
@@ -107,8 +107,8 @@ export default function CriticalFlowsPage() {
             <Money amountKobo={375000} signed emphasis="positive" />
             <StatusBadge label="Confirmed" tone="success" />
             <div style={actionsStyle}>
-              <Button>Fixture print receipt</Button>
-              <Button variant="secondary">Add another earn</Button>
+              <Button disabled title="Fixture control only">Fixture print receipt</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Add another earn</Button>
             </div>
           </article>
           <article style={cardStyle} data-testid="flow-earn-awaiting-approval">
@@ -128,8 +128,8 @@ export default function CriticalFlowsPage() {
               rows={4}
             />
             <div style={actionsStyle}>
-              <Button variant="danger">Flag duplicate</Button>
-              <Button variant="secondary">Keep pending</Button>
+              <Button disabled title="Fixture control only" variant="danger">Flag duplicate</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Keep pending</Button>
             </div>
           </article>
         </div>
@@ -145,8 +145,8 @@ export default function CriticalFlowsPage() {
             <Money amountKobo={120000} signed emphasis="negative" />
             <StatusBadge label="Redeemed" tone="success" />
             <div style={actionsStyle}>
-              <Button>Print redemption slip</Button>
-              <Button variant="secondary">Back to lookup</Button>
+              <Button disabled title="Fixture control only">Print redemption slip</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Back to lookup</Button>
             </div>
           </article>
           <article
@@ -172,8 +172,8 @@ export default function CriticalFlowsPage() {
               defaultValue="approve"
             />
             <div style={actionsStyle}>
-              <Button>Fixture submit decision</Button>
-              <Button variant="secondary">Escalate</Button>
+              <Button disabled title="Fixture control only">Fixture submit decision</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Escalate</Button>
             </div>
           </article>
         </div>
@@ -206,8 +206,8 @@ export default function CriticalFlowsPage() {
               for review.
             </p>
             <div style={actionsStyle}>
-              <Button variant="danger">Escalate</Button>
-              <Button variant="secondary">Close review</Button>
+              <Button disabled title="Fixture control only" variant="danger">Escalate</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Close review</Button>
             </div>
           </article>
           <article style={cardStyle} data-testid="flow-report-freshness-export">
@@ -215,8 +215,8 @@ export default function CriticalFlowsPage() {
             <StatusBadge label="Fresh" tone="success" />
             <p style={muted}>Last materialized 08:30 WAT.</p>
             <div style={actionsStyle}>
-              <Button>Fixture refresh report</Button>
-              <Button variant="secondary">Export CSV</Button>
+              <Button disabled title="Fixture control only">Fixture refresh report</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Export CSV</Button>
             </div>
           </article>
           <article
@@ -234,8 +234,8 @@ export default function CriticalFlowsPage() {
               defaultValue="cashier-01"
             />
             <div style={actionsStyle}>
-              <Button variant="danger">Revoke device</Button>
-              <Button variant="secondary">Rotate session</Button>
+              <Button disabled title="Fixture control only" variant="danger">Revoke device</Button>
+              <Button disabled title="Fixture control only" variant="secondary">Rotate session</Button>
             </div>
           </article>
         </div>
