@@ -12,12 +12,6 @@ import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Textarea, Table } from '../../components/ui';
 import { Money, StatusBadge } from '../../components/shopcity';
 
-const defaultRelatedRoutes = [
-  ['/supervisor/approvals', 'Approvals'],
-  ['/supervisor/fraud', 'Fraud'],
-  ['/supervisor/reports', 'Reports'],
-] as const;
-
 type TransactionRecord = LoyaltyControllerGetTransactionV1200Data & {
   status?: string;
   customer?: { fullName?: string };
@@ -33,8 +27,12 @@ type TransactionRecord = LoyaltyControllerGetTransactionV1200Data & {
 };
 
 export function TransactionWorkspace({
-  relatedRoutes = defaultRelatedRoutes,
+  backHref,
+  backLabel = 'Back to workspace',
+  relatedRoutes = [],
 }: Readonly<{
+  backHref?: string;
+  backLabel?: string;
   relatedRoutes?: ReadonlyArray<readonly [string, string]>;
 }> = {}) {
   const [transactionId, setTransactionId] = useState('');
@@ -161,14 +159,16 @@ export function TransactionWorkspace({
           Inspect a transaction and create an immutable compensating reversal
           where allowed.
         </p>
-        <div style={routeRow}>
-          <Link href="/supervisor">Back to supervisor</Link>
-          {relatedRoutes.map(([href, label]) => (
-            <Link key={href} href={href}>
-              {label}
-            </Link>
-          ))}
-        </div>
+        {backHref || relatedRoutes.length > 0 ? (
+          <div style={routeRow}>
+            {backHref ? <Link href={backHref}>{backLabel}</Link> : null}
+            {relatedRoutes.map(([href, label]) => (
+              <Link key={href} href={href}>
+                {label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </header>
 
       <Alert tone="info" title="Transaction route context">

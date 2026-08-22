@@ -8,12 +8,16 @@ import {
   cardsControllerCreateCardV1,
   cardsControllerReplaceCardV1,
   cardsControllerUpdateStatusV1,
+  customersControllerCreateCustomerV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
+  customersControllerUpdateCustomerV1,
   customersControllerUpdateStatusV1,
   loyaltyControllerGetCustomerLedgerV1,
+  type CreateCustomerDto,
   type CustomersControllerListCustomersV1Params,
   type LoyaltyControllerGetCustomerLedgerV1Params,
+  type UpdateCustomerDto,
   type LoyaltyControllerGetCustomerLedgerV1200Data,
   type UpdateCardStatusDtoStatus,
   type UpdateCustomerStatusDtoStatus,
@@ -63,6 +67,7 @@ export function CustomerWorkspace({
   canManage = false,
 }: Readonly<{ canManage?: boolean }> = {}) {
   const searchParams = useSearchParams();
+  const routeCustomerId = searchParams.get('id');
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState(
     'Search customers by name, phone, or ID.',
@@ -90,6 +95,12 @@ export function CustomerWorkspace({
     string,
     unknown
   > | null>(null);
+  const [customerForm, setCustomerForm] = useState<
+    CreateCustomerDto & UpdateCustomerDto
+  >({ fullName: '', phone: '', email: '' });
+  const [customerFormMessage, setCustomerFormMessage] = useState(
+    'Register a customer or select one to edit their profile.',
+  );
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
   const selectedCard = useMemo(
@@ -129,6 +140,11 @@ export function CustomerWorkspace({
         if (!ignore && customerResponse.status === 200) {
           const nextCustomer = customerResponse.data.data as CustomerRecord;
           setCustomer(nextCustomer);
+          setCustomerForm({
+            fullName: String(nextCustomer.fullName ?? nextCustomer.name ?? ''),
+            phone: String(nextCustomer.phoneE164 ?? nextCustomer.phone ?? ''),
+            email: String(nextCustomer.email ?? ''),
+          });
           setCustomerStatus(
             (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
           );
@@ -189,7 +205,9 @@ export function CustomerWorkspace({
           response.data.data ??
           []) as CustomerRecord[];
         setItems(nextItems);
-        setSelectedId(nextItems[0]?.id ?? null);
+        if (!routeCustomerId) {
+          setSelectedId(nextItems[0]?.id ?? null);
+        }
         setMessage(`Loaded ${nextItems.length ?? 0} customers.`);
         return;
       }
@@ -200,13 +218,13 @@ export function CustomerWorkspace({
   }
 
   useEffect(() => {
-    const id = searchParams.get('id');
-    if (id) {
-      setSelectedId(id);
+    if (routeCustomerId) {
+      setSelectedId(routeCustomerId);
     }
     void search();
+    // Search is intentionally scoped to the route-selected customer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [routeCustomerId]);
 
   async function assignCard() {
     if (!selectedId || !cardSerialNumber.trim()) {
@@ -307,6 +325,74 @@ export function CustomerWorkspace({
       await reloadSelectedCustomer();
     } catch {
       setCardMessage('Status update unavailable.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCustomer(mode: 'create' | 'update') {
+    const payload = {
+      fullName: customerForm.fullName.trim(),
+      phone: customerForm.phone.trim(),
+      ...(customerForm.email?.trim()
+        ? { email: customerForm.email.trim() }
+        : {}),
+    } satisfies CreateCustomerDto & UpdateCustomerDto;
+
+    if (!payload.fullName || !payload.phone) {
+      setCustomerFormMessage('Full name and phone are required.');
+      return;
+    }
+    if (mode === 'update' && !selectedId) {
+      setCustomerFormMessage('Select a customer before editing.');
+      return;
+    }
+
+    setBusy(true);
+    setCustomerFormMessage(
+      mode === 'create' ? 'Registering customer…' : 'Saving customer profile…',
+    );
+    try {
+      const response =
+        mode === 'create'
+          ? await customersControllerCreateCustomerV1(
+              payload,
+              createApiRequest({
+                csrf: true,
+                idempotencyKey: crypto.randomUUID(),
+              }),
+            )
+          : await customersControllerUpdateCustomerV1(
+              selectedId!,
+              payload,
+              createApiRequest({
+                csrf: true,
+                idempotencyKey: crypto.randomUUID(),
+              }),
+            );
+      const successStatus = mode === 'create' ? 201 : 200;
+      if (response.status !== successStatus) {
+        setCustomerFormMessage(
+          `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable (${response.status}).`,
+        );
+        return;
+      }
+
+      const record = response.data.data as CustomerRecord;
+      setCustomerFormMessage(
+        mode === 'create' ? 'Customer registered.' : 'Customer profile saved.',
+      );
+      if (mode === 'create' && record.id) {
+        setSelectedId(record.id);
+      }
+      await search();
+      if (mode === 'update') {
+        await reloadSelectedCustomer();
+      }
+    } catch {
+      setCustomerFormMessage(
+        `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -471,6 +557,91 @@ export function CustomerWorkspace({
           {cardMessage}
         </p>
       </section>
+
+      {canManage ? (
+        <section
+          style={cardStyle}
+          aria-labelledby="customer-profile-form-title"
+        >
+          <h2 id="customer-profile-form-title" style={{ marginTop: 0 }}>
+            {selectedCustomer ? 'Edit customer profile' : 'Register customer'}
+          </h2>
+          <p style={muted}>{customerFormMessage}</p>
+          <div
+            style={{
+              display: 'grid',
+              gap: 'var(--sc-spacing-3)',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            }}
+          >
+            <Input
+              aria-label="Customer full name"
+              placeholder="Full name"
+              value={customerForm.fullName}
+              onChange={(event) =>
+                setCustomerForm((current) => ({
+                  ...current,
+                  fullName: event.target.value,
+                }))
+              }
+            />
+            <Input
+              aria-label="Customer phone"
+              placeholder="Phone number"
+              value={customerForm.phone}
+              onChange={(event) =>
+                setCustomerForm((current) => ({
+                  ...current,
+                  phone: event.target.value,
+                }))
+              }
+            />
+            <Input
+              aria-label="Customer email"
+              placeholder="Email (optional)"
+              type="email"
+              value={customerForm.email ?? ''}
+              onChange={(event) =>
+                setCustomerForm((current) => ({
+                  ...current,
+                  email: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--sc-spacing-3)',
+              flexWrap: 'wrap',
+              marginTop: 'var(--sc-spacing-3)',
+            }}
+          >
+            <Button
+              onClick={() =>
+                void saveCustomer(selectedCustomer ? 'update' : 'create')
+              }
+              loading={busy}
+            >
+              {selectedCustomer ? 'Save profile' : 'Register customer'}
+            </Button>
+            {selectedCustomer ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSelectedId(null);
+                  setCustomerForm({ fullName: '', phone: '', email: '' });
+                  setCustomerFormMessage(
+                    'Register a customer or select one to edit their profile.',
+                  );
+                }}
+              >
+                Register another
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <div
         style={{

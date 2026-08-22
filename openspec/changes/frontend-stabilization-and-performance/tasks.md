@@ -20,11 +20,11 @@
 ## 3. Customer correctness and role-safe workflows
 
 - [ ] 3.1 Run GitNexus impact analysis for CustomerWorkspace, customer controller/service create/update methods, transaction workspace links, and shared navigation before editing affected symbols.
-- [ ] 3.2 Fix Customer workspace deep-link selection so `?id=` wins over the initial list-search result while the selected detail request is pending; add invalid-ID and explicit user-selection behavior.
-- [ ] 3.3 Add Supervisor/Admin customer registration UI using the existing `POST /api/v1/customers` contract, with backend validation feedback and no frontend authority fields.
-- [ ] 3.4 Add Supervisor/Admin customer profile editing UI using the existing `PATCH /api/v1/customers/:id` contract, preserving authoritative status/balance/role boundaries.
+- [x] 3.2 Fix Customer workspace deep-link selection so `?id=` wins over the initial list-search result while the selected detail request is pending; add invalid-ID and explicit user-selection behavior.
+- [x] 3.3 Add Supervisor/Admin customer registration UI using the existing `POST /api/v1/customers` contract, with backend validation feedback and no frontend authority fields.
+- [x] 3.4 Add Supervisor/Admin customer profile editing UI using the existing `PATCH /api/v1/customers/:id` contract, preserving authoritative status/balance/role boundaries.
 - [ ] 3.5 Separate Customer and Card workflow intent through explicit workspace modes/capabilities and remove near-duplicate megasurface content.
-- [ ] 3.6 Remove hard-coded `/supervisor` or `/admin` links from shared Transaction, Customer, Card, Approval, and Fraud workspaces; use canonical registry destinations or explicit route callbacks.
+- [x] 3.6 Remove hard-coded `/supervisor` or `/admin` links from shared Transaction, Customer, Card, Approval, and Fraud workspaces; use canonical registry destinations or explicit route callbacks.
 - [ ] 3.7 Add tests for customer deep-link race, create/update success and validation failure, role capability visibility, and shared workspace route neutrality.
 
 ## 4. Shared session, branch, device, and policy context
