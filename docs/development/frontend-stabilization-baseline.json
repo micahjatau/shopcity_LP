@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-22T18:10:25.028Z",
+  "commitSha": "fc88b619f878e550a5aab6cf3f5cd6a32677042c",
+  "baseUrl": "http://127.0.0.1:3100",
+  "productionBuildRequired": true,
+  "authenticatedEvidence": false,
+  "routes": [
+    "/cashier",
+    "/cashier/lookup",
+    "/cashier/earn",
+    "/cashier/redeem",
+    "/supervisor/approvals",
+    "/admin/operations"
+  ],
+  "thresholds": {
+    "warmNavigationPayloadBytes": 150000,
+    "authMeWarmRequests": 0,
+    "publicConfigWarmRequests": 0,
+    "duplicateApiRequests": 0,
+    "lcpMs": 2500,
+    "inpMs": 200
+  },
+  "results": [
+    {
+      "cold": {
+        "route": "/cashier",
+        "url": "http://127.0.0.1:3100/cashier",
+        "status": 200,
+        "durationMs": 709,
+        "navigation": {
+          "transferSize": 7641,
+          "encodedBodySize": 7341,
+          "decodedBodySize": 31700,
+          "responseStart": 99.40000000223517,
+          "domContentLoaded": 153.10000000149012,
+          "loadEventEnd": 172.5,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 7,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 409,
+            "decoded": 409
+          }
+        },
+        "requestCounts": {
+          "total": 9,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      },
+      "warm": {
+        "route": "/cashier",
+        "url": "http://127.0.0.1:3100/cashier",
+        "status": 200,
+        "durationMs": 733,
+        "navigation": {
+          "transferSize": 7641,
+          "encodedBodySize": 7341,
+          "decodedBodySize": 31700,
+          "responseStart": 123.10000000149012,
+          "domContentLoaded": 191.69999999925494,
+          "loadEventEnd": 209.60000000149012,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 7,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 9,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/lookup",
+        "url": "http://127.0.0.1:3100/cashier/lookup",
+        "status": 200,
+        "durationMs": 713,
+        "navigation": {
+          "transferSize": 8158,
+          "encodedBodySize": 7858,
+          "decodedBodySize": 33584,
+          "responseStart": 134.19999999925494,
+          "domContentLoaded": 194.5,
+          "loadEventEnd": 196,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 6,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 8,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      },
+      "warm": {
+        "route": "/cashier/lookup",
+        "url": "http://127.0.0.1:3100/cashier/lookup",
+        "status": 200,
+        "durationMs": 680,
+        "navigation": {
+          "transferSize": 8164,
+          "encodedBodySize": 7864,
+          "decodedBodySize": 33582,
+          "responseStart": 104.80000000074506,
+          "domContentLoaded": 149.70000000298023,
+          "loadEventEnd": 164.70000000298023,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 6,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 8,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/earn",
+        "url": "http://127.0.0.1:3100/cashier/earn",
+        "status": 200,
+        "durationMs": 723,
+        "navigation": {
+          "transferSize": 8146,
+          "encodedBodySize": 7846,
+          "decodedBodySize": 33540,
+          "responseStart": 100.69999999925494,
+          "domContentLoaded": 175.30000000074506,
+          "loadEventEnd": 208.30000000074506,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 6,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 8,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      },
+      "warm": {
+        "route": "/cashier/earn",
+        "url": "http://127.0.0.1:3100/cashier/earn",
+        "status": 200,
+        "durationMs": 695,
+        "navigation": {
+          "transferSize": 8143,
+          "encodedBodySize": 7843,
+          "decodedBodySize": 33539,
+          "responseStart": 129.80000000074506,
+          "domContentLoaded": 164.19999999925494,
+          "loadEventEnd": 180.69999999925494,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 6,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 8,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/redeem",
+        "url": "http://127.0.0.1:3100/cashier/redeem",
+        "status": 200,
+        "durationMs": 667,
+        "navigation": {
+          "transferSize": 8154,
+          "encodedBodySize": 7854,
+          "decodedBodySize": 33570,
+          "responseStart": 91.80000000074506,
+          "domContentLoaded": 137.30000000074506,
+          "loadEventEnd": 143.5,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 6,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 8,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      },
+      "warm": {
+        "route": "/cashier/redeem",
+        "url": "http://127.0.0.1:3100/cashier/redeem",
+        "status": 200,
+        "durationMs": 714,
+        "navigation": {
+          "transferSize": 8152,
+          "encodedBodySize": 7852,
+          "decodedBodySize": 33573,
+          "responseStart": 115,
+          "domContentLoaded": 160.5,
+          "loadEventEnd": 190,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 6,
+            "encoded": 27660,
+            "decoded": 139776
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 8,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      }
+    },
+    {
+      "cold": {
+        "route": "/supervisor/approvals",
+        "url": "http://127.0.0.1:3100/supervisor/approvals",
+        "status": 200,
+        "durationMs": 720,
+        "navigation": {
+          "transferSize": 9469,
+          "encodedBodySize": 9169,
+          "decodedBodySize": 39591,
+          "responseStart": 100.30000000074506,
+          "domContentLoaded": 136,
+          "loadEventEnd": 202.80000000074506,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 7,
+            "encoded": 347857,
+            "decoded": 2206621
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 9,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      },
+      "warm": {
+        "route": "/supervisor/approvals",
+        "url": "http://127.0.0.1:3100/supervisor/approvals",
+        "status": 200,
+        "durationMs": 706,
+        "navigation": {
+          "transferSize": 9467,
+          "encodedBodySize": 9167,
+          "decodedBodySize": 39590,
+          "responseStart": 89.69999999925494,
+          "domContentLoaded": 142.59999999776483,
+          "loadEventEnd": 189.80000000074506,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 7,
+            "encoded": 347857,
+            "decoded": 2206621
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 9,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      }
+    },
+    {
+      "cold": {
+        "route": "/admin/operations",
+        "url": "http://127.0.0.1:3100/admin/operations",
+        "status": 200,
+        "durationMs": 746,
+        "navigation": {
+          "transferSize": 10949,
+          "encodedBodySize": 10649,
+          "decodedBodySize": 48848,
+          "responseStart": 113.10000000149012,
+          "domContentLoaded": 164.5,
+          "loadEventEnd": 235.60000000149012,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 7,
+            "encoded": 347852,
+            "decoded": 2206617
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 9,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      },
+      "warm": {
+        "route": "/admin/operations",
+        "url": "http://127.0.0.1:3100/admin/operations",
+        "status": 200,
+        "durationMs": 777,
+        "navigation": {
+          "transferSize": 10951,
+          "encodedBodySize": 10651,
+          "decodedBodySize": 48848,
+          "responseStart": 121.80000000074506,
+          "domContentLoaded": 193.40000000223517,
+          "loadEventEnd": 263,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 7,
+            "encoded": 347852,
+            "decoded": 2206617
+          },
+          "other": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          }
+        },
+        "requestCounts": {
+          "total": 9,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 0,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": []
+      }
+    }
+  ]
+}
