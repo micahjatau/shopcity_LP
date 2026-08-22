@@ -1,10 +1,10 @@
-# ShopCity Loyalty Platform Backend
+# ShopCity Loyalty Platform
 
 Backend foundation for the ShopCity loyalty MVP.
 
 ## About
 
-ShopCity is a backend-first loyalty store-credit platform that runs beside an existing POS. It owns the source of truth for customer identity, receipt capture, approvals, audit history, sessions, and weekly duplicate prevention, with PostgreSQL/Prisma for data and Supabase for staff identity verification.
+ShopCity is a backend-first loyalty store-credit platform that runs beside an existing POS. It owns the source of truth for customer identity, receipt capture, approvals, audit history, sessions, and weekly duplicate prevention, with PostgreSQL/Prisma for data and Supabase for staff identity verification. The repo also includes a Next.js frontend shell in `apps/web/` for cashier, supervisor, and admin workflows.
 
 ## Source Of Truth
 
@@ -18,6 +18,13 @@ ShopCity is a backend-first loyalty store-credit platform that runs beside an ex
 - Health checks: `GET /health/live` and `GET /health/ready`
 - Supabase identity/DB wiring: `src/supabase/`
 - Tests: unit tests in `src/**/*.spec.ts`, e2e tests in `test/**/*.e2e-spec.ts`, integration tests in `test/**/*.int-spec.ts`
+
+## Frontend Shell
+
+- Frontend app: `apps/web/`
+- Shell routes: `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, `/cashier/sync`, `/supervisor/*`, `/admin/*`
+- Shared shell components: `apps/web/components/app-shell.tsx`, `apps/web/components/app-sidebar.tsx`, `apps/web/components/app-topbar.tsx`
+- Frontend commands: `npm --prefix apps/web run dev`, `npm --prefix apps/web run build`, `npm --prefix apps/web run lint`, `npm --prefix apps/web run typecheck`, `npm --prefix apps/web run a11y:test`, `npm --prefix apps/web run critical:test`, `npm --prefix apps/web run visual:test`, `npm --prefix apps/web run live:test`
 
 ## Foundation Layout
 
@@ -69,6 +76,8 @@ npm run start:dev
 The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
 The seed step provisions the foundation tenant, branch, and a usable admin login. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` before seeding. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder. Redis defaults to `redis://127.0.0.1:6379`.
+
+If Pi does not discover Graphiti automatically, see `docs/development/graphiti-workaround.md`.
 
 Receipt capture now requires a physical POS receipt number and an active device. The cashier branch must come from the authenticated user or bound device, stale timestamps require an explicit audited supervisor override reason, and purchase amounts must stay within the configured approval threshold.
 
