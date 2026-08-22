@@ -1,0 +1,531 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-22T21:23:54.945Z",
+  "commitSha": "2d3250161ccb617329ae4f4555a7177c06f7357d",
+  "baseUrl": "http://127.0.0.1:3200",
+  "productionBuildRequired": true,
+  "authenticatedEvidence": false,
+  "routes": ["/cashier", "/cashier/lookup", "/cashier/earn", "/cashier/redeem"],
+  "thresholds": {
+    "warmNavigationPayloadBytes": 150000,
+    "authMeWarmRequests": 0,
+    "publicConfigWarmRequests": 0,
+    "duplicateApiRequests": 0,
+    "lcpMs": 2500,
+    "inpMs": 200
+  },
+  "results": [
+    {
+      "cold": {
+        "route": "/cashier",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 737,
+        "navigation": {
+          "transferSize": 4809,
+          "encodedBodySize": 4509,
+          "decodedBodySize": 23718,
+          "responseStart": 7.300000004470348,
+          "domContentLoaded": 26.400000005960464,
+          "loadEventEnd": 138,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 14,
+            "encoded": 150614,
+            "decoded": 538029
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 1240,
+            "decoded": 1240
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 20,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433829933.617,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.24,
+              "responseStart": 11.989,
+              "responseEnd": 14.287
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 637,
+        "navigation": {
+          "transferSize": 300,
+          "encodedBodySize": 4509,
+          "decodedBodySize": 23718,
+          "responseStart": 7.199999995529652,
+          "domContentLoaded": 34.79999999701977,
+          "loadEventEnd": 74.79999999701977,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 14,
+            "encoded": 150614,
+            "decoded": 538029
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 20,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433830595.9111,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.388,
+              "responseStart": 9.191,
+              "responseEnd": 11.375
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/lookup",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 640,
+        "navigation": {
+          "transferSize": 5366,
+          "encodedBodySize": 5066,
+          "decodedBodySize": 24184,
+          "responseStart": 19.5,
+          "domContentLoaded": 59.70000000298023,
+          "loadEventEnd": 69.30000000447035,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 15,
+            "encoded": 157330,
+            "decoded": 558586
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 21,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433831233.727,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.332,
+              "responseStart": 16.417,
+              "responseEnd": 19.249
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier/lookup",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 629,
+        "navigation": {
+          "transferSize": 5366,
+          "encodedBodySize": 5066,
+          "decodedBodySize": 24184,
+          "responseStart": 17.19999999552965,
+          "domContentLoaded": 59.599999994039536,
+          "loadEventEnd": 63,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 15,
+            "encoded": 157330,
+            "decoded": 558586
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 21,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433831873.2542,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.206,
+              "responseStart": 4.636,
+              "responseEnd": 6.931
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/earn",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 636,
+        "navigation": {
+          "transferSize": 5349,
+          "encodedBodySize": 5049,
+          "decodedBodySize": 24152,
+          "responseStart": 20.799999997019768,
+          "domContentLoaded": 67.29999999701977,
+          "loadEventEnd": 68.39999999850988,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 15,
+            "encoded": 157329,
+            "decoded": 558585
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 21,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433832502.479,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 3.406,
+              "responseStart": 18.53,
+              "responseEnd": 20.413
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier/earn",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 622,
+        "navigation": {
+          "transferSize": 5349,
+          "encodedBodySize": 5049,
+          "decodedBodySize": 24152,
+          "responseStart": 22.80000000447035,
+          "domContentLoaded": 44.399999998509884,
+          "loadEventEnd": 54.399999998509884,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 15,
+            "encoded": 157329,
+            "decoded": 558585
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 21,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433833118.2603,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.287,
+              "responseStart": 23.048,
+              "responseEnd": 26.74
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/redeem",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 612,
+        "navigation": {
+          "transferSize": 5360,
+          "encodedBodySize": 5060,
+          "decodedBodySize": 24171,
+          "responseStart": 10.399999998509884,
+          "domContentLoaded": 42.600000001490116,
+          "loadEventEnd": 52.29999999701977,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 15,
+            "encoded": 157330,
+            "decoded": 558586
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 21,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433833734.5679,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.229,
+              "responseStart": 18.371,
+              "responseEnd": 21.171
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier/redeem",
+        "url": "http://127.0.0.1:3200/login",
+        "status": 200,
+        "durationMs": 596,
+        "navigation": {
+          "transferSize": 5360,
+          "encodedBodySize": 5060,
+          "decodedBodySize": 24171,
+          "responseStart": 9.099999994039536,
+          "domContentLoaded": 42.599999994039536,
+          "loadEventEnd": 45.69999999552965,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 15,
+            "encoded": 157330,
+            "decoded": 558586
+          },
+          "other": {
+            "requests": 2,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "authMe": {
+            "requests": 1,
+            "encoded": 0,
+            "decoded": 0
+          },
+          "api": {
+            "requests": 2,
+            "encoded": 3502,
+            "decoded": 11835
+          }
+        },
+        "requestCounts": {
+          "total": 21,
+          "authMe": 1,
+          "publicConfig": 0,
+          "api": 1,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "http://127.0.0.1:3200/api/v1/auth/me",
+            "status": 500,
+            "timing": {
+              "startTime": 1787433834350.444,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.371,
+              "responseStart": 7.827,
+              "responseEnd": 10.005
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

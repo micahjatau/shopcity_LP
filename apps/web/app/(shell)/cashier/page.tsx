@@ -1,14 +1,9 @@
-'use client';
-
 import Link from 'next/link';
-import {
-  ConnectionStatus,
-  OfflineIndicator,
-  SyncQueueIndicator,
-} from '../../../components/offline';
-import { ScannerContextScope } from '../../../components/scanner-context-scope';
 import { WorkflowSection } from '../../../components/workflows';
-import { useSessionBootstrapState } from '../../../components/session-bootstrap';
+import {
+  CashierOverviewContext,
+  CashierOverviewStatus,
+} from '../../../components/workflows/cashier-overview-context';
 
 const cashierActions = [
   {
@@ -29,14 +24,8 @@ const cashierActions = [
 ] as const;
 
 export default function CashierPage() {
-  const { deviceId, publicConfig, configStatus } = useSessionBootstrapState();
-  const branch = publicConfig?.branch;
-  const deviceLabel = deviceId ?? 'Device not provisioned';
-  const branchLabel = branch?.name ?? branch?.id ?? 'Branch pending';
-
   return (
     <section className="cashier-overview">
-      <ScannerContextScope context="lookup" />
       <header className="cashier-overview-header">
         <div>
           <p className="cashier-kicker">Cashier workspace</p>
@@ -46,49 +35,9 @@ export default function CashierPage() {
             provide the authoritative result.
           </p>
         </div>
-        <div
-          className="cashier-overview-status"
-          aria-label="Cashier operating context"
-        >
-          <ConnectionStatus />
-          <SyncQueueIndicator />
-        </div>
+        <CashierOverviewStatus />
       </header>
-
-      <OfflineIndicator />
-
-      <section className="cashier-context-grid" aria-label="Cashier context">
-        <div className="cashier-context-card">
-          <span className="cashier-context-label">Branch</span>
-          <strong>{branchLabel}</strong>
-          <span className="cashier-muted">
-            {branch?.timezone ?? 'Timezone pending'}
-          </span>
-        </div>
-        <div className="cashier-context-card">
-          <span className="cashier-context-label">Device</span>
-          <strong>{deviceLabel}</strong>
-          <span className="cashier-muted">
-            {deviceId
-              ? 'Backend-associated session'
-              : 'Offline work is blocked until ready'}
-          </span>
-        </div>
-        <div className="cashier-context-card">
-          <span className="cashier-context-label">Policy context</span>
-          <strong>
-            {configStatus === 'stale'
-              ? 'Cached · refreshing'
-              : configStatus === 'ready'
-                ? 'Ready'
-                : 'Pending'}
-          </strong>
-          <span className="cashier-muted">
-            Only active restrictions appear in transaction review.
-          </span>
-        </div>
-      </section>
-
+      <CashierOverviewContext />
       <WorkflowSection
         title="Choose a task"
         description="Start with the smallest workflow that matches what the customer needs."

@@ -71,10 +71,10 @@
 ## 8. Client-boundary and payload optimization
 
 - [x] 8.1 Measure the baseline and use bundle/request evidence to prioritize `cashier/page.tsx`, `cashier-transaction-route.tsx`, `customer-workspace.tsx`, and `cashier/sync/page.tsx` rather than refactoring by file size alone.
-- [ ] 8.2 Move static headers, summaries, policy explanations, and route composition out of client boundaries where they do not require browser state.
-- [ ] 8.3 Keep scanner input, transaction forms, drawer controls, and other interactive behavior in isolated client islands with typed props/context.
+- [x] 8.2 Move static headers, summaries, policy explanations, and route composition out of client boundaries where they do not require browser state.
+- [x] 8.3 Keep scanner input, transaction forms, drawer controls, and other interactive behavior in isolated client islands with typed props/context.
 - [ ] 8.4 Remove duplicated generated-client calls and shared helper imports introduced only by the old megascreens.
-- [ ] 8.5 Rebuild and remeasure the route matrix; attribute changes to document/RSC/JS transfer, API counts, hydration, LCP, and INP.
+- [x] 8.5 Rebuild and remeasure the route matrix; attribute changes to document/RSC/JS transfer, API counts, hydration, LCP, and INP.
 - [x] 8.6 Meet the below-150-KB warm navigation target or record an evidence-backed exception with the responsible owner and next action.
 
 ## 9. API, OpenAPI, and generated client alignment
