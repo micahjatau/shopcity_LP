@@ -1,2 +1,0 @@
-schema: spec-driven
-goal: Close the navigation, workflow-splitting, accessibility, device-login, and evidence gaps identified in docs/repo_review_54.md by making the shell truthful, routing complete, offline cashier login device-bound, and the review evidence reproducible.
