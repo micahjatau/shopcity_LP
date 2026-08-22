@@ -26,9 +26,9 @@ describe('LoginForm device secret handling', () => {
       target: { value: 'one-time-secret' },
     });
 
-    expect(window.localStorage.getItem('shopcity:device-attestation-secret')).toBe(
-      null,
-    );
+    expect(
+      window.localStorage.getItem('shopcity:device-attestation-secret'),
+    ).toBe(null);
   });
 
   it('clears the raw device secret after a sign-in attempt', async () => {
@@ -51,7 +51,9 @@ describe('LoginForm device secret handling', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Device attestation secret')).toHaveValue('');
+      expect(screen.getByLabelText('Device attestation secret')).toHaveValue(
+        '',
+      );
     });
     expect(mockReplace).toHaveBeenCalledWith('/cashier');
   });
