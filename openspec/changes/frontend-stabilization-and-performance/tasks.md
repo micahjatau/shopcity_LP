@@ -50,11 +50,11 @@
 
 ## 6. Cashier overview and Lookup redesign
 
-- [ ] 6.1 Run GitNexus impact analysis for the cashier page, cashier workflow route, scanner context, offline indicators, and workflow UI primitives before editing.
-- [ ] 6.2 Replace the cashier overview megascreen with a static composition containing branch/device/connection context, sync queue summary, recent activity, and three primary actions: Earn, Redeem, Find customer.
-- [ ] 6.3 Remove embedded detailed lookup, full policy tables, UUIDs, developer explanations, and duplicated navigation from `/cashier`.
-- [ ] 6.4 Decompose `/cashier/lookup` into a focused lookup client island with scan/type input, shape-matched loading, empty/error states, minimal selected customer/card summary, and explicit Earn/Redeem/Customer actions.
-- [ ] 6.5 Ensure Lookup context can deep-link into Earn/Redeem without relying on overview-local React state and preserves card/customer context through route parameters or shared workflow context.
+- [x] 6.1 Run GitNexus impact analysis for the cashier page, cashier workflow route, scanner context, offline indicators, and workflow UI primitives before editing.
+- [x] 6.2 Replace the cashier overview megascreen with a static composition containing branch/device/connection context, sync queue summary, recent activity, and three primary actions: Earn, Redeem, Find customer.
+- [x] 6.3 Remove embedded detailed lookup, full policy tables, UUIDs, developer explanations, and duplicated navigation from `/cashier`.
+- [x] 6.4 Decompose `/cashier/lookup` into a focused lookup client island with scan/type input, shape-matched loading, empty/error states, minimal selected customer/card summary, and explicit Earn/Redeem/Customer actions.
+- [x] 6.5 Ensure Lookup context can deep-link into Earn/Redeem without relying on overview-local React state and preserves card/customer context through route parameters or shared workflow context.
 - [ ] 6.6 Add browser and visual tests for overview and Lookup success, empty, failure, offline, narrow viewport, keyboard, and reduced-motion states.
 
 ## 7. Earn, Redeem, Sync, and Offline UX redesign

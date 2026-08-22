@@ -93,6 +93,7 @@ export function CashierWorkflowRoute({
   const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(
     null,
   );
+  const [lookupPending, setLookupPending] = useState(false);
   const [customerRecord, setCustomerRecord] =
     useState<CashierCustomerRecord | null>(null);
   const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(
@@ -115,7 +116,7 @@ export function CashierWorkflowRoute({
     let ignore = false;
 
     async function loadCustomer() {
-      if (!customerId) {
+      if (kind === 'lookup' || !customerId) {
         setCustomerRecord(null);
         setLedgerRecord(null);
         return;
@@ -152,7 +153,7 @@ export function CashierWorkflowRoute({
     return () => {
       ignore = true;
     };
-  }, [customerId]);
+  }, [customerId, kind]);
 
   useEffect(() => {
     if (!initialCardSerial || lookupRecord) {
@@ -182,6 +183,7 @@ export function CashierWorkflowRoute({
     }
 
     setLookupMessage('Looking up customer and card context…');
+    setLookupPending(true);
     try {
       const response = await cardsControllerLookupCardV1(
         query,
@@ -202,6 +204,8 @@ export function CashierWorkflowRoute({
     } catch {
       setLookupRecord(null);
       setLookupMessage('Lookup could not be completed.');
+    } finally {
+      setLookupPending(false);
     }
   }
 
@@ -254,6 +258,10 @@ export function CashierWorkflowRoute({
       }
     : undefined;
   const showTransactionForm = kind !== 'lookup';
+  const selectedCardSerial =
+    lookupRecord?.serialNumber ??
+    lookupRecord?.cardSerialNumber ??
+    lookupValue.trim();
 
   const routeHeader = (
     <header className="cashier-route-header">
@@ -312,10 +320,10 @@ export function CashierWorkflowRoute({
         </article>
       ) : null}
       <WorkflowSection
-        title="Policy and lookup"
+        title={kind === 'lookup' ? 'Find a customer' : 'Policy and lookup'}
         description={
           kind === 'lookup'
-            ? 'Rehydrate the customer context before you move into cashier actions.'
+            ? 'Scan or enter a card serial, then continue with the smallest task that matches the customer need.'
             : 'Rehydrate the customer context after the workflow form so the supporting context stays visible.'
         }
       >
@@ -332,7 +340,9 @@ export function CashierWorkflowRoute({
                 value={lookupValue}
                 onChange={(event) => setLookupValue(event.target.value)}
               />
-              <Button type="submit">Lookup</Button>
+              <Button type="submit" disabled={lookupPending}>
+                {lookupPending ? 'Looking up…' : 'Lookup'}
+              </Button>
             </form>
             <Alert tone="info" title="Session-aware workflow">
               {lookupMessage}
@@ -346,6 +356,20 @@ export function CashierWorkflowRoute({
                   </div>
                 ))}
                 <div className="cashier-tag-row">
+                  {kind === 'lookup' && selectedCardSerial ? (
+                    <>
+                      <Link
+                        href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
+                      >
+                        Earn
+                      </Link>
+                      <Link
+                        href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
+                      >
+                        Redeem
+                      </Link>
+                    </>
+                  ) : null}
                   <StatusBadge
                     label={lookupRecord.status ?? 'LOOKUP'}
                     tone="success"
@@ -362,144 +386,150 @@ export function CashierWorkflowRoute({
             ) : null}
           </article>
 
-          <article className="cashier-card" aria-label="Policy context">
-            <h2 style={{ marginTop: 0 }}>Policy context</h2>
-            <p className="cashier-muted">{policyMessage}</p>
-            {policyContext ? (
-              <div className="cashier-stat-list">
+          {kind !== 'lookup' ? (
+            <article className="cashier-card" aria-label="Policy context">
+              <h2 style={{ marginTop: 0 }}>Policy context</h2>
+              <p className="cashier-muted">{policyMessage}</p>
+              {policyContext ? (
+                <div className="cashier-stat-list">
+                  <div className="cashier-stat-row">
+                    <span>Earn rate</span>
+                    <strong>
+                      {(policyContext.defaultEarnRateBps ?? 0) / 100}%
+                    </strong>
+                  </div>
+                  <div className="cashier-stat-row">
+                    <span>Min redemption</span>
+                    {typeof policyContext.minRedemptionKobo === 'number' ? (
+                      <Money amountKobo={policyContext.minRedemptionKobo} />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div className="cashier-stat-row">
+                    <span>Basket cap</span>
+                    <strong>{policyContext.maxRedemptionBasketPercent}%</strong>
+                  </div>
+                  <div className="cashier-stat-row">
+                    <span>Purchase flag</span>
+                    {typeof policyContext.purchaseFlagThresholdKobo ===
+                    'number' ? (
+                      <Money
+                        amountKobo={policyContext.purchaseFlagThresholdKobo}
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                  <div className="cashier-stat-row">
+                    <span>Approval threshold</span>
+                    {typeof policyContext.redemptionApprovalThresholdKobo ===
+                    'number' ? (
+                      <Money
+                        amountKobo={
+                          policyContext.redemptionApprovalThresholdKobo
+                        }
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <Alert tone="warning" title="Policy unavailable">
+                  The workflow can still run, but policy-aware previews are
+                  unavailable.
+                </Alert>
+              )}
+            </article>
+          ) : null}
+        </div>
+      </WorkflowSection>
+
+      {kind !== 'lookup' ? (
+        <div className="cashier-workspace-grid">
+          <article className="cashier-card" aria-label="Customer detail">
+            <h2 style={{ marginTop: 0 }}>Customer detail</h2>
+            {customerRecord ? (
+              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
                 <div className="cashier-stat-row">
-                  <span>Earn rate</span>
+                  <span>Name</span>
                   <strong>
-                    {(policyContext.defaultEarnRateBps ?? 0) / 100}%
+                    {customerRecord.fullName ?? customerRecord.name ?? '—'}
                   </strong>
                 </div>
                 <div className="cashier-stat-row">
-                  <span>Min redemption</span>
-                  {typeof policyContext.minRedemptionKobo === 'number' ? (
-                    <Money amountKobo={policyContext.minRedemptionKobo} />
-                  ) : (
-                    '—'
-                  )}
+                  <span>Status</span>
+                  <StatusBadge
+                    label={customerRecord.status ?? 'UNKNOWN'}
+                    tone="info"
+                  />
                 </div>
                 <div className="cashier-stat-row">
-                  <span>Basket cap</span>
-                  <strong>{policyContext.maxRedemptionBasketPercent}%</strong>
+                  <span>Balance</span>
+                  <Money
+                    amountKobo={
+                      customerRecord.balanceKobo ??
+                      customerRecord.availableBalanceKobo ??
+                      0
+                    }
+                  />
                 </div>
-                <div className="cashier-stat-row">
-                  <span>Purchase flag</span>
-                  {typeof policyContext.purchaseFlagThresholdKobo ===
-                  'number' ? (
-                    <Money
-                      amountKobo={policyContext.purchaseFlagThresholdKobo}
-                    />
+                <Separator />
+                <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+                  <strong>Recent ledger</strong>
+                  {Array.isArray(ledgerRecord?.items) &&
+                  ledgerRecord.items.length > 0 ? (
+                    ledgerRecord.items.slice(0, 4).map((item) => {
+                      const ledgerKey = String(
+                        item.id ?? item.type ?? item.transactionType ?? 'Entry',
+                      );
+                      return (
+                        <div key={ledgerKey} className="cashier-stat-row">
+                          <span>
+                            {item.type ?? item.transactionType ?? 'Entry'}
+                          </span>
+                          <span>
+                            {item.amountKobo ? (
+                              <Money amountKobo={item.amountKobo} />
+                            ) : (
+                              '—'
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })
                   ) : (
-                    '—'
-                  )}
-                </div>
-                <div className="cashier-stat-row">
-                  <span>Approval threshold</span>
-                  {typeof policyContext.redemptionApprovalThresholdKobo ===
-                  'number' ? (
-                    <Money
-                      amountKobo={policyContext.redemptionApprovalThresholdKobo}
-                    />
-                  ) : (
-                    '—'
+                    <p className="cashier-muted">
+                      Ledger history will appear once the customer is loaded.
+                    </p>
                   )}
                 </div>
               </div>
             ) : (
-              <Alert tone="warning" title="Policy unavailable">
-                The workflow can still run, but policy-aware previews are
-                unavailable.
+              <Alert tone="warning" title="No customer selected">
+                Lookup a card first to load customer balance and history.
               </Alert>
             )}
           </article>
-        </div>
-      </WorkflowSection>
 
-      <div className="cashier-workspace-grid">
-        <article className="cashier-card" aria-label="Customer detail">
-          <h2 style={{ marginTop: 0 }}>Customer detail</h2>
-          {customerRecord ? (
+          <article className="cashier-card" aria-label="Shift snapshot">
+            <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
+            <p className="cashier-muted">
+              Offline queue state is shown in the shell header and on the sync
+              route.
+            </p>
             <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              <div className="cashier-stat-row">
-                <span>Name</span>
-                <strong>
-                  {customerRecord.fullName ?? customerRecord.name ?? '—'}
-                </strong>
-              </div>
-              <div className="cashier-stat-row">
-                <span>Status</span>
-                <StatusBadge
-                  label={customerRecord.status ?? 'UNKNOWN'}
-                  tone="info"
-                />
-              </div>
-              <div className="cashier-stat-row">
-                <span>Balance</span>
-                <Money
-                  amountKobo={
-                    customerRecord.balanceKobo ??
-                    customerRecord.availableBalanceKobo ??
-                    0
-                  }
-                />
-              </div>
-              <Separator />
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-                <strong>Recent ledger</strong>
-                {Array.isArray(ledgerRecord?.items) &&
-                ledgerRecord.items.length > 0 ? (
-                  ledgerRecord.items.slice(0, 4).map((item) => {
-                    const ledgerKey = String(
-                      item.id ?? item.type ?? item.transactionType ?? 'Entry',
-                    );
-                    return (
-                      <div key={ledgerKey} className="cashier-stat-row">
-                        <span>
-                          {item.type ?? item.transactionType ?? 'Entry'}
-                        </span>
-                        <span>
-                          {item.amountKobo ? (
-                            <Money amountKobo={item.amountKobo} />
-                          ) : (
-                            '—'
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="cashier-muted">
-                    Ledger history will appear once the customer is loaded.
-                  </p>
-                )}
-              </div>
+              <Link href="/cashier/sync">Open sync queue</Link>
             </div>
-          ) : (
-            <Alert tone="warning" title="No customer selected">
-              Lookup a card first to load customer balance and history.
-            </Alert>
-          )}
-        </article>
-
-        <article className="cashier-card" aria-label="Shift snapshot">
-          <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
-          <p className="cashier-muted">
-            Offline queue state is shown in the shell header and on the sync
-            route.
-          </p>
-          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            <Link href="/cashier/sync">Open sync queue</Link>
-          </div>
-          <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            <ConnectionStatus />
-            <SyncQueueIndicator />
-          </div>
-        </article>
-      </div>
+            <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
+            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+              <ConnectionStatus />
+              <SyncQueueIndicator />
+            </div>
+          </article>
+        </div>
+      ) : null}
 
       <style>{`
         .cashier-route-header {
