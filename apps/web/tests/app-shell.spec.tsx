@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AppShell } from '../components/app-shell';
 
 const mockBootstrapSession = jest.fn();
@@ -68,10 +68,13 @@ describe('AppShell', () => {
         role: 'CASHIER',
         branchId: 'b1',
       },
-      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+      session: {
+        expiresAt: '2030-01-01T00:00:00.000Z',
+        deviceId: 'device-1',
+      },
     });
 
-    render(
+    const { container } = render(
       <AppShell>
         <p>Protected content</p>
       </AppShell>,
@@ -86,13 +89,23 @@ describe('AppShell', () => {
       'aria-current',
       'page',
     );
-    expect(screen.getByText('Workspace · Overview')).toBeInTheDocument();
+    expect(container.querySelectorAll('.shell-nav-link-icon svg')).toHaveLength(
+      6,
+    );
+    expect(
+      container.querySelector('.shell-context-line--secondary'),
+    ).toHaveTextContent('Workspace · Overview');
+    expect(screen.getByText('Device device-1')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /skip to content/i })).toHaveAttribute(
+      'href',
+      '#shell-main-content',
+    );
     expect(screen.getByRole('link', { name: /lookup/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /earn/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /redeem/i })).toBeInTheDocument();
     expect(
-      screen.getByTitle(/2 offline transactions waiting to sync/i),
-    ).toBeInTheDocument();
+      screen.getByRole('link', { name: /sync queue/i }),
+    ).toHaveAttribute('title', '2 offline transactions waiting to sync');
   });
 
   it('persists sidebar collapse state across reloads in the session', async () => {
@@ -119,6 +132,9 @@ describe('AppShell', () => {
     expect(
       screen.getByRole('button', { name: /expand sidebar/i }),
     ).toBeInTheDocument();
+    expect(document.querySelector('.shell-body')).toHaveClass(
+      'shell-body--collapsed',
+    );
     expect(screen.getByText('Branch and device')).not.toBeVisible();
   });
 
@@ -150,6 +166,94 @@ describe('AppShell', () => {
     expect(
       screen.getByRole('button', { name: /expand sidebar/i }),
     ).toBeInTheDocument();
+  });
+
+  it('defaults tablets to the collapsed rail when no preference is stored', async () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query.includes('768px') && query.includes('1199px'),
+        media: query,
+        onchange: null,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u1',
+        username: 'cashier',
+        role: 'CASHIER',
+        branchId: 'b1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+    });
+    expect(document.querySelector('.shell-body')).toHaveClass(
+      'shell-body--collapsed',
+    );
+
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  it('keeps the drawer focus trapped and the shell inert while open', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u1',
+        username: 'cashier',
+        role: 'CASHIER',
+        branchId: 'b1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    const drawer = screen.getByRole('dialog', { name: /primary navigation/i });
+    expect((document.querySelector('.shell-frame') as HTMLElement).inert).toBe(
+      true,
+    );
+
+    const navLinks = within(drawer).getAllByRole('link');
+    const lastLink = navLinks[navLinks.length - 1];
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(lastLink).toHaveFocus();
+
+    fireEvent.click(document.querySelector('.shell-mobile-overlay') as Element);
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: /primary navigation/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect((document.querySelector('.shell-frame') as HTMLElement).inert).toBe(
+      false,
+    );
   });
 
   it('shows an unavailable sidebar badge when the offline queue cannot be read', async () => {

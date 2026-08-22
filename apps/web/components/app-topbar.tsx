@@ -26,6 +26,7 @@ export type AppTopbarProps = Readonly<{
   activeSectionLabel: string;
   routeTrailLabel: string;
   pageTitle: string;
+  deviceLabel: string | null;
   context: AppTopbarContext;
   showProtectedContent: boolean;
   onLogout: () => void;
@@ -41,6 +42,7 @@ export function AppTopbar({
   activeSectionLabel,
   routeTrailLabel,
   pageTitle,
+  deviceLabel,
   context,
   showProtectedContent,
   onLogout,
@@ -91,31 +93,28 @@ export function AppTopbar({
         </div>
       </div>
 
-      <div className="shell-context-grid">
-        <div className="shell-context-card">
-          <p className="shell-context-label">Shell context</p>
+      <div className="shell-context-strip">
+        <div className="shell-context-line">
           <strong>{configMessage}</strong>
-          <div className="shell-context-meta">
+          <span>
             Session {sessionLabel ?? 'pending'} · {status}
-          </div>
+          </span>
+          <span>
+            {workspaceLabel} · {activeSectionLabel}
+          </span>
+          <span>
+            {deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}
+          </span>
         </div>
-        <div className="shell-context-card">
-          <p className="shell-context-label">Workspace</p>
-          <strong>{workspaceLabel}</strong>
-          <div className="shell-context-meta">{activeSectionLabel}</div>
-          <div className="shell-context-meta">{routeTrailLabel}</div>
-          <div className="shell-context-meta">{pageTitle}</div>
-        </div>
-        <div className="shell-context-card">
-          <p className="shell-context-label">Branch and policy</p>
-          <strong>
-            {context?.branch?.name ?? context?.branch?.id ?? 'Loading…'}
-          </strong>
-          <div className="shell-context-meta">
+        <div className="shell-context-line shell-context-line--secondary">
+          <span>
             {context?.tenant?.name ?? context?.tenant?.id ?? 'Tenant pending'}
+            {context?.branch?.name || context?.branch?.id
+              ? ` · ${context.branch?.name ?? context.branch?.id}`
+              : ''}
             {context?.branch?.timezone ? ` · ${context.branch.timezone}` : ''}
-          </div>
-          <div className="shell-context-meta">
+          </span>
+          <span>
             {typeof context?.branch?.receiptWeekStartDay === 'number'
               ? `Receipt week starts ${context.branch.receiptWeekStartDay}`
               : 'Receipt week start pending'}
@@ -124,15 +123,16 @@ export function AppTopbar({
                 ? ' · Offline redemption disabled'
                 : ' · Offline redemption available'
               : ''}
-          </div>
-          <div className="shell-context-meta">
+          </span>
+          <span>
             {typeof context?.policies?.defaultEarnRateBps === 'number'
               ? `${context.policies.defaultEarnRateBps / 100}% earn rate`
               : 'Policy values pending'}
             {typeof context?.policies?.minRedemptionKobo === 'number'
               ? ` · Min redemption ₦${(context.policies.minRedemptionKobo / 100).toLocaleString()}`
               : ''}
-          </div>
+            {` · ${routeTrailLabel}`}
+          </span>
         </div>
       </div>
 
@@ -140,13 +140,13 @@ export function AppTopbar({
         .shell-topbar {
           background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
+          padding: var(--sc-spacing-3) var(--sc-spacing-4);
         }
 
         .shell-brand-row {
           display: flex;
           gap: var(--sc-spacing-4);
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
           margin: 0 auto;
@@ -197,34 +197,33 @@ export function AppTopbar({
           display: none;
         }
 
-        .shell-context-grid {
+        .shell-context-strip {
           display: grid;
-          gap: var(--sc-spacing-3);
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: var(--sc-spacing-2);
           max-width: 1440px;
-          margin: var(--sc-spacing-4) auto 0;
-        }
-
-        .shell-context-card {
+          margin: var(--sc-spacing-3) auto 0;
+          padding: var(--sc-spacing-3);
           border-radius: var(--sc-radius-lg);
           background: rgba(255, 255, 255, 0.08);
-          padding: var(--sc-spacing-4);
         }
 
-        .shell-context-meta {
+        .shell-context-line {
+          display: flex;
+          gap: var(--sc-spacing-3);
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .shell-context-line strong {
           font-size: var(--sc-font-size-sm);
-          opacity: 0.9;
+        }
+
+        .shell-context-line--secondary {
+          font-size: var(--sc-font-size-sm);
+          opacity: 0.92;
         }
 
         @media (max-width: 767px) {
-          .shell-topbar {
-            padding-bottom: 0;
-          }
-
-          .shell-brand-row {
-            gap: var(--sc-spacing-3);
-          }
-
           .shell-mobile-menu-button {
             display: inline-flex;
           }
