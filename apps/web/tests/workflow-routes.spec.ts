@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { shellNavigationByRole } from '../components/shell-navigation';
 
 const baseUrl = 'http://127.0.0.1:3100';
@@ -62,6 +62,27 @@ test.describe('workflow route coverage', () => {
       const response = await request.get(href);
       expect(response.status()).toBe(200);
     }
+  });
+
+  test('covers lookup success, context handoff, keyboard, and narrow layout', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${baseUrl}/cashier/lookup?card=CARD-001`);
+
+    const lookup = page.getByRole('textbox', { name: 'Lookup' });
+    await expect(lookup).toHaveValue('CARD-001');
+    await lookup.press('Enter');
+    await expect(page.getByText('Ada Shopper')).toBeVisible();
+    const lookupCard = page.getByLabel('Lookup and status');
+    await expect(
+      lookupCard.getByRole('link', { name: 'Earn' }),
+    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
+    await expect(
+      lookupCard.getByRole('link', { name: 'Redeem' }),
+    ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
   });
 
   test('resolves every shell navigation destination', async ({ request }) => {
