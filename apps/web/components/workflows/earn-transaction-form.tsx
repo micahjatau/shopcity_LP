@@ -247,13 +247,22 @@ export function EarnTransactionForm({
     } catch {
       setStatus('error');
       setMessage('Earn could not be submitted.');
+
+      const offlineBranchId = branchId ?? lookupContext?.branchId ?? null;
+      if (!deviceId || !offlineBranchId) {
+        setMessage(
+          'Earn could not be submitted. Offline save is unavailable until the device-bound session is ready.',
+        );
+        return;
+      }
+
       try {
         const offlineResult = await saveOfflineEarnRecord({
           localId: crypto.randomUUID(),
           idempotencyKey: idempotencyKeyRef.current,
           cashierId: cashierId ?? '',
-          branchId: branchId ?? lookupContext?.branchId ?? '',
-          deviceId: deviceId ?? undefined,
+          branchId: offlineBranchId,
+          deviceId,
           customerId: lookupContext?.customerId ?? undefined,
           cardBarcode: cardSerialNumber.trim(),
           receiptNumber: receiptNumber.trim(),
