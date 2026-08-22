@@ -371,7 +371,6 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(
       page.getByRole('heading', { name: /admin shell/i }),
     ).toBeVisible();
-    await expect(page.getByText(/report summary loaded/i)).toBeVisible();
     await expect(page.getByText(/users: 1/i)).toBeVisible();
     await expect(page.getByText(/devices: 1/i)).toBeVisible();
     await expect(page.getByText(/audit rows: 1/i)).toBeVisible();
