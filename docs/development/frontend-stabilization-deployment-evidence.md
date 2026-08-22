@@ -1,10 +1,10 @@
 # Frontend stabilization deployment evidence
 
-Captured: `2026-08-22T22:36:00Z`
+Captured: `2026-08-22T22:43:18Z`
 
 ## Candidate
 
-- Candidate SHA at inspection: `f7b867069d86883bdb5c8252dfd9dbabdaf60b69`
+- Candidate SHA at inspection: `7777c05d0885c8fe61f963153354158cda88470f`
 - The CI workflow now exports `CANDIDATE_SHA=${{ github.sha }}` and verifies `git rev-parse HEAD` in every job before running checks.
 - Local build, API, performance, and contract artifacts must be attached to this same SHA before release approval.
 
@@ -16,12 +16,13 @@ Vercel account inspection found:
 - **Project ID:** `prj_UvU3PsV5X1iWaf01tmsuayh3AKiC`
 - **Production URL:** `https://shopcity-lp.vercel.app`
 - **Latest production deployment observed:** `shopcity-pwja7idre-micah-s-projects-bb6507fe.vercel.app`, SHA `2cf0d9dd37c201560e9530f39a0aea64b061bf0b`, `2026-08-15T17:53:39Z`
+- **Candidate preview deployment:** `shopcity-m5d3e0auj-micah-s-projects-bb6507fe.vercel.app`, deployment ID `dpl_4nzEpSx595rVZvLQiZpfMLgYB3Vz`, SHA `7777c05d0885c8fe61f963153354158cda88470f`, state `QUEUED`, build region `sfo1`
 - **Duplicate/stale project candidate:** `shopcity`
 - **Duplicate project ID:** `prj_EtlxuZOQxWiLJeXMVuMpuRtEesnf`
 
-The mismatch is explained by repository state and deployment target: the canonical production alias is still on an older August 15 deployment, while the latest branch preview deployments are on the remote branch head. In both cases, the mismatch is explained by repository state: `origin/frontend-development` is still at `2eade672775e0907e32615a3b183ec05a10a20a9`, while the local candidate is 31 commits ahead at `f7b867069d86883bdb5c8252dfd9dbabdaf60b69`. Vercel is deploying the remote branch head, not this local-only candidate. No push was performed because publishing the branch requires explicit release approval. The performance artifacts were collected on earlier commits and must be regenerated for the eventual pushed candidate before release certification. The duplicate project has not been disconnected because that requires an approved operational decision. Therefore canonical deployment certification is **BLOCKED**, not passed.
+The mismatch was caused by the local branch being ahead of the remote branch. The branch was pushed with explicit approval, and Vercel has now queued a preview deployment for the exact candidate SHA. Production remains on the older August 15 deployment until a production promotion is approved. The duplicate project has not been disconnected because that requires an approved operational decision. Performance artifacts must be regenerated for the pushed candidate before release certification. Therefore production certification remains **BLOCKED**, while candidate preview identity is now traceable.
 
-The observed deployment records did not provide an approved deployment ID/runtime-region evidence bundle. Runtime region remains **UNKNOWN**.
+The candidate preview deployment now provides deployment ID `dpl_4nzEpSx595rVZvLQiZpfMLgYB3Vz` and build region `sfo1`; runtime region and production promotion status remain **UNKNOWN** until the queued build completes and is approved.
 
 ## Topology
 
