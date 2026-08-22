@@ -133,7 +133,10 @@ async function loadPublicConfig(
         return response.data.data;
       })();
       configRequests.set(key, request);
-      void request.finally(() => configRequests.delete(key));
+      void request.then(
+        () => configRequests.delete(key),
+        () => configRequests.delete(key),
+      );
     }
 
     const data = await request;
