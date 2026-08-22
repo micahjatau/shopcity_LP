@@ -11,6 +11,13 @@ The frontend SHALL keep cashier operational context visible in the shell as comp
 - **THEN** the shell surfaces connection/sync state and branch/device context in a compact area
 - **AND** the primary workflow area remains visually dominant
 
+#### Scenario: Cashier sees sync and branch context
+
+- **GIVEN** an authenticated cashier session
+- **WHEN** the shell renders on a cashier route
+- **THEN** the shell surfaces connection/sync state
+- **AND** branch/device context remains visible without dominating the workflow
+
 ### Requirement: Cashier Earn and Redeem use dedicated routes
 
 The frontend SHALL expose cashier Earn and Redeem as dedicated workflow routes whose first visible content is the current task, not a full launcher or route grid.
@@ -29,6 +36,14 @@ The frontend SHALL expose cashier Earn and Redeem as dedicated workflow routes w
 - **THEN** the page starts with the workflow-specific form or task context
 - **AND** it does not repeat the full cashier navigation set or launchpad cards
 
+#### Scenario: Cashier overview is not the full workflow container
+
+- **GIVEN** a cashier opens `/cashier`
+- **WHEN** the page renders
+- **THEN** the page provides operational overview and launch actions
+- **AND** it does not embed the full Earn and Redeem forms
+- **AND** it preserves quick access to the active sync state and dedicated workflow routes
+
 ### Requirement: Cashier overview is a compact operational launcher
 
 The frontend SHALL keep `/cashier` as a lightweight operational launcher that highlights the next cashier action and avoids turning the page into a dashboard.
@@ -41,6 +56,14 @@ The frontend SHALL keep `/cashier` as a lightweight operational launcher that hi
 - **AND** it does not embed the full Earn or Redeem forms
 - **AND** it does not duplicate the sidebar navigation as a route grid
 - **AND** it keeps supplementary notes subordinate to the primary action
+
+#### Scenario: Cashier overview is not the full workflow container
+
+- **GIVEN** a cashier opens `/cashier`
+- **WHEN** the page renders
+- **THEN** the page provides operational overview and launch actions
+- **AND** it does not embed the full Earn and Redeem forms
+- **AND** it preserves quick access to the active sync state and dedicated workflow routes
 
 ### Requirement: Cashier sync queue is queue-first and compact
 
