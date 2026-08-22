@@ -36,6 +36,7 @@ describe('AppShell', () => {
     mockGetPublicConfig.mockReset();
     mockGetOfflineEarnRecordCount.mockReset();
     mockSubscribeOfflineQueue.mockReset();
+    sessionStorage.clear();
     mockGetPublicConfig.mockResolvedValue({
       status: 200,
       data: {
@@ -91,6 +92,61 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: /redeem/i })).toBeInTheDocument();
     expect(
       screen.getByTitle(/2 offline transactions waiting to sync/i),
+    ).toBeInTheDocument();
+  });
+
+  it('persists sidebar collapse state across reloads in the session', async () => {
+    sessionStorage.setItem('shopcity:shell:sidebar-collapsed', 'true');
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u1',
+        username: 'cashier',
+        role: 'CASHIER',
+        branchId: 'b1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('button', { name: /expand sidebar/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Branch and device')).not.toBeVisible();
+  });
+
+  it('persists sidebar collapse toggles to the session store', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u1',
+        username: 'cashier',
+        role: 'CASHIER',
+        branchId: 'b1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
+    expect(sessionStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe('true');
+    expect(
+      screen.getByRole('button', { name: /expand sidebar/i }),
     ).toBeInTheDocument();
   });
 

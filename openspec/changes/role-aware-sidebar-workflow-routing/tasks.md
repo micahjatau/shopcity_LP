@@ -8,7 +8,7 @@
 - [x] 1.6 Keep SYSTEM out of the interactive human shell and fail closed on unsupported access.
 - [x] 1.7 Show branch/device summary in the sidebar footer or equivalent shell context area.
 - [x] 1.8 Define trustworthy sidebar badge sources and freshness/failure behavior for operational counts.
-- [ ] 1.9 Decide whether collapsed sidebar state persists per user/session and implement if required.
+- [x] 1.9 Decide whether collapsed sidebar state persists per user/session and implement if required.
 
 ## 2. Cashier workflow routing
 

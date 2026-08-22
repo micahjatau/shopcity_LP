@@ -41,6 +41,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const [configMessage, setConfigMessage] = useState('Loading public context…');
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -80,6 +81,15 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
   useEffect(() => {
     let mounted = true;
+
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage.getItem(
+        'shopcity:shell:sidebar-collapsed',
+      );
+      if (stored !== null) {
+        setSidebarCollapsed(stored === 'true');
+      }
+    }
 
     async function refreshSyncQueueCount() {
       try {
@@ -205,6 +215,19 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     mobileMenuButtonRef.current?.focus();
   }
 
+  function handleToggleSidebar() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(
+          'shopcity:shell:sidebar-collapsed',
+          String(next),
+        );
+      }
+      return next;
+    });
+  }
+
   async function handleLogout() {
     try {
       await logoutSession();
@@ -258,6 +281,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           workspaceLabel={workspaceLabel}
           branchLabel={context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'}
           branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
         />
 
         <main className="shell-main">

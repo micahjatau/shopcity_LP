@@ -10,6 +10,8 @@ export type AppSidebarProps = Readonly<{
   workspaceLabel: string;
   branchLabel: string;
   branchTimezone: string;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }>;
 
 export function AppSidebar({
@@ -18,20 +20,36 @@ export function AppSidebar({
   workspaceLabel,
   branchLabel,
   branchTimezone,
+  isCollapsed,
+  onToggleCollapse,
 }: AppSidebarProps) {
   return (
-    <aside className="shell-sidebar" aria-label="Primary navigation">
-      <div className="shell-sidebar-brand">
-        <Image
-          src="/brand/shopcity-mark-white.svg"
-          alt="ShopCity"
-          width={28}
-          height={28}
-        />
-        <div>
-          <div className="shell-sidebar-brand-title">ShopCity</div>
-          <div className="shell-sidebar-brand-subtitle">{workspaceLabel}</div>
+    <aside
+      className={`shell-sidebar${isCollapsed ? ' shell-sidebar--collapsed' : ''}`}
+      aria-label="Primary navigation"
+    >
+      <div className="shell-sidebar-brand-row">
+        <div className="shell-sidebar-brand">
+          <Image
+            src="/brand/shopcity-mark-white.svg"
+            alt="ShopCity"
+            width={28}
+            height={28}
+          />
+          <div>
+            <div className="shell-sidebar-brand-title">ShopCity</div>
+            <div className="shell-sidebar-brand-subtitle">{workspaceLabel}</div>
+          </div>
         </div>
+
+        <button
+          type="button"
+          className="shell-sidebar-toggle"
+          onClick={onToggleCollapse}
+          aria-pressed={isCollapsed}
+        >
+          {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        </button>
       </div>
 
       <nav aria-label="Primary navigation" className="shell-nav">
@@ -86,10 +104,22 @@ export function AppSidebar({
           box-shadow: var(--sc-shadow-level2);
         }
 
+        .shell-sidebar--collapsed {
+          gap: var(--sc-spacing-3);
+        }
+
+        .shell-sidebar-brand-row {
+          display: flex;
+          gap: var(--sc-spacing-3);
+          align-items: flex-start;
+          justify-content: space-between;
+        }
+
         .shell-sidebar-brand {
           display: flex;
           align-items: center;
           gap: var(--sc-spacing-3);
+          min-width: 0;
         }
 
         .shell-sidebar-brand-title,
@@ -106,6 +136,16 @@ export function AppSidebar({
         .shell-sidebar-footer-label {
           font-size: var(--sc-font-size-sm);
           opacity: 0.86;
+        }
+
+        .shell-sidebar-toggle {
+          flex: none;
+          border-radius: var(--sc-radius-full);
+          border: 1px solid rgba(255, 255, 255, 0.24);
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--sc-color-neutral-0);
+          padding: 6px 10px;
+          font-size: var(--sc-font-size-sm);
         }
 
         .shell-sidebar-footer {
@@ -166,6 +206,19 @@ export function AppSidebar({
           background: rgba(255, 255, 255, 0.12);
           border-color: rgba(255, 255, 255, 0.34);
           font-weight: 700;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-brand-subtitle,
+        .shell-sidebar--collapsed .shell-sidebar-footer {
+          display: none;
+        }
+
+        .shell-sidebar--collapsed .shell-nav {
+          gap: var(--sc-spacing-3);
+        }
+
+        .shell-sidebar--collapsed .shell-nav-link {
+          padding: 8px 10px;
         }
 
         @media (max-width: 767px) {
