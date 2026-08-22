@@ -3,7 +3,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { StatusBadge } from '../../../components/shopcity';
 import {
   ApprovalsPanel,
   FraudFlagsPanel,
@@ -65,14 +64,6 @@ export default function SupervisorPage() {
         >
           Approvals, fraud review, transaction detail and reports.
         </p>
-        <div style={statusRow}>
-          <StatusBadge
-            label={`${supervisorRoutes.length} routes`}
-            tone="success"
-          />
-          <StatusBadge label="Investigative" tone="info" />
-          <StatusBadge label="Materialization visible" tone="neutral" />
-        </div>
       </header>
 
       <WorkflowSection
@@ -96,11 +87,6 @@ export default function SupervisorPage() {
       <div style={gridStyle}>
         <article style={cardStyle} aria-label="Supervisor scope">
           <h2 style={{ marginTop: 0 }}>Scope</h2>
-          <div style={statusRow}>
-            <StatusBadge label="Route-backed" tone="success" />
-            <StatusBadge label="Contract-driven" tone="info" />
-            <StatusBadge label="Investigative" tone="neutral" />
-          </div>
           <p style={muted}>
             Supervisor work stays route-backed: launch the review lane you need,
             then use this shell for a quick status glance.
@@ -206,10 +192,4 @@ const noteStyle: CSSProperties = {
 const muted: CSSProperties = {
   color: 'var(--sc-color-semantic-textSecondary)',
   marginBottom: 0,
-};
-
-const statusRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
 };

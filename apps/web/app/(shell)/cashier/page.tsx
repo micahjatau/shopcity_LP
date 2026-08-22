@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { useSessionBootstrapState } from '../../../components/session-bootstrap';
 import {
   ConnectionStatus,
   OfflineIndicator,
@@ -18,10 +17,7 @@ import {
   customersControllerGetCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../../../lib/api/generated-client';
-import {
-  configurationControllerGetPublicConfigV1,
-  createApiRequest,
-} from '../../../lib/api';
+import { createApiRequest } from '../../../lib/api';
 
 const cashierLaunchCards = [
   {
@@ -74,23 +70,6 @@ type CashierLedgerRecord = {
   items?: CashierLedgerItem[];
 };
 
-type CashierPolicyConfig = {
-  tenant?: { id?: string; name?: string };
-  branch?: {
-    id?: string;
-    name?: string;
-    timezone?: string;
-    receiptWeekStartDay?: number;
-  };
-  policies?: {
-    defaultEarnRateBps?: number;
-    minRedemptionKobo?: number;
-    maxRedemptionBasketPercent?: number;
-    purchaseFlagThresholdKobo?: number;
-    redemptionApprovalThresholdKobo?: number;
-  };
-};
-
 export default function CashierPage() {
   const [lookupValue, setLookupValue] = useState('');
   const [lookupMessage, setLookupMessage] = useState(
@@ -104,12 +83,6 @@ export default function CashierPage() {
   const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(
     null,
   );
-  const [policyConfig, setPolicyConfig] = useState<CashierPolicyConfig | null>(
-    null,
-  );
-  const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
-  const { userId } = useSessionBootstrapState();
-
   const customerId = useMemo(
     () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
     [lookupRecord],
@@ -117,29 +90,6 @@ export default function CashierPage() {
 
   useEffect(() => {
     let ignore = false;
-
-    async function loadPolicy() {
-      try {
-        const response =
-          await configurationControllerGetPublicConfigV1(createApiRequest());
-        if (!ignore && response.status === 200) {
-          setPolicyConfig(response.data.data);
-          setPolicyMessage(
-            'Branch policy loaded from the public config endpoint.',
-          );
-          return;
-        }
-        if (!ignore) {
-          setPolicyConfig(null);
-          setPolicyMessage(`Branch policy unavailable (${response.status}).`);
-        }
-      } catch {
-        if (!ignore) {
-          setPolicyConfig(null);
-          setPolicyMessage('Branch policy unavailable.');
-        }
-      }
-    }
 
     async function loadCustomer() {
       if (!customerId) {
@@ -174,7 +124,6 @@ export default function CashierPage() {
       }
     }
 
-    void loadPolicy();
     void loadCustomer();
 
     return () => {
@@ -241,9 +190,6 @@ export default function CashierPage() {
       ]
     : [];
 
-  const policyContext = policyConfig?.policies ?? null;
-  const branchContext = policyConfig?.branch ?? null;
-  const tenantContext = policyConfig?.tenant ?? null;
   const selectedCardSerial =
     lookupRecord?.serialNumber ??
     lookupRecord?.cardSerialNumber ??
@@ -263,30 +209,6 @@ export default function CashierPage() {
         <div style={routeRow}>
           <ConnectionStatus />
           <SyncQueueIndicator />
-        </div>
-        <div style={policyRow}>
-          <StatusBadge
-            label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'}
-            tone="info"
-          />
-          <StatusBadge
-            label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'}
-            tone="neutral"
-          />
-          <StatusBadge
-            label={branchContext?.timezone ?? 'Timezone pending'}
-            tone="success"
-          />
-          <StatusBadge
-            label={userId ? `User ${userId}` : 'User pending'}
-            tone="info"
-          />
-          {typeof policyContext?.defaultEarnRateBps === 'number' ? (
-            <StatusBadge
-              label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
-              tone="info"
-            />
-          ) : null}
         </div>
       </header>
 
@@ -337,60 +259,6 @@ export default function CashierPage() {
                 </div>
               </div>
             ) : null}
-          </article>
-
-          <article style={cardStyle} aria-label="Policy context">
-            <h2 style={{ marginTop: 0 }}>Policy context</h2>
-            <p style={muted}>{policyMessage}</p>
-            {policyContext ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                <div style={statRow}>
-                  <span>Earn rate</span>
-                  <strong>
-                    {(policyContext.defaultEarnRateBps ?? 0) / 100}%
-                  </strong>
-                </div>
-                <div style={statRow}>
-                  <span>Min redemption</span>
-                  {typeof policyContext.minRedemptionKobo === 'number' ? (
-                    <Money amountKobo={policyContext.minRedemptionKobo} />
-                  ) : (
-                    '—'
-                  )}
-                </div>
-                <div style={statRow}>
-                  <span>Basket cap</span>
-                  <strong>{policyContext.maxRedemptionBasketPercent}%</strong>
-                </div>
-                <div style={statRow}>
-                  <span>Purchase flag</span>
-                  {typeof policyContext.purchaseFlagThresholdKobo ===
-                  'number' ? (
-                    <Money
-                      amountKobo={policyContext.purchaseFlagThresholdKobo}
-                    />
-                  ) : (
-                    '—'
-                  )}
-                </div>
-                <div style={statRow}>
-                  <span>Approval threshold</span>
-                  {typeof policyContext.redemptionApprovalThresholdKobo ===
-                  'number' ? (
-                    <Money
-                      amountKobo={policyContext.redemptionApprovalThresholdKobo}
-                    />
-                  ) : (
-                    '—'
-                  )}
-                </div>
-              </div>
-            ) : (
-              <Alert tone="warning" title="Policy unavailable">
-                The cashier workflow can still run, but policy-aware previews
-                are unavailable.
-              </Alert>
-            )}
           </article>
         </div>
       </WorkflowSection>
@@ -554,12 +422,6 @@ const routeRow: CSSProperties = {
   gap: 'var(--sc-spacing-3)',
   flexWrap: 'wrap',
   alignItems: 'center',
-};
-
-const policyRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-2)',
-  flexWrap: 'wrap',
 };
 
 const muted: CSSProperties = {

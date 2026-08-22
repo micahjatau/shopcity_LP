@@ -4,7 +4,6 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
 import { shellNavigationByRole } from '../../../components/shell-navigation';
-import { StatusBadge } from '../../../components/shopcity';
 import {
   AdminOperationsPanel,
   WorkflowSection,
@@ -36,10 +35,6 @@ const adminRouteCards = shellNavigationByRole.ADMIN.flatMap(
     featured: item.href === '/admin/operations',
   }));
 
-const adminRoutes = shellNavigationByRole.ADMIN.flatMap(
-  (section) => section.items,
-);
-
 export default function AdminPage() {
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
@@ -51,11 +46,6 @@ export default function AdminPage() {
         >
           Operations, audit, users, devices, branches and settings.
         </p>
-        <div style={statusRow}>
-          <StatusBadge label={`${adminRoutes.length} routes`} tone="success" />
-          <StatusBadge label="Contract-backed" tone="info" />
-          <StatusBadge label="Role-scoped" tone="neutral" />
-        </div>
       </header>
 
       <WorkflowSection
@@ -79,11 +69,6 @@ export default function AdminPage() {
       <div style={gridStyle}>
         <article style={cardStyle} aria-label="Admin scope">
           <h2 style={{ marginTop: 0 }}>Scope</h2>
-          <div style={statusRow}>
-            <StatusBadge label="Route-backed" tone="success" />
-            <StatusBadge label="Contract-driven" tone="info" />
-            <StatusBadge label="Role-scoped" tone="neutral" />
-          </div>
           <p style={muted}>
             Admin work stays route-backed: launch the workspace you need, then
             use this shell for a quick status glance.
@@ -169,10 +154,4 @@ const noteStyle: CSSProperties = {
 const muted: CSSProperties = {
   color: 'var(--sc-color-semantic-textSecondary)',
   marginBottom: 0,
-};
-
-const statusRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
 };
