@@ -300,10 +300,20 @@ function createSupabaseAdminStub() {
         listUsers: jest
           .fn()
           .mockResolvedValue({ data: { users: [] }, error: null }),
-        createUser: jest.fn().mockResolvedValue({
-          data: { user: { id: 'seed-admin-supabase-user' } },
-          error: null,
-        }),
+        createUser: jest
+          .fn()
+          .mockImplementation(({ email }: { email?: string }) => ({
+            data: {
+              user: {
+                id: email?.startsWith('cashier@')
+                  ? 'seed-cashier-supabase-user'
+                  : email?.startsWith('supervisor@')
+                    ? 'seed-supervisor-supabase-user'
+                    : 'seed-admin-supabase-user',
+              },
+            },
+            error: null,
+          })),
         updateUserById: jest.fn().mockResolvedValue({ error: null }),
         deleteUser: jest.fn().mockResolvedValue({ error: null }),
       },

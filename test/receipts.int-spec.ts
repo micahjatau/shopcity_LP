@@ -1128,10 +1128,20 @@ function createSupabaseAdminStub(supabaseAuthId: string) {
           data: { users: [] },
           error: null,
         }),
-        createUser: jest.fn().mockResolvedValue({
-          data: { user: { id: supabaseAuthId } },
-          error: null,
-        }),
+        createUser: jest
+          .fn()
+          .mockImplementation(({ email }: { email?: string }) => ({
+            data: {
+              user: {
+                id: email?.startsWith('cashier@')
+                  ? `${supabaseAuthId}-cashier`
+                  : email?.startsWith('supervisor@')
+                    ? `${supabaseAuthId}-supervisor`
+                    : supabaseAuthId,
+              },
+            },
+            error: null,
+          })),
         updateUserById: jest.fn(),
         deleteUser: jest.fn(),
       },
