@@ -1,5 +1,5 @@
-import CashierCustomersPage from '../../cashier/customers/page';
+import { CustomerWorkspace } from '../../../../components/workflows/customer-workspace';
 
 export default function SupervisorCustomersPage() {
-  return <CashierCustomersPage />;
+  return <CustomerWorkspace canManage />;
 }

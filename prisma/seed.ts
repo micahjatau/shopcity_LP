@@ -90,6 +90,19 @@ export async function seedFoundation(
     username,
     adminPassword,
   );
+  const createdSupabaseIdentities: SupabaseBootstrapIdentity[] = [adminIdentity];
+  const demoStaffSeeds = [
+    {
+      id: '00000000-0000-0000-0000-000000000004',
+      username: 'cashier@shopcity.local',
+      role: UserRole.CASHIER,
+    },
+    {
+      id: '00000000-0000-0000-0000-000000000005',
+      username: 'supervisor@shopcity.local',
+      role: UserRole.SUPERVISOR,
+    },
+  ] as const;
 
   let tenant: { id: string; name: string } | undefined;
   let branch: { id: string; name: string } | undefined;
@@ -161,10 +174,44 @@ export async function seedFoundation(
         supabaseAuthId: adminIdentity.id,
       },
     });
+
+    for (const staff of demoStaffSeeds) {
+      const identity = await ensureSupabaseUser(
+        supabaseAdminClient,
+        staff.username,
+        adminPassword,
+      );
+      createdSupabaseIdentities.push(identity);
+
+      await prismaClient.user.upsert({
+        where: { id: staff.id },
+        update: {
+          tenantId,
+          branchId,
+          username: staff.username,
+          role: staff.role,
+          status: UserStatus.ACTIVE,
+          supabaseAuthId: identity.id,
+        },
+        create: {
+          id: staff.id,
+          tenantId,
+          branchId,
+          username: staff.username,
+          role: staff.role,
+          status: UserStatus.ACTIVE,
+          supabaseAuthId: identity.id,
+        },
+      });
+    }
   } catch (error) {
-    if (adminIdentity.created) {
+    for (const identity of createdSupabaseIdentities) {
+      if (!identity.created) {
+        continue;
+      }
+
       try {
-        await supabaseAdminClient.auth.admin.deleteUser(adminIdentity.id);
+        await supabaseAdminClient.auth.admin.deleteUser(identity.id);
       } catch {
         // Ignore compensation failures so the original bootstrap error surfaces.
       }
@@ -174,7 +221,7 @@ export async function seedFoundation(
   }
 
   process.stdout.write(
-    `Seeded foundation tenant ${tenantId}, branch ${branchId}, and admin user.\n`,
+    `Seeded foundation tenant ${tenantId}, branch ${branchId}, and admin, cashier, and supervisor users.\n`,
   );
 
   return {
@@ -252,10 +299,18 @@ async function ensureSupabaseAdminUser(
   username: string,
   password: string,
 ): Promise<SupabaseBootstrapIdentity> {
+  return ensureSupabaseUser(supabaseAdminClient, username, password);
+}
+
+async function ensureSupabaseUser(
+  supabaseAdminClient: SupabaseAdminClient,
+  username: string,
+  password: string,
+): Promise<SupabaseBootstrapIdentity> {
   const users = await supabaseAdminClient.auth.admin.listUsers();
-  const existingUser = (users.data.users as Array<{ id: string; email?: string | null }>).find(
-    (user) => user.email === username,
-  );
+  const existingUser = (
+    users.data.users as Array<{ id: string; email?: string | null }>
+  ).find((user) => user.email === username);
   if (existingUser) {
     const updateResult = await supabaseAdminClient.auth.admin.updateUserById(
       existingUser.id,

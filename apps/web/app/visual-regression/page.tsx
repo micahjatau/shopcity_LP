@@ -30,8 +30,6 @@ import {
   SyncQueueIndicator,
 } from '../../components/offline';
 import { WorkflowSection } from '../../components/workflows';
-import HomePage from '../page';
-import LoginPage from '../(auth)/login/page';
 
 export const metadata: Metadata = {
   title: 'ShopCity visual regression gallery',
@@ -362,51 +360,194 @@ export default function VisualRegressionPage() {
       </GallerySection>
 
       <GallerySection
+        id="visual-shell-states"
+        title="Shell states"
+        description="Expanded sidebar, collapsed rail, tablet rail and mobile drawer."
+      >
+        <div className="visual-grid">
+          <ShellStatePreview
+            label="Expanded sidebar"
+            route="/cashier"
+            detail="Full labels, badges, and branch context remain visible."
+            width="240px"
+          />
+          <ShellStatePreview
+            label="Collapsed rail"
+            route="/cashier/earn"
+            detail="Icons and labels shrink into a narrow rail with accessible targets."
+            width="84px"
+            collapsed
+          />
+          <ShellStatePreview
+            label="Tablet rail"
+            route="/supervisor/approvals"
+            detail="Tablet keeps the rail pattern instead of a squeezed desktop column."
+            width="84px"
+            collapsed
+          />
+          <ShellStatePreview
+            label="Mobile drawer"
+            route="/admin/transactions"
+            detail="The drawer presents the same navigation in a focused modal layout."
+            width="100%"
+            mobile
+          />
+        </div>
+      </GallerySection>
+
+      <GallerySection
         id="visual-role-shells"
         title="Role shells"
         description="Login, cashier, supervisor and admin entry surfaces."
       >
-        <div className="visual-stack visual-stack--large">
-          <HomePage />
-          <LoginPage />
-          <div className="visual-grid">
-            <article className="visual-panel">
-              <p className="visual-eyebrow">Cashier</p>
-              <h3 style={{ margin: 0 }}>Fast earn and redeem shell</h3>
-              <p style={{ margin: 0 }}>
-                Lookup, earn, redeem and sync entry points.
-              </p>
-              <div className="visual-actions">
-                <Button>Lookup</Button>
-                <Button variant="secondary">Sync</Button>
-              </div>
-            </article>
-            <article className="visual-panel">
-              <p className="visual-eyebrow">Supervisor</p>
-              <h3 style={{ margin: 0 }}>Approvals and fraud review shell</h3>
-              <p style={{ margin: 0 }}>
-                Queue, approval and reports entry points.
-              </p>
-              <div className="visual-actions">
-                <Button>Approvals</Button>
-                <Button variant="secondary">Reports</Button>
-              </div>
-            </article>
-            <article className="visual-panel">
-              <p className="visual-eyebrow">Admin</p>
-              <h3 style={{ margin: 0 }}>Operations and audit shell</h3>
-              <p style={{ margin: 0 }}>
-                Tenant-wide operations, audit and device controls.
-              </p>
-              <div className="visual-actions">
-                <Button>Operations</Button>
-                <Button variant="secondary">Audit</Button>
-              </div>
-            </article>
-          </div>
+        <div className="visual-grid">
+          <article className="visual-panel">
+            <p className="visual-eyebrow">Login</p>
+            <h3 style={{ margin: 0 }}>Bootstrap sign in</h3>
+            <p style={{ margin: 0 }}>
+              Authentication stays local with role-gated redirects after sign in.
+            </p>
+            <div className="visual-actions">
+              <Button variant="secondary">Admin</Button>
+              <Button>Cashier</Button>
+            </div>
+          </article>
+          <article className="visual-panel">
+            <p className="visual-eyebrow">Cashier</p>
+            <h3 style={{ margin: 0 }}>Fast earn and redeem shell</h3>
+            <p style={{ margin: 0 }}>
+              Lookup, earn, redeem and sync entry points.
+            </p>
+            <div className="visual-actions">
+              <Button>Lookup</Button>
+              <Button variant="secondary">Sync</Button>
+            </div>
+          </article>
+          <article className="visual-panel">
+            <p className="visual-eyebrow">Supervisor</p>
+            <h3 style={{ margin: 0 }}>Approvals and fraud review shell</h3>
+            <p style={{ margin: 0 }}>
+              Queue, approval and reports entry points.
+            </p>
+            <div className="visual-actions">
+              <Button>Approvals</Button>
+              <Button variant="secondary">Reports</Button>
+            </div>
+          </article>
+          <article className="visual-panel">
+            <p className="visual-eyebrow">Admin</p>
+            <h3 style={{ margin: 0 }}>Operations and audit shell</h3>
+            <p style={{ margin: 0 }}>
+              Tenant-wide operations, audit and device controls.
+            </p>
+            <div className="visual-actions">
+              <Button>Operations</Button>
+              <Button variant="secondary">Audit</Button>
+            </div>
+          </article>
         </div>
       </GallerySection>
     </main>
+  );
+}
+
+function ShellStatePreview({
+  label,
+  route,
+  detail,
+  width,
+  collapsed = false,
+  mobile = false,
+}: Readonly<{
+  label: string;
+  route: string;
+  detail: string;
+  width: string;
+  collapsed?: boolean;
+  mobile?: boolean;
+}>) {
+  return (
+    <article
+      style={{
+        borderRadius: 'var(--sc-radius-xl)',
+        border: '1px solid var(--sc-color-semantic-border)',
+        background: 'var(--sc-color-neutral-0)',
+        boxShadow: 'var(--sc-shadow-level1)',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: mobile ? '1fr' : `${width} minmax(0, 1fr)`,
+          minHeight: mobile ? 160 : 180,
+        }}
+      >
+        <aside
+          style={{
+            background: 'var(--sc-color-brand-700)',
+            color: 'var(--sc-color-neutral-0)',
+            padding: 'var(--sc-spacing-3)',
+            display: 'grid',
+            gap: 'var(--sc-spacing-2)',
+            alignContent: 'start',
+          }}
+        >
+          <strong>{label}</strong>
+          <span style={{ fontSize: 'var(--sc-font-size-sm)', opacity: 0.86 }}>
+            {collapsed || mobile ? 'Rail / drawer' : 'Sidebar'}
+          </span>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+            <span
+              style={{
+                height: 10,
+                borderRadius: '999px',
+                background: 'rgba(255, 255, 255, 0.32)',
+                width: collapsed || mobile ? 32 : 92,
+              }}
+            />
+            <span
+              style={{
+                height: 10,
+                borderRadius: '999px',
+                background: 'rgba(255, 255, 255, 0.22)',
+                width: collapsed || mobile ? 20 : 112,
+              }}
+            />
+            <span
+              style={{
+                height: 10,
+                borderRadius: '999px',
+                background: 'rgba(255, 255, 255, 0.22)',
+                width: collapsed || mobile ? 24 : 104,
+              }}
+            />
+          </div>
+        </aside>
+        <div
+          style={{
+            display: 'grid',
+            gap: 'var(--sc-spacing-3)',
+            padding: 'var(--sc-spacing-4)',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 'var(--sc-font-size-sm)' }}>{route}</p>
+          <h3 style={{ margin: 0 }}>{label}</h3>
+          <p
+            style={{
+              margin: 0,
+              color: 'var(--sc-color-semantic-textSecondary)',
+            }}
+          >
+            {detail}
+          </p>
+          <div className="visual-actions">
+            <Button variant="secondary">Lookup</Button>
+            <Button>Earn</Button>
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
 

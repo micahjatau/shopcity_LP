@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.describe.configure({ timeout: 120000 });
+
 test.describe('visual regression gallery', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/visual-regression');
@@ -43,7 +45,10 @@ test.describe('visual regression gallery', () => {
     );
   });
 
-  test('captures role shells', async ({ page }) => {
+  test('captures shell states and role shells', async ({ page }) => {
+    await expect(page.getByTestId('visual-shell-states')).toHaveScreenshot(
+      'visual-shell-states.png',
+    );
     await expect(page.getByTestId('visual-role-shells')).toHaveScreenshot(
       'visual-role-shells.png',
     );

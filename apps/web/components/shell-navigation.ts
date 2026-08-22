@@ -1,3 +1,6 @@
+import type {
+  ShellNavigationIconName,
+} from './shell-navigation-icon';
 import type { SessionBootstrapStatus, SessionRole } from './session-bootstrap';
 
 export type HumanRole = Exclude<SessionRole, 'SYSTEM'>;
@@ -12,6 +15,7 @@ export type ShellNavigationItem = {
   id: string;
   label: string;
   href: string;
+  icon: ShellNavigationIconName;
   exact?: boolean;
   badge?: ShellNavigationItemBadge;
 };
@@ -35,17 +39,34 @@ export const shellNavigationByRole: Record<
           id: 'cashier-overview',
           label: 'Overview',
           href: '/cashier',
+          icon: 'home',
           exact: true,
         },
-        { id: 'cashier-lookup', label: 'Lookup', href: '/cashier/lookup' },
-        { id: 'cashier-earn', label: 'Earn', href: '/cashier/earn' },
-        { id: 'cashier-redeem', label: 'Redeem', href: '/cashier/redeem' },
+        {
+          id: 'cashier-lookup',
+          label: 'Lookup',
+          href: '/cashier/lookup',
+          icon: 'search',
+        },
+        { id: 'cashier-earn', label: 'Earn', href: '/cashier/earn', icon: 'spark' },
+        {
+          id: 'cashier-redeem',
+          label: 'Redeem',
+          href: '/cashier/redeem',
+          icon: 'wallet',
+        },
         {
           id: 'cashier-customers',
           label: 'Customers',
           href: '/cashier/customers',
+          icon: 'users',
         },
-        { id: 'cashier-sync', label: 'Sync queue', href: '/cashier/sync' },
+        {
+          id: 'cashier-sync',
+          label: 'Sync queue',
+          href: '/cashier/sync',
+          icon: 'refresh',
+        },
       ],
     },
   ],
@@ -58,6 +79,7 @@ export const shellNavigationByRole: Record<
           id: 'supervisor-overview',
           label: 'Overview',
           href: '/supervisor',
+          icon: 'home',
           exact: true,
         },
       ],
@@ -70,23 +92,32 @@ export const shellNavigationByRole: Record<
           id: 'supervisor-transactions',
           label: 'Transactions',
           href: '/supervisor/transactions',
+          icon: 'list',
         },
         {
           id: 'supervisor-customers',
           label: 'Customers',
           href: '/supervisor/customers',
+          icon: 'users',
         },
-        { id: 'supervisor-cards', label: 'Cards', href: '/supervisor/cards' },
+        {
+          id: 'supervisor-cards',
+          label: 'Cards',
+          href: '/supervisor/cards',
+          icon: 'credit-card',
+        },
         {
           id: 'supervisor-approvals',
           label: 'Approvals',
           href: '/supervisor/approvals',
+          icon: 'check',
         },
-        { id: 'supervisor-fraud', label: 'Fraud', href: '/supervisor/fraud' },
+        { id: 'supervisor-fraud', label: 'Fraud', href: '/supervisor/fraud', icon: 'shield' },
         {
           id: 'supervisor-reports',
           label: 'Reports',
           href: '/supervisor/reports',
+          icon: 'chart',
         },
       ],
     },
@@ -100,6 +131,7 @@ export const shellNavigationByRole: Record<
           id: 'admin-overview',
           label: 'Overview',
           href: '/admin',
+          icon: 'home',
           exact: true,
         },
       ],
@@ -112,26 +144,34 @@ export const shellNavigationByRole: Record<
           id: 'admin-operations-panel',
           label: 'Operations',
           href: '/admin/operations',
+          icon: 'operations',
         },
         {
           id: 'admin-transactions',
           label: 'Transactions',
           href: '/admin/transactions',
+          icon: 'list',
         },
-        { id: 'admin-approvals', label: 'Approvals', href: '/admin/approvals' },
-        { id: 'admin-fraud', label: 'Fraud', href: '/admin/fraud' },
+        {
+          id: 'admin-approvals',
+          label: 'Approvals',
+          href: '/admin/approvals',
+          icon: 'check',
+        },
+        { id: 'admin-fraud', label: 'Fraud', href: '/admin/fraud', icon: 'shield' },
       ],
     },
     {
       id: 'admin-loyalty',
       label: 'Loyalty',
       items: [
-        { id: 'admin-customers', label: 'Customers', href: '/admin/customers' },
-        { id: 'admin-cards', label: 'Cards', href: '/admin/cards' },
+        { id: 'admin-customers', label: 'Customers', href: '/admin/customers', icon: 'users' },
+        { id: 'admin-cards', label: 'Cards', href: '/admin/cards', icon: 'credit-card' },
         {
           id: 'admin-adjustments',
           label: 'Adjustments',
           href: '/admin/adjustments',
+          icon: 'sliders',
         },
       ],
     },
@@ -139,17 +179,17 @@ export const shellNavigationByRole: Record<
       id: 'admin-insights',
       label: 'Insights',
       items: [
-        { id: 'admin-reports', label: 'Reports', href: '/admin/reports' },
-        { id: 'admin-audit', label: 'Audit', href: '/admin/audit' },
+        { id: 'admin-reports', label: 'Reports', href: '/admin/reports', icon: 'chart' },
+        { id: 'admin-audit', label: 'Audit', href: '/admin/audit', icon: 'clipboard' },
       ],
     },
     {
       id: 'admin-access',
       label: 'Access & configuration',
       items: [
-        { id: 'admin-users', label: 'Users', href: '/admin/users' },
-        { id: 'admin-devices', label: 'Devices', href: '/admin/devices' },
-        { id: 'admin-branches', label: 'Branches', href: '/admin/branches' },
+        { id: 'admin-users', label: 'Users', href: '/admin/users', icon: 'user-settings' },
+        { id: 'admin-devices', label: 'Devices', href: '/admin/devices', icon: 'device' },
+        { id: 'admin-branches', label: 'Branches', href: '/admin/branches', icon: 'branch' },
       ],
     },
   ],

@@ -75,7 +75,7 @@ npm run start:dev
 
 The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
 
-The seed step provisions the foundation tenant, branch, and a usable admin login. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` before seeding. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder. Redis defaults to `redis://127.0.0.1:6379`.
+The seed step provisions the foundation tenant, branch, and seeded auth identities for `admin@shopcity.local`, `cashier@shopcity.local`, and `supervisor@shopcity.local`. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` before seeding. Use the strong `DEFAULT_ADMIN_PASSWORD` for the seeded local accounts; the bootstrap placeholder is rejected outside tests. Redis defaults to `redis://127.0.0.1:6379`.
 
 If Pi does not discover Graphiti automatically, see `docs/development/graphiti-workaround.md`.
 
