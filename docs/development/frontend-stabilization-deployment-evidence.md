@@ -30,4 +30,6 @@ The observed deployment records did not provide an approved deployment ID/runtim
 - Same-region hop assessment: **UNKNOWN**.
 - Mitigation/owner: deployment owner must bind the candidate SHA to the canonical project, record deployment ID and regions, and explicitly exclude or disconnect `shopcity`.
 
+Docker release verification subsequently passed with the candidate SHA label: the image built, `help` exposed both API and worker runtimes, and both `dist/src/main.js` and `dist/src/worker.js` were present. The initial 300-second attempt timed out during the uncached build; the cached rerun completed successfully.
+
 This artifact deliberately records unresolved evidence as blockers/unknowns rather than converting local performance results into deployment claims.

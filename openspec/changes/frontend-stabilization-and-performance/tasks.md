@@ -91,7 +91,7 @@
 - [ ] 10.3 Update deployment evidence with canonical project/deployment ID, commit SHA, runtime regions, and excluded duplicate context.
 - [ ] 10.4 Compare frontend runtime, backend, and Supabase/database placement; document any accepted latency or region mismatch and mitigation.
 - [x] 10.5 Add the release-evidence verifier checks for missing SHA, mixed deployment identity, missing performance metrics, and undocumented exceptions.
-- [ ] 10.6 Verify Docker/worker/backend release behavior remains unaffected by frontend-only optimization and no unsupported Vercel function architecture is introduced.
+- [x] 10.6 Verify Docker/worker/backend release behavior remains unaffected by frontend-only optimization and no unsupported Vercel function architecture is introduced.
 
 ## 11. Full verification, review, and documentation reconciliation
 
