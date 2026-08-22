@@ -1,10 +1,10 @@
 # Frontend stabilization deployment evidence
 
-Captured: `2026-08-22T22:16:18Z`
+Captured: `2026-08-22T22:36:00Z`
 
 ## Candidate
 
-- Candidate SHA at inspection: `b23e0634ad411bd0c942e41059b8177cce683763`
+- Candidate SHA at inspection: `12462a73434a1401cdeb7fb338c3f0cc3297be5f`
 - The CI workflow now exports `CANDIDATE_SHA=${{ github.sha }}` and verifies `git rev-parse HEAD` in every job before running checks.
 - Local build, API, performance, and contract artifacts must be attached to this same SHA before release approval.
 
@@ -18,7 +18,7 @@ Vercel account inspection found:
 - **Duplicate/stale project candidate:** `shopcity`
 - **Duplicate project ID:** `prj_EtlxuZOQxWiLJeXMVuMpuRtEesnf`
 
-The latest observed deployments for both project contexts referenced commit `2eade672775e0907e32615a3b183ec05a10a20a9`, not the inspected candidate SHA. The duplicate project has not been disconnected because that requires an approved operational decision. Therefore canonical deployment certification is **BLOCKED**, not passed.
+The latest observed deployments for both project contexts referenced commit `2eade672775e0907e32615a3b183ec05a10a20a9`, not the inspected candidate SHA. The performance artifacts were collected on earlier commits and must be regenerated for this candidate before release certification. The duplicate project has not been disconnected because that requires an approved operational decision. Therefore canonical deployment certification is **BLOCKED**, not passed.
 
 The observed deployment records did not provide an approved deployment ID/runtime-region evidence bundle. Runtime region remains **UNKNOWN**.
 
