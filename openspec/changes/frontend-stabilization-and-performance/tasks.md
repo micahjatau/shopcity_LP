@@ -79,9 +79,9 @@
 
 ## 9. API, OpenAPI, and generated client alignment
 
-- [ ] 9.1 Confirm customer create/update, auth/session/device, config/public, card lookup, ledger, earn, redeem, and sync contracts in OpenAPI before changing consumers.
-- [ ] 9.2 Regenerate the OpenAPI export and web client with the repository CLI after any contract change; do not hand-edit generated client output.
-- [ ] 9.3 Add contract tests proving frontend forms map only approved request fields and cannot submit balances, roles, approvals, or ledger authority.
+- [x] 9.1 Confirm customer create/update, auth/session/device, config/public, card lookup, ledger, earn, redeem, and sync contracts in OpenAPI before changing consumers.
+- [x] 9.2 Regenerate the OpenAPI export and web client with the repository CLI after any contract change; do not hand-edit generated client output.
+- [x] 9.3 Add contract tests proving frontend forms map only approved request fields and cannot submit balances, roles, approvals, or ledger authority.
 - [ ] 9.4 Verify error statuses and response shapes used by loading/error states against backend integration tests.
 
 ## 10. Deployment, topology, and exact-head certification

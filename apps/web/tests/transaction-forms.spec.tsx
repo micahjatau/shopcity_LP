@@ -75,6 +75,18 @@ describe('cashier transaction forms', () => {
       ).toBeInTheDocument();
     });
     expect(loyaltyControllerEarnV1).toHaveBeenCalledTimes(1);
+    const earnPayload = jest.mocked(loyaltyControllerEarnV1).mock
+      .calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(earnPayload).sort()).toEqual([
+      'cardSerialNumber',
+      'occurredAt',
+      'overrideReason',
+      'posReceiptNumber',
+      'purchaseAmountKobo',
+    ]);
+    expect(earnPayload).not.toHaveProperty('balanceKobo');
+    expect(earnPayload).not.toHaveProperty('role');
+    expect(earnPayload).not.toHaveProperty('approval');
     expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
   });
 
@@ -107,6 +119,17 @@ describe('cashier transaction forms', () => {
     fireEvent.click(submit);
 
     expect(redemptionsControllerRedeemV1).toHaveBeenCalledTimes(1);
+    const redeemPayload = jest.mocked(redemptionsControllerRedeemV1).mock
+      .calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(redeemPayload).sort()).toEqual([
+      'basketAmountKobo',
+      'cardSerialNumber',
+      'occurredAt',
+      'posReceiptNumber',
+      'requestedRedemptionKobo',
+    ]);
+    expect(redeemPayload).not.toHaveProperty('availableBalanceKobo');
+    expect(redeemPayload).not.toHaveProperty('approval');
     resolveRequest({
       status: 201,
       data: { data: { transactionId: 'redeem-1' } },
