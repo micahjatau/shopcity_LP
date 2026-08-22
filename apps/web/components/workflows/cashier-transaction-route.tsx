@@ -182,6 +182,12 @@ export function CashierWorkflowRoute({
       return;
     }
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setLookupRecord(null);
+      setLookupMessage('Lookup unavailable offline. Reconnect to try again.');
+      return;
+    }
+
     setLookupMessage('Looking up customer and card context…');
     setLookupPending(true);
     try {

@@ -83,6 +83,34 @@ test.describe('workflow route coverage', () => {
     await expect(
       lookupCard.getByRole('link', { name: 'Redeem' }),
     ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-lookup-mobile.png',
+    );
+  });
+
+  test('shows an authoritative lookup error state', async ({ page }) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const lookup = page.getByRole('textbox', { name: 'Lookup' });
+    await lookup.fill('UNKNOWN-CARD');
+    await page.getByRole('button', { name: 'Lookup' }).click();
+    await expect(page.getByText('Lookup unavailable (404).')).toBeVisible();
+  });
+
+  test('shows an explicit offline lookup failure without claiming resolution', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/lookup`);
+    await page.context().setOffline(true);
+
+    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
+    await page.getByRole('button', { name: 'Lookup' }).click();
+    await expect(
+      page.getByText('Lookup unavailable offline. Reconnect to try again.'),
+    ).toBeVisible();
   });
 
   test('resolves every shell navigation destination', async ({ request }) => {
