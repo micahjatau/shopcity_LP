@@ -398,53 +398,62 @@ export function CashierWorkflowRoute({
               <p className="cashier-muted">{policyMessage}</p>
               {policyContext ? (
                 <div className="cashier-stat-list">
-                  <div className="cashier-stat-row">
-                    <span>Earn rate</span>
-                    <strong>
-                      {(policyContext.defaultEarnRateBps ?? 0) / 100}%
-                    </strong>
-                  </div>
-                  <div className="cashier-stat-row">
-                    <span>Min redemption</span>
-                    {typeof policyContext.minRedemptionKobo === 'number' ? (
-                      <Money amountKobo={policyContext.minRedemptionKobo} />
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-                  <div className="cashier-stat-row">
-                    <span>Basket cap</span>
-                    <strong>{policyContext.maxRedemptionBasketPercent}%</strong>
-                  </div>
-                  <div className="cashier-stat-row">
-                    <span>Purchase flag</span>
-                    {typeof policyContext.purchaseFlagThresholdKobo ===
-                    'number' ? (
-                      <Money
-                        amountKobo={policyContext.purchaseFlagThresholdKobo}
-                      />
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-                  <div className="cashier-stat-row">
-                    <span>Approval threshold</span>
-                    {typeof policyContext.redemptionApprovalThresholdKobo ===
-                    'number' ? (
-                      <Money
-                        amountKobo={
-                          policyContext.redemptionApprovalThresholdKobo
-                        }
-                      />
-                    ) : (
-                      '—'
-                    )}
-                  </div>
+                  {kind === 'earn' ? (
+                    <>
+                      <div className="cashier-stat-row">
+                        <span>Active earn rate</span>
+                        <strong>
+                          {(policyContext.defaultEarnRateBps ?? 0) / 100}%
+                        </strong>
+                      </div>
+                      <div className="cashier-stat-row">
+                        <span>Purchase review threshold</span>
+                        {typeof policyContext.purchaseFlagThresholdKobo ===
+                        'number' ? (
+                          <Money
+                            amountKobo={policyContext.purchaseFlagThresholdKobo}
+                          />
+                        ) : (
+                          'Not configured'
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="cashier-stat-row">
+                        <span>Minimum redemption</span>
+                        {typeof policyContext.minRedemptionKobo === 'number' ? (
+                          <Money amountKobo={policyContext.minRedemptionKobo} />
+                        ) : (
+                          'Not configured'
+                        )}
+                      </div>
+                      <div className="cashier-stat-row">
+                        <span>Basket limit</span>
+                        <strong>
+                          {policyContext.maxRedemptionBasketPercent ??
+                            'Not configured'}
+                          {typeof policyContext.maxRedemptionBasketPercent ===
+                          'number'
+                            ? '%'
+                            : ''}
+                        </strong>
+                      </div>
+                      {policyContext.offlineRedemptionDisabled ? (
+                        <Alert
+                          tone="warning"
+                          title="Offline redemption disabled"
+                        >
+                          Redemption requires a live server response.
+                        </Alert>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               ) : (
                 <Alert tone="warning" title="Policy unavailable">
-                  The workflow can still run, but policy-aware previews are
-                  unavailable.
+                  Active policy guidance is unavailable; the server remains
+                  authoritative for this transaction.
                 </Alert>
               )}
             </article>
