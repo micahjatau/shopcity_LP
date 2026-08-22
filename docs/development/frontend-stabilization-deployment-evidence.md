@@ -4,7 +4,7 @@ Captured: `2026-08-22T22:36:00Z`
 
 ## Candidate
 
-- Candidate SHA at inspection: `12462a73434a1401cdeb7fb338c3f0cc3297be5f`
+- Candidate SHA at inspection: `f7b867069d86883bdb5c8252dfd9dbabdaf60b69`
 - The CI workflow now exports `CANDIDATE_SHA=${{ github.sha }}` and verifies `git rev-parse HEAD` in every job before running checks.
 - Local build, API, performance, and contract artifacts must be attached to this same SHA before release approval.
 
@@ -15,10 +15,11 @@ Vercel account inspection found:
 - **Canonical frontend project candidate:** `shopcity-lp`
 - **Project ID:** `prj_UvU3PsV5X1iWaf01tmsuayh3AKiC`
 - **Production URL:** `https://shopcity-lp.vercel.app`
+- **Latest production deployment observed:** `shopcity-pwja7idre-micah-s-projects-bb6507fe.vercel.app`, SHA `2cf0d9dd37c201560e9530f39a0aea64b061bf0b`, `2026-08-15T17:53:39Z`
 - **Duplicate/stale project candidate:** `shopcity`
 - **Duplicate project ID:** `prj_EtlxuZOQxWiLJeXMVuMpuRtEesnf`
 
-The latest observed deployments for both project contexts referenced commit `2eade672775e0907e32615a3b183ec05a10a20a9`, not the inspected candidate SHA. The performance artifacts were collected on earlier commits and must be regenerated for this candidate before release certification. The duplicate project has not been disconnected because that requires an approved operational decision. Therefore canonical deployment certification is **BLOCKED**, not passed.
+The mismatch is explained by repository state and deployment target: the canonical production alias is still on an older August 15 deployment, while the latest branch preview deployments are on the remote branch head. In both cases, the mismatch is explained by repository state: `origin/frontend-development` is still at `2eade672775e0907e32615a3b183ec05a10a20a9`, while the local candidate is 31 commits ahead at `f7b867069d86883bdb5c8252dfd9dbabdaf60b69`. Vercel is deploying the remote branch head, not this local-only candidate. No push was performed because publishing the branch requires explicit release approval. The performance artifacts were collected on earlier commits and must be regenerated for the eventual pushed candidate before release certification. The duplicate project has not been disconnected because that requires an approved operational decision. Therefore canonical deployment certification is **BLOCKED**, not passed.
 
 The observed deployment records did not provide an approved deployment ID/runtime-region evidence bundle. Runtime region remains **UNKNOWN**.
 
