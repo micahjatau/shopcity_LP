@@ -64,8 +64,8 @@
 - [ ] 7.3 Refactor Redeem into static page composition plus a small interactive form island showing customer/card, available credit, basket amount, maximum redemption, review, submit, and authoritative result.
 - [ ] 7.4 Remove broad policy/configuration tables from Earn/Redeem and retain only values that explain the active transaction or an actionable restriction.
 - [ ] 7.5 Add complete loading, validation, disabled, server-error, success, offline, queued, and sync-failure states without claiming server confirmation for local queueing.
-- [ ] 7.6 Migrate sync page to shared session/device context and remove localStorage/session-label fallback logic.
-- [ ] 7.7 Verify IndexedDB/durable offline persistence retains idempotency, branch, device, and sync context but never raw device secrets.
+- [x] 7.6 Migrate sync page to shared session/device context and remove localStorage/session-label fallback logic.
+- [x] 7.7 Verify IndexedDB/durable offline persistence retains idempotency, branch, device, and sync context but never raw device secrets.
 - [ ] 7.8 Add real-UI E2E tests for Earn, Redeem, Offline Earn save, reconnect/sync, duplicate submission protection, and authoritative server outcomes.
 
 ## 8. Client-boundary and payload optimization

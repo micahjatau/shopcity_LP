@@ -217,6 +217,7 @@ export function RedeemTransactionForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (status === 'submitting') return;
     setStatus('submitting');
     setMessage('Reviewing redemption…');
     setResponseData(null);

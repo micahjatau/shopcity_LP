@@ -14,7 +14,7 @@ export type OfflineEarnRecord = {
   idempotencyKey: string;
   cashierId: string;
   branchId: string;
-  deviceId?: string;
+  deviceId: string;
   customerId?: string;
   cardBarcode: string;
   receiptNumber: string;
@@ -112,6 +112,13 @@ async function runWrite(
 }
 
 export async function saveOfflineEarnRecord(record: OfflineEarnRecord) {
+  if (!record.deviceId.trim() || !record.branchId.trim()) {
+    return {
+      ok: false as const,
+      error: 'Device and branch context are required for offline records',
+    };
+  }
+
   return runWrite(async () => {
     await withStore('readwrite', (store) => {
       store.put(record);
