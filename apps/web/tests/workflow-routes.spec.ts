@@ -160,6 +160,59 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
   });
 
+  test('saves failed Earn locally and reconciles it through sync', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.route('**/api/v1/transactions/earn', (route) => route.abort());
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+
+    const purchase = page.getByLabel('Purchase amount');
+    await purchase.fill('10');
+    await purchase.blur();
+    await page.getByRole('button', { name: 'Submit earn' }).click();
+    await expect(
+      page.getByText('Earn could not be submitted. Saved locally for sync.'),
+    ).toBeVisible();
+
+    await page.goto(`${baseUrl}/cashier/sync`);
+    await expect(
+      page.getByRole('cell', { name: 'CARD-001' }).first(),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Submit batch' }).click();
+    await expect(
+      page.getByText('Batch submitted. Review per-record results below.'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('cell', { name: 'confirmed', exact: true }).first(),
+    ).toBeVisible();
+  });
+
+  test('disables Earn submission while the authoritative request is pending', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.route('**/api/v1/transactions/earn', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await route.fulfill({
+        ...json({
+          success: true,
+          data: {},
+          meta: meta('/api/v1/transactions/earn'),
+        }),
+        status: 201,
+      });
+    });
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+
+    const purchase = page.getByLabel('Purchase amount');
+    await purchase.fill('10');
+    await purchase.blur();
+    const submit = page.getByRole('button', { name: 'Submit earn' });
+    await submit.click();
+    await expect(submit).toBeDisabled();
+  });
+
   test('resolves every shell navigation destination', async ({ request }) => {
     for (const role of Object.keys(shellNavigationByRole) as Array<
       keyof typeof sessionByRole
@@ -176,7 +229,11 @@ test.describe('workflow route coverage', () => {
   });
 });
 
-async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
+async function mockShell(
+  page: Page,
+  role: 'CASHIER' | 'SUPERVISOR',
+  deviceId: string | null = null,
+) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -186,7 +243,10 @@ async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
       return route.fulfill(
         json({
           success: true,
-          data: sessionByRole[role],
+          data: {
+            ...sessionByRole[role],
+            session: { ...sessionByRole[role].session, deviceId },
+          },
           meta: meta(pathname),
         }),
       );
@@ -271,10 +331,19 @@ async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
     }
 
     if (pathname === '/api/v1/offline-sync/earn-batch') {
+      const body = request.postDataJSON() as {
+        records?: Array<{ localId: string }>;
+      };
       return route.fulfill(
         json({
           success: true,
-          data: { records: [] },
+          data: {
+            records: (body.records ?? []).map((record) => ({
+              localId: record.localId,
+              status: 'CONFIRMED',
+              transactionId: `server-${record.localId}`,
+            })),
+          },
           meta: meta(pathname),
         }),
       );

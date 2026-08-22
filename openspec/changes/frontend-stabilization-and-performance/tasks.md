@@ -66,7 +66,7 @@
 - [x] 7.5 Add complete loading, validation, disabled, server-error, success, offline, queued, and sync-failure states without claiming server confirmation for local queueing.
 - [x] 7.6 Migrate sync page to shared session/device context and remove localStorage/session-label fallback logic.
 - [x] 7.7 Verify IndexedDB/durable offline persistence retains idempotency, branch, device, and sync context but never raw device secrets.
-- [ ] 7.8 Add real-UI E2E tests for Earn, Redeem, Offline Earn save, reconnect/sync, duplicate submission protection, and authoritative server outcomes.
+- [x] 7.8 Add real-UI E2E tests for Earn, Redeem, Offline Earn save, reconnect/sync, duplicate submission protection, and authoritative server outcomes.
 
 ## 8. Client-boundary and payload optimization
 
