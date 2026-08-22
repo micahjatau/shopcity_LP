@@ -1,11 +1,11 @@
 ## 1. Baseline, inventory, and release evidence contract
 
 - [x] 1.1 Run GitNexus impact analysis for the shared shell, session bootstrap, cashier workflow route, customer workspace, login/device provisioning, and navigation registry symbols; record blast radius in `docs/development/gitnexus-impact-tracker.md` before implementation edits.
-- [ ] 1.2 Freeze the route matrix and current behavior inventory for `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, `/cashier/sync`, `/supervisor/approvals`, `/admin/operations`, Customer, Card, and Transaction workspaces.
-- [ ] 1.3 Add a production-build performance harness that records route, commit SHA, environment, browser, timestamp, document/RSC/JS bytes, TTFB, FCP/LCP, INP, hydration duration, total API calls, `/auth/me`, `/config/public`, and duplicate requests.
-- [ ] 1.4 Capture the pre-change baseline with `npm --prefix apps/web run build` and production start; store evidence without converting missing metrics into passes.
-- [ ] 1.5 Document frontend runtime, API/backend, and Supabase/database regions for the baseline environment and identify any cross-region hop that affects cashier workflows.
-- [ ] 1.6 Define exact-head CI and canonical deployment evidence fields, including candidate SHA, canonical Vercel project/deployment, excluded duplicate context, and exception ownership.
+- [x] 1.2 Freeze the route matrix and current behavior inventory for `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, `/cashier/sync`, `/supervisor/approvals`, `/admin/operations`, Customer, Card, and Transaction workspaces.
+- [x] 1.3 Add a production-build performance harness that records route, commit SHA, environment, browser, timestamp, document/RSC/JS bytes, TTFB, FCP/LCP, INP, hydration duration, total API calls, `/auth/me`, `/config/public`, and duplicate requests.
+- [x] 1.4 Capture the pre-change baseline with `npm --prefix apps/web run build` and production start; store evidence without converting missing metrics into passes.
+- [x] 1.5 Document frontend runtime, API/backend, and Supabase/database regions for the baseline environment and identify any cross-region hop that affects cashier workflows.
+- [x] 1.6 Define exact-head CI and canonical deployment evidence fields, including candidate SHA, canonical Vercel project/deployment, excluded duplicate context, and exception ownership.
 
 ## 2. P0 device security and provisioning
 

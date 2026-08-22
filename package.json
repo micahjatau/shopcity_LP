@@ -38,6 +38,7 @@
     "verify:docker-image": "sh ./scripts/verify-docker-image.sh",
     "perf:k6:pilot": "k6 run scripts/performance/k6-pilot.js",
     "perf:k6:assert": "node scripts/performance/validate-k6-summary.mjs --summary tmp/k6-pilot-summary.json",
+    "perf:web:baseline": "node scripts/performance/collect-web-route-baseline.mjs",
     "verify:restore-drill": "node scripts/restore/verify-restore-drill.mjs",
     "architecture:check": "depcruise --config dependency-cruiser.config.cjs src",
     "gitnexus:analyze": "node scripts/gitnexus.cjs analyze .",
