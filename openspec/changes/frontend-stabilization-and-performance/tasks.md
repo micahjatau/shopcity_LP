@@ -46,7 +46,7 @@
 - [x] 5.5 Make tablet default to the rail layout and confirm the main content width and focus order remain usable.
 - [x] 5.6 Harden the mobile drawer as a modal interaction with focus trap, Escape handling, return focus, inert background, scroll containment, and shell skip link.
 - [x] 5.7 Reduce the topbar to compact operational context without hiding connection, sync, branch, or device status needed for a cashier.
-- [ ] 5.8 Add desktop-expanded, desktop-collapsed, tablet-rail, and mobile-drawer visual/a11y regression coverage in light/dark modes where supported.
+- [x] 5.8 Add desktop-expanded, desktop-collapsed, tablet-rail, and mobile-drawer visual/a11y regression coverage in light/dark modes where supported.
 
 ## 6. Cashier overview and Lookup redesign
 
