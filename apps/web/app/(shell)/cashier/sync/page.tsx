@@ -20,21 +20,6 @@ import {
 import { Alert, Button, Input, Table } from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
-const queueNotes = [
-  [
-    'Local queue first',
-    'Review waiting, saved, retryable, and approval-bound records before submitting the batch.',
-  ],
-  [
-    'Backend reconciliation',
-    'The batch response updates local records with confirmed, rejected, or retry-required results.',
-  ],
-  [
-    'Route-backed recovery',
-    'Retry and cleanup stay inside this queue-focused route instead of hidden shell state.',
-  ],
-] as const;
-
 export default function CashierSyncPage() {
   const [records, setRecords] = useState<OfflineEarnRecord[]>([]);
   const [deviceId, setDeviceId] = useState('');
@@ -87,15 +72,6 @@ export default function CashierSyncPage() {
     }),
     [records],
   );
-
-  const queueSummary = [
-    ['Waiting', statusCounts.waiting],
-    ['Syncing', statusCounts.syncing],
-    ['Approval', statusCounts.awaitingApproval],
-    ['Confirmed', statusCounts.confirmed],
-    ['Rejected', statusCounts.rejected],
-    ['Retryable', statusCounts.retryRequired],
-  ] as const;
 
   const selectedPreview = selectedRecord
     ? [
@@ -244,7 +220,7 @@ export default function CashierSyncPage() {
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
         >
-          Use the shell navigation for cashier and customer routes.
+          Queue recovery stays in this route.
         </p>
       </header>
 
@@ -252,42 +228,6 @@ export default function CashierSyncPage() {
         This queue view is for local offline earn records, batch reconciliation,
         and retry cleanup.
       </Alert>
-
-      <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Queue notes</h2>
-        <div style={statusRow}>
-          <StatusBadge
-            label={`Queueable ${queueableRecords.length}`}
-            tone="info"
-          />
-          <StatusBadge
-            label={`Waiting ${statusCounts.waiting}`}
-            tone="neutral"
-          />
-          <StatusBadge
-            label={`Retryable ${statusCounts.retryRequired}`}
-            tone="warning"
-          />
-        </div>
-        <Table>
-          <tbody>
-            {queueSummary.map(([label, value]) => (
-              <tr key={label}>
-                <th scope="row">{label}</th>
-                <td>{value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-        <div style={notesGrid}>
-          {queueNotes.map(([title, body]) => (
-            <article key={title} style={noteStyle}>
-              <strong>{title}</strong>
-              <p style={muted}>{body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
 
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Batch controls</h2>
@@ -600,18 +540,6 @@ const cardStyle: CSSProperties = {
   background: 'var(--sc-color-neutral-0)',
   display: 'grid',
   gap: 'var(--sc-spacing-4)',
-};
-
-const noteStyle: CSSProperties = {
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-3)',
-  background: 'var(--sc-color-neutral-0)',
-};
-
-const notesGrid: CSSProperties = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-3)',
 };
 
 const muted: CSSProperties = {

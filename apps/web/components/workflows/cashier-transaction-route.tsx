@@ -278,8 +278,6 @@ export function CashierWorkflowRoute({
         branchId: lookupRecord.branchId ?? branchContext?.id,
       }
     : undefined;
-  const routeModeLabel =
-    kind === 'lookup' ? 'Lookup' : kind === 'earn' ? 'Earn' : 'Redeem';
   const showTransactionForm = kind !== 'lookup';
 
   const routeHeader = (
@@ -313,15 +311,82 @@ export function CashierWorkflowRoute({
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
       <ScannerContextScope context="lookup" />
       {routeHeader}
+      {showTransactionForm ? (
+        <article className="cashier-card" aria-label={`${kind} transaction`}>
+          <h2 style={{ marginTop: 0 }}>
+            {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
+          </h2>
+          {kind === 'earn' ? (
+            <EarnTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              deviceId={deviceId}
+              branchId={policyConfig?.branch?.id ?? null}
+              branchTimezone={branchContext?.timezone ?? null}
+              receiptWeekStartDay={branchReceiptWeekStartDay}
+            />
+          ) : (
+            <RedeemTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              branchId={policyConfig?.branch?.id ?? null}
+            />
+          )}
+        </article>
+      ) : null}
       <WorkflowSection
         title="Policy and lookup"
         description={
           kind === 'lookup'
             ? 'Rehydrate the customer context before you move into cashier actions.'
-            : 'Rehydrate the customer context before the workflow submits a financial action.'
+            : 'Rehydrate the customer context after the workflow form so the supporting context stays visible.'
         }
       >
         <div className="cashier-workspace-grid">
+          <article className="cashier-card" aria-label="Lookup and status">
+            <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
+            <form
+              onSubmit={(event) => void handleLookup(event)}
+              style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+            >
+              <Input
+                placeholder="Scan card serial number"
+                aria-label="Lookup"
+                value={lookupValue}
+                onChange={(event) => setLookupValue(event.target.value)}
+              />
+              <Button type="submit">Lookup</Button>
+            </form>
+            <Alert tone="info" title="Session-aware workflow">
+              {lookupMessage}
+            </Alert>
+            {lookupRecord ? (
+              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+                {lookupSummary.map(([label, value]) => (
+                  <div key={label} className="cashier-stat-row">
+                    <span>{label}</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+                <div className="cashier-tag-row">
+                  <StatusBadge
+                    label={lookupRecord.status ?? 'LOOKUP'}
+                    tone="success"
+                  />
+                  {lookupRecord.customer?.id || lookupRecord.customerId ? (
+                    <Link
+                      href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
+                    >
+                      View customer
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </article>
+
           <article className="cashier-card" aria-label="Policy context">
             <h2 style={{ marginTop: 0 }}>Policy context</h2>
             <p className="cashier-muted">{policyMessage}</p>
@@ -375,79 +440,10 @@ export function CashierWorkflowRoute({
               </Alert>
             )}
           </article>
-
-          <article className="cashier-card" aria-label="Lookup and status">
-            <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-            <form
-              onSubmit={(event) => void handleLookup(event)}
-              style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
-            >
-              <Input
-                placeholder="Scan card serial number"
-                aria-label="Lookup"
-                value={lookupValue}
-                onChange={(event) => setLookupValue(event.target.value)}
-              />
-              <Button type="submit">Lookup</Button>
-            </form>
-            <Alert tone="info" title="Session-aware workflow">
-              {lookupMessage}
-            </Alert>
-            {lookupRecord ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                {lookupSummary.map(([label, value]) => (
-                  <div key={label} className="cashier-stat-row">
-                    <span>{label}</span>
-                    <span>{value}</span>
-                  </div>
-                ))}
-                <div className="cashier-tag-row">
-                  <StatusBadge
-                    label={lookupRecord.status ?? 'LOOKUP'}
-                    tone="success"
-                  />
-                  {lookupRecord.customer?.id || lookupRecord.customerId ? (
-                    <Link
-                      href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
-                    >
-                      View customer
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </article>
         </div>
       </WorkflowSection>
 
       <div className="cashier-workspace-grid">
-        <article className="cashier-card" aria-label="Action summary">
-          <h2 style={{ marginTop: 0 }}>Action summary</h2>
-          <p className="cashier-muted">
-            Dedicated workflow pages keep the transaction forms focused while
-            this route stays a launchpad and context screen.
-          </p>
-          <div className="cashier-tag-row">
-            <Link href="/cashier">Open overview</Link>
-            <Link href="/cashier/lookup">Open lookup</Link>
-            <Link
-              href={`/cashier/earn${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}
-            >
-              Go to Earn
-            </Link>
-            <Link
-              href={`/cashier/redeem${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}
-            >
-              Go to Redeem
-            </Link>
-            <Link href="/cashier/sync">Open sync queue</Link>
-          </div>
-          <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <p className="cashier-muted">
-            {routeModeLabel} actions continue on a dedicated route.
-          </p>
-        </article>
-
         <article className="cashier-card" aria-label="Customer detail">
           <h2 style={{ marginTop: 0 }}>Customer detail</h2>
           {customerRecord ? (
@@ -529,32 +525,6 @@ export function CashierWorkflowRoute({
           </div>
         </article>
       </div>
-
-      {showTransactionForm ? (
-        <article className="cashier-card" aria-label={`${kind} transaction`}>
-          <h2 style={{ marginTop: 0 }}>
-            {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
-          </h2>
-          {kind === 'earn' ? (
-            <EarnTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              deviceId={deviceId}
-              branchId={policyConfig?.branch?.id ?? null}
-              branchTimezone={branchContext?.timezone ?? null}
-              receiptWeekStartDay={branchReceiptWeekStartDay}
-            />
-          ) : (
-            <RedeemTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              branchId={policyConfig?.branch?.id ?? null}
-            />
-          )}
-        </article>
-      ) : null}
 
       <style jsx>{`
         .cashier-route-header {

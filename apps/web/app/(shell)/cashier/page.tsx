@@ -23,13 +23,22 @@ import {
   createApiRequest,
 } from '../../../lib/api';
 
-const cashierRoutes = [
-  ['/cashier', 'Overview'],
-  ['/cashier/lookup', 'Lookup'],
-  ['/cashier/earn', 'Earn'],
-  ['/cashier/redeem', 'Redeem'],
-  ['/cashier/customers', 'Customers'],
-  ['/cashier/sync', 'Sync queue'],
+const cashierLaunchCards = [
+  {
+    title: 'Lookup',
+    href: '/cashier/lookup',
+    body: 'Scan or type a serial number to load the customer and card context.',
+  },
+  {
+    title: 'Earn',
+    href: '/cashier/earn',
+    body: 'Post an earn transaction once lookup context is loaded.',
+  },
+  {
+    title: 'Redeem',
+    href: '/cashier/redeem',
+    body: 'Move into redemption with the customer and card context in place.',
+  },
 ] as const;
 
 type CashierLookupRecord = {
@@ -81,21 +90,6 @@ type CashierPolicyConfig = {
     redemptionApprovalThresholdKobo?: number;
   };
 };
-
-const cashierNotes = [
-  [
-    'Dedicated routes',
-    'Earn and Redeem now live on separate pages so the overview can stay lightweight.',
-  ],
-  [
-    'Lookup first',
-    'Scan a card or receipt to seed the customer context before jumping into a workflow.',
-  ],
-  [
-    'Backend contracts',
-    'The overview still renders only authoritative state from the generated API contract.',
-  ],
-] as const;
 
 export default function CashierPage() {
   const [lookupValue, setLookupValue] = useState('');
@@ -269,11 +263,6 @@ export default function CashierPage() {
         <div style={routeRow}>
           <ConnectionStatus />
           <SyncQueueIndicator />
-          {cashierRoutes.map(([href, label]) => (
-            <Link key={href} href={href} style={routeLink}>
-              {label}
-            </Link>
-          ))}
         </div>
         <div style={policyRow}>
           <StatusBadge
@@ -287,6 +276,10 @@ export default function CashierPage() {
           <StatusBadge
             label={branchContext?.timezone ?? 'Timezone pending'}
             tone="success"
+          />
+          <StatusBadge
+            label={userId ? `User ${userId}` : 'User pending'}
+            tone="info"
           />
           {typeof policyContext?.defaultEarnRateBps === 'number' ? (
             <StatusBadge
@@ -304,6 +297,48 @@ export default function CashierPage() {
         description="Scan first, then move into earn, redeem, customer detail, or sync follow-up."
       >
         <div style={gridStyle}>
+          <article style={cardStyle} aria-label="Lookup and status">
+            <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
+            <form
+              onSubmit={(event) => void handleLookup(event)}
+              style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+            >
+              <Input
+                placeholder="Scan card serial number"
+                aria-label="Lookup"
+                value={lookupValue}
+                onChange={(event) => setLookupValue(event.target.value)}
+              />
+              <Button type="submit">Lookup</Button>
+            </form>
+            <Alert tone="info" title="Session-aware shell">
+              {lookupMessage}
+            </Alert>
+            {lookupRecord ? (
+              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+                {lookupSummary.map(([label, value]) => (
+                  <div key={label} style={statRow}>
+                    <span>{label}</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+                <div style={tagRow}>
+                  <StatusBadge
+                    label={lookupRecord.status ?? 'LOOKUP'}
+                    tone="success"
+                  />
+                  {lookupRecord.customer?.id || lookupRecord.customerId ? (
+                    <Link
+                      href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
+                    >
+                      View customer
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </article>
+
           <article style={cardStyle} aria-label="Policy context">
             <h2 style={{ marginTop: 0 }}>Policy context</h2>
             <p style={muted}>{policyMessage}</p>
@@ -357,94 +392,42 @@ export default function CashierPage() {
               </Alert>
             )}
           </article>
-          {cashierNotes.map(([title, body]) => (
-            <article key={title} style={noteStyle}>
-              <strong>{title}</strong>
-              <p style={muted}>{body}</p>
-            </article>
-          ))}
         </div>
       </WorkflowSection>
 
       <div style={gridStyle}>
-        <article style={cardStyle} aria-label="Lookup and status">
-          <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-          <form
-            onSubmit={(event) => void handleLookup(event)}
-            style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
-          >
-            <Input
-              placeholder="Scan card serial number"
-              aria-label="Lookup"
-              value={lookupValue}
-              onChange={(event) => setLookupValue(event.target.value)}
-            />
-            <Button type="submit">Lookup</Button>
-          </form>
-          <Alert tone="info" title="Session-aware shell">
-            {lookupMessage}
-          </Alert>
-          {lookupRecord ? (
-            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              {lookupSummary.map(([label, value]) => (
-                <div key={label} style={statRow}>
-                  <span>{label}</span>
-                  <span>{value}</span>
-                </div>
-              ))}
-              <div style={tagRow}>
-                <StatusBadge
-                  label={lookupRecord.status ?? 'LOOKUP'}
-                  tone="success"
-                />
-                {lookupRecord.customer?.id || lookupRecord.customerId ? (
-                  <Link
-                    href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
-                  >
-                    View customer
-                  </Link>
-                ) : null}
-                <Link
-                  href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
-                >
-                  Open Earn
-                </Link>
-                <Link
-                  href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
-                >
-                  Open Redeem
-                </Link>
-              </div>
-            </div>
-          ) : null}
-        </article>
-
         <article style={cardStyle} aria-label="Action launchpad">
           <h2 style={{ marginTop: 0 }}>Action launchpad</h2>
           <p style={muted}>
-            Dedicated workflow pages keep the financial forms focused while this
-            overview stays lightweight.
+            Quick entry points for the next cashier move, without repeating the
+            full shell navigation.
           </p>
-          <div style={tagRow}>
-            <Link href="/cashier/lookup">Open lookup</Link>
-            <Link
-              href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
-            >
-              Go to Earn
-            </Link>
-            <Link
-              href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
-            >
-              Go to Redeem
-            </Link>
-            <Link href="/cashier/sync">Open sync queue</Link>
+          <div style={launchGridStyle}>
+            {cashierLaunchCards.map((card) => (
+              <article key={card.title} style={launchCardStyle}>
+                <strong>{card.title}</strong>
+                <p style={muted}>{card.body}</p>
+                <Link
+                  href={
+                    card.title === 'Earn' && selectedCardSerial
+                      ? `${card.href}?card=${encodeURIComponent(selectedCardSerial)}`
+                      : card.title === 'Redeem' && selectedCardSerial
+                        ? `${card.href}?card=${encodeURIComponent(selectedCardSerial)}`
+                        : card.href
+                  }
+                >
+                  Open {card.title}
+                </Link>
+              </article>
+            ))}
+            <article style={launchCardStyle}>
+              <strong>Sync queue</strong>
+              <p style={muted}>
+                Review offline work and reconcile pending cashier updates.
+              </p>
+              <Link href="/cashier/sync">Open sync queue</Link>
+            </article>
           </div>
-          <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <p style={muted}>
-            {selectedCardSerial
-              ? `Current lookup context: ${selectedCardSerial}`
-              : 'No lookup context selected yet.'}
-          </p>
         </article>
 
         <article style={cardStyle} aria-label="Customer detail">
@@ -551,11 +534,19 @@ const gridStyle: CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
 };
 
-const noteStyle: CSSProperties = {
+const launchGridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-3)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+};
+
+const launchCardStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
   borderRadius: 'var(--sc-radius-md)',
   padding: 'var(--sc-spacing-3)',
   background: 'var(--sc-color-neutral-0)',
+  display: 'grid',
+  gap: 'var(--sc-spacing-2)',
 };
 
 const routeRow: CSSProperties = {
@@ -563,14 +554,6 @@ const routeRow: CSSProperties = {
   gap: 'var(--sc-spacing-3)',
   flexWrap: 'wrap',
   alignItems: 'center',
-};
-
-const routeLink: CSSProperties = {
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-md)',
-  padding: 'var(--sc-spacing-2) var(--sc-spacing-3)',
-  background: 'var(--sc-color-neutral-0)',
-  textDecoration: 'none',
 };
 
 const policyRow: CSSProperties = {
