@@ -60,10 +60,10 @@
 ## 7. Earn, Redeem, Sync, and Offline UX redesign
 
 - [x] 7.1 Run GitNexus impact analysis for `CashierWorkflowRoute`, `EarnTransactionForm`, `RedeemTransactionForm`, sync page, offline persistence, and scanner scope before editing.
-- [ ] 7.2 Refactor Earn into static page composition plus a small interactive form island showing customer/card, purchase amount, contextual earn rate, expected credit, review, submit, and authoritative result.
-- [ ] 7.3 Refactor Redeem into static page composition plus a small interactive form island showing customer/card, available credit, basket amount, maximum redemption, review, submit, and authoritative result.
+- [x] 7.2 Refactor Earn into static page composition plus a small interactive form island showing customer/card, purchase amount, contextual earn rate, expected credit, review, submit, and authoritative result.
+- [x] 7.3 Refactor Redeem into static page composition plus a small interactive form island showing customer/card, available credit, basket amount, maximum redemption, review, submit, and authoritative result.
 - [x] 7.4 Remove broad policy/configuration tables from Earn/Redeem and retain only values that explain the active transaction or an actionable restriction.
-- [ ] 7.5 Add complete loading, validation, disabled, server-error, success, offline, queued, and sync-failure states without claiming server confirmation for local queueing.
+- [x] 7.5 Add complete loading, validation, disabled, server-error, success, offline, queued, and sync-failure states without claiming server confirmation for local queueing.
 - [x] 7.6 Migrate sync page to shared session/device context and remove localStorage/session-label fallback logic.
 - [x] 7.7 Verify IndexedDB/durable offline persistence retains idempotency, branch, device, and sync context but never raw device secrets.
 - [ ] 7.8 Add real-UI E2E tests for Earn, Redeem, Offline Earn save, reconnect/sync, duplicate submission protection, and authoritative server outcomes.
