@@ -21,3 +21,7 @@ An accepted staging performance artifact MUST include:
 - observed latency risk and owner for any cross-region hop.
 
 The current Phase 1 baseline intentionally records the unresolved backend/database values as unknown. It is not a topology pass.
+
+## Phase 10 observation
+
+The current Vercel inspection confirms the project IDs and duplicate context in `docs/development/frontend-stabilization-deployment-evidence.md`, but the latest deployment SHA does not match the stabilization candidate and runtime regions were not available. This remains a release blocker, not a topology pass.

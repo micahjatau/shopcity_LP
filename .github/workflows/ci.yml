@@ -7,6 +7,9 @@ on:
   push:
   pull_request:
 
+env:
+  CANDIDATE_SHA: ${{ github.sha }}
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -17,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -54,6 +59,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -76,6 +83,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -93,6 +102,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -109,6 +120,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -123,6 +136,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
