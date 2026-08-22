@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import { loginWithCredentials } from '../../lib/api';
 import { Button, Input } from '../ui';
 
@@ -24,23 +24,6 @@ export function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState('');
   const [deviceAttestationSecret, setDeviceAttestationSecret] = useState('');
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setDeviceId(window.localStorage.getItem('shopcity:device-id') ?? '');
-    setDeviceAttestationSecret(
-      window.localStorage.getItem('shopcity:device-attestation-secret') ?? '',
-    );
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem('shopcity:device-id', deviceId);
-    window.localStorage.setItem(
-      'shopcity:device-attestation-secret',
-      deviceAttestationSecret,
-    );
-  }, [deviceAttestationSecret, deviceId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +57,9 @@ export function LoginForm() {
     } catch {
       setStatus('error');
       setMessage('Sign in failed. The session service is unavailable.');
+    } finally {
+      // Raw attestation material must never survive the sign-in attempt in browser state.
+      setDeviceAttestationSecret('');
     }
   }
 

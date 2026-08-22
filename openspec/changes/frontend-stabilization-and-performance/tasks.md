@@ -1,6 +1,6 @@
 ## 1. Baseline, inventory, and release evidence contract
 
-- [ ] 1.1 Run GitNexus impact analysis for the shared shell, session bootstrap, cashier workflow route, customer workspace, login/device provisioning, and navigation registry symbols; record blast radius in `docs/development/gitnexus-impact-tracker.md` before implementation edits.
+- [x] 1.1 Run GitNexus impact analysis for the shared shell, session bootstrap, cashier workflow route, customer workspace, login/device provisioning, and navigation registry symbols; record blast radius in `docs/development/gitnexus-impact-tracker.md` before implementation edits.
 - [ ] 1.2 Freeze the route matrix and current behavior inventory for `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, `/cashier/sync`, `/supervisor/approvals`, `/admin/operations`, Customer, Card, and Transaction workspaces.
 - [ ] 1.3 Add a production-build performance harness that records route, commit SHA, environment, browser, timestamp, document/RSC/JS bytes, TTFB, FCP/LCP, INP, hydration duration, total API calls, `/auth/me`, `/config/public`, and duplicate requests.
 - [ ] 1.4 Capture the pre-change baseline with `npm --prefix apps/web run build` and production start; store evidence without converting missing metrics into passes.
@@ -10,7 +10,7 @@
 ## 2. P0 device security and provisioning
 
 - [ ] 2.1 Run the existing auth/device GitNexus context and inspect backend provisioning/rotation contracts, DTOs, audit events, and generated OpenAPI bindings before changing the UI.
-- [ ] 2.2 Remove all raw device attestation secret reads/writes from `localStorage`, `sessionStorage`, URL state, analytics, and ordinary browser logs.
+- [x] 2.2 Remove all raw device attestation secret reads/writes from `localStorage`, `sessionStorage`, URL state, analytics, and ordinary browser logs.
 - [ ] 2.3 Implement the controlled one-time POS provisioning surface: secret-once presentation, explicit copy action, warning/recovery copy, completion state, and transient state clearing on completion/unmount/navigation.
 - [ ] 2.4 Ensure normal cashier login consumes the backend-owned device/session association and exposes the authenticated device ID through the shared session bootstrap.
 - [ ] 2.5 Add device-unready gating for Offline Earn and sync queue creation; reject undefined, browser-generated, or session-label-derived device context.
