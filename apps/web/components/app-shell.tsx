@@ -35,9 +35,7 @@ type PublicConfig = ConfigurationControllerGetPublicConfigV1200Data;
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const { status, role, sessionLabel, deviceId } = useSessionBootstrapState(
-    pathname ?? 0,
-  );
+  const { status, role, sessionLabel, deviceId } = useSessionBootstrapState();
   const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
   const [configMessage, setConfigMessage] = useState('Loading public context…');
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
