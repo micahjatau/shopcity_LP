@@ -11,11 +11,6 @@ export type AppTopbarContext = {
     timezone?: string;
     receiptWeekStartDay?: number;
   };
-  policies?: {
-    defaultEarnRateBps?: number;
-    offlineRedemptionDisabled?: boolean;
-    minRedemptionKobo?: number;
-  };
 } | null;
 
 export type AppTopbarProps = Readonly<{
@@ -118,21 +113,8 @@ export function AppTopbar({
             {typeof context?.branch?.receiptWeekStartDay === 'number'
               ? `Receipt week starts ${context.branch.receiptWeekStartDay}`
               : 'Receipt week start pending'}
-            {typeof context?.policies?.offlineRedemptionDisabled === 'boolean'
-              ? context.policies.offlineRedemptionDisabled
-                ? ' · Offline redemption disabled'
-                : ' · Offline redemption available'
-              : ''}
           </span>
-          <span>
-            {typeof context?.policies?.defaultEarnRateBps === 'number'
-              ? `${context.policies.defaultEarnRateBps / 100}% earn rate`
-              : 'Policy values pending'}
-            {typeof context?.policies?.minRedemptionKobo === 'number'
-              ? ` · Min redemption ₦${(context.policies.minRedemptionKobo / 100).toLocaleString()}`
-              : ''}
-            {` · ${routeTrailLabel}`}
-          </span>
+          <span>{routeTrailLabel}</span>
         </div>
       </div>
 
