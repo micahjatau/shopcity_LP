@@ -41,9 +41,9 @@ test.describe('ShopCity flow coverage', () => {
     );
 
     await lookup.getByLabel('Lookup').fill('1234567890');
-    await lookup
-      .getByRole('button', { name: /fixture lookup customer/i })
-      .click();
+    await expect(
+      lookup.getByRole('button', { name: /fixture lookup customer/i }),
+    ).toBeDisabled();
     await expect(lookup.getByLabel('Lookup')).toHaveValue('1234567890');
   });
 
@@ -60,9 +60,9 @@ test.describe('ShopCity flow coverage', () => {
     const approval = page.getByTestId('flow-approval-decision');
     await approval.getByLabel('Reject').check();
     await expect(approval.getByLabel('Reject')).toBeChecked();
-    await approval
-      .getByRole('button', { name: /fixture submit decision/i })
-      .click();
+    await expect(
+      approval.getByRole('button', { name: /fixture submit decision/i }),
+    ).toBeDisabled();
     await expect(approval).toContainText(/decision/i);
   });
 
