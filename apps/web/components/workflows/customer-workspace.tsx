@@ -65,7 +65,12 @@ const pageNotes = [
 
 export function CustomerWorkspace({
   canManage = false,
-}: Readonly<{ canManage?: boolean }> = {}) {
+  mode = 'customer',
+}: Readonly<{
+  canManage?: boolean;
+  mode?: 'customer' | 'card';
+}> = {}) {
+  const isCardMode = mode === 'card';
   const searchParams = useSearchParams();
   const routeCustomerId = searchParams.get('id');
   const [query, setQuery] = useState('');
@@ -482,13 +487,15 @@ export function CustomerWorkspace({
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
       <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>Customers</h1>
+        <h1 style={{ margin: 0 }}>{isCardMode ? 'Cards' : 'Customers'}</h1>
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
         >
-          {canManage
-            ? 'Search, inspect, and manage customer and card state.'
-            : 'Search, inspect, and trace customer balance, history, and card state.'}
+          {isCardMode
+            ? 'Find a customer, then assign, replace, or update card state.'
+            : canManage
+              ? 'Search, inspect, and manage customer profiles and card state.'
+              : 'Search, inspect, and trace customer balance, history, and card state.'}
         </p>
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
@@ -497,9 +504,13 @@ export function CustomerWorkspace({
         </p>
       </header>
 
-      <Alert tone="info" title="Customer route context">
-        Use this route for customer detail, card assignment, replacement, and
-        status changes.
+      <Alert
+        tone="info"
+        title={isCardMode ? 'Card route context' : 'Customer route context'}
+      >
+        {isCardMode
+          ? 'Select a customer to manage card assignment, replacement, and status.'
+          : 'Use this route for customer detail, profile editing, card assignment, replacement, and status changes.'}
       </Alert>
 
       <div style={summaryRow}>
@@ -558,7 +569,7 @@ export function CustomerWorkspace({
         </p>
       </section>
 
-      {canManage ? (
+      {canManage && !isCardMode ? (
         <section
           style={cardStyle}
           aria-labelledby="customer-profile-form-title"
@@ -754,7 +765,7 @@ export function CustomerWorkspace({
                   No ledger history loaded.
                 </p>
               )}
-              {canManage ? (
+              {canManage && !isCardMode ? (
                 <>
                   <Alert tone="info" title="Customer status">
                     Status changes require confirmation before submission.
@@ -796,9 +807,15 @@ export function CustomerWorkspace({
                   </div>
                 </>
               ) : (
-                <Alert tone="neutral" title="Read-only customer view">
-                  Cashiers can review customer history and card state here.
-                  Management actions move to the supervisor workspace.
+                <Alert
+                  tone="neutral"
+                  title={
+                    isCardMode ? 'Card-focused view' : 'Read-only customer view'
+                  }
+                >
+                  {isCardMode
+                    ? 'Customer identity and history provide context for card lifecycle actions.'
+                    : 'Cashiers can review customer history and card state here. Management actions move to the supervisor workspace.'}
                 </Alert>
               )}
             </div>

@@ -52,7 +52,7 @@ export default function AdminCardsPage() {
 
       <section style={cardStyle} aria-label="Card workspace">
         <h2 style={{ marginTop: 0 }}>Card workspace</h2>
-        <CustomerWorkspace canManage />
+        <CustomerWorkspace canManage mode="card" />
       </section>
     </section>
   );
