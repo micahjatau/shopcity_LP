@@ -96,9 +96,9 @@
 ## 11. Full verification, review, and documentation reconciliation
 
 - [ ] 11.1 Run formatting, lint, typecheck, build, generated-client typecheck, unit tests, integration tests, Semgrep, affected Playwright/a11y/visual tests, and production performance evidence.
-- [ ] 11.2 Run `gitnexus detect_changes()` and confirm only expected symbols, flows, tests, docs, and deployment evidence are affected.
-- [ ] 11.3 Run OpenSpec validation and check each requirement scenario against implementation evidence.
-- [ ] 11.4 Reconcile `docs/repo_review_55.md`, release evidence, deployment notes, performance artifacts, and migration/operational trackers with the actual branch state.
+- [x] 11.2 Run `gitnexus detect_changes()` and confirm only expected symbols, flows, tests, docs, and deployment evidence are affected.
+- [x] 11.3 Run OpenSpec validation and check each requirement scenario against implementation evidence.
+- [x] 11.4 Reconcile `docs/repo_review_55.md`, release evidence, deployment notes, performance artifacts, and migration/operational trackers with the actual branch state.
 - [ ] 11.5 Review the UI using the design-taste anti-slop pass and Impeccable audit: hierarchy, density, type scale, contrast, focus, responsive behavior, reduced motion, copy clarity, and absence of decorative noise.
 - [ ] 11.6 Record durable Graphiti memory for validated architecture decisions, device-secret handling, shared-context/cache behavior, and performance measurement lessons.
 - [ ] 11.7 Produce the final stabilization report listing changed surfaces, passed gates, exceptions, remaining risks, exact candidate SHA, canonical deployment, and next action.
