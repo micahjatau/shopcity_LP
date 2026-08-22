@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserStateBootstrap } from './browser-state-bootstrap';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
+import { ShellNavigationIcon } from './shell-navigation-icon';
 import { useSessionBootstrapState } from './session-bootstrap';
 import { OfflineIndicator } from './offline';
 import { Badge } from './ui';
@@ -34,7 +35,7 @@ type PublicConfig = ConfigurationControllerGetPublicConfigV1200Data;
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const { status, role, sessionLabel } = useSessionBootstrapState(
+  const { status, role, sessionLabel, deviceId } = useSessionBootstrapState(
     pathname ?? 0,
   );
   const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
@@ -43,6 +44,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const shellFrameRef = useRef<HTMLDivElement | null>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -88,6 +91,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       );
       if (stored !== null) {
         setSidebarCollapsed(stored === 'true');
+      } else if (
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(min-width: 768px) and (max-width: 1199px)').matches
+      ) {
+        setSidebarCollapsed(true);
       }
     }
 
@@ -194,6 +202,29 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }, [pageTitle]);
 
   useEffect(() => {
+    const frame = shellFrameRef.current;
+    if (!frame) return undefined;
+
+    if (mobileNavigationOpen) {
+      frame.inert = true;
+      frame.setAttribute('aria-hidden', 'true');
+    } else {
+      frame.inert = false;
+      frame.removeAttribute('aria-hidden');
+    }
+
+    return () => {
+      frame.inert = false;
+      frame.removeAttribute('aria-hidden');
+    };
+  }, [mobileNavigationOpen]);
+
+  const closeMobileNavigation = useCallback(() => {
+    setMobileNavigationOpen(false);
+    mobileMenuButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     if (!mobileNavigationOpen) {
       return undefined;
     }
@@ -203,17 +234,49 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         closeMobileNavigation();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const drawer = mobileDrawerRef.current;
+      if (!drawer) {
+        return;
+      }
+
+      const focusables = Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute('disabled'));
+
+      if (focusables.length === 0) {
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey) {
+        if (active === first || !drawer.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+
+      if (active === last) {
+        event.preventDefault();
+        first.focus();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mobileNavigationOpen]);
-
-  function closeMobileNavigation() {
-    setMobileNavigationOpen(false);
-    mobileMenuButtonRef.current?.focus();
-  }
+  }, [closeMobileNavigation, mobileNavigationOpen]);
 
   function handleToggleSidebar() {
     setSidebarCollapsed((current) => {
@@ -259,67 +322,84 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <div className="shell-root">
-      <AppTopbar
-        status={status}
-        sessionLabel={sessionLabel}
-        configMessage={configMessage}
-        workspaceLabel={workspaceLabel}
-        activeSectionLabel={activeSection?.label ?? 'Section pending'}
-        routeTrailLabel={routeTrailLabel}
-        pageTitle={pageTitle}
-        context={context}
-        showProtectedContent={showProtectedContent}
-        mobileMenuButtonRef={mobileMenuButtonRef}
-        onLogout={() => void handleLogout()}
-        onOpenMobileMenu={() => setMobileNavigationOpen(true)}
-      />
-
-      <div className="shell-body">
-        <AppSidebar
-          sections={navigationSections}
-          pathname={pathname}
+      <Link className="shell-skip-link" href="#shell-main-content">
+        Skip to content
+      </Link>
+      <div ref={shellFrameRef} className="shell-frame">
+        <AppTopbar
+          status={status}
+          sessionLabel={sessionLabel}
+          configMessage={configMessage}
           workspaceLabel={workspaceLabel}
-          branchLabel={
-            context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'
-          }
-          branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
-          isCollapsed={sidebarCollapsed}
-          onToggleCollapse={handleToggleSidebar}
+          activeSectionLabel={activeSection?.label ?? 'Section pending'}
+          routeTrailLabel={routeTrailLabel}
+          pageTitle={pageTitle}
+          deviceLabel={deviceId}
+          context={context}
+          showProtectedContent={showProtectedContent}
+          mobileMenuButtonRef={mobileMenuButtonRef}
+          onLogout={() => void handleLogout()}
+          onOpenMobileMenu={() => setMobileNavigationOpen(true)}
         />
 
-        <main className="shell-main">
-          <BrowserStateBootstrap />
-          <div className="shell-main-status-row">
-            {showProtectedContent ? null : (
-              <p className="shell-access-message">
-                {status === 'ready'
-                  ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
-                  : 'Sign in to access cashier, supervisor and admin workflows.'}
-              </p>
+        <div
+          className={`shell-body${sidebarCollapsed ? ' shell-body--collapsed' : ''}`}
+        >
+          <AppSidebar
+            sections={navigationSections}
+            pathname={pathname}
+            workspaceLabel={workspaceLabel}
+            branchLabel={
+              context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'
+            }
+            branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={handleToggleSidebar}
+          />
+
+          <main id="shell-main-content" tabIndex={-1} className="shell-main">
+            <BrowserStateBootstrap />
+            <div className="shell-main-status-row">
+              {showProtectedContent ? null : (
+                <p className="shell-access-message">
+                  {status === 'ready'
+                    ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                    : 'Sign in to access cashier, supervisor and admin workflows.'}
+                </p>
+              )}
+            </div>
+            <OfflineIndicator />
+            {showProtectedContent ? (
+              children
+            ) : (
+              <section className="shell-gate-card">
+                <h1 style={{ margin: 0 }}>{workspaceLabel}</h1>
+                <p className="shell-access-message">
+                  {status === 'ready'
+                    ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                    : 'Sign in to access cashier, supervisor and admin workflows.'}
+                </p>
+                <Link href={status === 'ready' ? primaryRoute : '/login'}>
+                  {status === 'ready' ? 'Go to my workspace' : 'Go to sign in'}
+                </Link>
+              </section>
             )}
-          </div>
-          <OfflineIndicator />
-          {showProtectedContent ? (
-            children
-          ) : (
-            <section className="shell-gate-card">
-              <h1 style={{ margin: 0 }}>{workspaceLabel}</h1>
-              <p className="shell-access-message">
-                {status === 'ready'
-                  ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
-                  : 'Sign in to access cashier, supervisor and admin workflows.'}
-              </p>
-              <Link href={status === 'ready' ? primaryRoute : '/login'}>
-                {status === 'ready' ? 'Go to my workspace' : 'Go to sign in'}
-              </Link>
-            </section>
-          )}
-        </main>
+          </main>
+        </div>
       </div>
 
       {mobileNavigationOpen ? (
-        <div className="shell-mobile-overlay" role="presentation">
+        <div
+          className="shell-mobile-overlay"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeMobileNavigation();
+            }
+          }}
+        >
           <div
+            ref={mobileDrawerRef}
             className="shell-mobile-drawer"
             role="dialog"
             aria-modal="true"
@@ -345,11 +425,31 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         </div>
       ) : null}
 
-      <style jsx>{`
+      <style>{`
         .shell-root {
           min-height: 100vh;
           background: var(--sc-color-neutral-50);
           color: var(--sc-color-neutral-900);
+        }
+
+        .shell-skip-link {
+          position: absolute;
+          left: var(--sc-spacing-4);
+          top: var(--sc-spacing-4);
+          transform: translateY(-180%);
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-brand-700);
+          border-radius: var(--sc-radius-full);
+          padding: 8px 14px;
+          z-index: 60;
+        }
+
+        .shell-skip-link:focus {
+          transform: translateY(0);
+        }
+
+        .shell-frame {
+          display: grid;
         }
 
         .shell-topbar {
@@ -445,6 +545,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           padding: var(--sc-spacing-6);
         }
 
+        .shell-body--collapsed {
+          grid-template-columns: 84px minmax(0, 1fr);
+        }
+
         .shell-sidebar {
           position: sticky;
           top: var(--sc-spacing-4);
@@ -533,8 +637,52 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         }
 
         @media (min-width: 768px) and (max-width: 1199px) {
-          .shell-body {
-            grid-template-columns: 208px minmax(0, 1fr);
+          .shell-body,
+          .shell-body--collapsed {
+            grid-template-columns: 84px minmax(0, 1fr);
+          }
+
+          .shell-sidebar {
+            gap: var(--sc-spacing-3);
+            padding-inline: var(--sc-spacing-3);
+          }
+
+          .shell-sidebar-brand-subtitle,
+          .shell-sidebar-footer,
+          .shell-nav-section-label,
+          .shell-nav-link-label,
+          .shell-nav-badge {
+            display: none;
+          }
+
+          .shell-sidebar-brand-title {
+            display: none;
+          }
+
+          .shell-sidebar-brand-row {
+            flex-direction: column;
+            align-items: center;
+          }
+
+          .shell-sidebar-toggle {
+            width: 2.5rem;
+            height: 2.5rem;
+            justify-content: center;
+            padding: 0;
+          }
+
+          .shell-sidebar-toggle-label {
+            display: none;
+          }
+
+          .shell-nav-link {
+            justify-content: center;
+            padding: 10px;
+          }
+
+          .shell-nav-link-icon {
+            width: 1.1rem;
+            height: 1.1rem;
           }
         }
       `}</style>
@@ -565,9 +713,14 @@ function ShellNavigation({
                     href={item.href}
                     onClick={onNavigate}
                     aria-current={active ? 'page' : undefined}
+                    aria-label={item.label}
+                    title={item.badge?.title ?? item.label}
                     className={`shell-nav-link${active ? ' is-active' : ''}`}
                   >
-                    <span>{item.label}</span>
+                    <span aria-hidden="true" className="shell-nav-link-icon">
+                      <ShellNavigationIcon name={item.icon} />
+                    </span>
+                    <span className="shell-nav-link-label">{item.label}</span>
                     {item.badge ? (
                       <Badge
                         tone={item.badge.tone ?? 'neutral'}
@@ -585,7 +738,7 @@ function ShellNavigation({
         </section>
       ))}
 
-      <style jsx>{`
+      <style>{`
         .shell-nav {
           display: grid;
           gap: var(--sc-spacing-4);
@@ -615,7 +768,6 @@ function ShellNavigation({
         .shell-nav-link {
           display: flex;
           align-items: center;
-          justify-content: space-between;
           gap: var(--sc-spacing-2);
           border-radius: var(--sc-radius-md);
           border: 1px solid rgba(255, 255, 255, 0.18);
@@ -625,9 +777,26 @@ function ShellNavigation({
           background: transparent;
         }
 
+        .shell-nav-link-icon {
+          display: inline-flex;
+          width: 1rem;
+          height: 1rem;
+          flex: none;
+        }
+
+        .shell-nav-link-icon :global(svg) {
+          width: 100%;
+          height: 100%;
+        }
+
+        .shell-nav-link-label {
+          min-width: 0;
+        }
+
         .shell-nav-badge {
           flex: none;
           white-space: nowrap;
+          margin-left: auto;
         }
 
         .shell-nav-link.is-active {

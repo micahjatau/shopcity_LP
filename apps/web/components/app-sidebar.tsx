@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ShellNavigationSection } from './shell-navigation';
 import { Badge } from './ui';
+import { ShellNavigationIcon } from './shell-navigation-icon';
 import { matchShellRoute } from './shell-navigation';
 
 export type AppSidebarProps = Readonly<{
@@ -47,8 +48,17 @@ export function AppSidebar({
           className="shell-sidebar-toggle"
           onClick={onToggleCollapse}
           aria-pressed={isCollapsed}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          <span aria-hidden="true" className="shell-sidebar-toggle-icon">
+            <ShellNavigationIcon
+              name={isCollapsed ? 'chevron-right' : 'chevron-left'}
+            />
+          </span>
+          <span className="shell-sidebar-toggle-label">
+            {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          </span>
         </button>
       </div>
 
@@ -64,9 +74,14 @@ export function AppSidebar({
                     <Link
                       href={item.href}
                       aria-current={active ? 'page' : undefined}
+                      aria-label={item.label}
+                      title={item.badge?.title ?? item.label}
                       className={`shell-nav-link${active ? ' is-active' : ''}`}
                     >
-                      <span>{item.label}</span>
+                      <span aria-hidden="true" className="shell-nav-link-icon">
+                        <ShellNavigationIcon name={item.icon} />
+                      </span>
+                      <span className="shell-nav-link-label">{item.label}</span>
                       {item.badge ? (
                         <Badge
                           tone={item.badge.tone ?? 'neutral'}
@@ -91,7 +106,7 @@ export function AppSidebar({
         <div className="shell-sidebar-footer-meta">{branchTimezone}</div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .shell-sidebar {
           position: sticky;
           top: var(--sc-spacing-4);
@@ -106,6 +121,7 @@ export function AppSidebar({
 
         .shell-sidebar--collapsed {
           gap: var(--sc-spacing-3);
+          padding-inline: var(--sc-spacing-3);
         }
 
         .shell-sidebar-brand-row {
@@ -122,6 +138,55 @@ export function AppSidebar({
           min-width: 0;
         }
 
+        .shell-sidebar-toggle {
+          flex: none;
+          border-radius: var(--sc-radius-full);
+          border: 1px solid rgba(255, 255, 255, 0.24);
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--sc-color-neutral-0);
+          padding: 6px 10px;
+          font-size: var(--sc-font-size-sm);
+          display: inline-flex;
+          align-items: center;
+          gap: var(--sc-spacing-2);
+        }
+
+        .shell-sidebar-toggle-icon {
+          display: inline-flex;
+          width: 1rem;
+          height: 1rem;
+          flex: none;
+        }
+
+        .shell-sidebar-toggle-icon :global(svg) {
+          width: 100%;
+          height: 100%;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-toggle {
+          width: 2.5rem;
+          height: 2.5rem;
+          justify-content: center;
+          padding: 0;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-toggle-label {
+          display: none;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-brand {
+          justify-content: center;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-brand-title {
+          display: none;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-brand-row {
+          flex-direction: column;
+          align-items: center;
+        }
+
         .shell-sidebar-brand-title,
         .shell-sidebar-footer-label,
         .shell-nav-section-label {
@@ -136,16 +201,6 @@ export function AppSidebar({
         .shell-sidebar-footer-label {
           font-size: var(--sc-font-size-sm);
           opacity: 0.86;
-        }
-
-        .shell-sidebar-toggle {
-          flex: none;
-          border-radius: var(--sc-radius-full);
-          border: 1px solid rgba(255, 255, 255, 0.24);
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--sc-color-neutral-0);
-          padding: 6px 10px;
-          font-size: var(--sc-font-size-sm);
         }
 
         .shell-sidebar-footer {
@@ -187,7 +242,6 @@ export function AppSidebar({
         .shell-nav-link {
           display: flex;
           align-items: center;
-          justify-content: space-between;
           gap: var(--sc-spacing-2);
           border-radius: var(--sc-radius-md);
           border: 1px solid rgba(255, 255, 255, 0.18);
@@ -197,9 +251,26 @@ export function AppSidebar({
           background: transparent;
         }
 
+        .shell-nav-link-icon {
+          display: inline-flex;
+          width: 1rem;
+          height: 1rem;
+          flex: none;
+        }
+
+        .shell-nav-link-icon :global(svg) {
+          width: 100%;
+          height: 100%;
+        }
+
+        .shell-nav-link-label {
+          min-width: 0;
+        }
+
         .shell-nav-badge {
           flex: none;
           white-space: nowrap;
+          margin-left: auto;
         }
 
         .shell-nav-link.is-active {
@@ -209,7 +280,10 @@ export function AppSidebar({
         }
 
         .shell-sidebar--collapsed .shell-sidebar-brand-subtitle,
-        .shell-sidebar--collapsed .shell-sidebar-footer {
+        .shell-sidebar--collapsed .shell-sidebar-footer,
+        .shell-sidebar--collapsed .shell-nav-section-label,
+        .shell-sidebar--collapsed .shell-nav-link-label,
+        .shell-sidebar--collapsed .shell-nav-badge {
           display: none;
         }
 
@@ -218,7 +292,13 @@ export function AppSidebar({
         }
 
         .shell-sidebar--collapsed .shell-nav-link {
-          padding: 8px 10px;
+          justify-content: center;
+          padding: 10px;
+        }
+
+        .shell-sidebar--collapsed .shell-nav-link-icon {
+          width: 1.1rem;
+          height: 1.1rem;
         }
 
         @media (max-width: 767px) {

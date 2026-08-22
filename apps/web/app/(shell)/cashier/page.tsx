@@ -510,7 +510,7 @@ export default function CashierPage() {
         </article>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .cashier-muted {
           color: var(--sc-color-semantic-textSecondary);
           margin: 0;

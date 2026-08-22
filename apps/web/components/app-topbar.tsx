@@ -136,7 +136,7 @@ export function AppTopbar({
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .shell-topbar {
           background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);

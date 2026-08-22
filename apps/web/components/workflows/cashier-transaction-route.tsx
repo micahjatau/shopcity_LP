@@ -526,7 +526,7 @@ export function CashierWorkflowRoute({
         </article>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .cashier-route-header {
           display: grid;
           gap: var(--sc-spacing-2);
