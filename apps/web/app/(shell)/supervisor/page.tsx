@@ -3,7 +3,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Alert } from '../../../components/ui';
 import { StatusBadge } from '../../../components/shopcity';
 import {
   ApprovalsPanel,
@@ -25,49 +24,34 @@ const supervisorRouteCards = [
   {
     href: '/supervisor/customers',
     label: 'Customers',
-    body: 'Search and manage customer detail, status, and cards.',
+    body: 'Search customer detail and cards.',
     featured: true,
   },
   {
     href: '/supervisor/cards',
     label: 'Cards',
-    body: 'Assign, replace, and update card status from the management route.',
+    body: 'Assign, replace, and update status.',
   },
   {
     href: '/supervisor/transactions',
     label: 'Transactions',
-    body: 'Start with the queue, then drill into a single item.',
+    body: 'Open a transaction and inspect it.',
   },
   {
     href: '/supervisor/approvals',
     label: 'Approvals',
-    body: 'Review evidence-led decisions and pending actions.',
+    body: 'Review pending decisions.',
   },
   {
     href: '/supervisor/fraud',
     label: 'Fraud',
-    body: 'Investigate flags, severity, and supporting evidence.',
+    body: 'Investigate flags and evidence.',
   },
   {
     href: '/supervisor/reports',
     label: 'Reports',
-    body: 'Compare the report view against live queue health.',
+    body: 'Compare live queue health and reports.',
   },
-] as const;
-
-const supervisorNotes = [
-  [
-    'Review lanes',
-    'Transactions, approvals, fraud, and reports each keep their own focused route.',
-  ],
-  [
-    'Detail-led work',
-    'Use the dedicated workspaces for selected-item context and contract-backed review.',
-  ],
-  [
-    'Operational scope',
-    'The supervisor shell stays focused on queue health and investigative action.',
-  ],
 ] as const;
 
 export default function SupervisorPage() {
@@ -109,35 +93,36 @@ export default function SupervisorPage() {
         </div>
       </WorkflowSection>
 
-      <Alert tone="info" title="Supervisor landing page">
-        Investigative detail and queue actions live in the dedicated review
-        routes.
-      </Alert>
-
       <div style={gridStyle}>
-        <article style={cardStyle} aria-label="Supervisor overview">
-          <h2 style={{ marginTop: 0 }}>Overview</h2>
-          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            {supervisorNotes.map(([title, body]) => (
-              <div key={title} style={noteStyle}>
-                <strong>{title}</strong>
-                <p style={muted}>{body}</p>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article style={cardStyle} aria-label="Supervisor status">
-          <h2 style={{ marginTop: 0 }}>Status</h2>
+        <article style={cardStyle} aria-label="Supervisor scope">
+          <h2 style={{ marginTop: 0 }}>Scope</h2>
           <div style={statusRow}>
             <StatusBadge label="Route-backed" tone="success" />
             <StatusBadge label="Contract-driven" tone="info" />
             <StatusBadge label="Investigative" tone="neutral" />
           </div>
           <p style={muted}>
-            Queue pressure, fraud review, and report reconciliation stay visible
-            without duplicating the workspaces here.
+            Supervisor work stays route-backed: launch the review lane you need,
+            then use this shell for a quick status glance.
           </p>
+        </article>
+
+        <article style={cardStyle} aria-label="Primary review lanes">
+          <h2 style={{ marginTop: 0 }}>Primary lanes</h2>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+            {['Approvals', 'Fraud', 'Reports'].map((label) => (
+              <div key={label} style={noteStyle}>
+                <strong>{label}</strong>
+                <p style={muted}>
+                  {label === 'Approvals'
+                    ? 'Pending decisions and evidence.'
+                    : label === 'Fraud'
+                      ? 'Flags and supporting evidence.'
+                      : 'Queue health and reconciliation.'}
+                </p>
+              </div>
+            ))}
+          </div>
         </article>
       </div>
 

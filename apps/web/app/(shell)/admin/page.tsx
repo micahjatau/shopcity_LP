@@ -3,82 +3,42 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { Alert } from '../../../components/ui';
+import { shellNavigationByRole } from '../../../components/shell-navigation';
 import { StatusBadge } from '../../../components/shopcity';
 import {
   AdminOperationsPanel,
   WorkflowSection,
 } from '../../../components/workflows';
 
-const adminRoutes = [
-  ['/admin/operations', 'Operations'],
-  ['/admin/users', 'Users'],
-  ['/admin/devices', 'Devices'],
-  ['/admin/cards', 'Cards'],
-  ['/admin/branches', 'Branches'],
-  ['/admin/audit', 'Audit'],
-  ['/admin/reports', 'Reports'],
-  ['/admin/adjustments', 'Adjustments'],
-] as const;
+const adminRouteBodyByHref: Record<string, string> = {
+  '/admin/operations': 'Queue health and fast-path control.',
+  '/admin/transactions': 'Review transactions and reversals.',
+  '/admin/approvals': 'Review the approval queue.',
+  '/admin/fraud': 'Investigate fraud flags and evidence.',
+  '/admin/customers': 'Search and manage customers.',
+  '/admin/cards': 'Track card lifecycle and assignment.',
+  '/admin/adjustments': 'Handle ledger corrections.',
+  '/admin/reports': 'Open operational reporting.',
+  '/admin/audit': 'Review system and operator history.',
+  '/admin/users': 'Manage access and identities.',
+  '/admin/devices': 'Track devices and sync readiness.',
+  '/admin/branches': 'Manage branch policy and scope.',
+};
 
-const adminRouteCards = [
-  {
-    href: '/admin/operations',
-    label: 'Operations',
-    body: 'Queue health, control work, and the fast path into daily action.',
-    featured: true,
-  },
-  {
-    href: '/admin/users',
-    label: 'Users',
-    body: 'Role review, account access, and identity management.',
-  },
-  {
-    href: '/admin/devices',
-    label: 'Devices',
-    body: 'Device registration, ownership, and sync readiness.',
-  },
-  {
-    href: '/admin/cards',
-    label: 'Cards',
-    body: 'Card lifecycle and assignment detail.',
-  },
-  {
-    href: '/admin/branches',
-    label: 'Branches',
-    body: 'Branch policy, scope, and localized operations.',
-  },
-  {
-    href: '/admin/audit',
-    label: 'Audit',
-    body: 'Review traceable system and operator history.',
-  },
-  {
-    href: '/admin/reports',
-    label: 'Reports',
-    body: 'Operational reporting, separated from control.',
-  },
-  {
-    href: '/admin/adjustments',
-    label: 'Adjustments',
-    body: 'Explicit ledger corrections and approvals.',
-  },
-] as const;
+const adminRouteCards = shellNavigationByRole.ADMIN.flatMap((section) =>
+  section.items,
+)
+  .filter((item) => item.href !== '/admin')
+  .map((item) => ({
+    href: item.href,
+    label: item.label,
+    body: adminRouteBodyByHref[item.href] ?? 'Route-backed admin workspace.',
+    featured: item.href === '/admin/operations',
+  }));
 
-const workspaceNotes = [
-  [
-    'Contract-backed controls',
-    'User, device, branch, audit, and adjustment actions now live on dedicated routes.',
-  ],
-  [
-    'Reporting separate from control',
-    'Operational reporting is available without mixing it into the landing page.',
-  ],
-  [
-    'Role-aware access',
-    'The shell keeps the admin area clearly scoped from cashier and supervisor flows.',
-  ],
-] as const;
+const adminRoutes = shellNavigationByRole.ADMIN.flatMap((section) =>
+  section.items,
+);
 
 export default function AdminPage() {
   return (
@@ -116,36 +76,36 @@ export default function AdminPage() {
         </div>
       </WorkflowSection>
 
-      <Alert tone="info" title="Admin landing page">
-        This shell is intentionally lightweight: use the focused workspaces for
-        contract-backed review and changes.
-      </Alert>
-
       <div style={gridStyle}>
-        <article style={cardStyle} aria-label="Admin workspace summary">
-          <h2 style={{ marginTop: 0 }}>Workspace summary</h2>
-          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-            {workspaceNotes.map(([title, body]) => (
-              <div key={title} style={noteStyle}>
-                <strong>{title}</strong>
-                <p style={muted}>{body}</p>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article style={cardStyle} aria-label="Admin status">
-          <h2 style={{ marginTop: 0 }}>Status</h2>
+        <article style={cardStyle} aria-label="Admin scope">
+          <h2 style={{ marginTop: 0 }}>Scope</h2>
           <div style={statusRow}>
             <StatusBadge label="Route-backed" tone="success" />
             <StatusBadge label="Contract-driven" tone="info" />
             <StatusBadge label="Role-scoped" tone="neutral" />
           </div>
           <p style={muted}>
-            Detailed health and report information now live on the admin
-            operations and reports routes. Report summary loaded from the admin
-            reports route.
+            Admin work stays route-backed: launch the workspace you need, then
+            use this shell for a quick status glance.
           </p>
+        </article>
+
+        <article style={cardStyle} aria-label="Primary admin lanes">
+          <h2 style={{ marginTop: 0 }}>Primary lanes</h2>
+          <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+            {['Operations', 'Users', 'Audit'].map((label) => (
+              <div key={label} style={noteStyle}>
+                <strong>{label}</strong>
+                <p style={muted}>
+                  {label === 'Operations'
+                    ? 'Queue health and control work.'
+                    : label === 'Users'
+                      ? 'Access and identity management.'
+                      : 'System and operator history.'}
+                </p>
+              </div>
+            ))}
+          </div>
         </article>
       </div>
 
