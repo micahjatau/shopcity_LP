@@ -39,13 +39,13 @@
 
 ## 5. Canonical shell and navigation cleanup
 
-- [ ] 5.1 Run GitNexus impact analysis for `shellNavigationByRole`, AppShell navigation rendering, dashboard quick actions, and route-resolution tests before editing.
-- [ ] 5.2 Remove remaining page-local primary navigation maps and make dashboard quick actions a deliberate subset or projection of the canonical registry.
-- [ ] 5.3 Verify every visible role navigation href resolves to an actual page and add/maintain the route-resolution test for all roles.
-- [ ] 5.4 Finish real collapsed rail behavior with reduced width, stable icon slots, accessible labels/tooltips, active-state styling, and keyboard operation.
-- [ ] 5.5 Make tablet default to the rail layout and confirm the main content width and focus order remain usable.
-- [ ] 5.6 Harden the mobile drawer as a modal interaction with focus trap, Escape handling, return focus, inert background, scroll containment, and shell skip link.
-- [ ] 5.7 Reduce the topbar to compact operational context without hiding connection, sync, branch, or device status needed for a cashier.
+- [x] 5.1 Run GitNexus impact analysis for `shellNavigationByRole`, AppShell navigation rendering, dashboard quick actions, and route-resolution tests before editing.
+- [x] 5.2 Remove remaining page-local primary navigation maps and make dashboard quick actions a deliberate subset or projection of the canonical registry.
+- [x] 5.3 Verify every visible role navigation href resolves to an actual page and add/maintain the route-resolution test for all roles.
+- [x] 5.4 Finish real collapsed rail behavior with reduced width, stable icon slots, accessible labels/tooltips, active-state styling, and keyboard operation.
+- [x] 5.5 Make tablet default to the rail layout and confirm the main content width and focus order remain usable.
+- [x] 5.6 Harden the mobile drawer as a modal interaction with focus trap, Escape handling, return focus, inert background, scroll containment, and shell skip link.
+- [x] 5.7 Reduce the topbar to compact operational context without hiding connection, sync, branch, or device status needed for a cashier.
 - [ ] 5.8 Add desktop-expanded, desktop-collapsed, tablet-rail, and mobile-drawer visual/a11y regression coverage in light/dark modes where supported.
 
 ## 6. Cashier overview and Lookup redesign

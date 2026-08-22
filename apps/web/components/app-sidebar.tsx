@@ -27,6 +27,7 @@ export function AppSidebar({
   return (
     <aside
       className={`shell-sidebar${isCollapsed ? ' shell-sidebar--collapsed' : ''}`}
+      data-collapsed={isCollapsed ? 'true' : 'false'}
       aria-label="Primary navigation"
     >
       <div className="shell-sidebar-brand-row">
@@ -299,6 +300,12 @@ export function AppSidebar({
         .shell-sidebar--collapsed .shell-nav-link-icon {
           width: 1.1rem;
           height: 1.1rem;
+        }
+
+        .shell-sidebar-toggle:focus-visible,
+        .shell-nav-link:focus-visible {
+          outline: 3px solid var(--sc-color-warning-300);
+          outline-offset: 3px;
         }
 
         @media (max-width: 767px) {

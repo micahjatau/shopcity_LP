@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
+import { shellNavigationByRole } from '../../../components/shell-navigation';
 import {
   ApprovalsPanel,
   FraudFlagsPanel,
@@ -10,48 +11,27 @@ import {
   WorkflowSection,
 } from '../../../components/workflows';
 
-const supervisorRoutes = [
-  ['/supervisor/customers', 'Customers'],
-  ['/supervisor/cards', 'Cards'],
-  ['/supervisor/transactions', 'Transactions'],
-  ['/supervisor/approvals', 'Approvals'],
-  ['/supervisor/fraud', 'Fraud'],
-  ['/supervisor/reports', 'Reports'],
-] as const;
+const supervisorRouteBodyByHref: Record<string, string> = {
+  '/supervisor/customers': 'Search customer detail and cards.',
+  '/supervisor/cards': 'Assign, replace, and update status.',
+  '/supervisor/transactions': 'Open a transaction and inspect it.',
+  '/supervisor/approvals': 'Review pending decisions.',
+  '/supervisor/fraud': 'Investigate flags and evidence.',
+  '/supervisor/reports': 'Compare live queue health and reports.',
+};
 
-const supervisorRouteCards = [
-  {
-    href: '/supervisor/customers',
-    label: 'Customers',
-    body: 'Search customer detail and cards.',
-    featured: true,
-  },
-  {
-    href: '/supervisor/cards',
-    label: 'Cards',
-    body: 'Assign, replace, and update status.',
-  },
-  {
-    href: '/supervisor/transactions',
-    label: 'Transactions',
-    body: 'Open a transaction and inspect it.',
-  },
-  {
-    href: '/supervisor/approvals',
-    label: 'Approvals',
-    body: 'Review pending decisions.',
-  },
-  {
-    href: '/supervisor/fraud',
-    label: 'Fraud',
-    body: 'Investigate flags and evidence.',
-  },
-  {
-    href: '/supervisor/reports',
-    label: 'Reports',
-    body: 'Compare live queue health and reports.',
-  },
-] as const;
+const supervisorRouteCards = shellNavigationByRole.SUPERVISOR.flatMap(
+  (section) => section.items,
+)
+  .filter((item) => item.href !== '/supervisor')
+  .map((item) => ({
+    href: item.href,
+    label: item.label,
+    body:
+      supervisorRouteBodyByHref[item.href] ??
+      'Route-backed supervisor workspace.',
+    featured: item.href === '/supervisor/customers',
+  }));
 
 export default function SupervisorPage() {
   return (

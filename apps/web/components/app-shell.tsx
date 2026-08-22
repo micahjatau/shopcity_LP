@@ -789,6 +789,11 @@ function ShellNavigation({
           border-color: rgba(255, 255, 255, 0.34);
           font-weight: 700;
         }
+
+        .shell-nav-link:focus-visible {
+          outline: 3px solid var(--sc-color-warning-300);
+          outline-offset: 3px;
+        }
       `}</style>
     </nav>
   );
