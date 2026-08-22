@@ -113,6 +113,53 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
   });
 
+  test('covers authoritative Earn and Redeem outcomes', async ({ page }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await expect(
+      page
+        .getByLabel('Lookup and status')
+        .getByText('Ada Shopper', { exact: true }),
+    ).toBeVisible();
+    const purchase = page.getByLabel('Purchase amount');
+    await purchase.fill('10');
+    await purchase.blur();
+    await page.getByRole('button', { name: 'Submit earn' }).click();
+    await expect(
+      page.getByText('Earn confirmed by backend contract.'),
+    ).toBeVisible();
+
+    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await expect(
+      page
+        .getByLabel('Lookup and status')
+        .getByText('Ada Shopper', { exact: true }),
+    ).toBeVisible();
+    const basket = page.getByLabel('Basket amount');
+    const requested = page.getByLabel('Requested redemption');
+    await basket.fill('100');
+    await basket.blur();
+    await requested.fill('10');
+    await requested.blur();
+    await page.getByRole('button', { name: 'Submit redemption' }).click();
+    await expect(
+      page.getByText('Redemption confirmed by backend contract.'),
+    ).toBeVisible();
+  });
+
+  test('gates sync when the session has no backend device association', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/sync`);
+    await page.getByRole('button', { name: 'Submit batch' }).click();
+    await expect(
+      page.getByText(
+        'Authenticated device ID is unavailable. Reconnect the session.',
+      ),
+    ).toBeVisible();
+  });
+
   test('resolves every shell navigation destination', async ({ request }) => {
     for (const role of Object.keys(shellNavigationByRole) as Array<
       keyof typeof sessionByRole
@@ -196,6 +243,38 @@ async function mockShell(page: Page, role: 'CASHIER' | 'SUPERVISOR') {
               },
             ],
           },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/transactions/earn') {
+      return route.fulfill({
+        ...json({
+          success: true,
+          data: { transactionId: 'transaction-earn-1', status: 'CONFIRMED' },
+          meta: meta(pathname),
+        }),
+        status: 201,
+      });
+    }
+
+    if (pathname === '/api/v1/transactions/redeem') {
+      return route.fulfill({
+        ...json({
+          success: true,
+          data: { transactionId: 'transaction-redeem-1', status: 'CONFIRMED' },
+          meta: meta(pathname),
+        }),
+        status: 201,
+      });
+    }
+
+    if (pathname === '/api/v1/offline-sync/earn-batch') {
+      return route.fulfill(
+        json({
+          success: true,
+          data: { records: [] },
           meta: meta(pathname),
         }),
       );
