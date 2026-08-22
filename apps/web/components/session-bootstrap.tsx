@@ -79,11 +79,12 @@ export function invalidatePublicConfigCache(scope?: {
 }) {
   if (!scope) {
     configCache.clear();
+    configRequests.clear();
     return;
   }
-  configCache.delete(
-    configCacheKey(scope.userId ?? null, scope.branchId ?? null),
-  );
+  const key = configCacheKey(scope.userId ?? null, scope.branchId ?? null);
+  configCache.delete(key);
+  configRequests.delete(key);
 }
 
 async function loadPublicConfig(
@@ -224,8 +225,12 @@ export function SessionBootstrapProvider({
 }: Readonly<{ children: React.ReactNode }>) {
   const [state, setState] = useState<SessionBootstrapState>(initialState);
   const reset = useCallback(() => {
+    invalidatePublicConfigCache({
+      userId: state.userId,
+      branchId: state.branchId,
+    });
     setState({ ...initialState });
-  }, []);
+  }, [state.branchId, state.userId]);
 
   useEffect(() => {
     void loadSessionState(setState);

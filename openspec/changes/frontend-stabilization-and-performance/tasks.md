@@ -34,8 +34,8 @@
 - [x] 4.3 Add the provider at the authenticated shell boundary with logout/reset and branch/tenant scope transitions.
 - [x] 4.4 Migrate AppShell, SessionBootstrap, cashier sync, cashier workflow routes, and relevant supervisor/admin surfaces to consume shared context.
 - [x] 4.5 Remove route-level `/auth/me` and `/config/public` requests that only reconstruct fresh shared context; retain explicit refresh only for invalidation or recovery.
-- [ ] 4.6 Implement tenant/branch-safe public-config caching with five-minute freshness, thirty-minute stale-while-revalidate, single-flight revalidation, stale indicator, and mutation invalidation hooks.
-- [ ] 4.7 Add tests for provider loading/auth/error/stale states, branch/tenant cache isolation, logout reset, cache invalidation, and zero duplicate bootstrap requests on warm navigation.
+- [x] 4.6 Implement tenant/branch-safe public-config caching with five-minute freshness, thirty-minute stale-while-revalidate, single-flight revalidation, stale indicator, and mutation invalidation hooks.
+- [x] 4.7 Add tests for provider loading/auth/error/stale states, branch/tenant cache isolation, logout reset, cache invalidation, and zero duplicate bootstrap requests on warm navigation.
 
 ## 5. Canonical shell and navigation cleanup
 

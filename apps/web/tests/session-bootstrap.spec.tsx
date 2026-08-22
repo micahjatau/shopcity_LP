@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
+  invalidatePublicConfigCache,
   SessionBootstrapProvider,
   useSessionBootstrapState,
 } from '../components/session-bootstrap';
@@ -29,7 +30,12 @@ function Probe() {
 }
 
 describe('SessionBootstrapProvider', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
+    invalidatePublicConfigCache();
     mockBootstrapSession.mockReset();
     mockGetPublicConfig.mockReset();
     mockBootstrapSession.mockResolvedValue({
@@ -66,6 +72,128 @@ describe('SessionBootstrapProvider', () => {
     });
     expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes unavailable policy state when public config fails', async () => {
+    mockGetPublicConfig.mockRejectedValueOnce(new Error('config unavailable'));
+
+    render(
+      <SessionBootstrapProvider>
+        <Probe />
+      </SessionBootstrapProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-status')).toHaveTextContent('ready');
+      expect(screen.getByTestId('config-status')).toHaveTextContent(
+        'unavailable',
+      );
+    });
+  });
+
+  it('serves stale context while revalidation is pending', async () => {
+    const first = render(
+      <SessionBootstrapProvider>
+        <Probe />
+      </SessionBootstrapProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('tenant')).toHaveTextContent('Demo'),
+    );
+    first.unmount();
+
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 5 * 60 * 1000 + 1);
+    mockGetPublicConfig.mockImplementationOnce(
+      () => new Promise(() => undefined),
+    );
+    render(
+      <SessionBootstrapProvider>
+        <Probe />
+      </SessionBootstrapProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('config-status')).toHaveTextContent('stale');
+    });
+    jest.restoreAllMocks();
+  });
+
+  it('isolates config cache entries and supports scoped invalidation', async () => {
+    const first = render(
+      <SessionBootstrapProvider>
+        <Probe />
+      </SessionBootstrapProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('tenant')).toHaveTextContent('Demo'),
+    );
+    first.unmount();
+
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'different-user',
+        username: 'other-cashier',
+        role: 'CASHIER',
+        branchId: 'branch-1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z', deviceId: 'device-2' },
+    });
+    mockGetPublicConfig.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          tenant: { id: 'tenant-2', name: 'Other Tenant' },
+          branch: { id: 'branch-1' },
+          policies: {},
+        },
+      },
+    });
+    const second = render(
+      <SessionBootstrapProvider>
+        <Probe />
+      </SessionBootstrapProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('tenant')).toHaveTextContent('Other Tenant'),
+    );
+    expect(mockGetPublicConfig).toHaveBeenCalledTimes(2);
+    second.unmount();
+
+    invalidatePublicConfigCache({
+      userId: 'different-user',
+      branchId: 'branch-1',
+    });
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'different-user',
+        username: 'other-cashier',
+        role: 'CASHIER',
+        branchId: 'branch-1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z', deviceId: 'device-2' },
+    });
+    mockGetPublicConfig.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          tenant: { id: 'tenant-2', name: 'Other Tenant Refreshed' },
+          branch: { id: 'branch-1' },
+          policies: {},
+        },
+      },
+    });
+    render(
+      <SessionBootstrapProvider>
+        <Probe />
+      </SessionBootstrapProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('tenant')).toHaveTextContent(
+        'Other Tenant Refreshed',
+      ),
+    );
+    expect(mockGetPublicConfig).toHaveBeenCalledTimes(3);
   });
 
   it('resets shared state on logout', async () => {
