@@ -47,7 +47,6 @@ export function LoginForm() {
 
       setStatus('success');
       router.replace(routeByRole[role] ?? '/cashier');
-      router.refresh();
     } catch {
       setStatus('error');
       setMessage('Sign in failed. The session service is unavailable.');

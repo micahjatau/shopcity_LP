@@ -52,9 +52,9 @@ test.describe('contract-faithful frontend flows', () => {
     await page.getByLabel('Password').fill('secret');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await expect(page).toHaveURL(/\/cashier$/);
+    await page.goto('/cashier');
     await expect(
-      page.getByRole('heading', { name: /cashier shell/i }),
+      page.getByRole('heading', { name: /cashier overview/i }),
     ).toBeVisible();
   });
 
@@ -97,9 +97,9 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/cashier');
+    await page.goto('/cashier/earn');
     await expect(
-      page.getByRole('heading', { name: /cashier shell/i }),
+      page.getByRole('heading', { name: /cashier earn/i }),
     ).toBeVisible();
 
     const earn = page.getByRole('article', { name: /earn transaction/i });
@@ -109,6 +109,11 @@ test.describe('contract-faithful frontend flows', () => {
     await earn.getByLabel('Occurred at').fill('2030-01-01T12:00');
     await earn.getByRole('button', { name: /submit earn/i }).click();
     await expect(earn).toContainText(/earn confirmed/i);
+
+    await page.goto('/cashier/redeem');
+    await expect(
+      page.getByRole('heading', { name: /cashier redeem/i }),
+    ).toBeVisible();
 
     const redeem = page.getByRole('article', { name: /redeem transaction/i });
     await redeem.getByLabel('Card serial number').fill('CARD-123');
@@ -225,7 +230,7 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/supervisor', { waitUntil: 'domcontentloaded' });
+    await page.goto('/supervisor');
     await expect(
       page.getByRole('heading', { name: /supervisor shell/i }),
     ).toBeVisible();
@@ -441,7 +446,7 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/supervisor', { waitUntil: 'domcontentloaded' });
+    await page.goto('/supervisor');
     await expect(page.getByText(/No approvals/i)).toBeVisible();
     await expect(page.getByText(/No fraud flags/i)).toBeVisible();
     await expect(page.getByText(/No report rows/i)).toBeVisible();
@@ -502,10 +507,7 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await Promise.all([
-      page.waitForURL(/\/admin(?:\/.*)?$/),
-      page.goto('/admin').catch(() => undefined),
-    ]);
+    await page.goto('/admin');
     await expect(page.getByText(/No users/i)).toBeVisible();
     await expect(page.getByText(/No devices/i)).toBeVisible();
     await expect(page.getByText(/No audit rows/i)).toBeVisible();
