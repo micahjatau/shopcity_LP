@@ -23,3 +23,5 @@ The warm-navigation JavaScript payload is above the 150 KB target on every measu
 ## Post-boundary measurement
 
 After moving the cashier overview's static header and action composition into the server page and isolating session/offline context in `CashierOverviewContext`, `/cashier` measured **150,614 encoded JavaScript bytes**, down 4,976 bytes (3.2%). API count remained one. The other measured routes were unchanged, confirming the change was scoped to the overview route. Full output is recorded in `tmp/performance/frontend-stabilization-phase8-post-boundary.json`.
+
+The cashier transaction route now imports `createApiRequest` from the narrow request module rather than the `lib/api` barrel, avoiding the barrel's generated-client re-export in that megascreen boundary. This did not change request counts or the route's measured transfer after tree-shaking, but removes the unnecessary dependency edge.

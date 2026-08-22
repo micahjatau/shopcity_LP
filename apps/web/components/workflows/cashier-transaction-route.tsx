@@ -18,7 +18,7 @@ import {
   customersControllerGetCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../../lib/api/generated-client';
-import { createApiRequest } from '../../lib/api';
+import { createApiRequest } from '../../lib/api/request';
 
 type CashierLookupRecord = {
   customer?: { id?: string; fullName?: string };
