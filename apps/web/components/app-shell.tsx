@@ -48,6 +48,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileNavigationWasOpenRef = useRef(false);
 
   useEffect(() => {
     let ignore = false;
@@ -219,9 +220,17 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, [mobileNavigationOpen]);
 
+  useEffect(() => {
+    const wasOpen = mobileNavigationWasOpenRef.current;
+    mobileNavigationWasOpenRef.current = mobileNavigationOpen;
+
+    if (wasOpen && !mobileNavigationOpen) {
+      mobileMenuButtonRef.current?.focus();
+    }
+  }, [mobileNavigationOpen]);
+
   const closeMobileNavigation = useCallback(() => {
     setMobileNavigationOpen(false);
-    mobileMenuButtonRef.current?.focus();
   }, []);
 
   useEffect(() => {
