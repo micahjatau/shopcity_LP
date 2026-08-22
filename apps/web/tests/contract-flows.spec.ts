@@ -1,6 +1,10 @@
+
 import { expect, test } from '@playwright/test';
 
-function sessionPayload(role: 'CASHIER' | 'SUPERVISOR' | 'ADMIN' = 'CASHIER') {
+function sessionPayload(
+  role: 'CASHIER' | 'SUPERVISOR' | 'ADMIN' = 'CASHIER',
+  deviceId: string | null = null,
+) {
   return {
     success: true,
     data: {
@@ -12,7 +16,7 @@ function sessionPayload(role: 'CASHIER' | 'SUPERVISOR' | 'ADMIN' = 'CASHIER') {
       },
       session: {
         expiresAt: '2030-01-01T00:00:00.000Z',
-        deviceId: null,
+        deviceId,
       },
     },
     meta: {
@@ -31,18 +35,23 @@ test.describe('contract-faithful frontend flows', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(sessionPayload('CASHIER')),
+        body: JSON.stringify(sessionPayload('CASHIER', 'cashier-device-1')),
       });
     });
 
     await page.route('**/api/v1/auth/login', async (route) => {
       const body = route.request().postDataJSON() as { username: string };
+      const headers = route.request().headers();
+      expect(body.username).toContain('@');
+      expect(headers['x-device-id']).toBe('cashier-device-1');
+      expect(headers['x-device-attestation']).toMatch(
+        /^\d+\.[^.]+\.[A-Za-z0-9_-]+$/,
+      );
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(sessionPayload('CASHIER')),
+        body: JSON.stringify(sessionPayload('CASHIER', 'cashier-device-1')),
       });
-      expect(body.username).toContain('@');
     });
 
     await page.goto('/login');
@@ -50,12 +59,17 @@ test.describe('contract-faithful frontend flows', () => {
       .getByLabel('Tenant / email / username')
       .fill('cashier@shopcity.local');
     await page.getByLabel('Password').fill('secret');
+    await page.getByLabel('Device ID').fill('cashier-device-1');
+    await page
+      .getByLabel('Device attestation secret')
+      .fill('dev-secret-12345678901234567890');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await page.goto('/cashier');
+    await expect(page).toHaveURL(/\/cashier$/);
     await expect(
       page.getByRole('heading', { name: /cashier overview/i }),
     ).toBeVisible();
+    await expect(page.getByText(/device cashier-device-1/i)).toBeVisible();
   });
 
   test('submits earn and redeem through generated client contracts', async ({
@@ -65,7 +79,7 @@ test.describe('contract-faithful frontend flows', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(sessionPayload('CASHIER')),
+        body: JSON.stringify(sessionPayload('CASHIER', 'cashier-device-1')),
       });
     });
 
@@ -517,3 +531,5 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByText(/users unavailable \(403\)/i)).toBeVisible();
   });
 });
+
+

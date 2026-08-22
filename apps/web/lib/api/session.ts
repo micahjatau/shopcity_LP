@@ -1,13 +1,13 @@
 import {
-  authControllerLoginV1,
   authControllerLogoutV1,
   authControllerMeV1,
   authControllerRefreshV1,
+  type AuthControllerLoginV1200,
   type AuthControllerMeV1200Data,
   type LoginDto,
 } from './generated-client';
 import { classifyApiError } from './errors';
-import { createApiRequest } from './request';
+import { createApiRequest, type ApiRequestOptions } from './request';
 
 let refreshPromise: Promise<AuthControllerMeV1200Data | null> | null = null;
 
@@ -28,8 +28,28 @@ export async function getCurrentSession(): Promise<AuthControllerMeV1200Data> {
   });
 }
 
-export async function loginWithCredentials(payload: LoginDto) {
-  return authControllerLoginV1(payload, createApiRequest());
+export async function loginWithCredentials(
+  payload: LoginDto,
+  options: ApiRequestOptions = {},
+): Promise<{ data: AuthControllerLoginV1200; status: number; headers: Headers }> {
+  const request = createApiRequest(options);
+  const response = await fetch('/api/v1/auth/login', {
+    ...request,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...Object.fromEntries(new Headers(request.headers).entries()),
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : {};
+
+  return {
+    data,
+    status: response.status,
+    headers: response.headers,
+  };
 }
 
 export async function logoutSession() {

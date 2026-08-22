@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { loginWithCredentials } from '../../lib/api';
 import { Button, Input } from '../ui';
 
@@ -22,14 +22,38 @@ export function LoginForm() {
     'idle' | 'submitting' | 'success' | 'error'
   >('idle');
   const [message, setMessage] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState('');
+  const [deviceAttestationSecret, setDeviceAttestationSecret] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setDeviceId(window.localStorage.getItem('shopcity:device-id') ?? '');
+    setDeviceAttestationSecret(
+      window.localStorage.getItem('shopcity:device-attestation-secret') ?? '',
+    );
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('shopcity:device-id', deviceId);
+    window.localStorage.setItem(
+      'shopcity:device-attestation-secret',
+      deviceAttestationSecret,
+    );
+  }, [deviceAttestationSecret, deviceId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus('submitting');
     setMessage(null);
 
+    const headers = await buildDeviceHeaders(deviceId, deviceAttestationSecret);
+
     try {
-      const response = await loginWithCredentials({ username, password });
+      const response = await loginWithCredentials(
+        { username, password },
+        { headers },
+      );
       if (response.status !== 200) {
         setStatus('error');
         setMessage('Sign in failed. Check your credentials and try again.');
@@ -81,6 +105,28 @@ export function LoginForm() {
           autoComplete="current-password"
         />
       </div>
+      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+        <label htmlFor="device-id">Device ID</label>
+        <Input
+          id="device-id"
+          aria-label="Device ID"
+          placeholder="Optional cashier device ID"
+          value={deviceId}
+          onChange={(event) => setDeviceId(event.target.value)}
+          autoComplete="off"
+        />
+      </div>
+      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+        <label htmlFor="device-attestation-secret">Device attestation secret</label>
+        <Input
+          id="device-attestation-secret"
+          aria-label="Device attestation secret"
+          placeholder="Paste the device secret for machine-bound sign in"
+          value={deviceAttestationSecret}
+          onChange={(event) => setDeviceAttestationSecret(event.target.value)}
+          autoComplete="off"
+        />
+      </div>
       <Button type="submit" disabled={status === 'submitting'}>
         {status === 'submitting' ? 'Signing in…' : 'Sign in'}
       </Button>
@@ -99,4 +145,46 @@ export function LoginForm() {
       </p>
     </form>
   );
+}
+
+async function buildDeviceHeaders(
+  deviceId: string,
+  attestationSecret: string,
+): Promise<Record<string, string>> {
+  const trimmedDeviceId = deviceId.trim();
+  const trimmedSecret = attestationSecret.trim();
+
+  if (!trimmedDeviceId || !trimmedSecret) {
+    return {};
+  }
+
+  const timestamp = Date.now();
+  const nonce = globalThis.crypto.randomUUID();
+  const key = await globalThis.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(trimmedSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await globalThis.crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${trimmedDeviceId}.${timestamp}.${nonce}`),
+  );
+  const signatureBase64Url = arrayBufferToBase64Url(signature);
+
+  return {
+    'x-device-id': trimmedDeviceId,
+    'x-device-attestation': `${timestamp}.${nonce}.${signatureBase64Url}`,
+  };
+}
+
+function arrayBufferToBase64Url(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
