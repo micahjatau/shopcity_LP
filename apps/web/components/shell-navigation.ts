@@ -1,6 +1,4 @@
-import type {
-  ShellNavigationIconName,
-} from './shell-navigation-icon';
+import type { ShellNavigationIconName } from './shell-navigation-icon';
 import type { SessionBootstrapStatus, SessionRole } from './session-bootstrap';
 
 export type HumanRole = Exclude<SessionRole, 'SYSTEM'>;
@@ -48,7 +46,12 @@ export const shellNavigationByRole: Record<
           href: '/cashier/lookup',
           icon: 'search',
         },
-        { id: 'cashier-earn', label: 'Earn', href: '/cashier/earn', icon: 'spark' },
+        {
+          id: 'cashier-earn',
+          label: 'Earn',
+          href: '/cashier/earn',
+          icon: 'spark',
+        },
         {
           id: 'cashier-redeem',
           label: 'Redeem',
@@ -112,7 +115,12 @@ export const shellNavigationByRole: Record<
           href: '/supervisor/approvals',
           icon: 'check',
         },
-        { id: 'supervisor-fraud', label: 'Fraud', href: '/supervisor/fraud', icon: 'shield' },
+        {
+          id: 'supervisor-fraud',
+          label: 'Fraud',
+          href: '/supervisor/fraud',
+          icon: 'shield',
+        },
         {
           id: 'supervisor-reports',
           label: 'Reports',
@@ -158,15 +166,30 @@ export const shellNavigationByRole: Record<
           href: '/admin/approvals',
           icon: 'check',
         },
-        { id: 'admin-fraud', label: 'Fraud', href: '/admin/fraud', icon: 'shield' },
+        {
+          id: 'admin-fraud',
+          label: 'Fraud',
+          href: '/admin/fraud',
+          icon: 'shield',
+        },
       ],
     },
     {
       id: 'admin-loyalty',
       label: 'Loyalty',
       items: [
-        { id: 'admin-customers', label: 'Customers', href: '/admin/customers', icon: 'users' },
-        { id: 'admin-cards', label: 'Cards', href: '/admin/cards', icon: 'credit-card' },
+        {
+          id: 'admin-customers',
+          label: 'Customers',
+          href: '/admin/customers',
+          icon: 'users',
+        },
+        {
+          id: 'admin-cards',
+          label: 'Cards',
+          href: '/admin/cards',
+          icon: 'credit-card',
+        },
         {
           id: 'admin-adjustments',
           label: 'Adjustments',
@@ -179,17 +202,42 @@ export const shellNavigationByRole: Record<
       id: 'admin-insights',
       label: 'Insights',
       items: [
-        { id: 'admin-reports', label: 'Reports', href: '/admin/reports', icon: 'chart' },
-        { id: 'admin-audit', label: 'Audit', href: '/admin/audit', icon: 'clipboard' },
+        {
+          id: 'admin-reports',
+          label: 'Reports',
+          href: '/admin/reports',
+          icon: 'chart',
+        },
+        {
+          id: 'admin-audit',
+          label: 'Audit',
+          href: '/admin/audit',
+          icon: 'clipboard',
+        },
       ],
     },
     {
       id: 'admin-access',
       label: 'Access & configuration',
       items: [
-        { id: 'admin-users', label: 'Users', href: '/admin/users', icon: 'user-settings' },
-        { id: 'admin-devices', label: 'Devices', href: '/admin/devices', icon: 'device' },
-        { id: 'admin-branches', label: 'Branches', href: '/admin/branches', icon: 'branch' },
+        {
+          id: 'admin-users',
+          label: 'Users',
+          href: '/admin/users',
+          icon: 'user-settings',
+        },
+        {
+          id: 'admin-devices',
+          label: 'Devices',
+          href: '/admin/devices',
+          icon: 'device',
+        },
+        {
+          id: 'admin-branches',
+          label: 'Branches',
+          href: '/admin/branches',
+          icon: 'branch',
+        },
       ],
     },
   ],

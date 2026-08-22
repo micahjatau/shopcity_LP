@@ -19,13 +19,7 @@ import {
   type UpdateCustomerStatusDtoStatus,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import {
-  Alert,
-  Button,
-  Input,
-  RadioGroup,
-  Table,
-} from '../../components/ui';
+import { Alert, Button, Input, RadioGroup, Table } from '../../components/ui';
 import { Money, StatusBadge } from '../../components/shopcity';
 
 type CustomerRecord = Record<string, unknown> & {

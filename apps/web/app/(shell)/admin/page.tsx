@@ -25,8 +25,8 @@ const adminRouteBodyByHref: Record<string, string> = {
   '/admin/branches': 'Manage branch policy and scope.',
 };
 
-const adminRouteCards = shellNavigationByRole.ADMIN.flatMap((section) =>
-  section.items,
+const adminRouteCards = shellNavigationByRole.ADMIN.flatMap(
+  (section) => section.items,
 )
   .filter((item) => item.href !== '/admin')
   .map((item) => ({
@@ -36,8 +36,8 @@ const adminRouteCards = shellNavigationByRole.ADMIN.flatMap((section) =>
     featured: item.href === '/admin/operations',
   }));
 
-const adminRoutes = shellNavigationByRole.ADMIN.flatMap((section) =>
-  section.items,
+const adminRoutes = shellNavigationByRole.ADMIN.flatMap(
+  (section) => section.items,
 );
 
 export default function AdminPage() {

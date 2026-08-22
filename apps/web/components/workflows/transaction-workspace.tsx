@@ -9,13 +9,7 @@ import {
   type LoyaltyControllerGetTransactionV1200Data,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import {
-  Alert,
-  Button,
-  Input,
-  Textarea,
-  Table,
-} from '../../components/ui';
+import { Alert, Button, Input, Textarea, Table } from '../../components/ui';
 import { Money, StatusBadge } from '../../components/shopcity';
 
 const defaultRelatedRoutes = [
@@ -40,7 +34,9 @@ type TransactionRecord = LoyaltyControllerGetTransactionV1200Data & {
 
 export function TransactionWorkspace({
   relatedRoutes = defaultRelatedRoutes,
-}: Readonly<{ relatedRoutes?: ReadonlyArray<readonly [string, string]> }> = {}) {
+}: Readonly<{
+  relatedRoutes?: ReadonlyArray<readonly [string, string]>;
+}> = {}) {
   const [transactionId, setTransactionId] = useState('');
   const [reason, setReason] = useState('');
   const [reverseConfirmation, setReverseConfirmation] = useState('');

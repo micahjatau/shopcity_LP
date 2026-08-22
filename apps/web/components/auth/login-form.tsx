@@ -117,7 +117,9 @@ export function LoginForm() {
         />
       </div>
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <label htmlFor="device-attestation-secret">Device attestation secret</label>
+        <label htmlFor="device-attestation-secret">
+          Device attestation secret
+        </label>
         <Input
           id="device-attestation-secret"
           aria-label="Device attestation secret"
@@ -186,5 +188,8 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer) {
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  return btoa(binary)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 }

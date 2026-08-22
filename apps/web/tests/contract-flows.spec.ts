@@ -1,4 +1,3 @@
-
 import { expect, test } from '@playwright/test';
 
 function sessionPayload(
@@ -531,5 +530,3 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByText(/users unavailable \(403\)/i)).toBeVisible();
   });
 });
-
-

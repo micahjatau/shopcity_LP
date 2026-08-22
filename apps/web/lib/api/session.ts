@@ -31,7 +31,11 @@ export async function getCurrentSession(): Promise<AuthControllerMeV1200Data> {
 export async function loginWithCredentials(
   payload: LoginDto,
   options: ApiRequestOptions = {},
-): Promise<{ data: AuthControllerLoginV1200; status: number; headers: Headers }> {
+): Promise<{
+  data: AuthControllerLoginV1200;
+  status: number;
+  headers: Headers;
+}> {
   const request = createApiRequest(options);
   const response = await fetch('/api/v1/auth/login', {
     ...request,

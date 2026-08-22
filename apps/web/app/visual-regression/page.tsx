@@ -405,7 +405,8 @@ export default function VisualRegressionPage() {
             <p className="visual-eyebrow">Login</p>
             <h3 style={{ margin: 0 }}>Bootstrap sign in</h3>
             <p style={{ margin: 0 }}>
-              Authentication stays local with role-gated redirects after sign in.
+              Authentication stays local with role-gated redirects after sign
+              in.
             </p>
             <div className="visual-actions">
               <Button variant="secondary">Admin</Button>
@@ -531,7 +532,9 @@ function ShellStatePreview({
             padding: 'var(--sc-spacing-4)',
           }}
         >
-          <p style={{ margin: 0, fontSize: 'var(--sc-font-size-sm)' }}>{route}</p>
+          <p style={{ margin: 0, fontSize: 'var(--sc-font-size-sm)' }}>
+            {route}
+          </p>
           <h3 style={{ margin: 0 }}>{label}</h3>
           <p
             style={{

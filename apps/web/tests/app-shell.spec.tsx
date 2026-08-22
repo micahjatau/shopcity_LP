@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { AppShell } from '../components/app-shell';
 
 const mockBootstrapSession = jest.fn();
@@ -96,16 +102,16 @@ describe('AppShell', () => {
       container.querySelector('.shell-context-line--secondary'),
     ).toHaveTextContent('Workspace · Overview');
     expect(screen.getByText('Device device-1')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /skip to content/i })).toHaveAttribute(
-      'href',
-      '#shell-main-content',
-    );
+    expect(
+      screen.getByRole('link', { name: /skip to content/i }),
+    ).toHaveAttribute('href', '#shell-main-content');
     expect(screen.getByRole('link', { name: /lookup/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /earn/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /redeem/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: /sync queue/i }),
-    ).toHaveAttribute('title', '2 offline transactions waiting to sync');
+    expect(screen.getByRole('link', { name: /sync queue/i })).toHaveAttribute(
+      'title',
+      '2 offline transactions waiting to sync',
+    );
   });
 
   it('persists sidebar collapse state across reloads in the session', async () => {
