@@ -90,6 +90,8 @@ describe('AppShell', () => {
       expect(screen.getByText(/session ready/i)).toBeInTheDocument();
       expect(document.title).toMatch(/workspace · overview · shopcity/i);
     });
+    expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
+    expect(mockGetPublicConfig).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Protected content')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /overview/i })).toHaveAttribute(
       'aria-current',

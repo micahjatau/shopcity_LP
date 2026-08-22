@@ -18,10 +18,7 @@ import {
   customersControllerGetCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../../lib/api/generated-client';
-import {
-  configurationControllerGetPublicConfigV1,
-  createApiRequest,
-} from '../../lib/api';
+import { createApiRequest } from '../../lib/api';
 
 type CashierLookupRecord = {
   customer?: { id?: string; fullName?: string };
@@ -101,11 +98,13 @@ export function CashierWorkflowRoute({
   const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(
     null,
   );
-  const [policyConfig, setPolicyConfig] = useState<CashierPolicyConfig | null>(
-    null,
-  );
-  const [policyMessage, setPolicyMessage] = useState('Loading branch policy…');
-  const { userId, deviceId } = useSessionBootstrapState();
+  const {
+    userId,
+    deviceId,
+    publicConfig,
+    configMessage: policyMessage,
+  } = useSessionBootstrapState();
+  const policyConfig = publicConfig as CashierPolicyConfig | null;
 
   const customerId = useMemo(
     () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
@@ -114,29 +113,6 @@ export function CashierWorkflowRoute({
 
   useEffect(() => {
     let ignore = false;
-
-    async function loadPolicy() {
-      try {
-        const response =
-          await configurationControllerGetPublicConfigV1(createApiRequest());
-        if (!ignore && response.status === 200) {
-          setPolicyConfig(response.data.data);
-          setPolicyMessage(
-            'Branch policy loaded from the public config endpoint.',
-          );
-          return;
-        }
-        if (!ignore) {
-          setPolicyConfig(null);
-          setPolicyMessage(`Branch policy unavailable (${response.status}).`);
-        }
-      } catch {
-        if (!ignore) {
-          setPolicyConfig(null);
-          setPolicyMessage('Branch policy unavailable.');
-        }
-      }
-    }
 
     async function loadCustomer() {
       if (!customerId) {
@@ -171,7 +147,6 @@ export function CashierWorkflowRoute({
       }
     }
 
-    void loadPolicy();
     void loadCustomer();
 
     return () => {

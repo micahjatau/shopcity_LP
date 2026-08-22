@@ -8,7 +8,10 @@ import { BrowserStateBootstrap } from './browser-state-bootstrap';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
 import { ShellNavigationIcon } from './shell-navigation-icon';
-import { useSessionBootstrapState } from './session-bootstrap';
+import {
+  SessionBootstrapProvider,
+  useSessionBootstrapState,
+} from './session-bootstrap';
 import { OfflineIndicator } from './offline';
 import { Badge } from './ui';
 import {
@@ -23,21 +26,28 @@ import {
   getShellWorkspaceLabel,
   matchShellRoute,
 } from './shell-navigation';
-import {
-  logoutSession,
-  configurationControllerGetPublicConfigV1,
-  type ConfigurationControllerGetPublicConfigV1200Data,
-} from '../lib/api';
-import { createApiRequest } from '../lib/api/request';
-
-type PublicConfig = ConfigurationControllerGetPublicConfigV1200Data;
+import { logoutSession } from '../lib/api';
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <SessionBootstrapProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </SessionBootstrapProvider>
+  );
+}
+
+function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const { status, role, sessionLabel, deviceId } = useSessionBootstrapState();
-  const [publicConfig, setPublicConfig] = useState<PublicConfig | null>(null);
-  const [configMessage, setConfigMessage] = useState('Loading public context…');
+  const {
+    status,
+    role,
+    sessionLabel,
+    deviceId,
+    publicConfig,
+    configMessage,
+    reset: resetSessionContext,
+  } = useSessionBootstrapState();
   const [syncQueueCount, setSyncQueueCount] = useState<number | null>(null);
   const [syncQueueError, setSyncQueueError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -47,39 +57,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileNavigationWasOpenRef = useRef(false);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadPublicConfig() {
-      try {
-        const response =
-          await configurationControllerGetPublicConfigV1(createApiRequest());
-
-        if (ignore) return;
-
-        if (response.status === 200) {
-          setPublicConfig(response.data.data);
-          setConfigMessage('Public context loaded.');
-          return;
-        }
-
-        setPublicConfig(null);
-        setConfigMessage(`Public context unavailable (${response.status}).`);
-      } catch {
-        if (!ignore) {
-          setPublicConfig(null);
-          setConfigMessage('Public context unavailable.');
-        }
-      }
-    }
-
-    void loadPublicConfig();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -302,6 +279,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     try {
       await logoutSession();
     } finally {
+      resetSessionContext();
       router.replace('/login');
       router.refresh();
     }

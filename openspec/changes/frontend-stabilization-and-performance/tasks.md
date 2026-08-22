@@ -29,11 +29,11 @@
 
 ## 4. Shared session, branch, device, and policy context
 
-- [ ] 4.1 Run GitNexus impact analysis for `useSessionBootstrapState`, `bootstrapSession`, `AppShell`, cashier routes, and any policy/config consumers before introducing the provider.
-- [ ] 4.2 Define typed shared context states for session, user, role, branch, device, tenant, policy, freshness, stale-while-revalidate, and unavailable outcomes.
-- [ ] 4.3 Add the provider at the authenticated shell boundary with logout/reset and branch/tenant scope transitions.
-- [ ] 4.4 Migrate AppShell, SessionBootstrap, cashier sync, cashier workflow routes, and relevant supervisor/admin surfaces to consume shared context.
-- [ ] 4.5 Remove route-level `/auth/me` and `/config/public` requests that only reconstruct fresh shared context; retain explicit refresh only for invalidation or recovery.
+- [x] 4.1 Run GitNexus impact analysis for `useSessionBootstrapState`, `bootstrapSession`, `AppShell`, cashier routes, and any policy/config consumers before introducing the provider.
+- [x] 4.2 Define typed shared context states for session, user, role, branch, device, tenant, policy, freshness, stale-while-revalidate, and unavailable outcomes.
+- [x] 4.3 Add the provider at the authenticated shell boundary with logout/reset and branch/tenant scope transitions.
+- [x] 4.4 Migrate AppShell, SessionBootstrap, cashier sync, cashier workflow routes, and relevant supervisor/admin surfaces to consume shared context.
+- [x] 4.5 Remove route-level `/auth/me` and `/config/public` requests that only reconstruct fresh shared context; retain explicit refresh only for invalidation or recovery.
 - [ ] 4.6 Implement tenant/branch-safe public-config caching with five-minute freshness, thirty-minute stale-while-revalidate, single-flight revalidation, stale indicator, and mutation invalidation hooks.
 - [ ] 4.7 Add tests for provider loading/auth/error/stale states, branch/tenant cache isolation, logout reset, cache invalidation, and zero duplicate bootstrap requests on warm navigation.
 
