@@ -28,6 +28,6 @@
 ## 5. Quality and evidence
 
 - [x] 5.1 Restore the regression test that proves Sign in routes correctly.
-- [ ] 5.2 Add a route-resolution test that iterates every sidebar href and proves it resolves.
-- [ ] 5.3 Add visual-regression baselines for expanded, collapsed, tablet, and mobile shell states.
+- [x] 5.2 Add a route-resolution test that iterates every sidebar href and proves it resolves.
+- [x] 5.3 Add visual-regression baselines for expanded, collapsed, tablet, and mobile shell states.
 - [ ] 5.4 Reconcile OpenSpec tracking and deployment evidence with the actual branch state.
