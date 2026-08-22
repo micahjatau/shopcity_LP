@@ -279,7 +279,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           sections={navigationSections}
           pathname={pathname}
           workspaceLabel={workspaceLabel}
-          branchLabel={context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'}
+          branchLabel={
+            context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'
+          }
           branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={handleToggleSidebar}
@@ -528,7 +530,6 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             grid-template-columns: minmax(0, 1fr);
             padding-top: var(--sc-spacing-4);
           }
-
         }
 
         @media (min-width: 768px) and (max-width: 1199px) {

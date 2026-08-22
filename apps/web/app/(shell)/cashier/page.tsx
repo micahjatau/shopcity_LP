@@ -207,7 +207,9 @@ export default function CashierPage() {
       if (response.status === 200) {
         const record = response.data.data;
         setLookupRecord(record);
-        setLookupMessage('Lookup resolved. Earn and redeem can now use this context.');
+        setLookupMessage(
+          'Lookup resolved. Earn and redeem can now use this context.',
+        );
         return;
       }
 
@@ -249,7 +251,9 @@ export default function CashierPage() {
   const branchContext = policyConfig?.branch ?? null;
   const tenantContext = policyConfig?.tenant ?? null;
   const selectedCardSerial =
-    lookupRecord?.serialNumber ?? lookupRecord?.cardSerialNumber ?? lookupValue.trim();
+    lookupRecord?.serialNumber ??
+    lookupRecord?.cardSerialNumber ??
+    lookupValue.trim();
 
   return (
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
@@ -259,7 +263,8 @@ export default function CashierPage() {
         <p
           style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
         >
-          Fast lookup, dedicated workflow launch, customer detail and sync entry points.
+          Fast lookup, dedicated workflow launch, customer detail and sync entry
+          points.
         </p>
         <div style={routeRow}>
           <ConnectionStatus />
@@ -399,10 +404,14 @@ export default function CashierPage() {
                     View customer
                   </Link>
                 ) : null}
-                <Link href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
+                <Link
+                  href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
+                >
                   Open Earn
                 </Link>
-                <Link href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
+                <Link
+                  href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
+                >
                   Open Redeem
                 </Link>
               </div>
@@ -418,10 +427,14 @@ export default function CashierPage() {
           </p>
           <div style={tagRow}>
             <Link href="/cashier/lookup">Open lookup</Link>
-            <Link href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
+            <Link
+              href={`/cashier/earn${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
+            >
               Go to Earn
             </Link>
-            <Link href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}>
+            <Link
+              href={`/cashier/redeem${selectedCardSerial ? `?card=${encodeURIComponent(selectedCardSerial)}` : ''}`}
+            >
               Go to Redeem
             </Link>
             <Link href="/cashier/sync">Open sync queue</Link>
@@ -472,7 +485,9 @@ export default function CashierPage() {
                     );
                     return (
                       <div key={ledgerKey} style={statRow}>
-                        <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
+                        <span>
+                          {item.type ?? item.transactionType ?? 'Entry'}
+                        </span>
                         <span>
                           {item.amountKobo ? (
                             <Money amountKobo={item.amountKobo} />
@@ -500,7 +515,8 @@ export default function CashierPage() {
         <article style={cardStyle} aria-label="Shift snapshot">
           <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
           <p style={muted}>
-            Offline queue state is shown in the shell header and on the sync route.
+            Offline queue state is shown in the shell header and on the sync
+            route.
           </p>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             <ConnectionStatus />

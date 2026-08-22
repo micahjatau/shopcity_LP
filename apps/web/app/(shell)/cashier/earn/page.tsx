@@ -12,7 +12,7 @@ export default async function CashierEarnPage({
   const params = (await searchParams) ?? {};
   const initialCardSerial = Array.isArray(params.card)
     ? params.card[0]
-    : params.card ?? null;
+    : (params.card ?? null);
 
   return (
     <CashierWorkflowRoute

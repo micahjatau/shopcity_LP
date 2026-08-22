@@ -241,7 +241,9 @@ export default function CashierSyncPage() {
           Review local offline earn records, then submit a batch for
           reconciliation.
         </p>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Use the shell navigation for cashier and customer routes.
         </p>
       </header>

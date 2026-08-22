@@ -410,7 +410,9 @@ export default function CashierCustomersPage() {
             ? 'Search, inspect, and manage customer and card state.'
             : 'Search, inspect, and trace customer balance, history, and card state.'}
         </p>
-        <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
+        <p
+          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
+        >
           Use the shell navigation for cashier, sync, and supervisor routes.
         </p>
       </header>

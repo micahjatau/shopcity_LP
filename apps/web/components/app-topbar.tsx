@@ -76,11 +76,7 @@ export function AppTopbar({
           <ConnectionStatus />
           <SyncQueueIndicator />
           {showProtectedContent ? (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="shell-signout"
-            >
+            <button type="button" onClick={onLogout} className="shell-signout">
               Sign out
             </button>
           ) : null}

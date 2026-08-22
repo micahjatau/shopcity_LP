@@ -144,7 +144,9 @@ describe('AppShell', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
-    expect(sessionStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe('true');
+    expect(sessionStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
+      'true',
+    );
     expect(
       screen.getByRole('button', { name: /expand sidebar/i }),
     ).toBeInTheDocument();
@@ -172,9 +174,9 @@ describe('AppShell', () => {
       expect(screen.getByText(/session ready/i)).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /sync queue/i })).toHaveTextContent(
-        /unavailable/i,
-      );
+      expect(
+        screen.getByRole('link', { name: /sync queue/i }),
+      ).toHaveTextContent(/unavailable/i);
     });
   });
 
@@ -228,11 +230,15 @@ describe('AppShell', () => {
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
-    expect(screen.getByRole('dialog', { name: /primary navigation/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /primary navigation/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /close/i })).toHaveFocus();
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
-    expect(screen.queryByRole('dialog', { name: /primary navigation/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: /primary navigation/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
   });
 
@@ -258,10 +264,14 @@ describe('AppShell', () => {
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
-    expect(screen.getByRole('dialog', { name: /primary navigation/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /primary navigation/i }),
+    ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: /primary navigation/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: /primary navigation/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Menu', { selector: 'button' })).toHaveFocus();
   });
 

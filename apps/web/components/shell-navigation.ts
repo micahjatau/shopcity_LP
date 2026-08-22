@@ -22,17 +22,29 @@ export type ShellNavigationSection = {
   items: ShellNavigationItem[];
 };
 
-export const shellNavigationByRole: Record<HumanRole, ShellNavigationSection[]> = {
+export const shellNavigationByRole: Record<
+  HumanRole,
+  ShellNavigationSection[]
+> = {
   CASHIER: [
     {
       id: 'cashier-workspace',
       label: 'Workspace',
       items: [
-        { id: 'cashier-overview', label: 'Overview', href: '/cashier', exact: true },
+        {
+          id: 'cashier-overview',
+          label: 'Overview',
+          href: '/cashier',
+          exact: true,
+        },
         { id: 'cashier-lookup', label: 'Lookup', href: '/cashier/lookup' },
         { id: 'cashier-earn', label: 'Earn', href: '/cashier/earn' },
         { id: 'cashier-redeem', label: 'Redeem', href: '/cashier/redeem' },
-        { id: 'cashier-customers', label: 'Customers', href: '/cashier/customers' },
+        {
+          id: 'cashier-customers',
+          label: 'Customers',
+          href: '/cashier/customers',
+        },
         { id: 'cashier-sync', label: 'Sync queue', href: '/cashier/sync' },
       ],
     },
@@ -41,18 +53,41 @@ export const shellNavigationByRole: Record<HumanRole, ShellNavigationSection[]> 
     {
       id: 'supervisor-workspace',
       label: 'Workspace',
-      items: [{ id: 'supervisor-overview', label: 'Overview', href: '/supervisor', exact: true }],
+      items: [
+        {
+          id: 'supervisor-overview',
+          label: 'Overview',
+          href: '/supervisor',
+          exact: true,
+        },
+      ],
     },
     {
       id: 'supervisor-operations',
       label: 'Operations',
       items: [
-        { id: 'supervisor-transactions', label: 'Transactions', href: '/supervisor/transactions' },
-        { id: 'supervisor-customers', label: 'Customers', href: '/supervisor/customers' },
+        {
+          id: 'supervisor-transactions',
+          label: 'Transactions',
+          href: '/supervisor/transactions',
+        },
+        {
+          id: 'supervisor-customers',
+          label: 'Customers',
+          href: '/supervisor/customers',
+        },
         { id: 'supervisor-cards', label: 'Cards', href: '/supervisor/cards' },
-        { id: 'supervisor-approvals', label: 'Approvals', href: '/supervisor/approvals' },
+        {
+          id: 'supervisor-approvals',
+          label: 'Approvals',
+          href: '/supervisor/approvals',
+        },
         { id: 'supervisor-fraud', label: 'Fraud', href: '/supervisor/fraud' },
-        { id: 'supervisor-reports', label: 'Reports', href: '/supervisor/reports' },
+        {
+          id: 'supervisor-reports',
+          label: 'Reports',
+          href: '/supervisor/reports',
+        },
       ],
     },
   ],
@@ -60,14 +95,29 @@ export const shellNavigationByRole: Record<HumanRole, ShellNavigationSection[]> 
     {
       id: 'admin-workspace',
       label: 'Workspace',
-      items: [{ id: 'admin-overview', label: 'Overview', href: '/admin', exact: true }],
+      items: [
+        {
+          id: 'admin-overview',
+          label: 'Overview',
+          href: '/admin',
+          exact: true,
+        },
+      ],
     },
     {
       id: 'admin-operations',
       label: 'Operations',
       items: [
-        { id: 'admin-operations-panel', label: 'Operations', href: '/admin/operations' },
-        { id: 'admin-transactions', label: 'Transactions', href: '/admin/transactions' },
+        {
+          id: 'admin-operations-panel',
+          label: 'Operations',
+          href: '/admin/operations',
+        },
+        {
+          id: 'admin-transactions',
+          label: 'Transactions',
+          href: '/admin/transactions',
+        },
         { id: 'admin-approvals', label: 'Approvals', href: '/admin/approvals' },
         { id: 'admin-fraud', label: 'Fraud', href: '/admin/fraud' },
       ],
@@ -78,7 +128,11 @@ export const shellNavigationByRole: Record<HumanRole, ShellNavigationSection[]> 
       items: [
         { id: 'admin-customers', label: 'Customers', href: '/admin/customers' },
         { id: 'admin-cards', label: 'Cards', href: '/admin/cards' },
-        { id: 'admin-adjustments', label: 'Adjustments', href: '/admin/adjustments' },
+        {
+          id: 'admin-adjustments',
+          label: 'Adjustments',
+          href: '/admin/adjustments',
+        },
       ],
     },
     {
@@ -140,9 +194,11 @@ export function getActiveShellNavigationItem(
   sections: ShellNavigationSection[],
 ) {
   const allItems = sections.flatMap((section) => section.items);
-  return allItems
-    .filter((item) => matchShellRoute(pathname, item))
-    .sort((left, right) => right.href.length - left.href.length)[0] ?? null;
+  return (
+    allItems
+      .filter((item) => matchShellRoute(pathname, item))
+      .sort((left, right) => right.href.length - left.href.length)[0] ?? null
+  );
 }
 
 export function getActiveShellNavigationSection(
@@ -175,7 +231,10 @@ export function getShellNavigationTrail(
   };
 }
 
-export function getShellWorkspaceLabel(role: SessionRole | null, status: SessionBootstrapStatus) {
+export function getShellWorkspaceLabel(
+  role: SessionRole | null,
+  status: SessionBootstrapStatus,
+) {
   if (status !== 'ready') {
     return 'Protected shell';
   }

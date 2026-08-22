@@ -5,13 +5,14 @@ import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
-import {
-  ConnectionStatus,
-  SyncQueueIndicator,
-} from '../offline';
+import { ConnectionStatus, SyncQueueIndicator } from '../offline';
 import { Alert, Button, Input, Separator } from '../ui';
 import { Money, StatusBadge } from '../shopcity';
-import { WorkflowSection, EarnTransactionForm, RedeemTransactionForm } from './index';
+import {
+  WorkflowSection,
+  EarnTransactionForm,
+  RedeemTransactionForm,
+} from './index';
 import {
   cardsControllerLookupCardV1,
   customersControllerGetCustomerV1,
@@ -88,7 +89,9 @@ export function CashierWorkflowRoute({
 }: Readonly<CashierWorkflowRouteProps>) {
   const [lookupValue, setLookupValue] = useState(initialCardSerial ?? '');
   const [lookupMessage, setLookupMessage] = useState(
-    initialCardSerial ? 'Card context loaded from the route. Lookup to refresh if needed.' : 'Scan or type a card serial.',
+    initialCardSerial
+      ? 'Card context loaded from the route. Lookup to refresh if needed.'
+      : 'Scan or type a card serial.',
   );
   const [lookupRecord, setLookupRecord] = useState<CashierLookupRecord | null>(
     null,
@@ -186,13 +189,17 @@ export function CashierWorkflowRoute({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCardSerial, lookupRecord]);
 
-  async function handleLookup(eventOrValue: FormEvent<HTMLFormElement> | string) {
+  async function handleLookup(
+    eventOrValue: FormEvent<HTMLFormElement> | string,
+  ) {
     if (typeof eventOrValue !== 'string') {
       eventOrValue.preventDefault();
     }
 
     const query =
-      typeof eventOrValue === 'string' ? eventOrValue.trim() : lookupValue.trim();
+      typeof eventOrValue === 'string'
+        ? eventOrValue.trim()
+        : lookupValue.trim();
     if (!query) {
       setLookupMessage('Enter a card serial number first.');
       setLookupRecord(null);
@@ -209,7 +216,9 @@ export function CashierWorkflowRoute({
       if (response.status === 200) {
         const record = response.data.data;
         setLookupRecord(record);
-        setLookupMessage('Lookup resolved. The workflow can now use this context.');
+        setLookupMessage(
+          'Lookup resolved. The workflow can now use this context.',
+        );
         return;
       }
 
@@ -320,7 +329,9 @@ export function CashierWorkflowRoute({
               <div className="cashier-stat-list">
                 <div className="cashier-stat-row">
                   <span>Earn rate</span>
-                  <strong>{(policyContext.defaultEarnRateBps ?? 0) / 100}%</strong>
+                  <strong>
+                    {(policyContext.defaultEarnRateBps ?? 0) / 100}%
+                  </strong>
                 </div>
                 <div className="cashier-stat-row">
                   <span>Min redemption</span>
@@ -338,7 +349,9 @@ export function CashierWorkflowRoute({
                   <span>Purchase flag</span>
                   {typeof policyContext.purchaseFlagThresholdKobo ===
                   'number' ? (
-                    <Money amountKobo={policyContext.purchaseFlagThresholdKobo} />
+                    <Money
+                      amountKobo={policyContext.purchaseFlagThresholdKobo}
+                    />
                   ) : (
                     '—'
                   )}
@@ -347,7 +360,9 @@ export function CashierWorkflowRoute({
                   <span>Approval threshold</span>
                   {typeof policyContext.redemptionApprovalThresholdKobo ===
                   'number' ? (
-                    <Money amountKobo={policyContext.redemptionApprovalThresholdKobo} />
+                    <Money
+                      amountKobo={policyContext.redemptionApprovalThresholdKobo}
+                    />
                   ) : (
                     '—'
                   )}
@@ -355,7 +370,8 @@ export function CashierWorkflowRoute({
               </div>
             ) : (
               <Alert tone="warning" title="Policy unavailable">
-                The workflow can still run, but policy-aware previews are unavailable.
+                The workflow can still run, but policy-aware previews are
+                unavailable.
               </Alert>
             )}
           </article>
@@ -408,22 +424,28 @@ export function CashierWorkflowRoute({
         <article className="cashier-card" aria-label="Action summary">
           <h2 style={{ marginTop: 0 }}>Action summary</h2>
           <p className="cashier-muted">
-            Dedicated workflow pages keep the transaction forms focused while this
-            route stays a launchpad and context screen.
+            Dedicated workflow pages keep the transaction forms focused while
+            this route stays a launchpad and context screen.
           </p>
           <div className="cashier-tag-row">
             <Link href="/cashier">Open overview</Link>
             <Link href="/cashier/lookup">Open lookup</Link>
-            <Link href={`/cashier/earn${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}>
+            <Link
+              href={`/cashier/earn${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}
+            >
               Go to Earn
             </Link>
-            <Link href={`/cashier/redeem${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}>
+            <Link
+              href={`/cashier/redeem${lookupContext?.cardSerialNumber ? `?card=${encodeURIComponent(lookupContext.cardSerialNumber)}` : ''}`}
+            >
               Go to Redeem
             </Link>
             <Link href="/cashier/sync">Open sync queue</Link>
           </div>
           <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-          <p className="cashier-muted">{routeModeLabel} actions continue on a dedicated route.</p>
+          <p className="cashier-muted">
+            {routeModeLabel} actions continue on a dedicated route.
+          </p>
         </article>
 
         <article className="cashier-card" aria-label="Customer detail">
@@ -464,7 +486,9 @@ export function CashierWorkflowRoute({
                     );
                     return (
                       <div key={ledgerKey} className="cashier-stat-row">
-                        <span>{item.type ?? item.transactionType ?? 'Entry'}</span>
+                        <span>
+                          {item.type ?? item.transactionType ?? 'Entry'}
+                        </span>
                         <span>
                           {item.amountKobo ? (
                             <Money amountKobo={item.amountKobo} />
@@ -492,7 +516,8 @@ export function CashierWorkflowRoute({
         <article className="cashier-card" aria-label="Shift snapshot">
           <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
           <p className="cashier-muted">
-            Offline queue state is shown in the shell header and on the sync route.
+            Offline queue state is shown in the shell header and on the sync
+            route.
           </p>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             <Link href="/cashier/sync">Open sync queue</Link>
