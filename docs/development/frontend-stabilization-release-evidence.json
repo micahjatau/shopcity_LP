@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-22T23:02:00Z",
+  "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f",
+  "canonicalDeployment": {
+    "projectId": "prj_UvU3PsV5X1iWaf01tmsuayh3AKiC",
+    "deploymentId": "dpl_BUFQw8n7vVgvSnQv4TjMrsmo3XvD",
+    "runtimeRegion": "iad1",
+    "duplicateContextStatus": "blocker"
+  },
+  "topology": {
+    "frontendRegion": "iad1",
+    "backendRegion": "UNKNOWN",
+    "databaseRegion": "UNKNOWN"
+  },
+  "checks": [
+    {
+      "name": "github-actions-32604098929",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    },
+    {
+      "name": "static-checks",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    },
+    {
+      "name": "integration-tests",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    },
+    {
+      "name": "end-to-end-tests",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    },
+    {
+      "name": "frontend-checks",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    },
+    {
+      "name": "docker-build-verification",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    },
+    {
+      "name": "gitnexus",
+      "status": "passed",
+      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+    }
+  ],
+  "performance": {
+    "environment": "Vercel preview",
+    "artifact": "tmp/performance/frontend-stabilization-candidate-587748d.json",
+    "authenticated": false,
+    "routes": [
+      { "path": "/cashier", "warmJsBytes": 1525553 },
+      { "path": "/cashier/lookup", "warmJsBytes": 1525553 },
+      { "path": "/cashier/earn", "warmJsBytes": 1525553 },
+      { "path": "/cashier/redeem", "warmJsBytes": 1525553 },
+      { "path": "/supervisor/approvals", "warmJsBytes": 1525553 },
+      { "path": "/admin/operations", "warmJsBytes": 1525553 }
+    ]
+  },
+  "exceptions": [
+    {
+      "observedValue": "Authenticated performance evidence unavailable",
+      "owner": "release operator",
+      "followUpDate": "2026-09-01"
+    },
+    {
+      "observedValue": "Backend and Supabase/Postgres regions UNKNOWN",
+      "owner": "deployment owner",
+      "followUpDate": "2026-09-01"
+    },
+    {
+      "observedValue": "Duplicate Vercel project shopcity has no approved disposition",
+      "owner": "deployment owner",
+      "followUpDate": "2026-09-01"
+    },
+    {
+      "observedValue": "Production remains on SHA 2cf0d9dd37c201560e9530f39a0aea64b061bf0b",
+      "owner": "release approver",
+      "followUpDate": "2026-09-01"
+    }
+  ]
+}

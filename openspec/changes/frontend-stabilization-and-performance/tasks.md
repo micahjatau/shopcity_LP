@@ -88,7 +88,7 @@
 
 - [ ] 10.1 Inspect the canonical Vercel project and duplicate context; disconnect or explicitly mark the stale duplicate project through the approved operational path.
 - [x] 10.2 Align CI workflows so lint, typecheck, build, Semgrep, unit/integration, affected Playwright, performance, and release evidence checks run against one exact candidate SHA.
-- [ ] 10.3 Update deployment evidence with canonical project/deployment ID, commit SHA, runtime regions, and excluded duplicate context.
+- [x] 10.3 Update deployment evidence with canonical project/deployment ID, commit SHA, runtime regions, and excluded duplicate context.
 - [ ] 10.4 Compare frontend runtime, backend, and Supabase/database placement; document any accepted latency or region mismatch and mitigation.
 - [x] 10.5 Add the release-evidence verifier checks for missing SHA, mixed deployment identity, missing performance metrics, and undocumented exceptions.
 - [x] 10.6 Verify Docker/worker/backend release behavior remains unaffected by frontend-only optimization and no unsupported Vercel function architecture is introduced.
@@ -100,5 +100,5 @@
 - [x] 11.3 Run OpenSpec validation and check each requirement scenario against implementation evidence.
 - [x] 11.4 Reconcile `docs/repo_review_55.md`, release evidence, deployment notes, performance artifacts, and migration/operational trackers with the actual branch state.
 - [ ] 11.5 Review the UI using the design-taste anti-slop pass and Impeccable audit: hierarchy, density, type scale, contrast, focus, responsive behavior, reduced motion, copy clarity, and absence of decorative noise.
-- [ ] 11.6 Record durable Graphiti memory for validated architecture decisions, device-secret handling, shared-context/cache behavior, and performance measurement lessons.
+- [x] 11.6 Record durable Graphiti memory for validated architecture decisions, device-secret handling, shared-context/cache behavior, and performance measurement lessons.
 - [ ] 11.7 Produce the final stabilization report listing changed surfaces, passed gates, exceptions, remaining risks, exact candidate SHA, canonical deployment, and next action.
