@@ -1,0 +1,1269 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-23T05:04:06.514Z",
+  "commitSha": "c388a96295d88b3c16201c24b82a2535170e082c",
+  "baseUrl": "https://shopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app",
+  "productionBuildRequired": true,
+  "authenticatedEvidence": false,
+  "routes": [
+    "/cashier",
+    "/cashier/lookup",
+    "/cashier/earn",
+    "/cashier/redeem",
+    "/supervisor/approvals",
+    "/admin/operations"
+  ],
+  "thresholds": {
+    "warmNavigationPayloadBytes": 150000,
+    "authMeWarmRequests": 0,
+    "publicConfigWarmRequests": 0,
+    "duplicateApiRequests": 0,
+    "lcpMs": 2500,
+    "inpMs": 200
+  },
+  "results": [
+    {
+      "cold": {
+        "route": "/cashier",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2695,
+        "navigation": {
+          "transferSize": 27677,
+          "encodedBodySize": 27377,
+          "decodedBodySize": 478751,
+          "responseStart": 741.8000000044703,
+          "domContentLoaded": 1538.7000000029802,
+          "loadEventEnd": 1628.9000000059605,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 94,
+            "encoded": 1546156,
+            "decoded": 5506140
+          },
+          "other": {
+            "requests": 5,
+            "encoded": 116,
+            "decoded": 110
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 111,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461422697.4028,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.28,
+              "responseStart": 179.056,
+              "responseEnd": 181.337
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461422847.1912,
+              "domainLookupStart": 0.092,
+              "domainLookupEnd": 58.107,
+              "connectStart": 58.189,
+              "secureConnectionStart": 63.907,
+              "connectEnd": 81.812,
+              "requestStart": 81.95,
+              "responseStart": 90.441,
+              "responseEnd": 92.05
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461422694.914,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.278,
+              "responseStart": 288.528,
+              "responseEnd": 290.892
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2056,
+        "navigation": {
+          "transferSize": 27739,
+          "encodedBodySize": 27439,
+          "decodedBodySize": 478974,
+          "responseStart": 599.5,
+          "domContentLoaded": 1045.9000000059605,
+          "loadEventEnd": 1054,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 9,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 109,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 6,
+          "duplicateApiUrls": [
+            "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0"
+          ]
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461425050.817,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.894,
+              "responseStart": 9.237,
+              "responseEnd": 11.849
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 429,
+            "timing": {
+              "startTime": 1787461425063.368,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.375,
+              "responseStart": 14.776,
+              "responseEnd": 17.095
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461424896.102,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.229,
+              "responseStart": 246.575,
+              "responseEnd": 252.851
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461424896.1602,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.385,
+              "responseStart": 255.239,
+              "responseEnd": 261.258
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461425212.6638,
+              "domainLookupStart": 0,
+              "domainLookupEnd": 0,
+              "connectStart": 0,
+              "secureConnectionStart": 0,
+              "connectEnd": 0,
+              "requestStart": 0.277,
+              "responseStart": 10.221,
+              "responseEnd": 13.104
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 429,
+            "timing": {
+              "startTime": 1787461425213.4368,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.178,
+              "responseStart": 11.979,
+              "responseEnd": 15.23
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/lookup",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%252Flookup%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2048,
+        "navigation": {
+          "transferSize": 27461,
+          "encodedBodySize": 27161,
+          "decodedBodySize": 478804,
+          "responseStart": 414.79999999701977,
+          "domContentLoaded": 1142.2999999970198,
+          "loadEventEnd": 1152.0999999940395,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 106,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461427181.885,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.244,
+              "responseStart": 9.269,
+              "responseEnd": 10.794
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461427032.157,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 1.324,
+              "responseStart": 185.874,
+              "responseEnd": 190.83
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461427029.5808,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.262,
+              "responseStart": 279.167,
+              "responseEnd": 281.99
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier/lookup",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%252Flookup%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2265,
+        "navigation": {
+          "transferSize": 27606,
+          "encodedBodySize": 27306,
+          "decodedBodySize": 479027,
+          "responseStart": 421.70000000298023,
+          "domContentLoaded": 1215.8999999985099,
+          "loadEventEnd": 1224.3999999985099,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 7,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 107,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 4,
+          "duplicateApiUrls": [
+            "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0"
+          ]
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461429272.269,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.215,
+              "responseStart": 9.769,
+              "responseEnd": 12.152
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 429,
+            "timing": {
+              "startTime": 1787461429277.532,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.242,
+              "responseStart": 8.698,
+              "responseEnd": 10.575
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461429145.274,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.358,
+              "responseStart": 235.692,
+              "responseEnd": 239.069
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461429144.869,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.262,
+              "responseStart": 452.404,
+              "responseEnd": 454.509
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/earn",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%252Fearn%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2747,
+        "navigation": {
+          "transferSize": 27600,
+          "encodedBodySize": 27300,
+          "decodedBodySize": 478794,
+          "responseStart": 449.3999999985099,
+          "domContentLoaded": 1328,
+          "loadEventEnd": 1336.2999999970198,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 8,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 108,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 5,
+          "duplicateApiUrls": [
+            "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0"
+          ]
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461431684.72,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 1.435,
+              "responseStart": 10.155,
+              "responseEnd": 13.267
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461431536.114,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.417,
+              "responseStart": 184.859,
+              "responseEnd": 187.235
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461431535.5771,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.833,
+              "responseStart": 270.635,
+              "responseEnd": 273.52
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461432289.155,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.188,
+              "responseStart": 9.484,
+              "responseEnd": 11.273
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 429,
+            "timing": {
+              "startTime": 1787461432289.668,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.11,
+              "responseStart": 10.392,
+              "responseEnd": 12.267
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier/earn",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%252Fearn%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 1781,
+        "navigation": {
+          "transferSize": 27599,
+          "encodedBodySize": 27299,
+          "decodedBodySize": 478794,
+          "responseStart": 416.09999999403954,
+          "domContentLoaded": 865.0999999940395,
+          "loadEventEnd": 875,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 106,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461433981.2063,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.194,
+              "responseStart": 9.65,
+              "responseEnd": 11.429
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461433819.308,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.582,
+              "responseStart": 189.091,
+              "responseEnd": 192.125
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461433817.889,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 1.61,
+              "responseStart": 254.229,
+              "responseEnd": 256.5
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/cashier/redeem",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%252Fredeem%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2133,
+        "navigation": {
+          "transferSize": 27472,
+          "encodedBodySize": 27172,
+          "decodedBodySize": 478804,
+          "responseStart": 269.80000000447035,
+          "domContentLoaded": 999.2000000029802,
+          "loadEventEnd": 1007.7000000029802,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 106,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461435721.469,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.523,
+              "responseStart": 188.376,
+              "responseEnd": 191.853
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461435912.7598,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.295,
+              "responseStart": 8.659,
+              "responseEnd": 12.69
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461435721.0112,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.886,
+              "responseStart": 261.122,
+              "responseEnd": 264.027
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/cashier/redeem",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fcashier%252Fredeem%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 1934,
+        "navigation": {
+          "transferSize": 27571,
+          "encodedBodySize": 27271,
+          "decodedBodySize": 478808,
+          "responseStart": 437.20000000298023,
+          "domContentLoaded": 995.7999999970198,
+          "loadEventEnd": 1005.6000000014901,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 106,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461437986.645,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.287,
+              "responseStart": 8.876,
+              "responseEnd": 10.639
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461437862.339,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.389,
+              "responseStart": 185.561,
+              "responseEnd": 187.895
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461437861.874,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.723,
+              "responseStart": 319.68,
+              "responseEnd": 322.208
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/supervisor/approvals",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fsupervisor%252Fapprovals%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 1872,
+        "navigation": {
+          "transferSize": 27653,
+          "encodedBodySize": 27353,
+          "decodedBodySize": 478834,
+          "responseStart": 289,
+          "domContentLoaded": 952.7000000029802,
+          "loadEventEnd": 965.2000000029802,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 106,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461439782.222,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.136,
+              "responseStart": 177.483,
+              "responseEnd": 180.499
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461439951.927,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.228,
+              "responseStart": 10.055,
+              "responseEnd": 14.847
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461439781.446,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.231,
+              "responseStart": 266.522,
+              "responseEnd": 269.738
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/supervisor/approvals",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fsupervisor%252Fapprovals%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 1847,
+        "navigation": {
+          "transferSize": 27443,
+          "encodedBodySize": 27143,
+          "decodedBodySize": 479061,
+          "responseStart": 297.8999999985099,
+          "domContentLoaded": 944.1999999955297,
+          "loadEventEnd": 954.1000000014901,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 7,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 107,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 4,
+          "duplicateApiUrls": [
+            "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0"
+          ]
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461441780.027,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.32,
+              "responseStart": 9.206,
+              "responseEnd": 11.854
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 429,
+            "timing": {
+              "startTime": 1787461441785.177,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.189,
+              "responseStart": 8.95,
+              "responseEnd": 11.384
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461441629.396,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.423,
+              "responseStart": 189.592,
+              "responseEnd": 192.67
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461441629.0132,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.63,
+              "responseStart": 279.013,
+              "responseEnd": 283.357
+            }
+          }
+        ]
+      }
+    },
+    {
+      "cold": {
+        "route": "/admin/operations",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fadmin%252Foperations%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 1756,
+        "navigation": {
+          "transferSize": 27395,
+          "encodedBodySize": 27095,
+          "decodedBodySize": 478814,
+          "responseStart": 300,
+          "domContentLoaded": 885.5,
+          "loadEventEnd": 895.3999999985099,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 6,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 106,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 3,
+          "duplicateApiUrls": []
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461443537.3171,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.349,
+              "responseStart": 10.517,
+              "responseEnd": 12.066
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461443412.851,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.383,
+              "responseStart": 194.796,
+              "responseEnd": 197.397
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461443412.468,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.712,
+              "responseStart": 269.107,
+              "responseEnd": 271.358
+            }
+          }
+        ]
+      },
+      "warm": {
+        "route": "/admin/operations",
+        "url": "https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fshopcity-jgljno32l-micah-s-projects-bb6507fe.vercel.app%252Fadmin%252Foperations%26nonce%3D26bcbce4de18bc631419c7956eb635e70a1c63fad4043ebb2fac5d94d0b672f2",
+        "status": 200,
+        "durationMs": 2240,
+        "navigation": {
+          "transferSize": 27401,
+          "encodedBodySize": 27101,
+          "decodedBodySize": 478814,
+          "responseStart": 412.69999999552965,
+          "domContentLoaded": 1014.0999999940395,
+          "loadEventEnd": 1023.0999999940395,
+          "lcpMs": null,
+          "inpMs": null,
+          "hydrationDurationMs": null
+        },
+        "resources": {
+          "javascript": {
+            "requests": 93,
+            "encoded": 1525553,
+            "decoded": 5448131
+          },
+          "other": {
+            "requests": 4,
+            "encoded": 73,
+            "decoded": 67
+          },
+          "api": {
+            "requests": 8,
+            "encoded": 8409,
+            "decoded": 36322
+          }
+        },
+        "requestCounts": {
+          "total": 110,
+          "authMe": 0,
+          "publicConfig": 0,
+          "api": 7,
+          "duplicateApiUrls": [
+            "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0"
+          ]
+        },
+        "apiResponseTimings": [
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461444366.611,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.227,
+              "responseStart": 9.135,
+              "responseEnd": 14.724
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461444367.166,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.121,
+              "responseStart": 10.892,
+              "responseEnd": 14.022
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461445454.479,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.246,
+              "responseStart": 8.789,
+              "responseEnd": 10.463
+            }
+          },
+          {
+            "url": "https://vercel.com/api/jwt",
+            "status": 403,
+            "timing": {
+              "startTime": 1787461445316.407,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 2.651,
+              "responseStart": 191.765,
+              "responseEnd": 195.504
+            }
+          },
+          {
+            "url": "https://vercel.com/api/stream/internal",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461445315.426,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 3.694,
+              "responseStart": 278.407,
+              "responseEnd": 282.386
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461445852.051,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.229,
+              "responseStart": 9.349,
+              "responseEnd": 11.375
+            }
+          },
+          {
+            "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+            "status": 200,
+            "timing": {
+              "startTime": 1787461445852.567,
+              "domainLookupStart": -1,
+              "domainLookupEnd": -1,
+              "connectStart": -1,
+              "secureConnectionStart": -1,
+              "connectEnd": -1,
+              "requestStart": 0.111,
+              "responseStart": 10.316,
+              "responseEnd": 11.991
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

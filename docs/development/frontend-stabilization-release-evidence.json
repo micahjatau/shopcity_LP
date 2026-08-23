@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-08-22T23:02:00Z",
-  "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f",
+  "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c",
   "canonicalDeployment": {
     "projectId": "prj_UvU3PsV5X1iWaf01tmsuayh3AKiC",
-    "deploymentId": "dpl_BUFQw8n7vVgvSnQv4TjMrsmo3XvD",
+    "deploymentId": "dpl_7roRBWYFtcJpWKSkUDPK2PTTsU8p",
     "runtimeRegion": "iad1",
     "duplicateContextStatus": "blocker"
   },
@@ -17,50 +17,68 @@
     {
       "name": "github-actions-32604098929",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     },
     {
       "name": "static-checks",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     },
     {
       "name": "integration-tests",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     },
     {
       "name": "end-to-end-tests",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     },
     {
       "name": "frontend-checks",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     },
     {
       "name": "docker-build-verification",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     },
     {
       "name": "gitnexus",
       "status": "passed",
-      "candidateSha": "587748d2f0c99321e352c6ad3c05d7083be6c80f"
+      "candidateSha": "c388a96295d88b3c16201c24b82a2535170e082c"
     }
   ],
   "performance": {
     "environment": "Vercel preview",
-    "artifact": "tmp/performance/frontend-stabilization-candidate-587748d.json",
+    "artifact": "tmp/performance/frontend-stabilization-candidate-c388a96.json",
     "authenticated": false,
     "routes": [
-      { "path": "/cashier", "warmJsBytes": 1525553 },
-      { "path": "/cashier/lookup", "warmJsBytes": 1525553 },
-      { "path": "/cashier/earn", "warmJsBytes": 1525553 },
-      { "path": "/cashier/redeem", "warmJsBytes": 1525553 },
-      { "path": "/supervisor/approvals", "warmJsBytes": 1525553 },
-      { "path": "/admin/operations", "warmJsBytes": 1525553 }
+      {
+        "path": "/cashier",
+        "warmJsBytes": 1525553
+      },
+      {
+        "path": "/cashier/lookup",
+        "warmJsBytes": 1525553
+      },
+      {
+        "path": "/cashier/earn",
+        "warmJsBytes": 1525553
+      },
+      {
+        "path": "/cashier/redeem",
+        "warmJsBytes": 1525553
+      },
+      {
+        "path": "/supervisor/approvals",
+        "warmJsBytes": 1525553
+      },
+      {
+        "path": "/admin/operations",
+        "warmJsBytes": 1525553
+      }
     ]
   },
   "exceptions": [
