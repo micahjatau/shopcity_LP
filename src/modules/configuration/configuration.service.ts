@@ -43,7 +43,12 @@ export class ConfigurationService {
       return this.publicConfigRefresh;
     }
 
-    this.publicConfigRefresh = this.loadPublicConfig();
+    this.publicConfigRefresh = this.loadConfig(
+      this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
+        '00000000-0000-0000-0000-000000000001',
+      this.configService.get<string>('DEFAULT_PUBLIC_BRANCH_ID') ??
+        '00000000-0000-0000-0000-000000000002',
+    );
     try {
       const value = await this.publicConfigRefresh;
       this.publicConfigCache = { value, loadedAt: Date.now() };
@@ -61,14 +66,11 @@ export class ConfigurationService {
     }
   }
 
-  private async loadPublicConfig() {
-    const tenantId =
-      this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
-      '00000000-0000-0000-0000-000000000001';
-    const branchId =
-      this.configService.get<string>('DEFAULT_PUBLIC_BRANCH_ID') ??
-      '00000000-0000-0000-0000-000000000002';
+  async getOperationalConfig(tenantId: string, branchId: string) {
+    return this.loadConfig(tenantId, branchId);
+  }
 
+  private async loadConfig(tenantId: string, branchId: string) {
     const [tenant, branch] = await Promise.all([
       this.prismaService.tenant.findUnique({ where: { id: tenantId } }),
       this.prismaService.branch.findUnique({ where: { id: branchId } }),

@@ -25,7 +25,7 @@
 
 ## 4. Configuration and browser security
 
-- [ ] 4.1 Resolve authenticated operational configuration from validated session tenant/branch context.
+- [x] 4.1 Resolve authenticated operational configuration from validated session tenant/branch context through the protected operational config endpoint and authenticated frontend bootstrap.
 - [x] 4.2 Add bounded server/HTTP public-configuration caching with stale behavior that cannot override authorization scope.
 - [x] 4.3 Add the documented strict frontend CSP and build-time security-header configuration.
 - [ ] 4.4 Verify CSP and required security headers through browser/deployment checks.

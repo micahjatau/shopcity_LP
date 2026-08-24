@@ -13751,6 +13751,238 @@ export type ConfigurationControllerGetPublicConfigV1503 = {
   meta: ConfigurationControllerGetPublicConfigV1503Meta;
 };
 
+export type ConfigurationControllerGetOperationalConfigV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1200 = {
+  success: boolean;
+  data: ConfigurationControllerGetOperationalConfigV1200Data;
+  meta: ConfigurationControllerGetOperationalConfigV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1400ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1400 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1400Error;
+  meta: ConfigurationControllerGetOperationalConfigV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1401ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1401 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1401Error;
+  meta: ConfigurationControllerGetOperationalConfigV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1403ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1403 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1403Error;
+  meta: ConfigurationControllerGetOperationalConfigV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1404ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1404 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1404Error;
+  meta: ConfigurationControllerGetOperationalConfigV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1409ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1409 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1409Error;
+  meta: ConfigurationControllerGetOperationalConfigV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1422ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1422 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1422Error;
+  meta: ConfigurationControllerGetOperationalConfigV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1429ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1429 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1429Error;
+  meta: ConfigurationControllerGetOperationalConfigV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1503ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1503 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1503Error;
+  meta: ConfigurationControllerGetOperationalConfigV1503Meta;
+};
+
 /**
  * Returns the foundation status for the versioned API root.
  * @summary Check API status
@@ -19213,4 +19445,100 @@ export const configurationControllerGetPublicConfigV1 = async (
     status: res.status,
     headers: res.headers,
   } as configurationControllerGetPublicConfigV1Response;
+};
+
+/**
+ * Get authenticated operational configuration
+ * @summary Get authenticated operational configuration
+ */
+export type configurationControllerGetOperationalConfigV1Response200 = {
+  data: ConfigurationControllerGetOperationalConfigV1200;
+  status: 200;
+};
+
+export type configurationControllerGetOperationalConfigV1Response400 = {
+  data: ConfigurationControllerGetOperationalConfigV1400;
+  status: 400;
+};
+
+export type configurationControllerGetOperationalConfigV1Response401 = {
+  data: ConfigurationControllerGetOperationalConfigV1401;
+  status: 401;
+};
+
+export type configurationControllerGetOperationalConfigV1Response403 = {
+  data: ConfigurationControllerGetOperationalConfigV1403;
+  status: 403;
+};
+
+export type configurationControllerGetOperationalConfigV1Response404 = {
+  data: ConfigurationControllerGetOperationalConfigV1404;
+  status: 404;
+};
+
+export type configurationControllerGetOperationalConfigV1Response409 = {
+  data: ConfigurationControllerGetOperationalConfigV1409;
+  status: 409;
+};
+
+export type configurationControllerGetOperationalConfigV1Response422 = {
+  data: ConfigurationControllerGetOperationalConfigV1422;
+  status: 422;
+};
+
+export type configurationControllerGetOperationalConfigV1Response429 = {
+  data: ConfigurationControllerGetOperationalConfigV1429;
+  status: 429;
+};
+
+export type configurationControllerGetOperationalConfigV1Response503 = {
+  data: ConfigurationControllerGetOperationalConfigV1503;
+  status: 503;
+};
+
+export type configurationControllerGetOperationalConfigV1ResponseSuccess =
+  configurationControllerGetOperationalConfigV1Response200 & {
+    headers: Headers;
+  };
+export type configurationControllerGetOperationalConfigV1ResponseError = (
+  | configurationControllerGetOperationalConfigV1Response400
+  | configurationControllerGetOperationalConfigV1Response401
+  | configurationControllerGetOperationalConfigV1Response403
+  | configurationControllerGetOperationalConfigV1Response404
+  | configurationControllerGetOperationalConfigV1Response409
+  | configurationControllerGetOperationalConfigV1Response422
+  | configurationControllerGetOperationalConfigV1Response429
+  | configurationControllerGetOperationalConfigV1Response503
+) & {
+  headers: Headers;
+};
+
+export type configurationControllerGetOperationalConfigV1Response =
+  | configurationControllerGetOperationalConfigV1ResponseSuccess
+  | configurationControllerGetOperationalConfigV1ResponseError;
+
+export const getConfigurationControllerGetOperationalConfigV1Url = () => {
+  return `/api/v1/config/operational`;
+};
+
+export const configurationControllerGetOperationalConfigV1 = async (
+  options?: RequestInit,
+): Promise<configurationControllerGetOperationalConfigV1Response> => {
+  const res = await fetch(
+    getConfigurationControllerGetOperationalConfigV1Url(),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurationControllerGetOperationalConfigV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as configurationControllerGetOperationalConfigV1Response;
 };

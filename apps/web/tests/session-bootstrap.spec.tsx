@@ -12,6 +12,8 @@ jest.mock('../lib/api', () => ({
   bootstrapSession: (...args: unknown[]) => mockBootstrapSession(...args),
   configurationControllerGetPublicConfigV1: (...args: unknown[]) =>
     mockGetPublicConfig(...args),
+  configurationControllerGetOperationalConfigV1: (...args: unknown[]) =>
+    mockGetPublicConfig(...args),
 }));
 
 function Probe() {

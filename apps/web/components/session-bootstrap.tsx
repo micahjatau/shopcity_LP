@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   bootstrapSession,
+  configurationControllerGetOperationalConfigV1,
   configurationControllerGetPublicConfigV1,
   type ConfigurationControllerGetPublicConfigV1200Data,
 } from '../lib/api';
@@ -127,11 +128,18 @@ async function loadPublicConfig(
     if (!request) {
       request = (async () => {
         const response =
-          await configurationControllerGetPublicConfigV1(createApiRequest());
+          userId && branchId
+            ? await configurationControllerGetOperationalConfigV1(
+                createApiRequest({ csrf: true }),
+              )
+            : await configurationControllerGetPublicConfigV1(
+                createApiRequest(),
+              );
         if (response.status !== 200) {
           throw new Error(`Public context unavailable (${response.status}).`);
         }
-        return response.data.data;
+        return response.data
+          .data as ConfigurationControllerGetPublicConfigV1200Data;
       })();
       configRequests.set(key, request);
       void request.then(
