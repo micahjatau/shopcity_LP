@@ -28,12 +28,17 @@ import { Money, StatusBadge } from '../../components/shopcity';
 
 type CustomerRecord = Record<string, unknown> & {
   id?: string;
+  customerId?: string;
   fullName?: string;
   name?: string;
   phoneE164?: string;
   phone?: string;
+  maskedPhone?: string;
   status?: string;
   balanceKobo?: number;
+  availableBalanceKobo?: number;
+  cardStatus?: string;
+  activeCardStatus?: string;
   cards?: unknown;
   card?: unknown;
   activeCard?: unknown;
@@ -71,6 +76,7 @@ export function CustomerWorkspace({
   mode?: 'customer' | 'card';
 }> = {}) {
   const isCardMode = mode === 'card';
+  const isCashier = !canManage;
   const searchParams = useSearchParams();
   const routeCustomerId = searchParams.get('id');
   const [query, setQuery] = useState('');
@@ -143,7 +149,9 @@ export function CustomerWorkspace({
           createApiRequest({ csrf: true }),
         );
         if (!ignore && customerResponse.status === 200) {
-          const nextCustomer = customerResponse.data.data as CustomerRecord;
+          const nextCustomer = normalizeCustomerRecord(
+            customerResponse.data.data as CustomerRecord,
+          );
           setCustomer(nextCustomer);
           setCustomerForm({
             fullName: String(nextCustomer.fullName ?? nextCustomer.name ?? ''),
@@ -206,9 +214,11 @@ export function CustomerWorkspace({
           : null,
       );
       if (response.status === 200) {
-        const nextItems = (response.data.data.items ??
-          response.data.data ??
-          []) as CustomerRecord[];
+        const nextItems = (
+          (response.data.data.items ??
+            response.data.data ??
+            []) as CustomerRecord[]
+        ).map(normalizeCustomerRecord);
         setItems(nextItems);
         if (!routeCustomerId) {
           setSelectedId(nextItems[0]?.id ?? null);
@@ -741,8 +751,23 @@ export function CustomerWorkspace({
               <div style={statRow}>
                 <span>Phone</span>
                 <span>
-                  {selectedCustomer.phoneE164 ?? selectedCustomer.phone ?? '—'}
+                  {isCashier
+                    ? (selectedCustomer.maskedPhone ?? '—')
+                    : (selectedCustomer.phoneE164 ??
+                      selectedCustomer.phone ??
+                      '—')}
                 </span>
+              </div>
+              <div style={statRow}>
+                <span>Card</span>
+                <StatusBadge
+                  label={
+                    selectedCustomer.activeCardStatus ??
+                    selectedCustomer.cardStatus ??
+                    'UNKNOWN'
+                  }
+                  tone="info"
+                />
               </div>
               <Alert tone="info" title="History">
                 Recent ledger entries are shown below.
@@ -1004,6 +1029,18 @@ export function CustomerWorkspace({
       </section>
     </section>
   );
+}
+
+function normalizeCustomerRecord(record: CustomerRecord): CustomerRecord {
+  return {
+    ...record,
+    id: record.id ?? record.customerId,
+    balanceKobo:
+      typeof record.balanceKobo === 'number'
+        ? record.balanceKobo
+        : record.availableBalanceKobo,
+    activeCardStatus: record.activeCardStatus ?? record.cardStatus,
+  };
 }
 
 function extractCustomerCards(customer: CustomerRecord | null) {

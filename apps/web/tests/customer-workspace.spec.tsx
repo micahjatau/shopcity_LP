@@ -146,6 +146,48 @@ describe('CustomerWorkspace', () => {
     });
   });
 
+  it('masks cashier customer detail and normalizes cashier summary fields', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              customerId: 'cashier-customer',
+              fullName: 'Cashier Customer',
+              maskedPhone: '+23480* *** 0001',
+              cardStatus: 'ACTIVE',
+              availableBalanceKobo: 1250,
+            },
+          ],
+        },
+      },
+    } as never);
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          customerId: 'cashier-customer',
+          fullName: 'Cashier Customer',
+          maskedPhone: '+23480* *** 0001',
+          cardStatus: 'ACTIVE',
+          availableBalanceKobo: 1250,
+          email: 'should-not-be-returned@example.com',
+        },
+      },
+    } as never);
+
+    render(<CustomerWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText('+23480* *** 0001')).toBeInTheDocument();
+      expect(screen.getByText('ACTIVE')).toBeInTheDocument();
+      expect(
+        screen.queryByText('should-not-be-returned@example.com'),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it('uses an explicit card mode instead of exposing customer profile management', async () => {
     render(<CustomerWorkspace canManage mode="card" />);
 
