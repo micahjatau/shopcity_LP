@@ -3,14 +3,65 @@ import { ConfigService } from '@nestjs/config';
 import { BranchStatus, TenantStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
+const PUBLIC_CONFIG_FRESH_MS = 5 * 60 * 1000;
+const PUBLIC_CONFIG_STALE_MS = 30 * 60 * 1000;
+
+type PublicConfig = {
+  tenant: { id: string; name: string };
+  branch: {
+    id: string;
+    name: string;
+    timezone: string;
+    receiptWeekStartDay: number;
+  };
+  policies: Record<string, number | boolean>;
+};
+
 @Injectable()
 export class ConfigurationService {
+  private publicConfigCache: {
+    value: PublicConfig;
+    loadedAt: number;
+  } | null = null;
+  private publicConfigRefresh: Promise<PublicConfig> | null = null;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly prismaService: PrismaService,
   ) {}
 
-  async getPublicConfig() {
+  async getPublicConfig(): Promise<PublicConfig> {
+    const now = Date.now();
+    if (
+      this.publicConfigCache &&
+      now - this.publicConfigCache.loadedAt < PUBLIC_CONFIG_FRESH_MS
+    ) {
+      return this.publicConfigCache.value;
+    }
+
+    if (this.publicConfigRefresh) {
+      return this.publicConfigRefresh;
+    }
+
+    this.publicConfigRefresh = this.loadPublicConfig();
+    try {
+      const value = await this.publicConfigRefresh;
+      this.publicConfigCache = { value, loadedAt: Date.now() };
+      return value;
+    } catch (error) {
+      if (
+        this.publicConfigCache &&
+        now - this.publicConfigCache.loadedAt < PUBLIC_CONFIG_STALE_MS
+      ) {
+        return this.publicConfigCache.value;
+      }
+      throw error;
+    } finally {
+      this.publicConfigRefresh = null;
+    }
+  }
+
+  private async loadPublicConfig() {
     const tenantId =
       this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
       '00000000-0000-0000-0000-000000000001';
