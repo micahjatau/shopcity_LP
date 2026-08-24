@@ -327,6 +327,7 @@ describe('LoyaltyService redemption approvals', () => {
       'approval-1',
       'APPROVED',
       'approved by supervisor',
+      'approval-key-1',
     );
 
     expect(response).toMatchObject({
@@ -433,6 +434,7 @@ describe('LoyaltyService redemption approvals', () => {
         'approval-1',
         'APPROVED',
         'approval policy changed',
+        'approval-key-2',
       ),
     ).rejects.toMatchObject({
       response: { code: 'APPROVAL_POLICY_CHANGED' },
@@ -492,6 +494,7 @@ describe('LoyaltyService redemption approvals', () => {
         'approval-1',
         'APPROVED',
         'approved after lock',
+        'approval-key-3',
       ),
     ).rejects.toMatchObject({
       response: { code: 'APPROVAL_ALREADY_DECIDED' },
@@ -561,6 +564,7 @@ describe('LoyaltyService redemption approvals', () => {
         'approval-expired',
         'APPROVED',
         'expired after supervisor request',
+        'approval-key-4',
       ),
     ).rejects.toMatchObject({
       response: { code: 'APPROVAL_EXPIRED' },
@@ -1221,6 +1225,7 @@ describe('LoyaltyService redemption approvals', () => {
         'approval-1',
         'REJECTED',
         'not approved',
+        'approval-key-5',
       ),
     ).resolves.toMatchObject({
       status: ApprovalStatus.REJECTED,

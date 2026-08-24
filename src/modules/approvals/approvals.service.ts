@@ -40,6 +40,7 @@ export class ApprovalsService {
       approval.id,
       'APPROVED',
       'legacy receipt approval',
+      `legacy-approval-${receiptId}`,
     );
   }
 
@@ -63,6 +64,7 @@ export class ApprovalsService {
       approval.id,
       'REJECTED',
       'legacy receipt rejection',
+      `legacy-rejection-${receiptId}`,
     );
   }
 
@@ -72,6 +74,7 @@ export class ApprovalsService {
     approvalId: string,
     decision: 'APPROVED' | 'REJECTED',
     reason: string,
+    idempotencyKey: string | undefined,
   ) {
     return this.loyaltyService.decideApproval(
       tenantId,
@@ -79,6 +82,7 @@ export class ApprovalsService {
       approvalId,
       decision,
       reason,
+      idempotencyKey,
     );
   }
 }
