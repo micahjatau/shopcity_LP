@@ -6,9 +6,15 @@ import {
   Patch,
   Post,
   Req,
+  Headers,
   Version,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -57,11 +63,17 @@ export class CardsController {
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ description: 'Card assigned', status: 201 })
   @ApiOperation({ summary: 'Assign card' })
-  createCard(@Req() request: AuthenticatedRequest, @Body() dto: CreateCardDto) {
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  createCard(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateCardDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+  ) {
     return this.cardsService.createCard(
       request.authContext!.user.tenantId,
       request.authContext!,
       dto,
+      idempotencyKey,
     );
   }
 

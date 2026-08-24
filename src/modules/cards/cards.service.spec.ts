@@ -3,6 +3,19 @@ import { CardStatus, CustomerStatus } from '@prisma/client';
 import { CardsService } from './cards.service';
 
 describe('CardsService', () => {
+  it('requires an idempotency key for card creation', async () => {
+    const service = new CardsService({} as never, auditStub() as never);
+
+    await expect(
+      service.createCard(
+        'tenant-id',
+        actorStub(),
+        { customerId: 'customer-id', serialNumber: 'CARD-1' },
+        undefined,
+      ),
+    ).rejects.toThrow('Idempotency-Key header is required');
+  });
+
   it('returns card lookup without nested customer PII', async () => {
     const prisma = {
       card: {

@@ -3,7 +3,8 @@
 - [x] 1.1 Inventory cashier lookup/customer DTOs, domain error codes, session roles, device states, retry-sensitive mutations, and release evidence inputs.
 - [x] 1.2 Update card/customer lookup contracts with masked phone, staff/earning eligibility, and eligibility reason; regenerate OpenAPI/Orval artifacts.
 - [x] 1.3 Decide and document idempotency coverage for retry-sensitive mutations.
-- [ ] 1.5 Enforce the idempotency contract for card lifecycle, device lifecycle, approval, and remaining retry-sensitive mutations; add validation/replay/conflict tests.
+- [x] 1.5 Enforce the idempotency contract for card creation, including required-key validation, replay storage, and request-hash scoping.
+- [ ] 1.6 Extend the idempotency contract to card replacement/status, device lifecycle, approval, and remaining retry-sensitive mutations; add validation/replay/conflict tests.
 - [x] 1.4 Define role-specific inactivity windows, configuration names, session-expiry error contract, and provisioning migration policy.
 
 ## 2. Cashier workflow compliance

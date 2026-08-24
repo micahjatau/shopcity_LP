@@ -12974,7 +12974,16 @@
     "/api/v1/cards": {
       "post": {
         "operationId": "CardsController_createCard_v1",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
