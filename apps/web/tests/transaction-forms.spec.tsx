@@ -64,6 +64,9 @@ describe('cashier transaction forms', () => {
       />,
     );
 
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-001' },
+    });
     const purchase = screen.getByLabelText('Purchase amount');
     fireEvent.change(purchase, { target: { value: '10' } });
     fireEvent.blur(purchase);
@@ -88,6 +91,57 @@ describe('cashier transaction forms', () => {
     expect(earnPayload).not.toHaveProperty('role');
     expect(earnPayload).not.toHaveProperty('approval');
     expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires receipt and uses ceiling rounding for the advisory preview', async () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    const submit = screen.getByRole('button', { name: 'Submit earn' });
+    expect(submit).toBeDisabled();
+    expect(screen.getByText('Required')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-002' },
+    });
+    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+      target: { value: '1.01' },
+    });
+    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+
+    expect(screen.getByText('₦0.06')).toBeInTheDocument();
+    expect(submit).toBeEnabled();
+  });
+
+  it('maps duplicate receipt errors to an actionable message', async () => {
+    jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
+      status: 409,
+      data: { error: { code: 'RECEIPT_ALREADY_USED' } },
+    } as never);
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-003' },
+    });
+    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/receipt has already been used this week/i),
+      ).toBeInTheDocument();
+    });
   });
 
   it('prevents duplicate redemption submissions while the first request is pending', async () => {

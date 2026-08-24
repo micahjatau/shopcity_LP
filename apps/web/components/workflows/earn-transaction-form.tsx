@@ -149,7 +149,14 @@ export function EarnTransactionForm({
   const expectedCreditKobo =
     purchaseAmount === null || !policyContext?.defaultEarnRateBps
       ? null
-      : Math.round((purchaseAmount * policyContext.defaultEarnRateBps) / 10000);
+      : Math.ceil((purchaseAmount * policyContext.defaultEarnRateBps) / 10000);
+  const submissionReady = Boolean(
+    lookupReady &&
+      cardSerialNumber.trim() &&
+      receiptNumber.trim() &&
+      purchaseAmount !== null &&
+      purchaseAmount > 0,
+  );
   const approvalFlagThresholdKobo =
     policyContext?.purchaseFlagThresholdKobo ?? null;
   const approvalThresholdKobo =
@@ -161,7 +168,7 @@ export function EarnTransactionForm({
         label: 'Card',
         value: cardSerialNumber || 'Scan or type a card serial',
       },
-      { label: 'Receipt', value: receiptNumber || 'Optional' },
+      { label: 'Receipt', value: receiptNumber || 'Required' },
       {
         label: 'Purchase',
         value:
@@ -195,7 +202,19 @@ export function EarnTransactionForm({
     setMessage('Reviewing earn transaction…');
     setResponseData(null);
 
-    if (purchaseAmount === null) {
+    if (!lookupReady || !cardSerialNumber.trim()) {
+      setStatus('error');
+      setMessage('Look up an active customer card before submitting.');
+      return;
+    }
+
+    if (!receiptNumber.trim()) {
+      setStatus('error');
+      setMessage('Enter a receipt number before submitting.');
+      return;
+    }
+
+    if (purchaseAmount === null || purchaseAmount <= 0) {
       setStatus('error');
       setMessage('Enter a valid purchase amount before submitting.');
       return;
@@ -244,7 +263,12 @@ export function EarnTransactionForm({
       }
 
       setStatus('error');
-      setMessage(`Earn failed with ${response.status}.`);
+      setMessage(
+        cashierEarnErrorMessage(
+          getResponseErrorCode(response.data),
+          response.status,
+        ),
+      );
     } catch {
       setStatus('error');
       setMessage('Earn could not be submitted.');
@@ -357,7 +381,8 @@ export function EarnTransactionForm({
       />
       <Input
         aria-label="POS receipt number"
-        placeholder="Receipt number"
+        aria-required="true"
+        placeholder="Receipt number (required)"
         value={receiptNumber}
         onChange={(event) => setReceiptNumber(event.target.value)}
       />
@@ -444,7 +469,7 @@ export function EarnTransactionForm({
         <Button
           type="submit"
           loading={status === 'submitting'}
-          disabled={purchaseAmount === null}
+          disabled={!submissionReady}
         >
           Submit earn
         </Button>
@@ -556,6 +581,39 @@ function deriveReceiptWeekStart(
   const localDate = new Date(Date.UTC(year, month - 1, day));
   localDate.setUTCDate(localDate.getUTCDate() - deltaDays);
   return localDate.toISOString();
+}
+
+function getResponseErrorCode(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as { error?: unknown; code?: unknown };
+  if (typeof body.code === 'string') return body.code;
+  if (body.error && typeof body.error === 'object') {
+    const nested = body.error as { code?: unknown };
+    return typeof nested.code === 'string' ? nested.code : null;
+  }
+  return null;
+}
+
+function cashierEarnErrorMessage(code: string | null, status: number) {
+  switch (code) {
+    case 'RECEIPT_ALREADY_USED':
+      return 'This receipt has already been used this week. Check the receipt number.';
+    case 'STAFF_INELIGIBLE':
+      return 'Staff purchases cannot earn ShopCity credit.';
+    case 'CARD_NOT_FOUND':
+    case 'CARD_INACTIVE':
+      return 'This card cannot currently earn credit. Confirm the card status.';
+    case 'APPROVAL_REQUIRED':
+      return 'Supervisor approval is required before this earn can complete.';
+    case 'INSUFFICIENT_BALANCE':
+      return 'Available credit is lower than this redemption.';
+    case 'AUTH_SESSION_EXPIRED':
+      return 'Your session has expired. Sign in again before continuing.';
+    default:
+      return status === 0
+        ? 'Earn could not be submitted because the network is unavailable.'
+        : `Earn could not be submitted (status ${status}). Review the transaction and try again.`;
+  }
 }
 
 function renderValue(value: unknown) {

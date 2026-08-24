@@ -17,6 +17,7 @@ describe('CardsService', () => {
             fullName: 'Ada Customer',
             phoneE164: '+2348012345678',
             email: 'customer@example.com',
+            isStaff: false,
             status: CustomerStatus.ACTIVE,
           },
         }),
@@ -39,6 +40,9 @@ describe('CardsService', () => {
         fullName: 'Ada Customer',
         maskedPhone: '+234801* *** 5678',
         cardStatus: CardStatus.ACTIVE,
+        isStaff: false,
+        earningEligible: true,
+        eligibilityReason: null,
         availableBalanceKobo: 2_500,
       },
     });

@@ -271,7 +271,12 @@ export function RedeemTransactionForm({
       }
 
       setStatus('error');
-      setMessage(`Redemption failed with ${response.status}.`);
+      setMessage(
+        cashierRedeemErrorMessage(
+          getResponseErrorCode(response.data),
+          response.status,
+        ),
+      );
     } catch {
       setStatus('error');
       setMessage('Redemption could not be submitted.');
@@ -506,6 +511,37 @@ export function RedeemTransactionForm({
       ) : null}
     </form>
   );
+}
+
+function getResponseErrorCode(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as { error?: unknown; code?: unknown };
+  if (typeof body.code === 'string') return body.code;
+  if (body.error && typeof body.error === 'object') {
+    const nested = body.error as { code?: unknown };
+    return typeof nested.code === 'string' ? nested.code : null;
+  }
+  return null;
+}
+
+function cashierRedeemErrorMessage(code: string | null, status: number) {
+  switch (code) {
+    case 'RECEIPT_ALREADY_USED':
+      return 'This receipt has already been used this week. Check the receipt number.';
+    case 'CARD_NOT_FOUND':
+    case 'CARD_INACTIVE':
+      return 'This card cannot currently redeem credit. Confirm the card status.';
+    case 'INSUFFICIENT_BALANCE':
+      return 'Available credit is lower than this redemption.';
+    case 'APPROVAL_REQUIRED':
+      return 'Supervisor approval is required before this redemption can complete.';
+    case 'AUTH_SESSION_EXPIRED':
+      return 'Your session has expired. Sign in again before continuing.';
+    default:
+      return status === 0
+        ? 'Redemption could not be submitted because the network is unavailable.'
+        : `Redemption could not be submitted (status ${status}). Review the transaction and try again.`;
+  }
 }
 
 function renderValue(value: unknown) {

@@ -324,6 +324,9 @@ function toPublicCardLookup(
       fullName: card.customer.fullName,
       maskedPhone: maskPhone(card.customer.phoneE164),
       cardStatus: card.status,
+      isStaff: card.customer.isStaff,
+      earningEligible: !card.customer.isStaff,
+      eligibilityReason: card.customer.isStaff ? 'STAFF_INELIGIBLE' : null,
       availableBalanceKobo: Number(activeBalanceKobo),
     },
   };
