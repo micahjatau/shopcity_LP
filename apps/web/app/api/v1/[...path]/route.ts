@@ -9,6 +9,8 @@ const BACKEND_BASE_URL =
   process.env.SHOPCITY_API_BASE_URL ??
   'http://127.0.0.1:3000';
 
+const BACKEND_REQUEST_TIMEOUT_MS = 10000;
+
 const FORWARDED_HEADERS = new Set([
   'accept',
   'accept-language',
@@ -48,38 +50,74 @@ async function proxyRequest(request: NextRequest) {
   const transport =
     backendUrl.protocol === 'https:' ? httpsRequest : httpRequest;
 
-  const response = await new Promise<{
+  let response: {
     status: number;
     headers: Record<string, string | string[] | undefined>;
     body: Buffer;
-  }>((resolve, reject) => {
-    const backendRequest = transport(
-      backendUrl,
-      {
-        method,
-        headers: Object.fromEntries(headers.entries()),
-      },
-      (backendResponse: IncomingMessage) => {
-        const chunks: Buffer[] = [];
-        backendResponse.on('data', (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        backendResponse.on('end', () => {
-          resolve({
-            status: backendResponse.statusCode ?? 502,
-            headers: backendResponse.headers,
-            body: Buffer.concat(chunks),
+  };
+
+  try {
+    response = await new Promise<{
+      status: number;
+      headers: Record<string, string | string[] | undefined>;
+      body: Buffer;
+    }>((resolve, reject) => {
+      const backendRequest = transport(
+        backendUrl,
+        {
+          method,
+          headers: Object.fromEntries(headers.entries()),
+        },
+        (backendResponse: IncomingMessage) => {
+          const chunks: Buffer[] = [];
+          backendResponse.on('data', (chunk) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
           });
-        });
+          backendResponse.on('end', () => {
+            resolve({
+              status: backendResponse.statusCode ?? 502,
+              headers: backendResponse.headers,
+              body: Buffer.concat(chunks),
+            });
+          });
+        },
+      );
+
+      backendRequest.setTimeout(BACKEND_REQUEST_TIMEOUT_MS, () => {
+        backendRequest.destroy(
+          Object.assign(new Error('Backend request timed out'), {
+            code: 'ETIMEDOUT',
+          }),
+        );
+      });
+      backendRequest.on('error', reject);
+      if (body?.length) {
+        backendRequest.write(body);
+      }
+      backendRequest.end();
+    });
+  } catch (error) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String(error.code)
+        : 'BACKEND_PROXY_ERROR';
+    console.error('ShopCity backend proxy failed', {
+      code,
+      method,
+      path: request.nextUrl.pathname,
+    });
+    return new Response(
+      JSON.stringify({
+        status: 'error',
+        code: 'BACKEND_UNAVAILABLE',
+        message: 'The ShopCity API is temporarily unavailable.',
+      }),
+      {
+        status: 502,
+        headers: { 'content-type': 'application/json' },
       },
     );
-
-    backendRequest.on('error', reject);
-    if (body?.length) {
-      backendRequest.write(body);
-    }
-    backendRequest.end();
-  });
+  }
 
   const responseHeaders = new Headers();
   for (const [key, value] of Object.entries(response.headers)) {
