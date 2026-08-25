@@ -64,7 +64,7 @@ import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module
           remove: true,
         },
         transport:
-          process.env.NODE_ENV !== 'production'
+          process.env.NODE_ENV === 'development'
             ? {
                 target: 'pino-pretty',
                 options: {
