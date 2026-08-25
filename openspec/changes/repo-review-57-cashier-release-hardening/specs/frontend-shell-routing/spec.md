@@ -47,3 +47,11 @@ The frontend SHALL expose cashier Earn and Redeem as dedicated workflow routes w
 - **WHEN** the page renders
 - **THEN** the page starts with the workflow-specific form or task context
 - **AND** it does not repeat the full cashier navigation set or launchpad cards
+
+#### Scenario: Cashier overview is not the full workflow container
+
+- **GIVEN** a cashier opens `/cashier`
+- **WHEN** the page renders
+- **THEN** the page provides operational overview and launch actions
+- **AND** it does not embed the full Earn and Redeem forms
+- **AND** it preserves quick access to the active sync state and dedicated workflow routes
