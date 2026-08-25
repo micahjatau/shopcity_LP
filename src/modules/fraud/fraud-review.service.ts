@@ -1,11 +1,19 @@
+import { createHash } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { FraudFlagStatus, FraudSeverity, UserRole } from '@prisma/client';
+import {
+  FraudFlagStatus,
+  FraudSeverity,
+  IdempotencyRecordStatus,
+  UserRole,
+} from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import {
@@ -142,7 +150,45 @@ export class FraudReviewService {
     flagId: string,
     decision: FraudFlagDecision,
     reason: string,
+    idempotencyKey: string | undefined,
   ): Promise<FraudFlagListItem> {
+    const normalizedKey = idempotencyKey?.trim() ?? '';
+    if (!normalizedKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          tenantId,
+          actorId: actor.user.id,
+          flagId,
+          decision,
+          reason,
+        }),
+      )
+      .digest('hex');
+    const existing = await this.prisma.idempotencyRecord.findUnique({
+      where: {
+        tenantId_actorId_endpoint_idempotencyKey: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint: 'fraud.decide',
+          idempotencyKey: normalizedKey,
+        },
+      },
+    });
+    if (existing && existing.requestHash !== requestHash) {
+      throw new DomainHttpException(
+        409,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
+    }
+    if (existing?.responseJson)
+      return existing.responseJson as unknown as FraudFlagListItem;
+    if (existing)
+      throw new ConflictException('Idempotency key is still being processed');
+
     const normalizedReason = reason.trim();
     if (!normalizedReason) {
       throw new BadRequestException('Decision reason is required');
@@ -161,6 +207,19 @@ export class FraudReviewService {
         decisionReason: normalizedReason,
         decisionActorId: actor.user.id,
         decidedAt,
+      },
+    });
+
+    await this.prisma.idempotencyRecord.create({
+      data: {
+        tenantId,
+        actorId: actor.user.id,
+        endpoint: 'fraud.decide',
+        idempotencyKey: normalizedKey,
+        requestHash,
+        status: IdempotencyRecordStatus.COMPLETED,
+        responseJson: updated,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
 
