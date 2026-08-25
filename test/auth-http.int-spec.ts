@@ -657,6 +657,9 @@ describe('auth and readiness flows (int)', () => {
       fullName: fixture.customer.fullName,
       maskedPhone: maskPhone(fixture.customer.phoneE164),
       cardStatus: CardStatus.ACTIVE,
+      isStaff: false,
+      earningEligible: true,
+      eligibilityReason: null,
       availableBalanceKobo: 1_500,
     });
     expect(body.data.customer).not.toHaveProperty('email');

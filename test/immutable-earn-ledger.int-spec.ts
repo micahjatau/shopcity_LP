@@ -264,6 +264,7 @@ describe('immutable earn ledger (int)', () => {
         pending.approvalId!,
         'APPROVED',
         'verified by supervisor',
+        'immutable-approval-race-a',
       ),
       approvalsService.decideApproval(
         tenant.id,
@@ -271,6 +272,7 @@ describe('immutable earn ledger (int)', () => {
         pending.approvalId!,
         'APPROVED',
         'verified by supervisor',
+        'immutable-approval-race-b',
       ),
     ]);
 
@@ -351,6 +353,7 @@ describe('immutable earn ledger (int)', () => {
         pending.approvalId!,
         'APPROVED',
         'approval reviewed too late',
+        'immutable-approval-expired',
       ),
     ).rejects.toMatchObject({
       response: { code: 'APPROVAL_EXPIRED' },
@@ -681,6 +684,7 @@ describe('immutable earn ledger (int)', () => {
           pending.approvalId!,
           'APPROVED',
           'approval policy changed',
+          'immutable-approval-policy-changed',
         ),
       ).rejects.toMatchObject({
         response: { code: 'APPROVAL_POLICY_CHANGED' },

@@ -36,7 +36,10 @@ export class ConfigurationService {
       this.publicConfigCache &&
       now - this.publicConfigCache.loadedAt < PUBLIC_CONFIG_FRESH_MS
     ) {
-      return this.publicConfigCache.value;
+      if (await this.isCachedConfigActive(this.publicConfigCache.value)) {
+        return this.publicConfigCache.value;
+      }
+      this.publicConfigCache = null;
     }
 
     if (this.publicConfigRefresh) {
@@ -55,6 +58,7 @@ export class ConfigurationService {
       return value;
     } catch (error) {
       if (
+        !(error instanceof ServiceUnavailableException) &&
         this.publicConfigCache &&
         now - this.publicConfigCache.loadedAt < PUBLIC_CONFIG_STALE_MS
       ) {
@@ -68,6 +72,25 @@ export class ConfigurationService {
 
   async getOperationalConfig(tenantId: string, branchId: string) {
     return this.loadConfig(tenantId, branchId);
+  }
+
+  private async isCachedConfigActive(config: PublicConfig) {
+    const [tenant, branch] = await Promise.all([
+      this.prismaService.tenant.findUnique({
+        where: { id: config.tenant.id },
+        select: { id: true, status: true },
+      }),
+      this.prismaService.branch.findUnique({
+        where: { id: config.branch.id },
+        select: { status: true, tenantId: true },
+      }),
+    ]);
+
+    return (
+      tenant?.status === TenantStatus.ACTIVE &&
+      branch?.status === BranchStatus.ACTIVE &&
+      branch.tenantId === tenant.id
+    );
   }
 
   private async loadConfig(tenantId: string, branchId: string) {

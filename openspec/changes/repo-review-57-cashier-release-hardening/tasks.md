@@ -4,7 +4,7 @@
 - [x] 1.2 Update card/customer lookup contracts with masked phone, staff/earning eligibility, and eligibility reason; regenerate OpenAPI/Orval artifacts.
 - [x] 1.3 Decide and document idempotency coverage for retry-sensitive mutations.
 - [x] 1.5 Enforce the idempotency contract for card creation, including required-key validation, replay storage, and request-hash scoping.
-- [ ] 1.6 Extend the idempotency contract to card replacement/status, device lifecycle, approval, and remaining retry-sensitive mutations; add validation/replay/conflict tests.
+- [x] 1.6 Extend the idempotency contract to card replacement/status, device lifecycle, approval, and remaining retry-sensitive mutations; add validation/replay/conflict tests.
 - [x] 1.4 Define role-specific inactivity windows, configuration names, session-expiry error contract, and provisioning migration policy.
 
 ## 2. Cashier workflow compliance
@@ -36,13 +36,13 @@
 - [x] 5.1 Harden release verification to independently compare candidate, workflow head, successful conclusions, deployment artifact, and required gate SHAs.
 - [ ] 5.2 Add exact-head evidence for protected-branch status, Frankfurt topology, and the intentional/unintentional status of the duplicate `shopcity` Vercel project.
 - [ ] 5.3 Replace infrastructure-only probes with authenticated lookup, Earn-confirmed, Earn-pending, Redeem-confirmed, and supervisor report benchmarks.
-- [ ] 5.4 Correct the performance harness to measure real client navigation/RSC behavior and retain raw reproducible artifacts.
+- [x] 5.4 Correct the performance harness to measure real client navigation/RSC behavior and retain raw reproducible artifacts.
 - [ ] 5.5 Refresh stale topology and release documentation and reconcile OpenSpec status with the implemented candidate.
 
 ## 6. Verification and rollout
 
-- [ ] 6.1 Run focused unit, contract, integration, frontend, accessibility, visual, and Playwright tests for affected workflows.
-- [ ] 6.2 Run lint, typecheck, build, Semgrep, Prisma/schema validation, and applicable integration suites.
+- [x] 6.1 Run focused unit, contract, integration, frontend, accessibility, visual, and Playwright tests for affected workflows.
+- [x] 6.2 Run lint, typecheck, build, Semgrep, Prisma/schema validation, and applicable integration suites.
 - [ ] 6.3 Verify migration/backup evidence for any schema changes and update `docs/database/migration-tracker.md`.
 - [ ] 6.4 Provision or migrate pilot devices, verify protected branch settings, and execute the authenticated production benchmark.
 - [ ] 6.5 Run GitNexus `detect_changes()` and review the final diff, residual risks, and release evidence before closure.

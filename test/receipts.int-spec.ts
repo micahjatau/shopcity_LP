@@ -772,6 +772,7 @@ describe('receipt capture flows (int)', () => {
     await postReceiptDecision(
       `/api/v1/receipts/${receiptBody.data.id}/approve`,
       await loginAs(branchlessAdmin.username, fixture.device.id),
+      'receipt-approval-17',
     ).expect(200);
 
     const receipt = await prisma.receipt.findUnique({
@@ -812,6 +813,7 @@ describe('receipt capture flows (int)', () => {
     const response = await postReceiptDecision(
       `/api/v1/receipts/${receiptBody.data.id}/approve`,
       fixture.authHeaders,
+      'receipt-approval-self-18',
     ).expect(400);
     expect((response.body as { error: { code: string } }).error.code).toBe(
       'APPROVAL_SELF_DECISION_FORBIDDEN',
@@ -842,6 +844,7 @@ describe('receipt capture flows (int)', () => {
     await postReceiptDecision(
       `/api/v1/receipts/${receiptBody.data.id}/reject`,
       await loginAs(branchlessAdmin.username, fixture.device.id),
+      'receipt-rejection-19',
     ).expect(200);
 
     const receipt = await prisma.receipt.findUnique({
@@ -1070,11 +1073,13 @@ function postReceipt(
 function postReceiptDecision(
   path: string,
   authHeaders: { headers: string; csrfToken: string },
+  idempotencyKey: string,
 ) {
   return request(httpServer)
     .post(path)
     .set('Cookie', authHeaders.headers)
-    .set('x-csrf-token', authHeaders.csrfToken);
+    .set('x-csrf-token', authHeaders.csrfToken)
+    .set('Idempotency-Key', idempotencyKey);
 }
 
 type ReceiptResponseBody = {

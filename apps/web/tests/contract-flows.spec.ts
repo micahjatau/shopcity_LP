@@ -82,6 +82,33 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
+    await page.route('**/api/v1/cards/lookup/CARD-123', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            customer: {
+              id: 'customer-123',
+              fullName: 'Ada Shopper',
+              maskedPhone: '0803 *** 4412',
+              isStaff: false,
+              earningEligible: true,
+              eligibilityReason: null,
+            },
+            customerId: 'customer-123',
+            customerName: 'Ada Shopper',
+            serialNumber: 'CARD-123',
+            status: 'ACTIVE',
+            availableBalanceKobo: 100000,
+            branchId: 'branch-1',
+          },
+          meta: {},
+        }),
+      });
+    });
+
     await page.route('**/api/v1/transactions/earn', async (route) => {
       const body = route.request().postDataJSON() as {
         cardSerialNumber: string;
@@ -116,6 +143,9 @@ test.describe('contract-faithful frontend flows', () => {
     ).toBeVisible();
 
     const earn = page.getByRole('article', { name: /earn transaction/i });
+    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
+    await page.getByRole('button', { name: 'Lookup' }).click();
+    await expect(earn).toContainText('Ada Shopper');
     await earn.getByLabel('Card serial number').fill('CARD-123');
     await earn.getByLabel('POS receipt number').fill('RCPT-123');
     await earn.getByLabel('Purchase amount').fill('1,234.50');
@@ -129,6 +159,9 @@ test.describe('contract-faithful frontend flows', () => {
     ).toBeVisible();
 
     const redeem = page.getByRole('article', { name: /redeem transaction/i });
+    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
+    await page.getByRole('button', { name: 'Lookup' }).click();
+    await expect(redeem).toContainText('Ada Shopper');
     await redeem.getByLabel('Card serial number').fill('CARD-123');
     await redeem.getByLabel('POS receipt number').fill('RCPT-124');
     await redeem.getByLabel('Basket amount').fill('1,000.00');

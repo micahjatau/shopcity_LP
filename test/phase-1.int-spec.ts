@@ -44,18 +44,28 @@ describe('phase 1 service flows', () => {
     });
     const service = new CustomersService(prisma as never, auditStub() as never);
 
-    const created = await service.createCustomer(seed.tenant.id, seed.actor, {
-      fullName: 'Ada Lovelace',
-      phone: '08012345678',
-    });
+    const created = await service.createCustomer(
+      seed.tenant.id,
+      seed.actor,
+      {
+        fullName: 'Ada Lovelace',
+        phone: '08012345678',
+      },
+      'phase-1-customer-create',
+    );
 
     expect(created.phoneE164).toBe('+2348012345678');
 
     await expect(
-      service.createCustomer(seed.tenant.id, seed.actor, {
-        fullName: 'Ada Lovelace',
-        phone: '08012345678',
-      }),
+      service.createCustomer(
+        seed.tenant.id,
+        seed.actor,
+        {
+          fullName: 'Ada Lovelace',
+          phone: '08012345678',
+        },
+        'phase-1-customer-duplicate',
+      ),
     ).rejects.toThrow('Active customer already exists');
 
     const customers = await prisma.customer.findMany({
@@ -101,6 +111,7 @@ describe('phase 1 service flows', () => {
       {
         serialNumber: 'SC-0002',
       },
+      'phase-1-card-replacement',
     );
 
     expect(replacement.serialNumber).toBe('SC-0002');
@@ -232,14 +243,24 @@ describe('phase 1 service flows', () => {
     });
 
     const [createA, createB] = await Promise.allSettled([
-      cardsService.createCard(seed.tenant.id, seed.actor, {
-        customerId: customer.id,
-        serialNumber: 'SC-1001',
-      }),
-      cardsService.createCard(seed.tenant.id, seed.actor, {
-        customerId: customer.id,
-        serialNumber: 'SC-1002',
-      }),
+      cardsService.createCard(
+        seed.tenant.id,
+        seed.actor,
+        {
+          customerId: customer.id,
+          serialNumber: 'SC-1001',
+        },
+        'phase-1-card-create-a',
+      ),
+      cardsService.createCard(
+        seed.tenant.id,
+        seed.actor,
+        {
+          customerId: customer.id,
+          serialNumber: 'SC-1002',
+        },
+        'phase-1-card-create-b',
+      ),
     ]);
 
     expect(
@@ -259,12 +280,24 @@ describe('phase 1 service flows', () => {
       (card) => card.status === CardStatus.ACTIVE,
     )!;
     const [replaceA, replaceB] = await Promise.allSettled([
-      cardsService.replaceCard(seed.tenant.id, seed.actor, activeCard.id, {
-        serialNumber: 'SC-2001',
-      }),
-      cardsService.replaceCard(seed.tenant.id, seed.actor, activeCard.id, {
-        serialNumber: 'SC-2002',
-      }),
+      cardsService.replaceCard(
+        seed.tenant.id,
+        seed.actor,
+        activeCard.id,
+        {
+          serialNumber: 'SC-2001',
+        },
+        'phase-1-card-replace-a',
+      ),
+      cardsService.replaceCard(
+        seed.tenant.id,
+        seed.actor,
+        activeCard.id,
+        {
+          serialNumber: 'SC-2002',
+        },
+        'phase-1-card-replace-b',
+      ),
     ]);
 
     expect(

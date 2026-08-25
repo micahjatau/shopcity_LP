@@ -61,7 +61,7 @@ function summarizeResources(resources) {
   return summary;
 }
 
-async function measureRoute(page, route) {
+async function measureRoute(page, route, navigationMode = 'document') {
   const requestUrls = [];
   const responseTimings = [];
   const requestListener = (request) => requestUrls.push(request.url());
@@ -78,9 +78,17 @@ async function measureRoute(page, route) {
   page.on('response', responseListener);
   try {
     const startedAt = Date.now();
-    const response = await page.goto(`${baseUrl}${route}`, {
-      waitUntil: 'networkidle',
-    });
+    let response;
+    if (navigationMode === 'client') {
+      const link = page.locator(`a[href="${route}"]`).first();
+      await link.waitFor({ state: 'visible' });
+      await Promise.all([page.waitForURL(`**${route}`), link.click()]);
+      await page.waitForLoadState('networkidle');
+    } else {
+      response = await page.goto(`${baseUrl}${route}`, {
+        waitUntil: 'networkidle',
+      });
+    }
     const navigation = await page.evaluate(() => {
       const entry = performance.getEntriesByType('navigation')[0];
       if (!entry) return null;
@@ -119,6 +127,7 @@ async function measureRoute(page, route) {
 
     return {
       route,
+      navigationMode,
       url: page.url(),
       status: response?.status() ?? null,
       durationMs: Date.now() - startedAt,
@@ -161,11 +170,15 @@ async function main() {
   const results = [];
 
   try {
-    for (const route of routes) {
-      results.push({ cold: await measureRoute(page, route) });
-      if (warmNavigation) {
-        results.at(-1).warm = await measureRoute(page, route);
+    for (let index = 0; index < routes.length; index += 1) {
+      const route = routes[index];
+      const result = { cold: await measureRoute(page, route, 'document') };
+      if (warmNavigation && routes.length > 1) {
+        const warmRoute = routes[(index + 1) % routes.length];
+        result.warm = await measureRoute(page, warmRoute, 'client');
+        result.warmFrom = route;
       }
+      results.push(result);
     }
   } finally {
     await context.close();
