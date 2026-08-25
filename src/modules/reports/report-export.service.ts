@@ -1,11 +1,14 @@
+import { createHash } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UserRole } from '@prisma/client';
+import { IdempotencyRecordStatus, UserRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { ReportsService, type ReportCollection } from './reports.service';
 import type { AuthContext } from '../../common/auth/session.types';
@@ -92,8 +95,39 @@ export class ReportExportService {
     context: AuthContext,
     report: ReportExportName,
     query: Pick<ReportExportQuery, 'branchId' | 'timezone'> = {},
+    idempotencyKey?: string,
   ): Promise<void> {
     this.ensureRefreshAccess(context);
+    const normalizedKey = idempotencyKey?.trim() ?? '';
+    if (!normalizedKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({ tenantId, actorId: context.user.id, report, query }),
+      )
+      .digest('hex');
+    const existing = await this.prisma.idempotencyRecord.findUnique({
+      where: {
+        tenantId_actorId_endpoint_idempotencyKey: {
+          tenantId,
+          actorId: context.user.id,
+          endpoint: 'reports.refresh',
+          idempotencyKey: normalizedKey,
+        },
+      },
+    });
+    if (existing && existing.requestHash !== requestHash) {
+      throw new DomainHttpException(
+        409,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
+    }
+    if (existing) {
+      if (existing.responseJson) return;
+      throw new ConflictException('Idempotency key is still being processed');
+    }
 
     await this.auditService.record({
       tenantId,
@@ -121,6 +155,18 @@ export class ReportExportService {
         },
         status: 'PENDING',
         nextAttemptAt: new Date(),
+      },
+    });
+    await this.prisma.idempotencyRecord.create({
+      data: {
+        tenantId,
+        actorId: context.user.id,
+        endpoint: 'reports.refresh',
+        idempotencyKey: normalizedKey,
+        requestHash,
+        status: IdempotencyRecordStatus.COMPLETED,
+        responseJson: { status: 'accepted' },
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
   }

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   Post,
@@ -11,6 +12,7 @@ import {
 import {
   ApiAcceptedResponse,
   ApiBearerAuth,
+  ApiHeader,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -472,6 +474,7 @@ export class ReportsController {
     ],
   })
   @ApiQuery({ name: 'branchId', required: false })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @ApiAcceptedResponse({ description: 'Report refresh scheduled' })
   @ApiOperation({ summary: 'Schedule report refresh' })
   async refreshReport(
@@ -479,6 +482,7 @@ export class ReportsController {
     @Param('report') report: ReportExportName,
     @Query('branchId') branchId?: string,
     @Query('timezone') timezone?: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     await this.reportExportService.refreshReport(
       context.user.tenantId,
@@ -488,6 +492,7 @@ export class ReportsController {
         branchId,
         timezone,
       },
+      idempotencyKey,
     );
     return { status: 'accepted' };
   }

@@ -78,6 +78,7 @@ describe('ReportsController', () => {
       adminContext(),
       'executive-summary',
       expect.objectContaining({ branchId: undefined }),
+      undefined,
     );
   });
 });
