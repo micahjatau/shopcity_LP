@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { CashierOverviewLookup } from '../components/workflows/cashier-overview-lookup';
 import { CashierWorkflowRoute } from '../components/workflows/cashier-transaction-route';
 import { cardsControllerLookupCardV1 } from '../lib/api/generated-client';
 
@@ -51,6 +52,29 @@ describe('Cashier lookup workflow', () => {
         },
       },
     } as never);
+  });
+
+  it('looks up a card directly from the cashier overview', async () => {
+    render(<CashierOverviewLookup />);
+
+    fireEvent.change(
+      screen.getByRole('textbox', {
+        name: 'Scan card or enter card number',
+      }),
+      { target: { value: 'CARD-001' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: 'Earn credit' })).toHaveAttribute(
+      'href',
+      '/cashier/earn?card=CARD-001',
+    );
+    expect(
+      screen.getByText('Customer verified. Choose the next action.'),
+    ).toBeInTheDocument();
   });
 
   it('keeps lookup focused and preserves context for Earn and Redeem', async () => {

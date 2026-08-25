@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CashierOverviewContext } from '../../../components/workflows/cashier-overview-context';
+import { CashierOverviewLookup } from '../../../components/workflows/cashier-overview-lookup';
 
 const cashierActions = [
   {
@@ -36,6 +37,7 @@ export default function CashierPage() {
         </Link>
       </header>
       <CashierOverviewContext />
+      <CashierOverviewLookup />
 
       <section
         className="cashier-launcher"

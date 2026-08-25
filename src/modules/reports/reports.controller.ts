@@ -47,6 +47,38 @@ const reportCollectionSchema = {
   },
 } as const;
 
+const cashierTodaySchema = {
+  type: 'object',
+  required: ['branchId', 'timezone', 'items'],
+  properties: {
+    branchId: { type: 'string', format: 'uuid' },
+    timezone: { type: 'string' },
+    items: {
+      type: 'array',
+      maxItems: 10,
+      items: {
+        type: 'object',
+        required: [
+          'id',
+          'occurredAt',
+          'operation',
+          'amountKobo',
+          'receiptNumber',
+          'status',
+        ],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          occurredAt: { type: 'string', format: 'date-time' },
+          operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          amountKobo: { type: 'integer' },
+          receiptNumber: { type: 'string' },
+          status: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const;
+
 const pilotOperationsSummarySchema = {
   type: 'object',
   required: [
@@ -218,6 +250,18 @@ export class ReportsController {
         timezone,
       },
     );
+  }
+
+  @Get('cashier-today')
+  @Version('1')
+  @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description: "Today's cashier transaction summary",
+    dataSchema: cashierTodaySchema,
+  })
+  @ApiOperation({ summary: "List today's cashier transactions" })
+  listCashierToday(@CurrentSession() context: AuthContext) {
+    return this.reportsService.listCashierToday(context.user.tenantId, context);
   }
 
   @Get('cashier-activity')

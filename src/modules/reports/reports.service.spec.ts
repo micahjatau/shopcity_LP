@@ -212,6 +212,36 @@ describe('ReportsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('returns branch-scoped today transactions for a cashier', async () => {
+    const receipt = {
+      id: 'receipt-1',
+      occurredAt: new Date('2026-08-25T10:00:00.000Z'),
+      posReceiptNumber: '1831',
+      purchaseAmountKobo: 420n,
+      reviewStatus: 'APPROVED',
+      redemption: null,
+      ledgerEntries: [{ type: 'EARN', amountKobo: 42n, status: 'CONFIRMED' }],
+    };
+    const prisma = prismaStub({ receipts: [receipt] });
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.listCashierToday('tenant-1', cashierContext()),
+    ).resolves.toMatchObject({
+      branchId: 'branch-1',
+      timezone: 'Africa/Lagos',
+      items: [
+        {
+          id: 'receipt-1',
+          operation: 'EARN',
+          amountKobo: 42,
+          receiptNumber: '1831',
+          status: 'CONFIRMED',
+        },
+      ],
+    });
+  });
+
   it('rejects invalid report dates', async () => {
     const service = new ReportsService(prismaStub(), configService());
 
@@ -262,6 +292,18 @@ function adminContext(): AuthContext {
   };
 }
 
+function cashierContext(): AuthContext {
+  return {
+    session: {} as never,
+    user: {
+      id: 'cashier-1',
+      tenantId: 'tenant-1',
+      role: UserRole.CASHIER,
+      branchId: 'branch-1',
+    } as never,
+  };
+}
+
 function supervisorContext(): AuthContext {
   return {
     session: {} as never,
@@ -277,6 +319,7 @@ function supervisorContext(): AuthContext {
 function prismaStub(
   options: {
     executiveSummaryRows?: Array<Record<string, unknown>>;
+    receipts?: Array<Record<string, unknown>>;
   } = {},
 ): PrismaService {
   return {
@@ -296,6 +339,9 @@ function prismaStub(
     },
     reportMaterializationState: {
       findMany: jest.fn().mockResolvedValue([]),
+    },
+    receipt: {
+      findMany: jest.fn().mockResolvedValue(options.receipts ?? []),
     },
   } as unknown as PrismaService;
 }

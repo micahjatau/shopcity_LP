@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { OutboxEventStatus, SmsMessageStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
+import { branchDayWindow } from '../../jobs/branch-day-window';
 
 const DEFAULT_REPORT_TIME_ZONE = 'Africa/Lagos';
 
@@ -127,6 +128,101 @@ export class ReportsService {
         orderBy: [{ reportDate: 'desc' }, { customerId: 'asc' }],
       }),
     );
+  }
+
+  async listCashierToday(
+    tenantId: string,
+    context: AuthContext,
+  ): Promise<{
+    branchId: string;
+    timezone: string;
+    items: Array<{
+      id: string;
+      occurredAt: string;
+      operation: 'EARN' | 'REDEEM';
+      amountKobo: number;
+      receiptNumber: string;
+      status: string;
+    }>;
+  }> {
+    if (
+      context.user.role !== UserRole.CASHIER &&
+      context.user.role !== UserRole.SUPERVISOR &&
+      context.user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('Cashier activity access is restricted');
+    }
+
+    const branchId = context.user.branchId;
+    if (!branchId) {
+      throw new ForbiddenException('Cashier activity requires a branch scope');
+    }
+
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, tenantId },
+      select: { id: true, timezone: true },
+    });
+    if (!branch) {
+      throw new NotFoundException('Cashier activity branch not found');
+    }
+
+    const { windowStart, windowEnd } = branchDayWindow(
+      new Date(),
+      branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+    );
+    const receipts = await this.prisma.receipt.findMany({
+      where: {
+        tenantId,
+        branchId: branch.id,
+        occurredAt: { gte: windowStart, lt: windowEnd },
+      },
+      orderBy: { occurredAt: 'desc' },
+      take: 10,
+      include: {
+        redemption: {
+          select: {
+            requestedAmountKobo: true,
+            confirmedAmountKobo: true,
+            status: true,
+          },
+        },
+        ledgerEntries: {
+          select: {
+            type: true,
+            amountKobo: true,
+            status: true,
+          },
+          orderBy: { effectiveAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    return {
+      branchId: branch.id,
+      timezone: branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+      items: receipts.map((receipt) => {
+        const redemption = receipt.redemption;
+        const ledger = receipt.ledgerEntries[0];
+        const isRedeem = Boolean(redemption);
+        return {
+          id: receipt.id,
+          occurredAt: receipt.occurredAt.toISOString(),
+          operation: isRedeem ? 'REDEEM' : 'EARN',
+          amountKobo: Number(
+            isRedeem
+              ? (redemption?.confirmedAmountKobo ??
+                  redemption?.requestedAmountKobo ??
+                  0n)
+              : (ledger?.amountKobo ?? receipt.purchaseAmountKobo),
+          ),
+          receiptNumber: receipt.posReceiptNumber,
+          status: isRedeem
+            ? (redemption?.status ?? receipt.reviewStatus)
+            : (ledger?.status ?? receipt.reviewStatus),
+        };
+      }),
+    };
   }
 
   async listCashierActivity(

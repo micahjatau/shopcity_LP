@@ -11488,6 +11488,259 @@ export type ReportsControllerListCustomerPerformanceV1503 = {
   meta: ReportsControllerListCustomerPerformanceV1503Meta;
 };
 
+export type ReportsControllerListCashierTodayV1200DataItemsItemOperation =
+  (typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation)[keyof typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReportsControllerListCashierTodayV1200DataItemsItemOperation = {
+  EARN: 'EARN',
+  REDEEM: 'REDEEM',
+} as const;
+
+export type ReportsControllerListCashierTodayV1200DataItemsItem = {
+  id: string;
+  occurredAt: string;
+  operation: ReportsControllerListCashierTodayV1200DataItemsItemOperation;
+  amountKobo: number;
+  receiptNumber: string;
+  status: string;
+};
+
+export type ReportsControllerListCashierTodayV1200Data = {
+  branchId: string;
+  timezone: string;
+  /** @maxItems 10 */
+  items: ReportsControllerListCashierTodayV1200DataItemsItem[];
+};
+
+export type ReportsControllerListCashierTodayV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1200 = {
+  success: boolean;
+  data: ReportsControllerListCashierTodayV1200Data;
+  meta: ReportsControllerListCashierTodayV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1400ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1400 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1400Error;
+  meta: ReportsControllerListCashierTodayV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1401ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1401 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1401Error;
+  meta: ReportsControllerListCashierTodayV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1403ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1403 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1403Error;
+  meta: ReportsControllerListCashierTodayV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1404ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1404 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1404Error;
+  meta: ReportsControllerListCashierTodayV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1409ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1409 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1409Error;
+  meta: ReportsControllerListCashierTodayV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1422ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1422 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1422Error;
+  meta: ReportsControllerListCashierTodayV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1429ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1429 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1429Error;
+  meta: ReportsControllerListCashierTodayV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1503ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1503 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1503Error;
+  meta: ReportsControllerListCashierTodayV1503Meta;
+};
+
 export type ReportsControllerListCashierActivityV1Params = {
   branchId?: string;
   from?: string;
@@ -18441,6 +18694,100 @@ export const reportsControllerListCustomerPerformanceV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerListCustomerPerformanceV1Response;
+};
+
+/**
+ * List today's cashier transactions
+ * @summary List today's cashier transactions
+ */
+export type reportsControllerListCashierTodayV1Response200 = {
+  data: ReportsControllerListCashierTodayV1200;
+  status: 200;
+};
+
+export type reportsControllerListCashierTodayV1Response400 = {
+  data: ReportsControllerListCashierTodayV1400;
+  status: 400;
+};
+
+export type reportsControllerListCashierTodayV1Response401 = {
+  data: ReportsControllerListCashierTodayV1401;
+  status: 401;
+};
+
+export type reportsControllerListCashierTodayV1Response403 = {
+  data: ReportsControllerListCashierTodayV1403;
+  status: 403;
+};
+
+export type reportsControllerListCashierTodayV1Response404 = {
+  data: ReportsControllerListCashierTodayV1404;
+  status: 404;
+};
+
+export type reportsControllerListCashierTodayV1Response409 = {
+  data: ReportsControllerListCashierTodayV1409;
+  status: 409;
+};
+
+export type reportsControllerListCashierTodayV1Response422 = {
+  data: ReportsControllerListCashierTodayV1422;
+  status: 422;
+};
+
+export type reportsControllerListCashierTodayV1Response429 = {
+  data: ReportsControllerListCashierTodayV1429;
+  status: 429;
+};
+
+export type reportsControllerListCashierTodayV1Response503 = {
+  data: ReportsControllerListCashierTodayV1503;
+  status: 503;
+};
+
+export type reportsControllerListCashierTodayV1ResponseSuccess =
+  reportsControllerListCashierTodayV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerListCashierTodayV1ResponseError = (
+  | reportsControllerListCashierTodayV1Response400
+  | reportsControllerListCashierTodayV1Response401
+  | reportsControllerListCashierTodayV1Response403
+  | reportsControllerListCashierTodayV1Response404
+  | reportsControllerListCashierTodayV1Response409
+  | reportsControllerListCashierTodayV1Response422
+  | reportsControllerListCashierTodayV1Response429
+  | reportsControllerListCashierTodayV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerListCashierTodayV1Response =
+  | reportsControllerListCashierTodayV1ResponseSuccess
+  | reportsControllerListCashierTodayV1ResponseError;
+
+export const getReportsControllerListCashierTodayV1Url = () => {
+  return `/api/v1/reports/cashier-today`;
+};
+
+export const reportsControllerListCashierTodayV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerListCashierTodayV1Response> => {
+  const res = await fetch(getReportsControllerListCashierTodayV1Url(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerListCashierTodayV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerListCashierTodayV1Response;
 };
 
 /**
