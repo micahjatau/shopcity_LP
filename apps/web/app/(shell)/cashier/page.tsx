@@ -27,7 +27,8 @@ export default function CashierPage() {
           <p className="cashier-kicker">Cashier workspace</p>
           <h1>Ready for the next customer</h1>
           <p className="cashier-muted">
-            Scan or enter a card, verify the customer, then confirm the server result.
+            Scan or enter a card, verify the customer, then confirm the server
+            result.
           </p>
         </div>
         <Link href="/cashier/lookup" className="cashier-primary-action">

@@ -152,10 +152,10 @@ export function EarnTransactionForm({
       : Math.ceil((purchaseAmount * policyContext.defaultEarnRateBps) / 10000);
   const submissionReady = Boolean(
     lookupReady &&
-      cardSerialNumber.trim() &&
-      receiptNumber.trim() &&
-      purchaseAmount !== null &&
-      purchaseAmount > 0,
+    cardSerialNumber.trim() &&
+    receiptNumber.trim() &&
+    purchaseAmount !== null &&
+    purchaseAmount > 0,
   );
   const approvalFlagThresholdKobo =
     policyContext?.purchaseFlagThresholdKobo ?? null;

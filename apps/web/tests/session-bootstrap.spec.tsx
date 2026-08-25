@@ -222,9 +222,7 @@ describe('SessionBootstrapProvider', () => {
 
   it('returns to sign-in state when session revalidation is rejected', async () => {
     jest.useFakeTimers();
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue({ status: 401 } as Response);
+    const fetchMock = jest.fn().mockResolvedValue({ status: 401 } as Response);
     Object.defineProperty(global, 'fetch', {
       configurable: true,
       value: fetchMock,
