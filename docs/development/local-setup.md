@@ -21,6 +21,16 @@
 
 The seed step also provisions `cashier@shopcity.local` and `supervisor@shopcity.local` in Supabase Auth so the local shell has immediate cashier and supervisor sign-in paths. The bootstrap admin is `admin@shopcity.local` and requires a strong `DEFAULT_ADMIN_PASSWORD` outside tests, not the repository placeholder; the same bootstrap password is reused for the seeded demo cashier and supervisor accounts. If `SUPABASE_URL`, `SUPABASE_ANON_KEY`, or `SUPABASE_SERVICE_ROLE_KEY` is missing, seeding fails immediately.
 
+### Production bootstrap credentials
+
+Never commit or paste live bootstrap passwords into repository documentation. Retrieve the sensitive Vercel production value only when needed:
+
+```bash
+npm exec -- vercel env run --cwd /tmp --environment production --project shopcity-api -- sh -c 'printf "%s\\n" "$DEFAULT_ADMIN_PASSWORD"'
+```
+
+The seeded `admin@shopcity.local` and `supervisor@shopcity.local` accounts use the bootstrap password. Rotate `DEFAULT_ADMIN_PASSWORD` after operational smoke tests and update both Supabase Auth identities; do not reuse local development credentials in production.
+
 Receipt capture now requires a physical POS receipt number, an active device, and branch context derived from the authenticated cashier or bound device. Stale or future transaction timestamps require an explicit supervisor override reason and are audited, and purchase amounts must stay within the configured approval threshold.
 
 ## Useful Commands

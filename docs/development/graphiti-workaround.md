@@ -1,47 +1,44 @@
-# Graphiti Workaround
+# Graphiti local memory
 
-## Why this exists
+## Canonical setup
 
-Pi’s built-in MCP registry can start empty in this repo even when the local Graphiti server is healthy. When that happens, Graphiti memory search/write is still available through the local MCP HTTP endpoint.
+Local Graphiti uses the repository Compose service `graphiti-neo4j` as its canonical backend:
 
-## Current workaround
+- Neo4j Bolt: `bolt://127.0.0.1:7687`
+- Database: `neo4j`
+- Group: `shopcity_LP`
+- Persistent volumes: `graphiti-neo4j-data` and `graphiti-neo4j-logs`
+- MCP: `http://127.0.0.1:8000/mcp/`
 
-This repository keeps a project-level `.mcp.json` that points Pi at the local Graphiti server:
+Start it with:
 
-```json
-{
-  "mcpServers": {
-    "graphiti-memory": {
-      "url": "http://127.0.0.1:8000/mcp/"
-    }
-  }
-}
+```bash
+npm run graphiti:mcp
 ```
 
-The local Graphiti server is implemented in `scripts/graphiti/mcp-server.py` and can be started with `npm run graphiti:mcp` or `scripts/graphiti/start-mcp.sh`. It exposes:
+The launcher starts Neo4j through the root `docker-compose.yml`, waits for Bolt connectivity, and only then starts the MCP server. Set `GRAPHITI_NEO4J_AUTOSTART=false` when connecting to an externally managed Neo4j instance. Connection values can be overridden with `GRAPHITI_NEO4J_URI`, `GRAPHITI_NEO4J_USER`, `GRAPHITI_NEO4J_PASSWORD`, and `GRAPHITI_NEO4J_DATABASE`.
 
-- `GET /health` for a quick liveness check
-- `POST /mcp/` for MCP traffic
-- tools for `add_memory`, `search_nodes`, `search_memory_facts`, and `get_status`
+## Migrating the former FalkorDB memory
 
-## How to recover
+The previous local setup stored bootstrap capsules in FalkorDB on port `6380`. Keep the `falkordb_data` volume as a source backup, start canonical Neo4j, then run:
 
-1. Start the Graphiti MCP server with `scripts/graphiti/start-mcp.sh`.
-2. Confirm the endpoint responds at `http://127.0.0.1:8000/health` and `http://127.0.0.1:8000/mcp/`.
-3. Keep or restore the repo-root `.mcp.json` above.
-4. Restart or reload Pi so it re-reads MCP config.
-5. If Pi still shows no MCP tools, use the local HTTP endpoint directly until the registry reloads.
+```bash
+npm run graphiti:migrate:falkordb
+```
 
-## Verification
+The migration reads `default_db`, writes all source records into `shopcity_LP`, and is idempotent using the original FalkorDB UUID. It does not modify or delete FalkorDB data. Override `GRAPHITI_FALKORDB_URL` or `GRAPHITI_FALKORDB_GRAPH` when the source differs.
 
-A healthy setup should:
+## Verification and recovery
 
-- return a successful MCP `initialize` response from `http://127.0.0.1:8000/mcp/`
-- expose tools such as `add_memory`, `search_nodes`, `search_memory_facts`, and `get_status`
-- allow both memory search and memory write to complete against the `shopcity_LP` group
+```bash
+curl -fsS http://127.0.0.1:8000/health
+npm run graphiti:migrate:falkordb
+```
 
-## Notes
+The health response must report Neo4j connectivity and a nonzero `episodicCount` after migration. If startup fails, inspect:
 
-- Do not store secrets in `.mcp.json`.
-- If the port changes, update the URL in `.mcp.json` and restart Pi.
-- This workaround is only for local development; production or shared environments should use the appropriate managed MCP configuration.
+```bash
+docker compose logs graphiti-neo4j
+```
+
+Do not run `docker compose down -v` for the local stack unless the Neo4j backup has been intentionally made; removing volumes destroys the canonical memory store. The retained FalkorDB volume is the rollback source until migration is confirmed.

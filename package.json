@@ -45,6 +45,7 @@
     "proposal:impact": "node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests",
     "gitnexus:smoke": "node scripts/gitnexus.cjs --help",
     "graphiti:mcp": "bash ./scripts/graphiti/start-mcp.sh",
+    "graphiti:migrate:falkordb": "python3 scripts/graphiti/migrate-falkordb-to-neo4j.py",
     "lint:src": "NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/*.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/common/**/*.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/config/**/*.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/database/**/*.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/jobs/**/*.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/modules/**/*.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"src/supabase/**/*.ts\"",
     "lint:test": "NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"test/**/*.e2e-spec.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"test/**/*.int-spec.ts\" && NODE_OPTIONS=--max-old-space-size=1536 eslint --cache \"test/support/**/*.ts\"",
     "lint": "npm run lint:src && npm run lint:test",

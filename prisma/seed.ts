@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
+import { Prisma, PrismaClient, UserRole, UserStatus } from '@prisma/client';
 import {
   DEFAULT_PUBLIC_BRANCH_NAME,
   DEFAULT_PUBLIC_TENANT_NAME,
@@ -90,7 +90,9 @@ export async function seedFoundation(
     username,
     adminPassword,
   );
-  const createdSupabaseIdentities: SupabaseBootstrapIdentity[] = [adminIdentity];
+  const createdSupabaseIdentities: SupabaseBootstrapIdentity[] = [
+    adminIdentity,
+  ];
   const demoStaffSeeds = [
     {
       id: '00000000-0000-0000-0000-000000000004',
@@ -154,25 +156,13 @@ export async function seedFoundation(
       },
     });
 
-    user = await prismaClient.user.upsert({
-      where: { id: adminUserId },
-      update: {
-        tenantId,
-        branchId,
-        username,
-        role: UserRole.ADMIN,
-        status: UserStatus.ACTIVE,
-        supabaseAuthId: adminIdentity.id,
-      },
-      create: {
-        id: adminUserId,
-        tenantId,
-        branchId,
-        username,
-        role: UserRole.ADMIN,
-        status: UserStatus.ACTIVE,
-        supabaseAuthId: adminIdentity.id,
-      },
+    user = await upsertSeedUser(prismaClient, {
+      id: adminUserId,
+      tenantId,
+      branchId,
+      username,
+      role: UserRole.ADMIN,
+      supabaseAuthId: adminIdentity.id,
     });
 
     for (const staff of demoStaffSeeds) {
@@ -183,25 +173,13 @@ export async function seedFoundation(
       );
       createdSupabaseIdentities.push(identity);
 
-      await prismaClient.user.upsert({
-        where: { id: staff.id },
-        update: {
-          tenantId,
-          branchId,
-          username: staff.username,
-          role: staff.role,
-          status: UserStatus.ACTIVE,
-          supabaseAuthId: identity.id,
-        },
-        create: {
-          id: staff.id,
-          tenantId,
-          branchId,
-          username: staff.username,
-          role: staff.role,
-          status: UserStatus.ACTIVE,
-          supabaseAuthId: identity.id,
-        },
+      await upsertSeedUser(prismaClient, {
+        id: staff.id,
+        tenantId,
+        branchId,
+        username: staff.username,
+        role: staff.role,
+        supabaseAuthId: identity.id,
       });
     }
   } catch (error) {
@@ -267,6 +245,60 @@ export async function seedFoundation(
   };
 }
 
+async function upsertSeedUser(
+  prismaClient: PrismaClient,
+  input: {
+    id: string;
+    tenantId: string;
+    branchId: string;
+    username: string;
+    role: UserRole;
+    supabaseAuthId: string;
+  },
+) {
+  const data = {
+    tenantId: input.tenantId,
+    branchId: input.branchId,
+    username: input.username,
+    role: input.role,
+    status: UserStatus.ACTIVE,
+    supabaseAuthId: input.supabaseAuthId,
+  };
+
+  try {
+    return await prismaClient.user.upsert({
+      where: { id: input.id },
+      update: data,
+      create: { id: input.id, ...data },
+    });
+  } catch (error) {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      throw error;
+    }
+
+    const existingUser = await prismaClient.user.findUnique({
+      where: {
+        tenantId_username: {
+          tenantId: input.tenantId,
+          username: input.username,
+        },
+      },
+    });
+
+    if (!existingUser) {
+      throw error;
+    }
+
+    return prismaClient.user.update({
+      where: { id: existingUser.id },
+      data,
+    });
+  }
+}
+
 async function main() {
   await seedFoundation(prisma);
 }
@@ -322,7 +354,8 @@ async function ensureSupabaseUser(
 
     if (updateResult.error) {
       throw new Error(
-        updateResult.error.message ?? 'Unable to update bootstrap Supabase user',
+        updateResult.error.message ??
+          'Unable to update bootstrap Supabase user',
       );
     }
 

@@ -17,7 +17,7 @@ PORT = int(os.environ.get('GRAPHITI_MCP_PORT', '8000'))
 MCP_PATH = os.environ.get('GRAPHITI_MCP_PATH', '/mcp')
 NEO4J_URI = os.environ.get('GRAPHITI_NEO4J_URI', 'bolt://127.0.0.1:7687')
 NEO4J_USER = os.environ.get('GRAPHITI_NEO4J_USER', 'neo4j')
-NEO4J_PASSWORD = os.environ.get('GRAPHITI_NEO4J_PASSWORD', 'demodemo')
+NEO4J_PASSWORD = os.environ.get('GRAPHITI_NEO4J_PASSWORD', 'shopcity-graphiti')
 NEO4J_DATABASE = os.environ.get('GRAPHITI_NEO4J_DATABASE', 'neo4j')
 DEFAULT_GROUP_ID = os.environ.get('GRAPHITI_GROUP_ID', 'shopcity_LP')
 

@@ -19,6 +19,33 @@ services:
     volumes:
       - shopcity-redis-data:/data
 
+  graphiti-neo4j:
+    image: neo4j:5.26.0
+    ports:
+      - '${GRAPHITI_NEO4J_HTTP_PORT:-7474}:7474'
+      - '${GRAPHITI_NEO4J_PORT:-7687}:7687'
+    environment:
+      GRAPHITI_NEO4J_PASSWORD: '${GRAPHITI_NEO4J_PASSWORD:-shopcity-graphiti}'
+      NEO4J_AUTH: 'neo4j/${GRAPHITI_NEO4J_PASSWORD:-shopcity-graphiti}'
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'cypher-shell -u neo4j -p "$${GRAPHITI_NEO4J_PASSWORD:-shopcity-graphiti}" ''RETURN 1'' >/dev/null 2>&1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - graphiti-neo4j-data:/data
+      - graphiti-neo4j-logs:/logs
+
 volumes:
   shopcity-postgres-data:
   shopcity-redis-data:
+  graphiti-neo4j-data:
+  graphiti-neo4j-logs:
