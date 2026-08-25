@@ -1,9 +1,5 @@
 import Link from 'next/link';
-import { WorkflowSection } from '../../../components/workflows';
-import {
-  CashierOverviewContext,
-  CashierOverviewStatus,
-} from '../../../components/workflows/cashier-overview-context';
+import { CashierOverviewContext } from '../../../components/workflows/cashier-overview-context';
 
 const cashierActions = [
   {
@@ -31,17 +27,25 @@ export default function CashierPage() {
           <p className="cashier-kicker">Cashier workspace</p>
           <h1>Ready for the next customer</h1>
           <p className="cashier-muted">
-            Choose a task, confirm the customer context, and let the server
-            provide the authoritative result.
+            Scan or enter a card, verify the customer, then confirm the server result.
           </p>
         </div>
-        <CashierOverviewStatus />
+        <Link href="/cashier/lookup" className="cashier-primary-action">
+          Scan or enter card
+        </Link>
       </header>
       <CashierOverviewContext />
-      <WorkflowSection
-        title="Choose a task"
-        description="Start with the smallest workflow that matches what the customer needs."
+
+      <section
+        className="cashier-launcher"
+        aria-labelledby="cashier-launcher-title"
       >
+        <div>
+          <h2 id="cashier-launcher-title">Choose a task</h2>
+          <p className="cashier-muted">
+            The three cashier actions stay one tap away.
+          </p>
+        </div>
         <div className="cashier-action-grid">
           {cashierActions.map((action) => (
             <Link
@@ -54,14 +58,13 @@ export default function CashierPage() {
             </Link>
           ))}
         </div>
-      </WorkflowSection>
+      </section>
 
       <section className="cashier-recent-card" aria-label="Recent activity">
         <div>
           <h2>Recent activity</h2>
           <p className="cashier-muted">
-            Recent activity will appear here when the scoped activity endpoint
-            is available.
+            Activity will appear here when the scoped endpoint is available.
           </p>
         </div>
         <Link href="/cashier/sync">Open sync queue</Link>
@@ -82,6 +85,7 @@ export default function CashierPage() {
         }
 
         .cashier-overview-header h1,
+        .cashier-launcher h2,
         .cashier-recent-card h2 {
           margin: 0;
         }
@@ -103,14 +107,51 @@ export default function CashierPage() {
           align-items: center;
         }
 
-        .cashier-context-grid,
         .cashier-action-grid {
           display: grid;
-          gap: var(--sc-spacing-4);
+          gap: var(--sc-spacing-3);
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
-        .cashier-context-card,
+        .cashier-launcher {
+          display: grid;
+          gap: var(--sc-spacing-4);
+          border-top: 1px solid var(--sc-color-semantic-border);
+          padding-top: var(--sc-spacing-4);
+        }
+
+        .cashier-context-strip {
+          display: grid;
+          gap: var(--sc-spacing-3);
+          grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+          align-items: center;
+          border-block: 1px solid var(--sc-color-semantic-border);
+          padding-block: var(--sc-spacing-3);
+        }
+
+        .cashier-context-item {
+          display: grid;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .cashier-context-item span,
+        .cashier-context-item small {
+          color: var(--sc-color-semantic-textSecondary);
+          font-size: var(--sc-font-size-sm);
+        }
+
+        .cashier-context-item strong {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .cashier-context-sync {
+          white-space: nowrap;
+          font-weight: 700;
+        }
+
         .cashier-action-card,
         .cashier-recent-card {
           display: grid;
@@ -128,12 +169,26 @@ export default function CashierPage() {
           transition: border-color 120ms ease, transform 120ms ease;
         }
 
-        .cashier-action-card:hover {
+        .cashier-action-card:hover,
+        .cashier-primary-action:hover {
           border-color: var(--sc-color-brand-500);
-          transform: translateY(-2px);
+          transform: translateY(-1px);
+        }
+
+        .cashier-primary-action {
+          align-self: start;
+          border: 1px solid var(--sc-color-brand-700);
+          border-radius: var(--sc-radius-full);
+          background: var(--sc-color-brand-700);
+          color: var(--sc-color-neutral-0);
+          padding: var(--sc-spacing-3) var(--sc-spacing-5);
+          font-weight: 700;
+          text-decoration: none;
+          transition: border-color 120ms ease, transform 120ms ease;
         }
 
         .cashier-action-card:focus-visible,
+        .cashier-primary-action:focus-visible,
         .cashier-recent-card a:focus-visible {
           outline: 3px solid var(--sc-color-warning-300);
           outline-offset: 3px;
@@ -145,9 +200,21 @@ export default function CashierPage() {
         }
 
         @media (max-width: 800px) {
-          .cashier-context-grid,
+          .cashier-context-strip {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .cashier-action-grid {
             grid-template-columns: 1fr;
+          }
+
+          .cashier-primary-action {
+            width: 100%;
+            text-align: center;
+          }
+
+          .cashier-context-sync {
+            grid-column: 1 / -1;
           }
         }
       `}</style>

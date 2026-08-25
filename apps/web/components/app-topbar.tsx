@@ -45,7 +45,7 @@ export function AppTopbar({
   mobileMenuButtonRef,
 }: AppTopbarProps) {
   return (
-    <header className="shell-topbar">
+    <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
         <Link href="/" className="shell-brand">
           <Image
@@ -122,7 +122,7 @@ export function AppTopbar({
         .shell-topbar {
           background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-3) var(--sc-spacing-4);
+          padding: var(--sc-spacing-2) var(--sc-spacing-4);
         }
 
         .shell-brand-row {
@@ -183,8 +183,8 @@ export function AppTopbar({
           display: grid;
           gap: var(--sc-spacing-2);
           max-width: 1440px;
-          margin: var(--sc-spacing-3) auto 0;
-          padding: var(--sc-spacing-3);
+          margin: var(--sc-spacing-2) auto 0;
+          padding: var(--sc-spacing-2);
           border-radius: var(--sc-radius-lg);
           background: rgba(255, 255, 255, 0.08);
         }
@@ -203,6 +203,14 @@ export function AppTopbar({
         .shell-context-line--secondary {
           font-size: var(--sc-font-size-sm);
           opacity: 0.92;
+        }
+
+        .shell-topbar[data-workspace='Cashier workspace'] .shell-context-line {
+          gap: var(--sc-spacing-2);
+        }
+
+        .shell-topbar[data-workspace='Cashier workspace'] .shell-context-line--secondary {
+          font-size: var(--sc-font-size-xs);
         }
 
         @media (max-width: 767px) {

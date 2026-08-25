@@ -1,24 +1,9 @@
 'use client';
 
-import {
-  ConnectionStatus,
-  OfflineIndicator,
-  SyncQueueIndicator,
-} from '../offline';
+import { OfflineIndicator } from '../offline';
 import { ScannerContextScope } from '../scanner-context-scope';
 import { useSessionBootstrapState } from '../session-bootstrap';
-
-export function CashierOverviewStatus() {
-  return (
-    <div
-      className="cashier-overview-status"
-      aria-label="Cashier operating context"
-    >
-      <ConnectionStatus />
-      <SyncQueueIndicator />
-    </div>
-  );
-}
+import Link from 'next/link';
 
 export function CashierOverviewContext() {
   const { deviceId, publicConfig, configStatus } = useSessionBootstrapState();
@@ -29,27 +14,19 @@ export function CashierOverviewContext() {
   return (
     <>
       <ScannerContextScope context="lookup" />
-      <OfflineIndicator />
-
-      <section className="cashier-context-grid" aria-label="Cashier context">
-        <div className="cashier-context-card">
-          <span className="cashier-context-label">Branch</span>
+      <section className="cashier-context-strip" aria-label="Cashier context">
+        <div className="cashier-context-item">
+          <span>Branch</span>
           <strong>{branchLabel}</strong>
-          <span className="cashier-muted">
-            {branch?.timezone ?? 'Timezone pending'}
-          </span>
+          <small>{branch?.timezone ?? 'Timezone pending'}</small>
         </div>
-        <div className="cashier-context-card">
-          <span className="cashier-context-label">Device</span>
+        <div className="cashier-context-item">
+          <span>Device</span>
           <strong>{deviceLabel}</strong>
-          <span className="cashier-muted">
-            {deviceId
-              ? 'Backend-associated session'
-              : 'Offline work is blocked until ready'}
-          </span>
+          <small>{deviceId ? 'Session associated' : 'Offline blocked'}</small>
         </div>
-        <div className="cashier-context-card">
-          <span className="cashier-context-label">Policy context</span>
+        <div className="cashier-context-item">
+          <span>Policy</span>
           <strong>
             {configStatus === 'stale'
               ? 'Cached · refreshing'
@@ -57,11 +34,13 @@ export function CashierOverviewContext() {
                 ? 'Ready'
                 : 'Pending'}
           </strong>
-          <span className="cashier-muted">
-            Only active restrictions appear in transaction review.
-          </span>
+          <small>Server remains authoritative</small>
         </div>
+        <Link href="/cashier/sync" className="cashier-context-sync">
+          Open sync queue
+        </Link>
       </section>
+      <OfflineIndicator />
     </>
   );
 }

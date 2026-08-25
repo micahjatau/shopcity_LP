@@ -5,7 +5,6 @@ import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
-import { ConnectionStatus, SyncQueueIndicator } from '../offline';
 import { Alert, Button, Input, Separator } from '../ui';
 import { Money, StatusBadge } from '../shopcity';
 import {
@@ -21,7 +20,15 @@ import {
 import { createApiRequest } from '../../lib/api/request';
 
 type CashierLookupRecord = {
-  customer?: { id?: string; fullName?: string };
+  customer?: {
+    id?: string;
+    customerId?: string;
+    fullName?: string;
+    maskedPhone?: string;
+    isStaff?: boolean;
+    earningEligible?: boolean;
+    eligibilityReason?: string | null;
+  };
   customerId?: string;
   customerName?: string;
   serialNumber?: string;
@@ -221,7 +228,16 @@ export function CashierWorkflowRoute({
           'Customer',
           lookupRecord.customer?.fullName ?? lookupRecord.customerName ?? '—',
         ],
+        ['Phone', lookupRecord.customer?.maskedPhone ?? '—'],
         ['Card status', lookupRecord.status ?? lookupRecord.cardStatus ?? '—'],
+        [
+          'Earn eligibility',
+          lookupRecord.customer?.earningEligible === false
+            ? 'Staff account — not eligible'
+            : lookupRecord.customer?.earningEligible === true
+              ? 'Eligible'
+              : 'Not provided',
+        ],
         [
           'Available balance',
           typeof lookupRecord.availableBalanceKobo === 'number' ? (
@@ -243,7 +259,6 @@ export function CashierWorkflowRoute({
 
   const policyContext = policyConfig?.policies ?? null;
   const branchContext = policyConfig?.branch ?? null;
-  const tenantContext = policyConfig?.tenant ?? null;
   const branchReceiptWeekStartDay =
     typeof branchContext?.receiptWeekStartDay === 'number'
       ? branchContext.receiptWeekStartDay
@@ -254,7 +269,10 @@ export function CashierWorkflowRoute({
           lookupRecord.serialNumber ??
           lookupRecord.cardSerialNumber ??
           lookupValue.trim(),
-        customerId: lookupRecord.customer?.id ?? lookupRecord.customerId,
+        customerId:
+          lookupRecord.customer?.customerId ??
+          lookupRecord.customer?.id ??
+          lookupRecord.customerId,
         customerName:
           lookupRecord.customer?.fullName ?? lookupRecord.customerName,
         availableBalanceKobo:
@@ -273,26 +291,6 @@ export function CashierWorkflowRoute({
     <header className="cashier-route-header">
       <h1 style={{ margin: 0 }}>{title}</h1>
       <p className="cashier-route-description">{description}</p>
-      <div className="cashier-route-chip-row">
-        <StatusBadge
-          label={tenantContext?.name ?? tenantContext?.id ?? 'Tenant pending'}
-          tone="info"
-        />
-        <StatusBadge
-          label={branchContext?.name ?? branchContext?.id ?? 'Branch pending'}
-          tone="neutral"
-        />
-        <StatusBadge
-          label={branchContext?.timezone ?? 'Timezone pending'}
-          tone="success"
-        />
-        {typeof policyContext?.defaultEarnRateBps === 'number' ? (
-          <StatusBadge
-            label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
-            tone="info"
-          />
-        ) : null}
-      </div>
     </header>
   );
 
@@ -300,37 +298,12 @@ export function CashierWorkflowRoute({
     <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
       <ScannerContextScope context="lookup" />
       {routeHeader}
-      {showTransactionForm ? (
-        <article className="cashier-card" aria-label={`${kind} transaction`}>
-          <h2 style={{ marginTop: 0 }}>
-            {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
-          </h2>
-          {kind === 'earn' ? (
-            <EarnTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              deviceId={deviceId}
-              branchId={policyConfig?.branch?.id ?? null}
-              branchTimezone={branchContext?.timezone ?? null}
-              receiptWeekStartDay={branchReceiptWeekStartDay}
-            />
-          ) : (
-            <RedeemTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              branchId={policyConfig?.branch?.id ?? null}
-            />
-          )}
-        </article>
-      ) : null}
       <WorkflowSection
-        title={kind === 'lookup' ? 'Find a customer' : 'Policy and lookup'}
+        title={kind === 'lookup' ? 'Find a customer' : 'Find customer context'}
         description={
           kind === 'lookup'
             ? 'Scan or enter a card serial, then continue with the smallest task that matches the customer need.'
-            : 'Rehydrate the customer context after the workflow form so the supporting context stays visible.'
+            : 'Look up the card first. The transaction form unlocks when the server confirms the customer context.'
         }
       >
         <div className="cashier-workspace-grid">
@@ -461,8 +434,34 @@ export function CashierWorkflowRoute({
         </div>
       </WorkflowSection>
 
+      {showTransactionForm ? (
+        <article className="cashier-card" aria-label={`${kind} transaction`}>
+          <h2 style={{ marginTop: 0 }}>
+            {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
+          </h2>
+          {kind === 'earn' ? (
+            <EarnTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              deviceId={deviceId}
+              branchId={policyConfig?.branch?.id ?? null}
+              branchTimezone={branchContext?.timezone ?? null}
+              receiptWeekStartDay={branchReceiptWeekStartDay}
+            />
+          ) : (
+            <RedeemTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              branchId={policyConfig?.branch?.id ?? null}
+            />
+          )}
+        </article>
+      ) : null}
+
       {kind !== 'lookup' ? (
-        <div className="cashier-workspace-grid">
+        <div className="cashier-workspace-grid cashier-support-grid">
           <article className="cashier-card" aria-label="Customer detail">
             <h2 style={{ marginTop: 0 }}>Customer detail</h2>
             {customerRecord ? (
@@ -528,21 +527,17 @@ export function CashierWorkflowRoute({
             )}
           </article>
 
-          <article className="cashier-card" aria-label="Shift snapshot">
-            <h2 style={{ marginTop: 0 }}>Shift snapshot</h2>
+          <aside
+            className="cashier-card cashier-support-note"
+            aria-label="Sync queue"
+          >
+            <h2 style={{ marginTop: 0 }}>Need to sync?</h2>
             <p className="cashier-muted">
-              Offline queue state is shown in the shell header and on the sync
-              route.
+              Queue state stays in the shell header. Open the operations page
+              when a batch needs review.
             </p>
-            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              <Link href="/cashier/sync">Open sync queue</Link>
-            </div>
-            <Separator style={{ margin: 'var(--sc-spacing-4) 0' }} />
-            <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-              <ConnectionStatus />
-              <SyncQueueIndicator />
-            </div>
-          </article>
+            <Link href="/cashier/sync">Open sync queue</Link>
+          </aside>
         </div>
       ) : null}
 
@@ -558,7 +553,6 @@ export function CashierWorkflowRoute({
           margin: 0;
         }
 
-        .cashier-route-chip-row,
         .cashier-tag-row {
           display: flex;
           gap: var(--sc-spacing-2);
@@ -569,6 +563,11 @@ export function CashierWorkflowRoute({
           display: grid;
           gap: var(--sc-spacing-4);
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .cashier-support-note {
+          display: grid;
+          gap: var(--sc-spacing-3);
         }
 
         .cashier-card {

@@ -64,6 +64,32 @@ test.describe('workflow route coverage', () => {
     }
   });
 
+  test('keeps the cashier overview launcher and context compact', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Ready for the next customer' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Scan or enter card' }).first(),
+    ).toBeVisible();
+    await expect(page.getByLabel('Cashier context')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Choose a task' }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel('Cashier context').getByRole('link', {
+        name: 'Open sync queue',
+      }),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-overview-compact.png',
+    );
+  });
+
   test('covers lookup success, context handoff, keyboard, and narrow layout', async ({
     page,
   }) => {
@@ -121,6 +147,7 @@ test.describe('workflow route coverage', () => {
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible();
+    await page.getByLabel('POS receipt number').fill('WORKFLOW-EARN-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
@@ -135,6 +162,7 @@ test.describe('workflow route coverage', () => {
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible();
+    await page.getByLabel('POS receipt number').fill('WORKFLOW-REDEEM-001');
     const basket = page.getByLabel('Basket amount');
     const requested = page.getByLabel('Requested redemption');
     await basket.fill('100');
@@ -167,6 +195,7 @@ test.describe('workflow route coverage', () => {
     await page.route('**/api/v1/transactions/earn', (route) => route.abort());
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
+    await page.getByLabel('POS receipt number').fill('WORKFLOW-OFFLINE-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
@@ -205,6 +234,7 @@ test.describe('workflow route coverage', () => {
     });
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
+    await page.getByLabel('POS receipt number').fill('WORKFLOW-PENDING-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
@@ -214,17 +244,19 @@ test.describe('workflow route coverage', () => {
   });
 
   test('resolves every shell navigation destination', async ({ request }) => {
-    for (const role of Object.keys(shellNavigationByRole) as Array<
-      keyof typeof sessionByRole
-    >) {
-      const hrefs = shellNavigationByRole[role].flatMap((section) =>
+    const hrefs = (
+      Object.keys(shellNavigationByRole) as Array<keyof typeof sessionByRole>
+    ).flatMap((role) =>
+      shellNavigationByRole[role].flatMap((section) =>
         section.items.map((item) => item.href),
-      );
+      ),
+    );
+    const responses = await Promise.all(
+      hrefs.map((href) => request.get(href, { timeout: 30000 })),
+    );
 
-      for (const href of hrefs) {
-        const response = await request.get(href);
-        expect(response?.status()).toBe(200);
-      }
+    for (const response of responses) {
+      expect(response.status()).toBe(200);
     }
   });
 });
