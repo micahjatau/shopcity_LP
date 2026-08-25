@@ -20,6 +20,7 @@ export class ApprovalsService {
     tenantId: string,
     actor: AuthContext,
     receiptId: string,
+    idempotencyKey: string | undefined,
   ) {
     const approval = await this.loyaltyService.findApprovalByReceiptId(
       tenantId,
@@ -40,11 +41,16 @@ export class ApprovalsService {
       approval.id,
       'APPROVED',
       'legacy receipt approval',
-      `legacy-approval-${receiptId}`,
+      idempotencyKey,
     );
   }
 
-  async rejectReceipt(tenantId: string, actor: AuthContext, receiptId: string) {
+  async rejectReceipt(
+    tenantId: string,
+    actor: AuthContext,
+    receiptId: string,
+    idempotencyKey: string | undefined,
+  ) {
     const approval = await this.loyaltyService.findApprovalByReceiptId(
       tenantId,
       receiptId,
@@ -64,7 +70,7 @@ export class ApprovalsService {
       approval.id,
       'REJECTED',
       'legacy receipt rejection',
-      `legacy-rejection-${receiptId}`,
+      idempotencyKey,
     );
   }
 

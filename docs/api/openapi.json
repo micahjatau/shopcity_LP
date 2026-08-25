@@ -15339,6 +15339,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -15883,6 +15891,14 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
             "schema": {
               "type": "string"
             }
