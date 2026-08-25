@@ -289,7 +289,31 @@ export class CustomersService {
       email?: string;
       isStaff?: boolean;
     },
+    idempotencyKey: string | undefined,
   ) {
+    const normalizedKey = normalizeCustomerIdempotencyKey(idempotencyKey);
+    const endpoint = 'customers.update';
+    const requestHash = hashCustomerRequest({
+      tenantId,
+      actorId: actor.user.id,
+      customerId: id,
+      ...data,
+    });
+    const existingIdempotency = await findCustomerIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existingIdempotency?.responseJson) {
+      return existingIdempotency.responseJson as unknown as Customer;
+    }
+    if (existingIdempotency) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
     const customer = await this.getCustomerRecord(tenantId, id);
     const phoneE164 = data.phone
       ? normalizePhoneToE164(data.phone)
@@ -322,6 +346,18 @@ export class CustomersService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          status: IdempotencyRecordStatus.PENDING,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+
       const updated = await prisma.customer.update({
         where: { id },
         data: {
@@ -341,6 +377,21 @@ export class CustomersService {
         entityType: 'customer',
         entityId: updated.id,
         metadata: data,
+      });
+
+      await prisma.idempotencyRecord.update({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+          },
+        },
+        data: {
+          status: IdempotencyRecordStatus.COMPLETED,
+          responseJson: updated,
+        },
       });
 
       return updated;
@@ -363,7 +414,31 @@ export class CustomersService {
     actor: AuthContext,
     id: string,
     status: string,
+    idempotencyKey: string | undefined,
   ) {
+    const normalizedKey = normalizeCustomerIdempotencyKey(idempotencyKey);
+    const endpoint = 'customers.status';
+    const requestHash = hashCustomerRequest({
+      tenantId,
+      actorId: actor.user.id,
+      customerId: id,
+      status,
+    });
+    const existingIdempotency = await findCustomerIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existingIdempotency?.responseJson) {
+      return existingIdempotency.responseJson as unknown as Customer;
+    }
+    if (existingIdempotency) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
     if (!['ACTIVE', 'BLOCKED'].includes(status)) {
       throw new BadRequestException('Invalid customer status');
     }
@@ -376,6 +451,18 @@ export class CustomersService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          status: IdempotencyRecordStatus.PENDING,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+
       const updated = await prisma.customer.update({
         where: { id },
         data: {
@@ -391,6 +478,21 @@ export class CustomersService {
         entityType: 'customer',
         entityId: updated.id,
         metadata: { status },
+      });
+
+      await prisma.idempotencyRecord.update({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+          },
+        },
+        data: {
+          status: IdempotencyRecordStatus.COMPLETED,
+          responseJson: updated,
+        },
       });
 
       return updated;

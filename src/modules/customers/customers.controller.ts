@@ -101,16 +101,19 @@ export class CustomersController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   updateCustomer(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateCustomerDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.customersService.updateCustomer(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto,
+      idempotencyKey,
     );
   }
 
@@ -118,16 +121,19 @@ export class CustomersController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   updateStatus(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateCustomerStatusDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.customersService.updateCustomerStatus(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto.status,
+      idempotencyKey,
     );
   }
 }
