@@ -14,3 +14,7 @@ yarn-debug.log*
 yarn-error.log*
 .husky/_/
 .vercel
+
+# Generated build and Python cache artifacts
+*.tsbuildinfo
+__pycache__/
