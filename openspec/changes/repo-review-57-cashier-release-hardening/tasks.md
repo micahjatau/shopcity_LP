@@ -14,26 +14,26 @@
 - [x] 2.3 Require receipt number and positive purchase amount before Earn submission.
 - [x] 2.4 Align the frontend Earn preview with backend ceiling rounding and label it advisory.
 - [x] 2.5 Map duplicate, inactive, staff, approval, insufficient-balance, and offline/network outcomes to actionable cashier messages.
-- [ ] 2.6 Add role-safe masked projections to cashier customer detail and regression coverage for PII minimization.
+- [x] 2.6 Add role-safe masked projections to cashier customer detail and regression coverage for PII minimization.
 
 ## 3. Session and POS security
 
 - [x] 3.1 Enforce role-aware inactivity rejection/revocation during backend session resolution while retaining absolute expiry.
-- [ ] 3.2 Add frontend idle-expiry handling that returns users to a session-required state without becoming the enforcement boundary.
-- [ ] 3.3 Implement administrator-controlled POS enrollment, activation, branch binding, revocation, and audit visibility.
-- [ ] 3.4 Remove cashier-managed raw attestation-secret persistence and provide an explicit migration path for existing devices.
-- [ ] 3.5 Add auth, device-attestation, branch-ownership, and protected-route regression tests.
+- [x] 3.2 Add frontend idle-expiry handling that returns users to a session-required state without becoming the enforcement boundary.
+- [x] 3.3 Implement administrator-controlled POS enrollment, activation, branch binding, revocation, and audit visibility.
+- [x] 3.4 Remove cashier-managed raw attestation-secret persistence and provide an explicit migration path for existing devices.
+- [x] 3.5 Add auth, device-attestation, branch-ownership, and protected-route regression tests.
 
 ## 4. Configuration and browser security
 
 - [x] 4.1 Resolve authenticated operational configuration from validated session tenant/branch context through the protected operational config endpoint and authenticated frontend bootstrap.
 - [x] 4.2 Add bounded server/HTTP public-configuration caching with stale behavior that cannot override authorization scope.
 - [x] 4.3 Add the documented strict frontend CSP and build-time security-header configuration.
-- [ ] 4.4 Verify CSP and required security headers through browser/deployment checks.
+- [x] 4.4 Verify CSP and required security headers through browser/deployment checks.
 
 ## 5. Release evidence and performance
 
-- [ ] 5.1 Harden release verification to independently compare candidate, workflow head, successful conclusions, deployment artifact, and required gate SHAs.
+- [x] 5.1 Harden release verification to independently compare candidate, workflow head, successful conclusions, deployment artifact, and required gate SHAs.
 - [ ] 5.2 Add exact-head evidence for protected-branch status, Frankfurt topology, and the intentional/unintentional status of the duplicate `shopcity` Vercel project.
 - [ ] 5.3 Replace infrastructure-only probes with authenticated lookup, Earn-confirmed, Earn-pending, Redeem-confirmed, and supervisor report benchmarks.
 - [ ] 5.4 Correct the performance harness to measure real client navigation/RSC behavior and retain raw reproducible artifacts.
