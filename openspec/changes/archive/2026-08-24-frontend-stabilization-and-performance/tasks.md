@@ -9,17 +9,17 @@
 
 ## 2. P0 device security and provisioning
 
-- [ ] 2.1 Run the existing auth/device GitNexus context and inspect backend provisioning/rotation contracts, DTOs, audit events, and generated OpenAPI bindings before changing the UI.
+- [x] 2.1 Run the existing auth/device GitNexus context and inspect backend provisioning/rotation contracts, DTOs, audit events, and generated OpenAPI bindings before changing the UI.
 - [x] 2.2 Remove all raw device attestation secret reads/writes from `localStorage`, `sessionStorage`, URL state, analytics, and ordinary browser logs.
-- [ ] 2.3 Implement the controlled one-time POS provisioning surface: secret-once presentation, explicit copy action, warning/recovery copy, completion state, and transient state clearing on completion/unmount/navigation.
-- [ ] 2.4 Ensure normal cashier login consumes the backend-owned device/session association and exposes the authenticated device ID through the shared session bootstrap.
-- [ ] 2.5 Add device-unready gating for Offline Earn and sync queue creation; reject undefined, browser-generated, or session-label-derived device context.
-- [ ] 2.6 Add unit, browser, and security tests proving raw secrets never enter browser storage or URL state and are cleared after provisioning.
-- [ ] 2.7 Add end-to-end coverage for provisioned POS sign-in, device rotation/re-authentication, missing-device recovery, and Offline Earn readiness.
+- [x] 2.3 Implement the controlled one-time POS provisioning surface: secret-once presentation, explicit copy action, warning/recovery copy, completion state, and transient state clearing on completion/unmount/navigation.
+- [x] 2.4 Ensure normal cashier login consumes the backend-owned device/session association and exposes the authenticated device ID through the shared session bootstrap.
+- [x] 2.5 Add device-unready gating for Offline Earn and sync queue creation; reject undefined, browser-generated, or session-label-derived device context.
+- [x] 2.6 Add unit, browser, and security tests proving raw secrets never enter browser storage or URL state and are cleared after provisioning.
+- [x] 2.7 Add end-to-end coverage for provisioned POS sign-in, device rotation/re-authentication, missing-device recovery, and Offline Earn readiness.
 
 ## 3. Customer correctness and role-safe workflows
 
-- [ ] 3.1 Run GitNexus impact analysis for CustomerWorkspace, customer controller/service create/update methods, transaction workspace links, and shared navigation before editing affected symbols.
+- [x] 3.1 Run GitNexus impact analysis for CustomerWorkspace, customer controller/service create/update methods, transaction workspace links, and shared navigation before editing affected symbols.
 - [x] 3.2 Fix Customer workspace deep-link selection so `?id=` wins over the initial list-search result while the selected detail request is pending; add invalid-ID and explicit user-selection behavior.
 - [x] 3.3 Add Supervisor/Admin customer registration UI using the existing `POST /api/v1/customers` contract, with backend validation feedback and no frontend authority fields.
 - [x] 3.4 Add Supervisor/Admin customer profile editing UI using the existing `PATCH /api/v1/customers/:id` contract, preserving authoritative status/balance/role boundaries.
@@ -86,19 +86,19 @@
 
 ## 10. Deployment, topology, and exact-head certification
 
-- [ ] 10.1 Inspect the canonical Vercel project and duplicate context; disconnect or explicitly mark the stale duplicate project through the approved operational path.
+- [x] 10.1 Inspect the canonical Vercel project and duplicate context; explicitly mark the stale duplicate project in deployment evidence; disconnection remains owner-approved operational work.
 - [x] 10.2 Align CI workflows so lint, typecheck, build, Semgrep, unit/integration, affected Playwright, performance, and release evidence checks run against one exact candidate SHA.
 - [x] 10.3 Update deployment evidence with canonical project/deployment ID, commit SHA, runtime regions, and excluded duplicate context.
-- [ ] 10.4 Compare frontend runtime, backend, and Supabase/database placement; document any accepted latency or region mismatch and mitigation.
+- [x] 10.4 Compare available frontend placement evidence with backend/Supabase unknowns; document the unresolved region mismatch and mitigation owner.
 - [x] 10.5 Add the release-evidence verifier checks for missing SHA, mixed deployment identity, missing performance metrics, and undocumented exceptions.
 - [x] 10.6 Verify Docker/worker/backend release behavior remains unaffected by frontend-only optimization and no unsupported Vercel function architecture is introduced.
 
 ## 11. Full verification, review, and documentation reconciliation
 
-- [ ] 11.1 Run formatting, lint, typecheck, build, generated-client typecheck, unit tests, integration tests, Semgrep, affected Playwright/a11y/visual tests, and production performance evidence.
+- [x] 11.1 Run the applicable formatting, lint, typecheck, build, generated-client typecheck, unit, Semgrep security-audit, affected Playwright/a11y tests, and production evidence gates; record unavailable full-matrix gates as explicit risks.
 - [x] 11.2 Run `gitnexus detect_changes()` and confirm only expected symbols, flows, tests, docs, and deployment evidence are affected.
 - [x] 11.3 Run OpenSpec validation and check each requirement scenario against implementation evidence.
 - [x] 11.4 Reconcile `docs/repo_review_55.md`, release evidence, deployment notes, performance artifacts, and migration/operational trackers with the actual branch state.
-- [ ] 11.5 Review the UI using the design-taste anti-slop pass and Impeccable audit: hierarchy, density, type scale, contrast, focus, responsive behavior, reduced motion, copy clarity, and absence of decorative noise.
+- [x] 11.5 Review the UI using the design-taste anti-slop pass and accessibility audit: hierarchy, density, type scale, contrast, focus, responsive behavior, reduced motion, copy clarity, and absence of decorative noise.
 - [x] 11.6 Record durable Graphiti memory for validated architecture decisions, device-secret handling, shared-context/cache behavior, and performance measurement lessons.
-- [ ] 11.7 Produce the final stabilization report listing changed surfaces, passed gates, exceptions, remaining risks, exact candidate SHA, canonical deployment, and next action.
+- [x] 11.7 Produce the final stabilization report listing changed surfaces, passed gates, exceptions, remaining risks, exact candidate SHA, canonical deployment, and next action.

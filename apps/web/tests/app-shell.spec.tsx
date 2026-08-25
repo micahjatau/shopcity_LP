@@ -6,6 +6,7 @@ import {
   within,
 } from '@testing-library/react';
 import { AppShell } from '../components/app-shell';
+import { invalidatePublicConfigCache } from '../components/session-bootstrap';
 
 const mockBootstrapSession = jest.fn();
 const mockLogoutSession = jest.fn();
@@ -17,6 +18,8 @@ jest.mock('../lib/api', () => ({
   bootstrapSession: (...args: unknown[]) => mockBootstrapSession(...args),
   logoutSession: (...args: unknown[]) => mockLogoutSession(...args),
   configurationControllerGetPublicConfigV1: (...args: unknown[]) =>
+    mockGetPublicConfig(...args),
+  configurationControllerGetOperationalConfigV1: (...args: unknown[]) =>
     mockGetPublicConfig(...args),
 }));
 
@@ -43,6 +46,7 @@ describe('AppShell', () => {
     mockGetOfflineEarnRecordCount.mockReset();
     mockSubscribeOfflineQueue.mockReset();
     sessionStorage.clear();
+    invalidatePublicConfigCache();
     mockGetPublicConfig.mockResolvedValue({
       status: 200,
       data: {

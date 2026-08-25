@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import {
   invalidatePublicConfigCache,
   SessionBootstrapProvider,
@@ -212,5 +218,40 @@ describe('SessionBootstrapProvider', () => {
     await waitFor(() => {
       expect(screen.getByTestId('session-status')).toHaveTextContent('loading');
     });
+  });
+
+  it('returns to sign-in state when session revalidation is rejected', async () => {
+    jest.useFakeTimers();
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ status: 401 } as Response);
+    Object.defineProperty(global, 'fetch', {
+      configurable: true,
+      value: fetchMock,
+      writable: true,
+    });
+
+    try {
+      render(
+        <SessionBootstrapProvider>
+          <Probe />
+        </SessionBootstrapProvider>,
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('session-status')).toHaveTextContent('ready'),
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(60 * 1000);
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('session-status')).toHaveTextContent(
+        'unauthenticated',
+      );
+    } finally {
+      delete (global as { fetch?: unknown }).fetch;
+      jest.useRealTimers();
+    }
   });
 });

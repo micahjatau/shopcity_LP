@@ -54,6 +54,7 @@ type CachedConfig = {
 
 const CONFIG_FRESHNESS_MS = 5 * 60 * 1000;
 const CONFIG_STALE_WINDOW_MS = 30 * 60 * 1000;
+const SESSION_REVALIDATION_INTERVAL_MS = 60 * 1000;
 const configCache = new Map<string, CachedConfig>();
 const configRequests = new Map<
   string,
@@ -242,6 +243,37 @@ export function SessionBootstrapProvider({
 
   useEffect(() => {
     void loadSessionState(setState);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await fetch('/api/v1/auth/me', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+
+        if (response.status !== 401 && response.status !== 403) {
+          return;
+        }
+
+        setState((current) =>
+          current.status === 'ready'
+            ? {
+                ...initialState,
+                status: 'unauthenticated',
+                configStatus: 'unavailable',
+                configMessage: 'Session expired. Sign in again.',
+              }
+            : current,
+        );
+      } catch {
+        // A connectivity failure must not log the user out. The server remains
+        // authoritative when the next protected request is made.
+      }
+    }, SESSION_REVALIDATION_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
   }, []);
 
   return (

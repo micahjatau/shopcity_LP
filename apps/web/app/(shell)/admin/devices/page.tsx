@@ -62,6 +62,8 @@ export default function AdminDevicesPage() {
     string,
     unknown
   > | null>(null);
+  const [oneTimeSecret, setOneTimeSecret] = useState<string | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
 
   const selectedDevice = useMemo(
     () => devices.find((item) => item.id === selectedId) ?? null,
@@ -119,6 +121,12 @@ export default function AdminDevicesPage() {
 
   useEffect(() => {
     void refresh();
+    return () => {
+      // The backend returns this credential once. Never retain it across route
+      // changes, remounts, or browser storage boundaries.
+      setOneTimeSecret(null);
+      setSecretCopied(false);
+    };
   }, []);
 
   async function createDevice() {
@@ -143,11 +151,22 @@ export default function AdminDevicesPage() {
         },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setActionResponse(
+      const responseEnvelope =
         response.data && typeof response.data === 'object'
           ? (response.data as Record<string, unknown>)
+          : null;
+      const responseData =
+        responseEnvelope?.data && typeof responseEnvelope.data === 'object'
+          ? (responseEnvelope.data as Record<string, unknown>)
+          : null;
+      setActionResponse(responseEnvelope);
+      setOneTimeSecret(
+        response.status === 201 &&
+          typeof responseData?.attestationSecret === 'string'
+          ? responseData.attestationSecret
           : null,
       );
+      setSecretCopied(false);
       setMessage(
         response.status === 201
           ? 'Device created.'
@@ -176,11 +195,22 @@ export default function AdminDevicesPage() {
         { name: name.trim(), status, rotateAttestationSecret },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setActionResponse(
+      const responseEnvelope =
         response.data && typeof response.data === 'object'
           ? (response.data as Record<string, unknown>)
+          : null;
+      const responseData =
+        responseEnvelope?.data && typeof responseEnvelope.data === 'object'
+          ? (responseEnvelope.data as Record<string, unknown>)
+          : null;
+      setActionResponse(responseEnvelope);
+      setOneTimeSecret(
+        response.status === 200 &&
+          typeof responseData?.attestationSecret === 'string'
+          ? responseData.attestationSecret
           : null,
       );
+      setSecretCopied(false);
       setMessage(
         response.status === 200
           ? 'Device updated.'
@@ -192,6 +222,12 @@ export default function AdminDevicesPage() {
     } catch {
       setMessage('Device update unavailable.');
     }
+  }
+
+  async function copyOneTimeSecret() {
+    if (!oneTimeSecret || !navigator.clipboard) return;
+    await navigator.clipboard.writeText(oneTimeSecret);
+    setSecretCopied(true);
   }
 
   const selectedPreview = selectedDevice
@@ -372,6 +408,44 @@ export default function AdminDevicesPage() {
                 ))}
             </tbody>
           </Table>
+        </section>
+      ) : null}
+
+      {oneTimeSecret ? (
+        <section style={cardStyle} aria-label="One-time device provisioning">
+          <h2 style={{ marginTop: 0 }}>One-time provisioning credential</h2>
+          <Alert tone="warning" title="Shown once — copy it now">
+            Give this credential to the controlled POS provisioning process. It
+            is held only in this page&apos;s transient state and disappears when
+            you leave or refresh this route. Never add it to browser storage, a
+            URL, a ticket, or an ordinary log.
+          </Alert>
+          <code
+            style={{
+              display: 'block',
+              overflowWrap: 'anywhere',
+              padding: 'var(--sc-spacing-3)',
+              border: '1px solid var(--sc-color-semantic-borderDefault)',
+              borderRadius: 'var(--sc-radius-md)',
+              background: 'var(--sc-color-semantic-surfaceSubtle)',
+            }}
+          >
+            {oneTimeSecret}
+          </code>
+          <div style={toolbarRow}>
+            <Button onClick={() => void copyOneTimeSecret()}>
+              {secretCopied ? 'Copied' : 'Copy credential'}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setOneTimeSecret(null);
+                setSecretCopied(false);
+              }}
+            >
+              Clear credential
+            </Button>
+          </div>
         </section>
       ) : null}
 
