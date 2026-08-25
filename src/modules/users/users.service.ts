@@ -1,13 +1,16 @@
+import { createHash } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole, UserStatus } from '@prisma/client';
+import { IdempotencyRecordStatus, UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 
 @Injectable()
 export class UsersService {
@@ -103,7 +106,28 @@ export class UsersService {
     actor: AuthContext,
     userId: string,
     role: UserRole,
+    idempotencyKey: string | undefined,
   ) {
+    const key = normalizeUserIdempotencyKey(idempotencyKey);
+    const endpoint = 'users.role';
+    const requestHash = hashUserRequest({
+      tenantId,
+      actorId: actor.user.id,
+      userId,
+      role,
+    });
+    const existing = await findUserIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      key,
+      requestHash,
+    );
+    if (existing?.responseJson) return existing.responseJson;
+    if (existing)
+      throw new ConflictException('Idempotency key is still being processed');
+
     if (role === UserRole.SYSTEM) {
       throw new BadRequestException(
         'SYSTEM role cannot be assigned to human users',
@@ -117,7 +141,18 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return this.prismaService.$transaction(async (prisma) => {
+    const updated = await this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: key,
+          requestHash,
+          status: IdempotencyRecordStatus.PENDING,
+          expiresAt: new Date(Date.now() + 86400000),
+        },
+      });
       const updated = await prisma.user.update({
         where: { id: userId },
         data: { role },
@@ -138,6 +173,15 @@ export class UsersService {
 
       return updated;
     });
+    await completeUserIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      key,
+      updated,
+    );
+    return updated;
   }
 
   async updateStatus(
@@ -145,7 +189,28 @@ export class UsersService {
     actor: AuthContext,
     userId: string,
     status: string,
+    idempotencyKey: string | undefined,
   ) {
+    const key = normalizeUserIdempotencyKey(idempotencyKey);
+    const endpoint = 'users.status';
+    const requestHash = hashUserRequest({
+      tenantId,
+      actorId: actor.user.id,
+      userId,
+      status,
+    });
+    const existing = await findUserIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      key,
+      requestHash,
+    );
+    if (existing?.responseJson) return existing.responseJson;
+    if (existing)
+      throw new ConflictException('Idempotency key is still being processed');
+
     if (!['ACTIVE', 'DISABLED', 'SUSPENDED'].includes(status)) {
       throw new BadRequestException('Invalid user status');
     }
@@ -157,7 +222,18 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return this.prismaService.$transaction(async (prisma) => {
+    const updated = await this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: key,
+          requestHash,
+          status: IdempotencyRecordStatus.PENDING,
+          expiresAt: new Date(Date.now() + 86400000),
+        },
+      });
       const updated = await prisma.user.update({
         where: { id: userId },
         data: { status: status as UserStatus },
@@ -180,5 +256,78 @@ export class UsersService {
 
       return updated;
     });
+    await completeUserIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      key,
+      updated,
+    );
+    return updated;
   }
+}
+
+function normalizeUserIdempotencyKey(key: string | undefined): string {
+  const value = key?.trim() ?? '';
+  if (!value)
+    throw new BadRequestException('Idempotency-Key header is required');
+  if (value.length > 255)
+    throw new BadRequestException('Idempotency-Key header is too long');
+  return value;
+}
+
+function hashUserRequest(value: Record<string, unknown>): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+async function findUserIdempotency(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  endpoint: string,
+  key: string,
+  requestHash: string,
+) {
+  const existing = await prisma.idempotencyRecord.findUnique({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint,
+        idempotencyKey: key,
+      },
+    },
+  });
+  if (existing && existing.requestHash !== requestHash)
+    throw new DomainHttpException(
+      409,
+      'IDEMPOTENCY_CONFLICT',
+      'Idempotency key reused with different payload',
+    );
+  return existing;
+}
+
+async function completeUserIdempotency(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  endpoint: string,
+  key: string,
+  responseJson: unknown,
+) {
+  await prisma.idempotencyRecord.update({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint,
+        idempotencyKey: key,
+      },
+    },
+    data: {
+      status: IdempotencyRecordStatus.COMPLETED,
+      responseJson: responseJson as object,
+    },
+  });
 }
