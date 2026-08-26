@@ -279,7 +279,7 @@ describe('ReportsService', () => {
   it('rejects cashier activity without a branch scope', async () => {
     const service = new ReportsService(prismaStub(), configService());
     const context = cashierContext();
-    context.user.branchId = null;
+    Reflect.set(context.user, 'branchId', null);
 
     await expect(
       service.listCashierToday('tenant-1', context),
@@ -288,7 +288,7 @@ describe('ReportsService', () => {
 
   it('rejects cashier activity when the branch belongs to another tenant', async () => {
     const prisma = prismaStub();
-    jest.mocked(prisma.branch.findFirst).mockResolvedValue(null);
+    jest.spyOn(prisma.branch, 'findFirst').mockResolvedValue(null);
     const service = new ReportsService(prisma, configService());
 
     await expect(
@@ -300,24 +300,30 @@ describe('ReportsService', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-08-25T22:30:00.000Z'));
     try {
       const prisma = prismaStub();
+      const findMany = jest.spyOn(prisma.receipt, 'findMany');
       const service = new ReportsService(prisma, configService());
 
       await service.listCashierToday('tenant-1', cashierContext());
 
-      expect(prisma.receipt.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            tenantId: 'tenant-1',
-            branchId: 'branch-1',
-            capturedByTenantId: 'tenant-1',
-            capturedBy: 'cashier-1',
-            occurredAt: {
-              gte: new Date('2026-08-24T23:00:00.000Z'),
-              lt: new Date('2026-08-25T23:00:00.000Z'),
-            },
-          }),
-        }),
-      );
+      const query = findMany.mock.calls[0]?.[0] as {
+        where: {
+          tenantId: string;
+          branchId: string;
+          capturedByTenantId: string;
+          capturedBy: string;
+          occurredAt: { gte: Date; lt: Date };
+        };
+      };
+      expect(query.where).toEqual({
+        tenantId: 'tenant-1',
+        branchId: 'branch-1',
+        capturedByTenantId: 'tenant-1',
+        capturedBy: 'cashier-1',
+        occurredAt: {
+          gte: new Date('2026-08-24T23:00:00.000Z'),
+          lt: new Date('2026-08-25T23:00:00.000Z'),
+        },
+      });
     } finally {
       jest.useRealTimers();
     }
