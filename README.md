@@ -1,41 +1,129 @@
 # ShopCity Loyalty Platform
 
-Backend foundation for the ShopCity loyalty MVP.
+ShopCity is a production-oriented **loyalty store-credit platform for retail operations**. It runs alongside an existing point-of-sale system and provides a controlled source of truth for customer loyalty balances, receipt-linked earning, redemption, approvals, expiry, fraud monitoring, offline capture, device attribution, audit history, and operational reporting.
 
-## About
+The platform includes role-specific web applications for **Cashiers, Supervisors, and Administrators**, backed by a NestJS API, PostgreSQL ledger, Supabase authentication, Redis-backed background processing, and an OpenAPI-generated frontend client.
 
-ShopCity is a backend-first loyalty store-credit platform that runs beside an existing POS. It owns the source of truth for customer identity, receipt capture, approvals, audit history, sessions, and weekly duplicate prevention, with PostgreSQL/Prisma for data and Supabase for staff identity verification. The repo also includes a Next.js frontend shell in `apps/web/` for cashier, supervisor, and admin workflows.
+> **Project status:** release-candidate / controlled-pilot validation. Core application, financial workflows, CI, security gates, and deployment infrastructure are in place. Production certification still requires final authenticated business-flow benchmarks, pilot-device proof, backup/restore evidence, and release approval.
 
-## Source Of Truth
+## Product Overview
 
-- `docs/TRD.md` is the technical requirements and architecture baseline.
-- This repository is organized around the TRD foundation stack, not a flat controller/service layout.
+ShopCity is designed for supermarkets and other high-volume retail environments that want to introduce loyalty credit without replacing their existing POS.
 
-## Current App
-
-- App entrypoint: `src/main.ts`
-- API root: `GET /api/v1` in `src/app.controller.ts`
-- Health checks: `GET /health/live` and `GET /health/ready`
-- Supabase identity/DB wiring: `src/supabase/`
-- Tests: unit tests in `src/**/*.spec.ts`, e2e tests in `test/**/*.e2e-spec.ts`, integration tests in `test/**/*.int-spec.ts`
-
-## Frontend Shell
-
-- Frontend app: `apps/web/`
-- Shell routes: `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, `/cashier/sync`, `/supervisor/*`, `/admin/*`
-- Shared shell components: `apps/web/components/app-shell.tsx`, `apps/web/components/app-sidebar.tsx`, `apps/web/components/app-topbar.tsx`
-- Frontend commands: `npm --prefix apps/web run dev`, `npm --prefix apps/web run build`, `npm --prefix apps/web run lint`, `npm --prefix apps/web run typecheck`, `npm --prefix apps/web run a11y:test`, `npm --prefix apps/web run critical:test`, `npm --prefix apps/web run visual:test`, `npm --prefix apps/web run live:test`
-
-## Foundation Layout
+A typical checkout flow is:
 
 ```text
-docs/
-├── architecture/
-├── api/
-├── adr/
-├── runbooks/
-├── development/
-└── database/
+Customer presents loyalty card
+        ↓
+Cashier scans or enters card number
+        ↓
+ShopCity verifies customer + card + eligibility
+        ↓
+Cashier records the POS receipt and paid amount
+        ↓
+Backend applies loyalty policy and approval rules
+        ↓
+Credit is confirmed or routed for approval
+        ↓
+Customer balance, ledger, audit trail, reports, and notifications update
+```
+
+ShopCity never treats the browser as the financial source of truth. Loyalty calculations, eligibility, idempotency, approval decisions, ledger mutations, expiry, and redemption allocation are enforced by the backend.
+
+## Core Capabilities
+
+### Cashier
+
+- Focused card scanner/manual lookup directly from the Cashier workspace
+- Role-safe customer verification with masked phone, card status, eligibility, and balance
+- Receipt-linked loyalty Earn workflow
+- Loyalty credit Redemption workflow
+- Server-authoritative transaction confirmation
+- Cashier-scoped recent transaction activity
+- Offline Earn queue with IndexedDB persistence and later reconciliation
+- Explicit offline Redemption blocking
+- Device-bound transaction attribution and sync
+
+### Supervisor
+
+- Customer and card management
+- Transaction review
+- Approval queues
+- Fraud-flag review
+- Branch-scoped reporting
+- Operational oversight for cashier activity
+
+### Administrator
+
+- Cross-branch operational views
+- Customer, card, user, device, and branch administration
+- Adjustments and reversals
+- Audit reporting
+- Device provisioning, attestation-secret rotation, activation, and revocation
+- Pilot-health and operational monitoring
+- Reporting and reconciliation workflows
+
+## Loyalty & Financial Integrity
+
+The loyalty engine is designed around an append-only, auditable financial model.
+
+Key controls include:
+
+- Integer-kobo financial values — no floating-point balance storage
+- Backend-authoritative Earn and Redeem calculations
+- Receipt uniqueness by tenant, branch, receipt week, and normalized receipt number
+- Idempotency for financial and other retry-sensitive mutations
+- Staff/customer eligibility enforcement
+- Approval thresholds for exceptional transactions
+- Append-only ledger entries with compensating reversals instead of destructive edits
+- FIFO-style credit-lot allocation for redemption
+- Credit expiry and expiry reminders
+- Device, cashier, branch, receipt, and session attribution
+- Audit logging for privileged and financial actions
+
+## Offline Model
+
+ShopCity uses a deliberately conservative offline policy:
+
+- **Earn may be captured offline** when a valid provisioned device and authenticated Cashier context are available.
+- Offline Earn records are stored in IndexedDB with their original idempotency key and required transaction context.
+- The backend revalidates customer, card, device, branch, receipt-week, duplicate-receipt, policy, and actor rules during sync.
+- **Redemption is never allowed offline**, preventing a stale device from spending loyalty credit without authoritative balance validation.
+
+## Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                     Next.js Web App                         │
+│       Cashier · Supervisor · Administrator workflows       │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ same-origin /api/v1 proxy
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  NestJS + Fastify API                       │
+│ Auth · Loyalty · Receipts · Cards · Approvals · Reports    │
+│ Fraud · Audit · Devices · Notifications · Offline Sync     │
+└───────────────┬───────────────────────┬─────────────────────┘
+                │                       │
+                ▼                       ▼
+┌─────────────────────────┐   ┌───────────────────────────────┐
+│ PostgreSQL + Prisma     │   │ Redis / background workers  │
+│ Ledger + domain state   │   │ outbox · SMS · expiry jobs  │
+└─────────────────────────┘   └───────────────────────────────┘
+                │
+                ▼
+┌─────────────────────────┐
+│ Supabase Auth           │
+│ Staff identity/password │
+└─────────────────────────┘
+```
+
+The application is intentionally a **modular monolith**, not a microservice system. REST/OpenAPI is the integration boundary.
+
+## Repository Layout
+
+```text
+apps/web/                 Next.js role-based frontend
 
 src/
 ├── modules/
@@ -51,15 +139,158 @@ src/
 │   ├── audit/
 │   ├── fraud/
 │   └── reports/
-├── common/
-├── config/
-├── database/
-└── jobs/
-prisma/
-└── migrations/
+├── common/               Shared policies, auth, validation, utilities
+├── config/               Runtime configuration
+├── database/             Prisma/database infrastructure
+└── jobs/                 Background and scheduled work
+
+prisma/                   Schema, migrations, seed data
+docs/                     TRD, architecture, API, runbooks, release evidence
+openspec/                 Change specifications and implementation tracking
+client/                   Generated API client artifacts
 ```
 
-## Local Setup
+## Technology Stack
+
+### Backend
+
+- NestJS
+- Fastify
+- PostgreSQL
+- Prisma
+- Supabase Auth
+- Redis / Upstash-compatible Redis
+- BullMQ/background workers
+- Pino structured logging
+
+### Frontend
+
+- Next.js App Router
+- TypeScript
+- Role-aware application shells
+- Generated OpenAPI client via Orval
+- IndexedDB for durable offline Earn storage
+- Jest + Testing Library
+- Playwright
+- Accessibility and visual-regression testing
+
+### Contracts & Quality
+
+- Swagger / `@nestjs/swagger`
+- OpenAPI
+- Spectral
+- Orval
+- OAS diff checks
+- Bruno API collections
+- GitHub Actions
+- CodeQL
+- Gitleaks
+- Trivy
+- ZAP baseline scanning
+- CodeRabbit review
+
+## Application Routes
+
+### Cashier
+
+```text
+/cashier
+/cashier/lookup
+/cashier/earn
+/cashier/redeem
+/cashier/customers
+/cashier/sync
+```
+
+### Supervisor
+
+```text
+/supervisor
+/supervisor/customers
+/supervisor/cards
+/supervisor/transactions
+/supervisor/approvals
+/supervisor/fraud
+/supervisor/reports
+```
+
+### Administrator
+
+```text
+/admin
+/admin/operations
+/admin/customers
+/admin/cards
+/admin/transactions
+/admin/approvals
+/admin/fraud
+/admin/adjustments
+/admin/reports
+/admin/audit
+/admin/users
+/admin/devices
+/admin/branches
+```
+
+## Security Model
+
+ShopCity applies security controls at the backend boundary rather than relying on frontend visibility alone.
+
+Implemented controls include:
+
+- Role-based access control for Cashier, Supervisor, and Admin roles
+- Secure application sessions backed by server-side session records
+- Role-aware inactivity expiration and absolute session expiry
+- CSRF protection
+- Secure cookie-based browser session transport
+- Device attestation and nonce replay protection
+- Device/session revocation
+- Tenant and branch scoping
+- Cashier-specific PII minimization
+- Content Security Policy and other browser security headers
+- Login throttling and request throttling for sensitive operations
+- Audit logging for privileged actions
+- Automated CodeQL, Gitleaks, Trivy, and ZAP security gates
+
+## API & Source of Truth
+
+The technical requirements document is the architecture baseline:
+
+```text
+docs/TRD.md
+```
+
+The generated OpenAPI contract is the canonical frontend/backend integration surface:
+
+```text
+docs/api/openapi.json
+```
+
+Generated client output should not be hand-edited. Backend contract changes should flow through:
+
+```text
+NestJS DTO/controller
+      ↓
+OpenAPI generation
+      ↓
+contract validation
+      ↓
+Orval client generation
+      ↓
+frontend integration
+```
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 18+
+- Docker
+- Supabase CLI
+- PostgreSQL/Supabase local stack
+- Redis or compatible Redis endpoint
+
+### Bootstrap
 
 ```bash
 npm install
@@ -73,131 +304,146 @@ npm run test:integration
 npm run start:dev
 ```
 
-The bootstrap path assumes a fresh database, applied migrations, and seeded foundation data before starting the app.
+Run the frontend separately with:
 
-The seed step provisions the foundation tenant, branch, and seeded auth identities for `admin@shopcity.local`, `cashier@shopcity.local`, and `supervisor@shopcity.local`. Copy the Supabase `API URL`, `anon key`, and `service_role key` from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` before seeding. Use the strong `DEFAULT_ADMIN_PASSWORD` for the seeded local accounts; the bootstrap placeholder is rejected outside tests. Redis defaults to `redis://127.0.0.1:6379`.
+```bash
+npm --prefix apps/web run dev
+```
 
-If Pi does not discover Graphiti automatically, see `docs/development/graphiti-workaround.md`.
-
-Receipt capture now requires a physical POS receipt number and an active device. The cashier branch must come from the authenticated user or bound device, stale timestamps require an explicit audited supervisor override reason, and purchase amounts must stay within the configured approval threshold.
-
-## Supabase Workflow
-
-- Local stack: `npx supabase start`
-- Local database URL: `postgresql://postgres:postgres@127.0.0.1:55422/postgres`
-- Local API URL: `http://127.0.0.1:55421`
-- Linked remote project: `nmuedccamqacgszvosvm`
-- Remote deploy workflow: back up the linked database, restore into an isolated Postgres instance, validate migration history and SQL objects, then run `npx prisma migrate deploy`
+The seed workflow provisions local tenant/branch data and development identities for Admin, Cashier, and Supervisor roles. Configure the local Supabase URL and keys before seeding, and use a strong `DEFAULT_ADMIN_PASSWORD` outside tests.
 
 ## Common Commands
 
-- `npm run build`
-- `npm run typecheck`
-- `npm run lint`
-- `npm run openapi:lint`
-- `npm run openapi:diff`
-- `npm run test`
-- `npm run test:e2e`
-- `npm run test:integration`
-- `npm run test:cov`
-- `npm run dev:full`
+```bash
+# Backend
+npm run build
+npm run typecheck
+npm run lint
+npm run test
+npm run test:integration
+npm run test:e2e
+npm run test:cov
 
-## Frontend Live E2E
+# Contract
+npm run openapi:lint
+npm run openapi:diff
 
-Prepare the backend, then run the backend-connected frontend suite:
+# Full development stack
+npm run dev:full
+
+# Frontend
+npm --prefix apps/web run build
+npm --prefix apps/web run lint
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run a11y:test
+npm --prefix apps/web run critical:test
+npm --prefix apps/web run visual:test
+npm --prefix apps/web run live:test
+```
+
+## Backend-Connected Frontend E2E
+
+Prepare and run the live backend-connected frontend suite:
 
 ```bash
 npm run e2e:live:prepare
 npm run e2e:live:test
 ```
 
-Or run both with:
-
-```bash
-npm run e2e:live
-```
-
-For the full backend + frontend + Playwright flow:
+Or run the complete backend + frontend + Playwright flow:
 
 ```bash
 npm run e2e:live:full
 ```
 
-## CLI Workflow
+## Deployment
 
-- Use local binaries via `npm exec` or `npx`.
-- Available CLIs in this repo include `nest`, `supabase`, `prisma`, `spectral`, `orval`, `compodoc`, `oasdiff`, `bru`, `lint-staged`, and `commitlint`.
-- Generate schemas, auth config, OpenAPI checks, frontend clients, and docs with the CLI that owns them; do not hand-edit generated outputs.
-- Use `supabase` for identity/password workflows and generated types, `prisma` for schema and migrations, `spectral` and `oasdiff` for contract validation, `orval` for client generation, `compodoc` for NestJS docs, and `bru` for API collections.
-- Before drafting a spec proposal, run `npm run proposal:impact -- --file <path> <symbol>` and record the findings in `docs/development/gitnexus-impact-tracker.md`.
+The current deployment architecture places the latency-sensitive runtime components in **Frankfurt**:
 
-## Foundation Stack
+```text
+Vercel frontend / Next.js proxy  → Frankfurt
+Vercel backend API               → Frankfurt
+Supabase/PostgreSQL              → Frankfurt
+```
 
-- NestJS with Fastify
-- PostgreSQL + Prisma
-- Docker Compose for local services
-- Swagger/OpenAPI at `/docs`
-- Pino structured logging
-- Global validation and error handling
-- Husky, lint-staged, and Commitlint
-- Jest, Supertest, and Testcontainers
-- GitHub Actions CI
+Static frontend assets remain CDN-delivered while server/API/database traffic stays geographically close.
 
-## TRD Architecture Summary
+Production deployments are expected to pass protected-branch CI and security gates before promotion.
 
-- Backend-first, API-contract-first delivery.
-- Modular monolith, not microservices.
-- REST/OpenAPI is the integration boundary; no GraphQL for MVP.
-- Financial values are stored as integer kobo only.
-- The backend owns ledger integrity, approvals, expiry, fraud handling, application sessions, RBAC, and SMS background work.
+## Release Readiness
 
-## Module Boundary Rules
+The platform is currently in release-candidate stabilization.
 
-- Feature code stays inside `src/modules/<feature>/`.
-- Shared helpers and policies stay in `src/common/`.
-- Configuration stays in `src/config/`.
-- Persistence stays in `src/database/`.
-- Supabase integration stays in `src/supabase/`.
-- Background work stays in `src/jobs/`.
-- Feature modules may import only their own module plus approved cross-cutting modules such as audit/configuration.
-- Shared layers must not import feature modules.
+Completed foundations include:
 
-## Target Infrastructure
+- Core Cashier, Supervisor, and Admin workflows
+- Loyalty ledger and credit-lot model
+- Earn, Redeem, approvals, reversals, expiry, and fraud handling
+- Offline Earn reconciliation
+- Device provisioning and attestation lifecycle
+- Role-safe customer projections
+- Reporting and pilot-health surfaces
+- Protected `master` branch
+- Exact-head CI and security workflows
+- Vercel frontend/backend deployment pipeline
 
-- Supabase for staff identity/password verification and Postgres-backed data services.
-- Redis + BullMQ for queues and background jobs.
-- Prisma for schema and migrations.
-- OpenAPI, Spectral, Prism, Orval, Bruno, and `@nestjs/swagger` for contract-driven development.
+Remaining release-certification work is tracked in OpenSpec and includes authenticated production business-flow benchmarks, real pilot-device proof, backup/restore drill evidence, and final exact-head release approval.
 
-## Environment
+## Engineering Rules
 
-- `PORT`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `SESSION_SECRET`
-- `CSRF_SECRET`
-- `MIN_REDEMPTION_KOBO`
-- `PURCHASE_FLAG_THRESHOLD_KOBO`
-- `PURCHASE_APPROVAL_THRESHOLD_KOBO`
-- `PURCHASE_AMOUNT_CEILING_KOBO`
-- `REDEMPTION_APPROVAL_THRESHOLD_KOBO`
-- `OUTBOX_PUBLISH_BATCH_SIZE`
-- `OUTBOX_PUBLISH_INTERVAL_MS`
-- `OUTBOX_RETRY_DELAY_MS`
-- `OUTBOX_RECOVERY_THRESHOLD_MS`
-- `SMS_PROVIDER_MODE`
-- `SMS_PROVIDER_URL`
-- `SMS_PROVIDER_USERNAME`
-- `SMS_PROVIDER_API_KEY`
-- `SMS_PROVIDER_SENDER_ID`
-- `SMS_PROVIDER_TIMEOUT_MS`
-- `ALLOW_FAKE_SMS_IN_PRODUCTION`
-- `SWAGGER_ENABLED`
-- `DEFAULT_PUBLIC_TENANT_ID`
-- `DEFAULT_PUBLIC_BRANCH_ID`
-- `SHOPCITY_TIMEZONE`
-- `RECEIPT_WEEK_START_DAY`
-- `DEFAULT_EARN_RATE_BPS`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- Keep financial authority on the backend.
+- Store money as integer kobo.
+- Do not mutate historical ledger entries; use compensating entries.
+- Preserve idempotency keys across retries for retry-sensitive operations.
+- Keep feature code within `src/modules/<feature>/`.
+- Keep shared policies and helpers in `src/common/`.
+- Keep persistence concerns in `src/database/`.
+- Keep background work in `src/jobs/`.
+- Do not hand-edit generated OpenAPI/client artifacts.
+- Run impact analysis before broad architectural changes.
+
+## Key Environment Variables
+
+Core runtime configuration includes:
+
+```text
+PORT
+DATABASE_URL
+REDIS_URL
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+SESSION_SECRET
+CSRF_SECRET
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+MIN_REDEMPTION_KOBO
+PURCHASE_FLAG_THRESHOLD_KOBO
+PURCHASE_APPROVAL_THRESHOLD_KOBO
+PURCHASE_AMOUNT_CEILING_KOBO
+REDEMPTION_APPROVAL_THRESHOLD_KOBO
+DEFAULT_EARN_RATE_BPS
+SHOPCITY_TIMEZONE
+RECEIPT_WEEK_START_DAY
+SMS_PROVIDER_MODE
+SENTRY_DSN
+```
+
+See `.env.example` and the configuration modules for the complete current set.
+
+## Documentation
+
+Useful starting points:
+
+- `docs/TRD.md` — product and technical requirements
+- `docs/architecture/` — architectural decisions and invariants
+- `docs/api/` — OpenAPI and API-contract artifacts
+- `docs/runbooks/` — operational procedures
+- `docs/database/` — migration and database operations
+- `docs/development/` — engineering and release evidence
+- `docs/frontend/design-system/` — frontend design, accessibility, and workflow standards
+- `openspec/changes/` — active specifications and release-certification work
+
+---
+
+**ShopCity Loyalty Platform** — auditable, POS-adjacent loyalty credit for retail operations.
