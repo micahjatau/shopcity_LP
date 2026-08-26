@@ -156,17 +156,17 @@ A workflow that the product claims is user-operable SHALL NOT be certified solel
 
 The Cashier suite SHALL prove at least the following happy paths.
 
-| Workflow | Browser proof | Backend proof |
-|---|---|---|
-| Login | Login redirects to Cashier shell | session, role, branch and device context valid |
-| Card lookup | scanner/manual lookup resolves expected customer | card/customer/balance match fixture |
-| Earn confirmed | lookup → Earn → submit → confirmed result | receipt, ledger entry, credit lot, balance change |
-| Earn requiring approval | high-value Earn shows pending state | approval exists; no premature credit |
-| Redeem | lookup → Redeem → confirm | redemption, FIFO allocations and balance change |
-| Customer view | customer search/detail works | Cashier-safe PII projection |
-| Today's activity | just-created transaction appears | actor/branch-scoped activity endpoint matches |
-| Sync queue | queue opens and reports truthful state | local/offline state matches backend reconciliation |
-| Logout | role session exits | session invalid/revoked |
+| Workflow                | Browser proof                                    | Backend proof                                      |
+| ----------------------- | ------------------------------------------------ | -------------------------------------------------- |
+| Login                   | Login redirects to Cashier shell                 | session, role, branch and device context valid     |
+| Card lookup             | scanner/manual lookup resolves expected customer | card/customer/balance match fixture                |
+| Earn confirmed          | lookup → Earn → submit → confirmed result        | receipt, ledger entry, credit lot, balance change  |
+| Earn requiring approval | high-value Earn shows pending state              | approval exists; no premature credit               |
+| Redeem                  | lookup → Redeem → confirm                        | redemption, FIFO allocations and balance change    |
+| Customer view           | customer search/detail works                     | Cashier-safe PII projection                        |
+| Today's activity        | just-created transaction appears                 | actor/branch-scoped activity endpoint matches      |
+| Sync queue              | queue opens and reports truthful state           | local/offline state matches backend reconciliation |
+| Logout                  | role session exits                               | session invalid/revoked                            |
 
 ### 7.1 Cashier guardrails
 

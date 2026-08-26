@@ -78,6 +78,7 @@ Do not introduce a smoke-only NestJS controller or database backdoor. Persistent
 ### Task 1: Smoke Configuration, Run Identity, and Playwright Entry Point
 
 **Files:**
+
 - Create: `apps/web/playwright.smoke.config.ts`
 - Create: `apps/web/tests/smoke/config.ts`
 - Create: `apps/web/tests/smoke/support/smoke-run.ts`
@@ -86,6 +87,7 @@ Do not introduce a smoke-only NestJS controller or database backdoor. Persistent
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Produces `SmokeEnvironment = 'staging' | 'production'`.
 - Produces `SmokeConfig` with exact frontend/backend URLs, candidate SHA, fixture IDs, and role credentials.
 - Produces `SmokeRun` with `smokeRunId`, evidence/output paths, timestamps, and result state.
@@ -112,8 +114,9 @@ test('production config rejects missing deterministic fixture ids', () => {
 });
 
 test('smoke run id is traceable and filesystem safe', () => {
-  expect(createSmokeRunId(new Date('2026-08-26T14:30:00Z'), 'abc123'))
-    .toBe('SMOKE-20260826-143000-abc123');
+  expect(createSmokeRunId(new Date('2026-08-26T14:30:00Z'), 'abc123')).toBe(
+    'SMOKE-20260826-143000-abc123',
+  );
 });
 ```
 
@@ -210,8 +213,14 @@ export interface SmokeRun {
   evidenceDir: string;
 }
 
-export function createSmokeRunId(now = new Date(), suffix = crypto.randomUUID().slice(0, 6)): string;
-export function createSmokeRun(candidateSha: string, root = 'test-results/smoke'): SmokeRun;
+export function createSmokeRunId(
+  now = new Date(),
+  suffix = crypto.randomUUID().slice(0, 6),
+): string;
+export function createSmokeRun(
+  candidateSha: string,
+  root = 'test-results/smoke',
+): SmokeRun;
 ```
 
 Use UTC `YYYYMMDD-HHmmss`, strip non-alphanumeric suffix characters, and create run/evidence paths without embedding secrets.
@@ -289,11 +298,13 @@ git commit -m "test(smoke): add smoke configuration and runner"
 ### Task 2: Authenticated API Client and UI Role Authentication
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/support/api-client.ts`
 - Create: `apps/web/tests/smoke/support/auth.ts`
 - Create: `apps/web/tests/smoke/api-client.smoke.spec.ts`
 
 **Interfaces:**
+
 - Produces `SmokeApiSession` with authenticated `APIRequestContext`, CSRF header support, and JSON envelope parsing.
 - Produces `createRoleApiSession(role, config)` and `loginRoleInUi(page, role, config)`.
 - Later fixture/assertion/reconciliation tasks consume these helpers.
@@ -303,9 +314,11 @@ git commit -m "test(smoke): add smoke configuration and runner"
 Create `apps/web/tests/smoke/api-client.smoke.spec.ts` and mock `APIRequestContext` methods to prove:
 
 ```ts
-expect(csrfHeaderFromCookies([
-  { name: 'shopcity_csrf', value: 'csrf-123', domain: 'x', path: '/' },
-])).toBe('csrf-123');
+expect(
+  csrfHeaderFromCookies([
+    { name: 'shopcity_csrf', value: 'csrf-123', domain: 'x', path: '/' },
+  ]),
+).toBe('csrf-123');
 ```
 
 and that mutation requests send both:
@@ -395,11 +408,13 @@ git commit -m "test(smoke): add authenticated API and role helpers"
 ### Task 3: Deterministic Fixture Preflight, Snapshot, and Reset
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/support/fixtures.ts`
 - Create: `apps/web/tests/smoke/fixtures.smoke.spec.ts`
 - Create: `apps/web/tests/smoke/global-setup.ts`
 
 **Interfaces:**
+
 - Produces `SmokeBaseline` snapshot.
 - Produces `preflightFixtures(config, adminApi)`, `captureBaseline(...)`, `resetMutableFixtures(...)`.
 - Writes non-secret run metadata to `test-results/smoke/current-run.json` for teardown/evidence tasks.
@@ -425,7 +440,12 @@ Use this public shape:
 
 ```ts
 export interface SmokeBaseline {
-  customer: { id: string; status: string; fullName: string; email?: string | null };
+  customer: {
+    id: string;
+    status: string;
+    fullName: string;
+    email?: string | null;
+  };
   card: { serialNumber: string; status: string; customerId: string };
   device: { id: string; status: string; branchId: string };
   balanceKobo: number;
@@ -491,6 +511,7 @@ git commit -m "test(smoke): add deterministic fixture preflight"
 ### Task 4: Evidence, Timing, and Reconciliation Core
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/support/evidence.ts`
 - Create: `apps/web/tests/smoke/support/timing.ts`
 - Create: `apps/web/tests/smoke/support/assertions.ts`
@@ -499,6 +520,7 @@ git commit -m "test(smoke): add deterministic fixture preflight"
 - Create: `apps/web/tests/smoke/reconciliation.smoke.spec.ts`
 
 **Interfaces:**
+
 - Produces `recordWorkflowEvidence()`, `measureWorkflow()`, `registerFinancialArtifact()`, `reconcileRun()`, `assertPostRunInvariants()`.
 - Later role/scenario tests register artifacts rather than deleting them.
 
@@ -507,9 +529,15 @@ git commit -m "test(smoke): add deterministic fixture preflight"
 Prove three rules:
 
 ```ts
-expect(classifySmokeOutcome({ testsPassed: true, reconciliationPassed: true })).toBe('PASS');
-expect(classifySmokeOutcome({ testsPassed: false, reconciliationPassed: true })).toBe('FAIL_TEST');
-expect(classifySmokeOutcome({ testsPassed: true, reconciliationPassed: false })).toBe('FAIL_RECONCILIATION');
+expect(
+  classifySmokeOutcome({ testsPassed: true, reconciliationPassed: true }),
+).toBe('PASS');
+expect(
+  classifySmokeOutcome({ testsPassed: false, reconciliationPassed: true }),
+).toBe('FAIL_TEST');
+expect(
+  classifySmokeOutcome({ testsPassed: true, reconciliationPassed: false }),
+).toBe('FAIL_RECONCILIATION');
 ```
 
 Also prove evidence redaction rejects keys matching `/password|secret|cookie|csrf|token/i`.
@@ -520,7 +548,8 @@ Use:
 
 ```ts
 export interface WorkflowEvidence {
-  group: 'cashier' | 'supervisor' | 'admin' | 'cross-role' | 'guardrail' | 'offline';
+  group:
+    'cashier' | 'supervisor' | 'admin' | 'cross-role' | 'guardrail' | 'offline';
   name: string;
   status: 'PASS' | 'FAIL';
   durationMs: number;
@@ -604,9 +633,11 @@ git commit -m "test(smoke): add evidence and reconciliation core"
 ### Task 5: Cashier Happy-Path Smoke Suite
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/roles/cashier.smoke.spec.ts`
 
 **Interfaces:**
+
 - Consumes role login, config, evidence/timing helpers, deterministic card/customer fixtures.
 - Registers confirmed Earn/Redeem artifacts for teardown.
 
@@ -676,9 +707,11 @@ git commit -m "test(smoke): cover cashier core workflows"
 ### Task 6: Supervisor Smoke Suite
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/roles/supervisor.smoke.spec.ts`
 
 **Interfaces:**
+
 - Uses one run-specific customer identity with deterministic prefix `SMOKE-<run>-SUP-CUSTOMER`.
 - Uses pre-provisioned spare smoke card serials supplied by `SMOKE_SPARE_CARD_SERIALS` as a comma-separated config field; extend `SmokeConfig` and its validation in this task.
 
@@ -749,9 +782,11 @@ git commit -m "test(smoke): cover supervisor core workflows"
 ### Task 7: Admin Smoke Suite
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/roles/admin.smoke.spec.ts`
 
 **Interfaces:**
+
 - Uses smoke tenant only.
 - Staging may perform full device secret rotation; production performs it only when `SMOKE_ALLOW_DEVICE_ROTATION=true`, otherwise verifies device inspection/status operations and records `SKIPPED_BY_POLICY` for rotation without counting it as a smoke failure.
 
@@ -806,11 +841,13 @@ git commit -m "test(smoke): cover admin core workflows"
 ### Task 8: Cross-Role Financial Scenarios
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/scenarios/earn-approval.smoke.spec.ts`
 - Create: `apps/web/tests/smoke/scenarios/redeem.smoke.spec.ts`
 - Create: `apps/web/tests/smoke/scenarios/reversal.smoke.spec.ts`
 
 **Interfaces:**
+
 - Uses serial execution and fresh browser contexts per role.
 - Registers every financial artifact for teardown.
 
@@ -867,10 +904,12 @@ git commit -m "test(smoke): add cross-role financial scenarios"
 ### Task 9: Critical Negative Guardrails
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/guardrails/rbac.smoke.spec.ts`
 - Create: `apps/web/tests/smoke/guardrails/business-rules.smoke.spec.ts`
 
 **Interfaces:**
+
 - Negative tests must assert both UI denial and, where consequential, direct API denial using the same role session.
 - Do not enumerate every validation error; restrict to release-critical rules from the design.
 
@@ -924,9 +963,11 @@ git commit -m "test(smoke): add critical guardrails"
 ### Task 10: Offline Earn Smoke
 
 **Files:**
+
 - Create: `apps/web/tests/smoke/offline/offline-earn.smoke.spec.ts`
 
 **Interfaces:**
+
 - Uses Playwright request routing to block only the smoke browser's `/api/v1/loyalty/earn`/sync-relevant requests; never disables shared backend infrastructure.
 - Production Offline Earn only executes when `SMOKE_ALLOW_OFFLINE_PRODUCTION=true`.
 
@@ -943,7 +984,9 @@ Default false for production and true for staging unless explicitly overridden.
 - [ ] **Step 2: Implement staging Offline Earn**
 
 ```ts
-await page.route('**/api/v1/loyalty/earn', route => route.abort('internetdisconnected'));
+await page.route('**/api/v1/loyalty/earn', (route) =>
+  route.abort('internetdisconnected'),
+);
 ```
 
 Then through Cashier UI:
@@ -983,9 +1026,11 @@ git commit -m "test(smoke): cover offline earn reconciliation"
 ### Task 11: Staging Smoke GitHub Actions Gate
 
 **Files:**
+
 - Create: `.github/workflows/staging-smoke.yml`
 
 **Interfaces:**
+
 - Consumes existing release-candidate/PR SHA and staging deployment URLs/secrets.
 - Produces `shopcity-staging-smoke-<sha>` evidence artifact.
 
@@ -1065,9 +1110,11 @@ git commit -m "ci(smoke): add staging release smoke gate"
 ### Task 12: Manual Approval-Gated Production Smoke Workflow
 
 **Files:**
+
 - Create: `.github/workflows/production-smoke.yml`
 
 **Interfaces:**
+
 - Manual only.
 - Uses GitHub `production-smoke` Environment for approval and secrets.
 - Single concurrent mutating run.
@@ -1145,12 +1192,14 @@ git commit -m "ci(smoke): add approved production smoke workflow"
 ### Task 13: Immutable Smoke Evidence Verifier and Release Integration
 
 **Files:**
+
 - Create: `scripts/smoke/verify-smoke-evidence.mjs`
 - Create: `scripts/smoke/verify-smoke-evidence.spec.mjs`
 - Modify: `package.json`
 - Modify: `.github/workflows/ci.yml` only if smoke-evidence verification belongs in the current release-certification job without creating circular dependencies.
 
 **Interfaces:**
+
 - `node scripts/smoke/verify-smoke-evidence.mjs --manifest <path> --candidate-sha <sha>` exits 0 only for valid PASS evidence matching the exact SHA.
 
 - [ ] **Step 1: Write verifier tests**
@@ -1229,10 +1278,12 @@ Only stage `.github/workflows/ci.yml` if it was actually changed.
 ### Task 14: Operator Runbook and Provisioning Checklist
 
 **Files:**
+
 - Create: `docs/runbooks/smoke-testing.md`
 - Modify: `README.md` with one short link under testing/release operations if appropriate.
 
 **Interfaces:**
+
 - Documents one-time fixture provisioning and how to respond to `FAIL_RECONCILIATION`.
 
 - [ ] **Step 1: Document one-time smoke tenant provisioning**
@@ -1309,9 +1360,11 @@ Only stage `README.md` if changed.
 ### Task 15: Full Verification and Release-Gate Acceptance
 
 **Files:**
+
 - Modify only files required to fix defects discovered by verification.
 
 **Interfaces:**
+
 - Produces the first complete staging smoke evidence bundle suitable for release certification.
 
 - [ ] **Step 1: Run static verification**
