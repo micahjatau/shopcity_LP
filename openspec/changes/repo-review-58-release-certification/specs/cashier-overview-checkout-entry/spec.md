@@ -34,7 +34,7 @@ The direct overview lookup MUST NOT remove or embed the existing dedicated Earn,
 
 ### Requirement: Cashier overview displays today’s transactions
 
-The `/cashier` overview MUST display a bounded backend-backed list of the authenticated branch’s current-business-day transactions.
+The `/cashier` overview MUST display a bounded backend-backed list of the authenticated cashier’s current-business-day transactions.
 
 #### Scenario: Today’s transactions are available
 
@@ -42,7 +42,7 @@ The `/cashier` overview MUST display a bounded backend-backed list of the authen
 - **WHEN** the overview loads
 - **THEN** it displays no more than 10 sanitized transaction rows
 - **AND** each row includes time, operation, integer-kobo amount, receipt/reference, and outcome
-- **AND** the data is scoped by authenticated tenant, branch, and configured ShopCity timezone
+- **AND** the data is scoped by authenticated tenant, branch, cashier, and configured ShopCity timezone
 
 #### Scenario: Today’s transactions are unavailable
 

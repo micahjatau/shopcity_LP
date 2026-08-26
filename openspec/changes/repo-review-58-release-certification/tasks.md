@@ -15,6 +15,8 @@
 - [x] 2.4 Add the bounded backend-backed today-transaction summary, scoped by authenticated tenant/branch and configured business day.
 - [ ] 2.5 Add responsive, accessible, offline, empty, loading, unauthorized, and error states.
 - [ ] 2.6 Add unit, contract, integration, Playwright, accessibility, and visual coverage for scanner lookup and activity states.
+- [x] 2.8 Scope cashier-today to the authenticated cashier, remove the stale activity placeholder, and add mobile activity layout coverage from Review 59.
+- [x] 2.9 Add explicit cashier-today tests for scanner Enter/focus, successful activity rendering, redeem mapping, branch scope, cross-tenant mismatch, and timezone boundaries.
 - [x] 2.7 Regenerate OpenAPI and frontend client artifacts if the activity contract changes.
 
 ## 3. Authenticated benchmark implementation

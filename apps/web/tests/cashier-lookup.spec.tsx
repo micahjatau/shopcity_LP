@@ -40,6 +40,23 @@ jest.mock('../lib/api/generated-client', () => {
 describe('Cashier lookup workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          items: [
+            {
+              id: 'receipt-1',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'EARN',
+              amountKobo: 42,
+              receiptNumber: '1831',
+              status: 'CONFIRMED',
+            },
+          ],
+        },
+      }),
+    }) as jest.Mock;
     jest.mocked(cardsControllerLookupCardV1).mockResolvedValue({
       status: 200,
       data: {
@@ -57,13 +74,12 @@ describe('Cashier lookup workflow', () => {
   it('looks up a card directly from the cashier overview', async () => {
     render(<CashierOverviewLookup />);
 
-    fireEvent.change(
-      screen.getByRole('textbox', {
-        name: 'Scan card or enter card number',
-      }),
-      { target: { value: 'CARD-001' } },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
+    const input = screen.getByRole('textbox', {
+      name: 'Scan card or enter card number',
+    });
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: 'CARD-001' } });
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
       expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
@@ -75,6 +91,18 @@ describe('Cashier lookup workflow', () => {
     expect(
       screen.getByText('Customer verified. Choose the next action.'),
     ).toBeInTheDocument();
+  });
+
+  it('renders authenticated cashier activity', async () => {
+    render(<CashierOverviewLookup />);
+
+    expect(await screen.findByText('#1831')).toBeInTheDocument();
+    expect(screen.getByText('EARN')).toBeInTheDocument();
+    expect(screen.getByText('CONFIRMED')).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/reports/cashier-today',
+      expect.any(Object),
+    );
   });
 
   it('keeps lookup focused and preserves context for Earn and Redeem', async () => {

@@ -318,6 +318,17 @@ export function CashierOverviewLookup() {
           color: var(--sc-color-semantic-textSecondary);
         }
 
+        @media (max-width: 600px) {
+          .cashier-today-card li {
+            grid-template-columns: auto 1fr auto;
+          }
+
+          .cashier-today-card li strong,
+          .cashier-today-card li span:last-child {
+            grid-column: span 1;
+          }
+        }
+
         .cashier-verified-card {
           grid-template-columns: 1.3fr 1fr;
           align-items: center;

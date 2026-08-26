@@ -63,16 +63,6 @@ export default function CashierPage() {
         </div>
       </section>
 
-      <section className="cashier-recent-card" aria-label="Recent activity">
-        <div>
-          <h2>Recent activity</h2>
-          <p className="cashier-muted">
-            Activity will appear here when the scoped endpoint is available.
-          </p>
-        </div>
-        <Link href="/cashier/sync">Open sync queue</Link>
-      </section>
-
       <style>{`
         .cashier-overview {
           display: grid;
@@ -88,8 +78,7 @@ export default function CashierPage() {
         }
 
         .cashier-overview-header h1,
-        .cashier-launcher h2,
-        .cashier-recent-card h2 {
+        .cashier-launcher h2 {
           margin: 0;
         }
 
@@ -155,8 +144,7 @@ export default function CashierPage() {
           font-weight: 700;
         }
 
-        .cashier-action-card,
-        .cashier-recent-card {
+        .cashier-action-card {
           display: grid;
           gap: var(--sc-spacing-2);
           border: 1px solid var(--sc-color-semantic-border);
@@ -191,8 +179,7 @@ export default function CashierPage() {
         }
 
         .cashier-action-card:focus-visible,
-        .cashier-primary-action:focus-visible,
-        .cashier-recent-card a:focus-visible {
+        .cashier-primary-action:focus-visible {
           outline: 3px solid var(--sc-color-warning-300);
           outline-offset: 3px;
         }

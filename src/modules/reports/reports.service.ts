@@ -145,11 +145,7 @@ export class ReportsService {
       status: string;
     }>;
   }> {
-    if (
-      context.user.role !== UserRole.CASHIER &&
-      context.user.role !== UserRole.SUPERVISOR &&
-      context.user.role !== UserRole.ADMIN
-    ) {
+    if (context.user.role !== UserRole.CASHIER) {
       throw new ForbiddenException('Cashier activity access is restricted');
     }
 
@@ -174,6 +170,8 @@ export class ReportsService {
       where: {
         tenantId,
         branchId: branch.id,
+        capturedByTenantId: tenantId,
+        capturedBy: context.user.id,
         occurredAt: { gte: windowStart, lt: windowEnd },
       },
       orderBy: { occurredAt: 'desc' },

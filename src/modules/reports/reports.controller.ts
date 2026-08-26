@@ -254,7 +254,7 @@ export class ReportsController {
 
   @Get('cashier-today')
   @Version('1')
-  @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Roles(UserRole.CASHIER)
   @apiSuccessEnvelopeResponse({
     description: "Today's cashier transaction summary",
     dataSchema: cashierTodaySchema,

@@ -242,6 +242,87 @@ describe('ReportsService', () => {
     });
   });
 
+  it('maps a redemption receipt to its confirmed amount and status', async () => {
+    const prisma = prismaStub({
+      receipts: [
+        {
+          id: 'receipt-2',
+          occurredAt: new Date('2026-08-25T10:00:00.000Z'),
+          posReceiptNumber: '1832',
+          purchaseAmountKobo: 1000n,
+          reviewStatus: 'APPROVED',
+          redemption: {
+            requestedAmountKobo: 500n,
+            confirmedAmountKobo: 450n,
+            status: 'CONFIRMED',
+          },
+          ledgerEntries: [],
+        },
+      ],
+    });
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.listCashierToday('tenant-1', cashierContext()),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          operation: 'REDEEM',
+          amountKobo: 450,
+          receiptNumber: '1832',
+          status: 'CONFIRMED',
+        },
+      ],
+    });
+  });
+
+  it('rejects cashier activity without a branch scope', async () => {
+    const service = new ReportsService(prismaStub(), configService());
+    const context = cashierContext();
+    context.user.branchId = null;
+
+    await expect(
+      service.listCashierToday('tenant-1', context),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects cashier activity when the branch belongs to another tenant', async () => {
+    const prisma = prismaStub();
+    jest.mocked(prisma.branch.findFirst).mockResolvedValue(null);
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.listCashierToday('tenant-1', cashierContext()),
+    ).rejects.toThrow('Cashier activity branch not found');
+  });
+
+  it('uses the branch timezone and cashier identity in the activity query', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-25T22:30:00.000Z'));
+    try {
+      const prisma = prismaStub();
+      const service = new ReportsService(prisma, configService());
+
+      await service.listCashierToday('tenant-1', cashierContext());
+
+      expect(prisma.receipt.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenantId: 'tenant-1',
+            branchId: 'branch-1',
+            capturedByTenantId: 'tenant-1',
+            capturedBy: 'cashier-1',
+            occurredAt: {
+              gte: new Date('2026-08-24T23:00:00.000Z'),
+              lt: new Date('2026-08-25T23:00:00.000Z'),
+            },
+          }),
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('rejects invalid report dates', async () => {
     const service = new ReportsService(prismaStub(), configService());
 
