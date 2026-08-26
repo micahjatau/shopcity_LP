@@ -16,7 +16,7 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: requiredString(
     'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
   ),
-  REDIS_URL: requiredString('redis://127.0.0.1:6379'),
+  REDIS_URL: Joi.string().min(1).optional(),
   UPSTASH_REDIS_URL: Joi.string().optional(),
   UPSTASH_REDIS_REST_URL: Joi.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: Joi.string().optional(),
