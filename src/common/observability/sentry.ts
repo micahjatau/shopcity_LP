@@ -43,7 +43,7 @@ export function initializeSentryIfConfigured(
     };
     // Sentry's Node v10 declaration currently narrows init() to
     // BaseNodeOptions even though runtime accepts the documented DSN option.
-    sentry.init(sentryOptions as Sentry.NodeOptions);
+    sentry.init(sentryOptions as unknown as Sentry.NodeOptions);
 
     sentry.setTag('shopcity.runtime', options.runtime);
     sentry.setTag('shopcity.release.version', env.RELEASE_VERSION ?? 'unknown');
