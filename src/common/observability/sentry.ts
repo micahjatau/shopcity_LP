@@ -4,6 +4,16 @@ export interface SentryInitOptions {
   runtime: 'api' | 'worker';
 }
 
+type SanitizableSentryEvent = {
+  request?: { headers?: Record<string, string | undefined> };
+};
+
+type SentryRuntime = {
+  init(options: Sentry.NodeOptions): unknown;
+  setTag(key: string, value: string): void;
+};
+
+const sentry = Sentry as unknown as SentryRuntime;
 let initialized = false;
 
 export function initializeSentryIfConfigured(
@@ -16,12 +26,12 @@ export function initializeSentryIfConfigured(
   }
 
   try {
-    Sentry.init({
+    const sentryOptions = {
       dsn,
       environment: env.NODE_ENV ?? 'development',
       release: env.RELEASE_SHA?.trim() || undefined,
       sendDefaultPii: false,
-      beforeSend(event) {
+      beforeSend(event: SanitizableSentryEvent): SanitizableSentryEvent {
         if (event.request?.headers) {
           delete event.request.headers.authorization;
           delete event.request.headers.cookie;
@@ -30,11 +40,14 @@ export function initializeSentryIfConfigured(
 
         return event;
       },
-    });
+    };
+    // Sentry's Node v10 declaration currently narrows init() to
+    // BaseNodeOptions even though runtime accepts the documented DSN option.
+    sentry.init(sentryOptions as Sentry.NodeOptions);
 
-    Sentry.setTag('shopcity.runtime', options.runtime);
-    Sentry.setTag('shopcity.release.version', env.RELEASE_VERSION ?? 'unknown');
-    Sentry.setTag('shopcity.release.sha', env.RELEASE_SHA ?? 'dev');
+    sentry.setTag('shopcity.runtime', options.runtime);
+    sentry.setTag('shopcity.release.version', env.RELEASE_VERSION ?? 'unknown');
+    sentry.setTag('shopcity.release.sha', env.RELEASE_SHA ?? 'dev');
     initialized = true;
     return true;
   } catch (error) {

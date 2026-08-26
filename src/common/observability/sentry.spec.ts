@@ -9,6 +9,11 @@ import {
   resetSentryInitializationForTests,
 } from './sentry';
 
+const sentryMock = Sentry as unknown as {
+  init: jest.Mock;
+  setTag: jest.Mock;
+};
+
 describe('initializeSentryIfConfigured', () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -17,7 +22,7 @@ describe('initializeSentryIfConfigured', () => {
 
   it('skips initialization when no DSN is configured', () => {
     expect(initializeSentryIfConfigured({}, { runtime: 'api' })).toBe(false);
-    expect(Sentry.init).not.toHaveBeenCalled();
+    expect(sentryMock.init).not.toHaveBeenCalled();
   });
 
   it('initializes once when a DSN is configured', () => {
@@ -32,13 +37,16 @@ describe('initializeSentryIfConfigured', () => {
       ),
     ).toBe(true);
 
-    expect(Sentry.init).toHaveBeenCalledTimes(1);
-    expect(Sentry.setTag).toHaveBeenCalledWith('shopcity.runtime', 'worker');
-    expect(Sentry.setTag).toHaveBeenCalledWith(
+    expect(sentryMock.init).toHaveBeenCalledTimes(1);
+    expect(sentryMock.setTag).toHaveBeenCalledWith(
+      'shopcity.runtime',
+      'worker',
+    );
+    expect(sentryMock.setTag).toHaveBeenCalledWith(
       'shopcity.release.version',
       '1.2.3',
     );
-    expect(Sentry.setTag).toHaveBeenCalledWith(
+    expect(sentryMock.setTag).toHaveBeenCalledWith(
       'shopcity.release.sha',
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     );
@@ -49,11 +57,11 @@ describe('initializeSentryIfConfigured', () => {
         { runtime: 'api' },
       ),
     ).toBe(false);
-    expect(Sentry.init).toHaveBeenCalledTimes(1);
+    expect(sentryMock.init).toHaveBeenCalledTimes(1);
   });
 
   it('fails open when Sentry initialization throws', () => {
-    jest.spyOn(Sentry, 'init').mockImplementation(() => {
+    sentryMock.init.mockImplementation(() => {
       throw new Error('boom');
     });
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -70,7 +78,7 @@ describe('initializeSentryIfConfigured', () => {
         'Sentry initialization failed; continuing startup.',
       ),
     );
-    expect(Sentry.setTag).not.toHaveBeenCalled();
+    expect(sentryMock.setTag).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();
   });

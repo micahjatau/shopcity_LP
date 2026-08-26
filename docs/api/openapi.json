@@ -26795,7 +26795,7 @@
                               "id",
                               "occurredAt",
                               "operation",
-                              "amountKobo",
+                              "loyaltyAmountKobo",
                               "receiptNumber",
                               "status"
                             ],
@@ -26812,8 +26812,9 @@
                                 "type": "string",
                                 "enum": ["EARN", "REDEEM"]
                               },
-                              "amountKobo": {
-                                "type": "integer"
+                              "loyaltyAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
                               },
                               "receiptNumber": {
                                 "type": "string"

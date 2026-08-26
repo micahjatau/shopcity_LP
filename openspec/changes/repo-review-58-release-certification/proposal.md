@@ -1,8 +1,8 @@
-# Proposal: Repo review 58 release certification closure
+# Proposal: Reviews 58–60 release-gap closure
 
 ## Why
 
-`docs/repo_review_58.md` rates the repository suitable for staging and controlled pilot validation, but not formally releasable. The remaining work is concentrated in one cashier product-compliance gap and incomplete production evidence. This change closes every explicitly identified gap without reopening the settled ledger, auth, offline, device, or frontend-shell architecture.
+`docs/repo_review_58.md` through `docs/repo_review_60.md` rate the repository suitable for controlled pilot validation, but not formally releasable. The remaining work is one financial-display correctness defect in cashier activity, two bounded cashier usability/contract improvements, and incomplete production certification evidence. This existing change is expanded rather than duplicated because its unresolved release-certification scope already owns every Review 60 gap. It closes those gaps without reopening the settled ledger, auth, offline, device, or frontend-shell architecture.
 
 ## What changes
 
@@ -13,6 +13,9 @@
 - Carry verified card context into Earn and Redeem without trusting frontend-submitted balance, role, status, or eligibility.
 - Replace the placeholder recent-activity panel with a bounded backend-backed “today’s transactions” projection (5–10 rows, scoped to the authenticated branch/tenant and current business day), including time, receipt/reference, operation, amount, and outcome.
 - Add loading, empty, offline, authorization, and lookup-error states with accessible focus management and mobile layout coverage.
+- Replace the overloaded activity `amountKobo` field with operation-specific integer-kobo fields. Earn rows MUST expose only an authoritative loyalty-credit amount when known; they MUST NOT fall back to receipt purchase amount. When no authoritative pending Earn credit projection exists, the API and UI MUST state that calculation is pending rather than show a monetary amount.
+- Render Earn and Redeem with unambiguous semantic direction (`+` / `−`) or equally explicit labels.
+- Consume the generated OpenAPI reporting client for cashier activity, regenerate it from the revised contract, and remove handwritten activity response parsing.
 
 ### Release and deployment evidence
 
@@ -41,7 +44,7 @@
 ### New capabilities
 
 - `cashier-overview-checkout-entry`: On-dashboard scanner/search and verified customer context.
-- `cashier-today-transaction-summary`: Bounded authenticated same-day activity projection.
+- `cashier-today-transaction-summary`: Bounded authenticated same-day activity projection with operation-specific amounts and pending-calculation representation.
 - `authenticated-checkout-benchmark-evidence`: Exact-SHA business-path performance evidence.
 - `release-candidate-provenance`: Immutable candidate, workflow, deployment, branch, topology, and security evidence.
 - `pilot-device-and-recovery-certification`: Pilot device and backup/restore proof required for certification.
@@ -55,7 +58,7 @@
 ## Impact
 
 - Frontend: `apps/web/app/(shell)/cashier/page.tsx`, cashier workflow components, API hooks, styles, Playwright/a11y/visual coverage.
-- Backend: existing scoped transaction/activity read contracts and any additive controller/service DTO needed for the summary; no changes to ledger authority or confirmed financial history.
+- Backend: existing scoped transaction/activity read contracts and additive controller/service DTO needed for operation-specific activity amounts; no changes to ledger authority, calculation authority, or confirmed financial history.
 - Release tooling: `.github/workflows/`, `scripts/release-evidence/`, benchmark harnesses, evidence schemas, and release runbooks.
 - Operations: protected GitHub branch settings, Vercel project/deployment topology, pilot POS devices, production/staging credentials, database backup/restore evidence.
 - Documentation: `docs/database/migration-tracker.md`, topology/release evidence, OpenSpec artifacts, and final review record.

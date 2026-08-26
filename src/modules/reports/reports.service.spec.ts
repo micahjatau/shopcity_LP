@@ -234,9 +234,39 @@ describe('ReportsService', () => {
         {
           id: 'receipt-1',
           operation: 'EARN',
-          amountKobo: 42,
+          loyaltyAmountKobo: 42,
           receiptNumber: '1831',
           status: 'CONFIRMED',
+        },
+      ],
+    });
+  });
+
+  it('does not represent a pending Earn purchase amount as loyalty credit', async () => {
+    const prisma = prismaStub({
+      receipts: [
+        {
+          id: 'receipt-pending-earn',
+          occurredAt: new Date('2026-08-25T10:00:00.000Z'),
+          posReceiptNumber: '1831-PENDING',
+          purchaseAmountKobo: 1000000n,
+          reviewStatus: 'PENDING',
+          redemption: null,
+          ledgerEntries: [],
+        },
+      ],
+    });
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.listCashierToday('tenant-1', cashierContext()),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          operation: 'EARN',
+          loyaltyAmountKobo: null,
+          receiptNumber: '1831-PENDING',
+          status: 'PENDING',
         },
       ],
     });
@@ -268,7 +298,7 @@ describe('ReportsService', () => {
       items: [
         {
           operation: 'REDEEM',
-          amountKobo: 450,
+          loyaltyAmountKobo: 450,
           receiptNumber: '1832',
           status: 'CONFIRMED',
         },

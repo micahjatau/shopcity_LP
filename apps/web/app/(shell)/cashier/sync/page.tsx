@@ -168,8 +168,8 @@ export default function CashierSyncPage() {
             })),
           ),
         );
-        setMessage('Batch submitted. Review per-record results below.');
         await refresh();
+        setMessage('Batch submitted. Review per-record results below.');
         return;
       }
 

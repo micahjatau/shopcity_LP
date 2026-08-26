@@ -17,6 +17,10 @@
 - [ ] 2.6 Add unit, contract, integration, Playwright, accessibility, and visual coverage for scanner lookup and activity states.
 - [x] 2.8 Scope cashier-today to the authenticated cashier, remove the stale activity placeholder, and add mobile activity layout coverage from Review 59.
 - [x] 2.9 Add explicit cashier-today tests for scanner Enter/focus, successful activity rendering, redeem mapping, branch scope, cross-tenant mismatch, and timezone boundaries.
+- [x] 2.10 Replace overloaded cashier-today `amountKobo` with operation-specific DTO fields; prohibit Earn fallback from loyalty credit to receipt purchase amount and represent unknown pending credit explicitly.
+- [x] 2.11 Render unambiguous Earn (`+`) and Redeem (`−`) activity semantics, including accessible text and mobile/visual regression coverage.
+- [x] 2.12 Regenerate OpenAPI/client artifacts and replace handwritten cashier-today fetch/shape validation with the generated reporting method and typed DTO.
+- [x] 2.13 Add backend, contract, and frontend tests for confirmed Earn, pending Earn with an authoritative projection, pending Earn with no credit amount, Redeem, scope, and timezone boundaries.
 - [x] 2.7 Regenerate OpenAPI and frontend client artifacts if the activity contract changes.
 
 ## 3. Authenticated benchmark implementation
@@ -35,6 +39,7 @@
 - [ ] 4.4 Query protected-master settings and verify the required `ci` context is a real merge-time gate.
 - [ ] 4.5 Record Frankfurt frontend/backend/database topology and investigate/document all Vercel projects, including duplicate `shopcity` ownership and disposition.
 - [ ] 4.6 Refresh stale release/topology documents and reconcile OpenSpec status with implementation.
+- [ ] 4.7 Update PR #8 and/or the immutable evidence bundle with the exact current candidate SHA and exact-head CI/security/Vercel run identities; stale manually maintained run IDs are invalid evidence.
 
 ## 5. Pilot, migration, and recovery proof
 
@@ -52,4 +57,4 @@
 - [ ] 6.4 Review the complete diff and working-tree status; preserve unrelated existing changes.
 - [ ] 6.5 Assemble the exact-head evidence bundle and run its verifier.
 - [ ] 6.6 Open/update the protected-master PR and confirm merge gates before pilot approval.
-- [ ] 6.7 Do not certify release while any required benchmark, security, topology, branch, device, migration, restore, or final-review artifact remains missing.
+- [ ] 6.7 Do not certify release while any required financial-display, benchmark, security, topology, branch, device, migration, restore, or final-review artifact remains missing.

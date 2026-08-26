@@ -2,19 +2,16 @@
 
 import Link from 'next/link';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { cardsControllerLookupCardV1 } from '../../lib/api/generated-client';
+import {
+  cardsControllerLookupCardV1,
+  reportsControllerListCashierTodayV1,
+  type ReportsControllerListCashierTodayV1200DataItemsItem,
+} from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Input } from '../ui';
 import { Money } from '../shopcity';
 
-type TodayTransaction = {
-  id: string;
-  occurredAt: string;
-  operation: 'EARN' | 'REDEEM';
-  amountKobo: number;
-  receiptNumber: string;
-  status: string;
-};
+type TodayTransaction = ReportsControllerListCashierTodayV1200DataItemsItem;
 
 type LookupRecord = {
   customer?: {
@@ -48,27 +45,14 @@ export function CashierOverviewLookup() {
     let ignore = false;
     async function loadTodayTransactions() {
       try {
-        const response = await fetch(
-          '/api/v1/reports/cashier-today',
+        const response = await reportsControllerListCashierTodayV1(
           createApiRequest({ csrf: true }),
         );
-        if (!response.ok) throw new Error('activity request failed');
-        const payload = (await response.json()) as {
-          data?: { items?: TodayTransaction[] };
-        };
-        const items = Array.isArray(payload.data?.items)
-          ? payload.data.items.filter(
-              (item): item is TodayTransaction =>
-                typeof item?.id === 'string' &&
-                typeof item.occurredAt === 'string' &&
-                (item.operation === 'EARN' || item.operation === 'REDEEM') &&
-                typeof item.amountKobo === 'number' &&
-                typeof item.receiptNumber === 'string' &&
-                typeof item.status === 'string',
-            )
-          : [];
+        if (response.status !== 200) {
+          throw new Error('activity request failed');
+        }
         if (!ignore) {
-          setTodayTransactions(items);
+          setTodayTransactions(response.data.data.items);
           setTodayMessage('');
         }
       } catch {
@@ -225,7 +209,18 @@ export function CashierOverviewLookup() {
                 </time>
                 <span>#{transaction.receiptNumber}</span>
                 <strong>{transaction.operation}</strong>
-                <Money amountKobo={transaction.amountKobo} />
+                {transaction.loyaltyAmountKobo === null ? (
+                  <span>Pending calculation</span>
+                ) : (
+                  <span
+                    aria-label={`${transaction.operation === 'EARN' ? 'Credit added' : 'Credit redeemed'}: ${transaction.loyaltyAmountKobo} kobo`}
+                  >
+                    <span aria-hidden="true">
+                      {transaction.operation === 'EARN' ? '+' : '−'}
+                    </span>
+                    <Money amountKobo={transaction.loyaltyAmountKobo} />
+                  </span>
+                )}
                 <span>{transaction.status}</span>
               </li>
             ))}

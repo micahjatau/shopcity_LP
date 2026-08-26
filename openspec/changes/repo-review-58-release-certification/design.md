@@ -28,9 +28,15 @@ Add one auto-focusable, keyboard-wedge-compatible input to the cashier overview.
 
 The input must not accept or display frontend-provided balance, role, eligibility, or card status as authoritative. Scanner input is untrusted input and remains subject to normal validation, throttling, session, CSRF, and branch scope.
 
-### 2. Today activity is a bounded read model
+### 2. Today activity is a bounded, operation-specific read model
 
-Use an existing scoped activity/transaction endpoint if its contract already satisfies the need. Otherwise add an additive read-only endpoint returning no more than 10 records for the authenticated tenant, branch, and business-day boundary. The backend computes the business day using configured ShopCity timezone and returns sanitized operation, amount in integer kobo, timestamp, receipt/reference, and outcome fields. The frontend does not calculate totals or infer success from local state.
+Use the existing scoped activity endpoint and revise its additive DTO to return no more than 10 records for the authenticated tenant, branch, cashier, and business-day boundary. The backend computes the business day using configured ShopCity timezone and returns sanitized operation, timestamp, receipt/reference, outcome, and operation-specific integer-kobo fields:
+
+- Earn: `loyaltyAmountKobo` only when an authoritative ledger or authoritative pending-credit projection exists; `purchaseAmountKobo` MAY be supplied as contextual receipt data but MUST NOT be used or labelled as earned credit.
+- Redeem: `loyaltyAmountKobo` represents the requested or confirmed redeemed loyalty amount according to outcome.
+- An Earn lacking an authoritative loyalty amount carries an explicit pending-calculation representation rather than a fabricated zero or receipt purchase amount.
+
+The frontend renders Earn with a positive direction and Redeem with a negative direction, does not calculate totals or infer success from local state, and obtains the typed DTO through the generated OpenAPI client rather than handwritten response parsing.
 
 ### 3. Benchmark paths use real authenticated workflows
 
@@ -79,7 +85,10 @@ Run `detect_changes()` after implementation, inspect the full diff and working-t
 | Risk                                             | Mitigation                                                                                                      |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | Scanner input creates duplicate lookup requests  | Debounce/submit guard, request cancellation, existing throttling, and browser tests.                            |
-| Activity summary leaks cross-branch data         | Backend session scope, tenant/branch integration tests, and bounded DTO projection.                             |
+| Activity summary leaks cross-branch data         | Backend session scope, tenant/branch/cashier integration tests, and bounded DTO projection.                     |
+| Pending Earn displays receipt value as credit    | Operation-specific DTO fields, no Earn fallback to purchase amount, explicit pending-calculation UI, and tests. |
+| Earn/Redeem amounts are operationally ambiguous  | Positive/negative semantic rendering and accessibility/visual regression coverage.                              |
+| Handwritten activity parsing drifts from OpenAPI | Regenerate the client and consume its typed reporting method in the overview component.                         |
 | Benchmark mutates real balances or receipts      | Dedicated fixtures, unique run identifiers, controlled accounts, cleanup/reconciliation, and explicit approval. |
 | P50/P90 hides tail failures                      | Retain raw samples and report sample size plus P95 where available.                                             |
 | Security workflow checks a different SHA         | Evidence verifier compares candidate, workflow head, and deployment artifact hashes.                            |
@@ -92,6 +101,7 @@ Run `detect_changes()` after implementation, inspect the full diff and working-t
 
 - `/cashier` contains a usable focused scanner/card-number input and successful lookup exposes verified customer context without unnecessary navigation.
 - `/cashier` displays a bounded backend-backed same-day transaction list with loading, empty, error, and unauthorized states.
+- A pending Earn never displays receipt purchase amount as loyalty credit; Earn/Redeem directions are unambiguous; the generated reporting client is the sole frontend activity-contract consumer.
 - Authenticated browser tests cover scanner lookup, action navigation, and activity rendering.
 - Exact candidate/deployment/CI/security/branch/topology evidence validates successfully.
 - Required authenticated benchmark paths have raw artifacts, P50/P90 results, and threshold outcomes.

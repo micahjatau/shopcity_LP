@@ -11501,7 +11501,8 @@ export type ReportsControllerListCashierTodayV1200DataItemsItem = {
   id: string;
   occurredAt: string;
   operation: ReportsControllerListCashierTodayV1200DataItemsItemOperation;
-  amountKobo: number;
+  /** @nullable */
+  loyaltyAmountKobo: number | null;
   receiptNumber: string;
   status: string;
 };

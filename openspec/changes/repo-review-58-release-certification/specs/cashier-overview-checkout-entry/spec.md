@@ -32,16 +32,19 @@ The direct overview lookup MUST NOT remove or embed the existing dedicated Earn,
 - **AND** the route receives only a verified card identifier/context
 - **AND** the backend remains authoritative for balance, status, eligibility, and approval
 
-### Requirement: Cashier overview displays today’s transactions
+### Requirement: Cashier overview displays today’s transactions with truthful operation amounts
 
-The `/cashier` overview MUST display a bounded backend-backed list of the authenticated cashier’s current-business-day transactions.
+The `/cashier` overview MUST display a bounded backend-backed list of the authenticated cashier’s current-business-day transactions. Each row MUST use operation-specific integer-kobo amount data; it MUST NOT overload a receipt purchase amount as loyalty credit.
 
 #### Scenario: Today’s transactions are available
 
 - **GIVEN** an authenticated cashier with a valid branch scope
 - **WHEN** the overview loads
 - **THEN** it displays no more than 10 sanitized transaction rows
-- **AND** each row includes time, operation, integer-kobo amount, receipt/reference, and outcome
+- **AND** each row includes time, operation, receipt/reference, and outcome
+- **AND** an Earn row renders an authoritative loyalty-credit amount only when the backend provides one
+- **AND** an Earn row without an authoritative credit amount renders an explicit pending-calculation state and never the receipt purchase amount as credit
+- **AND** Earn and Redeem values have unambiguous positive/negative direction or equivalent semantic labels
 - **AND** the data is scoped by authenticated tenant, branch, cashier, and configured ShopCity timezone
 
 #### Scenario: Today’s transactions are unavailable
@@ -50,3 +53,14 @@ The `/cashier` overview MUST display a bounded backend-backed list of the authen
 - **WHEN** the overview renders
 - **THEN** it displays an accessible state-specific message and retry/fallback action where appropriate
 - **AND** it does not infer server transaction history from browser-local state
+
+### Requirement: Cashier activity uses the generated reporting contract
+
+The overview MUST obtain cashier activity through the generated OpenAPI reporting client, using the current published DTO rather than handwritten response shape validation.
+
+#### Scenario: Activity contract changes
+
+- **GIVEN** the cashier-today OpenAPI contract changes
+- **WHEN** client artifacts are regenerated
+- **THEN** the overview compiles against the generated reporting method and DTO
+- **AND** activity rendering tests cover confirmed Earn, pending Earn without a credit amount, and Redeem semantics

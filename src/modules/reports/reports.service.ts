@@ -140,7 +140,7 @@ export class ReportsService {
       id: string;
       occurredAt: string;
       operation: 'EARN' | 'REDEEM';
-      amountKobo: number;
+      loyaltyAmountKobo: number | null;
       receiptNumber: string;
       status: string;
     }>;
@@ -207,13 +207,15 @@ export class ReportsService {
           id: receipt.id,
           occurredAt: receipt.occurredAt.toISOString(),
           operation: isRedeem ? 'REDEEM' : 'EARN',
-          amountKobo: Number(
-            isRedeem
-              ? (redemption?.confirmedAmountKobo ??
+          loyaltyAmountKobo: isRedeem
+            ? Number(
+                redemption?.confirmedAmountKobo ??
                   redemption?.requestedAmountKobo ??
-                  0n)
-              : (ledger?.amountKobo ?? receipt.purchaseAmountKobo),
-          ),
+                  0n,
+              )
+            : ledger
+              ? Number(ledger.amountKobo)
+              : null,
           receiptNumber: receipt.posReceiptNumber,
           status: isRedeem
             ? (redemption?.status ?? receipt.reviewStatus)

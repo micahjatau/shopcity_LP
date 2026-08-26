@@ -445,6 +445,20 @@ async function mockShell(
       );
     }
 
+    if (pathname === '/api/v1/reports/cashier-today') {
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
     if (pathname === '/api/v1/reports/executive-summary') {
       return route.fulfill(
         json({
