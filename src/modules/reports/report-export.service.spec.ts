@@ -68,6 +68,8 @@ describe('ReportExportService', () => {
       'tenant-1',
       adminContext(),
       'executive-summary',
+      {},
+      'report-key-1',
     );
 
     const refreshEventData: Record<string, unknown> = {
@@ -183,9 +185,14 @@ function prismaStub() {
     [{ [key: string]: unknown }]
   >();
   outboxEventCreate.mockResolvedValue({});
+  const idempotencyRecord = {
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({}),
+  };
 
   return {
     service: {
+      idempotencyRecord,
       outboxEvent: {
         create: outboxEventCreate,
       },

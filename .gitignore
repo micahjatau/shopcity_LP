@@ -1,6 +1,9 @@
 node_modules/
 dist/
 coverage/
+apps/web/.next/
+apps/web/.turbo/
+apps/web/node_modules/
 .env
 .env.*
 !.env.example
@@ -11,3 +14,7 @@ yarn-debug.log*
 yarn-error.log*
 .husky/_/
 .vercel
+
+# Generated build and Python cache artifacts
+*.tsbuildinfo
+__pycache__/

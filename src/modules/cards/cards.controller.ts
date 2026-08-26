@@ -6,9 +6,15 @@ import {
   Patch,
   Post,
   Req,
+  Headers,
   Version,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -57,11 +63,17 @@ export class CardsController {
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ description: 'Card assigned', status: 201 })
   @ApiOperation({ summary: 'Assign card' })
-  createCard(@Req() request: AuthenticatedRequest, @Body() dto: CreateCardDto) {
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  createCard(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateCardDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+  ) {
     return this.cardsService.createCard(
       request.authContext!.user.tenantId,
       request.authContext!,
       dto,
+      idempotencyKey,
     );
   }
 
@@ -69,16 +81,19 @@ export class CardsController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ description: 'Card replaced', status: 201 })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   replaceCard(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: ReplaceCardDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.cardsService.replaceCard(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto,
+      idempotencyKey,
     );
   }
 
@@ -86,16 +101,19 @@ export class CardsController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   updateStatus(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateCardStatusDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.cardsService.updateStatus(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto.status,
+      idempotencyKey,
     );
   }
 }

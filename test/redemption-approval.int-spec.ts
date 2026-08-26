@@ -134,6 +134,7 @@ describe('redemption approval lifecycle (int)', () => {
       pending.approvalId!,
       'APPROVED',
       'verified high-value redemption',
+      'redemption-approval-execute',
     );
 
     expect(decision).toMatchObject({
@@ -394,6 +395,7 @@ describe('redemption approval lifecycle (int)', () => {
         pending.approvalId!,
         'APPROVED',
         'first supervisor approval',
+        'redemption-approval-race-a',
       ),
       approvalsService.decideApproval(
         localFixture.tenantId,
@@ -401,6 +403,7 @@ describe('redemption approval lifecycle (int)', () => {
         pending.approvalId!,
         'APPROVED',
         'second supervisor approval',
+        'redemption-approval-race-b',
       ),
     ]);
 
@@ -491,6 +494,7 @@ describe('redemption approval lifecycle (int)', () => {
         pending.approvalId!,
         'APPROVED',
         'approval racing redemption',
+        'redemption-approval-balance-race',
       ),
       redemptionsService.redeem(
         localFixture.tenantId,

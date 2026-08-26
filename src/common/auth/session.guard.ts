@@ -85,7 +85,8 @@ export async function loadAuthContext(
   if (
     !session ||
     session.status !== 'ACTIVE' ||
-    session.expiresAt <= new Date()
+    session.expiresAt <= new Date() ||
+    isSessionIdleExpired(session, session.user, configService)
   ) {
     return null;
   }
@@ -99,6 +100,27 @@ export async function loadAuthContext(
   }
 
   return { session, user: session.user };
+}
+
+export function isSessionIdleExpired(
+  session: { lastUsedAt: Date | null },
+  user: Pick<AuthUser, 'role'>,
+  configService: Pick<ConfigService, 'get'>,
+  now = new Date(),
+): boolean {
+  if (!session.lastUsedAt) {
+    return false;
+  }
+
+  const configKey =
+    user.role === 'CASHIER'
+      ? 'SESSION_IDLE_CASHIER_MINUTES'
+      : user.role === 'SUPERVISOR'
+        ? 'SESSION_IDLE_SUPERVISOR_MINUTES'
+        : 'SESSION_IDLE_ADMIN_MINUTES';
+  const idleMinutes = configService.get<number>(configKey) ?? 15;
+  const cutoff = now.getTime() - idleMinutes * 60 * 1000;
+  return session.lastUsedAt.getTime() <= cutoff;
 }
 
 export function extractSessionToken(

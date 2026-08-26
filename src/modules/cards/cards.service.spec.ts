@@ -1,8 +1,102 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { CardStatus, CustomerStatus } from '@prisma/client';
 import { CardsService } from './cards.service';
 
 describe('CardsService', () => {
+  it('requires an idempotency key for card creation', async () => {
+    const service = new CardsService({} as never, auditStub() as never);
+
+    await expect(
+      service.createCard(
+        'tenant-id',
+        actorStub(),
+        { customerId: 'customer-id', serialNumber: 'CARD-1' },
+        undefined,
+      ),
+    ).rejects.toThrow('Idempotency-Key header is required');
+  });
+
+  it('requires an idempotency key for card replacement and status changes', async () => {
+    const service = new CardsService({} as never, auditStub() as never);
+
+    await expect(
+      service.replaceCard(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        { serialNumber: 'CARD-2' },
+        undefined,
+      ),
+    ).rejects.toThrow('Idempotency-Key header is required');
+    await expect(
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'BLOCKED',
+        undefined,
+      ),
+    ).rejects.toThrow('Idempotency-Key header is required');
+  });
+
+  it('replays a completed card status mutation without touching the card', async () => {
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue({
+          requestHash: createHash('sha256')
+            .update(
+              JSON.stringify({
+                tenantId: 'tenant-id',
+                actorId: 'user-id',
+                cardId: 'card-id',
+                status: 'BLOCKED',
+              }),
+            )
+            .digest('hex'),
+          responseJson: { id: 'card-id', status: CardStatus.BLOCKED },
+        }),
+      },
+      card: { findFirst: jest.fn() },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'BLOCKED',
+        'status-key',
+      ),
+    ).resolves.toEqual({ id: 'card-id', status: CardStatus.BLOCKED });
+    expect(prisma.card.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a changed payload for a reused card mutation key', async () => {
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue({
+          requestHash: 'different-request-hash',
+          responseJson: null,
+        }),
+      },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'BLOCKED',
+        'status-key',
+      ),
+    ).rejects.toHaveProperty('response.code', 'IDEMPOTENCY_CONFLICT');
+  });
+
   it('returns card lookup without nested customer PII', async () => {
     const prisma = {
       card: {
@@ -17,6 +111,7 @@ describe('CardsService', () => {
             fullName: 'Ada Customer',
             phoneE164: '+2348012345678',
             email: 'customer@example.com',
+            isStaff: false,
             status: CustomerStatus.ACTIVE,
           },
         }),
@@ -39,6 +134,9 @@ describe('CardsService', () => {
         fullName: 'Ada Customer',
         maskedPhone: '+234801* *** 5678',
         cardStatus: CardStatus.ACTIVE,
+        isStaff: false,
+        earningEligible: true,
+        eligibilityReason: null,
         availableBalanceKobo: 2_500,
       },
     });
@@ -60,13 +158,23 @@ describe('CardsService', () => {
     const service = new CardsService(prisma as never, auditStub() as never);
 
     await expect(
-      service.updateStatus('tenant-id', actorStub(), 'card-id', 'ACTIVE'),
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'ACTIVE',
+        'status-key',
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('allows blocking an active card and records the audit event', async () => {
     const tx = {
+      idempotencyRecord: {
+        create: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
       card: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUnique: jest.fn().mockResolvedValue({
@@ -97,7 +205,13 @@ describe('CardsService', () => {
     const service = new CardsService(prisma as never, auditService as never);
 
     await expect(
-      service.updateStatus('tenant-id', actorStub(), 'card-id', 'BLOCKED'),
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'BLOCKED',
+        'status-key',
+      ),
     ).resolves.toMatchObject({
       id: 'card-id',
       status: CardStatus.BLOCKED,
@@ -146,13 +260,23 @@ describe('CardsService', () => {
     const service = new CardsService(prisma as never, auditStub() as never);
 
     await expect(
-      service.updateStatus('tenant-id', actorStub(), 'card-id', 'ACTIVE'),
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'ACTIVE',
+        'status-key',
+      ),
     ).rejects.toThrow('Customer is not active');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('fails when a stale card state loses a race inside the transaction', async () => {
     const tx = {
+      idempotencyRecord: {
+        create: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
       card: {
         findFirst: jest.fn().mockResolvedValue(null),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -177,7 +301,13 @@ describe('CardsService', () => {
     const service = new CardsService(prisma as never, auditStub() as never);
 
     await expect(
-      service.updateStatus('tenant-id', actorStub(), 'card-id', 'BLOCKED'),
+      service.updateStatus(
+        'tenant-id',
+        actorStub(),
+        'card-id',
+        'BLOCKED',
+        'status-key',
+      ),
     ).rejects.toThrow(ConflictException);
   });
 });

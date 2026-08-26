@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-15
+goal: Close the frontend workflow gaps identified in docs/repo_review_52.md by making cashier, customer/card, offline sync, supervisor, and admin surfaces truthful, role-aware, and contract-driven without changing backend financial authority.

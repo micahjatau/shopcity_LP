@@ -2,13 +2,19 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   Post,
   Query,
   Version,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -153,10 +159,12 @@ export class ApprovalsController {
     },
   })
   @ApiOperation({ summary: 'Decide approval' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   decideApproval(
     @CurrentSession() context: AuthContext,
     @Param('id') approvalId: string,
     @Body() dto: ApprovalDecisionDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.approvalsService.decideApproval(
       context.user.tenantId,
@@ -164,6 +172,7 @@ export class ApprovalsController {
       approvalId,
       dto.decision,
       dto.reason,
+      idempotencyKey,
     );
   }
 }

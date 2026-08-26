@@ -4,10 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CardStatus, CustomerStatus, Prisma } from '@prisma/client';
+import {
+  CardStatus,
+  CustomerStatus,
+  IdempotencyRecordStatus,
+  Prisma,
+} from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
+import { DomainHttpException } from '../../common/errors/domain.exception';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 
 @Injectable()
@@ -48,7 +55,30 @@ export class CardsService {
     tenantId: string,
     actor: AuthContext,
     data: { customerId: string; serialNumber: string },
+    idempotencyKey: string | undefined,
   ) {
+    const normalizedKey = normalizeCardIdempotencyKey(idempotencyKey);
+    const endpoint = 'cards.create';
+    const requestHash = hashCardRequest({
+      tenantId,
+      actorId: actor.user.id,
+      customerId: data.customerId,
+      serialNumber: data.serialNumber.trim(),
+    });
+    const existing = await findCardIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existing?.responseJson) {
+      return existing.responseJson;
+    }
+    if (existing) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
     const customer = await this.prismaService.customer.findFirst({
       where: { id: data.customerId, tenantId },
     });
@@ -64,6 +94,18 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          status: IdempotencyRecordStatus.PENDING,
+        },
+      });
+
       try {
         const card = await prisma.card.create({
           data: {
@@ -84,7 +126,22 @@ export class CardsService {
           metadata: card,
         });
 
-        return toPublicCard(card);
+        const response = toPublicCard(card);
+        await prisma.idempotencyRecord.update({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint,
+              idempotencyKey: normalizedKey,
+            },
+          },
+          data: {
+            status: IdempotencyRecordStatus.COMPLETED,
+            responseJson: toJsonValue(response),
+          },
+        });
+        return response;
       } catch (error) {
         throw normalizeCardWriteError(error);
       }
@@ -96,7 +153,29 @@ export class CardsService {
     actor: AuthContext,
     cardId: string,
     data: { serialNumber: string },
+    idempotencyKey: string | undefined,
   ) {
+    const normalizedKey = normalizeCardIdempotencyKey(idempotencyKey);
+    const endpoint = 'cards.replace';
+    const requestHash = hashCardRequest({
+      tenantId,
+      actorId: actor.user.id,
+      cardId,
+      serialNumber: data.serialNumber.trim(),
+    });
+    const existing = await findCardIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existing?.responseJson) return existing.responseJson;
+    if (existing) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
     const current = await this.prismaService.card.findFirst({
       where: { id: cardId, tenantId },
     });
@@ -116,25 +195,37 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
-      const occurredAt = new Date();
-      const replaced = await prisma.card.updateMany({
-        where: {
-          id: current.id,
-          tenantId,
-          status: CardStatus.ACTIVE,
-        },
+      await prisma.idempotencyRecord.create({
         data: {
-          status: CardStatus.REPLACED,
-          blockedAt: occurredAt,
-          replacedAt: occurredAt,
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          status: IdempotencyRecordStatus.PENDING,
         },
       });
 
-      if (replaced.count !== 1) {
-        throw new BadRequestException('Only active cards can be replaced');
-      }
-
+      const occurredAt = new Date();
       try {
+        const replaced = await prisma.card.updateMany({
+          where: {
+            id: current.id,
+            tenantId,
+            status: CardStatus.ACTIVE,
+          },
+          data: {
+            status: CardStatus.REPLACED,
+            blockedAt: occurredAt,
+            replacedAt: occurredAt,
+          },
+        });
+
+        if (replaced.count !== 1) {
+          throw new BadRequestException('Only active cards can be replaced');
+        }
+
         const newCard = await prisma.card.create({
           data: {
             tenantId,
@@ -147,9 +238,7 @@ export class CardsService {
 
         await prisma.card.update({
           where: { id: current.id },
-          data: {
-            replacedByCardId: newCard.id,
-          },
+          data: { replacedByCardId: newCard.id },
         });
 
         await prisma.outboxEvent.create({
@@ -180,7 +269,22 @@ export class CardsService {
           metadata: { previousCardId: cardId, serialNumber: data.serialNumber },
         });
 
-        return toPublicCard(newCard);
+        const response = toPublicCard(newCard);
+        await prisma.idempotencyRecord.update({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint,
+              idempotencyKey: normalizedKey,
+            },
+          },
+          data: {
+            status: IdempotencyRecordStatus.COMPLETED,
+            responseJson: toJsonValue(response),
+          },
+        });
+        return response;
       } catch (error) {
         throw normalizeCardWriteError(error);
       }
@@ -192,7 +296,29 @@ export class CardsService {
     actor: AuthContext,
     cardId: string,
     status: string,
+    idempotencyKey: string | undefined,
   ) {
+    const normalizedKey = normalizeCardIdempotencyKey(idempotencyKey);
+    const endpoint = 'cards.status';
+    const requestHash = hashCardRequest({
+      tenantId,
+      actorId: actor.user.id,
+      cardId,
+      status,
+    });
+    const existing = await findCardIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existing?.responseJson) return existing.responseJson;
+    if (existing) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
     if (!['ACTIVE', 'BLOCKED'].includes(status)) {
       throw new BadRequestException('Invalid card status');
     }
@@ -214,6 +340,18 @@ export class CardsService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          status: IdempotencyRecordStatus.PENDING,
+        },
+      });
+
       if (status === 'ACTIVE') {
         const existingActiveCard = await prisma.card.findFirst({
           where: {
@@ -263,12 +401,90 @@ export class CardsService {
           metadata: { status },
         });
 
-        return toPublicCard(current);
+        const response = toPublicCard(current);
+        await prisma.idempotencyRecord.update({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint,
+              idempotencyKey: normalizedKey,
+            },
+          },
+          data: {
+            status: IdempotencyRecordStatus.COMPLETED,
+            responseJson: toJsonValue(response),
+          },
+        });
+
+        return response;
       } catch (error) {
         throw normalizeCardWriteError(error);
       }
     });
   }
+}
+
+const CARD_IDEMPOTENCY_KEY_MAX_LENGTH = 255;
+
+function normalizeCardIdempotencyKey(value: string | undefined): string {
+  const normalized = value?.trim() ?? '';
+  if (!normalized) {
+    throw new BadRequestException('Idempotency-Key header is required');
+  }
+  if (normalized.length > CARD_IDEMPOTENCY_KEY_MAX_LENGTH) {
+    throw new BadRequestException('Idempotency-Key header is too long');
+  }
+  return normalized;
+}
+
+function hashCardRequest(value: Record<string, unknown>): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function toJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+async function findCardIdempotency(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  endpoint: string,
+  idempotencyKey: string,
+  requestHash: string,
+) {
+  if (!prisma.idempotencyRecord) {
+    return null;
+  }
+
+  await prisma.idempotencyRecord.deleteMany({
+    where: {
+      tenantId,
+      actorId,
+      endpoint,
+      idempotencyKey,
+      expiresAt: { lt: new Date() },
+    },
+  });
+  const existing = await prisma.idempotencyRecord.findUnique({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint,
+        idempotencyKey,
+      },
+    },
+  });
+  if (existing && existing.requestHash !== requestHash) {
+    throw new DomainHttpException(
+      409,
+      'IDEMPOTENCY_CONFLICT',
+      'Idempotency key reused with different payload',
+    );
+  }
+  return existing;
 }
 
 function normalizeCardWriteError(error: unknown): Error {
@@ -324,6 +540,9 @@ function toPublicCardLookup(
       fullName: card.customer.fullName,
       maskedPhone: maskPhone(card.customer.phoneE164),
       cardStatus: card.status,
+      isStaff: card.customer.isStaff,
+      earningEligible: !card.customer.isStaff,
+      eligibilityReason: card.customer.isStaff ? 'STAFF_INELIGIBLE' : null,
       availableBalanceKobo: Number(activeBalanceKobo),
     },
   };

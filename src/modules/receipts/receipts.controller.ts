@@ -152,6 +152,7 @@ export class ReceiptsController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @HttpCode(200)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @apiSuccessEnvelopeResponse({
     description: 'Receipt approved',
     dataSchema: {
@@ -174,11 +175,13 @@ export class ReceiptsController {
   approveReceipt(
     @CurrentSession() context: AuthContext,
     @Param('id') receiptId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.approvalsService.approveReceipt(
       context.user.tenantId,
       context,
       receiptId,
+      idempotencyKey,
     );
   }
 
@@ -186,6 +189,7 @@ export class ReceiptsController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @HttpCode(200)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @apiSuccessEnvelopeResponse({
     description: 'Receipt rejected',
     dataSchema: {
@@ -208,11 +212,13 @@ export class ReceiptsController {
   rejectReceipt(
     @CurrentSession() context: AuthContext,
     @Param('id') receiptId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.approvalsService.rejectReceipt(
       context.user.tenantId,
       context,
       receiptId,
+      idempotencyKey,
     );
   }
 }

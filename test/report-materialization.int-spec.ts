@@ -89,7 +89,10 @@ describe('report materialization (int)', () => {
       'POS-REPORT-0001',
     );
 
-    const occurredAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const now = Date.now();
+    const occurredAt = new Date(now - 60 * 60 * 1000).toISOString();
+    const initialMaterializedAt = new Date(now - 2 * 60 * 60 * 1000);
+    const finalMaterializedAt = new Date(now + 60 * 60 * 1000);
     const expectedReportDate = toReportDateUtc(occurredAt, 'Africa/Lagos');
     const earn = await loyaltyService.earn(
       tenant.id,
@@ -112,8 +115,8 @@ describe('report materialization (int)', () => {
     );
 
     await reportMaterializer.materializeTenant(tenant.id, {
-      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
-      asOf: new Date('2026-08-10T12:00:00.000Z'),
+      materializedAt: initialMaterializedAt,
+      asOf: initialMaterializedAt,
     });
 
     const summaryBefore = await prisma.reportDailyFinancialSummary.findMany({
@@ -146,12 +149,12 @@ describe('report materialization (int)', () => {
     expect(stateRowsBefore).toHaveLength(1);
     expect(stateRowsBefore[0]).toMatchObject({
       status: 'COMPLETED',
-      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
+      materializedAt: initialMaterializedAt,
     });
 
     await reportMaterializer.materializeTenant(tenant.id, {
-      materializedAt: new Date('2026-08-20T21:00:00.000Z'),
-      asOf: new Date('2026-08-20T21:00:00.000Z'),
+      materializedAt: finalMaterializedAt,
+      asOf: finalMaterializedAt,
     });
 
     const [summary, customerSnapshot, liabilityRows, smsRows, stateRows] =
@@ -213,7 +216,7 @@ describe('report materialization (int)', () => {
     expect(stateRows).toHaveLength(1);
     expect(stateRows[0]).toMatchObject({
       status: 'COMPLETED',
-      materializedAt: new Date('2026-08-20T21:00:00.000Z'),
+      materializedAt: finalMaterializedAt,
     });
 
     expect(

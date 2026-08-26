@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   Post,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiHeader,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -126,6 +128,7 @@ export class FraudController {
   @HttpCode(200)
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @ApiParam({ name: 'id' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @apiSuccessEnvelopeResponse({
     description: 'Fraud decision recorded',
     dataSchema: { type: 'object' },
@@ -135,6 +138,7 @@ export class FraudController {
     @CurrentSession() context: AuthContext,
     @Param('id') id: string,
     @Body() dto: FraudFlagDecisionDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.fraudReviewService.decideFraudFlag(
       context.user.tenantId,
@@ -142,6 +146,7 @@ export class FraudController {
       id,
       dto.decision,
       dto.reason,
+      idempotencyKey,
     );
   }
 }

@@ -304,6 +304,7 @@ export class AuthService {
       },
       session: {
         expiresAt: context.session.expiresAt.toISOString(),
+        deviceId: context.session.deviceId,
       },
     };
   }

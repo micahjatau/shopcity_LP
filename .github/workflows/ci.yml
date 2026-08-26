@@ -1,10 +1,14 @@
 name: ci
 
 # Touch to re-register the workflow after Actions delivery issues.
+# Retry touch to refresh GitHub Actions delivery.
 
 on:
   push:
   pull_request:
+
+env:
+  CANDIDATE_SHA: ${{ github.sha }}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -16,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -47,12 +53,38 @@ jobs:
       - run: git diff --exit-code -- docs/api/openapi.json
       - run: git diff --exit-code -- client/shopcity-client.ts
 
+  frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm --prefix apps/web ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm --prefix apps/web run tokens:check
+      - run: npm --prefix apps/web run lint
+      - run: npm --prefix apps/web run typecheck
+      - run: npm --prefix apps/web run a11y:test
+      - run: npm --prefix apps/web run a11y:browser
+      - run: npm --prefix apps/web run critical:test
+      - run: npm --prefix apps/web run visual:test
+      - run: npm --prefix apps/web run build
+
   docker:
     name: Docker Build Verification
     runs-on: ubuntu-latest
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -70,11 +102,14 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
+      - run: node node_modules/@ladybugdb/core/install.js
       - run: npm run gitnexus:smoke
       - name: Run GitNexus analysis
         run: npm run gitnexus:analyze
@@ -85,6 +120,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -99,6 +136,8 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@v5
+      - name: Verify exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-node@v5
         with:
           node-version: 22

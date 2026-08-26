@@ -45,6 +45,7 @@ import {
 } from '../../jobs/sms.templates';
 
 const EARN_ENDPOINT = 'POST /api/v1/transactions/earn';
+const APPROVAL_ENDPOINT = 'POST /api/v1/approvals/:id/decision';
 const APPROVAL_REASON_CODE = 'PURCHASE_ABOVE_APPROVAL_THRESHOLD';
 const MAX_POS_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const MAX_POS_PAST_SKEW_MS = 12 * 60 * 60 * 1000;
@@ -1330,6 +1331,17 @@ export class LoyaltyService {
           approval.receipt ?? approval.redemption?.receipt ?? null;
         const receiptId =
           approval.receiptId ?? approval.redemption?.receiptId ?? null;
+        const serializedReceipt = receipt
+          ? {
+              id: receipt.id,
+              customerId: receipt.customerId,
+              posReceiptNumber: receipt.posReceiptNumber,
+              purchaseAmountKobo: Number(receipt.purchaseAmountKobo),
+              captureStatus: receipt.captureStatus,
+              reviewStatus: receipt.reviewStatus,
+              branchId: receipt.branchId,
+            }
+          : null;
 
         return [
           {
@@ -1361,7 +1373,7 @@ export class LoyaltyService {
                 receipt?.branchId ??
                 null,
             },
-            receipt,
+            receipt: serializedReceipt,
           },
         ];
       }),
@@ -1384,8 +1396,34 @@ export class LoyaltyService {
     approvalId: string,
     decision: 'APPROVED' | 'REJECTED',
     reason: string,
+    idempotencyKey: string | undefined,
   ): Promise<ApprovalDecisionResponse> {
     const normalizedReason = reason.trim();
+    const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
+    const requestHash = hashRequest({
+      tenantId,
+      actorId: actor.user.id,
+      approvalId,
+      decision,
+      reason: normalizedReason,
+    });
+    const existing = await findApprovalIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      normalizedKey,
+      requestHash,
+    );
+    if (existing?.responseJson) {
+      return existing.responseJson as unknown as ApprovalDecisionResponse;
+    }
+    if (existing) {
+      throw new DomainHttpException(
+        409,
+        'IDEMPOTENCY_CONFLICT',
+        'Idempotency key reused with different payload',
+      );
+    }
     if (!normalizedReason) {
       throw new BadRequestException('Decision reason is required');
     }
@@ -1393,6 +1431,20 @@ export class LoyaltyService {
     try {
       const decisionResult = await this.prismaService.$transaction(
         async (prisma) => {
+          if (prisma.idempotencyRecord) {
+            await prisma.idempotencyRecord.create({
+              data: {
+                tenantId,
+                actorId: actor.user.id,
+                endpoint: APPROVAL_ENDPOINT,
+                idempotencyKey: normalizedKey,
+                requestHash,
+                status: 'PENDING',
+                expiresAt: new Date(Date.now() + IDP_EXPIRY_MS),
+              },
+            });
+          }
+
           const approval = await prisma.approval.findFirst({
             where: buildApprovalScopeWhere(tenantId, approvalId, actor),
             select: {
@@ -1812,8 +1864,45 @@ export class LoyaltyService {
         );
       }
 
+      if (this.prismaService.idempotencyRecord?.update) {
+        await this.prismaService.idempotencyRecord.update({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint: APPROVAL_ENDPOINT,
+              idempotencyKey: normalizedKey,
+            },
+          },
+          data: {
+            status: 'COMPLETED',
+            responseJson: JSON.parse(
+              JSON.stringify(decisionResult),
+            ) as Prisma.InputJsonValue,
+          },
+        });
+      }
+
       return decisionResult;
     } catch (error) {
+      if (isUniqueIdempotencyConflict(error)) {
+        const replay = await findApprovalIdempotency(
+          this.prismaService,
+          tenantId,
+          actor.user.id,
+          normalizedKey,
+          requestHash,
+        );
+        if (replay?.responseJson) {
+          return replay.responseJson as unknown as ApprovalDecisionResponse;
+        }
+        throw new DomainHttpException(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'Idempotency key reused with different payload',
+        );
+      }
+
       if (isTransactionConflict(error)) {
         throw new DomainHttpException(
           409,
@@ -2727,6 +2816,48 @@ async function cleanupExpiredIdempotencyRecords(
       expiresAt: { lte: new Date() },
     },
   });
+}
+
+async function findApprovalIdempotency(
+  prismaService: PrismaService,
+  tenantId: string,
+  actorId: string,
+  normalizedKey: string,
+  requestHash: string,
+) {
+  if (
+    !prismaService.idempotencyRecord?.deleteMany ||
+    !prismaService.idempotencyRecord?.findUnique
+  ) {
+    return null;
+  }
+
+  await prismaService.idempotencyRecord.deleteMany({
+    where: {
+      tenantId,
+      actorId,
+      endpoint: APPROVAL_ENDPOINT,
+      idempotencyKey: normalizedKey,
+      expiresAt: { lte: new Date() },
+    },
+  });
+
+  const existing = await prismaService.idempotencyRecord.findUnique({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint: APPROVAL_ENDPOINT,
+        idempotencyKey: normalizedKey,
+      },
+    },
+  });
+
+  if (existing && existing.requestHash !== requestHash) {
+    return { ...existing, responseJson: null };
+  }
+
+  return existing;
 }
 
 async function findCompletedEarnReplay(

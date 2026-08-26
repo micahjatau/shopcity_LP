@@ -959,6 +959,8 @@ export type AuthControllerLoginV1200DataUser = {
 
 export type AuthControllerLoginV1200DataSession = {
   expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
 };
 
 export type AuthControllerLoginV1200Data = {
@@ -1215,6 +1217,8 @@ export type AuthControllerRefreshV1200DataUser = {
 
 export type AuthControllerRefreshV1200DataSession = {
   expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
 };
 
 export type AuthControllerRefreshV1200Data = {
@@ -1701,6 +1705,8 @@ export type AuthControllerMeV1200DataUser = {
 
 export type AuthControllerMeV1200DataSession = {
   expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
 };
 
 export type AuthControllerMeV1200Data = {
@@ -11482,6 +11488,260 @@ export type ReportsControllerListCustomerPerformanceV1503 = {
   meta: ReportsControllerListCustomerPerformanceV1503Meta;
 };
 
+export type ReportsControllerListCashierTodayV1200DataItemsItemOperation =
+  (typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation)[keyof typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ReportsControllerListCashierTodayV1200DataItemsItemOperation = {
+  EARN: 'EARN',
+  REDEEM: 'REDEEM',
+} as const;
+
+export type ReportsControllerListCashierTodayV1200DataItemsItem = {
+  id: string;
+  occurredAt: string;
+  operation: ReportsControllerListCashierTodayV1200DataItemsItemOperation;
+  /** @nullable */
+  loyaltyAmountKobo: number | null;
+  receiptNumber: string;
+  status: string;
+};
+
+export type ReportsControllerListCashierTodayV1200Data = {
+  branchId: string;
+  timezone: string;
+  /** @maxItems 10 */
+  items: ReportsControllerListCashierTodayV1200DataItemsItem[];
+};
+
+export type ReportsControllerListCashierTodayV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1200 = {
+  success: boolean;
+  data: ReportsControllerListCashierTodayV1200Data;
+  meta: ReportsControllerListCashierTodayV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1400ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1400 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1400Error;
+  meta: ReportsControllerListCashierTodayV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1401ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1401 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1401Error;
+  meta: ReportsControllerListCashierTodayV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1403ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1403 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1403Error;
+  meta: ReportsControllerListCashierTodayV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1404ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1404 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1404Error;
+  meta: ReportsControllerListCashierTodayV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1409ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1409 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1409Error;
+  meta: ReportsControllerListCashierTodayV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1422ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1422 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1422Error;
+  meta: ReportsControllerListCashierTodayV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1429ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1429 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1429Error;
+  meta: ReportsControllerListCashierTodayV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerListCashierTodayV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerListCashierTodayV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerListCashierTodayV1503ErrorDetails;
+};
+
+export type ReportsControllerListCashierTodayV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerListCashierTodayV1503 = {
+  success: boolean;
+  error: ReportsControllerListCashierTodayV1503Error;
+  meta: ReportsControllerListCashierTodayV1503Meta;
+};
+
 export type ReportsControllerListCashierActivityV1Params = {
   branchId?: string;
   from?: string;
@@ -13743,6 +14003,238 @@ export type ConfigurationControllerGetPublicConfigV1503 = {
   success: boolean;
   error: ConfigurationControllerGetPublicConfigV1503Error;
   meta: ConfigurationControllerGetPublicConfigV1503Meta;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1200 = {
+  success: boolean;
+  data: ConfigurationControllerGetOperationalConfigV1200Data;
+  meta: ConfigurationControllerGetOperationalConfigV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1400ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1400 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1400Error;
+  meta: ConfigurationControllerGetOperationalConfigV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1401ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1401 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1401Error;
+  meta: ConfigurationControllerGetOperationalConfigV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1403ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1403 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1403Error;
+  meta: ConfigurationControllerGetOperationalConfigV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1404ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1404 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1404Error;
+  meta: ConfigurationControllerGetOperationalConfigV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1409ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1409 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1409Error;
+  meta: ConfigurationControllerGetOperationalConfigV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1422ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1422 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1422Error;
+  meta: ConfigurationControllerGetOperationalConfigV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1429ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1429 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1429Error;
+  meta: ConfigurationControllerGetOperationalConfigV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetOperationalConfigV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetOperationalConfigV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetOperationalConfigV1503ErrorDetails;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetOperationalConfigV1503 = {
+  success: boolean;
+  error: ConfigurationControllerGetOperationalConfigV1503Error;
+  meta: ConfigurationControllerGetOperationalConfigV1503Meta;
 };
 
 /**
@@ -18206,6 +18698,100 @@ export const reportsControllerListCustomerPerformanceV1 = async (
 };
 
 /**
+ * List today's cashier transactions
+ * @summary List today's cashier transactions
+ */
+export type reportsControllerListCashierTodayV1Response200 = {
+  data: ReportsControllerListCashierTodayV1200;
+  status: 200;
+};
+
+export type reportsControllerListCashierTodayV1Response400 = {
+  data: ReportsControllerListCashierTodayV1400;
+  status: 400;
+};
+
+export type reportsControllerListCashierTodayV1Response401 = {
+  data: ReportsControllerListCashierTodayV1401;
+  status: 401;
+};
+
+export type reportsControllerListCashierTodayV1Response403 = {
+  data: ReportsControllerListCashierTodayV1403;
+  status: 403;
+};
+
+export type reportsControllerListCashierTodayV1Response404 = {
+  data: ReportsControllerListCashierTodayV1404;
+  status: 404;
+};
+
+export type reportsControllerListCashierTodayV1Response409 = {
+  data: ReportsControllerListCashierTodayV1409;
+  status: 409;
+};
+
+export type reportsControllerListCashierTodayV1Response422 = {
+  data: ReportsControllerListCashierTodayV1422;
+  status: 422;
+};
+
+export type reportsControllerListCashierTodayV1Response429 = {
+  data: ReportsControllerListCashierTodayV1429;
+  status: 429;
+};
+
+export type reportsControllerListCashierTodayV1Response503 = {
+  data: ReportsControllerListCashierTodayV1503;
+  status: 503;
+};
+
+export type reportsControllerListCashierTodayV1ResponseSuccess =
+  reportsControllerListCashierTodayV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerListCashierTodayV1ResponseError = (
+  | reportsControllerListCashierTodayV1Response400
+  | reportsControllerListCashierTodayV1Response401
+  | reportsControllerListCashierTodayV1Response403
+  | reportsControllerListCashierTodayV1Response404
+  | reportsControllerListCashierTodayV1Response409
+  | reportsControllerListCashierTodayV1Response422
+  | reportsControllerListCashierTodayV1Response429
+  | reportsControllerListCashierTodayV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerListCashierTodayV1Response =
+  | reportsControllerListCashierTodayV1ResponseSuccess
+  | reportsControllerListCashierTodayV1ResponseError;
+
+export const getReportsControllerListCashierTodayV1Url = () => {
+  return `/api/v1/reports/cashier-today`;
+};
+
+export const reportsControllerListCashierTodayV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerListCashierTodayV1Response> => {
+  const res = await fetch(getReportsControllerListCashierTodayV1Url(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerListCashierTodayV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerListCashierTodayV1Response;
+};
+
+/**
  * List cashier activity report rows
  * @summary List cashier activity report rows
  */
@@ -19207,4 +19793,100 @@ export const configurationControllerGetPublicConfigV1 = async (
     status: res.status,
     headers: res.headers,
   } as configurationControllerGetPublicConfigV1Response;
+};
+
+/**
+ * Get authenticated operational configuration
+ * @summary Get authenticated operational configuration
+ */
+export type configurationControllerGetOperationalConfigV1Response200 = {
+  data: ConfigurationControllerGetOperationalConfigV1200;
+  status: 200;
+};
+
+export type configurationControllerGetOperationalConfigV1Response400 = {
+  data: ConfigurationControllerGetOperationalConfigV1400;
+  status: 400;
+};
+
+export type configurationControllerGetOperationalConfigV1Response401 = {
+  data: ConfigurationControllerGetOperationalConfigV1401;
+  status: 401;
+};
+
+export type configurationControllerGetOperationalConfigV1Response403 = {
+  data: ConfigurationControllerGetOperationalConfigV1403;
+  status: 403;
+};
+
+export type configurationControllerGetOperationalConfigV1Response404 = {
+  data: ConfigurationControllerGetOperationalConfigV1404;
+  status: 404;
+};
+
+export type configurationControllerGetOperationalConfigV1Response409 = {
+  data: ConfigurationControllerGetOperationalConfigV1409;
+  status: 409;
+};
+
+export type configurationControllerGetOperationalConfigV1Response422 = {
+  data: ConfigurationControllerGetOperationalConfigV1422;
+  status: 422;
+};
+
+export type configurationControllerGetOperationalConfigV1Response429 = {
+  data: ConfigurationControllerGetOperationalConfigV1429;
+  status: 429;
+};
+
+export type configurationControllerGetOperationalConfigV1Response503 = {
+  data: ConfigurationControllerGetOperationalConfigV1503;
+  status: 503;
+};
+
+export type configurationControllerGetOperationalConfigV1ResponseSuccess =
+  configurationControllerGetOperationalConfigV1Response200 & {
+    headers: Headers;
+  };
+export type configurationControllerGetOperationalConfigV1ResponseError = (
+  | configurationControllerGetOperationalConfigV1Response400
+  | configurationControllerGetOperationalConfigV1Response401
+  | configurationControllerGetOperationalConfigV1Response403
+  | configurationControllerGetOperationalConfigV1Response404
+  | configurationControllerGetOperationalConfigV1Response409
+  | configurationControllerGetOperationalConfigV1Response422
+  | configurationControllerGetOperationalConfigV1Response429
+  | configurationControllerGetOperationalConfigV1Response503
+) & {
+  headers: Headers;
+};
+
+export type configurationControllerGetOperationalConfigV1Response =
+  | configurationControllerGetOperationalConfigV1ResponseSuccess
+  | configurationControllerGetOperationalConfigV1ResponseError;
+
+export const getConfigurationControllerGetOperationalConfigV1Url = () => {
+  return `/api/v1/config/operational`;
+};
+
+export const configurationControllerGetOperationalConfigV1 = async (
+  options?: RequestInit,
+): Promise<configurationControllerGetOperationalConfigV1Response> => {
+  const res = await fetch(
+    getConfigurationControllerGetOperationalConfigV1Url(),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurationControllerGetOperationalConfigV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as configurationControllerGetOperationalConfigV1Response;
 };

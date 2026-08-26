@@ -657,6 +657,9 @@ describe('auth and readiness flows (int)', () => {
       fullName: fixture.customer.fullName,
       maskedPhone: maskPhone(fixture.customer.phoneE164),
       cardStatus: CardStatus.ACTIVE,
+      isStaff: false,
+      earningEligible: true,
+      eligibilityReason: null,
       availableBalanceKobo: 1_500,
     });
     expect(body.data.customer).not.toHaveProperty('email');
@@ -1262,10 +1265,20 @@ function createSupabaseAdminStub(supabaseAuthId: string) {
         listUsers: jest
           .fn()
           .mockResolvedValue({ data: { users: [] }, error: null }),
-        createUser: jest.fn().mockResolvedValue({
-          data: { user: { id: supabaseAuthId } },
-          error: null,
-        }),
+        createUser: jest
+          .fn()
+          .mockImplementation(({ email }: { email?: string }) => ({
+            data: {
+              user: {
+                id: email?.startsWith('cashier@')
+                  ? `${supabaseAuthId}-cashier`
+                  : email?.startsWith('supervisor@')
+                    ? `${supabaseAuthId}-supervisor`
+                    : supabaseAuthId,
+              },
+            },
+            error: null,
+          })),
         updateUserById: jest.fn().mockResolvedValue({ error: null }),
         deleteUser: jest.fn().mockResolvedValue({ error: null }),
       },

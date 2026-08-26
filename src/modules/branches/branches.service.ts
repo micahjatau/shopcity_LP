@@ -1,10 +1,16 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DeviceStatus, UserRole } from '@prisma/client';
+import {
+  DeviceStatus,
+  IdempotencyRecordStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -13,10 +19,17 @@ import {
   generateDeviceAttestationSecret,
 } from '../../common/auth/device-attestation-secret';
 import { DomainHttpException } from '../../common/errors/domain.exception';
+import { createHash } from 'node:crypto';
 
 type DeviceManagementScope =
   | { tenantWide: true; branchId: null }
   | { tenantWide: false; branchId: string };
+
+type DeviceProvisioningResponse = {
+  id: string;
+  attestationSecret: string;
+  [key: string]: unknown;
+};
 
 @Injectable()
 export class BranchesService {
@@ -114,7 +127,31 @@ export class BranchesService {
     tenantId: string,
     actor: AuthContext,
     data: { branchId: string; name: string; fingerprintHash: string },
-  ) {
+    idempotencyKey: string | undefined,
+  ): Promise<DeviceProvisioningResponse> {
+    const normalizedKey = normalizeDeviceIdempotencyKey(idempotencyKey);
+    const endpoint = 'devices.create';
+    const requestHash = hashDeviceRequest({
+      tenantId,
+      actorId: actor.user.id,
+      branchId: data.branchId,
+      name: data.name,
+      fingerprintHash: data.fingerprintHash,
+    });
+    const existing = await findDeviceIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existing?.responseJson) {
+      return existing.responseJson as unknown as DeviceProvisioningResponse;
+    }
+    if (existing) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
     const scope = resolveDeviceManagementScope(actor);
     if (!scope.tenantWide && scope.branchId !== data.branchId) {
       throw new NotFoundException('Branch not found');
@@ -128,6 +165,20 @@ export class BranchesService {
     }
 
     return this.prismaService.$transaction(async (prisma) => {
+      if (prisma.idempotencyRecord?.create) {
+        await prisma.idempotencyRecord.create({
+          data: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+            requestHash,
+            status: IdempotencyRecordStatus.PENDING,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+
       const attestationSecret = generateDeviceAttestationSecret();
       const device = await prisma.device.create({
         data: {
@@ -163,7 +214,24 @@ export class BranchesService {
         device;
       void attestationSecretCiphertext;
       void fingerprintHash;
-      return { ...safeDevice, attestationSecret };
+      const response = { ...safeDevice, attestationSecret };
+      if (prisma.idempotencyRecord?.update) {
+        await prisma.idempotencyRecord.update({
+          where: {
+            tenantId_actorId_endpoint_idempotencyKey: {
+              tenantId,
+              actorId: actor.user.id,
+              endpoint,
+              idempotencyKey: normalizedKey,
+            },
+          },
+          data: {
+            status: IdempotencyRecordStatus.COMPLETED,
+            responseJson: response,
+          },
+        });
+      }
+      return response;
     });
   }
 
@@ -172,7 +240,30 @@ export class BranchesService {
     actor: AuthContext,
     deviceId: string,
     data: { name?: string; status?: string; rotateAttestationSecret?: boolean },
+    idempotencyKey: string | undefined,
   ) {
+    const normalizedKey = normalizeDeviceIdempotencyKey(idempotencyKey);
+    const endpoint = 'devices.update';
+    const requestHash = hashDeviceRequest({
+      tenantId,
+      actorId: actor.user.id,
+      deviceId,
+      ...data,
+    });
+    const existing = await findDeviceIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existing?.responseJson) {
+      return existing.responseJson as unknown as DeviceProvisioningResponse;
+    }
+    if (existing) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
     const scope = resolveDeviceManagementScope(actor);
     const device = await this.prismaService.device.findFirst({
       where: scope.tenantWide
@@ -195,7 +286,21 @@ export class BranchesService {
       );
     }
 
-    return this.prismaService.$transaction(async (prisma) => {
+    const response = await this.prismaService.$transaction(async (prisma) => {
+      if (prisma.idempotencyRecord?.create) {
+        await prisma.idempotencyRecord.create({
+          data: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+            requestHash,
+            status: IdempotencyRecordStatus.PENDING,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        });
+      }
+
       let attestationSecret: string | null = null;
       let attestationSecretVersion: number | undefined;
       const updateData = {
@@ -281,11 +386,89 @@ export class BranchesService {
         ? { ...safeUpdated, attestationSecret }
         : safeUpdated;
     });
+
+    if (this.prismaService.idempotencyRecord?.update) {
+      await this.prismaService.idempotencyRecord.update({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+          },
+        },
+        data: {
+          status: IdempotencyRecordStatus.COMPLETED,
+          responseJson: response,
+        },
+      });
+    }
+
+    return response;
   }
 
   private attestationSecretKey(): string {
     return this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '';
   }
+}
+
+const DEVICE_IDEMPOTENCY_KEY_MAX_LENGTH = 255;
+
+function normalizeDeviceIdempotencyKey(value: string | undefined): string {
+  const normalized = value?.trim() ?? '';
+  if (!normalized) {
+    throw new BadRequestException('Idempotency-Key header is required');
+  }
+  if (normalized.length > DEVICE_IDEMPOTENCY_KEY_MAX_LENGTH) {
+    throw new BadRequestException('Idempotency-Key header is too long');
+  }
+  return normalized;
+}
+
+function hashDeviceRequest(value: Record<string, unknown>): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+async function findDeviceIdempotency(
+  prisma: PrismaService,
+  tenantId: string,
+  actorId: string,
+  endpoint: string,
+  idempotencyKey: string,
+  requestHash: string,
+) {
+  if (!prisma.idempotencyRecord?.deleteMany) return null;
+
+  await prisma.idempotencyRecord.deleteMany({
+    where: {
+      tenantId,
+      actorId,
+      endpoint,
+      idempotencyKey,
+      expiresAt: { lt: new Date() },
+    },
+  });
+
+  const existing = await prisma.idempotencyRecord.findUnique({
+    where: {
+      tenantId_actorId_endpoint_idempotencyKey: {
+        tenantId,
+        actorId,
+        endpoint,
+        idempotencyKey,
+      },
+    },
+  });
+
+  if (existing && existing.requestHash !== requestHash) {
+    throw new DomainHttpException(
+      409,
+      'IDEMPOTENCY_CONFLICT',
+      'Idempotency key reused with different payload',
+    );
+  }
+
+  return existing;
 }
 
 function resolveDeviceManagementScope(

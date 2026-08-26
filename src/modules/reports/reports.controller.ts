@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   Post,
@@ -11,6 +12,7 @@ import {
 import {
   ApiAcceptedResponse,
   ApiBearerAuth,
+  ApiHeader,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -42,6 +44,38 @@ const reportCollectionSchema = {
     branchId: { type: 'string', nullable: true },
     timezone: { type: 'string' },
     items: { type: 'array', items: { type: 'object' } },
+  },
+} as const;
+
+const cashierTodaySchema = {
+  type: 'object',
+  required: ['branchId', 'timezone', 'items'],
+  properties: {
+    branchId: { type: 'string', format: 'uuid' },
+    timezone: { type: 'string' },
+    items: {
+      type: 'array',
+      maxItems: 10,
+      items: {
+        type: 'object',
+        required: [
+          'id',
+          'occurredAt',
+          'operation',
+          'loyaltyAmountKobo',
+          'receiptNumber',
+          'status',
+        ],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          occurredAt: { type: 'string', format: 'date-time' },
+          operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          loyaltyAmountKobo: { type: 'integer', nullable: true },
+          receiptNumber: { type: 'string' },
+          status: { type: 'string' },
+        },
+      },
+    },
   },
 } as const;
 
@@ -216,6 +250,18 @@ export class ReportsController {
         timezone,
       },
     );
+  }
+
+  @Get('cashier-today')
+  @Version('1')
+  @Roles(UserRole.CASHIER)
+  @apiSuccessEnvelopeResponse({
+    description: "Today's cashier transaction summary",
+    dataSchema: cashierTodaySchema,
+  })
+  @ApiOperation({ summary: "List today's cashier transactions" })
+  listCashierToday(@CurrentSession() context: AuthContext) {
+    return this.reportsService.listCashierToday(context.user.tenantId, context);
   }
 
   @Get('cashier-activity')
@@ -472,6 +518,7 @@ export class ReportsController {
     ],
   })
   @ApiQuery({ name: 'branchId', required: false })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @ApiAcceptedResponse({ description: 'Report refresh scheduled' })
   @ApiOperation({ summary: 'Schedule report refresh' })
   async refreshReport(
@@ -479,6 +526,7 @@ export class ReportsController {
     @Param('report') report: ReportExportName,
     @Query('branchId') branchId?: string,
     @Query('timezone') timezone?: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     await this.reportExportService.refreshReport(
       context.user.tenantId,
@@ -488,6 +536,7 @@ export class ReportsController {
         branchId,
         timezone,
       },
+      idempotencyKey,
     );
     return { status: 'accepted' };
   }

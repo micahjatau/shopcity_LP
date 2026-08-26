@@ -97,6 +97,7 @@ describe('FraudReviewService', () => {
       'flag-1',
       'RESOLVED',
       'reviewed',
+      'fraud-key-1',
     );
 
     expect(updated.status).toBe('RESOLVED');
@@ -126,6 +127,7 @@ describe('FraudReviewService', () => {
       'flag-1',
       'ACKNOWLEDGED',
       'same decision',
+      'fraud-key-2',
     );
 
     expect(result.status).toBe('ACKNOWLEDGED');
@@ -162,7 +164,12 @@ function prismaStub(overrides: {
   findFirst?: jest.Mock;
   update?: jest.Mock;
 }) {
+  const idempotencyRecord = {
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue(undefined),
+  };
   return {
+    idempotencyRecord,
     branch: {
       findFirst: jest.fn().mockResolvedValue({ id: 'branch-1' }),
     },

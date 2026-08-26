@@ -1,8 +1,29 @@
+## Bootstrap Notes
+
+- GitHub CLI is available via `gh`; check auth with `gh auth status`.
+- Vercel CLI is available via `npm exec -- vercel` even when `vercel` is not on PATH; check auth with `npm exec -- vercel whoami`.
+- `SENTRY_DSN` is present in `.env.local` for local Sentry configuration.
+- The repo test runner is Jest (`./node_modules/.bin/jest` / `npm run test`).
+- Playwright is available via the web package (`npm --prefix apps/web exec -- playwright --version`).
+- Semgrep CLI is installed (`semgrep --version`).
+- Graphiti memory access uses the running MCP server; treat read/search and ingest/write health separately.
+- Graphiti Codex auth is available via `pi auth print-bearer-token --provider openai-codex`.
+- A local Graphiti MCP server is reachable at `http://127.0.0.1:8000/health` and `http://127.0.0.1:8000/mcp` when the standalone container is running.
+
+## Bootstrap Expectations
+
+- Capture repo branch, working-tree state, and whether unrelated changes must be preserved.
+- Select the relevant OpenSpec before implementation; if none fits, update or create one first.
+- Use GitNexus CLI first for impact/context on code changes and report blast radius before editing affected symbols.
+- Treat Graphiti as historical context only and distinguish retrieval from write/processing health.
+- Session readiness is task-specific: missing irrelevant interfaces do not make the session degraded.
+- Prefer the repository’s actual verification runner and commands over generic tool names.
+
 <!-- gitnexus:start -->
 
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **shopcity_LP** (6472 symbols, 9825 relationships, 165 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **shopcity_LP** (11322 symbols, 18278 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

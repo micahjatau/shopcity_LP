@@ -7,8 +7,14 @@ import {
   Post,
   Req,
   Version,
+  Headers,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -94,14 +100,17 @@ export class BranchesController {
   @Version('1')
   @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
   @apiSuccessEnvelopeResponse({ description: 'Device created', status: 201 })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   createDevice(
     @Req() request: AuthenticatedRequest,
     @Body() dto: CreateDeviceDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.branchesService.createDevice(
       request.authContext!.user.tenantId,
       request.authContext!,
       dto,
+      idempotencyKey,
     );
   }
 
@@ -109,16 +118,19 @@ export class BranchesController {
   @Version('1')
   @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   updateDevice(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateDeviceDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.branchesService.updateDevice(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto,
+      idempotencyKey,
     );
   }
 }

@@ -2,13 +2,19 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
   Req,
   Version,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -58,16 +64,19 @@ export class UsersController {
   @Version('1')
   @Roles(UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   updateRole(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateUserRoleDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.usersService.updateRole(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto.role,
+      idempotencyKey,
     );
   }
 
@@ -75,16 +84,19 @@ export class UsersController {
   @Version('1')
   @Roles(UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   updateStatus(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateUserStatusDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     return this.usersService.updateStatus(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto.status,
+      idempotencyKey,
     );
   }
 }

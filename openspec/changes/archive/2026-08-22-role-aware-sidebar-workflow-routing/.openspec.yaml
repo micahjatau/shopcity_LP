@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-21
+goal: Introduce a role-aware application shell with dedicated workflow routing for cashier, supervisor, and admin surfaces while keeping backend authorization authoritative.

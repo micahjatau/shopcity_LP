@@ -48,11 +48,16 @@ describe('BranchesService', () => {
       } as never,
     );
 
-    const created = await service.createDevice('tenant-id', actorStub(), {
-      branchId: 'branch-id',
-      name: 'Front desk tablet',
-      fingerprintHash: 'fingerprint-hash',
-    });
+    const created = await service.createDevice(
+      'tenant-id',
+      actorStub(),
+      {
+        branchId: 'branch-id',
+        name: 'Front desk tablet',
+        fingerprintHash: 'fingerprint-hash',
+      },
+      'device-key',
+    );
 
     expect(created).toEqual(
       expect.objectContaining({
@@ -109,9 +114,13 @@ describe('BranchesService', () => {
       } as never,
     );
 
-    await service.updateDevice('tenant-id', actorStub(), 'device-id', {
-      status: DeviceStatus.INACTIVE,
-    });
+    await service.updateDevice(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+      { status: DeviceStatus.INACTIVE },
+      'device-update-key-1',
+    );
 
     type SessionUpdateArgs = {
       where: { deviceId: string; status: string };
@@ -191,9 +200,13 @@ describe('BranchesService', () => {
       } as never,
     );
 
-    await service.updateDevice('tenant-id', actorStub(), 'device-id', {
-      status: DeviceStatus.ACTIVE,
-    });
+    await service.updateDevice(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+      { status: DeviceStatus.ACTIVE },
+      'device-update-key-2',
+    );
 
     expect(tx.session.updateMany).not.toHaveBeenCalled();
   });
@@ -249,6 +262,7 @@ describe('BranchesService', () => {
       {
         rotateAttestationSecret: true,
       },
+      'device-update-key-3',
     );
 
     expect(updated).toEqual(
@@ -297,9 +311,13 @@ describe('BranchesService', () => {
     );
 
     await expect(
-      service.updateDevice('tenant-id', actorStub(), 'device-id', {
-        status: DeviceStatus.ACTIVE,
-      }),
+      service.updateDevice(
+        'tenant-id',
+        actorStub(),
+        'device-id',
+        { status: DeviceStatus.ACTIVE },
+        'device-update-key-4',
+      ),
     ).rejects.toMatchObject({
       response: {
         code: 'VALIDATION_ERROR',

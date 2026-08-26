@@ -16,7 +16,7 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: requiredString(
     'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
   ),
-  REDIS_URL: requiredString('redis://127.0.0.1:6379'),
+  REDIS_URL: Joi.string().min(1).optional(),
   UPSTASH_REDIS_URL: Joi.string().optional(),
   UPSTASH_REDIS_REST_URL: Joi.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: Joi.string().optional(),
@@ -28,6 +28,21 @@ export const envValidationSchema = Joi.object({
   KV_REST_API_URL: Joi.string().optional(),
   KV_REST_API_TOKEN: Joi.string().optional(),
   SESSION_SECRET: requiredString('test-session-secret-test-session-secret'),
+  SESSION_IDLE_CASHIER_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(240)
+    .default(30),
+  SESSION_IDLE_SUPERVISOR_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(240)
+    .default(15),
+  SESSION_IDLE_ADMIN_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(240)
+    .default(15),
   CSRF_SECRET: requiredString('test-csrf-secret-test-csrf-secret'),
   DEVICE_ATTESTATION_KEK: requiredKek(
     'test-device-attestation-kek-test-device-attestation-kek',

@@ -4,5 +4,6 @@
     "lib": ["ES2023", "DOM"],
     "noEmit": true
   },
-  "include": ["client/**/*.ts"]
+  "include": ["client/**/*.ts"],
+  "exclude": ["node_modules", "dist", "apps/web", "docs", "openspec", ".agents"]
 }

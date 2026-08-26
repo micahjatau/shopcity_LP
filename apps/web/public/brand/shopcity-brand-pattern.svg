@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 240" role="img" aria-label="ShopCity decorative brand pattern">
+  <defs>
+    <linearGradient id="brandFade" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#B10000" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#D00607" stop-opacity="0.5"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="240" fill="none"/>
+  <path d="M-40 72L154-8h82L2 120z" fill="url(#brandFade)"/>
+  <path d="M88 240L328 24h76L164 240z" fill="#9F0001" opacity="0.18"/>
+  <path d="M296 240L512 84v60L368 240z" fill="#B10000" opacity="0.24"/>
+  <circle cx="390" cy="52" r="28" fill="#FFFFFF" opacity="0.12"/>
+  <circle cx="430" cy="180" r="40" fill="#FFFFFF" opacity="0.08"/>
+</svg>
