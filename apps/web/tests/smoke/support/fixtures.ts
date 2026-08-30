@@ -83,6 +83,22 @@ async function getFixture(
   return asRecord(await api.get(path));
 }
 
+async function expectCardLookupNotFound(
+  api: SmokeApiSession,
+  serial: string,
+  label: string,
+): Promise<void> {
+  try {
+    await api.get(`/api/v1/cards/lookup/${serial}`);
+  } catch (error) {
+    if (error instanceof SmokeApiError && error.status === 404) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(`${label} must not resolve through active card lookup`);
+}
+
 export async function preflightFixtures(
   config: SmokeConfig,
   adminApi: SmokeApiSession,
@@ -128,53 +144,79 @@ export async function preflightFixtures(
     throw new Error('Smoke fraud fixture must be OPEN before the run');
   }
 
-  const customerIds = [
-    config.activeCustomerId,
-    config.inactiveCustomerId,
-    config.staffCustomerId,
-  ];
-  for (const customerId of customerIds) {
-    const customer = await getFixture(
-      adminApi,
-      `/api/v1/customers/${customerId}`,
-    );
-    await validateFixtureIdentity(customer, {
-      id: customerId,
-      tenantId: config.tenantId,
+  const activeCustomer = await getFixture(
+    adminApi,
+    `/api/v1/customers/${config.activeCustomerId}`,
+  );
+  await validateFixtureIdentity(activeCustomer, {
+    id: config.activeCustomerId,
+    tenantId: config.tenantId,
+  });
+  if (stringField(activeCustomer, 'status').toUpperCase() !== 'ACTIVE') {
+    throw new Error('Smoke active customer fixture must be ACTIVE');
+  }
+
+  const inactiveCustomer = await getFixture(
+    adminApi,
+    `/api/v1/customers/${config.inactiveCustomerId}`,
+  );
+  await validateFixtureIdentity(inactiveCustomer, {
+    id: config.inactiveCustomerId,
+    tenantId: config.tenantId,
+  });
+  if (stringField(inactiveCustomer, 'status').toUpperCase() === 'ACTIVE') {
+    throw new Error('Smoke inactive customer fixture must not be ACTIVE');
+  }
+
+  const staffCustomer = await getFixture(
+    adminApi,
+    `/api/v1/customers/${config.staffCustomerId}`,
+  );
+  await validateFixtureIdentity(staffCustomer, {
+    id: config.staffCustomerId,
+    tenantId: config.tenantId,
+  });
+  if (stringField(staffCustomer, 'status').toUpperCase() !== 'ACTIVE') {
+    throw new Error('Smoke staff customer fixture must be ACTIVE');
+  }
+  if (staffCustomer.isStaff !== true) {
+    throw new Error('Smoke staff customer fixture must be staff');
+  }
+
+  for (const [serial, customerId] of [
+    [config.activeCardSerial, config.activeCustomerId],
+    [config.staffCardSerial, config.staffCustomerId],
+  ] as const) {
+    const card = await getFixture(adminApi, `/api/v1/cards/lookup/${serial}`);
+    await validateFixtureIdentity(card, {
+      serialNumber: serial,
+      customerId,
     });
   }
 
-  const cardFixtures = [
-    [config.activeCardSerial, config.activeCustomerId],
-    [config.inactiveCardSerial, config.inactiveCustomerId],
-    [config.staffCardSerial, config.staffCustomerId],
-    ...config.spareCardSerials.map((serial) => [serial, ''] as const),
-  ] as const;
-  for (const [serial, customerId] of cardFixtures) {
-    try {
-      const card = await getFixture(adminApi, `/api/v1/cards/lookup/${serial}`);
-      await validateFixtureIdentity(card, { serialNumber: serial });
-      if (customerId && stringField(card, 'customerId') !== customerId) {
-        throw new Error('Smoke card customer fixture mismatch');
-      }
-      if (
-        !customerId &&
-        typeof card.customerId === 'string' &&
-        card.customerId.trim()
-      ) {
-        throw new Error(`Smoke spare card is already assigned: ${serial}`);
-      }
-    } catch (error) {
-      if (
-        customerId ||
-        !(error instanceof SmokeApiError) ||
-        error.status !== 404 ||
-        error.code !== 'CARD_NOT_FOUND'
-      ) {
-        throw error;
-      }
-      // Spare serials are reserved for replacement and intentionally absent.
-    }
+  const inactiveCardSearch = asRecord(
+    await adminApi.get(
+      `/api/v1/customers?q=${encodeURIComponent(config.inactiveCardSerial)}&limit=10`,
+    ),
+  );
+  const inactiveCardCustomer = asArray(inactiveCardSearch.items).find(
+    (item) => stringField(item, 'id') === config.inactiveCustomerId,
+  );
+  if (!inactiveCardCustomer) {
+    throw new Error('Smoke inactive card fixture not found by privileged search');
+  }
+  await expectCardLookupNotFound(
+    adminApi,
+    config.inactiveCardSerial,
+    'Smoke inactive card fixture',
+  );
+
+  for (const serial of config.spareCardSerials) {
+    await expectCardLookupNotFound(
+      adminApi,
+      serial,
+      `Smoke spare card ${serial}`,
+    );
   }
 }
 
@@ -221,7 +263,12 @@ export async function captureBaseline(
       status: stringField(device, 'status'),
       branchId: stringField(device, 'branchId'),
     },
-    balanceKobo: numberField(customer, 'balanceKobo', 'balance'),
+    balanceKobo: numberField(
+      customer,
+      'availableBalanceKobo',
+      'balanceKobo',
+      'balance',
+    ),
   };
 }
 
@@ -253,9 +300,12 @@ export async function resetMutableFixtures(
       key,
     );
   }
+  if (baseline.device.branchId !== config.branchId) {
+    throw new Error('Smoke device baseline branch mismatch');
+  }
   await adminApi.patch(
     `/api/v1/devices/${baseline.device.id}`,
-    { status: baseline.device.status, branchId: config.branchId },
+    { status: baseline.device.status },
     key,
   );
 }
