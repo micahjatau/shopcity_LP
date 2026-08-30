@@ -1,0 +1,85 @@
+name: staging-smoke
+
+on:
+  workflow_run:
+    workflows: ['ci']
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        required: true
+        type: string
+
+concurrency:
+  group: shopcity-staging-smoke-${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha || github.sha }}
+      - name: Verify candidate SHA
+        env:
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+        run: |
+          test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify deployed staging provenance
+        env:
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          DEPLOYED_FRONTEND_SHA: ${{ vars.SMOKE_DEPLOYED_FRONTEND_SHA }}
+          DEPLOYED_BACKEND_SHA: ${{ vars.SMOKE_DEPLOYED_BACKEND_SHA }}
+        run: |
+          test "$DEPLOYED_FRONTEND_SHA" = "$CANDIDATE_SHA"
+          test "$DEPLOYED_BACKEND_SHA" = "$CANDIDATE_SHA"
+      - name: Run staging smoke
+        env:
+          SMOKE_ENVIRONMENT: staging
+          SMOKE_FRONTEND_URL: ${{ secrets.SMOKE_FRONTEND_URL }}
+          SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
+          SMOKE_CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          SMOKE_FIXTURE_MANIFEST_VERSION: ${{ vars.SMOKE_FIXTURE_MANIFEST_VERSION }}
+          SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
+          SMOKE_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
+          SMOKE_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
+          SMOKE_ACTIVE_CUSTOMER_ID: ${{ vars.SMOKE_ACTIVE_CUSTOMER_ID }}
+          SMOKE_ACTIVE_CARD_SERIAL: ${{ vars.SMOKE_ACTIVE_CARD_SERIAL }}
+          SMOKE_INACTIVE_CUSTOMER_ID: ${{ vars.SMOKE_INACTIVE_CUSTOMER_ID }}
+          SMOKE_INACTIVE_CARD_SERIAL: ${{ vars.SMOKE_INACTIVE_CARD_SERIAL }}
+          SMOKE_STAFF_CUSTOMER_ID: ${{ vars.SMOKE_STAFF_CUSTOMER_ID }}
+          SMOKE_STAFF_CARD_SERIAL: ${{ vars.SMOKE_STAFF_CARD_SERIAL }}
+          SMOKE_FRAUD_FLAG_ID: ${{ vars.SMOKE_FRAUD_FLAG_ID }}
+          SMOKE_SPARE_CARD_SERIALS: ${{ vars.SMOKE_SPARE_CARD_SERIALS }}
+          SMOKE_ADMIN_USERNAME: ${{ secrets.SMOKE_ADMIN_USERNAME }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
+          SMOKE_SUPERVISOR_USERNAME: ${{ secrets.SMOKE_SUPERVISOR_USERNAME }}
+          SMOKE_SUPERVISOR_PASSWORD: ${{ secrets.SMOKE_SUPERVISOR_PASSWORD }}
+          SMOKE_CASHIER_USERNAME: ${{ secrets.SMOKE_CASHIER_USERNAME }}
+          SMOKE_CASHIER_PASSWORD: ${{ secrets.SMOKE_CASHIER_PASSWORD }}
+          SMOKE_CASHIER_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
+          SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: ${{ secrets.SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET }}
+        run: npm run smoke:staging
+      - name: Verify smoke evidence
+        if: success()
+        env:
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+        run: |
+          MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).outputDir + '/smoke-evidence.json')")"
+          npm run verify:smoke-evidence -- --manifest "$MANIFEST" --candidate-sha "$CANDIDATE_SHA"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shopcity-staging-smoke-${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          path: apps/web/test-results/smoke/**
+          retention-days: 14

@@ -23,6 +23,6 @@ export function createApiRequest(options: ApiRequestOptions = {}): RequestInit {
   return {
     ...options,
     credentials: 'include',
-    headers,
+    headers: Object.fromEntries(headers.entries()),
   };
 }

@@ -1,0 +1,29 @@
+import { expect, test } from '@playwright/test';
+import { loadSmokeConfig } from '../config';
+import { loginRoleInUi } from '../support/auth';
+import { loadSmokeRun } from '../support/smoke-run';
+import { recordWorkflowEvidence } from '../support/evidence';
+
+test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
+  const config = loadSmokeConfig();
+  const run = loadSmokeRun();
+  await loginRoleInUi(page, 'cashier', config);
+  await page.goto(
+    `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
+  );
+  await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+  await page
+    .getByLabel('POS receipt number')
+    .fill(`${run.smokeRunId}-CROSS-REDEEM-01`);
+  await page.getByLabel('Basket amount').fill('100');
+  await page.getByLabel('Requested redemption').fill('1');
+  await page.getByRole('button', { name: /submit redemption/i }).click();
+  await expect(page.getByText(/confirmed|awaiting approval/i)).toBeVisible();
+  await recordWorkflowEvidence(run, {
+    group: 'cross-role',
+    name: 'redeem',
+    status: 'PASS',
+    durationMs: 0,
+    references: { receiptNumber: `${run.smokeRunId}-CROSS-REDEEM-01` },
+  });
+});

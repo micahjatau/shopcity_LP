@@ -1,0 +1,116 @@
+name: production-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character deployed candidate SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type RUN_PRODUCTION_SMOKE
+        required: true
+        type: string
+      smoke_run_reason:
+        required: true
+        type: string
+
+concurrency:
+  group: shopcity-production-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: ${{ inputs.confirmation == 'RUN_PRODUCTION_SMOKE' }}
+    runs-on: ubuntu-latest
+    environment: production-smoke
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+      - name: Validate candidate SHA
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          echo "$CANDIDATE_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'
+          test "$CANDIDATE_SHA" = "$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify deployed production provenance
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          DEPLOYED_FRONTEND_SHA: ${{ vars.SMOKE_DEPLOYED_FRONTEND_SHA }}
+          DEPLOYED_BACKEND_SHA: ${{ vars.SMOKE_DEPLOYED_BACKEND_SHA }}
+        run: |
+          test "$DEPLOYED_FRONTEND_SHA" = "$CANDIDATE_SHA"
+          test "$DEPLOYED_BACKEND_SHA" = "$CANDIDATE_SHA"
+      - name: Run approved production smoke
+        env:
+          SMOKE_ENVIRONMENT: production
+          SMOKE_FRONTEND_URL: ${{ secrets.SMOKE_FRONTEND_URL }}
+          SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
+          SMOKE_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          SMOKE_FIXTURE_MANIFEST_VERSION: ${{ vars.SMOKE_FIXTURE_MANIFEST_VERSION }}
+          SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
+          SMOKE_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
+          SMOKE_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
+          SMOKE_ACTIVE_CUSTOMER_ID: ${{ vars.SMOKE_ACTIVE_CUSTOMER_ID }}
+          SMOKE_ACTIVE_CARD_SERIAL: ${{ vars.SMOKE_ACTIVE_CARD_SERIAL }}
+          SMOKE_INACTIVE_CUSTOMER_ID: ${{ vars.SMOKE_INACTIVE_CUSTOMER_ID }}
+          SMOKE_INACTIVE_CARD_SERIAL: ${{ vars.SMOKE_INACTIVE_CARD_SERIAL }}
+          SMOKE_STAFF_CUSTOMER_ID: ${{ vars.SMOKE_STAFF_CUSTOMER_ID }}
+          SMOKE_STAFF_CARD_SERIAL: ${{ vars.SMOKE_STAFF_CARD_SERIAL }}
+          SMOKE_FRAUD_FLAG_ID: ${{ vars.SMOKE_FRAUD_FLAG_ID }}
+          SMOKE_SPARE_CARD_SERIALS: ${{ vars.SMOKE_SPARE_CARD_SERIALS }}
+          SMOKE_ADMIN_USERNAME: ${{ secrets.SMOKE_ADMIN_USERNAME }}
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
+          SMOKE_SUPERVISOR_USERNAME: ${{ secrets.SMOKE_SUPERVISOR_USERNAME }}
+          SMOKE_SUPERVISOR_PASSWORD: ${{ secrets.SMOKE_SUPERVISOR_PASSWORD }}
+          SMOKE_CASHIER_USERNAME: ${{ secrets.SMOKE_CASHIER_USERNAME }}
+          SMOKE_CASHIER_PASSWORD: ${{ secrets.SMOKE_CASHIER_PASSWORD }}
+          SMOKE_CASHIER_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
+          SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: ${{ secrets.SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET }}
+          SMOKE_ALLOW_DEVICE_ROTATION: 'false'
+          SMOKE_ALLOW_OFFLINE_PRODUCTION: 'false'
+        run: npm run smoke:production
+      - name: Verify smoke evidence
+        if: success()
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).outputDir + '/smoke-evidence.json')")"
+          npm run verify:smoke-evidence -- --manifest "$MANIFEST" --candidate-sha "$CANDIDATE_SHA"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shopcity-production-smoke-${{ inputs.candidate_sha }}
+          path: apps/web/test-results/smoke/**
+          retention-days: 30
+      - if: always()
+        run: |
+          RUN_ID='unavailable'
+          OUTCOME='FAIL_INFRASTRUCTURE_OR_ABORTED'
+          RECONCILIATION='unavailable'
+          if [ -f apps/web/test-results/smoke/current-run.json ]; then
+            RUN_ID="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).smokeRunId || 'unavailable')")"
+            OUTPUT_DIR="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).outputDir || '')")"
+            if [ -f "$OUTPUT_DIR/smoke-evidence.json" ]; then
+              OUTCOME="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).result || 'PASS')" "$OUTPUT_DIR/smoke-evidence.json")"
+            fi
+            if [ -f "$OUTPUT_DIR/evidence/reconciliation.json" ]; then
+              RECONCILIATION="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).result || 'UNKNOWN')" "$OUTPUT_DIR/evidence/reconciliation.json")"
+            fi
+          fi
+          {
+            echo '### Production smoke';
+            echo "- Candidate SHA: ${{ inputs.candidate_sha }}";
+            echo "- Smoke run ID: $RUN_ID";
+            echo "- Outcome: $OUTCOME";
+            echo "- Reconciliation: $RECONCILIATION";
+            echo "- Reason: ${{ inputs.smoke_run_reason }}";
+            echo "- Artifact: shopcity-production-smoke-${{ inputs.candidate_sha }}";
+          } >> "$GITHUB_STEP_SUMMARY"
