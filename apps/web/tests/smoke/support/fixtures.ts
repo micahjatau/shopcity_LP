@@ -151,6 +151,9 @@ export async function preflightFixtures(
     try {
       const card = await getFixture(adminApi, `/api/v1/cards/lookup/${serial}`);
       await validateFixtureIdentity(card, { serialNumber: serial });
+      if (serial === config.inactiveCardSerial) {
+        throw new Error('Smoke inactive card is unexpectedly lookupable');
+      }
       if (customerId && stringField(card, 'customerId') !== customerId) {
         throw new Error('Smoke card customer fixture mismatch');
       }
@@ -162,6 +165,29 @@ export async function preflightFixtures(
         throw new Error(`Smoke spare card is already assigned: ${serial}`);
       }
     } catch (error) {
+      if (
+        error instanceof SmokeApiError &&
+        error.status === 404 &&
+        error.code === 'NOT_FOUND' &&
+        serial === config.inactiveCardSerial
+      ) {
+        const inactiveCustomer = await getFixture(
+          adminApi,
+          `/api/v1/customers/${config.inactiveCustomerId}`,
+        );
+        await validateFixtureIdentity(inactiveCustomer, {
+          id: config.inactiveCustomerId,
+          tenantId: config.tenantId,
+        });
+        if (
+          stringField(inactiveCustomer, 'status').toUpperCase() === 'ACTIVE' ||
+          stringField(inactiveCustomer, 'activeCardStatus').toUpperCase() !==
+            'BLOCKED'
+        ) {
+          throw new Error('Smoke inactive card/customer state mismatch');
+        }
+        continue;
+      }
       if (
         customerId ||
         !(error instanceof SmokeApiError) ||
