@@ -32,8 +32,11 @@ export class SmokeApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
+    public readonly detail?: string,
   ) {
-    super(`Smoke API request failed (${status}): ${code}`);
+    super(
+      `Smoke API request failed (${status}): ${code}${detail ? ` (${detail})` : ''}`,
+    );
     this.name = 'SmokeApiError';
   }
 }
@@ -53,7 +56,10 @@ function safeError(status: number, payload: unknown): SmokeApiError {
     [record.code, error.code, data.code, record.errorCode].find(
       (value): value is string => typeof value === 'string',
     ) ?? 'UNKNOWN';
-  return new SmokeApiError(status, code);
+  const detail = [error.message, record.message, data.message].find(
+    (value): value is string => typeof value === 'string',
+  );
+  return new SmokeApiError(status, code, detail);
 }
 
 async function responsePayload(response: APIResponse): Promise<unknown> {
