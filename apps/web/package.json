@@ -17,6 +17,9 @@
     "visual:test": "playwright test --config ./playwright.config.ts --grep-invert @critical",
     "visual:update": "playwright test --config ./playwright.config.ts --grep-invert @critical --update-snapshots",
     "live:test": "playwright test --config ./playwright.config.ts tests/live-backend-e2e.spec.ts",
+    "smoke:test": "playwright test --config ./playwright.smoke.config.ts",
+    "smoke:cashier": "playwright test --config ./playwright.smoke.config.ts tests/smoke/roles/cashier.smoke.spec.ts",
+    "smoke:production": "SMOKE_ENVIRONMENT=production playwright test --config ./playwright.smoke.config.ts",
     "tokens:generate": "node ./scripts/generate-tokens.mjs",
     "tokens:check": "node ./scripts/check-token-drift.mjs"
   },

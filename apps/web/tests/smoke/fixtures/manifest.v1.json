@@ -1,0 +1,19 @@
+{
+  "version": "v1",
+  "description": "Schema and expected relationships for the isolated ShopCity smoke tenant.",
+  "required": [
+    "tenant",
+    "branch",
+    "device",
+    "admin",
+    "supervisor",
+    "cashier",
+    "activeCustomer",
+    "activeCard",
+    "inactiveCustomer",
+    "inactiveCard",
+    "staffCustomer",
+    "staffCard",
+    "spareCards"
+  ]
+}

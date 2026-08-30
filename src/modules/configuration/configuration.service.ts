@@ -5,6 +5,8 @@ import { PrismaService } from '../../database/prisma.service';
 
 const PUBLIC_CONFIG_FRESH_MS = 5 * 60 * 1000;
 const PUBLIC_CONFIG_STALE_MS = 30 * 60 * 1000;
+const STAGING_TENANT_ID = 'd7e5c452-a63b-445c-af0d-aa740a676905';
+const STAGING_BRANCH_ID = '80241e14-2855-4cd8-87ad-0dd06083b50a';
 
 type PublicConfig = {
   tenant: { id: string; name: string };
@@ -46,12 +48,17 @@ export class ConfigurationService {
       return this.publicConfigRefresh;
     }
 
-    this.publicConfigRefresh = this.loadConfig(
-      this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
-        '00000000-0000-0000-0000-000000000001',
-      this.configService.get<string>('DEFAULT_PUBLIC_BRANCH_ID') ??
-        '00000000-0000-0000-0000-000000000002',
-    );
+    const isStagingBranch = process.env.VERCEL_GIT_COMMIT_REF === 'staging';
+    const tenantId = isStagingBranch
+      ? STAGING_TENANT_ID
+      : (this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
+        '00000000-0000-0000-0000-000000000001');
+    const branchId = isStagingBranch
+      ? STAGING_BRANCH_ID
+      : (this.configService.get<string>('DEFAULT_PUBLIC_BRANCH_ID') ??
+        '00000000-0000-0000-0000-000000000002');
+
+    this.publicConfigRefresh = this.loadConfig(tenantId, branchId);
     try {
       const value = await this.publicConfigRefresh;
       this.publicConfigCache = { value, loadedAt: Date.now() };

@@ -438,7 +438,7 @@ Useful starting points:
 - `docs/TRD.md` — product and technical requirements
 - `docs/architecture/` — architectural decisions and invariants
 - `docs/api/` — OpenAPI and API-contract artifacts
-- `docs/runbooks/` — operational procedures
+- `docs/runbooks/` — operational procedures, including the [smoke-testing runbook](docs/runbooks/smoke-testing.md)
 - `docs/database/` — migration and database operations
 - `docs/development/` — engineering and release evidence
 - `docs/frontend/design-system/` — frontend design, accessibility, and workflow standards
