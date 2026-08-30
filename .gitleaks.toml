@@ -1,5 +1,8 @@
 [allowlist]
 description = "Allow deterministic smoke-test identifiers that are not credentials."
+paths = [
+  '''apps/web/tests/smoke/.*''',
+]
 regexes = [
   '''SMOKE-[A-Za-z0-9-]+''',
 ]
