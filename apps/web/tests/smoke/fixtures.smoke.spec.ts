@@ -7,7 +7,7 @@ import {
   validateFixtureIdentity,
   type SmokeBaseline,
 } from './support/fixtures';
-import type { SmokeApiSession } from './support/api-client';
+import { SmokeApiError, type SmokeApiSession } from './support/api-client';
 
 const config = {
   tenantId: 'smoke-tenant',
@@ -40,21 +40,27 @@ function fixtureApi(): SmokeApiSession {
       tenantId: 'smoke-tenant',
       status: 'ACTIVE',
       fullName: 'Smoke Active',
-      balanceKobo: 10000,
+      availableBalanceKobo: 10000,
     },
     '/api/v1/customers/inactive-customer': {
       id: 'inactive-customer',
       tenantId: 'smoke-tenant',
-      status: 'INACTIVE',
+      status: 'BLOCKED',
       fullName: 'Smoke Inactive',
-      balanceKobo: 0,
+      availableBalanceKobo: 0,
     },
     '/api/v1/customers/staff-customer': {
       id: 'staff-customer',
       tenantId: 'smoke-tenant',
       status: 'ACTIVE',
       fullName: 'Smoke Staff',
-      balanceKobo: 0,
+      isStaff: true,
+      availableBalanceKobo: 0,
+    },
+    '/api/v1/customers?q=INACTIVE-01&limit=10': {
+      items: [{ id: 'inactive-customer' }],
+      nextCursor: null,
+      hasMore: false,
     },
     '/api/v1/cards/lookup/ACTIVE-01': {
       id: 'active-card-id',
@@ -62,22 +68,9 @@ function fixtureApi(): SmokeApiSession {
       customerId: 'active-customer',
       status: 'ACTIVE',
     },
-    '/api/v1/cards/lookup/INACTIVE-01': {
-      serialNumber: 'INACTIVE-01',
-      customerId: 'inactive-customer',
-      status: 'INACTIVE',
-    },
     '/api/v1/cards/lookup/STAFF-01': {
       serialNumber: 'STAFF-01',
       customerId: 'staff-customer',
-      status: 'ACTIVE',
-    },
-    '/api/v1/cards/lookup/SPARE-01': {
-      serialNumber: 'SPARE-01',
-      status: 'ACTIVE',
-    },
-    '/api/v1/cards/lookup/SPARE-02': {
-      serialNumber: 'SPARE-02',
       status: 'ACTIVE',
     },
     '/api/v1/fraud-flags/fraud-flag-smoke': {
@@ -89,7 +82,16 @@ function fixtureApi(): SmokeApiSession {
 
   return {
     context: {} as SmokeApiSession['context'],
-    get: async <T>(path: string) => responses[path] as T,
+    get: async <T>(path: string) => {
+      if (
+        path === '/api/v1/cards/lookup/INACTIVE-01' ||
+        path === '/api/v1/cards/lookup/SPARE-01' ||
+        path === '/api/v1/cards/lookup/SPARE-02'
+      ) {
+        throw new SmokeApiError(404, 'NOT_FOUND');
+      }
+      return responses[path] as T;
+    },
     post: async () => ({}) as never,
     patch: async () => ({}) as never,
     dispose: async () => undefined,
@@ -123,17 +125,17 @@ test('preflight fails closed when a deterministic branch is missing', async () =
 });
 
 test('reset uses run-scoped idempotent mutations for mutable fixtures', async () => {
-  const calls: Array<{ path: string; key?: string }> = [];
+  const calls: Array<{ path: string; body: unknown; key?: string }> = [];
   const api = fixtureApi();
-  api.patch = async <T>(path: string, _body: unknown, key?: string) => {
-    calls.push({ path, key });
+  api.patch = async <T>(path: string, body: unknown, key?: string) => {
+    calls.push({ path, body, key });
     return {} as T;
   };
   const baseline = await captureBaseline(config, api);
 
   await resetMutableFixtures(config, api, baseline, 'SMOKE-RESET-01');
 
-  expect(calls).toEqual([
+  expect(calls.map(({ path, key }) => ({ path, key }))).toEqual([
     {
       path: '/api/v1/customers/active-customer/status',
       key: 'SMOKE-RESET-01-fixture-reset-status',
@@ -151,6 +153,7 @@ test('reset uses run-scoped idempotent mutations for mutable fixtures', async ()
       key: 'SMOKE-RESET-01-fixture-reset',
     },
   ]);
+  expect(calls.at(-1)?.body).toEqual({ status: 'ACTIVE' });
 });
 
 test('baseline captures mutable customer, card, device, and integer-kobo balance', async () => {
