@@ -45,8 +45,12 @@ function safeError(status: number, payload: unknown): SmokeApiError {
     record.data && typeof record.data === 'object'
       ? (record.data as JsonRecord)
       : {};
+  const error =
+    record.error && typeof record.error === 'object'
+      ? (record.error as JsonRecord)
+      : {};
   const code =
-    [record.code, data.code, record.errorCode].find(
+    [record.code, error.code, data.code, record.errorCode].find(
       (value): value is string => typeof value === 'string',
     ) ?? 'UNKNOWN';
   return new SmokeApiError(status, code);
