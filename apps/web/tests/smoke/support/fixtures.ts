@@ -166,7 +166,7 @@ export async function preflightFixtures(
         customerId ||
         !(error instanceof SmokeApiError) ||
         error.status !== 404 ||
-        error.code !== 'CARD_NOT_FOUND'
+        !['CARD_NOT_FOUND', 'NOT_FOUND'].includes(error.code)
       ) {
         throw error;
       }
