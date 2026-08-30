@@ -47,6 +47,21 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     await preflightFixtures(smokeConfig, adminApi);
     const baseline = await captureBaseline(smokeConfig, adminApi);
     await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
+    await adminApi.patch(
+      `/api/v1/devices/${smokeConfig.deviceId}`,
+      { status: 'ACTIVE' },
+      `${run.smokeRunId}-cashier-device-activate`,
+    );
+    const resetDevices =
+      await adminApi.get<Array<{ id?: string; status?: string }>>(
+        '/api/v1/devices',
+      );
+    const resetDevice = resetDevices.find(
+      (device) => device.id === smokeConfig.deviceId,
+    );
+    if (resetDevice?.status !== 'ACTIVE') {
+      throw new Error('Smoke device did not remain ACTIVE after fixture reset');
+    }
 
     // Reset mutable fixtures before authenticating the device-bound cashier.
     // A previous interrupted run may have left the device inactive.
