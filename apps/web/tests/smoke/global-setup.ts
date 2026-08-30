@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { FullConfig } from '@playwright/test';
 import { loadSmokeConfig } from './config';
@@ -27,6 +27,31 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     await assertProductionUnlocked(smokeConfig.environment, safetyLock);
     const run = createSmokeRun(smokeConfig.candidateSha);
     adminApi = await createRoleApiSession('admin', smokeConfig, run.smokeRunId);
+    const authStateDir = resolve(run.outputDir, 'auth');
+    await mkdir(authStateDir, { recursive: true });
+    await adminApi.context.storageState({
+      path: resolve(authStateDir, 'admin.json'),
+    });
+    const supervisorApi = await createRoleApiSession(
+      'supervisor',
+      smokeConfig,
+      run.smokeRunId,
+    );
+    const cashierApi = await createRoleApiSession(
+      'cashier',
+      smokeConfig,
+      run.smokeRunId,
+    );
+    try {
+      await supervisorApi.context.storageState({
+        path: resolve(authStateDir, 'supervisor.json'),
+      });
+      await cashierApi.context.storageState({
+        path: resolve(authStateDir, 'cashier.json'),
+      });
+    } finally {
+      await Promise.all([supervisorApi.dispose(), cashierApi.dispose()]);
+    }
     await preflightFixtures(smokeConfig, adminApi);
     const baseline = await captureBaseline(smokeConfig, adminApi);
     await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
