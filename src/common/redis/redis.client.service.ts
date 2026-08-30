@@ -73,12 +73,6 @@ export class RedisClientService implements OnModuleDestroy {
     const redisUrl = this.configService.get<string>('REDIS_URL');
     const upstashCredentials = this.getUpstashCredentials();
 
-    if (redisUrl && !this.isLocalRedisUrl(redisUrl)) {
-      this.logger.log('Redis client using REDIS_URL');
-      this.lastConnectionFailure = undefined;
-      return this.connectNodeRedis(redisUrl);
-    }
-
     if (upstashCredentials) {
       this.logger.log('Redis client using Upstash REST integration');
       this.lastConnectionFailure = undefined;
@@ -86,7 +80,11 @@ export class RedisClientService implements OnModuleDestroy {
     }
 
     if (redisUrl) {
-      this.logger.log('Redis client using local REDIS_URL');
+      this.logger.log(
+        this.isLocalRedisUrl(redisUrl)
+          ? 'Redis client using local REDIS_URL'
+          : 'Redis client using REDIS_URL',
+      );
       this.lastConnectionFailure = undefined;
       return this.connectNodeRedis(redisUrl);
     }
