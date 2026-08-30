@@ -19,7 +19,7 @@ describe('RedisClientService', () => {
     jest.clearAllMocks();
   });
 
-  it('uses the hosted REDIS_URL before the Upstash REST fallback', async () => {
+  it('prefers Upstash REST when both REST credentials and REDIS_URL exist', async () => {
     const nodeClient = makeNodeRedisClient();
     createClientMock.mockReturnValue(nodeClient);
     upstashRedisMock.mockImplementation(() => makeUpstashRedisClient());
@@ -34,12 +34,11 @@ describe('RedisClientService', () => {
 
     await expect(service.ping()).resolves.toBe('PONG');
 
-    expect(createClientMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        url: 'rediss://default:token@apt-bull-182127.upstash.io:6379',
-      }),
-    );
-    expect(upstashRedisMock).not.toHaveBeenCalled();
+    expect(upstashRedisMock).toHaveBeenCalledWith({
+      url: 'https://example.upstash.io',
+      token: 'rest-token',
+    });
+    expect(createClientMock).not.toHaveBeenCalled();
   });
 
   it('falls back to the Upstash REST integration when REDIS_URL is local', async () => {
