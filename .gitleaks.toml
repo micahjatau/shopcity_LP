@@ -1,0 +1,5 @@
+[allowlist]
+description = "Allow deterministic smoke-test identifiers that are not credentials."
+regexes = [
+  '''SMOKE-[A-Za-z0-9-]+''',
+]
