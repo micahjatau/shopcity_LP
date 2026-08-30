@@ -278,12 +278,12 @@ export async function resetMutableFixtures(
     await adminApi.patch(
       `/api/v1/cards/${baseline.card.id}/status`,
       { status: baseline.card.status },
-      key,
+      `${key}-card-status`,
     );
   }
   await adminApi.patch(
     `/api/v1/devices/${baseline.device.id}`,
     { status: baseline.device.status },
-    key,
+    `${key}-device-status`,
   );
 }

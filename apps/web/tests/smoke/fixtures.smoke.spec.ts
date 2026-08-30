@@ -144,11 +144,11 @@ test('reset uses run-scoped idempotent mutations for mutable fixtures', async ()
     },
     {
       path: '/api/v1/cards/active-card-id/status',
-      key: 'SMOKE-RESET-01-fixture-reset',
+      key: 'SMOKE-RESET-01-fixture-reset-card-status',
     },
     {
       path: '/api/v1/devices/smoke-device',
-      key: 'SMOKE-RESET-01-fixture-reset',
+      key: 'SMOKE-RESET-01-fixture-reset-device-status',
     },
   ]);
 });
