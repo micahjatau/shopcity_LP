@@ -112,6 +112,9 @@ export async function preflightFixtures(
     id: config.deviceId,
     branchId: config.branchId,
   });
+  if (stringField(device, 'status').toUpperCase() !== 'ACTIVE') {
+    throw new Error('Smoke device fixture must be ACTIVE before the run');
+  }
 
   const fraudFlag = await getFixture(
     adminApi,

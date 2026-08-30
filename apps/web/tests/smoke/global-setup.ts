@@ -37,24 +37,31 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       smokeConfig,
       run.smokeRunId,
     );
+    try {
+      await supervisorApi.context.storageState({
+        path: resolve(authStateDir, 'supervisor.json'),
+      });
+    } finally {
+      await supervisorApi.dispose();
+    }
+    await preflightFixtures(smokeConfig, adminApi);
+    const baseline = await captureBaseline(smokeConfig, adminApi);
+    await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
+
+    // Reset mutable fixtures before authenticating the device-bound cashier.
+    // A previous interrupted run may have left the device inactive.
     const cashierApi = await createRoleApiSession(
       'cashier',
       smokeConfig,
       run.smokeRunId,
     );
     try {
-      await supervisorApi.context.storageState({
-        path: resolve(authStateDir, 'supervisor.json'),
-      });
       await cashierApi.context.storageState({
         path: resolve(authStateDir, 'cashier.json'),
       });
     } finally {
-      await Promise.all([supervisorApi.dispose(), cashierApi.dispose()]);
+      await cashierApi.dispose();
     }
-    await preflightFixtures(smokeConfig, adminApi);
-    const baseline = await captureBaseline(smokeConfig, adminApi);
-    await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
 
     const metadata = {
       ...run,
