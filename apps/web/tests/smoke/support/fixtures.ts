@@ -280,7 +280,7 @@ export async function resetMutableFixtures(
   }
   await adminApi.patch(
     `/api/v1/devices/${baseline.device.id}`,
-    { status: baseline.device.status, branchId: config.branchId },
+    { status: baseline.device.status },
     key,
   );
 }
