@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "env": {
+    "DEFAULT_PUBLIC_TENANT_ID": "d7e5c452-a63b-445c-af0d-aa740a676905",
+    "DEFAULT_PUBLIC_BRANCH_ID": "80241e14-2855-4cd8-87ad-0dd06083b50a"
+  },
   "builds": [
     {
       "src": "api/index.ts",
