@@ -21,7 +21,7 @@ interface SmokeRunState extends PersistedSmokeRun {
   outputDir: string;
   evidenceDir: string;
   candidateSha: string;
-  baseline: SmokeBaseline;
+  baseline?: SmokeBaseline;
 }
 
 export default async function globalTeardown(
@@ -34,6 +34,14 @@ export default async function globalTeardown(
 
   try {
     state = JSON.parse(await readFile(statePath, 'utf8')) as SmokeRunState;
+    // createSmokeRun writes current-run.json before preflight. If setup fails
+    // before it captures a baseline, teardown must not attempt reconciliation
+    // against an incomplete run state and mask the original infrastructure
+    // failure with a second error.
+    if (!state.baseline) {
+      return;
+    }
+
     const run: SmokeRun = {
       smokeRunId: state.smokeRunId,
       candidateSha: state.candidateSha,
