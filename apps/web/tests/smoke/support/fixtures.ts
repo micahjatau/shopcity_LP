@@ -241,7 +241,12 @@ export async function captureBaseline(
       status: stringField(device, 'status'),
       branchId: stringField(device, 'branchId'),
     },
-    balanceKobo: numberField(customer, 'balanceKobo', 'balance'),
+    balanceKobo: numberField(
+      customer,
+      'balanceKobo',
+      'availableBalanceKobo',
+      'balance',
+    ),
   };
 }
 
