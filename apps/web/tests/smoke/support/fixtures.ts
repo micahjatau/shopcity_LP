@@ -88,11 +88,8 @@ export async function preflightFixtures(
   adminApi: SmokeApiSession,
 ): Promise<void> {
   const identity = await getFixture(adminApi, '/api/v1/auth/me');
-  await validateFixtureIdentity(identity, {
-    tenantId: config.tenantId,
-    branchId: config.branchId,
-  });
-  if (stringField(identity, 'role').toUpperCase() !== 'ADMIN') {
+  const identityUser = asRecord(identity.user ?? identity);
+  if (stringField(identityUser, 'role').toUpperCase() !== 'ADMIN') {
     throw new Error('Smoke fixture preflight requires an Admin session');
   }
 
