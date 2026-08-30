@@ -152,10 +152,7 @@ export async function preflightFixtures(
   ] as const;
   for (const [serial, customerId] of cardFixtures) {
     try {
-      const card = await getFixture(
-        adminApi,
-        `/api/v1/cards/lookup/${serial}`,
-      );
+      const card = await getFixture(adminApi, `/api/v1/cards/lookup/${serial}`);
       await validateFixtureIdentity(card, { serialNumber: serial });
       if (customerId && stringField(card, 'customerId') !== customerId) {
         throw new Error('Smoke card customer fixture mismatch');
