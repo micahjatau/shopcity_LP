@@ -34,7 +34,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npm --prefix apps/web ci --ignore-scripts
+      - run: npm --prefix apps/web exec -- playwright install --with-deps chromium
       - name: Verify deployed staging provenance
         env:
           CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
