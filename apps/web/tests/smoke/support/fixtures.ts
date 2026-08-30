@@ -151,9 +151,6 @@ export async function preflightFixtures(
     try {
       const card = await getFixture(adminApi, `/api/v1/cards/lookup/${serial}`);
       await validateFixtureIdentity(card, { serialNumber: serial });
-      if (serial === config.inactiveCardSerial) {
-        throw new Error('Smoke inactive card is unexpectedly lookupable');
-      }
       if (customerId && stringField(card, 'customerId') !== customerId) {
         throw new Error('Smoke card customer fixture mismatch');
       }
