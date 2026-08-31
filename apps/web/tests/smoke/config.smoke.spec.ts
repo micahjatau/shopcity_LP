@@ -28,6 +28,7 @@ function validEnvironment(): NodeJS.ProcessEnv {
     SMOKE_CASHIER_PASSWORD: 'not-a-real-password',
     SMOKE_CASHIER_DEVICE_ID: 'device-smoke',
     SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: 'not-a-real-secret',
+    SMOKE_SESSION_BOOTSTRAP_SECRET: 'not-a-real-bootstrap-secret',
   };
 }
 

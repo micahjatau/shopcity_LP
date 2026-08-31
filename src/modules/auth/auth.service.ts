@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import {
   randomUUID,
   createHash,
@@ -140,6 +140,102 @@ export class AuthService {
         user.id,
         user.tenantId,
         'auth.login',
+        sessionDevice?.id ?? null,
+      );
+
+      if (attestationId) {
+        await prisma.deviceAttestation.update({
+          where: { id: attestationId },
+          data: { issuedSessionId: issued.context.session.id },
+        });
+      }
+
+      return issued;
+    });
+  }
+
+  async bootstrapSmokeSession(
+    bootstrapSecret: string | undefined,
+    role: UserRole,
+    username: string,
+    tenantId: string,
+    deviceId?: string,
+    deviceAttestation?: string,
+  ): Promise<IssuedSession> {
+    assertSmokeBootstrapSecret(
+      bootstrapSecret,
+      this.configService.get<string>('SMOKE_SESSION_BOOTSTRAP_SECRET'),
+    );
+
+    const normalizedUsername = normalizeUsername(username);
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        username: { equals: normalizedUsername, mode: 'insensitive' },
+        role,
+        tenantId,
+      },
+      include: { tenant: true, branch: true },
+    });
+
+    if (!user || !isAuthUserEligible(user)) {
+      throw new UnauthorizedException('User is not active');
+    }
+
+    if (role === UserRole.CASHIER && !deviceId) {
+      throw new BadRequestException('Device is required');
+    }
+
+    const sessionDevice = deviceId
+      ? await this.prismaService.device.findFirst({
+          where: { id: deviceId, tenantId: user.tenantId },
+          include: { branch: true },
+        })
+      : null;
+
+    if (
+      deviceId &&
+      (!sessionDevice ||
+        sessionDevice.status !== 'ACTIVE' ||
+        sessionDevice.branch.status !== 'ACTIVE' ||
+        (user.branchId && user.branchId !== sessionDevice.branchId))
+    ) {
+      throw new BadRequestException('Device is not active');
+    }
+
+    if (deviceId && !deviceAttestation) {
+      throw new BadRequestException('Device attestation is required');
+    }
+
+    const attestation = deviceId
+      ? assertDeviceAttestationValid(
+          deviceId,
+          deviceAttestation!,
+          resolveDeviceAttestationSecret(
+            sessionDevice!,
+            this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '',
+          ),
+        )
+      : null;
+
+    return this.prismaService.$transaction(async (prisma) => {
+      let attestationId: string | null = null;
+      if (sessionDevice && attestation) {
+        attestationId = await recordDeviceAttestation(prisma, {
+          tenantId: user.tenantId,
+          deviceId: sessionDevice.id,
+          nonce: attestation.nonce,
+          attestationTimestamp: new Date(attestation.timestamp),
+          expiresAt: new Date(
+            attestation.timestamp + MAX_DEVICE_ATTESTATION_SKEW_MS,
+          ),
+        });
+      }
+
+      const issued = await this.issueSession(
+        prisma,
+        user.id,
+        user.tenantId,
+        'auth.smoke_session_bootstrap',
         sessionDevice?.id ?? null,
       );
 
@@ -425,6 +521,21 @@ function resolveDeviceAttestationSecret(
     'DEVICE_ATTESTATION_SECRET_UNAVAILABLE',
     'Device attestation secret is unavailable',
   );
+}
+
+function assertSmokeBootstrapSecret(
+  provided: string | undefined,
+  expected: string | undefined,
+): void {
+  if (!provided?.trim() || !expected?.trim()) {
+    throw new UnauthorizedException('Invalid smoke bootstrap credentials');
+  }
+
+  const providedHash = createHash('sha256').update(provided.trim()).digest();
+  const expectedHash = createHash('sha256').update(expected.trim()).digest();
+  if (!timingSafeEqual(providedHash, expectedHash)) {
+    throw new UnauthorizedException('Invalid smoke bootstrap credentials');
+  }
 }
 
 function normalizeUsername(username: string): string {

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsString, IsUUID, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class LoginDto {
@@ -11,6 +11,20 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password!: string;
+}
+
+export class SmokeSessionBootstrapDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  tenantId!: string;
+
+  @ApiProperty({ enum: UserRole })
+  @IsEnum(UserRole)
+  role!: UserRole;
+
+  @ApiProperty({ example: 'admin@shopcity.local' })
+  @IsEmail()
+  username!: string;
 }
 
 export class AuthUserDto {

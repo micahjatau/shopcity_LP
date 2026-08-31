@@ -41,7 +41,11 @@ export class SmokeApiError extends Error {
   }
 }
 
-function safeError(status: number, payload: unknown): SmokeApiError {
+function safeError(
+  status: number,
+  payload: unknown,
+  path?: string,
+): SmokeApiError {
   const record =
     payload && typeof payload === 'object' ? (payload as JsonRecord) : {};
   const data =
@@ -59,7 +63,11 @@ function safeError(status: number, payload: unknown): SmokeApiError {
   const detail = [error.message, record.message, data.message].find(
     (value): value is string => typeof value === 'string',
   );
-  return new SmokeApiError(status, code, detail);
+  return new SmokeApiError(
+    status,
+    code,
+    path ? `${path}${detail ? `: ${detail}` : ''}` : detail,
+  );
 }
 
 async function responsePayload(response: APIResponse): Promise<unknown> {
@@ -114,7 +122,7 @@ export function createSmokeApiSession(
       ...(method === 'GET' ? {} : { data: body }),
     });
     const payload = await responsePayload(response);
-    if (!response.ok()) throw safeError(response.status(), payload);
+    if (!response.ok()) throw safeError(response.status(), payload, path);
     return unwrap(payload) as T;
   }
 
@@ -139,6 +147,7 @@ export async function createRoleApiSession(
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
+    'x-smoke-session-bootstrap-secret': config.sessionBootstrapSecret,
   };
   if (role === 'cashier') {
     headers['x-device-id'] = config.cashier.deviceId;
@@ -148,8 +157,12 @@ export async function createRoleApiSession(
     );
   }
 
-  const response = await context.post('/api/v1/auth/login', {
-    data: { username: credentials.username, password: credentials.password },
+  const response = await context.post('/api/v1/auth/smoke-session', {
+    data: {
+      tenantId: config.tenantId,
+      username: credentials.username,
+      role: role.toUpperCase(),
+    },
     headers,
   });
   const payload = await responsePayload(response);

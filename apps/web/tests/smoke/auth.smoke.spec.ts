@@ -4,6 +4,7 @@ import type { SmokeConfig } from './config';
 import { loginRoleInUi, logoutRoleInUi } from './support/auth';
 
 const config = {
+  sessionBootstrapSecret: 'bootstrap-secret',
   cashier: {
     username: 'smoke.cashier',
     password: 'password',

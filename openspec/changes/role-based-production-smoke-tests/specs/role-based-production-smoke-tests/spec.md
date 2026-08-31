@@ -57,7 +57,7 @@ Each execution SHALL create one globally unique `smokeRunId`, propagate it throu
 
 ### Requirement: User-facing workflows are certified through Playwright
 
-The smoke subsystem SHALL use Playwright to authenticate as the actual role, navigate the deployed application, execute user-operable workflows, and assert visible outcomes. API calls SHALL be limited to deterministic setup, authentication support, post-condition verification, reconciliation, and restoration.
+The smoke subsystem SHALL use Playwright to authenticate as the actual role for login semantics coverage, navigate the deployed application, execute user-operable workflows, and assert visible outcomes. API calls SHALL be limited to deterministic setup, secret-gated smoke session bootstrap, post-condition verification, reconciliation, and restoration. Smoke session bootstrap SHALL require a configured `SMOKE_SESSION_BOOTSTRAP_SECRET`, SHALL create short-lived role-scoped sessions only, SHALL preserve Cashier device attestation requirements, and SHALL NOT weaken the normal login throttle.
 
 #### Scenario: Cashier workflow is browser-certified
 
@@ -69,9 +69,17 @@ The smoke subsystem SHALL use Playwright to authenticate as the actual role, nav
 #### Scenario: Role login preserves security semantics
 
 - **GIVEN** separate smoke credentials for Cashier, Supervisor, and Admin
-- **WHEN** each role logs in through the normal application flow
+- **WHEN** each role logs in through the normal application flow in dedicated login coverage
 - **THEN** the expected role shell and route are rendered
 - **AND** Cashier device-bound login requirements remain enforced
+
+#### Scenario: Smoke session bootstrap avoids login throttle exhaustion
+
+- **GIVEN** the backend and smoke runner share the configured bootstrap secret
+- **WHEN** setup creates per-role smoke sessions
+- **THEN** sessions are issued through the secret-gated bootstrap endpoint rather than password login
+- **AND** configured tenant, role, user, device, and tenant eligibility are validated
+- **AND** normal login throttling remains unchanged
 
 ### Requirement: Cashier smoke covers core workflows and guardrails
 

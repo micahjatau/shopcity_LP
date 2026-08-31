@@ -11,7 +11,11 @@ import {
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { AuthService } from './auth.service';
-import { LoginDto, authResponseSchema } from './auth.dto';
+import {
+  LoginDto,
+  SmokeSessionBootstrapDto,
+  authResponseSchema,
+} from './auth.dto';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildLoginThrottleKey } from '../../common/throttle/throttle.keys';
@@ -93,20 +97,57 @@ export class AuthController {
       ),
     );
 
-    reply.header('Set-Cookie', [
-      buildCookie(
-        SESSION_COOKIE_NAME,
-        issued.sessionToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+    );
+
+    return this.authService.toResponse(issued.context);
+  }
+
+  @Post('smoke-session')
+  @PublicRoute()
+  @Version('1')
+  @HttpCode(200)
+  @ApiHeader({ name: 'x-smoke-session-bootstrap-secret', required: true })
+  @ApiHeader({ name: 'x-device-id', required: false })
+  @ApiHeader({ name: 'x-device-attestation', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'Smoke session created',
+    dataSchema: authResponseSchema(),
+  })
+  @ApiOperation({ summary: 'Create a secret-gated smoke test session' })
+  async smokeSession(
+    @Body() dto: SmokeSessionBootstrapDto,
+    @Headers('x-smoke-session-bootstrap-secret')
+    bootstrapSecret: string | undefined,
+    @Headers('x-device-id') deviceId: string | undefined,
+    @Headers('x-device-attestation') deviceAttestation: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const issued = await this.authService.bootstrapSmokeSession(
+      bootstrapSecret,
+      dto.role,
+      dto.username,
+      dto.tenantId,
+      deviceId,
+      deviceAttestation,
+    );
+    const maxAge = Math.max(
+      0,
+      Math.floor(
+        (issued.context.session.expiresAt.getTime() - Date.now()) / 1000,
       ),
-      buildCsrfCookie(
-        CSRF_COOKIE_NAME,
-        issued.csrfToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
-    ]);
+    );
+
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+    );
 
     return this.authService.toResponse(issued.context);
   }
@@ -131,20 +172,12 @@ export class AuthController {
       ),
     );
 
-    reply.header('Set-Cookie', [
-      buildCookie(
-        SESSION_COOKIE_NAME,
-        issued.sessionToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
-      buildCsrfCookie(
-        CSRF_COOKIE_NAME,
-        issued.csrfToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
-    ]);
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+    );
 
     return this.authService.toResponse(issued.context);
   }
@@ -175,5 +208,27 @@ export class AuthController {
   @ApiOperation({ summary: 'Read current authenticated user' })
   me(@CurrentSession() context: AuthContext) {
     return this.authService.toResponse(context);
+  }
+
+  private setSessionCookies(
+    reply: FastifyReply,
+    sessionToken: string,
+    csrfToken: string,
+    maxAge: number,
+  ): void {
+    reply.header('Set-Cookie', [
+      buildCookie(
+        SESSION_COOKIE_NAME,
+        sessionToken,
+        maxAge,
+        process.env.NODE_ENV === 'production',
+      ),
+      buildCsrfCookie(
+        CSRF_COOKIE_NAME,
+        csrfToken,
+        maxAge,
+        process.env.NODE_ENV === 'production',
+      ),
+    ]);
   }
 }

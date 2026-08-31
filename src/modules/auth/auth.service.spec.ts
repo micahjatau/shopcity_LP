@@ -542,6 +542,46 @@ describe('AuthService', () => {
     ).toHaveLength(1);
   });
 
+  it('creates smoke bootstrap sessions without Supabase password login', async () => {
+    const service = buildLoginService({ device: buildDevice('device-secret') });
+
+    await expect(
+      service.bootstrapSmokeSession(
+        'bootstrap-secret',
+        UserRole.ADMIN,
+        'admin@shopcity.local',
+        'tenant-id',
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it('rejects smoke bootstrap sessions without the gated secret', async () => {
+    const service = buildLoginService({ device: buildDevice('device-secret') });
+
+    await expect(
+      service.bootstrapSmokeSession(
+        'wrong-secret',
+        UserRole.ADMIN,
+        'admin@shopcity.local',
+        'tenant-id',
+      ),
+    ).rejects.toThrow('Invalid smoke bootstrap credentials');
+  });
+
+  it('requires device attestation for smoke cashier bootstrap sessions', async () => {
+    const service = buildLoginService({ device: buildDevice('device-secret') });
+
+    await expect(
+      service.bootstrapSmokeSession(
+        'bootstrap-secret',
+        UserRole.CASHIER,
+        'cashier@shopcity.local',
+        'tenant-id',
+        'device-id',
+      ),
+    ).rejects.toThrow('Device attestation is required');
+  });
+
   it('rejects expired device attestations', async () => {
     const timestamp = Date.now() - 10 * 60 * 1000;
     const secret = 'device-secret';
@@ -700,7 +740,9 @@ function buildLoginService(overrides: {
           ? 'device-kek'
           : key === 'SESSION_SECRET'
             ? 'secret'
-            : 'csrf',
+            : key === 'SMOKE_SESSION_BOOTSTRAP_SECRET'
+              ? 'bootstrap-secret'
+              : 'csrf',
     } as never,
     {
       recordWithClient: jest.fn().mockResolvedValue(undefined),

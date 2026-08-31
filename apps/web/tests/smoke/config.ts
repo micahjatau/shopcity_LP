@@ -22,6 +22,7 @@ export interface SmokeConfig {
   spareCardSerials: string[];
   allowDeviceRotation: boolean;
   allowOfflineProduction: boolean;
+  sessionBootstrapSecret: string;
   admin: { username: string; password: string };
   supervisor: { username: string; password: string };
   cashier: {
@@ -57,6 +58,7 @@ const REQUIRED_FIELDS = [
   'SMOKE_CASHIER_PASSWORD',
   'SMOKE_CASHIER_DEVICE_ID',
   'SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET',
+  'SMOKE_SESSION_BOOTSTRAP_SECRET',
 ] as const;
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -180,6 +182,7 @@ export function parseSmokeConfig(env: NodeJS.ProcessEnv): SmokeConfig {
       'SMOKE_ALLOW_OFFLINE_PRODUCTION',
       environment === 'staging',
     ),
+    sessionBootstrapSecret: required(env, 'SMOKE_SESSION_BOOTSTRAP_SECRET'),
     admin: {
       username: required(env, 'SMOKE_ADMIN_USERNAME'),
       password: required(env, 'SMOKE_ADMIN_PASSWORD'),
