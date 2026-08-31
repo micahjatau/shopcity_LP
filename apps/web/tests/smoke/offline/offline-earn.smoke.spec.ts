@@ -109,10 +109,14 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
   );
   await page.getByRole('button', { name: /submit batch/i }).click();
   const syncPayload = (await (await syncResponse).json()) as {
-    data?: { records?: Array<Record<string, unknown>> };
+    data?: {
+      data?: { records?: Array<Record<string, unknown>> };
+      records?: Array<Record<string, unknown>>;
+    };
     records?: Array<Record<string, unknown>>;
   };
-  const syncedRecords = syncPayload.data?.records ?? syncPayload.records ?? [];
+  const syncData = syncPayload.data?.data ?? syncPayload.data;
+  const syncedRecords = syncData?.records ?? syncPayload.records ?? [];
   expect(syncedRecords.length).toBeGreaterThan(0);
   const confirmed = syncedRecords.find((record) =>
     String(record.status ?? '')
