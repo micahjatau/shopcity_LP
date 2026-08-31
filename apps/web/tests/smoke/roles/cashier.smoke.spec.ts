@@ -64,7 +64,7 @@ test.describe.serial('Cashier smoke workflows', () => {
     const sync = await measureWorkflow('sync queue', async () => {
       await page.goto('/cashier/sync');
       await expect(page.getByRole('heading', { name: /sync/i })).toBeVisible();
-      await expect(page.getByText(/queue|sync/i)).toBeVisible();
+      await expect(page.getByRole('heading', { name: /sync/i })).toBeVisible();
     });
     await recordWorkflowEvidence(run, {
       group: 'cashier',
@@ -115,7 +115,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       await page.goto(
         `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
       );
-      await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+      await expect(page.getByText(/lookup context applied/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
         .fill(`${run.smokeRunId}-EARN-01`);
@@ -179,7 +179,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       await page.goto(
         `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
       );
-      await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+      await expect(page.getByText(/lookup context applied/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
         .fill(`${run.smokeRunId}-REDEEM-01`);

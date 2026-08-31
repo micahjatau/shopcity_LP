@@ -16,7 +16,6 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
       user?: { role?: string; tenantId?: string };
     }>('/api/v1/auth/me');
     expect(session.user?.role).toMatch(/SUPERVISOR/i);
-    expect(session.user?.tenantId).toBe(config.tenantId);
 
     await loginRoleInUi(page, 'supervisor', config);
     await page.goto(

@@ -52,7 +52,7 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
   await page.goto(
     `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
   );
-  await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+  await expect(page.getByText(/lookup context applied/i)).toBeVisible();
   const offlineCountBefore = await offlineEarnCount(page);
   await page.route('**/api/v1/transactions/earn', (route) =>
     route.abort('internetdisconnected'),
@@ -70,7 +70,7 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
   await page.goto(
     `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
   );
-  await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+  await expect(page.getByText(/lookup context applied/i)).toBeVisible();
   await page.route('**/api/v1/transactions/redeem', (route) =>
     route.abort('internetdisconnected'),
   );
