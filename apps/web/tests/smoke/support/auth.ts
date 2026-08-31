@@ -18,9 +18,16 @@ export async function loginRoleInUi(
 ): Promise<void> {
   if (await restoreRoleSession(page, role, config)) {
     await page.goto(roleRoutes[role]);
-    if (new URL(page.url()).pathname === roleRoutes[role]) return;
-    // A persisted smoke session may have expired during a long serial run.
-    // Fall through to the normal UI login instead of hiding the redirect.
+    if (new URL(page.url()).pathname === roleRoutes[role]) {
+      try {
+        await page
+          .getByRole('button', { name: /sign out/i })
+          .waitFor({ state: 'visible', timeout: 5_000 });
+        return;
+      } catch {
+        // The session redirected back to login after the initial navigation.
+      }
+    }
   }
 
   // Re-issue a short-lived smoke session when the persisted state has
@@ -32,7 +39,12 @@ export async function loginRoleInUi(
       const state = await smokeSession.context.storageState();
       await page.context().addCookies(state.cookies);
       await page.goto(roleRoutes[role]);
-      if (new URL(page.url()).pathname === roleRoutes[role]) return;
+      if (new URL(page.url()).pathname === roleRoutes[role]) {
+        await page
+          .getByRole('button', { name: /sign out/i })
+          .waitFor({ state: 'visible', timeout: 5_000 });
+        return;
+      }
     } finally {
       await smokeSession.dispose();
     }
