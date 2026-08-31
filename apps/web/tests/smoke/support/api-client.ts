@@ -85,7 +85,10 @@ function unwrap(payload: unknown): unknown {
   for (let depth = 0; depth < 2; depth += 1) {
     if (!current || typeof current !== 'object') return current;
     const record = current as JsonRecord;
-    if (!('data' in record) || Object.keys(record).length !== 1) return current;
+    if (!('data' in record)) return current;
+    // The outer API envelope may also carry metadata; nested envelopes are
+    // only unwrapped when they contain no sibling payload fields.
+    if (depth > 0 && Object.keys(record).length !== 1) return current;
     current = record.data;
   }
   return current;
