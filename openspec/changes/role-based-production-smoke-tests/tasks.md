@@ -137,6 +137,15 @@
 - [ ] 15.6 Trigger one approved production smoke only after staging PASS and isolated-tenant readiness.
 - [ ] 15.7 Resolve all verification findings, rerun affected gates, inspect the final diff/status, and record remaining operational risks.
 
+## Current remediation priority
+
+- [ ] **P0:** Verify the staging fixture/report response contract and seeded balance, fraud, and outbox state before interpreting downstream failures.
+- [ ] **P0:** Resolve balance drift and outbox residue through canonical, auditable setup or reversal flows.
+- [ ] **P1:** Trace Offline Earn from IndexedDB persistence through Sync Queue rendering, batch submission, and backend response mapping.
+- [ ] **P1:** Stabilize cross-role financial prerequisites and verify each earn/approval/redeem transition through the API.
+- [ ] **P2:** Review remaining role-page selectors and content assertions only after confirming route behavior.
+- [ ] **P0 release gate:** Redeploy the frozen candidate, rerun complete staging smoke, verify evidence, and keep production blocked until PASS.
+
 ## Review Gates
 
 - **Gate A — framework safety:** Tasks 1–4 complete; reviewers confirm strict config, versioned fixture manifest, secret handling, fail-closed fixtures, durable artifact persistence, persistent safety lock, mandatory fraud fixture, and canonical reconciliation before financial scenarios are added.
