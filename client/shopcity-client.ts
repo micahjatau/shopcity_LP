@@ -11,6 +11,23 @@ export interface LoginDto {
   password: string;
 }
 
+export type SmokeSessionBootstrapDtoRole =
+  (typeof SmokeSessionBootstrapDtoRole)[keyof typeof SmokeSessionBootstrapDtoRole];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const SmokeSessionBootstrapDtoRole = {
+  CASHIER: 'CASHIER',
+  SUPERVISOR: 'SUPERVISOR',
+  ADMIN: 'ADMIN',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export interface SmokeSessionBootstrapDto {
+  tenantId: string;
+  role: SmokeSessionBootstrapDtoRole;
+  username: string;
+}
+
 export type CreateUserDtoRole =
   (typeof CreateUserDtoRole)[keyof typeof CreateUserDtoRole];
 
@@ -1194,6 +1211,264 @@ export type AuthControllerLoginV1503 = {
   success: boolean;
   error: AuthControllerLoginV1503Error;
   meta: AuthControllerLoginV1503Meta;
+};
+
+export type AuthControllerSmokeSessionV1200DataUserRole =
+  (typeof AuthControllerSmokeSessionV1200DataUserRole)[keyof typeof AuthControllerSmokeSessionV1200DataUserRole];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const AuthControllerSmokeSessionV1200DataUserRole = {
+  CASHIER: 'CASHIER',
+  SUPERVISOR: 'SUPERVISOR',
+  ADMIN: 'ADMIN',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export type AuthControllerSmokeSessionV1200DataUser = {
+  id: string;
+  username: string;
+  role: AuthControllerSmokeSessionV1200DataUserRole;
+  /** @nullable */
+  branchId: string | null;
+};
+
+export type AuthControllerSmokeSessionV1200DataSession = {
+  expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
+};
+
+export type AuthControllerSmokeSessionV1200Data = {
+  user: AuthControllerSmokeSessionV1200DataUser;
+  session: AuthControllerSmokeSessionV1200DataSession;
+};
+
+export type AuthControllerSmokeSessionV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1200 = {
+  success: boolean;
+  data: AuthControllerSmokeSessionV1200Data;
+  meta: AuthControllerSmokeSessionV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1400ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1400 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1400Error;
+  meta: AuthControllerSmokeSessionV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1401ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1401 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1401Error;
+  meta: AuthControllerSmokeSessionV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1403ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1403 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1403Error;
+  meta: AuthControllerSmokeSessionV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1404ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1404 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1404Error;
+  meta: AuthControllerSmokeSessionV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1409ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1409 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1409Error;
+  meta: AuthControllerSmokeSessionV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1422ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1422 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1422Error;
+  meta: AuthControllerSmokeSessionV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1429ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1429 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1429Error;
+  meta: AuthControllerSmokeSessionV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerSmokeSessionV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerSmokeSessionV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerSmokeSessionV1503ErrorDetails;
+};
+
+export type AuthControllerSmokeSessionV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerSmokeSessionV1503 = {
+  success: boolean;
+  error: AuthControllerSmokeSessionV1503Error;
+  meta: AuthControllerSmokeSessionV1503Meta;
 };
 
 export type AuthControllerRefreshV1200DataUserRole =
@@ -14610,6 +14885,103 @@ export const authControllerLoginV1 = async (
     status: res.status,
     headers: res.headers,
   } as authControllerLoginV1Response;
+};
+
+/**
+ * Create a secret-gated smoke test session
+ * @summary Create a secret-gated smoke test session
+ */
+export type authControllerSmokeSessionV1Response200 = {
+  data: AuthControllerSmokeSessionV1200;
+  status: 200;
+};
+
+export type authControllerSmokeSessionV1Response400 = {
+  data: AuthControllerSmokeSessionV1400;
+  status: 400;
+};
+
+export type authControllerSmokeSessionV1Response401 = {
+  data: AuthControllerSmokeSessionV1401;
+  status: 401;
+};
+
+export type authControllerSmokeSessionV1Response403 = {
+  data: AuthControllerSmokeSessionV1403;
+  status: 403;
+};
+
+export type authControllerSmokeSessionV1Response404 = {
+  data: AuthControllerSmokeSessionV1404;
+  status: 404;
+};
+
+export type authControllerSmokeSessionV1Response409 = {
+  data: AuthControllerSmokeSessionV1409;
+  status: 409;
+};
+
+export type authControllerSmokeSessionV1Response422 = {
+  data: AuthControllerSmokeSessionV1422;
+  status: 422;
+};
+
+export type authControllerSmokeSessionV1Response429 = {
+  data: AuthControllerSmokeSessionV1429;
+  status: 429;
+};
+
+export type authControllerSmokeSessionV1Response503 = {
+  data: AuthControllerSmokeSessionV1503;
+  status: 503;
+};
+
+export type authControllerSmokeSessionV1ResponseSuccess =
+  authControllerSmokeSessionV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerSmokeSessionV1ResponseError = (
+  | authControllerSmokeSessionV1Response400
+  | authControllerSmokeSessionV1Response401
+  | authControllerSmokeSessionV1Response403
+  | authControllerSmokeSessionV1Response404
+  | authControllerSmokeSessionV1Response409
+  | authControllerSmokeSessionV1Response422
+  | authControllerSmokeSessionV1Response429
+  | authControllerSmokeSessionV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerSmokeSessionV1Response =
+  | authControllerSmokeSessionV1ResponseSuccess
+  | authControllerSmokeSessionV1ResponseError;
+
+export const getAuthControllerSmokeSessionV1Url = () => {
+  return `/api/v1/auth/smoke-session`;
+};
+
+export const authControllerSmokeSessionV1 = async (
+  smokeSessionBootstrapDto: SmokeSessionBootstrapDto,
+  options?: RequestInit,
+): Promise<authControllerSmokeSessionV1Response> => {
+  const res = await fetch(getAuthControllerSmokeSessionV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(smokeSessionBootstrapDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerSmokeSessionV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerSmokeSessionV1Response;
 };
 
 /**
