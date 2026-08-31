@@ -4,6 +4,16 @@ import { createRoleApiSession } from '../support/api-client';
 import { loginRoleInUi } from '../support/auth';
 import { loadSmokeRun } from '../support/smoke-run';
 import { recordWorkflowEvidence } from '../support/evidence';
+import { registerFinancialArtifact } from '../support/reconciliation';
+
+function transactionId(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as Record<string, unknown>;
+  for (const key of ['transactionId', 'id', 'receiptId']) {
+    if (typeof record[key] === 'string') return record[key];
+  }
+  return record.data ? transactionId(record.data) : null;
+}
 
 test('Cashier Earn requiring approval is visible to Supervisor', async ({
   browser,
@@ -45,6 +55,18 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       state?: string;
     };
     expect((earnPayload.data ?? earnPayload).state).toBe('PENDING_APPROVAL');
+    const earnId = transactionId(earnPayload);
+    if (!earnId) {
+      throw new Error(
+        'Smoke approval Earn response did not contain a transaction ID',
+      );
+    }
+    await registerFinancialArtifact(run, {
+      kind: 'EARN',
+      referenceId: earnId,
+      reversalRequired: true,
+      reversalPath: `/api/v1/transactions/${earnId}/reverse`,
+    });
     const beforeApproval = await supervisorApi.get<{
       balanceKobo?: number;
       availableBalanceKobo?: number;
