@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Cookie, Page } from '@playwright/test';
 import type { SmokeConfig } from '../config';
-import type { SmokeRole } from './api-client';
+import { createRoleApiSession, type SmokeRole } from './api-client';
 import { loadSmokeRun } from './smoke-run';
 
 const roleRoutes: Record<SmokeRole, string> = {
@@ -21,6 +21,19 @@ export async function loginRoleInUi(
     if (new URL(page.url()).pathname === roleRoutes[role]) return;
     // A persisted smoke session may have expired during a long serial run.
     // Fall through to the normal UI login instead of hiding the redirect.
+  }
+
+  // Re-issue a short-lived smoke session when the persisted state has
+  // expired. This keeps workflow tests off the password-login throttle while
+  // still leaving normal login semantics covered by dedicated auth tests.
+  const smokeSession = await createRoleApiSession(role, config);
+  try {
+    const state = await smokeSession.context.storageState();
+    await page.context().addCookies(state.cookies);
+    await page.goto(roleRoutes[role]);
+    if (new URL(page.url()).pathname === roleRoutes[role]) return;
+  } finally {
+    await smokeSession.dispose();
   }
 
   await page.goto('/login');
