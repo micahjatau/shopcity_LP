@@ -216,8 +216,11 @@ export async function captureBaseline(
     `/api/v1/cards/lookup/${config.activeCardSerial}`,
   );
   const devices = asArray(await adminApi.get('/api/v1/devices'));
-  const pilotSummary = asRecord(
+  const pilotSummaryResponse = asRecord(
     await adminApi.get('/api/v1/reports/pilot-operations-summary'),
+  );
+  const pilotSummary = asRecord(
+    pilotSummaryResponse.data ?? pilotSummaryResponse,
   );
   const device = devices.find(
     (item) => stringField(item, 'id') === config.deviceId,

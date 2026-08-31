@@ -18,7 +18,9 @@ export async function loginRoleInUi(
 ): Promise<void> {
   if (await restoreRoleSession(page, role, config)) {
     await page.goto(roleRoutes[role]);
-    return;
+    if (new URL(page.url()).pathname === roleRoutes[role]) return;
+    // A persisted smoke session may have expired during a long serial run.
+    // Fall through to the normal UI login instead of hiding the redirect.
   }
 
   await page.goto('/login');

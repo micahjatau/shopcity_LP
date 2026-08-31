@@ -53,7 +53,10 @@ export function createApiInvariantReader(
   const cardPath = `/api/v1/cards/lookup/${config.activeCardSerial}`;
 
   async function pilotSummary(): Promise<Record<string, unknown>> {
-    return record(await api.get('/api/v1/reports/pilot-operations-summary'));
+    const response = record(
+      await api.get('/api/v1/reports/pilot-operations-summary'),
+    );
+    return record(response.data ?? response);
   }
 
   return {
