@@ -192,9 +192,9 @@ test.describe.serial('Cashier smoke workflows', () => {
       await page
         .getByLabel('POS receipt number')
         .fill(`${run.smokeRunId}-REDEEM-01`);
-      await page.getByLabel('Basket amount').fill('100');
+      await page.getByLabel('Basket amount').fill('2000');
       await page.getByLabel('Basket amount').blur();
-      await page.getByLabel('Requested redemption').fill('1');
+      await page.getByLabel('Requested redemption').fill('500');
       await page.getByLabel('Requested redemption').blur();
       const redeemResponse = page.waitForResponse(
         (response) =>
