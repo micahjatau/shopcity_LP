@@ -12,7 +12,7 @@ test('Supervisor can open the transaction surface for reversal', async ({
   await loginRoleInUi(page, 'supervisor', config);
   await page.goto('/supervisor/transactions');
   await expect(
-    page.getByRole('heading', { name: /transaction/i }),
+    page.getByRole('heading', { name: 'Transaction review' }),
   ).toBeVisible();
   await recordWorkflowEvidence(run, {
     group: 'cross-role',

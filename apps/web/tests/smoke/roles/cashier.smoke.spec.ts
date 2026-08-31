@@ -42,9 +42,9 @@ test.describe.serial('Cashier smoke workflows', () => {
         .getByLabel('Scan card or enter card number')
         .fill(config.activeCardSerial);
       await page.getByRole('button', { name: /^look up$/i }).click();
-      await expect(page.getByRole('status')).toContainText(
-        /customer verified/i,
-      );
+      await expect(
+        page.getByRole('status').filter({ hasText: /customer verified/i }),
+      ).toBeVisible();
       await expect(page.getByLabel('Verified customer')).toContainText(
         /eligible/i,
       );

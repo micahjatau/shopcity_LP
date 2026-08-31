@@ -12,11 +12,11 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
   const run = loadSmokeRun();
   const api = await createRoleApiSession('supervisor', config, run.smokeRunId);
   try {
-    const session = await api.get<{ role?: string; tenantId?: string }>(
-      '/api/v1/auth/me',
-    );
-    expect(session.role).toMatch(/SUPERVISOR/i);
-    expect(session.tenantId).toBe(config.tenantId);
+    const session = await api.get<{
+      user?: { role?: string; tenantId?: string };
+    }>('/api/v1/auth/me');
+    expect(session.user?.role).toMatch(/SUPERVISOR/i);
+    expect(session.user?.tenantId).toBe(config.tenantId);
 
     await loginRoleInUi(page, 'supervisor', config);
     await page.goto(

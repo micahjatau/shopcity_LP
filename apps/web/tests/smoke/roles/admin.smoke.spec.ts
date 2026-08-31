@@ -14,11 +14,11 @@ test('Admin can access the smoke tenant operational control plane', async ({
   const run = loadSmokeRun();
   const api = await createRoleApiSession('admin', config, run.smokeRunId);
   try {
-    const session = await api.get<{ role?: string; tenantId?: string }>(
-      '/api/v1/auth/me',
-    );
-    expect(session.role).toMatch(/ADMIN/i);
-    expect(session.tenantId).toBe(config.tenantId);
+    const session = await api.get<{
+      user?: { role?: string; tenantId?: string };
+    }>('/api/v1/auth/me');
+    expect(session.user?.role).toMatch(/ADMIN/i);
+    expect(session.user?.tenantId).toBe(config.tenantId);
 
     await loginRoleInUi(page, 'admin', config);
     await page.goto('/admin/devices');
@@ -117,7 +117,7 @@ test('Admin can create and register a reversible integer-kobo adjustment', async
     await page.goto('/admin/adjustments');
     await page.getByLabel('Customer ID').fill(config.activeCustomerId);
     await expect(
-      page.getByText(/current balance|consequence preview/i),
+      page.getByText(/current balance|consequence preview/i).first(),
     ).toBeVisible();
     await page.getByLabel('Amount').fill('1');
     await page

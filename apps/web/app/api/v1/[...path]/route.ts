@@ -135,6 +135,10 @@ async function proxyRequest(request: NextRequest) {
     }
   }
 
+  // API resources include mutable tenant state; prevent Vercel rewrite caching
+  // from serving stale customer, balance, or transaction data after a mutation.
+  responseHeaders.set('cache-control', 'no-store, no-cache, max-age=0');
+
   return new Response(new Uint8Array(response.body), {
     status: response.status,
     headers: responseHeaders,
