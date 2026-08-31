@@ -167,7 +167,9 @@ test('Admin can create and register a reversible integer-kobo adjustment', async
       ),
     ).toBe(true);
     await page.goto('/admin/audit');
-    await expect(page.getByRole('heading', { name: /audit/i }).first()).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /audit/i }).first(),
+    ).toBeVisible();
     const report = await measureWorkflow('admin report load', async () => {
       await page.goto('/admin/reports');
       await expect(
