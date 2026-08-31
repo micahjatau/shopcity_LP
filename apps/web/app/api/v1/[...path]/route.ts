@@ -24,6 +24,7 @@ const FORWARDED_HEADERS = new Set([
   'x-csrf-token',
   'x-device-attestation',
   'x-device-id',
+  'x-smoke-session-bootstrap-secret',
 ]);
 
 export const runtime = 'nodejs';
