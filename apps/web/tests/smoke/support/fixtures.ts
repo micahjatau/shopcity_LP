@@ -235,6 +235,17 @@ export async function captureBaseline(
   );
   if (!device)
     throw new Error('Smoke device fixture not found during baseline capture');
+  const openFraudFlags = pilotSummary.fraud;
+  const outboxBacklog = pilotSummary.outbox;
+  if (
+    config.frontendUrl &&
+    (typeof asRecord(openFraudFlags).openCount !== 'number' ||
+      typeof asRecord(outboxBacklog).backlogCount !== 'number')
+  ) {
+    throw new Error(
+      'Smoke fixture report summary is missing baseline counters',
+    );
+  }
 
   return {
     customer: {
@@ -267,12 +278,12 @@ export async function captureBaseline(
       'balance',
     ),
     openFraudFlags:
-      typeof asRecord(pilotSummary.fraud).openCount === 'number'
-        ? (asRecord(pilotSummary.fraud).openCount as number)
+      typeof asRecord(openFraudFlags).openCount === 'number'
+        ? (asRecord(openFraudFlags).openCount as number)
         : undefined,
     outboxBacklog:
-      typeof asRecord(pilotSummary.outbox).backlogCount === 'number'
-        ? (asRecord(pilotSummary.outbox).backlogCount as number)
+      typeof asRecord(outboxBacklog).backlogCount === 'number'
+        ? (asRecord(outboxBacklog).backlogCount as number)
         : undefined,
   };
 }
