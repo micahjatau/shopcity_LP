@@ -72,7 +72,9 @@ test('Admin can reversibly activate and deactivate the smoke device', async ({
     await page.goto('/admin/devices');
     await expect(page.getByRole('heading', { name: /devices/i })).toBeVisible();
     await page
-      .getByRole('button', { name: new RegExp(config.deviceId) })
+      .getByRole('button', {
+        name: new RegExp(`Select device ${config.deviceId}`),
+      })
       .click();
     await page.getByLabel('Device status').selectOption('INACTIVE');
     await page.getByLabel('Update confirmation').fill('UPDATE');

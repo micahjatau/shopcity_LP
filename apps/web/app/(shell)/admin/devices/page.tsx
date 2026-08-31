@@ -471,6 +471,7 @@ export default function AdminDevicesPage() {
                   <td>
                     <button
                       type="button"
+                      aria-label={`Select device ${item.id ?? item.name ?? ''}`}
                       onClick={() => setSelectedId(item.id ?? null)}
                       style={rowButton}
                     >
