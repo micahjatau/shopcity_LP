@@ -77,22 +77,35 @@ async function withStore<T>(
   return new Promise<T>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, mode);
     const store = tx.objectStore(STORE_NAME);
+    let value!: T;
 
-    Promise.resolve(action(store))
-      .then((value) => {
-        tx.oncomplete = () => {
+    // Register transaction handlers before issuing any request. In particular,
+    // a fast `put` can complete before a later microtask installs handlers.
+    tx.oncomplete = () => {
+      db.close();
+      resolve(value);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error ?? new Error('IndexedDB transaction failed'));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error ?? new Error('IndexedDB transaction aborted'));
+    };
+
+    void (async () => {
+      try {
+        value = (await action(store)) as unknown as T;
+      } catch (error) {
+        try {
+          tx.abort();
+        } catch {
           db.close();
-          resolve(value as T);
-        };
-        tx.onerror = () => {
-          db.close();
-          reject(tx.error ?? new Error('IndexedDB transaction failed'));
-        };
-      })
-      .catch((error) => {
-        db.close();
-        reject(error);
-      });
+          reject(error);
+        }
+      }
+    })();
   });
 }
 
