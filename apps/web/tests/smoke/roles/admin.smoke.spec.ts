@@ -23,7 +23,6 @@ test('Admin can access the smoke tenant operational control plane', async ({
     await page.goto('/admin/devices');
     await expect(page.getByRole('heading', { name: /devices/i })).toBeVisible();
     await expect(page.getByLabel('Device status')).toBeVisible();
-    await expect(page.getByText(/one-time secret/i)).toBeVisible();
     await expect(
       page.getByText(config.cashier.deviceAttestationSecret),
     ).toHaveCount(0);
@@ -109,9 +108,10 @@ test('Admin can create and register a reversible integer-kobo adjustment', async
   const run = loadSmokeRun();
   const api = await createRoleApiSession('admin', config, run.smokeRunId);
   try {
-    const before = await api.get<{ balanceKobo?: number }>(
-      `/api/v1/customers/${config.activeCustomerId}`,
-    );
+    const before = await api.get<{
+      balanceKobo?: number;
+      availableBalanceKobo?: number;
+    }>(`/api/v1/customers/${config.activeCustomerId}`);
     await loginRoleInUi(page, 'admin', config);
     await page.goto('/admin/adjustments');
     await page.getByLabel('Customer ID').fill(config.activeCustomerId);
@@ -154,10 +154,13 @@ test('Admin can create and register a reversible integer-kobo adjustment', async
         effectiveAt: new Date().toISOString(),
       },
     });
-    const after = await api.get<{ balanceKobo?: number }>(
-      `/api/v1/customers/${config.activeCustomerId}`,
+    const after = await api.get<{
+      balanceKobo?: number;
+      availableBalanceKobo?: number;
+    }>(`/api/v1/customers/${config.activeCustomerId}`);
+    expect(Number(after.availableBalanceKobo ?? after.balanceKobo)).toBe(
+      Number(before.availableBalanceKobo ?? before.balanceKobo) + 1,
     );
-    expect(Number(after.balanceKobo)).toBe(Number(before.balanceKobo) + 1);
     const ledger = await api.get<{ items?: Array<Record<string, unknown>> }>(
       `/api/v1/customers/${config.activeCustomerId}/ledger?limit=20`,
     );

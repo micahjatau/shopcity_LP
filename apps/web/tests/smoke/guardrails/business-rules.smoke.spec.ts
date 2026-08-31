@@ -66,11 +66,17 @@ test('Duplicate receipts are rejected without a second financial mutation', asyn
     await expect(
       page.getByText('Earn confirmed by backend contract.', { exact: true }),
     ).toBeVisible();
-    const payload = (await (await firstResponse).json()) as {
-      transactionId?: string;
-      id?: string;
-    };
-    const transactionId = payload.transactionId ?? payload.id;
+    const payload = (await (await firstResponse).json()) as Record<
+      string,
+      unknown
+    >;
+    const responseData =
+      payload.data && typeof payload.data === 'object'
+        ? (payload.data as Record<string, unknown>)
+        : payload;
+    const transactionId = (responseData.transactionId ??
+      responseData.id ??
+      responseData.receiptId) as string | undefined;
     if (!transactionId)
       throw new Error(
         'Duplicate guardrail setup did not return a transaction ID',

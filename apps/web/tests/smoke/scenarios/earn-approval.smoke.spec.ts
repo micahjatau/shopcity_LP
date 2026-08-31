@@ -17,9 +17,10 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     config,
     run.smokeRunId,
   );
-  const before = await supervisorApi.get<{ balanceKobo?: number }>(
-    `/api/v1/customers/${config.activeCustomerId}`,
-  );
+  const before = await supervisorApi.get<{
+    balanceKobo?: number;
+    availableBalanceKobo?: number;
+  }>(`/api/v1/customers/${config.activeCustomerId}`);
   const receipt = `${run.smokeRunId}-APPROVAL-01`;
   const approvalAmount =
     Number(process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO ?? 20_000_000) + 1;
@@ -46,10 +47,13 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       state?: string;
     };
     expect((earnPayload.data ?? earnPayload).state).toBe('PENDING_APPROVAL');
-    const beforeApproval = await supervisorApi.get<{ balanceKobo?: number }>(
-      `/api/v1/customers/${config.activeCustomerId}`,
-    );
-    expect(beforeApproval.balanceKobo).toBe(before.balanceKobo);
+    const beforeApproval = await supervisorApi.get<{
+      balanceKobo?: number;
+      availableBalanceKobo?: number;
+    }>(`/api/v1/customers/${config.activeCustomerId}`);
+    expect(
+      beforeApproval.availableBalanceKobo ?? beforeApproval.balanceKobo,
+    ).toBe(before.availableBalanceKobo ?? before.balanceKobo);
     const approvals = await supervisorApi.get<{ items?: unknown[] }>(
       '/api/v1/approvals?limit=100',
     );
@@ -77,11 +81,16 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
         .getByRole('button', { name: /submit decision/i })
         .click();
       await expect(supervisor.getByText(/decision sent/i)).toBeVisible();
-      const afterApproval = await supervisorApi.get<{ balanceKobo?: number }>(
-        `/api/v1/customers/${config.activeCustomerId}`,
-      );
-      expect(Number(afterApproval.balanceKobo)).toBeGreaterThan(
-        Number(beforeApproval.balanceKobo),
+      const afterApproval = await supervisorApi.get<{
+        balanceKobo?: number;
+        availableBalanceKobo?: number;
+      }>(`/api/v1/customers/${config.activeCustomerId}`);
+      expect(
+        Number(afterApproval.availableBalanceKobo ?? afterApproval.balanceKobo),
+      ).toBeGreaterThan(
+        Number(
+          beforeApproval.availableBalanceKobo ?? beforeApproval.balanceKobo,
+        ),
       );
     }
     await recordWorkflowEvidence(run, {

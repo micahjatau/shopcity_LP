@@ -110,7 +110,9 @@ test.describe.serial('Cashier smoke workflows', () => {
       const before = await adminApi.get<Record<string, unknown>>(
         `/api/v1/customers/${config.activeCustomerId}`,
       );
-      const beforeBalance = Number(before.balanceKobo);
+      const beforeBalance = Number(
+        before.availableBalanceKobo ?? before.balanceKobo,
+      );
       await loginRoleInUi(page, 'cashier', config);
       await page.goto(
         `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
@@ -159,7 +161,9 @@ test.describe.serial('Cashier smoke workflows', () => {
       const after = await adminApi.get<Record<string, unknown>>(
         `/api/v1/customers/${config.activeCustomerId}`,
       );
-      expect(Number(after.balanceKobo)).toBeGreaterThanOrEqual(beforeBalance);
+      expect(
+        Number(after.availableBalanceKobo ?? after.balanceKobo),
+      ).toBeGreaterThanOrEqual(beforeBalance);
       const ledger = await adminApi.get<{
         items?: Array<Record<string, unknown>>;
       }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=20`);
