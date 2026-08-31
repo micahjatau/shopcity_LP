@@ -61,6 +61,16 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function unwrapRecords(value: unknown): Record<string, unknown> {
+  let current = asRecord(value);
+  for (let depth = 0; depth < 2; depth += 1) {
+    const nested = current.data;
+    if (!nested || typeof nested !== 'object' || Array.isArray(nested)) break;
+    current = nested as Record<string, unknown>;
+  }
+  return current;
+}
+
 function stringField(value: unknown, ...keys: string[]): string {
   const record = asRecord(value);
   for (const key of keys) {
@@ -219,9 +229,7 @@ export async function captureBaseline(
   const pilotSummaryResponse = asRecord(
     await adminApi.get('/api/v1/reports/pilot-operations-summary'),
   );
-  const pilotSummary = asRecord(
-    pilotSummaryResponse.data ?? pilotSummaryResponse,
-  );
+  const pilotSummary = unwrapRecords(pilotSummaryResponse);
   const device = devices.find(
     (item) => stringField(item, 'id') === config.deviceId,
   );
