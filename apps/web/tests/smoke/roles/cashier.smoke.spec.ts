@@ -115,7 +115,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       await page.goto(
         `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
       );
-      await expect(page.getByText(/lookup context applied/i)).toBeVisible();
+      await expect(page.getByText(/lookup resolved/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
         .fill(`${run.smokeRunId}-EARN-01`);
@@ -179,7 +179,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       await page.goto(
         `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
       );
-      await expect(page.getByText(/lookup context applied/i)).toBeVisible();
+      await expect(page.getByText(/lookup resolved/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
         .fill(`${run.smokeRunId}-REDEEM-01`);

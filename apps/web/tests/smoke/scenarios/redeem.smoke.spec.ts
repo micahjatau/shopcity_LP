@@ -11,7 +11,7 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   await page.goto(
     `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
   );
-  await expect(page.getByText(/lookup context applied/i)).toBeVisible();
+  await expect(page.getByText(/lookup resolved/i)).toBeVisible();
   await page
     .getByLabel('POS receipt number')
     .fill(`${run.smokeRunId}-CROSS-REDEEM-01`);

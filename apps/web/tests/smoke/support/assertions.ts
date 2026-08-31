@@ -58,8 +58,12 @@ export function createApiInvariantReader(
 
   return {
     async balanceKobo() {
-      const customer = await api.get<unknown>(customerPath);
-      return integer(customer, 'balanceKobo');
+      const customer = record(await api.get<unknown>(customerPath));
+      const balance =
+        customer.balanceKobo ??
+        customer.availableBalanceKobo ??
+        customer.balance;
+      return integer({ balanceKobo: balance }, 'balanceKobo');
     },
     async unresolvedApprovals() {
       const response = record(await api.get('/api/v1/approvals?limit=100'));

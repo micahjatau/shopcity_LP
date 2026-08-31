@@ -173,7 +173,7 @@ test('Admin can create and register a reversible integer-kobo adjustment', async
     const report = await measureWorkflow('admin report load', async () => {
       await page.goto('/admin/reports');
       await expect(
-        page.getByRole('heading', { name: /report/i }),
+        page.getByRole('heading', { name: 'Reports', exact: true }),
       ).toBeVisible();
     });
     await recordWorkflowEvidence(run, {

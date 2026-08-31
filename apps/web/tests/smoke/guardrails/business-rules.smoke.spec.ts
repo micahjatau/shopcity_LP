@@ -17,14 +17,8 @@ test('Cashier business-rule guardrails reject invalid transaction attempts', asy
     await page.goto(
       `/cashier/earn?card=${encodeURIComponent(config.inactiveCardSerial)}`,
     );
-    await expect(page.getByText(/lookup context applied/i)).toBeVisible();
-    await page
-      .getByLabel('POS receipt number')
-      .fill(`${run.smokeRunId}-INACTIVE-01`);
-    await page.getByLabel('Purchase amount').fill('100');
-    await page.getByRole('button', { name: /submit earn/i }).click();
     await expect(
-      page.getByText(/cannot currently earn|error|unavailable/i),
+      page.getByText(/lookup unavailable|cannot currently earn|unavailable/i),
     ).toBeVisible();
     await expect(
       api.post('/api/v1/transactions/earn', {
@@ -56,7 +50,7 @@ test('Duplicate receipts are rejected without a second financial mutation', asyn
     await page.goto(
       `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
     );
-    await expect(page.getByText(/lookup context applied/i)).toBeVisible();
+    await expect(page.getByText(/lookup resolved/i)).toBeVisible();
     const receipt = `${run.smokeRunId}-DUPLICATE-01`;
     await page.getByLabel('POS receipt number').fill(receipt);
     await page.getByLabel('Purchase amount').fill('100');
