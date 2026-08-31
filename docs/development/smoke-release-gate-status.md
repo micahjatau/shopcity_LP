@@ -26,6 +26,29 @@ These files were not reformatted because the smoke implementation must preserve 
 
 GitNexus incremental analysis currently reports a corrupted existing FTS index (`file_fts`). A maintainer must rebuild the local index before relying on a complete final blast-radius report. `detect_changes` currently reports no mapped changes.
 
+## Current staging failure snapshot
+
+Latest completed staging run: [33439382153](https://github.com/micahjatau/shopcity_LP/actions/runs/33439382153), candidate `a9a063a5fca7b25f87d6a94d04b9516d3ef82e90`.
+
+The run failed with eight tests and the following observed symptoms:
+
+- Reconciliation failed for `balance` and `outbox backlog`.
+- Smoke fixture baseline capture could not find `fraud.openCount` / `outbox.backlogCount` in the returned report summary.
+- Offline Earn observed zero queued/processed records where a record was expected.
+- Earn/approval and redeem workflows still had failed content assertions and click timeouts.
+- Some role-page visibility assertions still found no matching UI element.
+
+These failures are not yet classified as test-only: fixture response shape and seeded state require API verification, while offline queue behavior and workflow failures require product-path investigation before changing assertions.
+
+## Remediation priority
+
+1. **P0 — Establish trustworthy diagnostics:** verify the staging fixture/report response shape, seeded customer/card balance, fraud state, and outbox baseline through the API. Fix the backend contract or fixture parser as appropriate.
+2. **P0 — Verify financial invariants:** resolve balance drift and outbox residue using canonical setup/reversal flows; do not weaken reconciliation or delete immutable history.
+3. **P1 — Trace Offline Earn end to end:** confirm IndexedDB persistence while offline, queue rendering, batch submission, and server response mapping. Fix application behavior if the record is genuinely lost.
+4. **P1 — Stabilize prerequisite sequencing:** run targeted earn/approval/redeem tests with explicit prerequisite IDs and verify each state transition through the API.
+5. **P2 — Review remaining UI failures:** only update selectors or expected copy after confirming the corresponding role route and product behavior are correct.
+6. **P0 release gate — Redeploy and rerun staging:** update exact SHA provenance variables, run the complete suite, review evidence, and keep production certification blocked until staging is fully green.
+
 ## Operational gates still required
 
 - Provision and validate the deterministic staging/production smoke tenant, fraud flag, device, users, cards, and spare cards.
