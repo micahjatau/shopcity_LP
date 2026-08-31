@@ -26,14 +26,16 @@ export async function loginRoleInUi(
   // Re-issue a short-lived smoke session when the persisted state has
   // expired. This keeps workflow tests off the password-login throttle while
   // still leaving normal login semantics covered by dedicated auth tests.
-  const smokeSession = await createRoleApiSession(role, config);
-  try {
-    const state = await smokeSession.context.storageState();
-    await page.context().addCookies(state.cookies);
-    await page.goto(roleRoutes[role]);
-    if (new URL(page.url()).pathname === roleRoutes[role]) return;
-  } finally {
-    await smokeSession.dispose();
+  if (config.frontendUrl) {
+    const smokeSession = await createRoleApiSession(role, config);
+    try {
+      const state = await smokeSession.context.storageState();
+      await page.context().addCookies(state.cookies);
+      await page.goto(roleRoutes[role]);
+      if (new URL(page.url()).pathname === roleRoutes[role]) return;
+    } finally {
+      await smokeSession.dispose();
+    }
   }
 
   await page.goto('/login');
