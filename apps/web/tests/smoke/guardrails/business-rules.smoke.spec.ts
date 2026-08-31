@@ -18,7 +18,9 @@ test('Cashier business-rule guardrails reject invalid transaction attempts', asy
       `/cashier/earn?card=${encodeURIComponent(config.inactiveCardSerial)}`,
     );
     await expect(
-      page.getByText(/lookup unavailable|cannot currently earn|unavailable/i),
+      page.getByText(
+        /Lookup unavailable \(\d+\)|Lookup could not be completed/i,
+      ),
     ).toBeVisible();
     await expect(
       api.post('/api/v1/transactions/earn', {

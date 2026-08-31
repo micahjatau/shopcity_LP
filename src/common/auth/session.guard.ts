@@ -99,6 +99,13 @@ export async function loadAuthContext(
     return null;
   }
 
+  // Device-bound users may not have a persisted branch assignment. In that
+  // case, the active device is the authoritative branch context for this
+  // session and must be exposed to branch-scoped configuration and workflows.
+  if (!session.user.branchId && session.device?.branchId) {
+    session.user.branchId = session.device.branchId;
+  }
+
   return { session, user: session.user };
 }
 

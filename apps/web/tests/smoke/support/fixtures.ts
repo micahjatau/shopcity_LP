@@ -17,6 +17,8 @@ export interface SmokeBaseline {
   };
   device: { id: string; status: string; branchId: string };
   balanceKobo: number;
+  openFraudFlags?: number;
+  outboxBacklog?: number;
 }
 
 interface Identity {
@@ -214,6 +216,9 @@ export async function captureBaseline(
     `/api/v1/cards/lookup/${config.activeCardSerial}`,
   );
   const devices = asArray(await adminApi.get('/api/v1/devices'));
+  const pilotSummary = asRecord(
+    await adminApi.get('/api/v1/reports/pilot-operations-summary'),
+  );
   const device = devices.find(
     (item) => stringField(item, 'id') === config.deviceId,
   );
@@ -250,6 +255,8 @@ export async function captureBaseline(
       'availableBalanceKobo',
       'balance',
     ),
+    openFraudFlags: numberField(asRecord(pilotSummary.fraud), 'openCount'),
+    outboxBacklog: numberField(asRecord(pilotSummary.outbox), 'backlogCount'),
   };
 }
 

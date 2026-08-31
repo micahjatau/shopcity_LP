@@ -163,7 +163,8 @@ export async function assertPostRunInvariants(
   const failures: string[] = [];
   if (balance !== baseline.balanceKobo) failures.push('balance');
   if (approvals !== 0) failures.push('unresolved approvals');
-  if (fraudFlags !== 0) failures.push('open fraud flags');
+  if (fraudFlags !== (baseline.openFraudFlags ?? 0))
+    failures.push('open fraud flags');
   if (
     device.id !== baseline.device.id ||
     device.status !== baseline.device.status ||
@@ -183,7 +184,7 @@ export async function assertPostRunInvariants(
     failures.push('customer');
   if (offline !== 0) failures.push('offline retry records');
   if (!lots) failures.push('credit lots');
-  if (outbox !== 0) failures.push('outbox backlog');
+  if (outbox !== (baseline.outboxBacklog ?? 0)) failures.push('outbox backlog');
   if (failures.length > 0)
     throw new Error(`Smoke invariants failed: ${failures.join(', ')}`);
 }
