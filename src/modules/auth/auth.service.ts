@@ -157,7 +157,7 @@ export class AuthService {
   async bootstrapSmokeSession(
     bootstrapSecret: string | undefined,
     role: UserRole,
-    username: string,
+    userId: string,
     tenantId: string,
     deviceId?: string,
     deviceAttestation?: string,
@@ -167,10 +167,9 @@ export class AuthService {
       this.configService.get<string>('SMOKE_SESSION_BOOTSTRAP_SECRET'),
     );
 
-    const normalizedUsername = normalizeUsername(username);
     const user = await this.prismaService.user.findFirst({
       where: {
-        username: { equals: normalizedUsername, mode: 'insensitive' },
+        id: userId,
         role,
         tenantId,
       },

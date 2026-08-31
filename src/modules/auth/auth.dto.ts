@@ -18,13 +18,13 @@ export class SmokeSessionBootstrapDto {
   @IsUUID()
   tenantId!: string;
 
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  userId!: string;
+
   @ApiProperty({ enum: UserRole })
   @IsEnum(UserRole)
   role!: UserRole;
-
-  @ApiProperty({ example: 'admin@shopcity.local' })
-  @IsEmail()
-  username!: string;
 }
 
 export class AuthUserDto {

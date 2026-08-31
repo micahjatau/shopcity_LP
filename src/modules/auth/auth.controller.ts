@@ -130,7 +130,7 @@ export class AuthController {
     const issued = await this.authService.bootstrapSmokeSession(
       bootstrapSecret,
       dto.role,
-      dto.username,
+      dto.userId,
       dto.tenantId,
       deviceId,
       deviceAttestation,

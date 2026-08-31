@@ -24,8 +24,8 @@ export const SmokeSessionBootstrapDtoRole = {
 
 export interface SmokeSessionBootstrapDto {
   tenantId: string;
+  userId: string;
   role: SmokeSessionBootstrapDtoRole;
-  username: string;
 }
 
 export type CreateUserDtoRole =

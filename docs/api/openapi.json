@@ -33747,16 +33747,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "role": {
             "type": "string",
             "enum": ["CASHIER", "SUPERVISOR", "ADMIN", "SYSTEM"]
-          },
-          "username": {
-            "type": "string",
-            "example": "admin@shopcity.local"
           }
         },
-        "required": ["tenantId", "role", "username"]
+        "required": ["tenantId", "userId", "role"]
       },
       "CreateUserDto": {
         "type": "object",

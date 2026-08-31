@@ -6,6 +6,7 @@ import { loginRoleInUi, logoutRoleInUi } from './support/auth';
 const config = {
   sessionBootstrapSecret: 'bootstrap-secret',
   cashier: {
+    userId: 'cashier-user-id',
     username: 'smoke.cashier',
     password: 'password',
     deviceId: 'device-smoke',

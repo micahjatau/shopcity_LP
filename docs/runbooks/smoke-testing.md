@@ -9,9 +9,9 @@ The role-based smoke suite certifies deployed Cashier, Supervisor, and Admin wor
 Create these resources in a dedicated smoke tenant and branch only:
 
 - [ ] Smoke tenant and branch
-- [ ] Smoke Admin account
-- [ ] Smoke Supervisor account
-- [ ] Smoke Cashier account
+- [ ] Smoke Admin account and `SMOKE_ADMIN_USER_ID`
+- [ ] Smoke Supervisor account and `SMOKE_SUPERVISOR_USER_ID`
+- [ ] Smoke Cashier account and `SMOKE_CASHIER_USER_ID`
 - [ ] Active smoke POS device, branch-bound and `ACTIVE`
 - [ ] Active baseline customer and card
 - [ ] Inactive customer and card
@@ -33,7 +33,7 @@ Staging smoke runs after the release-candidate CI/deployment workflow. A manual 
 SMOKE_ENVIRONMENT=staging npm run smoke:staging
 ```
 
-The smoke runner creates short-lived role sessions through the secret-gated `/api/v1/auth/smoke-session` endpoint to avoid consuming the production login throttle. The backend rejects bootstrap requests unless `SMOKE_SESSION_BOOTSTRAP_SECRET` is configured and matches the GitHub Environment secret. Cashier bootstrap still requires device attestation.
+The smoke runner creates short-lived role sessions through the secret-gated `/api/v1/auth/smoke-session` endpoint to avoid consuming the production login throttle. The backend rejects bootstrap requests unless `SMOKE_SESSION_BOOTSTRAP_SECRET` is configured and matches the GitHub Environment secret. Bootstrap uses deterministic role user IDs, not fuzzy username discovery. Cashier bootstrap still requires device attestation.
 
 The result is a PASS only when Cashier, Supervisor, Admin, cross-role, guardrails, and reconciliation groups all pass. Download the generated JUnit, HTML, screenshots, traces, and manifest evidence for release certification.
 

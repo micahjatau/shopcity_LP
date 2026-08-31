@@ -549,7 +549,7 @@ describe('AuthService', () => {
       service.bootstrapSmokeSession(
         'bootstrap-secret',
         UserRole.ADMIN,
-        'admin@shopcity.local',
+        'user-id',
         'tenant-id',
       ),
     ).resolves.toBeDefined();
@@ -562,7 +562,7 @@ describe('AuthService', () => {
       service.bootstrapSmokeSession(
         'wrong-secret',
         UserRole.ADMIN,
-        'admin@shopcity.local',
+        'user-id',
         'tenant-id',
       ),
     ).rejects.toThrow('Invalid smoke bootstrap credentials');
@@ -575,7 +575,7 @@ describe('AuthService', () => {
       service.bootstrapSmokeSession(
         'bootstrap-secret',
         UserRole.CASHIER,
-        'cashier@shopcity.local',
+        'user-id',
         'tenant-id',
         'device-id',
       ),

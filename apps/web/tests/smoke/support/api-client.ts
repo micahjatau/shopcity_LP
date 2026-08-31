@@ -160,7 +160,7 @@ export async function createRoleApiSession(
   const response = await context.post('/api/v1/auth/smoke-session', {
     data: {
       tenantId: config.tenantId,
-      username: credentials.username,
+      userId: credentials.userId,
       role: role.toUpperCase(),
     },
     headers,

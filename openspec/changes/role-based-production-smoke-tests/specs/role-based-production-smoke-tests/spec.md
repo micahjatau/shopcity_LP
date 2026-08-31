@@ -2,7 +2,7 @@
 
 ### Requirement: Smoke runs use strict, deterministic configuration
 
-The smoke subsystem SHALL accept only validated staging or production configuration with explicit frontend/backend URLs, candidate SHA, tenant/branch/device IDs, fixture identifiers, and separate role credentials. Production configuration SHALL fail closed when any required fixture is missing, mismatched, or unavailable and SHALL NOT create replacement fixtures or fuzzy-discover ordinary operational data.
+The smoke subsystem SHALL accept only validated staging or production configuration with explicit frontend/backend URLs, candidate SHA, tenant/branch/device IDs, role user IDs, fixture identifiers, and separate role credentials. Production configuration SHALL fail closed when any required fixture is missing, mismatched, or unavailable and SHALL NOT create replacement fixtures or fuzzy-discover ordinary operational data.
 
 #### Scenario: Missing production fixture configuration fails before tests
 
@@ -78,7 +78,7 @@ The smoke subsystem SHALL use Playwright to authenticate as the actual role for 
 - **GIVEN** the backend and smoke runner share the configured bootstrap secret
 - **WHEN** setup creates per-role smoke sessions
 - **THEN** sessions are issued through the secret-gated bootstrap endpoint rather than password login
-- **AND** configured tenant, role, user, device, and tenant eligibility are validated
+- **AND** configured tenant, deterministic role user ID, role, device, and tenant eligibility are validated
 - **AND** normal login throttling remains unchanged
 
 ### Requirement: Cashier smoke covers core workflows and guardrails
