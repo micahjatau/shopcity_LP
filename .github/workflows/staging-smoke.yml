@@ -23,7 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha || github.sha }}
+          # Checkout the dispatch ref; Verify candidate SHA below still pins the run to the requested commit.
+          # This avoids actions/checkout treating an unadvertised commit SHA as a branch name.
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.workflow_run.head_sha || inputs.candidate_sha || github.sha }}
       - name: Verify candidate SHA
         env:
           CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
