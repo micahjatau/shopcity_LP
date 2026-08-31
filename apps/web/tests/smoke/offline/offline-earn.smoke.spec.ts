@@ -61,6 +61,7 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
     .getByLabel('POS receipt number')
     .fill(`${run.smokeRunId}-OFFLINE-01`);
   await page.getByLabel('Purchase amount').fill('100');
+  await page.getByLabel('Purchase amount').blur();
   await page.getByRole('button', { name: /submit earn/i }).click();
   await expect(page.getByText(/saved locally|waiting|sync/i)).toBeVisible();
   await expect.poll(() => offlineEarnCount(page)).toBe(offlineCountBefore + 1);
@@ -78,7 +79,9 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
     .getByLabel('POS receipt number')
     .fill(`${run.smokeRunId}-OFFLINE-REDEEM-01`);
   await page.getByLabel('Basket amount').fill('100');
+  await page.getByLabel('Basket amount').blur();
   await page.getByLabel('Requested redemption').fill('1');
+  await page.getByLabel('Requested redemption').blur();
   const offlineCountBeforeRedeem = await offlineEarnCount(page);
   await page.getByRole('button', { name: /submit redemption/i }).click();
   await expect(

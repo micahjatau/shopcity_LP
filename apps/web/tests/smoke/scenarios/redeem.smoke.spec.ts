@@ -16,7 +16,9 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
     .getByLabel('POS receipt number')
     .fill(`${run.smokeRunId}-CROSS-REDEEM-01`);
   await page.getByLabel('Basket amount').fill('100');
+  await page.getByLabel('Basket amount').blur();
   await page.getByLabel('Requested redemption').fill('1');
+  await page.getByLabel('Requested redemption').blur();
   await page.getByRole('button', { name: /submit redemption/i }).click();
   await expect(page.getByText(/confirmed|awaiting approval/i)).toBeVisible();
   await recordWorkflowEvidence(run, {

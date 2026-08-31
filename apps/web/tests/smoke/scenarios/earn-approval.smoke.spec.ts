@@ -31,6 +31,9 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     await expect(cashier.getByText(/lookup resolved/i)).toBeVisible();
     await cashier.getByLabel('POS receipt number').fill(receipt);
     await cashier.getByLabel('Purchase amount').fill(String(approvalAmount));
+    await cashier.getByLabel('Purchase amount').blur();
+    await cashier.getByLabel('Purchase amount').blur();
+    await page.getByLabel('Purchase amount').blur();
     const earnResponse = cashier.waitForResponse(
       (response) =>
         response.url().includes('/api/v1/transactions/earn') &&
