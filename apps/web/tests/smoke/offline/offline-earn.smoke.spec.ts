@@ -63,7 +63,11 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
   await page.getByLabel('Purchase amount').fill('100');
   await page.getByLabel('Purchase amount').blur();
   await page.getByRole('button', { name: /submit earn/i }).click();
-  await expect(page.getByText(/saved locally|waiting|sync/i)).toBeVisible();
+  await expect(
+    page.getByText('Earn could not be submitted. Saved locally for sync.', {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect.poll(() => offlineEarnCount(page)).toBe(offlineCountBefore + 1);
   await page.unroute('**/api/v1/transactions/earn');
   await page.goto('/cashier/sync');

@@ -20,7 +20,13 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   await page.getByLabel('Requested redemption').fill('1');
   await page.getByLabel('Requested redemption').blur();
   await page.getByRole('button', { name: /submit redemption/i }).click();
-  await expect(page.getByText(/confirmed|awaiting approval/i)).toBeVisible();
+  await expect(
+    page
+      .getByText(
+        /(Earn|Redemption) (confirmed|awaiting approval) by backend contract|awaiting approval/i,
+      )
+      .first(),
+  ).toBeVisible();
   await recordWorkflowEvidence(run, {
     group: 'cross-role',
     name: 'redeem',

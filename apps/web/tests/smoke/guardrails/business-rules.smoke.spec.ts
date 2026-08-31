@@ -63,7 +63,9 @@ test('Duplicate receipts are rejected without a second financial mutation', asyn
         response.request().method() === 'POST',
     );
     await page.getByRole('button', { name: /submit earn/i }).click();
-    await expect(page.getByText(/confirmed/i)).toBeVisible();
+    await expect(
+      page.getByText('Earn confirmed by backend contract.', { exact: true }),
+    ).toBeVisible();
     const payload = (await (await firstResponse).json()) as {
       transactionId?: string;
       id?: string;

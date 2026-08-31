@@ -128,7 +128,11 @@ test.describe.serial('Cashier smoke workflows', () => {
       );
       const earnTiming = await measureWorkflow('confirmed earn', async () => {
         await page.getByRole('button', { name: /submit earn/i }).click();
-        await expect(page.getByText(/confirmed/i)).toBeVisible();
+        await expect(
+          page.getByText('Earn confirmed by backend contract.', {
+            exact: true,
+          }),
+        ).toBeVisible();
         return (await earnResponse).json();
       });
       const earnPayload = earnTiming.value;
@@ -195,7 +199,11 @@ test.describe.serial('Cashier smoke workflows', () => {
       );
       const redeemTiming = await measureWorkflow('redeem', async () => {
         await page.getByRole('button', { name: /submit redemption/i }).click();
-        await expect(page.getByText(/confirmed/i)).toBeVisible();
+        await expect(
+          page.getByText('Redemption confirmed by backend contract.', {
+            exact: true,
+          }),
+        ).toBeVisible();
         return (await redeemResponse).json();
       });
       const redeemPayload = redeemTiming.value;
