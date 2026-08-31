@@ -81,9 +81,14 @@ async function responsePayload(response: APIResponse): Promise<unknown> {
 }
 
 function unwrap(payload: unknown): unknown {
-  if (!payload || typeof payload !== 'object') return payload;
-  const record = payload as JsonRecord;
-  return 'data' in record ? record.data : payload;
+  let current = payload;
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (!current || typeof current !== 'object') return current;
+    const record = current as JsonRecord;
+    if (!('data' in record) || Object.keys(record).length !== 1) return current;
+    current = record.data;
+  }
+  return current;
 }
 
 export interface SmokeApiSession {
