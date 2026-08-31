@@ -258,8 +258,14 @@ export async function captureBaseline(
       'availableBalanceKobo',
       'balance',
     ),
-    openFraudFlags: numberField(asRecord(pilotSummary.fraud), 'openCount'),
-    outboxBacklog: numberField(asRecord(pilotSummary.outbox), 'backlogCount'),
+    openFraudFlags:
+      typeof asRecord(pilotSummary.fraud).openCount === 'number'
+        ? (asRecord(pilotSummary.fraud).openCount as number)
+        : undefined,
+    outboxBacklog:
+      typeof asRecord(pilotSummary.outbox).backlogCount === 'number'
+        ? (asRecord(pilotSummary.outbox).backlogCount as number)
+        : undefined,
   };
 }
 
