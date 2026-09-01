@@ -37,6 +37,17 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
       await page.goto(route);
       await expect(page).toHaveURL(new RegExp(`${route.replace('/', '\\/')}$`));
     }
+    await page.goto('/supervisor/fraud');
+    await expect(
+      page.getByRole('heading', { name: 'Fraud', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: /fraud flag list/i }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Fraud decision reason')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /submit decision/i }),
+    ).toBeVisible();
     for (const route of [
       '/admin/users',
       '/admin/devices',
