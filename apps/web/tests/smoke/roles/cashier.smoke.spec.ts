@@ -181,6 +181,9 @@ test.describe.serial('Cashier smoke workflows', () => {
   test('completes a small Redeem and logs out', async ({ page }) => {
     const config = loadSmokeConfig();
     const run = loadSmokeRun();
+    const attemptSuffix = test.info().retry
+      ? `-RETRY-${test.info().retry}`
+      : '';
     const adminApi = await createRoleApiSession(
       'admin',
       config,
