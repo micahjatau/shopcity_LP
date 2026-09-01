@@ -37,6 +37,10 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     Number(process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO ?? 200_000) + 1;
   try {
     await loginRoleInUi(cashier, 'cashier', config);
+    await cashier.goto('/cashier/earn');
+    await cashier.evaluate(() => {
+      localStorage.removeItem('shopcity-earnedraft-v1');
+    });
     await cashier.goto(
       `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
     );
