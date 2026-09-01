@@ -40,6 +40,12 @@ The run failed with eight tests and the following observed symptoms:
 
 These failures are not yet classified as test-only: fixture response shape and seeded state require API verification, while offline queue behavior and workflow failures require product-path investigation before changing assertions.
 
+## Latest staging failure snapshot
+
+Latest completed staging run: [33537488997](https://github.com/micahjatau/shopcity_LP/actions/runs/33537488997), candidate `19e385ea0227831799da2b16ca33ed6b02f01931`. All 41 Playwright tests passed; teardown failed closed with `balance (expected 2252820, received 2202820)` and `outbox backlog (expected 287, received 312)`.
+
+The balance drift was traced to the cross-role Redeem scenario not registering its confirmed transaction for canonical reversal. The backlog was traced to terminal SMS outbox rows remaining `PUBLISHED` instead of becoming `COMPLETED`, compounded by the staging smoke workflow not running the worker. These are addressed in the smoke reconciliation, outbox runtime, and staging workflow changes on the current branch. The staging backlog was drained through the existing worker path during diagnosis; no financial or audit rows were deleted.
+
 ## Remediation priority
 
 1. **P0 — Establish trustworthy diagnostics:** verify the staging fixture/report response shape, seeded customer/card balance, fraud state, and outbox baseline through the API. Fix the backend contract or fixture parser as appropriate.
