@@ -230,7 +230,10 @@ export async function captureBaseline(
   const approvalsResponse = asRecord(
     await adminApi.get('/api/v1/approvals?limit=100'),
   );
-  const unresolvedApprovals = asArray(approvalsResponse.items).filter((item) =>
+  const approvalItems = Array.isArray(approvalsResponse.items)
+    ? approvalsResponse.items
+    : undefined;
+  const unresolvedApprovals = approvalItems?.filter((item) =>
     ['PENDING', 'PENDING_APPROVAL'].includes(
       stringField(item, 'status').toUpperCase(),
     ),
@@ -286,7 +289,7 @@ export async function captureBaseline(
       'availableBalanceKobo',
       'balance',
     ),
-    unresolvedApprovals,
+    ...(unresolvedApprovals !== undefined ? { unresolvedApprovals } : {}),
     openFraudFlags:
       typeof asRecord(openFraudFlags).openCount === 'number'
         ? (asRecord(openFraudFlags).openCount as number)
