@@ -54,14 +54,17 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       cashier.getByText('Earn awaiting approval.', { exact: true }),
     ).toBeVisible();
     const earnPayload = (await (await earnResponse).json()) as {
-      data?: { state?: string };
+      data?: { state?: string; approvalId?: string };
       state?: string;
+      approvalId?: string;
     };
     expect((earnPayload.data ?? earnPayload).state).toBe('PENDING_APPROVAL');
     const earnId = transactionId(earnPayload);
-    if (!earnId) {
+    const approvalId =
+      earnPayload.data?.approvalId ?? earnPayload.approvalId ?? null;
+    if (!earnId || !approvalId) {
       throw new Error(
-        'Smoke approval Earn response did not contain a transaction ID',
+        'Smoke approval Earn response did not contain transaction and approval IDs',
       );
     }
     await registerFinancialArtifact(run, {
@@ -87,13 +90,13 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       supervisor.getByRole('heading', { name: 'Approvals', exact: true }),
     ).toBeVisible();
     await supervisor.getByLabel('Approval page size').fill('20');
-    await supervisor.getByLabel('Approval search').fill(receipt);
+    await supervisor.getByLabel('Approval search').fill(approvalId);
     await supervisor
       .getByRole('button', { name: /refresh approvals/i })
       .click();
     const approvalRows = supervisor
       .locator('button')
-      .filter({ hasText: receipt });
+      .filter({ hasText: approvalId });
     await expect(approvalRows).toHaveCount(1);
     if (await approvalRows.count()) {
       await approvalRows.first().click();
