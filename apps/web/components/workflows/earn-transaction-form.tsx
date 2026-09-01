@@ -546,7 +546,7 @@ function deriveReceiptWeekStart(
     receiptWeekStartDay < 0 ||
     receiptWeekStartDay > 6
   ) {
-    return occurredAt;
+    return new Date(occurredAt).toISOString().slice(0, 10);
   }
 
   const reference = new Date(occurredAt);
@@ -561,7 +561,7 @@ function deriveReceiptWeekStart(
     parts.find((part) => part.type === 'weekday')?.value ?? '',
   );
   if (weekday < 0) {
-    return occurredAt;
+    return new Date(occurredAt).toISOString().slice(0, 10);
   }
 
   const deltaDays = (7 + weekday - receiptWeekStartDay) % 7;
@@ -575,12 +575,12 @@ function deriveReceiptWeekStart(
   const month = Number(dateParts.find((part) => part.type === 'month')?.value);
   const day = Number(dateParts.find((part) => part.type === 'day')?.value);
   if (!year || !month || !day) {
-    return occurredAt;
+    return new Date(occurredAt).toISOString().slice(0, 10);
   }
 
   const localDate = new Date(Date.UTC(year, month - 1, day));
   localDate.setUTCDate(localDate.getUTCDate() - deltaDays);
-  return localDate.toISOString();
+  return localDate.toISOString().slice(0, 10);
 }
 
 function getResponseErrorCode(value: unknown): string | null {
