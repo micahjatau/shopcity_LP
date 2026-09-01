@@ -4,10 +4,15 @@ import type { FullConfig } from '@playwright/test';
 import { loadSmokeConfig } from './config';
 import { createRoleApiSession } from './support/api-client';
 import { createApiInvariantReader } from './support/assertions';
-import { resetMutableFixtures, type SmokeBaseline } from './support/fixtures';
+import {
+  resetMutableFixtures,
+  resolveTaggedSmokeFraudFlags,
+  type SmokeBaseline,
+} from './support/fixtures';
 import {
   assertPostRunInvariants,
   reconcileRun,
+  waitForOutboxBaseline,
   writeReconciliationEvidence,
   type PersistedSmokeRun,
 } from './support/reconciliation';
@@ -50,10 +55,14 @@ export default async function globalTeardown(
       state.baseline,
       run.smokeRunId,
     );
-    await assertPostRunInvariants(
-      createApiInvariantReader(adminApi, smokeConfig),
-      state.baseline,
+    const invariantReader = createApiInvariantReader(adminApi, smokeConfig);
+    await waitForOutboxBaseline(invariantReader, state.baseline.outboxBacklog);
+    await resolveTaggedSmokeFraudFlags(
+      adminApi,
+      `SMOKE-${run.smokeRunId}`,
+      `[${run.smokeRunId}] resolve smoke fraud finding`,
     );
+    await assertPostRunInvariants(invariantReader, state.baseline);
     await writeReconciliationEvidence(run, {
       smokeRunId: run.smokeRunId,
       result: 'PASS',

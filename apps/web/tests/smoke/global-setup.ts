@@ -6,6 +6,7 @@ import {
   captureBaseline,
   preflightFixtures,
   resetMutableFixtures,
+  resolveTaggedSmokeFraudFlags,
 } from './support/fixtures';
 import { createRoleApiSession } from './support/api-client';
 import { createSmokeRun } from './support/smoke-run';
@@ -46,6 +47,11 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       await supervisorApi.dispose();
     }
     await preflightFixtures(smokeConfig, adminApi);
+    await resolveTaggedSmokeFraudFlags(
+      adminApi,
+      'SMOKE-',
+      `[${run.smokeRunId}] resolve prior smoke fraud flags`,
+    );
     const baseline = await captureBaseline(smokeConfig, adminApi);
     await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
     await adminApi.patch(

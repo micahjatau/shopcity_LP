@@ -301,6 +301,53 @@ export async function captureBaseline(
   };
 }
 
+export async function resolveTaggedSmokeFraudFlags(
+  adminApi: SmokeApiSession,
+  tagPrefix: string,
+  reason: string,
+): Promise<number> {
+  let cursor: string | undefined;
+  let resolved = 0;
+
+  for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
+    const path = `/api/v1/fraud-flags?status=OPEN&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const page = unwrapRecords(
+      await adminApi.get<Record<string, unknown>>(path),
+    );
+    if (!Array.isArray(page.items)) {
+      throw new Error('Smoke fraud response missing items');
+    }
+
+    for (const item of page.items) {
+      const record = asRecord(item);
+      const id = typeof record.id === 'string' ? record.id : null;
+      const evidence = asRecord(record.evidence);
+      const receiptNumber = evidence.normalizedPosReceiptNumber;
+      if (
+        !id ||
+        typeof receiptNumber !== 'string' ||
+        !receiptNumber.startsWith(tagPrefix)
+      ) {
+        continue;
+      }
+      await adminApi.post(
+        `/api/v1/fraud-flags/${id}/decision`,
+        { decision: 'RESOLVED', reason },
+        `smoke-fraud-resolve-${id}`,
+      );
+      resolved += 1;
+    }
+
+    const hasMore = page.hasMore === true;
+    const nextCursor =
+      typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
+    if (!hasMore || !nextCursor) break;
+    cursor = nextCursor;
+  }
+
+  return resolved;
+}
+
 export async function resetMutableFixtures(
   config: SmokeConfig,
   adminApi: SmokeApiSession,

@@ -153,6 +153,26 @@ export async function reconcileRun(
   await persistArtifacts(run, artifacts);
 }
 
+export async function waitForOutboxBaseline(
+  reader: Pick<InvariantReader, 'outboxBacklog'>,
+  expected: number | undefined,
+  timeoutMs = 30_000,
+): Promise<void> {
+  if (expected === undefined) return;
+
+  const deadline = Date.now() + timeoutMs;
+  let received = await reader.outboxBacklog();
+  while (received !== expected && Date.now() < deadline) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+    received = await reader.outboxBacklog();
+  }
+  if (received !== expected) {
+    throw new Error(
+      `Smoke outbox did not return to baseline (expected ${expected}, received ${received})`,
+    );
+  }
+}
+
 export async function assertPostRunInvariants(
   reader: InvariantReader,
   baseline: SmokeBaseline,
