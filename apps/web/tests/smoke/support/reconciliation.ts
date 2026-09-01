@@ -41,10 +41,21 @@ async function persist(
   persisted: PersistedSmokeRun,
 ): Promise<void> {
   assertSafeEvidence(persisted);
-  const target = resolve(run.outputDir, 'current-run.json');
-  const temporary = `${target}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify(persisted, null, 2)}\n`, 'utf8');
-  await rename(temporary, target);
+  const targets = [
+    resolve(run.outputDir, 'current-run.json'),
+    resolve('test-results/smoke/current-run.json'),
+  ];
+  await Promise.all(
+    targets.map(async (target) => {
+      const temporary = `${target}.tmp-${process.pid}`;
+      await writeFile(
+        temporary,
+        `${JSON.stringify(persisted, null, 2)}\n`,
+        'utf8',
+      );
+      await rename(temporary, target);
+    }),
+  );
 }
 
 export async function registerFinancialArtifact(
