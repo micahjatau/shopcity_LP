@@ -41,18 +41,26 @@ async function persist(
   persisted: PersistedSmokeRun,
 ): Promise<void> {
   assertSafeEvidence(persisted);
-  const targets = [
-    resolve(run.outputDir, 'current-run.json'),
-    resolve('test-results/smoke/current-run.json'),
+  const outputTarget = resolve(run.outputDir, 'current-run.json');
+  const rootTarget = resolve('test-results/smoke/current-run.json');
+  let rootPersisted: PersistedSmokeRun = persisted;
+  try {
+    const existingRoot = JSON.parse(
+      await readFile(rootTarget, 'utf8'),
+    ) as PersistedSmokeRun;
+    rootPersisted = { ...existingRoot, ...persisted };
+  } catch {
+    // The output run file remains the source of truth for isolated usage.
+  }
+
+  const targets: Array<[string, PersistedSmokeRun]> = [
+    [outputTarget, persisted],
+    [rootTarget, rootPersisted],
   ];
   await Promise.all(
-    targets.map(async (target) => {
+    targets.map(async ([target, value]) => {
       const temporary = `${target}.tmp-${process.pid}`;
-      await writeFile(
-        temporary,
-        `${JSON.stringify(persisted, null, 2)}\n`,
-        'utf8',
-      );
+      await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
       await rename(temporary, target);
     }),
   );
