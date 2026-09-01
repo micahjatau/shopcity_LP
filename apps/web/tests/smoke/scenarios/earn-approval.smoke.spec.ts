@@ -84,7 +84,7 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     await loginRoleInUi(supervisor, 'supervisor', config);
     await supervisor.goto('/supervisor/approvals');
     await expect(
-      supervisor.getByRole('heading', { name: /approval/i }),
+      supervisor.getByRole('heading', { name: 'Approvals', exact: true }),
     ).toBeVisible();
     await supervisor.getByLabel('Approval page size').fill('20');
     await supervisor.getByLabel('Approval search').fill(receipt);
