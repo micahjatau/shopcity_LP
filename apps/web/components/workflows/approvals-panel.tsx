@@ -22,6 +22,8 @@ type ApprovalRecord = {
   branchId?: string;
   receipt?: unknown;
   referenceNumber?: string;
+  receiptNumber?: string;
+  posReceiptNumber?: string;
   amountKobo?: number;
 };
 
@@ -59,6 +61,8 @@ export function ApprovalsPanel() {
           item.ruleCode,
           item.branchId,
           item.referenceNumber,
+          item.receiptNumber,
+          item.posReceiptNumber,
           item.receipt ? JSON.stringify(item.receipt) : null,
         ]
           .filter(Boolean)
