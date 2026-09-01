@@ -20,6 +20,7 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
 }) => {
   const config = loadSmokeConfig();
   const run = loadSmokeRun();
+  const attemptSuffix = test.info().retry ? `-RETRY-${test.info().retry}` : '';
   const cashier = await browser.newPage();
   const supervisor = await browser.newPage();
   const supervisorApi = await createRoleApiSession(
@@ -31,7 +32,7 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     balanceKobo?: number;
     availableBalanceKobo?: number;
   }>(`/api/v1/customers/${config.activeCustomerId}`);
-  const receipt = `${run.smokeRunId}-APPROVAL-01`;
+  const receipt = `${run.smokeRunId}${attemptSuffix}-APPROVAL-01`;
   const approvalAmount =
     Number(process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO ?? 20_000_000) + 1;
   try {

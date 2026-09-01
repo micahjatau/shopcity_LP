@@ -7,6 +7,7 @@ import { recordWorkflowEvidence } from '../support/evidence';
 test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   const config = loadSmokeConfig();
   const run = loadSmokeRun();
+  const attemptSuffix = test.info().retry ? `-RETRY-${test.info().retry}` : '';
   await loginRoleInUi(page, 'cashier', config);
   await page.goto(
     `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
@@ -14,7 +15,7 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   await expect(page.getByText(/lookup resolved/i)).toBeVisible();
   await page
     .getByLabel('POS receipt number')
-    .fill(`${run.smokeRunId}-CROSS-REDEEM-01`);
+    .fill(`${run.smokeRunId}${attemptSuffix}-CROSS-REDEEM-01`);
   await page.getByLabel('Basket amount').fill('20');
   await page.getByLabel('Basket amount').blur();
   await page.getByLabel('Requested redemption').fill('5');
@@ -32,6 +33,8 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
     name: 'redeem',
     status: 'PASS',
     durationMs: 0,
-    references: { receiptNumber: `${run.smokeRunId}-CROSS-REDEEM-01` },
+    references: {
+      receiptNumber: `${run.smokeRunId}${attemptSuffix}-CROSS-REDEEM-01`,
+    },
   });
 });
