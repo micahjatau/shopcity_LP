@@ -80,9 +80,9 @@ test('Supervisor can edit a run-tagged profile and restore its baseline', async 
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
-    await page
-      .getByLabel('Customer full name')
-      .fill(`${run.smokeRunId} Supervisor Profile`);
+    const fullNameField = page.getByLabel('Customer full name');
+    await expect(fullNameField).toHaveValue(/.+/);
+    await fullNameField.fill(`${run.smokeRunId} Supervisor Profile`);
     await page.getByRole('button', { name: /save profile/i }).click();
     await expect(
       page.getByText(/profile updated|customer updated|saved/i),
