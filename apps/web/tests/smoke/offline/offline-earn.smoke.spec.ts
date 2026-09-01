@@ -138,7 +138,15 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
     await page.unroute('**/api/v1/transactions/earn');
     await page.goto('/cashier/sync');
     await expect(page.getByRole('heading', { name: /sync/i })).toBeVisible();
-    const queuedRow = page.getByRole('row').filter({ hasText: offlineReceipt });
+    // The receipt appears in both the selected-details preview and the queue.
+    // Scope the assertion to the queue table row to avoid strict-mode ambiguity.
+    const queuedRow = page
+      .locator('section')
+      .filter({
+        has: page.getByRole('heading', { name: 'Queue', exact: true }),
+      })
+      .getByRole('row')
+      .filter({ hasText: offlineReceipt });
     await expect(queuedRow).toContainText('waiting-to-sync');
 
     await page.goto(
