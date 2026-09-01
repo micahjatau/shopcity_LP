@@ -1,5 +1,5 @@
-import { readFile, writeFile, rename } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { SmokeApiError, type SmokeApiSession } from './api-client';
 import type { SmokeBaseline } from './fixtures';
 import type { SmokeRun } from './smoke-run';
@@ -57,6 +57,9 @@ async function persist(
     [outputTarget, persisted],
     [rootTarget, rootPersisted],
   ];
+  await Promise.all(
+    targets.map(([target]) => mkdir(dirname(target), { recursive: true })),
+  );
   await Promise.all(
     targets.map(async ([target, value]) => {
       const temporary = `${target}.tmp-${process.pid}`;

@@ -141,10 +141,8 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
     // The receipt appears in both the selected-details preview and the queue.
     // Scope the assertion to the queue table row to avoid strict-mode ambiguity.
     const queuedRow = page
-      .locator('section')
-      .filter({
-        has: page.getByRole('heading', { name: 'Queue', exact: true }),
-      })
+      .getByRole('heading', { name: 'Queue', exact: true })
+      .locator('..')
       .getByRole('row')
       .filter({ hasText: offlineReceipt });
     await expect(queuedRow).toContainText('waiting-to-sync');

@@ -13,6 +13,7 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   const receipt = `${run.smokeRunId}${attemptSuffix}-CROSS-REDEEM-01`;
   // The UI amount is entered in naira; 500 naira is 50,000 kobo.
   const requestedAmountKobo = 50_000;
+  const requestedAmountNaira = 500;
   const adminApi = await createRoleApiSession('admin', config, run.smokeRunId);
   try {
     const before = await adminApi.get<Record<string, unknown>>(
@@ -33,7 +34,7 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
     await page.getByLabel('Basket amount').blur();
     await page
       .getByLabel('Requested redemption')
-      .fill(String(requestedAmountKobo));
+      .fill(String(requestedAmountNaira));
     await page.getByLabel('Requested redemption').blur();
     const redeemResponse = page.waitForResponse(
       (response) =>
