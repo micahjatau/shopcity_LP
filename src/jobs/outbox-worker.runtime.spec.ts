@@ -129,6 +129,7 @@ describe('OutboxWorkerRuntime', () => {
         },
       }),
     );
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('dead-letters exhausted SMS retries', async () => {

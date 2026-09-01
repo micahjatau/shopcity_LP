@@ -396,6 +396,7 @@ export class OutboxWorkerRuntime {
       resolvedSmsMessage.status === 'DELIVERED' ||
       resolvedSmsMessage.status === 'SUPPRESSED'
     ) {
+      await this.markOutboxEventCompleted(outboxEvent);
       return;
     }
 
