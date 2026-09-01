@@ -50,7 +50,9 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
         response.request().method() === 'POST',
     );
     await cashier.getByRole('button', { name: /submit earn/i }).click();
-    await expect(cashier.getByText(/awaiting approval/i)).toBeVisible();
+    await expect(
+      cashier.getByText('Earn awaiting approval.', { exact: true }),
+    ).toBeVisible();
     const earnPayload = (await (await earnResponse).json()) as {
       data?: { state?: string };
       state?: string;
