@@ -17,6 +17,7 @@ export interface SmokeBaseline {
   };
   device: { id: string; status: string; branchId: string };
   balanceKobo: number;
+  unresolvedApprovals?: number;
   openFraudFlags?: number;
   outboxBacklog?: number;
 }
@@ -226,6 +227,14 @@ export async function captureBaseline(
     `/api/v1/cards/lookup/${config.activeCardSerial}`,
   );
   const devices = asArray(await adminApi.get('/api/v1/devices'));
+  const approvalsResponse = asRecord(
+    await adminApi.get('/api/v1/approvals?limit=100'),
+  );
+  const unresolvedApprovals = asArray(approvalsResponse.items).filter((item) =>
+    ['PENDING', 'PENDING_APPROVAL'].includes(
+      stringField(item, 'status').toUpperCase(),
+    ),
+  ).length;
   const pilotSummaryResponse = asRecord(
     await adminApi.get('/api/v1/reports/pilot-operations-summary'),
   );
@@ -277,6 +286,7 @@ export async function captureBaseline(
       'availableBalanceKobo',
       'balance',
     ),
+    unresolvedApprovals,
     openFraudFlags:
       typeof asRecord(openFraudFlags).openCount === 'number'
         ? (asRecord(openFraudFlags).openCount as number)

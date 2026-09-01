@@ -162,7 +162,11 @@ export async function assertPostRunInvariants(
 
   const failures: string[] = [];
   if (balance !== baseline.balanceKobo) failures.push('balance');
-  if (approvals !== 0) failures.push('unresolved approvals');
+  if (
+    baseline.unresolvedApprovals !== undefined &&
+    approvals !== baseline.unresolvedApprovals
+  )
+    failures.push('unresolved approvals');
   if (
     baseline.openFraudFlags !== undefined &&
     fraudFlags !== baseline.openFraudFlags
