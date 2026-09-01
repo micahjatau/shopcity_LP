@@ -40,6 +40,17 @@ The run failed with eight tests and the following observed symptoms:
 
 These failures are not yet classified as test-only: fixture response shape and seeded state require API verification, while offline queue behavior and workflow failures require product-path investigation before changing assertions.
 
+## P1 implementation update
+
+The P1 smoke coverage is now implemented locally:
+
+- Offline Earn asserts IndexedDB record fields, Sync Queue rendering, exact batch result mapping, confirmed transaction/ledger/balance effects, and canonical artifact registration; Offline Redeem remains network-blocked and financially unchanged.
+- Cross-role approval asserts no premature balance/ledger effect, Supervisor approval execution, settled ledger/credit-lot state, and exact balance transition.
+- Cross-role Redeem asserts known available credit, confirmed debit, ordered FIFO allocations, balance transition, and canonical artifact registration.
+- Cross-role reversal creates a confirmed Earn through Cashier UI, reverses it through Supervisor UI, verifies the immutable original and compensating ledger entry, and leaves the original artifact recoverable by teardown.
+
+The affected smoke specs pass lint/typecheck; targeted frontend and offline-sync tests pass. Staging execution remains pending until the latest candidate can be deployed and the frozen-SHA smoke workflow can run.
+
 ## Latest staging failure snapshot
 
 Latest completed staging run: [33537488997](https://github.com/micahjatau/shopcity_LP/actions/runs/33537488997), candidate `19e385ea0227831799da2b16ca33ed6b02f01931`. All 41 Playwright tests passed; teardown failed closed with `balance (expected 2252820, received 2202820)` and `outbox backlog (expected 287, received 312)`.

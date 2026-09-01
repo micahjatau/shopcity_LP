@@ -69,11 +69,11 @@
 
 ## 8. Implement cross-role financial scenarios
 
-- [ ] 8.1 Implement above-threshold Cashier Earn pending approval and assert no premature balance/ledger/lot credit.
-- [ ] 8.2 Approve the same run-tagged request in Supervisor UI and verify ledger, lot, balance, and Cashier-visible result.
-- [ ] 8.3 Implement dedicated Cashier Redeem scenario with known available credit, FIFO verification, and registered reversal.
-- [ ] 8.4 Implement confirmed Earn followed by Supervisor/Admin UI reversal; retain original evidence and verify compensating ledger/audit/balance state.
-- [ ] 8.5 Use serial execution and fresh role contexts where required; prevent double reconciliation for already-reversed artifacts.
+- [x] 8.1 Implement above-threshold Cashier Earn pending approval and assert no premature balance/ledger/lot credit.
+- [x] 8.2 Approve the same run-tagged request in Supervisor UI and verify ledger, lot, balance, and Cashier-visible result.
+- [x] 8.3 Implement dedicated Cashier Redeem scenario with known available credit, FIFO verification, and registered reversal.
+- [x] 8.4 Implement confirmed Earn followed by Supervisor/Admin UI reversal; retain original evidence and verify compensating ledger/audit/balance state.
+- [x] 8.5 Use serial execution and fresh role contexts where required; prevent double reconciliation for already-reversed artifacts.
 
 ## 9. Implement critical negative guardrails
 
@@ -141,8 +141,8 @@
 
 - [ ] **P0:** Verify the staging fixture/report response contract and seeded balance, fraud, and outbox state before interpreting downstream failures.
 - [ ] **P0:** Resolve balance drift and outbox residue through canonical, auditable setup or reversal flows.
-- [ ] **P1:** Trace Offline Earn from IndexedDB persistence through Sync Queue rendering, batch submission, and backend response mapping.
-- [ ] **P1:** Stabilize cross-role financial prerequisites and verify each earn/approval/redeem transition through the API.
+- [x] **P1 implementation:** Trace Offline Earn from IndexedDB persistence through Sync Queue rendering, batch submission, and backend response mapping.
+- [x] **P1 implementation:** Stabilize cross-role financial prerequisites and verify each earn/approval/redeem transition through the API.
 - [ ] **P2:** Review remaining role-page selectors and content assertions only after confirming route behavior.
 - [ ] **P0 release gate:** Redeploy the frozen candidate, rerun complete staging smoke, verify evidence, and keep production blocked until PASS.
 

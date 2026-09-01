@@ -6,6 +6,20 @@ import { loadSmokeRun } from '../support/smoke-run';
 import { recordWorkflowEvidence } from '../support/evidence';
 import { registerFinancialArtifact } from '../support/reconciliation';
 
+function responseData(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object') return {};
+  const record = payload as Record<string, unknown>;
+  const nested = record.data;
+  if (nested && typeof nested === 'object') {
+    const nestedRecord = nested as Record<string, unknown>;
+    if (nestedRecord.data && typeof nestedRecord.data === 'object') {
+      return nestedRecord.data as Record<string, unknown>;
+    }
+    return nestedRecord;
+  }
+  return record;
+}
+
 function transactionId(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null;
   const record = payload as Record<string, unknown>;
@@ -32,6 +46,12 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     balanceKobo?: number;
     availableBalanceKobo?: number;
   }>(`/api/v1/customers/${config.activeCustomerId}`);
+  const beforeBalance = Number(
+    before.availableBalanceKobo ?? before.balanceKobo,
+  );
+  const beforeLedger = await supervisorApi.get<{
+    items?: Array<Record<string, unknown>>;
+  }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=100`);
   const receipt = `${run.smokeRunId}${attemptSuffix}-APPROVAL-01`;
   const approvalAmount =
     Number(process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO ?? 200_000) + 1;
@@ -65,11 +85,16 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       approvalId?: string;
     };
     expect((earnPayload.data ?? earnPayload).state).toBe('PENDING_APPROVAL');
-    const earnId = transactionId(earnPayload);
-    approvalId = earnPayload.data?.approvalId ?? earnPayload.approvalId ?? null;
-    if (!earnId || !approvalId) {
+    const earnData = responseData(earnPayload);
+    const earnReceiptId =
+      typeof earnData.id === 'string'
+        ? earnData.id
+        : transactionId(earnPayload);
+    approvalId =
+      typeof earnData.approvalId === 'string' ? earnData.approvalId : null;
+    if (!earnReceiptId || !approvalId) {
       throw new Error(
-        'Smoke approval Earn response did not contain transaction and approval IDs',
+        'Smoke approval Earn response did not contain receipt and approval IDs',
       );
     }
     const beforeApproval = await supervisorApi.get<{
@@ -77,12 +102,31 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       availableBalanceKobo?: number;
     }>(`/api/v1/customers/${config.activeCustomerId}`);
     expect(
-      beforeApproval.availableBalanceKobo ?? beforeApproval.balanceKobo,
-    ).toBe(before.availableBalanceKobo ?? before.balanceKobo);
+      Number(beforeApproval.availableBalanceKobo ?? beforeApproval.balanceKobo),
+    ).toBe(beforeBalance);
+    const pendingLedger = await supervisorApi.get<{
+      items?: Array<Record<string, unknown>>;
+    }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=100`);
+    expect(pendingLedger.items?.length).toBe(beforeLedger.items?.length);
+    expect(
+      pendingLedger.items?.some(
+        (item) =>
+          item.receiptId === earnReceiptId || item.posReceiptNumber === receipt,
+      ),
+    ).toBe(false);
     const approvals = await supervisorApi.get<{ items?: unknown[] }>(
       '/api/v1/approvals?limit=100',
     );
     expect(Array.isArray(approvals.items)).toBe(true);
+    expect(
+      approvals.items?.some(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          (item as Record<string, unknown>).id === approvalId &&
+          (item as Record<string, unknown>).status === 'PENDING',
+      ),
+    ).toBe(true);
     await loginRoleInUi(supervisor, 'supervisor', config);
     await supervisor.goto('/supervisor/approvals');
     await expect(
@@ -105,53 +149,89 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
         { timeout: 15_000 },
       )
       .toBe(1);
-    if (await approvalRows.count()) {
-      await approvalRows.first().click();
-      await supervisor
-        .getByLabel('Approval reason')
-        .fill(`[${run.smokeRunId}] smoke approval decision`);
-      await supervisor
-        .getByRole('button', { name: /submit decision/i })
-        .click();
-      await expect(supervisor.getByText(/decision sent/i)).toBeVisible();
-      decisionCompleted = true;
-      const ledger = await supervisorApi.get<{
-        items?: Array<Record<string, unknown>>;
-      }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=100`);
-      const settledEntry = ledger.items?.find(
-        (item) => String(item.receiptId ?? item.receipt?.id ?? '') === earnId,
-      );
-      const ledgerEntryId =
-        typeof settledEntry?.id === 'string' ? settledEntry.id : null;
-      if (!ledgerEntryId) {
-        throw new Error(
-          'Smoke approval did not expose the settled ledger entry for reversal',
-        );
-      }
-      await registerFinancialArtifact(run, {
-        kind: 'EARN',
-        referenceId: ledgerEntryId,
-        reversalRequired: true,
-        reversalPath: `/api/v1/transactions/${ledgerEntryId}/reverse`,
-      });
-      const afterApproval = await supervisorApi.get<{
-        balanceKobo?: number;
-        availableBalanceKobo?: number;
-      }>(`/api/v1/customers/${config.activeCustomerId}`);
-      expect(
-        Number(afterApproval.availableBalanceKobo ?? afterApproval.balanceKobo),
-      ).toBeGreaterThan(
-        Number(
-          beforeApproval.availableBalanceKobo ?? beforeApproval.balanceKobo,
-        ),
+    await expect(approvalRows).toHaveCount(1);
+    await approvalRows.first().click();
+    await supervisor
+      .getByLabel('Approval reason')
+      .fill(`[${run.smokeRunId}] smoke approval decision`);
+    const decisionResponse = supervisor.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/v1/approvals/${approvalId}/decision`) &&
+        response.request().method() === 'POST',
+    );
+    await supervisor.getByRole('button', { name: /submit decision/i }).click();
+    await expect(supervisor.getByText(/decision sent/i)).toBeVisible();
+    const decisionHttpResponse = await decisionResponse;
+    expect(decisionHttpResponse.status()).toBe(200);
+    const decisionPayload = await decisionHttpResponse.json();
+    const decisionData = responseData(decisionPayload);
+    const ledgerEntryId = decisionData.ledgerEntryId;
+    if (typeof ledgerEntryId !== 'string') {
+      throw new Error(
+        'Smoke approval decision did not expose the settled ledger entry',
       );
     }
+    await registerFinancialArtifact(run, {
+      kind: 'EARN',
+      referenceId: ledgerEntryId,
+      reversalRequired: true,
+      reversalPath: `/api/v1/transactions/${ledgerEntryId}/reverse`,
+    });
+    decisionCompleted = true;
+    expect(decisionData).toMatchObject({
+      id: approvalId,
+      status: 'EXECUTED',
+      receiptId: earnReceiptId,
+    });
+
+    const afterApproval = await supervisorApi.get<{
+      balanceKobo?: number;
+      availableBalanceKobo?: number;
+    }>(`/api/v1/customers/${config.activeCustomerId}`);
+    const creditKobo = Number(decisionData.creditKobo);
+    expect(creditKobo).toBeGreaterThan(0);
+    expect(
+      Number(afterApproval.availableBalanceKobo ?? afterApproval.balanceKobo),
+    ).toBe(beforeBalance + creditKobo);
+    const ledger = await supervisorApi.get<{
+      items?: Array<Record<string, unknown>>;
+    }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=100`);
+    expect(
+      ledger.items?.some(
+        (item) =>
+          item.id === ledgerEntryId &&
+          item.receiptId === earnReceiptId &&
+          item.type === 'EARN' &&
+          item.direction === 'CREDIT' &&
+          item.status === 'CONFIRMED',
+      ),
+    ).toBe(true);
+    const settledTransaction = await supervisorApi.get<Record<string, unknown>>(
+      `/api/v1/transactions/${ledgerEntryId}`,
+    );
+    expect(settledTransaction).toMatchObject({
+      transactionId: ledgerEntryId,
+      type: 'EARN',
+      direction: 'CREDIT',
+      state: 'CONFIRMED',
+    });
+    expect(typeof settledTransaction.expiresAt).toBe('string');
+    const approvalsAfter = await supervisorApi.get<{
+      items?: Array<Record<string, unknown>>;
+    }>('/api/v1/approvals?limit=100');
+    expect(
+      approvalsAfter.items?.find((item) => item.id === approvalId)?.status,
+    ).toBe('EXECUTED');
     await recordWorkflowEvidence(run, {
       group: 'cross-role',
       name: 'earn-approval',
       status: 'PASS',
       durationMs: 0,
-      references: { receiptNumber: receipt },
+      references: {
+        receiptNumber: receipt,
+        approvalId: approvalId ?? 'unknown',
+        ledgerEntryId,
+      },
     });
   } finally {
     if (approvalId && !decisionCompleted) {
