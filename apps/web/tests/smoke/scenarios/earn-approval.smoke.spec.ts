@@ -91,13 +91,21 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     ).toBeVisible();
     await supervisor.getByLabel('Approval page size').fill('20');
     await supervisor.getByLabel('Approval search').fill(approvalId);
-    await supervisor
-      .getByRole('button', { name: /refresh approvals/i })
-      .click();
+    const refreshApprovals = supervisor.getByRole('button', {
+      name: /refresh approvals/i,
+    });
     const approvalRows = supervisor
       .locator('button')
       .filter({ hasText: approvalId });
-    await expect(approvalRows).toHaveCount(1);
+    await expect
+      .poll(
+        async () => {
+          await refreshApprovals.click();
+          return approvalRows.count();
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(1);
     if (await approvalRows.count()) {
       await approvalRows.first().click();
       await supervisor
