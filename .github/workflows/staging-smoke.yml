@@ -56,6 +56,14 @@ jobs:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
           REDIS_URL: redis://127.0.0.1:6379
           NODE_ENV: staging
+          DEFAULT_PUBLIC_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
+          DEFAULT_PUBLIC_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
+          CORS_ORIGIN_ALLOWLIST: ${{ secrets.SMOKE_FRONTEND_URL }}
+          # The worker does not call Supabase, but the shared environment schema
+          # requires these values. Keep them worker-local and non-production.
+          SUPABASE_URL: https://worker-unused.supabase.co
+          SUPABASE_ANON_KEY: staging-smoke-worker-unused-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: staging-smoke-worker-unused-service-role-key
           SMS_PROVIDER_MODE: deterministic
           OUTBOX_PUBLISH_BATCH_SIZE: '100'
           OUTBOX_PUBLISH_INTERVAL_MS: '250'
