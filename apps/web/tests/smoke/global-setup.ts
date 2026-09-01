@@ -9,6 +9,7 @@ import {
 } from './support/fixtures';
 import { createRoleApiSession } from './support/api-client';
 import { createSmokeRun } from './support/smoke-run';
+import { registerFinancialArtifact } from './support/reconciliation';
 import {
   assertProductionUnlocked,
   FileSafetyLockStore,
@@ -100,6 +101,47 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
         'utf8',
       ),
     ]);
+
+    if (smokeConfig.environment === 'staging') {
+      const minimumRedemptionKobo = Number(
+        process.env.SMOKE_MIN_REDEMPTION_KOBO ?? 50_000,
+      );
+      if (
+        !Number.isSafeInteger(minimumRedemptionKobo) ||
+        minimumRedemptionKobo < 1
+      ) {
+        throw new Error('SMOKE_MIN_REDEMPTION_KOBO must be a positive integer');
+      }
+      const topUpKobo = Math.max(
+        0,
+        minimumRedemptionKobo - baseline.balanceKobo,
+      );
+      if (topUpKobo > 0) {
+        const response = await adminApi.post<{ transactionId?: string }>(
+          '/api/v1/adjustments',
+          {
+            customerId: smokeConfig.activeCustomerId,
+            kind: 'CREDIT',
+            amountKobo: topUpKobo,
+            reason: `[${run.smokeRunId}] staging redeem prerequisite`,
+            effectiveAt: new Date().toISOString(),
+          },
+          `${run.smokeRunId}-redeem-prerequisite`,
+        );
+        const transactionId = response.transactionId;
+        if (!transactionId) {
+          throw new Error(
+            'Staging redeem prerequisite adjustment returned no transaction ID',
+          );
+        }
+        await registerFinancialArtifact(run, {
+          kind: 'ADJUSTMENT',
+          referenceId: transactionId,
+          reversalRequired: true,
+          reversalPath: `/api/v1/transactions/${transactionId}/reverse`,
+        });
+      }
+    }
   } catch (error) {
     const reason =
       error instanceof Error ? error.message : 'unknown setup error';
