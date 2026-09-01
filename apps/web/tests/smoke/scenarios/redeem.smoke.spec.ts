@@ -3,6 +3,7 @@ import { loadSmokeConfig } from '../config';
 import { loginRoleInUi } from '../support/auth';
 import { loadSmokeRun } from '../support/smoke-run';
 import { recordWorkflowEvidence } from '../support/evidence';
+import { registerFinancialArtifact } from '../support/reconciliation';
 
 test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   const config = loadSmokeConfig();
@@ -20,6 +21,11 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
   await page.getByLabel('Basket amount').blur();
   await page.getByLabel('Requested redemption').fill('500');
   await page.getByLabel('Requested redemption').blur();
+  const redeemResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/v1/transactions/redeem') &&
+      response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: /submit redemption/i }).click();
   await expect(
     page
@@ -28,6 +34,30 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
       )
       .first(),
   ).toBeVisible();
+  const redeemPayload = (await (await redeemResponse).json()) as {
+    data?: { data?: Record<string, unknown> } & Record<string, unknown>;
+    transactionId?: string;
+    id?: string;
+  };
+  const redeemData =
+    redeemPayload.data?.data ?? redeemPayload.data ?? redeemPayload;
+  const redeemId =
+    typeof redeemData.transactionId === 'string'
+      ? redeemData.transactionId
+      : typeof redeemData.id === 'string'
+        ? redeemData.id
+        : null;
+  if (!redeemId) {
+    throw new Error(
+      'Smoke cross-role Redeem response did not contain a transaction ID',
+    );
+  }
+  await registerFinancialArtifact(run, {
+    kind: 'REDEEM',
+    referenceId: redeemId,
+    reversalRequired: true,
+    reversalPath: `/api/v1/transactions/${redeemId}/reverse`,
+  });
   await recordWorkflowEvidence(run, {
     group: 'cross-role',
     name: 'redeem',
