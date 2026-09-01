@@ -35,6 +35,8 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
   const receipt = `${run.smokeRunId}${attemptSuffix}-APPROVAL-01`;
   const approvalAmount =
     Number(process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO ?? 200_000) + 1;
+  let approvalId: string | null = null;
+  let decisionCompleted = false;
   try {
     await loginRoleInUi(cashier, 'cashier', config);
     await cashier.goto('/cashier/earn');
@@ -64,19 +66,12 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     };
     expect((earnPayload.data ?? earnPayload).state).toBe('PENDING_APPROVAL');
     const earnId = transactionId(earnPayload);
-    const approvalId =
-      earnPayload.data?.approvalId ?? earnPayload.approvalId ?? null;
+    approvalId = earnPayload.data?.approvalId ?? earnPayload.approvalId ?? null;
     if (!earnId || !approvalId) {
       throw new Error(
         'Smoke approval Earn response did not contain transaction and approval IDs',
       );
     }
-    await registerFinancialArtifact(run, {
-      kind: 'EARN',
-      referenceId: earnId,
-      reversalRequired: true,
-      reversalPath: `/api/v1/transactions/${earnId}/reverse`,
-    });
     const beforeApproval = await supervisorApi.get<{
       balanceKobo?: number;
       availableBalanceKobo?: number;
@@ -119,6 +114,26 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
         .getByRole('button', { name: /submit decision/i })
         .click();
       await expect(supervisor.getByText(/decision sent/i)).toBeVisible();
+      decisionCompleted = true;
+      const ledger = await supervisorApi.get<{
+        items?: Array<Record<string, unknown>>;
+      }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=100`);
+      const settledEntry = ledger.items?.find(
+        (item) => String(item.receiptId ?? item.receipt?.id ?? '') === earnId,
+      );
+      const ledgerEntryId =
+        typeof settledEntry?.id === 'string' ? settledEntry.id : null;
+      if (!ledgerEntryId) {
+        throw new Error(
+          'Smoke approval did not expose the settled ledger entry for reversal',
+        );
+      }
+      await registerFinancialArtifact(run, {
+        kind: 'EARN',
+        referenceId: ledgerEntryId,
+        reversalRequired: true,
+        reversalPath: `/api/v1/transactions/${ledgerEntryId}/reverse`,
+      });
       const afterApproval = await supervisorApi.get<{
         balanceKobo?: number;
         availableBalanceKobo?: number;
@@ -139,6 +154,20 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
       references: { receiptNumber: receipt },
     });
   } finally {
+    if (approvalId && !decisionCompleted) {
+      try {
+        await supervisorApi.post(
+          `/api/v1/approvals/${approvalId}/decision`,
+          {
+            decision: 'REJECTED',
+            reason: `[${run.smokeRunId}] smoke cleanup after failed approval`,
+          },
+          `${run.smokeRunId}-reject-uncompleted-approval`,
+        );
+      } catch {
+        // Teardown invariants will report any approval that remains pending.
+      }
+    }
     await supervisorApi.dispose();
     await cashier.close();
     await supervisor.close();
