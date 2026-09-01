@@ -20,6 +20,11 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment: staging
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,6 +51,24 @@ jobs:
         run: |
           test "$DEPLOYED_FRONTEND_SHA" = "$CANDIDATE_SHA"
           test "$DEPLOYED_BACKEND_SHA" = "$CANDIDATE_SHA"
+      - name: Start staging outbox worker
+        env:
+          DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
+          REDIS_URL: redis://127.0.0.1:6379
+          NODE_ENV: staging
+          SMS_PROVIDER_MODE: deterministic
+          OUTBOX_PUBLISH_BATCH_SIZE: '100'
+          OUTBOX_PUBLISH_INTERVAL_MS: '250'
+          OUTBOX_RETRY_DELAY_MS: '1000'
+          OUTBOX_RECOVERY_THRESHOLD_MS: '1000'
+        run: |
+          export DEVICE_ATTESTATION_KEK="$(openssl rand -hex 32)"
+          export SESSION_SECRET="staging-smoke-worker-session-secret"
+          export CSRF_SECRET="staging-smoke-worker-csrf-secret"
+          nohup npm run start:worker > /tmp/shopcity-staging-worker.log 2>&1 &
+          echo $! > /tmp/shopcity-staging-worker.pid
+          sleep 5
+          kill -0 "$(cat /tmp/shopcity-staging-worker.pid)"
       - name: Run staging smoke
         env:
           SMOKE_ENVIRONMENT: staging
@@ -84,6 +107,15 @@ jobs:
         run: |
           MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).outputDir + '/smoke-evidence.json')")"
           npm run verify:smoke-evidence -- --manifest "$MANIFEST" --candidate-sha "$CANDIDATE_SHA"
+      - name: Stop staging outbox worker
+        if: always()
+        run: |
+          if [ -f /tmp/shopcity-staging-worker.pid ]; then
+            kill "$(cat /tmp/shopcity-staging-worker.pid)" 2>/dev/null || true
+          fi
+          if [ -f /tmp/shopcity-staging-worker.log ]; then
+            tail -100 /tmp/shopcity-staging-worker.log
+          fi
       - if: always()
         uses: actions/upload-artifact@v4
         with:
