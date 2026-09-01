@@ -101,6 +101,9 @@ test.describe.serial('Cashier smoke workflows', () => {
   }) => {
     const config = loadSmokeConfig();
     const run = loadSmokeRun();
+    const attemptSuffix = test.info().retry
+      ? `-RETRY-${test.info().retry}`
+      : '';
     const adminApi = await createRoleApiSession(
       'admin',
       config,
@@ -120,7 +123,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       await expect(page.getByText(/lookup resolved/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
-        .fill(`${run.smokeRunId}-EARN-01`);
+        .fill(`${run.smokeRunId}${attemptSuffix}-EARN-01`);
       await page.getByLabel('Purchase amount').fill('100');
       await page.getByLabel('Purchase amount').blur();
       const earnResponse = page.waitForResponse(
@@ -154,7 +157,7 @@ test.describe.serial('Cashier smoke workflows', () => {
         durationMs: earnTiming.durationMs,
         references: {
           transactionId: earnId,
-          receiptNumber: `${run.smokeRunId}-EARN-01`,
+          receiptNumber: `${run.smokeRunId}${attemptSuffix}-EARN-01`,
         },
       });
 
@@ -191,7 +194,7 @@ test.describe.serial('Cashier smoke workflows', () => {
       await expect(page.getByText(/lookup resolved/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
-        .fill(`${run.smokeRunId}-REDEEM-01`);
+        .fill(`${run.smokeRunId}${attemptSuffix}-REDEEM-01`);
       await page.getByLabel('Basket amount').fill('20');
       await page.getByLabel('Basket amount').blur();
       await page.getByLabel('Requested redemption').fill('5');
@@ -229,7 +232,7 @@ test.describe.serial('Cashier smoke workflows', () => {
         durationMs: redeemTiming.durationMs,
         references: {
           transactionId: redeemId,
-          receiptNumber: `${run.smokeRunId}-REDEEM-01`,
+          receiptNumber: `${run.smokeRunId}${attemptSuffix}-REDEEM-01`,
         },
       });
       const ledger = await adminApi.get<{
