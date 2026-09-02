@@ -56,10 +56,25 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
         run: |
+          # Fail closed for legacy active devices before enforcing the
+          # attestation invariant. The smoke device must already have valid
+          # metadata; invalid legacy devices are made INACTIVE rather than
+          # receiving fabricated secrets.
+          cat <<'SQL' | npx prisma db execute --stdin
+          UPDATE "Device"
+          SET "status" = 'INACTIVE', "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "status" = 'ACTIVE'
+            AND (
+              "attestationSecretCiphertext" IS NULL
+              OR "attestationSecretVersion" <= 0
+              OR "attestationSecretRotatedAt" IS NULL
+            );
+          SQL
           # The shared staging database predates Prisma migration history for
           # this additive metadata change; the failed attempt is safe to mark
           # rolled back because the migration is transactional and idempotent.
           npx prisma migrate resolve --rolled-back 20260804_device_attestation_cutover || true
+          npx prisma migrate resolve --rolled-back 20260805_release_hardening_guardrails || true
           npx prisma migrate deploy
       - name: Start staging outbox worker
         env:
