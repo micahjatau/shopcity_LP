@@ -210,7 +210,11 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
       reversalPath: `/api/v1/transactions/${transactionId}/reverse`,
     });
 
-    const syncedRow = page.getByRole('row').filter({ hasText: offlineReceipt });
+    const syncedRow = page
+      .getByRole('heading', { name: 'Queue', exact: true })
+      .locator('..')
+      .getByRole('row')
+      .filter({ hasText: offlineReceipt });
     await expect(syncedRow).toContainText('confirmed');
     await expect(syncedRow).toContainText(transactionId);
 
