@@ -77,6 +77,16 @@ jobs:
           echo $! > /tmp/shopcity-staging-worker.pid
           sleep 5
           kill -0 "$(cat /tmp/shopcity-staging-worker.pid)"
+          echo 'Worker process tree:'
+          ps -ef --forest | grep -E '[s]rc/worker|[t]s-node|[n]pm run start:worker' || true
+          echo 'Redis connectivity:'
+          redis-cli -h 127.0.0.1 -p 6379 ping || true
+          echo 'Worker startup log:'
+          if [ -s /tmp/shopcity-staging-worker.log ]; then
+            tail -100 /tmp/shopcity-staging-worker.log
+          else
+            echo '<empty>'
+          fi
       - name: Run staging smoke
         env:
           SMOKE_ENVIRONMENT: staging
