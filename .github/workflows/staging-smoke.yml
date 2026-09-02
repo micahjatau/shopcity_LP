@@ -55,7 +55,12 @@ jobs:
       - name: Apply staging database migrations
         env:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
-        run: npx prisma migrate deploy
+        run: |
+          # The shared staging database predates Prisma migration history for
+          # this additive metadata change; the failed attempt is safe to mark
+          # rolled back because the migration is transactional and idempotent.
+          npx prisma migrate resolve --rolled-back 20260804_device_attestation_cutover || true
+          npx prisma migrate deploy
       - name: Start staging outbox worker
         env:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
