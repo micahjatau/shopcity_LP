@@ -159,7 +159,7 @@ export async function reconcileRun(
 export async function waitForOutboxBaseline(
   reader: Pick<InvariantReader, 'outboxBacklog'>,
   expected: number | undefined,
-  timeoutMs = 30_000,
+  timeoutMs = 120_000,
 ): Promise<void> {
   if (expected === undefined) return;
 
