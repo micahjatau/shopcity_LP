@@ -4,10 +4,15 @@ import { Buffer } from 'node:buffer';
 import type { IncomingMessage } from 'node:http';
 import type { NextRequest } from 'next/server';
 
-const BACKEND_BASE_URL =
-  process.env.SHOPCITY_BACKEND_URL ??
-  process.env.SHOPCITY_API_BASE_URL ??
-  'http://127.0.0.1:3000';
+const STAGING_BACKEND_URL =
+  'https://shopcity-api-git-staging-micahjatau.vercel.app';
+const IS_STAGING_BRANCH = process.env.VERCEL_GIT_COMMIT_REF === 'staging';
+
+const BACKEND_BASE_URL = IS_STAGING_BRANCH
+  ? STAGING_BACKEND_URL
+  : (process.env.SHOPCITY_BACKEND_URL ??
+    process.env.SHOPCITY_API_BASE_URL ??
+    'http://127.0.0.1:3000');
 
 const BACKEND_REQUEST_TIMEOUT_MS = 10000;
 

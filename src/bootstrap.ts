@@ -25,6 +25,9 @@ import { HttpExceptionFilter } from './common/errors/http-exception.filter';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 
+const STAGING_FRONTEND_ORIGIN =
+  'https://shopcity-lp-git-staging-micahjatau.vercel.app';
+
 export interface CreateAppOptions {
   enableDocs?: boolean;
   enableShutdownHooks?: boolean;
@@ -125,10 +128,14 @@ async function createNestApp(
   registerZapFriendlyUtilityRoutes(app);
 
   const originAllowlist = parseCsvList(process.env.CORS_ORIGIN_ALLOWLIST);
-  const allowedOrigins =
+  const configuredOrigins =
     originAllowlist.length > 0
       ? originAllowlist
       : DEFAULT_CORS_ORIGIN_ALLOWLIST;
+  const allowedOrigins =
+    process.env.VERCEL_GIT_COMMIT_REF === 'staging'
+      ? Array.from(new Set([...configuredOrigins, STAGING_FRONTEND_ORIGIN]))
+      : configuredOrigins;
 
   app.enableCors({
     origin: allowedOrigins,
