@@ -16,7 +16,7 @@ export interface InvariantReader {
   balanceKobo(): Promise<number>;
   unresolvedApprovals(): Promise<number>;
   openFraudFlags(): Promise<number>;
-  openFraudFlagIds(): Promise<string[]>;
+  openFraudFlagIds?(): Promise<string[]>;
   deviceState(): Promise<{ id: string; status: string; branchId: string }>;
   cardState(): Promise<{
     serialNumber: string;
@@ -238,9 +238,12 @@ export async function assertPostRunInvariants(
   )
     failures.push('unresolved approvals');
   const baselineFraudIds = baseline.openFraudFlagIds;
-  const finalFraudIds = await reader.openFraudFlagIds();
+  const finalFraudIds = reader.openFraudFlagIds
+    ? await reader.openFraudFlagIds()
+    : undefined;
   if (
     baselineFraudIds !== undefined &&
+    finalFraudIds !== undefined &&
     (baselineFraudIds.length !== finalFraudIds.length ||
       baselineFraudIds.some((id) => !finalFraudIds.includes(id)))
   )

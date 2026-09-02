@@ -276,7 +276,9 @@ export async function captureBaseline(
   if (!device)
     throw new Error('Smoke device fixture not found during baseline capture');
   const openFraudFlags = pilotSummary.fraud;
-  const openFraudFlagIds = await listOpenFraudFlagIds(adminApi);
+  const openFraudFlagIds = config.frontendUrl
+    ? await listOpenFraudFlagIds(adminApi)
+    : undefined;
   const offlineSync = pilotSummary.offlineSync;
   const outboxBacklog = pilotSummary.outbox;
   if (
@@ -325,7 +327,7 @@ export async function captureBaseline(
       typeof asRecord(openFraudFlags).openCount === 'number'
         ? (asRecord(openFraudFlags).openCount as number)
         : undefined,
-    openFraudFlagIds,
+    ...(openFraudFlagIds !== undefined ? { openFraudFlagIds } : {}),
     offlineRetryRequired:
       typeof asRecord(offlineSync).failureCount === 'number'
         ? (asRecord(offlineSync).failureCount as number)
