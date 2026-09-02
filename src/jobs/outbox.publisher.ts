@@ -23,10 +23,9 @@ export async function publishOutboxEvent(
   const existingJob = await queue.getJob(outboxEvent.id);
 
   if (existingJob) {
-    // A waiting or active job is already in flight. Do not remove it after a
-    // time-of-check/state race with another worker claiming the lock.
-    const state = await existingJob.getState();
-    if (state !== 'completed' && state !== 'failed') return;
+    // Any retained job is already represented in BullMQ. Do not remove and
+    // recreate it: another worker may claim it between inspection and removal.
+    return;
   }
 
   await queue.add(outboxEvent.eventType, outboxEvent, {
