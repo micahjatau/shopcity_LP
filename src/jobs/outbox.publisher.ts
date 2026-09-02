@@ -23,11 +23,10 @@ export async function publishOutboxEvent(
   const existingJob = await queue.getJob(outboxEvent.id);
 
   if (existingJob) {
+    // A waiting or active job is already in flight. Do not remove it after a
+    // time-of-check/state race with another worker claiming the lock.
     const state = await existingJob.getState();
-
-    if (state !== 'active') {
-      await existingJob.remove();
-    }
+    if (state !== 'completed' && state !== 'failed') return;
   }
 
   await queue.add(outboxEvent.eventType, outboxEvent, {

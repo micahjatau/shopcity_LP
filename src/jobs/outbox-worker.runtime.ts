@@ -310,9 +310,13 @@ export class OutboxWorkerRuntime {
           payload: outboxEvent.payload,
         });
 
-        await this.prisma.outboxEvent.update({
+        await this.prisma.outboxEvent.updateMany({
           where: {
-            tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.id,
+            status: OutboxEventStatus.QUEUED,
+            processedAt: null,
+            deadLetteredAt: null,
           },
           data: {
             status: OutboxEventStatus.PUBLISHED,

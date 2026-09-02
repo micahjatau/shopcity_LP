@@ -1213,29 +1213,27 @@ async function deleteBranchRows(
   tenantId: string,
   branchId: string,
 ): Promise<void> {
-  await Promise.all([
-    tx.reportDailyFinancialSummary.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-    tx.reportCashierDailySummary.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-    tx.reportCustomerSnapshot.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-    tx.reportLiabilityBucket.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-    tx.reportRedemptionDailySummary.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-    tx.reportSmsDailySummary.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-    tx.reportMaterializationState.deleteMany({
-      where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
-    }),
-  ]);
+  await tx.reportDailyFinancialSummary.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
+  await tx.reportCashierDailySummary.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
+  await tx.reportCustomerSnapshot.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
+  await tx.reportLiabilityBucket.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
+  await tx.reportRedemptionDailySummary.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
+  await tx.reportSmsDailySummary.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
+  await tx.reportMaterializationState.deleteMany({
+    where: { tenantId, scope: 'BRANCH', scopeKey: branchId },
+  });
 }
 
 async function insertRows(

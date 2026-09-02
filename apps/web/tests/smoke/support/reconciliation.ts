@@ -172,10 +172,10 @@ export async function waitForOutboxQuiescence(
       stableSince = Date.now();
       continue;
     }
-    if (Date.now() - stableSince >= stableMs) return;
+    if (previous === 0 && Date.now() - stableSince >= stableMs) return;
   }
   throw new Error(
-    `Smoke outbox did not become quiescent (last observed backlog ${previous})`,
+    `Smoke outbox did not become empty (last observed backlog ${previous})`,
   );
 }
 

@@ -73,7 +73,7 @@ jobs:
           export DEVICE_ATTESTATION_KEK="$(openssl rand -hex 32)"
           export SESSION_SECRET="staging-smoke-worker-session-secret"
           export CSRF_SECRET="staging-smoke-worker-csrf-secret"
-          nohup npm run start:worker > /tmp/shopcity-staging-worker.log 2>&1 &
+          nohup node -r ts-node/register -r tsconfig-paths/register src/worker.ts > /tmp/shopcity-staging-worker.log 2>&1 &
           echo $! > /tmp/shopcity-staging-worker.pid
           for i in $(seq 1 60); do
             if grep -q 'SHOPCITY_WORKER_READY' /tmp/shopcity-staging-worker.log; then

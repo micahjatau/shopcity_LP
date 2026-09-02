@@ -49,6 +49,29 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     } finally {
       await supervisorApi.dispose();
     }
+    const releaseResponse = (await adminApi.get<unknown>(
+      '/api/v1/reports/pilot-operations-summary',
+    )) as Record<string, unknown>;
+    const releaseEnvelope =
+      releaseResponse.data && typeof releaseResponse.data === 'object'
+        ? (releaseResponse.data as Record<string, unknown>)
+        : releaseResponse;
+    const release =
+      releaseEnvelope.data && typeof releaseEnvelope.data === 'object'
+        ? (releaseEnvelope.data as Record<string, unknown>)
+        : releaseEnvelope;
+    const releaseSha =
+      release.release && typeof release.release === 'object'
+        ? (release.release as Record<string, unknown>).sha
+        : undefined;
+    if (
+      smokeConfig.environment !== 'test' &&
+      releaseSha !== smokeConfig.candidateSha
+    ) {
+      throw new Error(
+        `Deployed backend release SHA mismatch (expected ${smokeConfig.candidateSha}, received ${String(releaseSha)})`,
+      );
+    }
     await preflightFixtures(smokeConfig, adminApi);
     await resolveTaggedSmokeFraudFlags(
       adminApi,
