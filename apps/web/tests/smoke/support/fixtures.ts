@@ -19,6 +19,7 @@ export interface SmokeBaseline {
   balanceKobo: number;
   unresolvedApprovals?: number;
   openFraudFlags?: number;
+  openFraudFlagIds?: string[];
   offlineRetryRequired?: number;
   outboxBacklog?: number;
 }
@@ -215,6 +216,32 @@ export async function preflightFixtures(
   }
 }
 
+export async function listOpenFraudFlagIds(
+  adminApi: SmokeApiSession,
+): Promise<string[]> {
+  let cursor: string | undefined;
+  const ids: string[] = [];
+
+  for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
+    const path = `/api/v1/fraud-flags?status=OPEN&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const page = unwrapRecords(
+      await adminApi.get<Record<string, unknown>>(path),
+    );
+    const items = page.items;
+    if (!Array.isArray(items))
+      throw new Error('Smoke fraud response missing items');
+    for (const item of items) {
+      const id = asRecord(item).id;
+      if (typeof id === 'string') ids.push(id);
+    }
+    const nextCursor =
+      typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
+    if (page.hasMore !== true || !nextCursor) break;
+    cursor = nextCursor;
+  }
+  return ids;
+}
+
 export async function captureBaseline(
   config: SmokeConfig,
   adminApi: SmokeApiSession,
@@ -249,6 +276,7 @@ export async function captureBaseline(
   if (!device)
     throw new Error('Smoke device fixture not found during baseline capture');
   const openFraudFlags = pilotSummary.fraud;
+  const openFraudFlagIds = await listOpenFraudFlagIds(adminApi);
   const offlineSync = pilotSummary.offlineSync;
   const outboxBacklog = pilotSummary.outbox;
   if (
@@ -297,6 +325,7 @@ export async function captureBaseline(
       typeof asRecord(openFraudFlags).openCount === 'number'
         ? (asRecord(openFraudFlags).openCount as number)
         : undefined,
+    openFraudFlagIds,
     offlineRetryRequired:
       typeof asRecord(offlineSync).failureCount === 'number'
         ? (asRecord(offlineSync).failureCount as number)

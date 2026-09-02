@@ -80,6 +80,16 @@ export function createApiInvariantReader(
       const summary = await pilotSummary();
       return integer(record(summary.fraud), 'openCount');
     },
+    async openFraudFlagIds() {
+      const response = record(
+        await api.get('/api/v1/fraud-flags?status=OPEN&limit=100'),
+      );
+      const items = Array.isArray(response.items) ? response.items : [];
+      return items.flatMap((item) => {
+        const id = record(item).id;
+        return typeof id === 'string' ? [id] : [];
+      });
+    },
     async deviceState() {
       const devices = await api.get<unknown>('/api/v1/devices');
       const items = Array.isArray(devices) ? devices : record(devices).items;
