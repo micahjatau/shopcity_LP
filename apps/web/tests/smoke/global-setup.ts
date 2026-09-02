@@ -9,6 +9,7 @@ import {
   resolveTaggedSmokeFraudFlags,
 } from './support/fixtures';
 import { createRoleApiSession } from './support/api-client';
+import { createApiInvariantReader } from './support/assertions';
 import { createSmokeRun } from './support/smoke-run';
 import {
   registerFinancialArtifact,
