@@ -19,6 +19,7 @@ export interface SmokeBaseline {
   balanceKobo: number;
   unresolvedApprovals?: number;
   openFraudFlags?: number;
+  offlineRetryRequired?: number;
   outboxBacklog?: number;
 }
 
@@ -248,10 +249,12 @@ export async function captureBaseline(
   if (!device)
     throw new Error('Smoke device fixture not found during baseline capture');
   const openFraudFlags = pilotSummary.fraud;
+  const offlineSync = pilotSummary.offlineSync;
   const outboxBacklog = pilotSummary.outbox;
   if (
     config.frontendUrl &&
     (typeof asRecord(openFraudFlags).openCount !== 'number' ||
+      typeof asRecord(offlineSync).failureCount !== 'number' ||
       typeof asRecord(outboxBacklog).backlogCount !== 'number')
   ) {
     throw new Error(
@@ -293,6 +296,10 @@ export async function captureBaseline(
     openFraudFlags:
       typeof asRecord(openFraudFlags).openCount === 'number'
         ? (asRecord(openFraudFlags).openCount as number)
+        : undefined,
+    offlineRetryRequired:
+      typeof asRecord(offlineSync).failureCount === 'number'
+        ? (asRecord(offlineSync).failureCount as number)
         : undefined,
     outboxBacklog:
       typeof asRecord(outboxBacklog).backlogCount === 'number'

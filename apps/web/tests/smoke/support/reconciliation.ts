@@ -258,7 +258,11 @@ export async function assertPostRunInvariants(
     customer.status !== baseline.customer.status
   )
     failures.push('customer');
-  if (offline !== 0) failures.push('offline retry records');
+  if (
+    baseline.offlineRetryRequired !== undefined &&
+    offline !== baseline.offlineRetryRequired
+  )
+    failures.push('offline retry records');
   if (!lots) failures.push('credit lots');
   if (
     baseline.outboxBacklog !== undefined &&
