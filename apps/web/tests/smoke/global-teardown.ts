@@ -59,7 +59,7 @@ export default async function globalTeardown(
     await waitForOutboxBaseline(invariantReader, state.baseline.outboxBacklog);
     await resolveTaggedSmokeFraudFlags(
       adminApi,
-      run.smokeRunId,
+      'SMOKE-',
       `[${run.smokeRunId}] resolve smoke fraud finding`,
     );
     await assertPostRunInvariants(invariantReader, state.baseline);
