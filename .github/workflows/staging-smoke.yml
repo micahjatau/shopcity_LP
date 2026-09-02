@@ -70,17 +70,6 @@ jobs:
           OUTBOX_RETRY_DELAY_MS: '1000'
           OUTBOX_RECOVERY_THRESHOLD_MS: '1000'
         run: |
-          # Normalize the write-only secret defensively: a bare database URL uses
-          # '?', while URLs with existing query parameters use '&'.
-          if [[ "$DATABASE_URL" == *"&pgbouncer=true" && "$DATABASE_URL" != *"?"* ]]; then
-            export DATABASE_URL="${DATABASE_URL/&pgbouncer=true/?pgbouncer=true}"
-          elif [[ "$DATABASE_URL" != *"pgbouncer=true"* ]]; then
-            if [[ "$DATABASE_URL" == *"?"* ]]; then
-              export DATABASE_URL="${DATABASE_URL}&pgbouncer=true"
-            else
-              export DATABASE_URL="${DATABASE_URL}?pgbouncer=true"
-            fi
-          fi
           export DEVICE_ATTESTATION_KEK="$(openssl rand -hex 32)"
           export SESSION_SECRET="staging-smoke-worker-session-secret"
           export CSRF_SECRET="staging-smoke-worker-csrf-secret"
