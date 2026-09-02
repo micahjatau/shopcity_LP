@@ -144,7 +144,19 @@ jobs:
         if: always()
         run: |
           if [ -f /tmp/shopcity-staging-worker.pid ]; then
-            kill "$(cat /tmp/shopcity-staging-worker.pid)" 2>/dev/null || true
+            worker_pid="$(cat /tmp/shopcity-staging-worker.pid)"
+            kill -TERM "$worker_pid" 2>/dev/null || true
+            for i in $(seq 1 30); do
+              if ! kill -0 "$worker_pid" 2>/dev/null; then
+                break
+              fi
+              sleep 1
+            done
+            if kill -0 "$worker_pid" 2>/dev/null; then
+              echo 'Worker did not exit gracefully; forcing shutdown'
+              kill -KILL "$worker_pid" 2>/dev/null || true
+              exit 1
+            fi
           fi
           if [ -f /tmp/shopcity-staging-worker.log ]; then
             tail -100 /tmp/shopcity-staging-worker.log
