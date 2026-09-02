@@ -152,7 +152,7 @@ test('resolves only tagged smoke fraud flags', async () => {
   await expect(
     resolveTaggedSmokeFraudFlags(
       api,
-      'SMOKE-',
+      'smoke-old-',
       '[SMOKE-TEST-01] resolve prior smoke fraud flags',
     ),
   ).resolves.toBe(1);

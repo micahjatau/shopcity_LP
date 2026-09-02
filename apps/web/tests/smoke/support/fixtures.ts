@@ -315,6 +315,7 @@ export async function resolveTaggedSmokeFraudFlags(
 ): Promise<number> {
   let cursor: string | undefined;
   let resolved = 0;
+  const normalizedPrefix = tagPrefix.toUpperCase();
 
   for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
     const path = `/api/v1/fraud-flags?status=OPEN&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
@@ -333,7 +334,7 @@ export async function resolveTaggedSmokeFraudFlags(
       if (
         !id ||
         typeof receiptNumber !== 'string' ||
-        !receiptNumber.startsWith(tagPrefix)
+        !receiptNumber.toUpperCase().startsWith(normalizedPrefix)
       ) {
         continue;
       }

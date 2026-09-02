@@ -11,9 +11,10 @@ on:
         required: true
         type: string
 
+# The staging smoke tenant is shared mutable state; certification runs must be single-writer.
 concurrency:
-  group: shopcity-staging-smoke-${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
-  cancel-in-progress: true
+  group: shopcity-staging-smoke
+  cancel-in-progress: false
 
 jobs:
   smoke:
