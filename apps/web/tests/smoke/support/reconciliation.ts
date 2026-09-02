@@ -156,6 +156,29 @@ export async function reconcileRun(
   await persistArtifacts(run, artifacts);
 }
 
+export async function waitForOutboxQuiescence(
+  reader: Pick<InvariantReader, 'outboxBacklog'>,
+  timeoutMs = 120_000,
+  stableMs = 5_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let previous = await reader.outboxBacklog();
+  let stableSince = Date.now();
+  while (Date.now() < deadline) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+    const received = await reader.outboxBacklog();
+    if (received !== previous) {
+      previous = received;
+      stableSince = Date.now();
+      continue;
+    }
+    if (Date.now() - stableSince >= stableMs) return;
+  }
+  throw new Error(
+    `Smoke outbox did not become quiescent (last observed backlog ${previous})`,
+  );
+}
+
 export async function waitForOutboxBaseline(
   reader: Pick<InvariantReader, 'outboxBacklog'>,
   expected: number | undefined,

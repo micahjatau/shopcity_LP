@@ -10,7 +10,10 @@ import {
 } from './support/fixtures';
 import { createRoleApiSession } from './support/api-client';
 import { createSmokeRun } from './support/smoke-run';
-import { registerFinancialArtifact } from './support/reconciliation';
+import {
+  registerFinancialArtifact,
+  waitForOutboxQuiescence,
+} from './support/reconciliation';
 import {
   assertProductionUnlocked,
   FileSafetyLockStore,
@@ -51,6 +54,9 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       adminApi,
       'SMOKE-',
       `[${run.smokeRunId}] resolve prior smoke fraud flags`,
+    );
+    await waitForOutboxQuiescence(
+      createApiInvariantReader(adminApi, smokeConfig),
     );
     const baseline = await captureBaseline(smokeConfig, adminApi);
     await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
