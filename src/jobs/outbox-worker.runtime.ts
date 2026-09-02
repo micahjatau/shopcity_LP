@@ -213,6 +213,26 @@ export class OutboxWorkerRuntime {
     }
 
     const now = new Date();
+    if (typeof this.prisma.$executeRaw === 'function') {
+      await this.prisma.$executeRaw`
+      UPDATE "OutboxEvent" AS oe
+      SET "status" = 'COMPLETED',
+          "processedAt" = COALESCE("processedAt", ${now}),
+          "nextAttemptAt" = NULL
+      WHERE oe."eventType" = 'sms.send'
+        AND oe."status" = 'PUBLISHED'
+        AND oe."processedAt" IS NULL
+        AND oe."deadLetteredAt" IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM "SmsMessage" AS sm
+          WHERE sm."tenantId" = oe."tenantId"
+            AND sm."outboxEventId" = oe."id"
+            AND sm."status" IN ('DELIVERED', 'SUPPRESSED')
+            AND sm."deadLetteredAt" IS NULL
+        )
+      `;
+    }
     const staleCutoff = new Date(
       now.getTime() - this.config.recoveryThresholdMs,
     );

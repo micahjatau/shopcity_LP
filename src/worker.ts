@@ -88,6 +88,7 @@ export async function bootstrap() {
     await reportMaterializationRuntime.start();
     await approvalExpiryRuntime.start();
     await creditExpiryRuntime.start();
+    process.stdout.write('SHOPCITY_WORKER_READY\n');
   } catch (error) {
     await shutdown();
     throw error;

@@ -212,38 +212,41 @@ export class ReportMaterializerService {
     });
 
     try {
-      await this.prisma.$transaction(async (tx) => {
-        await acquireMaterializationLock(tx, tenantId);
+      await this.prisma.$transaction(
+        async (tx) => {
+          await acquireMaterializationLock(tx, tenantId);
 
-        const source = await this.loadSourceData(tx, tenantId, asOf);
-        const plan = branchId
-          ? buildBranchPlan(
-              source,
-              tenantId,
-              branchId,
-              asOf,
-              materializedAt,
-              dormantCustomerDays,
-              this.reportTimeZone(),
-            )
-          : buildTenantPlan(
-              source,
-              tenantId,
-              asOf,
-              materializedAt,
-              dormantCustomerDays,
-              this.reportTimeZone(),
-            );
+          const source = await this.loadSourceData(tx, tenantId, asOf);
+          const plan = branchId
+            ? buildBranchPlan(
+                source,
+                tenantId,
+                branchId,
+                asOf,
+                materializedAt,
+                dormantCustomerDays,
+                this.reportTimeZone(),
+              )
+            : buildTenantPlan(
+                source,
+                tenantId,
+                asOf,
+                materializedAt,
+                dormantCustomerDays,
+                this.reportTimeZone(),
+              );
 
-        if (branchId) {
-          await deleteBranchRows(tx, tenantId, branchId);
-        } else {
-          await deleteTenantRows(tx, tenantId);
-        }
+          if (branchId) {
+            await deleteBranchRows(tx, tenantId, branchId);
+          } else {
+            await deleteTenantRows(tx, tenantId);
+          }
 
-        await insertRows(tx, plan);
-        await upsertStates(tx, tenantId, plan.materializationStates);
-      });
+          await insertRows(tx, plan);
+          await upsertStates(tx, tenantId, plan.materializationStates);
+        },
+        { maxWait: 10_000, timeout: 30_000 },
+      );
     } catch (error) {
       await this.upsertState(tenantId, branchId, {
         asOf,
@@ -1196,15 +1199,13 @@ async function deleteTenantRows(
   tx: Prisma.TransactionClient,
   tenantId: string,
 ): Promise<void> {
-  await Promise.all([
-    tx.reportDailyFinancialSummary.deleteMany({ where: { tenantId } }),
-    tx.reportCashierDailySummary.deleteMany({ where: { tenantId } }),
-    tx.reportCustomerSnapshot.deleteMany({ where: { tenantId } }),
-    tx.reportLiabilityBucket.deleteMany({ where: { tenantId } }),
-    tx.reportRedemptionDailySummary.deleteMany({ where: { tenantId } }),
-    tx.reportSmsDailySummary.deleteMany({ where: { tenantId } }),
-    tx.reportMaterializationState.deleteMany({ where: { tenantId } }),
-  ]);
+  await tx.reportDailyFinancialSummary.deleteMany({ where: { tenantId } });
+  await tx.reportCashierDailySummary.deleteMany({ where: { tenantId } });
+  await tx.reportCustomerSnapshot.deleteMany({ where: { tenantId } });
+  await tx.reportLiabilityBucket.deleteMany({ where: { tenantId } });
+  await tx.reportRedemptionDailySummary.deleteMany({ where: { tenantId } });
+  await tx.reportSmsDailySummary.deleteMany({ where: { tenantId } });
+  await tx.reportMaterializationState.deleteMany({ where: { tenantId } });
 }
 
 async function deleteBranchRows(
