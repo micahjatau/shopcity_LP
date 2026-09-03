@@ -17,14 +17,10 @@ test('Cashier business-rule guardrails reject invalid transaction attempts', asy
     await page.goto(
       `/cashier/earn?card=${encodeURIComponent(config.inactiveCardSerial)}`,
     );
-    await expect(page.getByText(/lookup resolved/i)).toBeVisible();
-    await page
-      .getByLabel('POS receipt number')
-      .fill(`${run.smokeRunId}-INACTIVE-01`);
-    await page.getByLabel('Purchase amount').fill('100');
-    await page.getByRole('button', { name: /submit earn/i }).click();
     await expect(
-      page.getByText(/cannot currently earn|error|unavailable/i),
+      page.getByText(
+        /Lookup unavailable \(\d+\)|Lookup could not be completed/i,
+      ),
     ).toBeVisible();
     await expect(
       api.post('/api/v1/transactions/earn', {
@@ -60,18 +56,27 @@ test('Duplicate receipts are rejected without a second financial mutation', asyn
     const receipt = `${run.smokeRunId}-DUPLICATE-01`;
     await page.getByLabel('POS receipt number').fill(receipt);
     await page.getByLabel('Purchase amount').fill('100');
+    await page.getByLabel('Purchase amount').blur();
     const firstResponse = page.waitForResponse(
       (response) =>
         response.url().includes('/api/v1/transactions/earn') &&
         response.request().method() === 'POST',
     );
     await page.getByRole('button', { name: /submit earn/i }).click();
-    await expect(page.getByText(/confirmed/i)).toBeVisible();
-    const payload = (await (await firstResponse).json()) as {
-      transactionId?: string;
-      id?: string;
-    };
-    const transactionId = payload.transactionId ?? payload.id;
+    await expect(
+      page.getByText('Earn confirmed by backend contract.', { exact: true }),
+    ).toBeVisible();
+    const payload = (await (await firstResponse).json()) as Record<
+      string,
+      unknown
+    >;
+    const responseData =
+      payload.data && typeof payload.data === 'object'
+        ? (payload.data as Record<string, unknown>)
+        : payload;
+    const transactionId = (responseData.transactionId ??
+      responseData.id ??
+      responseData.receiptId) as string | undefined;
     if (!transactionId)
       throw new Error(
         'Duplicate guardrail setup did not return a transaction ID',
@@ -88,6 +93,7 @@ test('Duplicate receipts are rejected without a second financial mutation', asyn
     const ledgerCountBeforeDuplicate = ledgerBeforeDuplicate.items?.length ?? 0;
     await page.getByLabel('POS receipt number').fill(receipt);
     await page.getByLabel('Purchase amount').fill('100');
+    await page.getByLabel('Purchase amount').blur();
     await page.getByRole('button', { name: /submit earn/i }).click();
     await expect(
       page.getByText(/already used|duplicate|physical receipt/i),

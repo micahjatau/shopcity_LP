@@ -24,7 +24,7 @@ export interface FinancialArtifact {
 }
 
 const SECRET_KEY =
-  /password|secret|cookie|csrf|authorization|service[_-]?role|redis[_-]?(url|token)/i;
+  /password|secret|cookie|csrf|authorization|bearer|storageState|session[_-]?(token|id)|access[_-]?token|service[_-]?role|redis[_-]?(url|token)/i;
 
 export function assertSafeEvidence(value: unknown, path = 'evidence'): void {
   if (Array.isArray(value)) {

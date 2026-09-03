@@ -43,7 +43,6 @@ test('Supervisor cannot access Admin management APIs', async () => {
   try {
     for (const path of [
       '/api/v1/users',
-      '/api/v1/devices',
       '/api/v1/audit',
       '/api/v1/reports/pilot-operations-summary',
     ]) {

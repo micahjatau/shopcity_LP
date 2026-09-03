@@ -53,13 +53,20 @@ export function createApiInvariantReader(
   const cardPath = `/api/v1/cards/lookup/${config.activeCardSerial}`;
 
   async function pilotSummary(): Promise<Record<string, unknown>> {
-    return record(await api.get('/api/v1/reports/pilot-operations-summary'));
+    const response = record(
+      await api.get('/api/v1/reports/pilot-operations-summary'),
+    );
+    return record(response.data ?? response);
   }
 
   return {
     async balanceKobo() {
-      const customer = await api.get<unknown>(customerPath);
-      return integer(customer, 'balanceKobo');
+      const customer = record(await api.get<unknown>(customerPath));
+      const balance =
+        customer.balanceKobo ??
+        customer.availableBalanceKobo ??
+        customer.balance;
+      return integer({ balanceKobo: balance }, 'balanceKobo');
     },
     async unresolvedApprovals() {
       const response = record(await api.get('/api/v1/approvals?limit=100'));
@@ -72,6 +79,16 @@ export function createApiInvariantReader(
     async openFraudFlags() {
       const summary = await pilotSummary();
       return integer(record(summary.fraud), 'openCount');
+    },
+    async openFraudFlagIds() {
+      const response = record(
+        await api.get('/api/v1/fraud-flags?status=OPEN&limit=100'),
+      );
+      const items = Array.isArray(response.items) ? response.items : [];
+      return items.flatMap((item) => {
+        const id = record(item).id;
+        return typeof id === 'string' ? [id] : [];
+      });
     },
     async deviceState() {
       const devices = await api.get<unknown>('/api/v1/devices');

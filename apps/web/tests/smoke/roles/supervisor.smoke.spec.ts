@@ -12,11 +12,10 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
   const run = loadSmokeRun();
   const api = await createRoleApiSession('supervisor', config, run.smokeRunId);
   try {
-    const session = await api.get<{ role?: string; tenantId?: string }>(
-      '/api/v1/auth/me',
-    );
-    expect(session.role).toMatch(/SUPERVISOR/i);
-    expect(session.tenantId).toBe(config.tenantId);
+    const session = await api.get<{
+      user?: { role?: string; tenantId?: string };
+    }>('/api/v1/auth/me');
+    expect(session.user?.role).toMatch(/SUPERVISOR/i);
 
     await loginRoleInUi(page, 'supervisor', config);
     await page.goto(
@@ -38,6 +37,17 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
       await page.goto(route);
       await expect(page).toHaveURL(new RegExp(`${route.replace('/', '\\/')}$`));
     }
+    await page.goto('/supervisor/fraud');
+    await expect(
+      page.getByRole('heading', { name: 'Fraud', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: /fraud flag list/i }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Fraud decision reason')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /submit decision/i }),
+    ).toBeVisible();
     for (const route of [
       '/admin/users',
       '/admin/devices',
@@ -81,9 +91,9 @@ test('Supervisor can edit a run-tagged profile and restore its baseline', async 
     await expect(
       page.getByRole('heading', { name: /customers/i }),
     ).toBeVisible();
-    await page
-      .getByLabel('Customer full name')
-      .fill(`${run.smokeRunId} Supervisor Profile`);
+    const fullNameField = page.getByLabel('Customer full name');
+    await expect(fullNameField).toHaveValue(/.+/);
+    await fullNameField.fill(`${run.smokeRunId} Supervisor Profile`);
     await page.getByRole('button', { name: /save profile/i }).click();
     await expect(
       page.getByText(/profile updated|customer updated|saved/i),

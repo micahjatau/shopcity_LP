@@ -1,13 +1,23 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { FullConfig } from '@playwright/test';
+import { request, type FullConfig } from '@playwright/test';
 import { loadSmokeConfig } from './config';
-import { createRoleApiSession } from './support/api-client';
+import {
+  createRoleApiSession,
+  createSmokeApiSession,
+  type SmokeRole,
+} from './support/api-client';
 import { createApiInvariantReader } from './support/assertions';
-import { resetMutableFixtures, type SmokeBaseline } from './support/fixtures';
+import {
+  resetMutableFixtures,
+  resolveTaggedSmokeFraudFlags,
+  type SmokeBaseline,
+} from './support/fixtures';
 import {
   assertPostRunInvariants,
+  recoverPendingFinancialWrites,
   reconcileRun,
+  waitForOutboxBaseline,
   writeReconciliationEvidence,
   type PersistedSmokeRun,
 } from './support/reconciliation';
@@ -16,6 +26,7 @@ import {
   FileSafetyLockStore,
   lockProductionSmoke,
 } from './support/safety-lock';
+import { smokeAuthDir } from './support/smoke-run';
 
 interface SmokeRunState extends PersistedSmokeRun {
   outputDir: string;
@@ -43,6 +54,8 @@ export default async function globalTeardown(
     };
     smokeConfig = loadSmokeConfig();
     adminApi = await createRoleApiSession('admin', smokeConfig, run.smokeRunId);
+    await recoverPendingFinancialWrites(run, adminApi);
+    state = JSON.parse(await readFile(statePath, 'utf8')) as SmokeRunState;
     await reconcileRun(run, adminApi, state.artifacts ?? []);
     await resetMutableFixtures(
       smokeConfig,
@@ -50,10 +63,14 @@ export default async function globalTeardown(
       state.baseline,
       run.smokeRunId,
     );
-    await assertPostRunInvariants(
-      createApiInvariantReader(adminApi, smokeConfig),
-      state.baseline,
+    const invariantReader = createApiInvariantReader(adminApi, smokeConfig);
+    await waitForOutboxBaseline(invariantReader, state.baseline.outboxBacklog);
+    await resolveTaggedSmokeFraudFlags(
+      adminApi,
+      run.smokeRunId,
+      `[${run.smokeRunId}] resolve smoke fraud finding`,
     );
+    await assertPostRunInvariants(invariantReader, state.baseline);
     await writeReconciliationEvidence(run, {
       smokeRunId: run.smokeRunId,
       result: 'PASS',
@@ -121,6 +138,39 @@ export default async function globalTeardown(
     }
     throw new Error(`FAIL_RECONCILIATION: ${reason}`);
   } finally {
+    await adminApi?.post('/api/v1/auth/logout', {}).catch(() => undefined);
     await adminApi?.dispose();
+    if (state && smokeConfig) {
+      const authDir = smokeAuthDir(state);
+      for (const role of ['admin', 'supervisor', 'cashier'] as SmokeRole[]) {
+        let context: Awaited<ReturnType<typeof request.newContext>> | undefined;
+        try {
+          const authState = JSON.parse(
+            await readFile(resolve(authDir, `${role}.json`), 'utf8'),
+          ) as {
+            cookies?: Array<{
+              name: string;
+              value: string;
+              domain?: string;
+              path?: string;
+            }>;
+          };
+          context = await request.newContext({
+            baseURL: smokeConfig.frontendUrl,
+            storageState: authState,
+          });
+          await createSmokeApiSession(context, state.smokeRunId).post(
+            '/api/v1/auth/logout',
+            {},
+          );
+        } catch {
+          // Teardown remains best-effort after reconciliation; evidence never
+          // includes the temporary authentication state.
+        } finally {
+          await context?.dispose();
+        }
+      }
+      await rm(authDir, { recursive: true, force: true });
+    }
   }
 }

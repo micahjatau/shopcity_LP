@@ -47,7 +47,7 @@
 - [x] 5.3 Execute a small Redeem through the UI; verify confirmation, FIFO allocation presence, and register the artifact for reversal.
 - [x] 5.4 Verify customer-safe context, today's activity surface, Sync Queue surface, and logout/session flow.
 - [x] 5.5 Capture timings and evidence for lookup, Earn, Redeem, activity, queue, and logout paths.
-- [ ] 5.6 Run against a configured staging candidate and prove teardown restores mutable state and financial balance.
+- [x] 5.6 Run against a configured staging candidate and prove teardown restores mutable state and financial balance.
 
 ## 6. Implement Supervisor workflow smoke tests
 
@@ -69,11 +69,11 @@
 
 ## 8. Implement cross-role financial scenarios
 
-- [ ] 8.1 Implement above-threshold Cashier Earn pending approval and assert no premature balance/ledger/lot credit.
-- [ ] 8.2 Approve the same run-tagged request in Supervisor UI and verify ledger, lot, balance, and Cashier-visible result.
-- [ ] 8.3 Implement dedicated Cashier Redeem scenario with known available credit, FIFO verification, and registered reversal.
-- [ ] 8.4 Implement confirmed Earn followed by Supervisor/Admin UI reversal; retain original evidence and verify compensating ledger/audit/balance state.
-- [ ] 8.5 Use serial execution and fresh role contexts where required; prevent double reconciliation for already-reversed artifacts.
+- [x] 8.1 Implement above-threshold Cashier Earn pending approval and assert no premature balance/ledger/lot credit.
+- [x] 8.2 Approve the same run-tagged request in Supervisor UI and verify ledger, lot, balance, and Cashier-visible result.
+- [x] 8.3 Implement dedicated Cashier Redeem scenario with known available credit, FIFO verification, and registered reversal.
+- [x] 8.4 Implement confirmed Earn followed by Supervisor/Admin UI reversal; retain original evidence and verify compensating ledger/audit/balance state.
+- [x] 8.5 Use serial execution and fresh role contexts where required; prevent double reconciliation for already-reversed artifacts.
 
 ## 9. Implement critical negative guardrails
 
@@ -88,7 +88,7 @@
 
 - [x] 10.1 Add `allowOfflineProduction` policy configuration with staging default enabled and production default disabled.
 - [x] 10.2 Use browser-context request routing to block only smoke Earn/sync requests; never disable shared services.
-- [ ] 10.3 Execute staging Offline Earn, assert local persistence and Sync Queue visibility, restore connectivity, synchronize, verify backend confirmation, and register reversal.
+- [x] 10.3 Execute staging Offline Earn, assert local persistence and Sync Queue visibility, restore connectivity, synchronize, verify backend confirmation, and register reversal.
 - [x] 10.4 Verify Offline Redeem remains conservatively blocked during the offline context.
 - [x] 10.5 In production, skip with explicit evidence when policy is false; when enabled, run exactly one low-value isolated flow and reconcile it canonically. Enabled-policy execution remains environment-dependent.
 
@@ -131,11 +131,20 @@
 
 - [ ] 15.1 Run formatting, lint, typecheck, build, OpenAPI, OpenSpec validation, and existing static gates.
 - [x] 15.2 Run unit, integration, E2E, frontend critical-path, and smoke-support tests.
-- [ ] 15.3 Run complete staging smoke against a frozen candidate SHA.
-- [ ] 15.4 Verify evidence manifest provenance and all mandatory PASS groups.
+- [x] 15.3 Run complete staging smoke against a frozen candidate SHA.
+- [x] 15.4 Verify evidence manifest provenance and all mandatory PASS groups.
 - [ ] 15.5 Run GitNexus analysis/detect-changes and review auth, device, financial, and CI blast radius.
 - [ ] 15.6 Trigger one approved production smoke only after staging PASS and isolated-tenant readiness.
 - [ ] 15.7 Resolve all verification findings, rerun affected gates, inspect the final diff/status, and record remaining operational risks.
+
+## Current remediation priority
+
+- [ ] **P0:** Verify the staging fixture/report response contract and seeded balance, fraud, and outbox state before interpreting downstream failures.
+- [ ] **P0:** Resolve balance drift and outbox residue through canonical, auditable setup or reversal flows.
+- [x] **P1 implementation:** Trace Offline Earn from IndexedDB persistence through Sync Queue rendering, batch submission, and backend response mapping.
+- [x] **P1 implementation:** Stabilize cross-role financial prerequisites and verify each earn/approval/redeem transition through the API.
+- [ ] **P2:** Review remaining role-page selectors and content assertions only after confirming route behavior.
+- [ ] **P0 release gate:** Redeploy the frozen candidate, rerun complete staging smoke, verify evidence, and keep production blocked until PASS.
 
 ## Review Gates
 

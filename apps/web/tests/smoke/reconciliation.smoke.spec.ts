@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -7,6 +7,7 @@ import { measureWorkflow } from './support/timing';
 import {
   assertPostRunInvariants,
   classifySmokeOutcome,
+  recoverPendingFinancialWrites,
   reconcileRun,
   registerFinancialArtifact,
 } from './support/reconciliation';
@@ -81,6 +82,44 @@ test('persists artifacts and calls canonical reconciliation endpoint', async () 
       key: 'SMOKE-TEST-01-reconcile-receipt-1',
     },
   ]);
+});
+
+test('recovers pending writes before reconciliation', async () => {
+  const run = await temporaryRun();
+  await writeFile(
+    resolve(run.outputDir, 'current-run.json'),
+    JSON.stringify({
+      smokeRunId: run.smokeRunId,
+      artifacts: [],
+      pendingFinancialWrites: [
+        {
+          kind: 'ADJUSTMENT',
+          path: '/api/v1/adjustments',
+          body: { customerId: 'customer-1', kind: 'CREDIT', amountKobo: 1 },
+          idempotencyKey: 'SMOKE-TEST-01-pending',
+          reversalPath: '/api/v1/transactions/{id}/reverse',
+        },
+      ],
+    }),
+  );
+  const api = {
+    context: {} as SmokeApiSession['context'],
+    get: async () => ({}),
+    post: async <T>(_path: string, _body: unknown, _key?: string) =>
+      ({ transactionId: 'transaction-1' }) as T,
+    patch: async () => ({}),
+    dispose: async () => undefined,
+  } as SmokeApiSession;
+
+  await recoverPendingFinancialWrites(run, api);
+  const persisted = JSON.parse(
+    await readFile(resolve(run.outputDir, 'current-run.json'), 'utf8'),
+  ) as { artifacts: FinancialArtifact[]; pendingFinancialWrites: unknown[] };
+  expect(persisted.pendingFinancialWrites).toEqual([]);
+  expect(persisted.artifacts[0]).toMatchObject({
+    referenceId: 'transaction-1',
+    reversalPath: '/api/v1/transactions/transaction-1/reverse',
+  });
 });
 
 test('post-run invariants reject a changed baseline', async () => {

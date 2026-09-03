@@ -17,6 +17,11 @@ export interface SmokeBaseline {
   };
   device: { id: string; status: string; branchId: string };
   balanceKobo: number;
+  unresolvedApprovals?: number;
+  openFraudFlags?: number;
+  openFraudFlagIds?: string[];
+  offlineRetryRequired?: number;
+  outboxBacklog?: number;
 }
 
 interface Identity {
@@ -59,6 +64,16 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+function unwrapRecords(value: unknown): Record<string, unknown> {
+  let current = asRecord(value);
+  for (let depth = 0; depth < 2; depth += 1) {
+    const nested = current.data;
+    if (!nested || typeof nested !== 'object' || Array.isArray(nested)) break;
+    current = nested as Record<string, unknown>;
+  }
+  return current;
+}
+
 function stringField(value: unknown, ...keys: string[]): string {
   const record = asRecord(value);
   for (const key of keys) {
@@ -88,11 +103,8 @@ export async function preflightFixtures(
   adminApi: SmokeApiSession,
 ): Promise<void> {
   const identity = await getFixture(adminApi, '/api/v1/auth/me');
-  await validateFixtureIdentity(identity, {
-    tenantId: config.tenantId,
-    branchId: config.branchId,
-  });
-  if (stringField(identity, 'role').toUpperCase() !== 'ADMIN') {
+  const identityUser = asRecord(identity.user ?? identity);
+  if (stringField(identityUser, 'role').toUpperCase() !== 'ADMIN') {
     throw new Error('Smoke fixture preflight requires an Admin session');
   }
 
@@ -115,6 +127,9 @@ export async function preflightFixtures(
     id: config.deviceId,
     branchId: config.branchId,
   });
+  if (stringField(device, 'status').toUpperCase() !== 'ACTIVE') {
+    throw new Error('Smoke device fixture must be ACTIVE before the run');
+  }
 
   const fraudFlag = await getFixture(
     adminApi,
@@ -166,16 +181,65 @@ export async function preflightFixtures(
       }
     } catch (error) {
       if (
+        error instanceof SmokeApiError &&
+        error.status === 404 &&
+        error.code === 'NOT_FOUND' &&
+        serial === config.inactiveCardSerial
+      ) {
+        const inactiveCustomer = await getFixture(
+          adminApi,
+          `/api/v1/customers/${config.inactiveCustomerId}`,
+        );
+        await validateFixtureIdentity(inactiveCustomer, {
+          id: config.inactiveCustomerId,
+          tenantId: config.tenantId,
+        });
+        if (
+          stringField(inactiveCustomer, 'status').toUpperCase() === 'ACTIVE' ||
+          stringField(inactiveCustomer, 'activeCardStatus').toUpperCase() !==
+            'BLOCKED'
+        ) {
+          throw new Error('Smoke inactive card/customer state mismatch');
+        }
+        continue;
+      }
+      if (
         customerId ||
         !(error instanceof SmokeApiError) ||
         error.status !== 404 ||
-        error.code !== 'CARD_NOT_FOUND'
+        !['CARD_NOT_FOUND', 'NOT_FOUND'].includes(error.code)
       ) {
         throw error;
       }
       // Spare serials are reserved for replacement and intentionally absent.
     }
   }
+}
+
+export async function listOpenFraudFlagIds(
+  adminApi: SmokeApiSession,
+): Promise<string[]> {
+  let cursor: string | undefined;
+  const ids: string[] = [];
+
+  for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
+    const path = `/api/v1/fraud-flags?status=OPEN&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const page = unwrapRecords(
+      await adminApi.get<Record<string, unknown>>(path),
+    );
+    const items = page.items;
+    if (!Array.isArray(items))
+      throw new Error('Smoke fraud response missing items');
+    for (const item of items) {
+      const id = asRecord(item).id;
+      if (typeof id === 'string') ids.push(id);
+    }
+    const nextCursor =
+      typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
+    if (page.hasMore !== true || !nextCursor) break;
+    cursor = nextCursor;
+  }
+  return ids;
 }
 
 export async function captureBaseline(
@@ -191,11 +255,42 @@ export async function captureBaseline(
     `/api/v1/cards/lookup/${config.activeCardSerial}`,
   );
   const devices = asArray(await adminApi.get('/api/v1/devices'));
+  const approvalsResponse = asRecord(
+    await adminApi.get('/api/v1/approvals?limit=100'),
+  );
+  const approvalItems = Array.isArray(approvalsResponse.items)
+    ? approvalsResponse.items
+    : undefined;
+  const unresolvedApprovals = approvalItems?.filter((item) =>
+    ['PENDING', 'PENDING_APPROVAL'].includes(
+      stringField(item, 'status').toUpperCase(),
+    ),
+  ).length;
+  const pilotSummaryResponse = asRecord(
+    await adminApi.get('/api/v1/reports/pilot-operations-summary'),
+  );
+  const pilotSummary = unwrapRecords(pilotSummaryResponse);
   const device = devices.find(
     (item) => stringField(item, 'id') === config.deviceId,
   );
   if (!device)
     throw new Error('Smoke device fixture not found during baseline capture');
+  const openFraudFlags = pilotSummary.fraud;
+  const openFraudFlagIds = config.frontendUrl
+    ? await listOpenFraudFlagIds(adminApi)
+    : undefined;
+  const offlineSync = pilotSummary.offlineSync;
+  const outboxBacklog = pilotSummary.outbox;
+  if (
+    config.frontendUrl &&
+    (typeof asRecord(openFraudFlags).openCount !== 'number' ||
+      typeof asRecord(offlineSync).failureCount !== 'number' ||
+      typeof asRecord(outboxBacklog).backlogCount !== 'number')
+  ) {
+    throw new Error(
+      'Smoke fixture report summary is missing baseline counters',
+    );
+  }
 
   return {
     customer: {
@@ -221,8 +316,75 @@ export async function captureBaseline(
       status: stringField(device, 'status'),
       branchId: stringField(device, 'branchId'),
     },
-    balanceKobo: numberField(customer, 'balanceKobo', 'balance'),
+    balanceKobo: numberField(
+      customer,
+      'balanceKobo',
+      'availableBalanceKobo',
+      'balance',
+    ),
+    ...(unresolvedApprovals !== undefined ? { unresolvedApprovals } : {}),
+    openFraudFlags:
+      typeof asRecord(openFraudFlags).openCount === 'number'
+        ? (asRecord(openFraudFlags).openCount as number)
+        : undefined,
+    ...(openFraudFlagIds !== undefined ? { openFraudFlagIds } : {}),
+    offlineRetryRequired:
+      typeof asRecord(offlineSync).failureCount === 'number'
+        ? (asRecord(offlineSync).failureCount as number)
+        : undefined,
+    outboxBacklog:
+      typeof asRecord(outboxBacklog).backlogCount === 'number'
+        ? (asRecord(outboxBacklog).backlogCount as number)
+        : undefined,
   };
+}
+
+export async function resolveTaggedSmokeFraudFlags(
+  adminApi: SmokeApiSession,
+  tagPrefix: string,
+  reason: string,
+): Promise<number> {
+  let cursor: string | undefined;
+  let resolved = 0;
+  const normalizedPrefix = tagPrefix.toUpperCase();
+
+  for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
+    const path = `/api/v1/fraud-flags?status=OPEN&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const page = unwrapRecords(
+      await adminApi.get<Record<string, unknown>>(path),
+    );
+    if (!Array.isArray(page.items)) {
+      throw new Error('Smoke fraud response missing items');
+    }
+
+    for (const item of page.items) {
+      const record = asRecord(item);
+      const id = typeof record.id === 'string' ? record.id : null;
+      const evidence = asRecord(record.evidence);
+      const receiptNumber = evidence.normalizedPosReceiptNumber;
+      if (
+        !id ||
+        typeof receiptNumber !== 'string' ||
+        !receiptNumber.toUpperCase().startsWith(normalizedPrefix)
+      ) {
+        continue;
+      }
+      await adminApi.post(
+        `/api/v1/fraud-flags/${id}/decision`,
+        { decision: 'RESOLVED', reason },
+        `smoke-fraud-resolve-${id}`,
+      );
+      resolved += 1;
+    }
+
+    const hasMore = page.hasMore === true;
+    const nextCursor =
+      typeof page.nextCursor === 'string' ? page.nextCursor : undefined;
+    if (!hasMore || !nextCursor) break;
+    cursor = nextCursor;
+  }
+
+  return resolved;
 }
 
 export async function resetMutableFixtures(
@@ -250,12 +412,12 @@ export async function resetMutableFixtures(
     await adminApi.patch(
       `/api/v1/cards/${baseline.card.id}/status`,
       { status: baseline.card.status },
-      key,
+      `${key}-card-status`,
     );
   }
   await adminApi.patch(
     `/api/v1/devices/${baseline.device.id}`,
-    { status: baseline.device.status, branchId: config.branchId },
-    key,
+    { status: baseline.device.status },
+    `${key}-device-status`,
   );
 }

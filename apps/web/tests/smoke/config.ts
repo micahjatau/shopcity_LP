@@ -22,9 +22,11 @@ export interface SmokeConfig {
   spareCardSerials: string[];
   allowDeviceRotation: boolean;
   allowOfflineProduction: boolean;
-  admin: { username: string; password: string };
-  supervisor: { username: string; password: string };
+  sessionBootstrapSecret: string;
+  admin: { userId: string; username: string; password: string };
+  supervisor: { userId: string; username: string; password: string };
   cashier: {
+    userId: string;
     username: string;
     password: string;
     deviceId: string;
@@ -49,14 +51,18 @@ const REQUIRED_FIELDS = [
   'SMOKE_STAFF_CARD_SERIAL',
   'SMOKE_FRAUD_FLAG_ID',
   'SMOKE_SPARE_CARD_SERIALS',
+  'SMOKE_ADMIN_USER_ID',
   'SMOKE_ADMIN_USERNAME',
   'SMOKE_ADMIN_PASSWORD',
+  'SMOKE_SUPERVISOR_USER_ID',
   'SMOKE_SUPERVISOR_USERNAME',
   'SMOKE_SUPERVISOR_PASSWORD',
+  'SMOKE_CASHIER_USER_ID',
   'SMOKE_CASHIER_USERNAME',
   'SMOKE_CASHIER_PASSWORD',
   'SMOKE_CASHIER_DEVICE_ID',
   'SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET',
+  'SMOKE_SESSION_BOOTSTRAP_SECRET',
 ] as const;
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -180,15 +186,19 @@ export function parseSmokeConfig(env: NodeJS.ProcessEnv): SmokeConfig {
       'SMOKE_ALLOW_OFFLINE_PRODUCTION',
       environment === 'staging',
     ),
+    sessionBootstrapSecret: required(env, 'SMOKE_SESSION_BOOTSTRAP_SECRET'),
     admin: {
+      userId: required(env, 'SMOKE_ADMIN_USER_ID'),
       username: required(env, 'SMOKE_ADMIN_USERNAME'),
       password: required(env, 'SMOKE_ADMIN_PASSWORD'),
     },
     supervisor: {
+      userId: required(env, 'SMOKE_SUPERVISOR_USER_ID'),
       username: required(env, 'SMOKE_SUPERVISOR_USERNAME'),
       password: required(env, 'SMOKE_SUPERVISOR_PASSWORD'),
     },
     cashier: {
+      userId: required(env, 'SMOKE_CASHIER_USER_ID'),
       username: required(env, 'SMOKE_CASHIER_USERNAME'),
       password: required(env, 'SMOKE_CASHIER_PASSWORD'),
       deviceId: cashierDeviceId,

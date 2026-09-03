@@ -151,7 +151,7 @@ describe('outbox worker recovery (int)', () => {
 
         return (
           smsMessage?.status === 'DELIVERED' &&
-          outboxEvent?.status === 'PUBLISHED'
+          outboxEvent?.status === 'COMPLETED'
         );
       });
 
@@ -172,7 +172,7 @@ describe('outbox worker recovery (int)', () => {
 
       expect(smsMessage?.status).toBe('DELIVERED');
       expect(smsMessage?.providerMessageId).toBeDefined();
-      expect(outboxEvent?.status).toBe('PUBLISHED');
+      expect(outboxEvent?.status).toBe('COMPLETED');
     } finally {
       await runtime.stop();
       await redisEnv.close();
@@ -444,7 +444,7 @@ describe('outbox worker recovery (int)', () => {
 
         return (
           smsMessage?.status === 'DELIVERED' &&
-          outboxEvent?.status === 'PUBLISHED'
+          outboxEvent?.status === 'COMPLETED'
         );
       }, 20000);
 
@@ -461,7 +461,7 @@ describe('outbox worker recovery (int)', () => {
       ]);
 
       expect(smsMessage?.status).toBe('DELIVERED');
-      expect(outboxEvent?.status).toBe('PUBLISHED');
+      expect(outboxEvent?.status).toBe('COMPLETED');
     } finally {
       await recoveryRuntime?.stop();
       await redisEnv.close();

@@ -32,24 +32,42 @@ export class SmokeApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
+    public readonly detail?: string,
   ) {
-    super(`Smoke API request failed (${status}): ${code}`);
+    super(
+      `Smoke API request failed (${status}): ${code}${detail ? ` (${detail})` : ''}`,
+    );
     this.name = 'SmokeApiError';
   }
 }
 
-function safeError(status: number, payload: unknown): SmokeApiError {
+function safeError(
+  status: number,
+  payload: unknown,
+  path?: string,
+): SmokeApiError {
   const record =
     payload && typeof payload === 'object' ? (payload as JsonRecord) : {};
   const data =
     record.data && typeof record.data === 'object'
       ? (record.data as JsonRecord)
       : {};
+  const error =
+    record.error && typeof record.error === 'object'
+      ? (record.error as JsonRecord)
+      : {};
   const code =
-    [record.code, data.code, record.errorCode].find(
+    [record.code, error.code, data.code, record.errorCode].find(
       (value): value is string => typeof value === 'string',
     ) ?? 'UNKNOWN';
-  return new SmokeApiError(status, code);
+  const detail = [error.message, record.message, data.message].find(
+    (value): value is string => typeof value === 'string',
+  );
+  return new SmokeApiError(
+    status,
+    code,
+    path ? `${path}${detail ? `: ${detail}` : ''}` : detail,
+  );
 }
 
 async function responsePayload(response: APIResponse): Promise<unknown> {
@@ -63,9 +81,17 @@ async function responsePayload(response: APIResponse): Promise<unknown> {
 }
 
 function unwrap(payload: unknown): unknown {
-  if (!payload || typeof payload !== 'object') return payload;
-  const record = payload as JsonRecord;
-  return 'data' in record ? record.data : payload;
+  let current = payload;
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (!current || typeof current !== 'object') return current;
+    const record = current as JsonRecord;
+    if (!('data' in record)) return current;
+    // The outer API envelope may also carry metadata; nested envelopes are
+    // only unwrapped when they contain no sibling payload fields.
+    if (depth > 0 && Object.keys(record).length !== 1) return current;
+    current = record.data;
+  }
+  return current;
 }
 
 export interface SmokeApiSession {
@@ -104,7 +130,7 @@ export function createSmokeApiSession(
       ...(method === 'GET' ? {} : { data: body }),
     });
     const payload = await responsePayload(response);
-    if (!response.ok()) throw safeError(response.status(), payload);
+    if (!response.ok()) throw safeError(response.status(), payload, path);
     return unwrap(payload) as T;
   }
 
@@ -129,6 +155,7 @@ export async function createRoleApiSession(
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
+    'x-smoke-session-bootstrap-secret': config.sessionBootstrapSecret,
   };
   if (role === 'cashier') {
     headers['x-device-id'] = config.cashier.deviceId;
@@ -138,8 +165,12 @@ export async function createRoleApiSession(
     );
   }
 
-  const response = await context.post('/api/v1/auth/login', {
-    data: { username: credentials.username, password: credentials.password },
+  const response = await context.post('/api/v1/auth/smoke-session', {
+    data: {
+      tenantId: config.tenantId,
+      userId: credentials.userId,
+      role: role.toUpperCase(),
+    },
     headers,
   });
   const payload = await responsePayload(response);

@@ -20,14 +20,18 @@ function validEnvironment(): NodeJS.ProcessEnv {
     SMOKE_STAFF_CARD_SERIAL: 'card-staff',
     SMOKE_FRAUD_FLAG_ID: 'fraud-flag-smoke',
     SMOKE_SPARE_CARD_SERIALS: 'card-spare-a,card-spare-b',
+    SMOKE_ADMIN_USER_ID: 'admin-user-id',
     SMOKE_ADMIN_USERNAME: 'smoke.admin',
     SMOKE_ADMIN_PASSWORD: 'not-a-real-password',
+    SMOKE_SUPERVISOR_USER_ID: 'supervisor-user-id',
     SMOKE_SUPERVISOR_USERNAME: 'smoke.supervisor',
     SMOKE_SUPERVISOR_PASSWORD: 'not-a-real-password',
+    SMOKE_CASHIER_USER_ID: 'cashier-user-id',
     SMOKE_CASHIER_USERNAME: 'smoke.cashier',
     SMOKE_CASHIER_PASSWORD: 'not-a-real-password',
     SMOKE_CASHIER_DEVICE_ID: 'device-smoke',
     SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: 'not-a-real-secret',
+    SMOKE_SESSION_BOOTSTRAP_SECRET: 'not-a-real-bootstrap-secret',
   };
 }
 

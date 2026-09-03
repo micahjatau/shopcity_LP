@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import {
   randomUUID,
   createHash,
@@ -25,6 +25,7 @@ import {
 import { decryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
 
 const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
+const SMOKE_SESSION_LIFETIME_MS = 15 * 60 * 1000;
 
 interface IssuedSession {
   context: AuthContext;
@@ -154,6 +155,102 @@ export class AuthService {
     });
   }
 
+  async bootstrapSmokeSession(
+    bootstrapSecret: string | undefined,
+    role: UserRole,
+    userId: string,
+    tenantId: string,
+    deviceId?: string,
+    deviceAttestation?: string,
+  ): Promise<IssuedSession> {
+    assertSmokeBootstrapSecret(
+      bootstrapSecret,
+      this.configService.get<string>('SMOKE_SESSION_BOOTSTRAP_SECRET'),
+    );
+
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        id: userId,
+        role,
+        tenantId,
+      },
+      include: { tenant: true, branch: true },
+    });
+
+    if (!user || !isAuthUserEligible(user)) {
+      throw new UnauthorizedException('User is not active');
+    }
+
+    if (role === UserRole.CASHIER && !deviceId) {
+      throw new BadRequestException('Device is required');
+    }
+
+    const sessionDevice = deviceId
+      ? await this.prismaService.device.findFirst({
+          where: { id: deviceId, tenantId: user.tenantId },
+          include: { branch: true },
+        })
+      : null;
+
+    if (
+      deviceId &&
+      (!sessionDevice ||
+        sessionDevice.status !== 'ACTIVE' ||
+        sessionDevice.branch.status !== 'ACTIVE' ||
+        (user.branchId && user.branchId !== sessionDevice.branchId))
+    ) {
+      throw new BadRequestException('Device is not active');
+    }
+
+    if (deviceId && !deviceAttestation) {
+      throw new BadRequestException('Device attestation is required');
+    }
+
+    const attestation = deviceId
+      ? assertDeviceAttestationValid(
+          deviceId,
+          deviceAttestation!,
+          resolveDeviceAttestationSecret(
+            sessionDevice!,
+            this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '',
+          ),
+        )
+      : null;
+
+    return this.prismaService.$transaction(async (prisma) => {
+      let attestationId: string | null = null;
+      if (sessionDevice && attestation) {
+        attestationId = await recordDeviceAttestation(prisma, {
+          tenantId: user.tenantId,
+          deviceId: sessionDevice.id,
+          nonce: attestation.nonce,
+          attestationTimestamp: new Date(attestation.timestamp),
+          expiresAt: new Date(
+            attestation.timestamp + MAX_DEVICE_ATTESTATION_SKEW_MS,
+          ),
+        });
+      }
+
+      const issued = await this.issueSession(
+        prisma,
+        user.id,
+        user.tenantId,
+        'auth.smoke_session_bootstrap',
+        sessionDevice?.id ?? null,
+        SMOKE_SESSION_LIFETIME_MS,
+      );
+
+      if (attestationId) {
+        await prisma.deviceAttestation.update({
+          where: { id: attestationId },
+          data: { issuedSessionId: issued.context.session.id },
+        });
+      }
+
+      return issued;
+    });
+  }
+
   async refresh(sessionId: string): Promise<IssuedSession> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
@@ -250,9 +347,13 @@ export class AuthService {
     tenantId: string,
     action: string,
     deviceId: string | null,
+    lifetimeMs = 1000 * 60 * 60 * 12,
   ): Promise<IssuedSession> {
     const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 12);
+    if (!Number.isSafeInteger(lifetimeMs) || lifetimeMs <= 0) {
+      throw new Error('Session lifetime must be a positive integer');
+    }
+    const expiresAt = new Date(Date.now() + lifetimeMs);
     const sessionSecret =
       this.configService.get<string>('SESSION_SECRET') ?? '';
     const csrfSecret = this.configService.get<string>('CSRF_SECRET') ?? '';
@@ -425,6 +526,21 @@ function resolveDeviceAttestationSecret(
     'DEVICE_ATTESTATION_SECRET_UNAVAILABLE',
     'Device attestation secret is unavailable',
   );
+}
+
+function assertSmokeBootstrapSecret(
+  provided: string | undefined,
+  expected: string | undefined,
+): void {
+  if (!provided?.trim() || !expected?.trim()) {
+    throw new UnauthorizedException('Invalid smoke bootstrap credentials');
+  }
+
+  const providedHash = createHash('sha256').update(provided.trim()).digest();
+  const expectedHash = createHash('sha256').update(expected.trim()).digest();
+  if (!timingSafeEqual(providedHash, expectedHash)) {
+    throw new UnauthorizedException('Invalid smoke bootstrap credentials');
+  }
 }
 
 function normalizeUsername(username: string): string {

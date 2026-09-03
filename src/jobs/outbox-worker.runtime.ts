@@ -213,6 +213,35 @@ export class OutboxWorkerRuntime {
     }
 
     const now = new Date();
+    if (typeof this.prisma.$executeRaw === 'function') {
+      await this.prisma.$executeRaw`
+        UPDATE "OutboxEvent" AS oe
+        SET "status" = 'COMPLETED',
+            "processedAt" = COALESCE("processedAt", ${now}),
+            "nextAttemptAt" = NULL
+        WHERE oe."processedAt" IS NOT NULL
+          AND oe."status" <> 'COMPLETED'
+          AND oe."deadLetteredAt" IS NULL
+      `;
+      await this.prisma.$executeRaw`
+        UPDATE "OutboxEvent" AS oe
+        SET "status" = 'COMPLETED',
+            "processedAt" = ${now},
+            "nextAttemptAt" = NULL
+        WHERE oe."eventType" = 'sms.send'
+          AND oe."status" = 'PUBLISHED'
+          AND oe."processedAt" IS NULL
+          AND oe."deadLetteredAt" IS NULL
+          AND EXISTS (
+            SELECT 1
+            FROM "SmsMessage" AS sm
+            WHERE sm."tenantId" = oe."tenantId"
+              AND sm."outboxEventId" = oe."id"
+              AND sm."status" IN ('SENT', 'DELIVERED', 'SUPPRESSED')
+              AND sm."deadLetteredAt" IS NULL
+          )
+      `;
+    }
     const staleCutoff = new Date(
       now.getTime() - this.config.recoveryThresholdMs,
     );
@@ -290,9 +319,13 @@ export class OutboxWorkerRuntime {
           payload: outboxEvent.payload,
         });
 
-        await this.prisma.outboxEvent.update({
+        await this.prisma.outboxEvent.updateMany({
           where: {
-            tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.id,
+            status: OutboxEventStatus.QUEUED,
+            processedAt: null,
+            deadLetteredAt: null,
           },
           data: {
             status: OutboxEventStatus.PUBLISHED,
@@ -301,9 +334,13 @@ export class OutboxWorkerRuntime {
           },
         });
       } catch (error) {
-        await this.prisma.outboxEvent.update({
+        await this.prisma.outboxEvent.updateMany({
           where: {
-            tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.id,
+            status: OutboxEventStatus.QUEUED,
+            processedAt: null,
+            deadLetteredAt: null,
           },
           data: {
             status: OutboxEventStatus.FAILED,
@@ -379,6 +416,15 @@ export class OutboxWorkerRuntime {
     }
 
     if (
+      resolvedSmsMessage.status === 'SENT' ||
+      resolvedSmsMessage.status === 'DELIVERED' ||
+      resolvedSmsMessage.status === 'SUPPRESSED'
+    ) {
+      await this.markOutboxEventCompleted(outboxEvent);
+      return;
+    }
+
+    if (
       resolvedSmsMessage.deadLetteredAt ||
       resolvedSmsMessage.attempts >= OUTBOX_RETRY_ATTEMPTS
     ) {
@@ -388,14 +434,6 @@ export class OutboxWorkerRuntime {
         'SMS retry budget exhausted',
       );
       job.discard();
-      return;
-    }
-
-    if (
-      resolvedSmsMessage.status === 'SENT' ||
-      resolvedSmsMessage.status === 'DELIVERED' ||
-      resolvedSmsMessage.status === 'SUPPRESSED'
-    ) {
       return;
     }
 

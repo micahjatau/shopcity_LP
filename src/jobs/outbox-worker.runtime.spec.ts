@@ -129,6 +129,7 @@ describe('OutboxWorkerRuntime', () => {
         },
       }),
     );
+    expect(prisma.outboxEventUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('dead-letters exhausted SMS retries', async () => {
@@ -684,6 +685,7 @@ describe('OutboxWorkerRuntime', () => {
       void strings;
       return Promise.resolve([]);
     });
+    const executeRaw = jest.fn().mockResolvedValue(0);
     const tx: RecoveryTx = {
       $queryRaw: queryRaw,
       outboxEvent: {
@@ -694,6 +696,7 @@ describe('OutboxWorkerRuntime', () => {
     };
     const prismaWithTransaction = {
       ...prisma,
+      $executeRaw: executeRaw,
       $transaction: jest.fn(
         async (callback: (tx: RecoveryTx) => Promise<unknown>) => callback(tx),
       ),
@@ -718,6 +721,12 @@ describe('OutboxWorkerRuntime', () => {
     const sql = querySql.join('');
     expect(sql).toContain("'report.refresh'");
     expect(sql).toContain('"processedAt" IS NULL');
+    const allSql = (
+      executeRaw.mock.calls as [TemplateStringsArray, ...unknown[]][]
+    )
+      .map(([strings]) => strings.join(''))
+      .join('\n');
+    expect(allSql).toContain("'SENT', 'DELIVERED', 'SUPPRESSED'");
   });
 
   it('waits for active recovery before disconnecting during shutdown', async () => {

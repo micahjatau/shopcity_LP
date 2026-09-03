@@ -42,9 +42,9 @@ test.describe.serial('Cashier smoke workflows', () => {
         .getByLabel('Scan card or enter card number')
         .fill(config.activeCardSerial);
       await page.getByRole('button', { name: /^look up$/i }).click();
-      await expect(page.getByRole('status')).toContainText(
-        /customer verified/i,
-      );
+      await expect(
+        page.getByRole('status').filter({ hasText: /customer verified/i }),
+      ).toBeVisible();
       await expect(page.getByLabel('Verified customer')).toContainText(
         /eligible/i,
       );
@@ -64,7 +64,7 @@ test.describe.serial('Cashier smoke workflows', () => {
     const sync = await measureWorkflow('sync queue', async () => {
       await page.goto('/cashier/sync');
       await expect(page.getByRole('heading', { name: /sync/i })).toBeVisible();
-      await expect(page.getByText(/queue|sync/i)).toBeVisible();
+      await expect(page.getByRole('heading', { name: /sync/i })).toBeVisible();
     });
     await recordWorkflowEvidence(run, {
       group: 'cashier',
@@ -101,6 +101,9 @@ test.describe.serial('Cashier smoke workflows', () => {
   }) => {
     const config = loadSmokeConfig();
     const run = loadSmokeRun();
+    const attemptSuffix = test.info().retry
+      ? `-RETRY-${test.info().retry}`
+      : '';
     const adminApi = await createRoleApiSession(
       'admin',
       config,
@@ -110,7 +113,9 @@ test.describe.serial('Cashier smoke workflows', () => {
       const before = await adminApi.get<Record<string, unknown>>(
         `/api/v1/customers/${config.activeCustomerId}`,
       );
-      const beforeBalance = Number(before.balanceKobo);
+      const beforeBalance = Number(
+        before.availableBalanceKobo ?? before.balanceKobo,
+      );
       await loginRoleInUi(page, 'cashier', config);
       await page.goto(
         `/cashier/earn?card=${encodeURIComponent(config.activeCardSerial)}`,
@@ -118,8 +123,9 @@ test.describe.serial('Cashier smoke workflows', () => {
       await expect(page.getByText(/lookup resolved/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
-        .fill(`${run.smokeRunId}-EARN-01`);
+        .fill(`${run.smokeRunId}${attemptSuffix}-EARN-01`);
       await page.getByLabel('Purchase amount').fill('100');
+      await page.getByLabel('Purchase amount').blur();
       const earnResponse = page.waitForResponse(
         (response) =>
           response.url().includes('/api/v1/transactions/earn') &&
@@ -127,7 +133,11 @@ test.describe.serial('Cashier smoke workflows', () => {
       );
       const earnTiming = await measureWorkflow('confirmed earn', async () => {
         await page.getByRole('button', { name: /submit earn/i }).click();
-        await expect(page.getByText(/confirmed/i)).toBeVisible();
+        await expect(
+          page.getByText('Earn confirmed by backend contract.', {
+            exact: true,
+          }),
+        ).toBeVisible();
         return (await earnResponse).json();
       });
       const earnPayload = earnTiming.value;
@@ -147,14 +157,16 @@ test.describe.serial('Cashier smoke workflows', () => {
         durationMs: earnTiming.durationMs,
         references: {
           transactionId: earnId,
-          receiptNumber: `${run.smokeRunId}-EARN-01`,
+          receiptNumber: `${run.smokeRunId}${attemptSuffix}-EARN-01`,
         },
       });
 
       const after = await adminApi.get<Record<string, unknown>>(
         `/api/v1/customers/${config.activeCustomerId}`,
       );
-      expect(Number(after.balanceKobo)).toBeGreaterThanOrEqual(beforeBalance);
+      expect(
+        Number(after.availableBalanceKobo ?? after.balanceKobo),
+      ).toBeGreaterThanOrEqual(beforeBalance);
       const ledger = await adminApi.get<{
         items?: Array<Record<string, unknown>>;
       }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=20`);
@@ -169,6 +181,9 @@ test.describe.serial('Cashier smoke workflows', () => {
   test('completes a small Redeem and logs out', async ({ page }) => {
     const config = loadSmokeConfig();
     const run = loadSmokeRun();
+    const attemptSuffix = test.info().retry
+      ? `-RETRY-${test.info().retry}`
+      : '';
     const adminApi = await createRoleApiSession(
       'admin',
       config,
@@ -182,9 +197,11 @@ test.describe.serial('Cashier smoke workflows', () => {
       await expect(page.getByText(/lookup resolved/i)).toBeVisible();
       await page
         .getByLabel('POS receipt number')
-        .fill(`${run.smokeRunId}-REDEEM-01`);
-      await page.getByLabel('Basket amount').fill('100');
-      await page.getByLabel('Requested redemption').fill('1');
+        .fill(`${run.smokeRunId}${attemptSuffix}-REDEEM-01`);
+      await page.getByLabel('Basket amount').fill('2000');
+      await page.getByLabel('Basket amount').blur();
+      await page.getByLabel('Requested redemption').fill('500');
+      await page.getByLabel('Requested redemption').blur();
       const redeemResponse = page.waitForResponse(
         (response) =>
           response.url().includes('/api/v1/transactions/redeem') &&
@@ -192,7 +209,11 @@ test.describe.serial('Cashier smoke workflows', () => {
       );
       const redeemTiming = await measureWorkflow('redeem', async () => {
         await page.getByRole('button', { name: /submit redemption/i }).click();
-        await expect(page.getByText(/confirmed/i)).toBeVisible();
+        await expect(
+          page.getByText('Redemption confirmed by backend contract.', {
+            exact: true,
+          }),
+        ).toBeVisible();
         return (await redeemResponse).json();
       });
       const redeemPayload = redeemTiming.value;
@@ -214,7 +235,7 @@ test.describe.serial('Cashier smoke workflows', () => {
         durationMs: redeemTiming.durationMs,
         references: {
           transactionId: redeemId,
-          receiptNumber: `${run.smokeRunId}-REDEEM-01`,
+          receiptNumber: `${run.smokeRunId}${attemptSuffix}-REDEEM-01`,
         },
       });
       const ledger = await adminApi.get<{

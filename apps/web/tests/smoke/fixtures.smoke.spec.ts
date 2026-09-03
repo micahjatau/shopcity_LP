@@ -4,6 +4,7 @@ import {
   captureBaseline,
   preflightFixtures,
   resetMutableFixtures,
+  resolveTaggedSmokeFraudFlags,
   validateFixtureIdentity,
   type SmokeBaseline,
 } from './support/fixtures';
@@ -85,6 +86,24 @@ function fixtureApi(): SmokeApiSession {
       tenantId: 'smoke-tenant',
       status: 'OPEN',
     },
+    '/api/v1/fraud-flags?status=OPEN&limit=100': {
+      items: [
+        {
+          id: 'fraud-flag-smoke',
+          evidence: { fixture: 'staging-smoke' },
+        },
+        {
+          id: 'fraud-flag-old-smoke',
+          evidence: { normalizedPosReceiptNumber: 'SMOKE-OLD-01' },
+        },
+        {
+          id: 'fraud-flag-real',
+          evidence: { normalizedPosReceiptNumber: 'POS-REAL-01' },
+        },
+      ],
+      hasMore: false,
+      nextCursor: null,
+    },
   };
 
   return {
@@ -122,6 +141,29 @@ test('preflight fails closed when a deterministic branch is missing', async () =
   );
 });
 
+test('resolves only tagged smoke fraud flags', async () => {
+  const calls: Array<{ path: string; key?: string }> = [];
+  const api = fixtureApi();
+  api.post = async <T>(path: string, _body: unknown, key?: string) => {
+    calls.push({ path, key });
+    return {} as T;
+  };
+
+  await expect(
+    resolveTaggedSmokeFraudFlags(
+      api,
+      'smoke-old-',
+      '[SMOKE-TEST-01] resolve prior smoke fraud flags',
+    ),
+  ).resolves.toBe(1);
+  expect(calls).toEqual([
+    {
+      path: '/api/v1/fraud-flags/fraud-flag-old-smoke/decision',
+      key: 'smoke-fraud-resolve-fraud-flag-old-smoke',
+    },
+  ]);
+});
+
 test('reset uses run-scoped idempotent mutations for mutable fixtures', async () => {
   const calls: Array<{ path: string; key?: string }> = [];
   const api = fixtureApi();
@@ -144,11 +186,11 @@ test('reset uses run-scoped idempotent mutations for mutable fixtures', async ()
     },
     {
       path: '/api/v1/cards/active-card-id/status',
-      key: 'SMOKE-RESET-01-fixture-reset',
+      key: 'SMOKE-RESET-01-fixture-reset-card-status',
     },
     {
       path: '/api/v1/devices/smoke-device',
-      key: 'SMOKE-RESET-01-fixture-reset',
+      key: 'SMOKE-RESET-01-fixture-reset-device-status',
     },
   ]);
 });

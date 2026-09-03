@@ -28,6 +28,15 @@ describe('outbox migration deploy (int)', () => {
           AND tablename = 'SmsMessage'
       `;
 
+      const constraintRows = await prisma.$queryRaw<
+        { conname: string; contype: string; definition: string }[]
+      >`
+        SELECT conname, contype, pg_get_constraintdef(oid) AS definition
+        FROM pg_constraint
+        WHERE conrelid = '"OutboxEvent"'::regclass
+          AND conname = 'OutboxEvent_processedAt_requires_completed_check'
+      `;
+
       const enumRows = await prisma.$queryRaw<{ enumlabel: string }[]>`
         SELECT e.enumlabel
         FROM pg_type t
@@ -53,6 +62,13 @@ describe('outbox migration deploy (int)', () => {
       expect(indexRows.map((row) => row.indexname)).not.toContain(
         'SmsMessage_outboxEventId_key',
       );
+      expect(constraintRows).toHaveLength(1);
+      expect(constraintRows[0]?.conname).toBe(
+        'OutboxEvent_processedAt_requires_completed_check',
+      );
+      expect(constraintRows[0]?.contype).toBe('c');
+      expect(constraintRows[0]?.definition).toMatch(/processedAt.*IS NULL/i);
+      expect(constraintRows[0]?.definition).toMatch(/status.*COMPLETED/i);
       expect(enumRows.map((row) => row.enumlabel)).toEqual([
         'QUEUED',
         'SENT',

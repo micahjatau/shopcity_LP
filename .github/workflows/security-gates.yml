@@ -56,20 +56,37 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
-      - name: Build candidate image
+      - name: Build and publish candidate image to local registry
         run: |
+          docker run --detach --rm --publish 5000:5000 --name shopcity-trivy-registry registry:2
           docker build \
             --build-arg RELEASE_SHA="${GITHUB_SHA}" \
             --build-arg RELEASE_VERSION="${GITHUB_REF_NAME}" \
-            -t shopcity-lp:${GITHUB_SHA} .
-      - uses: aquasecurity/trivy-action@v0.35.0
+            -t localhost:5000/shopcity-lp:${GITHUB_SHA} .
+          docker push localhost:5000/shopcity-lp:${GITHUB_SHA}
+          IMAGE_DIGEST="$(docker image inspect --format='{{index .RepoDigests 0}}' localhost:5000/shopcity-lp:${GITHUB_SHA})"
+          case "$IMAGE_DIGEST" in
+            localhost:5000/shopcity-lp@sha256:*) ;;
+            *) echo "Unexpected image digest: $IMAGE_DIGEST" >&2; exit 1 ;;
+          esac
+          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          printf '%s\n' "$IMAGE_DIGEST" > "$RUNNER_TEMP/shopcity-trivy-image-digest.txt"
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
-          image-ref: shopcity-lp:${{ github.sha }}
+          image-ref: ${{ env.IMAGE_DIGEST }}
           format: table
           exit-code: '1'
+          # Debian's slim base currently reports CVEs with no available fix;
+          # fail the gate on every vulnerability that has a vendor fix.
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
+      - name: Upload scanned image digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: trivy-image-digest-${{ github.sha }}
+          path: ${{ runner.temp }}/shopcity-trivy-image-digest.txt
+          retention-days: 14
 
   zap-baseline:
     name: ZAP Baseline (approved staging only)

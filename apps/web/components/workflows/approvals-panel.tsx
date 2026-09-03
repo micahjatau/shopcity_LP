@@ -22,6 +22,8 @@ type ApprovalRecord = {
   branchId?: string;
   receipt?: unknown;
   referenceNumber?: string;
+  receiptNumber?: string;
+  posReceiptNumber?: string;
   amountKobo?: number;
 };
 
@@ -59,6 +61,8 @@ export function ApprovalsPanel() {
           item.ruleCode,
           item.branchId,
           item.referenceNumber,
+          item.receiptNumber,
+          item.posReceiptNumber,
           item.receipt ? JSON.stringify(item.receipt) : null,
         ]
           .filter(Boolean)
@@ -139,19 +143,25 @@ export function ApprovalsPanel() {
       setMessage('Enter an explicit decision reason before submitting.');
       return;
     }
-    const response = await approvalsControllerDecideApprovalV1(
-      selectedId,
-      {
-        decision,
-        reason: reason.trim(),
-      },
-      createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
-    );
-    setResponseData(
-      response.data && typeof response.data === 'object' ? response.data : null,
-    );
-    setMessage(`Decision sent for ${selectedId}.`);
-    void refresh();
+    try {
+      const response = await approvalsControllerDecideApprovalV1(
+        selectedId,
+        {
+          decision,
+          reason: reason.trim(),
+        },
+        createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+      );
+      setResponseData(
+        response.data && typeof response.data === 'object'
+          ? response.data
+          : null,
+      );
+      await refresh();
+      setMessage(`Decision sent for ${selectedId}.`);
+    } catch {
+      setMessage('Approval decision unavailable.');
+    }
   }
 
   async function goToNextPage() {

@@ -30,6 +30,14 @@ export function createSmokeRunId(
   return `SMOKE-${timestamp(now)}-${safeSuffix}`;
 }
 
+export function smokeAuthDir(run: Pick<SmokeRun, 'smokeRunId'>): string {
+  return resolve(
+    process.env.RUNNER_TEMP ?? '.smoke-temp',
+    'shopcity-smoke-auth',
+    run.smokeRunId,
+  );
+}
+
 export function loadSmokeRun(root = 'test-results/smoke'): SmokeRun {
   return JSON.parse(
     readFileSync(resolve(root, 'current-run.json'), 'utf8'),

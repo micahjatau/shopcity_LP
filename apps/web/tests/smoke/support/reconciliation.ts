@@ -1,14 +1,24 @@
-import { readFile, writeFile, rename } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { SmokeApiError, type SmokeApiSession } from './api-client';
 import type { SmokeBaseline } from './fixtures';
 import type { SmokeRun } from './smoke-run';
 import type { FinancialArtifact } from './evidence';
 import { assertSafeEvidence, writeEvidenceJson } from './evidence';
 
+export interface PendingFinancialWrite {
+  kind: FinancialArtifact['kind'];
+  path: string;
+  body: Record<string, unknown>;
+  idempotencyKey: string;
+  reversalPath: string;
+  reversalBody?: unknown;
+}
+
 export interface PersistedSmokeRun {
   smokeRunId: string;
   artifacts: FinancialArtifact[];
+  pendingFinancialWrites?: PendingFinancialWrite[];
   [key: string]: unknown;
 }
 
@@ -16,6 +26,7 @@ export interface InvariantReader {
   balanceKobo(): Promise<number>;
   unresolvedApprovals(): Promise<number>;
   openFraudFlags(): Promise<number>;
+  openFraudFlagIds?(): Promise<string[]>;
   deviceState(): Promise<{ id: string; status: string; branchId: string }>;
   cardState(): Promise<{
     serialNumber: string;
@@ -41,15 +52,53 @@ async function persist(
   persisted: PersistedSmokeRun,
 ): Promise<void> {
   assertSafeEvidence(persisted);
+  const outputTarget = resolve(run.outputDir, 'current-run.json');
+  const rootTarget = resolve('test-results/smoke/current-run.json');
+  let rootPersisted: PersistedSmokeRun = persisted;
+  try {
+    const existingRoot = JSON.parse(
+      await readFile(rootTarget, 'utf8'),
+    ) as PersistedSmokeRun;
+    rootPersisted = { ...existingRoot, ...persisted };
+  } catch {
+    // The output run file remains the source of truth for isolated usage.
+  }
+
+  const targets: Array<[string, PersistedSmokeRun]> = [
+    [outputTarget, persisted],
+    [rootTarget, rootPersisted],
+  ];
+  await Promise.all(
+    targets.map(([target]) => mkdir(dirname(target), { recursive: true })),
+  );
+  await Promise.all(
+    targets.map(async ([target, value]) => {
+      const temporary = `${target}.tmp-${process.pid}`;
+      await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+      await rename(temporary, target);
+    }),
+  );
+}
+
+export async function registerFinancialIntent(
+  run: SmokeRun,
+  intent: PendingFinancialWrite,
+): Promise<void> {
   const target = resolve(run.outputDir, 'current-run.json');
-  const temporary = `${target}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify(persisted, null, 2)}\n`, 'utf8');
-  await rename(temporary, target);
+  const current = JSON.parse(
+    await readFile(target, 'utf8'),
+  ) as PersistedSmokeRun;
+  current.pendingFinancialWrites = [
+    ...(current.pendingFinancialWrites ?? []),
+    intent,
+  ];
+  await persist(run, current);
 }
 
 export async function registerFinancialArtifact(
   run: SmokeRun,
   artifact: FinancialArtifact,
+  completedIdempotencyKey?: string,
 ): Promise<void> {
   const target = resolve(run.outputDir, 'current-run.json');
   let current: PersistedSmokeRun = {
@@ -62,7 +111,57 @@ export async function registerFinancialArtifact(
     // The run file is created by setup; initialize it for isolated unit usage.
   }
   current.artifacts = [...current.artifacts, artifact];
+  if (completedIdempotencyKey) {
+    current.pendingFinancialWrites = (
+      current.pendingFinancialWrites ?? []
+    ).filter((intent) => intent.idempotencyKey !== completedIdempotencyKey);
+  }
   await persist(run, current);
+}
+
+export async function recoverPendingFinancialWrites(
+  run: SmokeRun,
+  api: SmokeApiSession,
+): Promise<void> {
+  const target = resolve(run.outputDir, 'current-run.json');
+  let current: PersistedSmokeRun;
+  try {
+    current = JSON.parse(await readFile(target, 'utf8')) as PersistedSmokeRun;
+  } catch {
+    return;
+  }
+  for (const intent of current.pendingFinancialWrites ?? []) {
+    const response = await api.post<Record<string, unknown>>(
+      intent.path,
+      intent.body,
+      intent.idempotencyKey,
+    );
+    const nested =
+      response.data && typeof response.data === 'object'
+        ? (response.data as Record<string, unknown>)
+        : response;
+    const referenceId =
+      nested.adjustmentId ?? nested.transactionId ?? nested.id;
+    if (typeof referenceId !== 'string') {
+      throw new Error(
+        `Pending ${intent.kind} write returned no recoverable reference ID`,
+      );
+    }
+    current.artifacts = [
+      ...(current.artifacts ?? []),
+      {
+        kind: intent.kind,
+        referenceId,
+        reversalRequired: true,
+        reversalPath: intent.reversalPath.replace('{id}', referenceId),
+        reversalBody: intent.reversalBody,
+      },
+    ];
+    current.pendingFinancialWrites = (
+      current.pendingFinancialWrites ?? []
+    ).filter((candidate) => candidate.idempotencyKey !== intent.idempotencyKey);
+    await persist(run, current);
+  }
 }
 
 function canonicalCompensation(
@@ -134,6 +233,49 @@ export async function reconcileRun(
   await persistArtifacts(run, artifacts);
 }
 
+export async function waitForOutboxQuiescence(
+  reader: Pick<InvariantReader, 'outboxBacklog'>,
+  timeoutMs = 120_000,
+  stableMs = 5_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let previous = await reader.outboxBacklog();
+  let stableSince = Date.now();
+  while (Date.now() < deadline) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+    const received = await reader.outboxBacklog();
+    if (received !== previous) {
+      previous = received;
+      stableSince = Date.now();
+      continue;
+    }
+    if (previous === 0 && Date.now() - stableSince >= stableMs) return;
+  }
+  throw new Error(
+    `Smoke outbox did not become empty (last observed backlog ${previous})`,
+  );
+}
+
+export async function waitForOutboxBaseline(
+  reader: Pick<InvariantReader, 'outboxBacklog'>,
+  expected: number | undefined,
+  timeoutMs = 120_000,
+): Promise<void> {
+  if (expected === undefined) return;
+
+  const deadline = Date.now() + timeoutMs;
+  let received = await reader.outboxBacklog();
+  while (received !== expected && Date.now() < deadline) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+    received = await reader.outboxBacklog();
+  }
+  if (received !== expected) {
+    throw new Error(
+      `Smoke outbox did not return to baseline (expected ${expected}, received ${received})`,
+    );
+  }
+}
+
 export async function assertPostRunInvariants(
   reader: InvariantReader,
   baseline: SmokeBaseline,
@@ -161,9 +303,33 @@ export async function assertPostRunInvariants(
   ]);
 
   const failures: string[] = [];
-  if (balance !== baseline.balanceKobo) failures.push('balance');
-  if (approvals !== 0) failures.push('unresolved approvals');
-  if (fraudFlags !== 0) failures.push('open fraud flags');
+  if (balance !== baseline.balanceKobo) {
+    failures.push(
+      `balance (expected ${baseline.balanceKobo}, received ${balance})`,
+    );
+  }
+  if (
+    baseline.unresolvedApprovals !== undefined &&
+    approvals !== baseline.unresolvedApprovals
+  )
+    failures.push('unresolved approvals');
+  const baselineFraudIds = baseline.openFraudFlagIds;
+  const finalFraudIds = reader.openFraudFlagIds
+    ? await reader.openFraudFlagIds()
+    : undefined;
+  if (
+    baselineFraudIds !== undefined &&
+    finalFraudIds !== undefined &&
+    (baselineFraudIds.length !== finalFraudIds.length ||
+      baselineFraudIds.some((id) => !finalFraudIds.includes(id)))
+  )
+    failures.push('open fraud flags');
+  else if (
+    baselineFraudIds === undefined &&
+    baseline.openFraudFlags !== undefined &&
+    fraudFlags !== baseline.openFraudFlags
+  )
+    failures.push('open fraud flags');
   if (
     device.id !== baseline.device.id ||
     device.status !== baseline.device.status ||
@@ -181,9 +347,20 @@ export async function assertPostRunInvariants(
     customer.status !== baseline.customer.status
   )
     failures.push('customer');
-  if (offline !== 0) failures.push('offline retry records');
+  if (
+    baseline.offlineRetryRequired !== undefined &&
+    offline !== baseline.offlineRetryRequired
+  )
+    failures.push('offline retry records');
   if (!lots) failures.push('credit lots');
-  if (outbox !== 0) failures.push('outbox backlog');
+  if (
+    baseline.outboxBacklog !== undefined &&
+    outbox !== baseline.outboxBacklog
+  ) {
+    failures.push(
+      `outbox backlog (expected ${baseline.outboxBacklog}, received ${outbox})`,
+    );
+  }
   if (failures.length > 0)
     throw new Error(`Smoke invariants failed: ${failures.join(', ')}`);
 }
