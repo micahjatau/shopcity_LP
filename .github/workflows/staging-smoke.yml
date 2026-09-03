@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   smoke:
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.repository.full_name == github.repository) }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.repository.full_name == github.repository && github.event.workflow_run.head_sha == vars.SMOKE_DEPLOYED_FRONTEND_SHA && github.event.workflow_run.head_sha == vars.SMOKE_DEPLOYED_BACKEND_SHA) }}
     runs-on: ubuntu-latest
     environment: staging
     services:
