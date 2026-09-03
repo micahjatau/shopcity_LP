@@ -111,7 +111,9 @@ export class AuthController {
   @PublicRoute()
   @Throttle({
     bucket: 'auth.smoke_session',
-    limit: 10,
+    // The complete role-based smoke suite bootstraps more than ten sessions
+    // while retaining a finite abuse-control window.
+    limit: 50,
     windowMs: 15 * 60 * 1000,
   })
   @Version('1')
