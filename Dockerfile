@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22.23.1-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --ignore-scripts
@@ -12,11 +12,12 @@ RUN npm run prisma:generate \
  && npm run build \
  && npm prune --omit=dev
 
-FROM node:22.23.1-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 ARG RELEASE_SHA=dev
 ARG RELEASE_VERSION=0.0.0-dev
 WORKDIR /app
 RUN apt-get update -y \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
