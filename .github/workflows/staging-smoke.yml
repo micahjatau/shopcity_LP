@@ -16,9 +16,12 @@ concurrency:
   group: shopcity-staging-smoke
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     environment: staging
     services:
@@ -29,12 +32,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Checkout the dispatch ref; Verify candidate SHA below still pins the run to the requested commit.
-          # This avoids actions/checkout treating an unadvertised commit SHA as a branch name.
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.workflow_run.head_sha || inputs.candidate_sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
+          persist-credentials: false
       - name: Verify candidate SHA
         env:
-          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
           test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
       - uses: actions/setup-node@v4
@@ -46,7 +48,7 @@ jobs:
       - run: npm --prefix apps/web exec -- playwright install --with-deps chromium
       - name: Verify deployed staging provenance
         env:
-          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
           DEPLOYED_FRONTEND_SHA: ${{ vars.SMOKE_DEPLOYED_FRONTEND_SHA }}
           DEPLOYED_BACKEND_SHA: ${{ vars.SMOKE_DEPLOYED_BACKEND_SHA }}
         run: |
@@ -64,29 +66,14 @@ jobs:
           UPDATE "Device"
           SET "status" = 'INACTIVE', "updatedAt" = CURRENT_TIMESTAMP
           WHERE "status" = 'ACTIVE'
+            AND "tenantId" = '${{ vars.SMOKE_TENANT_ID }}'
+            AND "id" = '${{ vars.SMOKE_DEVICE_ID }}'
             AND (
               "attestationSecretCiphertext" IS NULL
               OR "attestationSecretVersion" <= 0
               OR "attestationSecretRotatedAt" IS NULL
             );
           SQL
-          # The shared staging database predates Prisma migration history for
-          # this additive metadata change; the failed attempt is safe to mark
-          # rolled back because the migration is transactional and idempotent.
-          npx prisma migrate resolve --rolled-back 20260804_device_attestation_cutover || true
-          npx prisma migrate resolve --rolled-back 20260805_release_hardening_guardrails || true
-          # These runtime objects were already applied by the Supabase schema
-          # catch-up. Reconcile Prisma history instead of replaying CREATE TYPE
-          # and CREATE TABLE statements against the shared staging database.
-          for migration in \
-            20260810_fraud_flags \
-            20260810_offline_sync_attempts \
-            20260810_reporting_read_models \
-            20260811_outbox_fraud_completion \
-            20260813_sprint_5_credit_expiry_foundation \
-            20260813_sprint_5_credit_expiry_reminders; do
-            npx prisma migrate resolve --applied "$migration" || true
-          done
           npx prisma migrate deploy
       - name: Start staging outbox worker
         env:
@@ -144,7 +131,7 @@ jobs:
           SMOKE_ENVIRONMENT: staging
           SMOKE_FRONTEND_URL: ${{ secrets.SMOKE_FRONTEND_URL }}
           SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
-          SMOKE_CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          SMOKE_CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
           SMOKE_FIXTURE_MANIFEST_VERSION: ${{ vars.SMOKE_FIXTURE_MANIFEST_VERSION }}
           SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
           SMOKE_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
@@ -173,7 +160,7 @@ jobs:
       - name: Verify smoke evidence
         if: success()
         env:
-          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
           MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).outputDir + '/smoke-evidence.json')")"
           npm run verify:smoke-evidence -- --manifest "$MANIFEST" --candidate-sha "$CANDIDATE_SHA"

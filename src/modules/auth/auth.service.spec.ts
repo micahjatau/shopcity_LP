@@ -545,14 +545,16 @@ describe('AuthService', () => {
   it('creates smoke bootstrap sessions without Supabase password login', async () => {
     const service = buildLoginService({ device: buildDevice('device-secret') });
 
-    await expect(
-      service.bootstrapSmokeSession(
-        'bootstrap-secret',
-        UserRole.ADMIN,
-        'user-id',
-        'tenant-id',
-      ),
-    ).resolves.toBeDefined();
+    const issued = await service.bootstrapSmokeSession(
+      'bootstrap-secret',
+      UserRole.ADMIN,
+      'user-id',
+      'tenant-id',
+    );
+
+    const lifetimeMs = issued.context.session.expiresAt.getTime() - Date.now();
+    expect(lifetimeMs).toBeGreaterThan(14 * 60 * 1000);
+    expect(lifetimeMs).toBeLessThanOrEqual(15 * 60 * 1000);
   });
 
   it('rejects smoke bootstrap sessions without the gated secret', async () => {
@@ -684,10 +686,12 @@ function buildLoginService(overrides: {
       }),
     },
     session: {
-      create: jest.fn().mockResolvedValue({
-        id: 'session-id',
-        expiresAt: new Date('2026-07-19T00:00:00.000Z'),
-      }),
+      create: jest
+        .fn()
+        .mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+          ...data,
+          id: 'session-id',
+        })),
     },
   };
 

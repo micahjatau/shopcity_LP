@@ -109,6 +109,11 @@ export class AuthController {
 
   @Post('smoke-session')
   @PublicRoute()
+  @Throttle({
+    bucket: 'auth.smoke_session',
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  })
   @Version('1')
   @HttpCode(200)
   @ApiHeader({ name: 'x-smoke-session-bootstrap-secret', required: true })

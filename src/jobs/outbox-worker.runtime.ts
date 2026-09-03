@@ -237,7 +237,7 @@ export class OutboxWorkerRuntime {
             FROM "SmsMessage" AS sm
             WHERE sm."tenantId" = oe."tenantId"
               AND sm."outboxEventId" = oe."id"
-              AND sm."status" IN ('DELIVERED', 'SUPPRESSED')
+              AND sm."status" IN ('SENT', 'DELIVERED', 'SUPPRESSED')
               AND sm."deadLetteredAt" IS NULL
           )
       `;

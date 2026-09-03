@@ -10,7 +10,7 @@ import {
 } from './support/fixtures';
 import { createRoleApiSession } from './support/api-client';
 import { createApiInvariantReader } from './support/assertions';
-import { createSmokeRun } from './support/smoke-run';
+import { createSmokeRun, smokeAuthDir } from './support/smoke-run';
 import {
   registerFinancialArtifact,
   waitForOutboxQuiescence,
@@ -33,7 +33,7 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     await assertProductionUnlocked(smokeConfig.environment, safetyLock);
     const run = createSmokeRun(smokeConfig.candidateSha);
     adminApi = await createRoleApiSession('admin', smokeConfig, run.smokeRunId);
-    const authStateDir = resolve(run.outputDir, 'auth');
+    const authStateDir = smokeAuthDir(run);
     await mkdir(authStateDir, { recursive: true });
     await adminApi.context.storageState({
       path: resolve(authStateDir, 'admin.json'),

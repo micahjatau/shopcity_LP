@@ -53,4 +53,7 @@ test('rejects SHA mismatch and secret-like keys', () => {
   const evidence = valid();
   evidence.password = 'not allowed';
   assert.throws(() => validateEvidence(evidence, sha), /secret-like/);
+  const authState = valid();
+  authState.storageState = { cookies: [] };
+  assert.throws(() => validateEvidence(authState, sha), /secret-like/);
 });

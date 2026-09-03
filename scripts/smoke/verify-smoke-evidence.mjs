@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 
 const SECRET_KEY =
-  /password|secret|cookie|csrf|authorization|service[_-]?role|redis[_-]?(url|token)/i;
+  /password|secret|cookie|csrf|authorization|bearer|storageState|session[_-]?(token|id)|access[_-]?token|service[_-]?role|redis[_-]?(url|token)/i;
 
 function usage() {
   console.error(

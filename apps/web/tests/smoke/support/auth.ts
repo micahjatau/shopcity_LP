@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import type { Cookie, Page } from '@playwright/test';
 import type { SmokeConfig } from '../config';
 import { createRoleApiSession, type SmokeRole } from './api-client';
-import { loadSmokeRun } from './smoke-run';
+import { loadSmokeRun, smokeAuthDir } from './smoke-run';
 
 const roleRoutes: Record<SmokeRole, string> = {
   cashier: '/cashier',
@@ -82,7 +82,7 @@ async function restoreRoleSession(
   try {
     const run = loadSmokeRun();
     const state = JSON.parse(
-      await readFile(resolve(run.outputDir, 'auth', `${role}.json`), 'utf8'),
+      await readFile(resolve(smokeAuthDir(run), `${role}.json`), 'utf8'),
     ) as { cookies?: Cookie[] };
     if (!state.cookies?.length) return false;
     await page.context().addCookies(state.cookies);

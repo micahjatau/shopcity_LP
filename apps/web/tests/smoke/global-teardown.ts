@@ -1,8 +1,12 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { FullConfig } from '@playwright/test';
+import { request, type FullConfig } from '@playwright/test';
 import { loadSmokeConfig } from './config';
-import { createRoleApiSession } from './support/api-client';
+import {
+  createRoleApiSession,
+  createSmokeApiSession,
+  type SmokeRole,
+} from './support/api-client';
 import { createApiInvariantReader } from './support/assertions';
 import {
   resetMutableFixtures,
@@ -21,6 +25,7 @@ import {
   FileSafetyLockStore,
   lockProductionSmoke,
 } from './support/safety-lock';
+import { smokeAuthDir } from './support/smoke-run';
 
 interface SmokeRunState extends PersistedSmokeRun {
   outputDir: string;
@@ -130,6 +135,32 @@ export default async function globalTeardown(
     }
     throw new Error(`FAIL_RECONCILIATION: ${reason}`);
   } finally {
+    await adminApi?.post('/api/v1/auth/logout', {}).catch(() => undefined);
     await adminApi?.dispose();
+    if (state && smokeConfig) {
+      const authDir = smokeAuthDir(state);
+      for (const role of ['admin', 'supervisor', 'cashier'] as SmokeRole[]) {
+        let context: Awaited<ReturnType<typeof request.newContext>> | undefined;
+        try {
+          context = await request.newContext({
+            baseURL: smokeConfig.frontendUrl,
+          });
+          const authState = JSON.parse(
+            await readFile(resolve(authDir, `${role}.json`), 'utf8'),
+          ) as { cookies?: Parameters<typeof context.addCookies>[0] };
+          await context.addCookies(authState.cookies ?? []);
+          await createSmokeApiSession(context, state.smokeRunId).post(
+            '/api/v1/auth/logout',
+            {},
+          );
+        } catch {
+          // Teardown remains best-effort after reconciliation; evidence never
+          // includes the temporary authentication state.
+        } finally {
+          await context?.dispose();
+        }
+      }
+      await rm(authDir, { recursive: true, force: true });
+    }
   }
 }
