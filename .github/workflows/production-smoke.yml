@@ -39,6 +39,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm --prefix apps/web ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - name: Verify deployed production provenance
         env:
