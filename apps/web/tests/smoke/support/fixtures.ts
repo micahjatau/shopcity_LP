@@ -203,7 +203,9 @@ export async function preflightFixtures(
     (item) => stringField(item, 'id') === config.inactiveCustomerId,
   );
   if (!inactiveCardCustomer) {
-    throw new Error('Smoke inactive card fixture not found by privileged search');
+    throw new Error(
+      'Smoke inactive card fixture not found by privileged search',
+    );
   }
   await expectCardLookupNotFound(
     adminApi,
