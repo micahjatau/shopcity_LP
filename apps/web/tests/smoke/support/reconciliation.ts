@@ -6,9 +6,19 @@ import type { SmokeRun } from './smoke-run';
 import type { FinancialArtifact } from './evidence';
 import { assertSafeEvidence, writeEvidenceJson } from './evidence';
 
+export interface PendingFinancialWrite {
+  kind: FinancialArtifact['kind'];
+  path: string;
+  body: Record<string, unknown>;
+  idempotencyKey: string;
+  reversalPath: string;
+  reversalBody?: unknown;
+}
+
 export interface PersistedSmokeRun {
   smokeRunId: string;
   artifacts: FinancialArtifact[];
+  pendingFinancialWrites?: PendingFinancialWrite[];
   [key: string]: unknown;
 }
 
@@ -70,9 +80,25 @@ async function persist(
   );
 }
 
+export async function registerFinancialIntent(
+  run: SmokeRun,
+  intent: PendingFinancialWrite,
+): Promise<void> {
+  const target = resolve(run.outputDir, 'current-run.json');
+  const current = JSON.parse(
+    await readFile(target, 'utf8'),
+  ) as PersistedSmokeRun;
+  current.pendingFinancialWrites = [
+    ...(current.pendingFinancialWrites ?? []),
+    intent,
+  ];
+  await persist(run, current);
+}
+
 export async function registerFinancialArtifact(
   run: SmokeRun,
   artifact: FinancialArtifact,
+  completedIdempotencyKey?: string,
 ): Promise<void> {
   const target = resolve(run.outputDir, 'current-run.json');
   let current: PersistedSmokeRun = {
@@ -85,7 +111,57 @@ export async function registerFinancialArtifact(
     // The run file is created by setup; initialize it for isolated unit usage.
   }
   current.artifacts = [...current.artifacts, artifact];
+  if (completedIdempotencyKey) {
+    current.pendingFinancialWrites = (
+      current.pendingFinancialWrites ?? []
+    ).filter((intent) => intent.idempotencyKey !== completedIdempotencyKey);
+  }
   await persist(run, current);
+}
+
+export async function recoverPendingFinancialWrites(
+  run: SmokeRun,
+  api: SmokeApiSession,
+): Promise<void> {
+  const target = resolve(run.outputDir, 'current-run.json');
+  let current: PersistedSmokeRun;
+  try {
+    current = JSON.parse(await readFile(target, 'utf8')) as PersistedSmokeRun;
+  } catch {
+    return;
+  }
+  for (const intent of current.pendingFinancialWrites ?? []) {
+    const response = await api.post<Record<string, unknown>>(
+      intent.path,
+      intent.body,
+      intent.idempotencyKey,
+    );
+    const nested =
+      response.data && typeof response.data === 'object'
+        ? (response.data as Record<string, unknown>)
+        : response;
+    const referenceId =
+      nested.adjustmentId ?? nested.transactionId ?? nested.id;
+    if (typeof referenceId !== 'string') {
+      throw new Error(
+        `Pending ${intent.kind} write returned no recoverable reference ID`,
+      );
+    }
+    current.artifacts = [
+      ...(current.artifacts ?? []),
+      {
+        kind: intent.kind,
+        referenceId,
+        reversalRequired: true,
+        reversalPath: intent.reversalPath.replace('{id}', referenceId),
+        reversalBody: intent.reversalBody,
+      },
+    ];
+    current.pendingFinancialWrites = (
+      current.pendingFinancialWrites ?? []
+    ).filter((candidate) => candidate.idempotencyKey !== intent.idempotencyKey);
+    await persist(run, current);
+  }
 }
 
 function canonicalCompensation(

@@ -13,6 +13,7 @@ import { createApiInvariantReader } from './support/assertions';
 import { createSmokeRun, smokeAuthDir } from './support/smoke-run';
 import {
   registerFinancialArtifact,
+  registerFinancialIntent,
   waitForOutboxQuiescence,
 } from './support/reconciliation';
 import {
@@ -153,16 +154,25 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
         minimumRedemptionKobo - baseline.balanceKobo,
       );
       if (topUpKobo > 0) {
+        const idempotencyKey = `${run.smokeRunId}-redeem-prerequisite`;
+        const body = {
+          customerId: smokeConfig.activeCustomerId,
+          kind: 'CREDIT' as const,
+          amountKobo: topUpKobo,
+          reason: `[${run.smokeRunId}] staging redeem prerequisite`,
+          effectiveAt: new Date().toISOString(),
+        };
+        await registerFinancialIntent(run, {
+          kind: 'ADJUSTMENT',
+          path: '/api/v1/adjustments',
+          body,
+          idempotencyKey,
+          reversalPath: '/api/v1/transactions/{id}/reverse',
+        });
         const response = await adminApi.post<{ transactionId?: string }>(
           '/api/v1/adjustments',
-          {
-            customerId: smokeConfig.activeCustomerId,
-            kind: 'CREDIT',
-            amountKobo: topUpKobo,
-            reason: `[${run.smokeRunId}] staging redeem prerequisite`,
-            effectiveAt: new Date().toISOString(),
-          },
-          `${run.smokeRunId}-redeem-prerequisite`,
+          body,
+          idempotencyKey,
         );
         const transactionId = response.transactionId;
         if (!transactionId) {
@@ -170,12 +180,16 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
             'Staging redeem prerequisite adjustment returned no transaction ID',
           );
         }
-        await registerFinancialArtifact(run, {
-          kind: 'ADJUSTMENT',
-          referenceId: transactionId,
-          reversalRequired: true,
-          reversalPath: `/api/v1/transactions/${transactionId}/reverse`,
-        });
+        await registerFinancialArtifact(
+          run,
+          {
+            kind: 'ADJUSTMENT',
+            referenceId: transactionId,
+            reversalRequired: true,
+            reversalPath: `/api/v1/transactions/${transactionId}/reverse`,
+          },
+          idempotencyKey,
+        );
       }
     }
   } catch (error) {

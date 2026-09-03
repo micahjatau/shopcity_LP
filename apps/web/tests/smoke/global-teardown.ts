@@ -15,6 +15,7 @@ import {
 } from './support/fixtures';
 import {
   assertPostRunInvariants,
+  recoverPendingFinancialWrites,
   reconcileRun,
   waitForOutboxBaseline,
   writeReconciliationEvidence,
@@ -53,6 +54,8 @@ export default async function globalTeardown(
     };
     smokeConfig = loadSmokeConfig();
     adminApi = await createRoleApiSession('admin', smokeConfig, run.smokeRunId);
+    await recoverPendingFinancialWrites(run, adminApi);
+    state = JSON.parse(await readFile(statePath, 'utf8')) as SmokeRunState;
     await reconcileRun(run, adminApi, state.artifacts ?? []);
     await resetMutableFixtures(
       smokeConfig,

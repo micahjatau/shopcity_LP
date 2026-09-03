@@ -62,14 +62,24 @@ jobs:
             --build-arg RELEASE_SHA="${GITHUB_SHA}" \
             --build-arg RELEASE_VERSION="${GITHUB_REF_NAME}" \
             -t shopcity-lp:${GITHUB_SHA} .
+          IMAGE_DIGEST="$(docker image inspect --format='{{.Id}}' shopcity-lp:${GITHUB_SHA})"
+          test -n "$IMAGE_DIGEST"
+          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
+          printf '%s\n' "$IMAGE_DIGEST" > "$RUNNER_TEMP/shopcity-trivy-image-digest.txt"
       - uses: aquasecurity/trivy-action@v0.35.0
         with:
-          image-ref: shopcity-lp:${{ github.sha }}
+          image-ref: ${{ env.IMAGE_DIGEST }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
+      - name: Upload scanned image digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-digest-${{ github.sha }}
+          path: ${{ runner.temp }}/shopcity-trivy-image-digest.txt
+          retention-days: 14
 
   zap-baseline:
     name: ZAP Baseline (approved staging only)
