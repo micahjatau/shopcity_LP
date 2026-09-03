@@ -145,13 +145,20 @@ export default async function globalTeardown(
       for (const role of ['admin', 'supervisor', 'cashier'] as SmokeRole[]) {
         let context: Awaited<ReturnType<typeof request.newContext>> | undefined;
         try {
-          context = await request.newContext({
-            baseURL: smokeConfig.frontendUrl,
-          });
           const authState = JSON.parse(
             await readFile(resolve(authDir, `${role}.json`), 'utf8'),
-          ) as { cookies?: Parameters<typeof context.addCookies>[0] };
-          await context.addCookies(authState.cookies ?? []);
+          ) as {
+            cookies?: Array<{
+              name: string;
+              value: string;
+              domain?: string;
+              path?: string;
+            }>;
+          };
+          context = await request.newContext({
+            baseURL: smokeConfig.frontendUrl,
+            storageState: authState,
+          });
           await createSmokeApiSession(context, state.smokeRunId).post(
             '/api/v1/auth/logout',
             {},

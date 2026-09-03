@@ -416,6 +416,15 @@ export class OutboxWorkerRuntime {
     }
 
     if (
+      resolvedSmsMessage.status === 'SENT' ||
+      resolvedSmsMessage.status === 'DELIVERED' ||
+      resolvedSmsMessage.status === 'SUPPRESSED'
+    ) {
+      await this.markOutboxEventCompleted(outboxEvent);
+      return;
+    }
+
+    if (
       resolvedSmsMessage.deadLetteredAt ||
       resolvedSmsMessage.attempts >= OUTBOX_RETRY_ATTEMPTS
     ) {
@@ -425,15 +434,6 @@ export class OutboxWorkerRuntime {
         'SMS retry budget exhausted',
       );
       job.discard();
-      return;
-    }
-
-    if (
-      resolvedSmsMessage.status === 'SENT' ||
-      resolvedSmsMessage.status === 'DELIVERED' ||
-      resolvedSmsMessage.status === 'SUPPRESSED'
-    ) {
-      await this.markOutboxEventCompleted(outboxEvent);
       return;
     }
 
