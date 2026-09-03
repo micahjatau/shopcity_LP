@@ -76,7 +76,7 @@ jobs:
           SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: ${{ secrets.SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET }}
           SMOKE_ALLOW_DEVICE_ROTATION: 'false'
           SMOKE_ALLOW_OFFLINE_PRODUCTION: 'false'
-        run: npm run smoke:production
+        run: npm --prefix apps/web exec -- playwright test --config ./playwright.smoke.config.ts
       - name: Verify smoke evidence
         if: success()
         env:
