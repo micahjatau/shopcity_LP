@@ -70,7 +70,7 @@ jobs:
           SMOKE_CASHIER_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
           SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: ${{ secrets.SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET }}
         working-directory: apps/web
-        run: npm exec -- playwright test --config ./playwright.smoke.config.ts
+        run: ./node_modules/.bin/playwright test --config ./playwright.smoke.config.ts
       - name: Verify smoke evidence
         if: success()
         env:

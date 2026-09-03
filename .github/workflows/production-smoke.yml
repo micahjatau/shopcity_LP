@@ -77,7 +77,7 @@ jobs:
           SMOKE_ALLOW_DEVICE_ROTATION: 'false'
           SMOKE_ALLOW_OFFLINE_PRODUCTION: 'false'
         working-directory: apps/web
-        run: npm exec -- playwright test --config ./playwright.smoke.config.ts
+        run: ./node_modules/.bin/playwright test --config ./playwright.smoke.config.ts
       - name: Verify smoke evidence
         if: success()
         env:
