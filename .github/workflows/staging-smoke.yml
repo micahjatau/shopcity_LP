@@ -11,22 +11,32 @@ on:
         required: true
         type: string
 
+# The staging smoke tenant is shared mutable state; certification runs must be single-writer.
 concurrency:
-  group: shopcity-staging-smoke-${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
-  cancel-in-progress: true
+  group: shopcity-staging-smoke
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     environment: staging
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
+          persist-credentials: false
       - name: Verify candidate SHA
         env:
-          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
           test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
       - uses: actions/setup-node@v4
@@ -35,21 +45,93 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm --prefix apps/web ci --ignore-scripts
-      - run: npx playwright install --with-deps chromium
+      - run: npm --prefix apps/web exec -- playwright install --with-deps chromium
       - name: Verify deployed staging provenance
         env:
-          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
           DEPLOYED_FRONTEND_SHA: ${{ vars.SMOKE_DEPLOYED_FRONTEND_SHA }}
           DEPLOYED_BACKEND_SHA: ${{ vars.SMOKE_DEPLOYED_BACKEND_SHA }}
         run: |
           test "$DEPLOYED_FRONTEND_SHA" = "$CANDIDATE_SHA"
           test "$DEPLOYED_BACKEND_SHA" = "$CANDIDATE_SHA"
+      - name: Apply staging database migrations
+        env:
+          DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
+        run: |
+          # Fail closed for legacy active devices before enforcing the
+          # attestation invariant. The smoke device must already have valid
+          # metadata; invalid legacy devices are made INACTIVE rather than
+          # receiving fabricated secrets.
+          cat <<'SQL' | npx prisma db execute --stdin --url "$DATABASE_URL"
+          UPDATE "Device"
+          SET "status" = 'INACTIVE', "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "status" = 'ACTIVE'
+            AND "tenantId" = '${{ vars.SMOKE_TENANT_ID }}'
+            AND "id" = '${{ vars.SMOKE_DEVICE_ID }}'
+            AND (
+              "attestationSecretCiphertext" IS NULL
+              OR "attestationSecretVersion" <= 0
+              OR "attestationSecretRotatedAt" IS NULL
+            );
+          SQL
+          npx prisma migrate deploy
+      - name: Start staging outbox worker
+        env:
+          DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
+          REDIS_URL: redis://127.0.0.1:6379
+          NODE_ENV: staging
+          DEFAULT_PUBLIC_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
+          DEFAULT_PUBLIC_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
+          CORS_ORIGIN_ALLOWLIST: ${{ secrets.SMOKE_FRONTEND_URL }}
+          # The worker does not call Supabase, but the shared environment schema
+          # requires these values. Keep them worker-local and non-production.
+          SUPABASE_URL: https://worker-unused.supabase.co
+          SUPABASE_ANON_KEY: staging-smoke-worker-unused-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: staging-smoke-worker-unused-service-role-key
+          SMS_PROVIDER_MODE: deterministic
+          OUTBOX_PUBLISH_BATCH_SIZE: '100'
+          OUTBOX_PUBLISH_INTERVAL_MS: '250'
+          OUTBOX_RETRY_DELAY_MS: '1000'
+          OUTBOX_RECOVERY_THRESHOLD_MS: '1000'
+        run: |
+          export DEVICE_ATTESTATION_KEK="$(openssl rand -hex 32)"
+          export SESSION_SECRET="staging-smoke-worker-session-secret"
+          export CSRF_SECRET="staging-smoke-worker-csrf-secret"
+          nohup node -r ts-node/register -r tsconfig-paths/register src/worker.ts > /tmp/shopcity-staging-worker.log 2>&1 &
+          echo $! > /tmp/shopcity-staging-worker.pid
+          for i in $(seq 1 60); do
+            if grep -q 'SHOPCITY_WORKER_READY' /tmp/shopcity-staging-worker.log; then
+              echo 'Worker ready'
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/shopcity-staging-worker.pid)" 2>/dev/null; then
+              echo 'Worker exited before readiness'
+              cat /tmp/shopcity-staging-worker.log
+              exit 1
+            fi
+            sleep 1
+          done
+          if ! grep -q 'SHOPCITY_WORKER_READY' /tmp/shopcity-staging-worker.log; then
+            echo 'Worker readiness timed out'
+            cat /tmp/shopcity-staging-worker.log
+            exit 1
+          fi
+          echo 'Worker process tree:'
+          ps -ef --forest | grep -E '[s]rc/worker|[t]s-node|[n]pm run start:worker' || true
+          echo 'Redis connectivity:'
+          redis-cli -h 127.0.0.1 -p 6379 ping || true
+          echo 'Worker startup log:'
+          if [ -s /tmp/shopcity-staging-worker.log ]; then
+            tail -100 /tmp/shopcity-staging-worker.log
+          else
+            echo '<empty>'
+          fi
       - name: Run staging smoke
         env:
           SMOKE_ENVIRONMENT: staging
           SMOKE_FRONTEND_URL: ${{ secrets.SMOKE_FRONTEND_URL }}
           SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
-          SMOKE_CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          SMOKE_CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
           SMOKE_FIXTURE_MANIFEST_VERSION: ${{ vars.SMOKE_FIXTURE_MANIFEST_VERSION }}
           SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
           SMOKE_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
@@ -79,10 +161,31 @@ jobs:
       - name: Verify smoke evidence
         if: success()
         env:
-          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
           MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('apps/web/test-results/smoke/current-run.json','utf8')).outputDir + '/smoke-evidence.json')")"
           npm run verify:smoke-evidence -- --manifest "$MANIFEST" --candidate-sha "$CANDIDATE_SHA"
+      - name: Stop staging outbox worker
+        if: always()
+        run: |
+          if [ -f /tmp/shopcity-staging-worker.pid ]; then
+            worker_pid="$(cat /tmp/shopcity-staging-worker.pid)"
+            kill -TERM "$worker_pid" 2>/dev/null || true
+            for i in $(seq 1 30); do
+              if ! kill -0 "$worker_pid" 2>/dev/null; then
+                break
+              fi
+              sleep 1
+            done
+            if kill -0 "$worker_pid" 2>/dev/null; then
+              echo 'Worker did not exit gracefully; forcing shutdown'
+              kill -KILL "$worker_pid" 2>/dev/null || true
+              exit 1
+            fi
+          fi
+          if [ -f /tmp/shopcity-staging-worker.log ]; then
+            tail -100 /tmp/shopcity-staging-worker.log
+          fi
       - if: always()
         uses: actions/upload-artifact@v4
         with:
