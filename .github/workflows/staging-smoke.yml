@@ -60,7 +60,7 @@ jobs:
           # attestation invariant. The smoke device must already have valid
           # metadata; invalid legacy devices are made INACTIVE rather than
           # receiving fabricated secrets.
-          cat <<'SQL' | npx prisma db execute --stdin
+          cat <<'SQL' | npx prisma db execute --stdin --url "$DATABASE_URL"
           UPDATE "Device"
           SET "status" = 'INACTIVE', "updatedAt" = CURRENT_TIMESTAMP
           WHERE "status" = 'ACTIVE'
