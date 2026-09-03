@@ -14,7 +14,7 @@ The smoke runner MUST store browser authentication state outside the evidence/ou
 
 ### Requirement: Smoke sessions are short-lived and revocable
 
-Smoke bootstrap sessions MUST use a short configurable lifetime and MUST be revoked during teardown. Ordinary login sessions MUST retain their existing lifetime.
+Smoke bootstrap sessions MUST use a documented and enforced maximum lifetime of 15 minutes and MUST be revoked during teardown. Values outside the configured maximum MUST be rejected. Ordinary login sessions MUST retain their existing lifetime.
 
 #### Scenario: Smoke teardown completes
 
@@ -34,7 +34,7 @@ The smoke bootstrap endpoint MUST enforce a dedicated IP-based rate limit and MU
 
 ### Requirement: Privileged workflows trust only approved sources
 
-A staging workflow receiving secrets MUST reject untrusted workflow-run repositories and MUST verify the exact candidate SHA before executing repository code or mutating staging.
+A staging workflow receiving secrets MUST reject untrusted workflow-run repositories and MUST verify the exact candidate SHA before executing repository code or mutating staging. Manually selected candidates MUST additionally be bound to a protected/reviewed ref or an explicitly authorized release actor.
 
 #### Scenario: Untrusted workflow-run event arrives
 
@@ -62,7 +62,7 @@ SMS recovery MUST reconcile `SENT`, `DELIVERED`, and `SUPPRESSED` messages whose
 
 ### Requirement: Release dependencies and migration history are secure
 
-The candidate image MUST contain no HIGH or CRITICAL Trivy vulnerabilities, historical migrations MUST remain immutable, and normal staging certification MUST use strict migration deployment after one-time history reconciliation.
+The immutable image digest built from the verified candidate SHA MUST contain no HIGH or CRITICAL Trivy vulnerabilities; that digest MUST be recorded in release evidence. Historical migrations MUST remain immutable, and normal staging certification MUST use strict migration deployment after one-time history reconciliation.
 
 #### Scenario: Candidate reaches security gate
 

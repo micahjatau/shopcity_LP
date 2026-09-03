@@ -50,7 +50,7 @@
 - [ ] Include `SENT` in terminal SMS recovery (`SENT`, `DELIVERED`, `SUPPRESSED`).
 - [ ] Add a crash-window regression test for `SENT` plus incomplete outbox completion.
 - [ ] Make migration repair cover every invalid processed row, including dead-lettered rows, or explicitly encode a reviewed exception.
-- [ ] Strengthen migration integration tests to inspect `contype = 'c'` and `pg_get_constraintdef()`.
+- [ ] Seed every invalid `processedAt`/status combination, including dead-lettered rows, before migration tests; verify repair, then separately verify the resulting constraint rejects newly inserted invalid rows. Inspect `contype = 'c'` and `pg_get_constraintdef()`.
 - [ ] Restore `20260804_device_attestation_cutover/migration.sql` to its original immutable content.
 - [ ] Add a forward compatibility migration if needed.
 - [ ] Back up and reconcile staging Prisma history once using a reviewed procedure.

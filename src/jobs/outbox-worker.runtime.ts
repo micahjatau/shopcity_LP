@@ -334,9 +334,13 @@ export class OutboxWorkerRuntime {
           },
         });
       } catch (error) {
-        await this.prisma.outboxEvent.update({
+        await this.prisma.outboxEvent.updateMany({
           where: {
-            tenantId_id: { tenantId: outboxEvent.tenantId, id: outboxEvent.id },
+            tenantId: outboxEvent.tenantId,
+            id: outboxEvent.id,
+            status: OutboxEventStatus.QUEUED,
+            processedAt: null,
+            deadLetteredAt: null,
           },
           data: {
             status: OutboxEventStatus.FAILED,

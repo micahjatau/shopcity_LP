@@ -27,7 +27,7 @@ Review 63 confirms that ShopCity's role-based staging smoke suite is determinist
 
 ## Success Criteria
 
-- No uploaded smoke artifact contains cookies, storage state, session tokens, CSRF tokens, or authorization headers.
+- No uploaded smoke artifact contains cookies, storage state, session tokens, CSRF tokens, authorization headers, or passwords.
 - Smoke bootstrap sessions expire within the configured short lifetime and are revoked during teardown.
 - Bootstrap requests are throttled and abuse attempts are observable.
 - Only trusted repository-owned workflow runs can receive staging secrets and execute candidate code.

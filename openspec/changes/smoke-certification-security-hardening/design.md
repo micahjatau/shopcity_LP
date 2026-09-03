@@ -14,11 +14,11 @@ Apply an explicit IP-based throttle to `POST /auth/smoke-session` using a dedica
 
 ## Workflow trust and exact candidate checkout
 
-For `workflow_run`, require the upstream repository full name to equal the current repository and restrict accepted upstream branch/event/conclusion to the trusted release contract before checkout or secret exposure. Set `contents: read`, disable checkout credential persistence, and pass the verified SHA only after checkout validation. For `workflow_dispatch`, checkout `inputs.candidate_sha` directly and verify the checked-out commit before any migration, worker, or smoke step.
+For `workflow_run`, require the upstream repository full name to equal the current repository and restrict accepted upstream branch/event/conclusion to the trusted release contract before checkout or secret exposure. Manual dispatch MUST also require an authorized release actor or a protected/reviewed ref binding for `inputs.candidate_sha`. Set `contents: read`, disable checkout credential persistence, and pass the verified SHA only after checkout validation. For `workflow_dispatch`, checkout `inputs.candidate_sha` directly and verify the checked-out commit before any migration, worker, or smoke step.
 
 ## Scoped staging repair
 
-Keep the strict attestation constraint. Any transitional repair query must be parameterized to the configured smoke tenant and, preferably, the configured smoke device. It must report the affected ID count and fail if an unexpected device would be changed. Long-term staging preparation should use an authorized device rotation flow rather than generic SQL state changes.
+Keep the strict attestation constraint. Any transitional repair query MUST be parameterized to both the configured smoke tenant and the dedicated smoke device. It must report the affected ID count and fail if an unexpected device would be changed. Long-term staging preparation should use an authorized device rotation flow rather than generic SQL state changes.
 
 ## Outbox and migration integrity
 
@@ -26,7 +26,7 @@ Add `SENT` to the terminal SMS recovery query and test publisher/consumer crash 
 
 ## Release proof
 
-Update dependency manifests and lockfile to the patched `fast-uri` release. Run Trivy against the actual candidate image. After all fixes merge, deploy the resulting master SHA, refresh provenance/evidence, and repeat the three-run staging certification. Keep production workflow approval-gated.
+Update dependency manifests and lockfile to the patched `fast-uri` release. Run Trivy against the immutable image digest built from the verified candidate SHA and record that digest in release evidence. After all fixes merge, deploy the resulting master SHA, refresh provenance/evidence, and repeat the three-run staging certification. Keep production workflow approval-gated.
 
 ## Rollback
 
