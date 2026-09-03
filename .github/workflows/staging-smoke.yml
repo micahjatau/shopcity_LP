@@ -75,6 +75,18 @@ jobs:
           # rolled back because the migration is transactional and idempotent.
           npx prisma migrate resolve --rolled-back 20260804_device_attestation_cutover || true
           npx prisma migrate resolve --rolled-back 20260805_release_hardening_guardrails || true
+          # These runtime objects were already applied by the Supabase schema
+          # catch-up. Reconcile Prisma history instead of replaying CREATE TYPE
+          # and CREATE TABLE statements against the shared staging database.
+          for migration in \
+            20260810_fraud_flags \
+            20260810_offline_sync_attempts \
+            20260810_reporting_read_models \
+            20260811_outbox_fraud_completion \
+            20260813_sprint_5_credit_expiry_foundation \
+            20260813_sprint_5_credit_expiry_reminders; do
+            npx prisma migrate resolve --applied "$migration" || true
+          done
           npx prisma migrate deploy
       - name: Start staging outbox worker
         env:
