@@ -20,7 +20,7 @@ Review 63 confirms that ShopCity's role-based staging smoke suite is determinist
 ## Non-Goals
 
 - No production smoke execution without explicit approval.
-- No disabling or whitelisting Trivy findings.
+- No disabling or whitelisting Trivy findings; fixable HIGH/CRITICAL findings remain blocking.
 - No broad staging-data cleanup, fabricated device secrets, or weakening of database constraints.
 - No deletion or mutation of immutable financial or audit history.
 - No replacement of the existing role-based smoke workflows.
@@ -34,5 +34,5 @@ Review 63 confirms that ShopCity's role-based staging smoke suite is determinist
 - Staging remediation changes only smoke-owned devices.
 - `SENT`, `DELIVERED`, and `SUPPRESSED` terminal SMS states cannot leave a published outbox event stranded.
 - Fresh and representative historical databases pass the outbox migration and constraint validation.
-- Trivy reports no HIGH or CRITICAL vulnerabilities in the candidate image.
+- Trivy reports no fixable HIGH or CRITICAL vulnerabilities in the candidate image; unfixed advisories are inventoried and reviewed with time-limited acceptance.
 - A final merged master SHA, rather than a pre-merge SHA, has three consecutive passing staging certifications.

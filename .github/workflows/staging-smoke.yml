@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   smoke:
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.repository.full_name == github.repository && github.event.workflow_run.head_sha == vars.SMOKE_DEPLOYED_FRONTEND_SHA && github.event.workflow_run.head_sha == vars.SMOKE_DEPLOYED_BACKEND_SHA) }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.repository.full_name == github.repository && github.event.workflow_run.head_branch == 'staging' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_sha == vars.SMOKE_DEPLOYED_FRONTEND_SHA && github.event.workflow_run.head_sha == vars.SMOKE_DEPLOYED_BACKEND_SHA) }}
     runs-on: ubuntu-latest
     environment: staging
     services:
@@ -57,22 +57,55 @@ jobs:
       - name: Apply staging database migrations
         env:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
+          SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
+          SMOKE_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
         run: |
-          # Fail closed for legacy active devices before enforcing the
-          # attestation invariant. The smoke device must already have valid
-          # metadata; invalid legacy devices are made INACTIVE rather than
-          # receiving fabricated secrets.
-          cat <<'SQL' | npx prisma db execute --stdin --url "$DATABASE_URL"
-          UPDATE "Device"
-          SET "status" = 'INACTIVE', "updatedAt" = CURRENT_TIMESTAMP
+          # Fail closed for invalid active devices outside the dedicated smoke
+          # fixture. Do not let certification mutate unrelated staging data.
+          [[ "$SMOKE_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          [[ "$SMOKE_DEVICE_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          cat <<SQL | npx prisma db execute --stdin --url "$DATABASE_URL"
+          DO \$\$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM "Device"
+              WHERE "status" = 'ACTIVE'
+                AND ("attestationSecretCiphertext" IS NULL
+                  OR "attestationSecretVersion" <= 0
+                  OR "attestationSecretRotatedAt" IS NULL)
+                AND NOT ("tenantId" = '$SMOKE_TENANT_ID' AND "id" = '$SMOKE_DEVICE_ID')
+            ) THEN
+              RAISE EXCEPTION 'invalid active device exists outside smoke scope';
+            END IF;
+          END \$\$;
+          SQL
+          # The smoke device must already have valid metadata. Emit only
+          # scoped diagnostics and fail closed; repair through the authorized
+          # Admin device-rotation flow, never by fabricating secrets in SQL.
+          cat <<SQL | npx prisma db execute --stdin --url "$DATABASE_URL"
+          SELECT COUNT(*) AS "invalidSmokeDeviceCount",
+                 COALESCE(string_agg("id", ','), '') AS "invalidSmokeDeviceIds"
+          FROM "Device"
           WHERE "status" = 'ACTIVE'
-            AND "tenantId" = '${{ vars.SMOKE_TENANT_ID }}'
-            AND "id" = '${{ vars.SMOKE_DEVICE_ID }}'
-            AND (
-              "attestationSecretCiphertext" IS NULL
+            AND "tenantId" = '$SMOKE_TENANT_ID'
+            AND "id" = '$SMOKE_DEVICE_ID'
+            AND ("attestationSecretCiphertext" IS NULL
               OR "attestationSecretVersion" <= 0
-              OR "attestationSecretRotatedAt" IS NULL
-            );
+              OR "attestationSecretRotatedAt" IS NULL);
+          DO \$\$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM "Device"
+              WHERE "status" = 'ACTIVE'
+                AND "tenantId" = '$SMOKE_TENANT_ID'
+                AND "id" = '$SMOKE_DEVICE_ID'
+                AND ("attestationSecretCiphertext" IS NULL
+                  OR "attestationSecretVersion" <= 0
+                  OR "attestationSecretRotatedAt" IS NULL)
+            ) THEN
+              RAISE EXCEPTION 'smoke device requires authorized attestation rotation';
+            END IF;
+          END \$\$;
           SQL
           npx prisma migrate deploy
       - name: Start staging outbox worker
@@ -156,7 +189,7 @@ jobs:
           SMOKE_CASHIER_DEVICE_ID: ${{ vars.SMOKE_DEVICE_ID }}
           SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET: ${{ secrets.SMOKE_CASHIER_DEVICE_ATTESTATION_SECRET }}
           SMOKE_SESSION_BOOTSTRAP_SECRET: ${{ secrets.SMOKE_SESSION_BOOTSTRAP_SECRET }}
-        run: npm run smoke:staging
+        run: npm --prefix apps/web exec -- playwright test --config ./playwright.smoke.config.ts
       - name: Verify smoke evidence
         if: success()
         env:

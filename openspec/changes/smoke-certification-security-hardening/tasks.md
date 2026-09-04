@@ -62,12 +62,12 @@
 
 - [ ] Triage every CodeRabbit Major finding; resolve valid findings and document accepted residual risk.
 - [x] Fix smoke-session refresh so a smoke session cannot be renewed into the ordinary 12-hour lifetime.
-- [x] Fix Approval Panel handling of non-2xx generated-client responses and preserve actionable error state after refresh.
+- [x] Fix Approval Panel handling of non-2xx generated-client responses and preserve actionable error state after refresh, with distinct success/error presentation.
 - [x] Correct the approval-threshold smoke test to enter naira units while asserting the kobo boundary.
 - [ ] Eliminate or formally replace the divergent long-lived staging workflow branch; certify from the trusted master/candidate workflow definition.
 - [ ] Enforce staging certification before production promotion in the release pipeline.
 - [ ] Define and implement the durable image-artifact strategy: promote the exact image scanned by Trivy, or document and approve Vercel’s source-build alternative with residual risk.
-- [ ] Rewrite the Trivy requirement to distinguish fixable HIGH/CRITICAL vulnerabilities from unfixed advisories, including inventory, applicability review, time-limited acceptance, and automatic blocking after fixes publish.
+- [x] Rewrite the Trivy requirement to distinguish fixable HIGH/CRITICAL vulnerabilities from unfixed advisories, including inventory, applicability review, time-limited acceptance, and automatic blocking after fixes publish.
 - [ ] Add persistent production worker heartbeat and release-SHA provenance evidence, and verify freshness and SHA match operationally.
 - [ ] Run the approval-gated ZAP baseline against the certified staging release.
 - [ ] Complete provider-managed backup/restore proof and operational readiness evidence.

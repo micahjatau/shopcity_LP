@@ -8,8 +8,8 @@ export type AuthUser = User & {
 
 // Keep the newly-added smoke marker optional at the application boundary so
 // unit fixtures and pre-migration records remain valid during rollout.
-export type AuthSession = Omit<Session, 'smokeMaxLifetimeMs'> & {
-  smokeMaxLifetimeMs?: number | null;
+export type AuthSession = Omit<Session, 'purpose'> & {
+  purpose?: Session['purpose'];
 };
 
 export interface AuthContext {

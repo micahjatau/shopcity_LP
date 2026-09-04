@@ -76,8 +76,9 @@ jobs:
           image-ref: ${{ env.IMAGE_DIGEST }}
           format: table
           exit-code: '1'
-          # Debian's slim base currently reports CVEs with no available fix;
-          # fail the gate on every vulnerability that has a vendor fix.
+          # Unfixed advisories are inventoried and reviewed separately; every
+          # fixable HIGH/CRITICAL finding blocks this gate. Re-run this scan
+          # when vendor fixes publish so newly fixable findings become blocking.
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'

@@ -1,10 +1,10 @@
-import { Prisma, UserRole, UserStatus } from '@prisma/client';
+import { Prisma, SessionPurpose, UserRole, UserStatus } from '@prisma/client';
 import { createHmac } from 'node:crypto';
 import { AuthService } from './auth.service';
 import { encryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
 
 describe('AuthService', () => {
-  it('keeps smoke session refresh lifetimes short without changing login lifetime', async () => {
+  it('marks smoke sessions and keeps login sessions ordinary', async () => {
     const createdSessions: Array<Record<string, unknown>> = [];
     const tx = {
       user: {
@@ -44,6 +44,7 @@ describe('AuthService', () => {
         action: string,
         deviceId: string | null,
         lifetimeMs?: number,
+        purpose?: SessionPurpose,
       ) => Promise<unknown>
     ).bind(service);
     await issueSession(
@@ -53,17 +54,49 @@ describe('AuthService', () => {
       'auth.smoke_session_bootstrap',
       null,
       15 * 60 * 1000,
+      SessionPurpose.SMOKE,
     );
     await issueSession(tx, 'user-id', 'tenant-id', 'auth.login', null);
 
-    expect(createdSessions[0]?.smokeMaxLifetimeMs).toBe(15 * 60 * 1000);
-    expect(createdSessions[1]?.smokeMaxLifetimeMs).toBeNull();
+    expect(createdSessions[0]?.purpose).toBe(SessionPurpose.SMOKE);
+    expect(createdSessions[1]?.purpose).toBe(SessionPurpose.USER);
     const loginExpiresAt = createdSessions[1]?.expiresAt;
     expect(loginExpiresAt).toBeInstanceOf(Date);
     expect(
       (loginExpiresAt instanceof Date ? loginExpiresAt.getTime() : 0) -
         Date.now(),
     ).toBeGreaterThan(11 * 60 * 60 * 1000);
+  });
+
+  it('rejects smoke session refresh attempts', async () => {
+    const service = new AuthService(
+      {
+        session: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'smoke-session-id',
+            status: 'ACTIVE',
+            purpose: SessionPurpose.SMOKE,
+            expiresAt: new Date(Date.now() + 60_000),
+            user: {
+              id: 'user-id',
+              tenantId: 'tenant-id',
+              status: UserStatus.ACTIVE,
+              branchId: null,
+              tenant: { status: 'ACTIVE' },
+              branch: null,
+            },
+            device: null,
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.refresh('smoke-session-id')).rejects.toThrow(
+      'Smoke sessions cannot be refreshed',
+    );
   });
 
   it('rejects smoke session lifetimes above the 15 minute maximum', async () => {
@@ -81,6 +114,7 @@ describe('AuthService', () => {
         action: string,
         deviceId: string | null,
         lifetimeMs?: number,
+        purpose?: SessionPurpose,
       ) => Promise<unknown>
     ).bind(service);
 
@@ -92,6 +126,7 @@ describe('AuthService', () => {
         'auth.smoke_session_bootstrap',
         null,
         15 * 60 * 1000 + 1,
+        SessionPurpose.SMOKE,
       ),
     ).rejects.toThrow('Session lifetime exceeds the allowed maximum');
   });

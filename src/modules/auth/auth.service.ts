@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, UserRole } from '@prisma/client';
+import { Prisma, SessionPurpose, UserRole } from '@prisma/client';
 import {
   randomUUID,
   createHash,
@@ -239,6 +239,7 @@ export class AuthService {
         'auth.smoke_session_bootstrap',
         sessionDevice?.id ?? null,
         SMOKE_SESSION_LIFETIME_MS,
+        SessionPurpose.SMOKE,
       );
 
       if (attestationId) {
@@ -276,6 +277,10 @@ export class AuthService {
         'DEVICE_REVOKED',
         'Device session is no longer valid',
       );
+    }
+
+    if (session.purpose === SessionPurpose.SMOKE) {
+      throw new UnauthorizedException('Smoke sessions cannot be refreshed');
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -327,7 +332,8 @@ export class AuthService {
         currentSession.user.tenantId,
         'auth.refresh',
         currentSession.deviceId ?? null,
-        currentSession.smokeMaxLifetimeMs ?? DEFAULT_SESSION_LIFETIME_MS,
+        DEFAULT_SESSION_LIFETIME_MS,
+        SessionPurpose.USER,
       );
     });
   }
@@ -350,12 +356,13 @@ export class AuthService {
     action: string,
     deviceId: string | null,
     lifetimeMs = DEFAULT_SESSION_LIFETIME_MS,
+    purpose: SessionPurpose = SessionPurpose.USER,
   ): Promise<IssuedSession> {
     const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
     if (
       !Number.isSafeInteger(lifetimeMs) ||
       lifetimeMs <= 0 ||
-      (action === 'auth.smoke_session_bootstrap' &&
+      (purpose === SessionPurpose.SMOKE &&
         lifetimeMs > SMOKE_SESSION_LIFETIME_MS)
     ) {
       throw new Error('Session lifetime exceeds the allowed maximum');
@@ -381,9 +388,8 @@ export class AuthService {
         csrfTokenHash: createHash('sha256')
           .update(`${csrfSecret}:${csrfToken}`)
           .digest('hex'),
+        purpose,
         expiresAt,
-        smokeMaxLifetimeMs:
-          action === 'auth.smoke_session_bootstrap' ? lifetimeMs : null,
         lastUsedAt: new Date(),
       },
     });
