@@ -10,6 +10,7 @@ on:
       staging_base_url:
         description: Approved staging base URL for ZAP baseline
         required: false
+        default: https://shopcity-lp.vercel.app
         type: string
 
 permissions:
