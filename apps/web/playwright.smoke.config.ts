@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 const baseURL = process.env.SMOKE_FRONTEND_URL;
+const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 export default defineConfig({
   testDir: './tests/smoke',
@@ -19,6 +20,13 @@ export default defineConfig({
   ],
   use: {
     baseURL,
+    ...(vercelBypassSecret
+      ? {
+          extraHTTPHeaders: {
+            'x-vercel-protection-bypass': vercelBypassSecret,
+          },
+        }
+      : {}),
     locale: 'en-NG',
     timezoneId: 'Africa/Lagos',
     trace: 'retain-on-failure',

@@ -118,6 +118,12 @@ export function createSmokeApiSession(
       method,
       headers: {
         Accept: 'application/json',
+        ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+          ? {
+              'x-vercel-protection-bypass':
+                process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+            }
+          : {}),
         ...(csrf ? { 'x-csrf-token': csrf } : {}),
         ...(method === 'GET'
           ? {}
@@ -156,6 +162,12 @@ export async function createRoleApiSession(
     Accept: 'application/json',
     'Content-Type': 'application/json',
     'x-smoke-session-bootstrap-secret': config.sessionBootstrapSecret,
+    ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? {
+          'x-vercel-protection-bypass':
+            process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+        }
+      : {}),
   };
   if (role === 'cashier') {
     headers['x-device-id'] = config.cashier.deviceId;
