@@ -53,8 +53,10 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     items?: Array<Record<string, unknown>>;
   }>(`/api/v1/customers/${config.activeCustomerId}/ledger?limit=100`);
   const receipt = `${run.smokeRunId}${attemptSuffix}-APPROVAL-01`;
-  const approvalAmount =
+  const approvalAmountKobo =
     Number(process.env.PURCHASE_APPROVAL_THRESHOLD_KOBO ?? 200_000) + 1;
+  // The UI accepts naira while the backend threshold is stored in kobo.
+  const approvalAmountNaira = (approvalAmountKobo / 100).toFixed(2);
   let approvalId: string | null = null;
   let decisionCompleted = false;
   try {
@@ -68,7 +70,7 @@ test('Cashier Earn requiring approval is visible to Supervisor', async ({
     );
     await expect(cashier.getByText(/lookup resolved/i)).toBeVisible();
     await cashier.getByLabel('POS receipt number').fill(receipt);
-    await cashier.getByLabel('Purchase amount').fill(String(approvalAmount));
+    await cashier.getByLabel('Purchase amount').fill(approvalAmountNaira);
     await cashier.getByLabel('Purchase amount').blur();
     const earnResponse = cashier.waitForResponse(
       (response) =>

@@ -37,6 +37,12 @@ The smoke runner creates short-lived role sessions through the secret-gated `/ap
 
 The result is a PASS only when Cashier, Supervisor, Admin, cross-role, guardrails, and reconciliation groups all pass. Download the generated JUnit, HTML, screenshots, traces, and manifest evidence for release certification.
 
+### One-time staging migration reconciliation
+
+Before the first certification after a staging database restore or migration-history reset, an authorized operator must take a provider-managed backup, review `_prisma_migrations`, reconcile only the known historical entries with `npx prisma migrate resolve`, run `npx prisma migrate deploy`, and record the backup reference, repaired migration IDs, constraint checks, and post-deploy status in `docs/database/migration-tracker.md`. The normal certification workflow must never swallow migration errors.
+
+If the smoke device lacks attestation metadata, stop certification and use the authenticated Admin device update endpoint with `rotateAttestationSecret: true` for the dedicated `SMOKE_DEVICE_ID`. Do not fabricate ciphertext, rotate unrelated devices, or repair device state with direct SQL.
+
 ## Production execution
 
 Production smoke is manual-only:

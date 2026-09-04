@@ -33,6 +33,7 @@
     "smoke:production": "SMOKE_ENVIRONMENT=production npm --prefix apps/web run smoke:test",
     "verify:smoke-evidence": "node scripts/smoke/verify-smoke-evidence.mjs",
     "test:smoke-evidence": "node --test scripts/smoke/verify-smoke-evidence.spec.mjs",
+    "test:smoke-workflow-security": "node --test scripts/smoke/validate-workflow-security.spec.mjs",
     "e2e:live:prepare": "npx prisma migrate deploy && npm run prisma:seed",
     "e2e:live:test": "SHOPCITY_LIVE_E2E=1 npm --prefix apps/web run live:test",
     "e2e:live": "npm run e2e:live:prepare && npm run e2e:live:test",

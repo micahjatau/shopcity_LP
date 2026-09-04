@@ -25,6 +25,7 @@ import {
 import { decryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
 
 const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
+const DEFAULT_SESSION_LIFETIME_MS = 1000 * 60 * 60 * 12;
 const SMOKE_SESSION_LIFETIME_MS = 15 * 60 * 1000;
 
 interface IssuedSession {
@@ -326,6 +327,7 @@ export class AuthService {
         currentSession.user.tenantId,
         'auth.refresh',
         currentSession.deviceId ?? null,
+        currentSession.smokeMaxLifetimeMs ?? DEFAULT_SESSION_LIFETIME_MS,
       );
     });
   }
@@ -347,11 +349,16 @@ export class AuthService {
     tenantId: string,
     action: string,
     deviceId: string | null,
-    lifetimeMs = 1000 * 60 * 60 * 12,
+    lifetimeMs = DEFAULT_SESSION_LIFETIME_MS,
   ): Promise<IssuedSession> {
     const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
-    if (!Number.isSafeInteger(lifetimeMs) || lifetimeMs <= 0) {
-      throw new Error('Session lifetime must be a positive integer');
+    if (
+      !Number.isSafeInteger(lifetimeMs) ||
+      lifetimeMs <= 0 ||
+      (action === 'auth.smoke_session_bootstrap' &&
+        lifetimeMs > SMOKE_SESSION_LIFETIME_MS)
+    ) {
+      throw new Error('Session lifetime exceeds the allowed maximum');
     }
     const expiresAt = new Date(Date.now() + lifetimeMs);
     const sessionSecret =
@@ -375,6 +382,8 @@ export class AuthService {
           .update(`${csrfSecret}:${csrfToken}`)
           .digest('hex'),
         expiresAt,
+        smokeMaxLifetimeMs:
+          action === 'auth.smoke_session_bootstrap' ? lifetimeMs : null,
         lastUsedAt: new Date(),
       },
     });

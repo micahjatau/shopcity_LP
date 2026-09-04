@@ -152,11 +152,26 @@ export function ApprovalsPanel() {
         },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setResponseData(
+      const payload =
         response.data && typeof response.data === 'object'
-          ? response.data
-          : null,
-      );
+          ? (response.data as Record<string, unknown>)
+          : null;
+      if (response.status < 200 || response.status >= 300) {
+        const error =
+          payload?.error && typeof payload.error === 'object'
+            ? (payload.error as Record<string, unknown>)
+            : payload;
+        const code = typeof error?.code === 'string' ? error.code : 'UNKNOWN';
+        const detail =
+          typeof error?.message === 'string'
+            ? error.message
+            : 'Approval decision unavailable.';
+        setResponseData(payload);
+        setMessage(`${code}: ${detail}`);
+        return;
+      }
+
+      setResponseData(payload);
       await refresh();
       setMessage(`Decision sent for ${selectedId}.`);
     } catch {
