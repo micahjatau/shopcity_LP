@@ -28,7 +28,10 @@ export function validateStagingWorkflowSecurity(source) {
     'trusted workflow_run repository',
   );
   assert(
-    expressionContains(smoke.if, "github.event.workflow_run.head_branch == 'staging'"),
+    expressionContains(
+      smoke.if,
+      "github.event.workflow_run.head_branch == 'staging'",
+    ),
     'trusted staging branch',
   );
   assert(
@@ -36,22 +39,30 @@ export function validateStagingWorkflowSecurity(source) {
     'trusted push event',
   );
   assert(
-    expressionContains(smoke.if, "github.event.workflow_run.conclusion == 'success'"),
+    expressionContains(
+      smoke.if,
+      "github.event.workflow_run.conclusion == 'success'",
+    ),
     'successful upstream workflow',
   );
-  assert(workflow.permissions?.contents === 'read', 'permissions.contents: read');
+  assert(
+    workflow.permissions?.contents === 'read',
+    'permissions.contents: read',
+  );
 
   const steps = Array.isArray(smoke.steps) ? smoke.steps : [];
-  const checkout = steps.find(
-    (step) => step?.uses === 'actions/checkout@v4',
-  );
+  const checkout = steps.find((step) => step?.uses === 'actions/checkout@v4');
   assert(checkout, 'pinned checkout action');
-  assert(checkout.with?.['persist-credentials'] === false, 'persist-credentials: false');
+  assert(
+    checkout.with?.['persist-credentials'] === false,
+    'persist-credentials: false',
+  );
   assert(typeof checkout.with?.ref === 'string', 'exact checkout ref');
 
   const shaStep = steps.find((step) => step?.name === 'Verify candidate SHA');
   assert(
-    shaStep?.run?.trim() === 'test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"',
+    shaStep?.run?.trim() ===
+      'test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"',
     'exact candidate SHA verification',
   );
 
@@ -65,9 +76,11 @@ export function validateStagingWorkflowSecurity(source) {
     'strict Prisma migration deployment',
   );
   assert(
-    !steps.some((step) =>
-      typeof step?.run === 'string' &&
-      (step.run.includes('migrate resolve') || step.run.includes('UPDATE "Device"')),
+    !steps.some(
+      (step) =>
+        typeof step?.run === 'string' &&
+        (step.run.includes('migrate resolve') ||
+          step.run.includes('UPDATE "Device"')),
     ),
     'no direct migration/device remediation',
   );
