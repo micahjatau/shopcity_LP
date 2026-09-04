@@ -29,7 +29,7 @@ test('staging workflow rejects direct remediation and swallowed migration errors
       validateStagingWorkflowSecurity(
         source.replace(
           'npx prisma migrate deploy',
-          'UPDATE "Device"\nnpx prisma migrate deploy\nmigrate resolve',
+          'UPDATE "Device" && npx prisma migrate deploy && migrate resolve',
         ),
       ),
     /direct migration\/device remediation/,
