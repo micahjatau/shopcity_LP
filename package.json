@@ -64,7 +64,7 @@
     "openapi:export": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/export-openapi.ts",
     "openapi:lint": "npm run openapi:export && spectral lint docs/api/openapi.json",
     "openapi:diff": "npm run openapi:export && oasdiff diff docs/api/openapi.base.json docs/api/openapi.json",
-    "client:generate": "orval --input docs/api/openapi.json --output client/shopcity-client.ts --client fetch --mode single --prettier",
+    "client:generate": "orval --input docs/api/openapi.json --output client/shopcity-client.ts --client fetch --mode single && prettier --write client/shopcity-client.ts",
     "client:typecheck": "tsc --noEmit -p tsconfig.client.json",
     "openspec:validate": "npx -y @fission-ai/openspec validate --changes --concurrency 1 --no-interactive",
     "test:validation-scope": "node --test scripts/validation-scope/validation-scope.spec.cjs",
@@ -141,7 +141,7 @@
     "install": "^0.13.0",
     "jest": "^30.0.0",
     "lint-staged": "^17.1.0",
-    "orval": "^7.11.2",
+    "orval": "^8.28.1",
     "prettier": "^3.4.2",
     "prisma": "^6.19.3",
     "source-map-support": "^0.5.21",
@@ -159,7 +159,18 @@
   "overrides": {
     "fast-uri": "4.1.3",
     "js-yaml": "5.2.2",
-    "deepmerge-ts": "8.0.0"
+    "deepmerge-ts": "8.0.0",
+    "adm-zip": "^0.6.0",
+    "axios": "^1.20.0",
+    "browserslist": "^4.28.7",
+    "form-data": "^4.0.6",
+    "minimatch": "^10.2.6",
+    "nanoid": "^3.3.12",
+    "sharp": "^0.35.4",
+    "tar": "^7.5.22",
+    "orval": {
+      "js-yaml": "^4.3.1"
+    }
   },
   "jest": {
     "moduleFileExtensions": [
