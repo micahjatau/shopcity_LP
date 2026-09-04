@@ -8,6 +8,20 @@ test('staging workflow requires trusted source and exact checkout controls', asy
   assert.equal(validateStagingWorkflowSecurity(source), true);
 });
 
+test('staging workflow validates effective YAML nodes rather than comments', async () => {
+  const source = await readFile('.github/workflows/staging-smoke.yml', 'utf8');
+  assert.throws(
+    () =>
+      validateStagingWorkflowSecurity(
+        source.replace(
+          "github.event.workflow_run.head_branch == 'staging'",
+          "# github.event.workflow_run.head_branch == 'staging'",
+        ),
+      ),
+    /trusted staging branch/,
+  );
+});
+
 test('staging workflow rejects direct remediation and swallowed migration errors', async () => {
   const source = await readFile('.github/workflows/staging-smoke.yml', 'utf8');
   assert.throws(
@@ -15,7 +29,7 @@ test('staging workflow rejects direct remediation and swallowed migration errors
       validateStagingWorkflowSecurity(
         source.replace(
           'npx prisma migrate deploy',
-          'UPDATE "Device"\nnpx prisma migrate deploy\nmigrate resolve',
+          'UPDATE "Device" && npx prisma migrate deploy && migrate resolve',
         ),
       ),
     /direct migration\/device remediation/,
