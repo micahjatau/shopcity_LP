@@ -162,6 +162,7 @@ jobs:
       - name: Run staging smoke
         env:
           SMOKE_ENVIRONMENT: staging
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SMOKE_FRONTEND_URL: ${{ secrets.SMOKE_FRONTEND_URL }}
           SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
           SMOKE_CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}

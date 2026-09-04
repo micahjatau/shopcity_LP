@@ -158,6 +158,12 @@ export default async function globalTeardown(
           context = await request.newContext({
             baseURL: smokeConfig.frontendUrl,
             storageState: authState,
+            extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+              ? {
+                  'x-vercel-protection-bypass':
+                    process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+                }
+              : undefined,
           });
           await createSmokeApiSession(context, state.smokeRunId).post(
             '/api/v1/auth/logout',
