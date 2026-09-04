@@ -42,6 +42,7 @@ jobs:
       - run: npm run client:generate
       - run: npm run client:typecheck
       - run: npm run openspec:validate
+      - run: npm run test:smoke-workflow-security
       - run: npm run verify:release-artifacts
       - run: npm run test:validation-scope
       - run: npm run validate:scope

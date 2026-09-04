@@ -8,9 +8,8 @@ on:
   workflow_dispatch:
     inputs:
       staging_base_url:
-        description: Approved staging base URL for ZAP baseline
-        required: false
-        default: https://shopcity-lp.vercel.app
+        description: Exact approved staging origin for ZAP baseline
+        required: true
         type: string
 
 permissions:
@@ -98,8 +97,11 @@ jobs:
       - name: Enforce approved staging target
         env:
           STAGING_BASE_URL: ${{ inputs.staging_base_url }}
+          APPROVED_STAGING_ORIGIN: ${{ vars.APPROVED_STAGING_ORIGIN }}
         run: |
           test -n "$STAGING_BASE_URL"
+          test -n "$APPROVED_STAGING_ORIGIN"
+          test "$STAGING_BASE_URL" = "$APPROVED_STAGING_ORIGIN"
           case "$STAGING_BASE_URL" in
             https://*) ;;
             *) echo "staging_base_url must be an approved https staging target" >&2; exit 1 ;;
