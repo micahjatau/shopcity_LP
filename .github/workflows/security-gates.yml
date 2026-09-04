@@ -91,7 +91,7 @@ jobs:
 
   zap-baseline:
     name: ZAP Baseline (approved staging only)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.staging_base_url != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.staging_base_url != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Enforce approved staging target
@@ -108,7 +108,7 @@ jobs:
           esac
       - uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: ${{ inputs.staging_base_url }}
+          target: ${{ github.event.inputs.staging_base_url }}
           fail_action: true
           allow_issue_writing: false
           cmd_options: '-I'
