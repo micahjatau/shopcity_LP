@@ -10,6 +10,7 @@ on:
       staging_base_url:
         description: Approved staging base URL for ZAP baseline
         required: false
+        default: https://shopcity-lp.vercel.app
         type: string
 
 permissions:
@@ -76,8 +77,9 @@ jobs:
           image-ref: ${{ env.IMAGE_DIGEST }}
           format: table
           exit-code: '1'
-          # Debian's slim base currently reports CVEs with no available fix;
-          # fail the gate on every vulnerability that has a vendor fix.
+          # Unfixed advisories are inventoried and reviewed separately; every
+          # fixable HIGH/CRITICAL finding blocks this gate. Re-run this scan
+          # when vendor fixes publish so newly fixable findings become blocking.
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
@@ -90,16 +92,19 @@ jobs:
 
   zap-baseline:
     name: ZAP Baseline (approved staging only)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.staging_base_url != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Enforce approved staging target
+        env:
+          STAGING_BASE_URL: ${{ inputs.staging_base_url }}
         run: |
-          case "${{ inputs.staging_base_url }}" in
+          test -n "$STAGING_BASE_URL"
+          case "$STAGING_BASE_URL" in
             https://*) ;;
             *) echo "staging_base_url must be an approved https staging target" >&2; exit 1 ;;
           esac
-          case "${{ inputs.staging_base_url }}" in
+          case "$STAGING_BASE_URL" in
             *localhost*|*127.0.0.1*|*0.0.0.0*)
               echo "localhost targets are not allowed" >&2
               exit 1

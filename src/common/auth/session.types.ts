@@ -6,8 +6,14 @@ export type AuthUser = User & {
   branch?: Pick<Branch, 'id' | 'status'> | null;
 };
 
+// Keep the newly-added smoke marker optional at the application boundary so
+// unit fixtures and pre-migration records remain valid during rollout.
+export type AuthSession = Omit<Session, 'purpose'> & {
+  purpose?: Session['purpose'];
+};
+
 export interface AuthContext {
-  session: Session;
+  session: AuthSession;
   user: AuthUser;
 }
 

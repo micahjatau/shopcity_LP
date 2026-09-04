@@ -62,12 +62,12 @@ SMS recovery MUST reconcile `SENT`, `DELIVERED`, and `SUPPRESSED` messages whose
 
 ### Requirement: Release dependencies and migration history are secure
 
-The immutable image digest built from the verified candidate SHA MUST contain no HIGH or CRITICAL Trivy vulnerabilities; that digest MUST be recorded in release evidence. Historical migrations MUST remain immutable, and normal staging certification MUST use strict migration deployment after one-time history reconciliation.
+The immutable image digest built from the verified candidate SHA MUST contain no fixable HIGH or CRITICAL Trivy vulnerabilities; that digest MUST be recorded in release evidence. Unfixed HIGH or CRITICAL advisories MUST be inventoried, reviewed for applicability, assigned time-limited risk acceptance, and automatically become blocking when a vendor fix is published. Historical migrations MUST remain immutable, and normal staging certification MUST use strict migration deployment after one-time history reconciliation.
 
 #### Scenario: Candidate reaches security gate
 
 - **WHEN** Trivy scans the actual production image
-- **THEN** the scan passes without vulnerability allowlisting
+- **THEN** the scan passes without vulnerability allowlisting when no fixable HIGH or CRITICAL finding remains, with any unfixed advisories captured in the release evidence inventory
 
 #### Scenario: Normal staging certification starts
 

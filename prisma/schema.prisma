@@ -53,6 +53,11 @@ enum SessionStatus {
   EXPIRED
 }
 
+enum SessionPurpose {
+  USER
+  SMOKE
+}
+
 enum IdempotencyRecordStatus {
   PENDING
   COMPLETED
@@ -267,6 +272,7 @@ model Session {
   sessionTokenHash String        @unique
   csrfTokenHash    String
   status           SessionStatus @default(ACTIVE)
+  purpose          SessionPurpose @default(USER)
   expiresAt        DateTime
   revokedAt        DateTime?
   lastUsedAt       DateTime?

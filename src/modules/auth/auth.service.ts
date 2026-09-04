@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, UserRole } from '@prisma/client';
+import { Prisma, SessionPurpose, UserRole } from '@prisma/client';
 import {
   randomUUID,
   createHash,
@@ -25,6 +25,7 @@ import {
 import { decryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
 
 const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
+const DEFAULT_SESSION_LIFETIME_MS = 1000 * 60 * 60 * 12;
 const SMOKE_SESSION_LIFETIME_MS = 15 * 60 * 1000;
 
 interface IssuedSession {
@@ -238,6 +239,7 @@ export class AuthService {
         'auth.smoke_session_bootstrap',
         sessionDevice?.id ?? null,
         SMOKE_SESSION_LIFETIME_MS,
+        SessionPurpose.SMOKE,
       );
 
       if (attestationId) {
@@ -275,6 +277,10 @@ export class AuthService {
         'DEVICE_REVOKED',
         'Device session is no longer valid',
       );
+    }
+
+    if (session.purpose === SessionPurpose.SMOKE) {
+      throw new UnauthorizedException('Smoke sessions cannot be refreshed');
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -326,6 +332,8 @@ export class AuthService {
         currentSession.user.tenantId,
         'auth.refresh',
         currentSession.deviceId ?? null,
+        DEFAULT_SESSION_LIFETIME_MS,
+        SessionPurpose.USER,
       );
     });
   }
@@ -347,11 +355,17 @@ export class AuthService {
     tenantId: string,
     action: string,
     deviceId: string | null,
-    lifetimeMs = 1000 * 60 * 60 * 12,
+    lifetimeMs = DEFAULT_SESSION_LIFETIME_MS,
+    purpose: SessionPurpose = SessionPurpose.USER,
   ): Promise<IssuedSession> {
     const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
-    if (!Number.isSafeInteger(lifetimeMs) || lifetimeMs <= 0) {
-      throw new Error('Session lifetime must be a positive integer');
+    if (
+      !Number.isSafeInteger(lifetimeMs) ||
+      lifetimeMs <= 0 ||
+      (purpose === SessionPurpose.SMOKE &&
+        lifetimeMs > SMOKE_SESSION_LIFETIME_MS)
+    ) {
+      throw new Error('Session lifetime exceeds the allowed maximum');
     }
     const expiresAt = new Date(Date.now() + lifetimeMs);
     const sessionSecret =
@@ -374,6 +388,7 @@ export class AuthService {
         csrfTokenHash: createHash('sha256')
           .update(`${csrfSecret}:${csrfToken}`)
           .digest('hex'),
+        purpose,
         expiresAt,
         lastUsedAt: new Date(),
       },

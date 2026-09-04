@@ -245,7 +245,7 @@ describe('ReversalsService', () => {
             id: 'lot-1',
             originalAmountKobo: 4_000n,
             remainingAmountKobo: 4_000n,
-            expiresAt: new Date('2026-09-04T00:00:00.000Z'),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           },
           redemption: null,
           adjustment: null,

@@ -39,6 +39,9 @@ export function ApprovalsPanel() {
     string,
     unknown
   > | null>(null);
+  const [responseKind, setResponseKind] = useState<'success' | 'error' | null>(
+    null,
+  );
   const [limit, setLimit] = useState(3);
   const [cursorHistory, setCursorHistory] = useState<string[]>(['']);
   const cursorHistoryRef = useRef(cursorHistory);
@@ -120,7 +123,6 @@ export function ApprovalsPanel() {
           setItems(nextItems);
           setNextCursor(response.data.data.nextCursor ?? null);
           setSelectedId(nextItems[0]?.id ?? null);
-          setResponseData(null);
           setMessage(`Loaded ${nextItems.length} approvals.`);
         } else {
           setMessage(`Approvals unavailable (${response.status}).`);
@@ -143,6 +145,8 @@ export function ApprovalsPanel() {
       setMessage('Enter an explicit decision reason before submitting.');
       return;
     }
+    setResponseData(null);
+    setResponseKind(null);
     try {
       const response = await approvalsControllerDecideApprovalV1(
         selectedId,
@@ -152,14 +156,33 @@ export function ApprovalsPanel() {
         },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
-      setResponseData(
+      const payload =
         response.data && typeof response.data === 'object'
-          ? response.data
-          : null,
-      );
+          ? (response.data as Record<string, unknown>)
+          : null;
+      if (response.status < 200 || response.status >= 300) {
+        const error =
+          payload?.error && typeof payload.error === 'object'
+            ? (payload.error as Record<string, unknown>)
+            : payload;
+        const code = typeof error?.code === 'string' ? error.code : 'UNKNOWN';
+        const detail =
+          typeof error?.message === 'string'
+            ? error.message
+            : 'Approval decision unavailable.';
+        setResponseData(payload);
+        setResponseKind('error');
+        setMessage(`${code}: ${detail}`);
+        return;
+      }
+
+      setResponseData(payload);
+      setResponseKind('success');
       await refresh();
       setMessage(`Decision sent for ${selectedId}.`);
     } catch {
+      setResponseData(null);
+      setResponseKind('error');
       setMessage('Approval decision unavailable.');
     }
   }
@@ -379,8 +402,15 @@ export function ApprovalsPanel() {
 
       {responseData ? (
         <section style={cardStyle}>
-          <Alert tone="success" title="Backend response">
-            The backend returned a decision result.
+          <Alert
+            tone={responseKind === 'error' ? 'danger' : 'success'}
+            title={
+              responseKind === 'error' ? 'Backend error' : 'Backend response'
+            }
+          >
+            {responseKind === 'error'
+              ? 'The backend rejected the decision.'
+              : 'The backend returned a decision result.'}
           </Alert>
           <Table>
             <tbody>
