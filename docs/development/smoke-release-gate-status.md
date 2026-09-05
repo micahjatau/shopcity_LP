@@ -1,5 +1,14 @@
 # Smoke Release-Gate Status
 
+## 2026-09-04 current release state
+
+- Current master candidate: `978594099337111af69c87c7827c373630d4f5fb` (`fix: allow protected Vercel staging smoke (#18)`).
+- CI and security gates passed for the current master candidate, including the approved-origin ZAP run.
+- PR #17 corrected the repository-relative Playwright config path; PR #18 added the Vercel automation-bypass header for protected staging previews.
+- Staging run [33882064932](https://github.com/micahjatau/shopcity_LP/actions/runs/33882064932) reached migration deployment and worker readiness, then failed before scenarios with `401 (Protected deployment)`. It is not a certification pass.
+- Vercel deployment quota is currently exhausted (`api-deployments-free-per-day`), so the current master candidate cannot yet be deployed and provenance variables must not be advanced to it.
+- Production promotion and production smoke remain blocked.
+
 ## Automated gates
 
 The following gates have passed in the current working tree:
