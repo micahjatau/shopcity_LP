@@ -49,9 +49,22 @@ jobs:
         run: |
           test "$DEPLOYED_FRONTEND_SHA" = "$CANDIDATE_SHA"
           test "$DEPLOYED_BACKEND_SHA" = "$CANDIDATE_SHA"
+      - name: Preflight deployed production health
+        env:
+          SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          for endpoint in live ready; do
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+              -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" \
+              "${SMOKE_BACKEND_URL%/}/health/${endpoint}" \
+              --output /dev/null
+          done
+
       - name: Run approved production smoke
         env:
           SMOKE_ENVIRONMENT: production
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           SMOKE_FRONTEND_URL: ${{ secrets.SMOKE_FRONTEND_URL }}
           SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
           SMOKE_CANDIDATE_SHA: ${{ inputs.candidate_sha }}

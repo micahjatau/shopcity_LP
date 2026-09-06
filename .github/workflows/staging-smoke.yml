@@ -37,8 +37,11 @@ jobs:
       - name: Verify candidate SHA
         env:
           CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
-        run: |
-          test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
+        run: test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
+      - name: Validate candidate SHA format
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
+        run: echo "${CANDIDATE_SHA}" | grep -Eq '^[0-9a-fA-F]{40}$'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -54,6 +57,18 @@ jobs:
         run: |
           test "$DEPLOYED_FRONTEND_SHA" = "$CANDIDATE_SHA"
           test "$DEPLOYED_BACKEND_SHA" = "$CANDIDATE_SHA"
+      - name: Preflight deployed staging health
+        env:
+          SMOKE_BACKEND_URL: ${{ secrets.SMOKE_BACKEND_URL }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          for endpoint in live ready; do
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+              -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" \
+              "${SMOKE_BACKEND_URL%/}/health/${endpoint}" \
+              --output /dev/null
+          done
+
       - name: Apply staging database migrations
         env:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}

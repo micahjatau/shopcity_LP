@@ -57,6 +57,11 @@ import { CreditExpiryModule } from './modules/credit-expiry/credit-expiry.module
             'req.headers.authorization',
             'req.headers.cookie',
             'req.headers["x-csrf-token"]',
+            // URLs and parsed query objects may contain Vercel share tokens or
+            // other credential-like parameters. Do not retain arbitrary query
+            // data in request logs.
+            'req.url',
+            'req.query',
             'req.body.password',
             'req.body.currentPassword',
             'req.body.newPassword',

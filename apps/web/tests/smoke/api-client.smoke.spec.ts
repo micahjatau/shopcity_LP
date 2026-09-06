@@ -1,9 +1,37 @@
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import {
+  assertBackendHealth,
   createSmokeApiSession,
   csrfHeaderFromCookies,
 } from './support/api-client';
+
+test('backend preflight checks live and ready endpoints', async () => {
+  const requested: string[] = [];
+  const context = {
+    get: async (path: string) => {
+      requested.push(path);
+      return { ok: () => true, status: () => 200 };
+    },
+  };
+
+  await assertBackendHealth(context);
+
+  expect(requested).toEqual(['/health/live', '/health/ready']);
+});
+
+test('backend preflight fails before smoke setup when health is unavailable', async () => {
+  const context = {
+    get: async (path: string) => ({
+      ok: () => path !== '/health/ready',
+      status: () => (path === '/health/ready' ? 503 : 200),
+    }),
+  };
+
+  await expect(assertBackendHealth(context)).rejects.toThrow(
+    'Smoke backend preflight failed (503): /health/ready',
+  );
+});
 
 test('extracts the CSRF token from the application cookie', () => {
   expect(
