@@ -30,9 +30,9 @@ export function validateStagingWorkflowSecurity(source) {
   assert(
     expressionContains(
       smoke.if,
-      "github.event.workflow_run.head_branch == 'staging'",
+      "github.event.workflow_run.head_branch == 'master'",
     ),
-    'trusted staging branch',
+    'trusted master branch',
   );
   assert(
     expressionContains(smoke.if, "github.event.workflow_run.event == 'push'"),
@@ -58,12 +58,35 @@ export function validateStagingWorkflowSecurity(source) {
     'persist-credentials: false',
   );
   assert(typeof checkout.with?.ref === 'string', 'exact checkout ref');
+  assert(
+    checkout.with?.['fetch-depth'] === 0,
+    'full history for master-lineage verification',
+  );
 
   const shaStep = steps.find((step) => step?.name === 'Verify candidate SHA');
   assert(
     shaStep?.run?.trim() ===
       'test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"',
     'exact candidate SHA verification',
+  );
+
+  const lineageStep = steps.find(
+    (step) => step?.name === 'Verify candidate is on master lineage',
+  );
+  assert(
+    lineageStep?.run?.includes('git merge-base --is-ancestor'),
+    'master-lineage candidate verification',
+  );
+
+  const preflightStep = steps.find(
+    (step) => step?.name === 'Preflight deployed staging health',
+  );
+  assert(preflightStep, 'bounded staging health preflight');
+  assert(
+    typeof preflightStep.run === 'string' &&
+      preflightStep.run.includes('--connect-timeout 10') &&
+      preflightStep.run.includes('--max-time 30'),
+    'bounded health preflight curl',
   );
 
   const migrationStep = steps.find(
