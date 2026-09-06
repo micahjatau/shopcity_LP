@@ -11,7 +11,11 @@ export function validateReleaseProvenance(record, candidateSha, environment) {
     throw new Error('provenance candidate SHA mismatch');
   if (record.environment !== environment)
     throw new Error('provenance environment mismatch');
-  for (const key of ['workflowDefinitionSha', 'deployedFrontendSha', 'deployedBackendSha']) {
+  for (const key of [
+    'workflowDefinitionSha',
+    'deployedFrontendSha',
+    'deployedBackendSha',
+  ]) {
     if (!SHA.test(record[key] ?? ''))
       throw new Error(`provenance ${key} is invalid`);
   }
@@ -39,7 +43,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exitCode = 2;
   } else {
     try {
-      const record = JSON.parse(await readFile(process.argv[fileIndex + 1], 'utf8'));
+      const record = JSON.parse(
+        await readFile(process.argv[fileIndex + 1], 'utf8'),
+      );
       validateReleaseProvenance(
         record,
         process.argv[shaIndex + 1],
