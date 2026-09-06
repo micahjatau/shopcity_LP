@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -391,12 +392,24 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             aria-label="Primary navigation"
           >
             <div className="shell-mobile-drawer-header">
-              <strong>Navigation</strong>
+              <div className="shell-mobile-drawer-brand">
+                <Image
+                  src="/brand/shopcity-mark-white.svg"
+                  alt=""
+                  width={32}
+                  height={32}
+                />
+                <div>
+                  <strong>ShopCity</strong>
+                  <span>{workspaceLabel}</span>
+                </div>
+              </div>
               <button
                 type="button"
                 ref={mobileCloseButtonRef}
                 onClick={closeMobileNavigation}
                 className="shell-mobile-close"
+                aria-label="Close navigation"
               >
                 Close
               </button>
@@ -406,6 +419,14 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
               pathname={pathname}
               onNavigate={closeMobileNavigation}
             />
+            <div className="shell-mobile-drawer-footer">
+              <span>
+                {context?.branch?.name ??
+                  context?.branch?.id ??
+                  'Branch pending'}
+              </span>
+              <span>{context?.branch?.timezone ?? 'Timezone pending'}</span>
+            </div>
           </div>
         </div>
       ) : null}
@@ -584,8 +605,10 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
         .shell-mobile-drawer {
           display: grid;
+          grid-template-rows: auto 1fr auto;
           gap: var(--sc-spacing-4);
           width: min(100%, 360px);
+          height: 100%;
           max-height: 100%;
           overflow: auto;
           border-radius: var(--sc-radius-xl);
@@ -600,6 +623,30 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           align-items: center;
           justify-content: space-between;
           gap: var(--sc-spacing-3);
+        }
+
+        .shell-mobile-drawer-brand {
+          display: flex;
+          align-items: center;
+          gap: var(--sc-spacing-3);
+        }
+
+        .shell-mobile-drawer-brand div {
+          display: grid;
+          gap: 2px;
+        }
+
+        .shell-mobile-drawer-brand span,
+        .shell-mobile-drawer-footer {
+          font-size: var(--sc-font-size-sm);
+          opacity: 0.84;
+        }
+
+        .shell-mobile-drawer-footer {
+          display: grid;
+          gap: 2px;
+          border-top: 1px solid rgba(255, 255, 255, 0.16);
+          padding-top: var(--sc-spacing-3);
         }
 
         @media (max-width: 767px) {
@@ -734,6 +781,11 @@ function ShellNavigation({
           gap: var(--sc-spacing-2);
         }
 
+        .shell-nav-section + .shell-nav-section {
+          border-top: 1px solid rgba(255, 255, 255, 0.16);
+          padding-top: var(--sc-spacing-4);
+        }
+
         .shell-nav-section-label {
           margin: 0;
           text-transform: uppercase;
@@ -754,12 +806,24 @@ function ShellNavigation({
           display: flex;
           align-items: center;
           gap: var(--sc-spacing-2);
+          min-height: 44px;
           border-radius: var(--sc-radius-md);
           border: 1px solid rgba(255, 255, 255, 0.18);
           padding: 10px 12px;
           text-decoration: none;
           color: inherit;
           background: transparent;
+          transition: background-color 160ms ease, border-color 160ms ease,
+            transform 160ms ease;
+        }
+
+        .shell-nav-link:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.28);
+        }
+
+        .shell-nav-link:active {
+          transform: translateY(1px);
         }
 
         .shell-nav-link-icon {
@@ -793,6 +857,12 @@ function ShellNavigation({
         .shell-nav-link:focus-visible {
           outline: 3px solid var(--sc-color-warning-300);
           outline-offset: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .shell-nav-link {
+            transition: none;
+          }
         }
       `}</style>
     </nav>

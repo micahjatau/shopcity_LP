@@ -14,11 +14,11 @@ test('staging workflow validates effective YAML nodes rather than comments', asy
     () =>
       validateStagingWorkflowSecurity(
         source.replace(
-          "github.event.workflow_run.head_branch == 'staging'",
-          "# github.event.workflow_run.head_branch == 'staging'",
+          "github.event.workflow_run.head_branch == 'master'",
+          "# github.event.workflow_run.head_branch == 'master'",
         ),
       ),
-    /trusted staging branch/,
+    /trusted master branch/,
   );
 });
 

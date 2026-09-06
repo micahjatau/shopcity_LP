@@ -224,6 +224,11 @@ export function AppSidebar({
           gap: var(--sc-spacing-2);
         }
 
+        .shell-nav-section + .shell-nav-section {
+          border-top: 1px solid rgba(255, 255, 255, 0.16);
+          padding-top: var(--sc-spacing-4);
+        }
+
         .shell-nav-section-label {
           margin: 0;
           text-transform: uppercase;
@@ -244,12 +249,24 @@ export function AppSidebar({
           display: flex;
           align-items: center;
           gap: var(--sc-spacing-2);
+          min-height: 44px;
           border-radius: var(--sc-radius-md);
           border: 1px solid rgba(255, 255, 255, 0.18);
           padding: 10px 12px;
           text-decoration: none;
           color: inherit;
           background: transparent;
+          transition: background-color 160ms ease, border-color 160ms ease,
+            transform 160ms ease;
+        }
+
+        .shell-nav-link:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.28);
+        }
+
+        .shell-nav-link:active {
+          transform: translateY(1px);
         }
 
         .shell-nav-link-icon {
@@ -306,6 +323,12 @@ export function AppSidebar({
         .shell-nav-link:focus-visible {
           outline: 3px solid var(--sc-color-warning-300);
           outline-offset: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .shell-nav-link {
+            transition: none;
+          }
         }
 
         @media (max-width: 767px) {

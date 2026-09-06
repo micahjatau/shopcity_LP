@@ -32,7 +32,7 @@ interface SmokeRunState extends PersistedSmokeRun {
   outputDir: string;
   evidenceDir: string;
   candidateSha: string;
-  baseline: SmokeBaseline;
+  baseline?: SmokeBaseline;
 }
 
 export default async function globalTeardown(
@@ -44,7 +44,12 @@ export default async function globalTeardown(
   const statePath = resolve('test-results/smoke/current-run.json');
 
   try {
-    state = JSON.parse(await readFile(statePath, 'utf8')) as SmokeRunState;
+    try {
+      state = JSON.parse(await readFile(statePath, 'utf8')) as SmokeRunState;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw error;
+    }
     const run: SmokeRun = {
       smokeRunId: state.smokeRunId,
       candidateSha: state.candidateSha,
@@ -53,24 +58,30 @@ export default async function globalTeardown(
       evidenceDir: state.evidenceDir,
     };
     smokeConfig = loadSmokeConfig();
+    const baseline = state.baseline;
+    if (!baseline) {
+      await writeReconciliationEvidence(run, {
+        smokeRunId: run.smokeRunId,
+        result: 'NOT_APPLICABLE',
+        reason: 'setup_failed_before_mutation',
+        artifacts: state.artifacts ?? [],
+        mutableFixturesRestored: false,
+      });
+      return;
+    }
     adminApi = await createRoleApiSession('admin', smokeConfig, run.smokeRunId);
     await recoverPendingFinancialWrites(run, adminApi);
     state = JSON.parse(await readFile(statePath, 'utf8')) as SmokeRunState;
     await reconcileRun(run, adminApi, state.artifacts ?? []);
-    await resetMutableFixtures(
-      smokeConfig,
-      adminApi,
-      state.baseline,
-      run.smokeRunId,
-    );
+    await resetMutableFixtures(smokeConfig, adminApi, baseline, run.smokeRunId);
     const invariantReader = createApiInvariantReader(adminApi, smokeConfig);
-    await waitForOutboxBaseline(invariantReader, state.baseline.outboxBacklog);
+    await waitForOutboxBaseline(invariantReader, baseline.outboxBacklog);
     await resolveTaggedSmokeFraudFlags(
       adminApi,
       run.smokeRunId,
       `[${run.smokeRunId}] resolve smoke fraud finding`,
     );
-    await assertPostRunInvariants(invariantReader, state.baseline);
+    await assertPostRunInvariants(invariantReader, baseline);
     await writeReconciliationEvidence(run, {
       smokeRunId: run.smokeRunId,
       result: 'PASS',

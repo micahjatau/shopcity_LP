@@ -102,6 +102,19 @@ export interface SmokeApiSession {
   dispose(): Promise<void>;
 }
 
+export async function assertBackendHealth(
+  context: Pick<APIRequestContext, 'get'>,
+): Promise<void> {
+  for (const path of ['/health/live', '/health/ready']) {
+    const response = await context.get(path);
+    if (!response.ok()) {
+      throw new Error(
+        `Smoke backend preflight failed (${response.status()}): ${path}`,
+      );
+    }
+  }
+}
+
 export function createSmokeApiSession(
   context: APIRequestContext,
   smokeRunId: string,

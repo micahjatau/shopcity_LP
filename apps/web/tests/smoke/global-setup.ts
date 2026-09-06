@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { FullConfig } from '@playwright/test';
+import { request, type FullConfig } from '@playwright/test';
 import { loadSmokeConfig } from './config';
 import {
   captureBaseline,
@@ -8,7 +8,10 @@ import {
   resetMutableFixtures,
   resolveTaggedSmokeFraudFlags,
 } from './support/fixtures';
-import { createRoleApiSession } from './support/api-client';
+import {
+  assertBackendHealth,
+  createRoleApiSession,
+} from './support/api-client';
 import { createApiInvariantReader } from './support/assertions';
 import { createSmokeRun, smokeAuthDir } from './support/smoke-run';
 import {
@@ -33,6 +36,20 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     );
     await assertProductionUnlocked(smokeConfig.environment, safetyLock);
     const run = createSmokeRun(smokeConfig.candidateSha);
+    const healthContext = await request.newContext({
+      baseURL: smokeConfig.backendUrl,
+      extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+        ? {
+            'x-vercel-protection-bypass':
+              process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+          }
+        : undefined,
+    });
+    try {
+      await assertBackendHealth(healthContext);
+    } finally {
+      await healthContext.dispose();
+    }
     adminApi = await createRoleApiSession('admin', smokeConfig, run.smokeRunId);
     const authStateDir = smokeAuthDir(run);
     await mkdir(authStateDir, { recursive: true });
