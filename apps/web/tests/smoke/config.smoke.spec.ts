@@ -12,6 +12,7 @@ function validEnvironment(): NodeJS.ProcessEnv {
     SMOKE_TENANT_ID: 'tenant-smoke',
     SMOKE_BRANCH_ID: 'branch-smoke',
     SMOKE_DEVICE_ID: 'device-smoke',
+    SMOKE_LIFECYCLE_DEVICE_ID: 'device-lifecycle-smoke',
     SMOKE_ACTIVE_CUSTOMER_ID: 'customer-active',
     SMOKE_ACTIVE_CARD_SERIAL: 'card-active',
     SMOKE_INACTIVE_CUSTOMER_ID: 'customer-inactive',

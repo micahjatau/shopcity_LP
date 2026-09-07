@@ -46,7 +46,10 @@ test('Admin can access the smoke tenant operational control plane', async ({
       name: 'operational-routes',
       status: 'PASS',
       durationMs: 0,
-      references: { tenantId: config.tenantId, deviceId: config.deviceId },
+      references: {
+        tenantId: config.tenantId,
+        deviceId: config.lifecycleDeviceId,
+      },
     });
     await logoutRoleInUi(page);
   } finally {
@@ -64,7 +67,9 @@ test('Admin can reversibly activate and deactivate the smoke device', async ({
     await api.get<Array<{ id?: string; status?: string; branchId?: string }>>(
       '/api/v1/devices',
     );
-  const baseline = devices.find((device) => device.id === config.deviceId);
+  const baseline = devices.find(
+    (device) => device.id === config.lifecycleDeviceId,
+  );
   if (!baseline)
     throw new Error('Smoke device was not returned during baseline capture');
   try {
@@ -73,7 +78,7 @@ test('Admin can reversibly activate and deactivate the smoke device', async ({
     await expect(page.getByRole('heading', { name: /devices/i })).toBeVisible();
     await page
       .getByRole('button', {
-        name: new RegExp(`Select device ${config.deviceId}`),
+        name: new RegExp(`Select device ${config.lifecycleDeviceId}`),
       })
       .click();
     await page.getByLabel('Device status').selectOption('INACTIVE');
@@ -89,12 +94,12 @@ test('Admin can reversibly activate and deactivate the smoke device', async ({
       name: 'device-lifecycle',
       status: 'PASS',
       durationMs: 0,
-      references: { deviceId: config.deviceId },
+      references: { deviceId: config.lifecycleDeviceId },
     });
   } finally {
     if (baseline.status && baseline.status !== 'ACTIVE') {
       await api.patch(
-        `/api/v1/devices/${config.deviceId}`,
+        `/api/v1/devices/${config.lifecycleDeviceId}`,
         { status: baseline.status, branchId: baseline.branchId },
         `${run.smokeRunId}-restore-device`,
       );
