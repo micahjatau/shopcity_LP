@@ -1,65 +1,33 @@
 # ShopCity Auth Recovery
 
-Use this runbook when a known ShopCity staff account exists and is ACTIVE, but
+Use this runbook when a known ShopCity staff account exists and is ACTIVE but
 Supabase Auth rejects the expected password, or when a Supabase dashboard invite
 creates an identity that is not linked to ShopCity.
 
-## Safety rules
+## Current recovery model
 
-- Do not update `auth.users.encrypted_password` directly.
-- Do not rerun the full Prisma seed just to recover one account. The seed can
-  reset multiple bootstrap identities.
-- Do not paste production passwords into GitHub issues, pull requests, chat,
-  logs, shell history, or documentation.
-- Create operational staff through ShopCity Admin > Users. A dashboard-only
-  Supabase invite does not create the required ShopCity tenant/branch/role
-  record.
+ShopCity delegates password verification to Supabase Auth. A production
+`DEFAULT_ADMIN_PASSWORD` value does not automatically update an existing
+Supabase Auth identity when Vercel deploys the application.
 
-## Recover the bootstrap admin
+If `admin@shopcity.local` is ACTIVE in ShopCity but Supabase returns invalid
+credentials, reset the password using the supported Supabase Auth administration
+surface. Do not edit `auth.users.encrypted_password` directly and do not rerun
+the complete Prisma seed just to recover one account.
 
-The recovery utility uses the supported Supabase Admin API to synchronize the
-already-linked `admin@shopcity.local` identity with
-`DEFAULT_ADMIN_PASSWORD`. It refuses non-admin, inactive, mismatched, or
-unlinked identities. After the Supabase update it verifies the password using
-normal password authentication, revokes existing ShopCity sessions, and writes
-an `auth.admin.recovery` audit record.
+After resetting the Supabase password, set the Vercel
+`DEFAULT_ADMIN_PASSWORD` production value to the same strong password so the
+bootstrap configuration and Auth identity do not drift again.
 
-Run it from a checkout linked to the `shopcity-api` Vercel project:
-
-```bash
-npm ci
-npm exec -- vercel env run --environment production --project shopcity-api -- \
-  sh -c 'AUTH_RECOVERY_CONFIRM=RECOVER_ADMIN_AUTH npm run auth:recover-admin'
-```
-
-The utility never prints `DEFAULT_ADMIN_PASSWORD`.
-
-If a different linked admin must be recovered intentionally, set
-`ADMIN_RECOVERY_USERNAME` inside the command. The script still requires the
-ShopCity user to have the `ADMIN` role and an ACTIVE tenant, branch and user
-record.
-
-## Verify login
-
-Use the public web application:
+Then sign in at:
 
 ```text
 https://shopcity-lp.vercel.app/login
 ```
 
-Authenticate with:
-
-```text
-admin@shopcity.local
-<current DEFAULT_ADMIN_PASSWORD>
-```
-
-A successful recovery should create a fresh ShopCity session. Old active
-ShopCity sessions for the recovered admin are revoked by the recovery command.
-
 ## Supabase Auth URL configuration
 
-For hosted Supabase, open Authentication > URL Configuration.
+Open Supabase Dashboard > Authentication > URL Configuration.
 
 Set the production Site URL to:
 
@@ -73,7 +41,8 @@ Add the production frontend to the redirect allow list:
 https://shopcity-lp.vercel.app/**
 ```
 
-Add only explicitly approved staging/preview origins required for testing.
+Add only explicitly approved staging or preview frontend origins required for
+testing.
 
 The API origin is not the application Site URL:
 
@@ -81,17 +50,17 @@ The API origin is not the application Site URL:
 https://shopcity-api.vercel.app
 ```
 
-Do not use that API origin as the default destination for invite, recovery or
+Do not use the API origin as the default destination for invite, recovery or
 confirmation email flows.
 
 ## Dashboard invitations
 
 A direct Supabase dashboard invitation creates an `auth.users` identity but
 does not create the corresponding ShopCity `User` row. Such an identity has no
-ShopCity tenant, branch, role or status and should not be treated as an
-operational account.
+ShopCity tenant, branch, role or status and cannot be used as an operational
+ShopCity account.
 
-To detect recent unlinked identities:
+To identify recent unlinked Auth identities:
 
 ```sql
 select
@@ -108,31 +77,33 @@ where u.id is null
 order by au.created_at desc;
 ```
 
-Do not grant a role by editing Supabase metadata. ShopCity authorization is
-stored in the ShopCity `User` row and enforced by the application.
+Do not grant application privileges by editing Supabase user metadata. ShopCity
+authorization is stored in the ShopCity `User` row.
 
-## Staff creation after admin access is restored
+## Staff creation
 
-Use:
+Once an admin session is restored, create operational staff from:
 
 ```text
 ShopCity Admin > Users > Create user
 ```
 
-The ShopCity backend creates the Supabase identity and the ShopCity user record
-as one compensated operation, including branch, role, status and
-`supabaseAuthId` linkage.
+The ShopCity backend creates the Supabase identity and ShopCity `User` record
+together, including branch, role, status and `supabaseAuthId` linkage. If the
+ShopCity database write fails, the backend compensates by deleting the newly
+created Supabase identity.
 
-## If recovery fails
+## Verification checklist
 
-1. Confirm the ShopCity user is ACTIVE.
-2. Confirm its tenant and branch are ACTIVE.
-3. Confirm `supabaseAuthId` matches the intended Supabase Auth identity.
-4. Confirm the Vercel production environment has:
-   - `DATABASE_URL`
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `DEFAULT_ADMIN_PASSWORD`
-5. Confirm `DEFAULT_ADMIN_PASSWORD` is strong and is not a placeholder.
-6. Run the recovery utility again only after correcting the failed prerequisite.
+1. The ShopCity user is ACTIVE.
+2. Its tenant is ACTIVE.
+3. Its branch is ACTIVE.
+4. `supabaseAuthId` points to the intended Supabase Auth identity.
+5. The Supabase Auth email matches the ShopCity username.
+6. The Supabase identity is confirmed, not banned and not deleted.
+7. The chosen password authenticates successfully in Supabase.
+8. Vercel `DEFAULT_ADMIN_PASSWORD` is synchronized with the recovered
+   bootstrap password.
+9. Supabase Site URL points to the web frontend, not the API.
+10. Operational users are created from ShopCity rather than directly from the
+    Supabase dashboard.
