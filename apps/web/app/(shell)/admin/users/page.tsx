@@ -254,6 +254,12 @@ export default function AdminUsersPage() {
 
       <section style={cardStyle} aria-label="Create user">
         <h2 style={{ marginTop: 0 }}>Create user</h2>
+        <Alert tone="warning" title="Create ShopCity staff here">
+          Do not invite operational staff directly from the Supabase dashboard.
+          A Supabase-only identity has no ShopCity tenant, branch, role or
+          status record and cannot use the application correctly. Create the
+          staff account here so both identities are linked atomically.
+        </Alert>
         <div style={formGrid}>
           <Input
             aria-label="Username"
