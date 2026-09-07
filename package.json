@@ -87,7 +87,8 @@
     "test:integration:prime": "node ./scripts/prime-testcontainers.cjs",
     "test:integration": "jest --config ./test/jest-int.json --runInBand",
     "prepare": "husky",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "auth:recover-admin": "ts-node -r tsconfig-paths/register scripts/auth/recover-admin.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
