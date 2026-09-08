@@ -41,9 +41,7 @@ jobs:
       - name: Verify candidate SHA
         env:
           CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
-        run: |
-          printf 'candidate=%s checked_out=%s\n' "$CANDIDATE_SHA" "$(git rev-parse HEAD)"
-          test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
+        run: test "${CANDIDATE_SHA}" = "$(git rev-parse HEAD)"
       - name: Validate candidate SHA format
         env:
           CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
