@@ -12,6 +12,7 @@ export interface SmokeConfig {
   tenantId: string;
   branchId: string;
   deviceId: string;
+  lifecycleDeviceId: string;
   activeCustomerId: string;
   activeCardSerial: string;
   inactiveCustomerId: string;
@@ -43,6 +44,7 @@ const REQUIRED_FIELDS = [
   'SMOKE_TENANT_ID',
   'SMOKE_BRANCH_ID',
   'SMOKE_DEVICE_ID',
+  'SMOKE_LIFECYCLE_DEVICE_ID',
   'SMOKE_ACTIVE_CUSTOMER_ID',
   'SMOKE_ACTIVE_CARD_SERIAL',
   'SMOKE_INACTIVE_CUSTOMER_ID',
@@ -144,6 +146,7 @@ export function parseSmokeConfig(env: NodeJS.ProcessEnv): SmokeConfig {
   loadManifestVersion(fixtureManifestVersion);
 
   const deviceId = required(env, 'SMOKE_DEVICE_ID');
+  const lifecycleDeviceId = required(env, 'SMOKE_LIFECYCLE_DEVICE_ID');
   const cashierDeviceId = required(env, 'SMOKE_CASHIER_DEVICE_ID');
   if (cashierDeviceId !== deviceId) {
     throw new Error('SMOKE_CASHIER_DEVICE_ID must equal SMOKE_DEVICE_ID');
@@ -168,6 +171,7 @@ export function parseSmokeConfig(env: NodeJS.ProcessEnv): SmokeConfig {
     tenantId: required(env, 'SMOKE_TENANT_ID'),
     branchId: required(env, 'SMOKE_BRANCH_ID'),
     deviceId,
+    lifecycleDeviceId,
     activeCustomerId: required(env, 'SMOKE_ACTIVE_CUSTOMER_ID'),
     activeCardSerial: required(env, 'SMOKE_ACTIVE_CARD_SERIAL'),
     inactiveCustomerId: required(env, 'SMOKE_INACTIVE_CUSTOMER_ID'),

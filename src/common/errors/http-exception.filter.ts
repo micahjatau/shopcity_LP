@@ -55,10 +55,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
       },
     };
 
+    const exceptionRecord =
+      exception instanceof Error
+        ? {
+            name: exception.name,
+            message: exception.message,
+            ...(exception.stack ? { stack: exception.stack } : {}),
+          }
+        : { valueType: typeof exception };
+    const diagnostic = {
+      requestId,
+      method: request.method,
+      path: request.url,
+      status,
+      code: error.error.code,
+      exception: exceptionRecord,
+    };
+
     if (status >= 500 || !(exception instanceof HttpException)) {
-      this.logger.error(exception);
+      this.logger.error(JSON.stringify(diagnostic));
     } else {
-      this.logger.warn(exception);
+      this.logger.warn(JSON.stringify(diagnostic));
     }
 
     void response.status(status).send(error);
