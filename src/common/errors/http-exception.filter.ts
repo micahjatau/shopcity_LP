@@ -66,16 +66,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const diagnostic = {
       requestId,
       method: request.method,
-      path: request.url,
+      path: request.url.split('?')[0],
       status,
       code: error.error.code,
       exception: exceptionRecord,
     };
+    const diagnosticLine = JSON.stringify({
+      ...diagnostic,
+      // Keep the structured line visible in serverless logs even when the
+      // Nest logger buffer is not attached to the platform log stream.
+      source: 'http-exception-filter',
+    });
 
     if (status >= 500 || !(exception instanceof HttpException)) {
-      this.logger.error(JSON.stringify(diagnostic));
+      this.logger.error(diagnosticLine);
+      console.error(diagnosticLine);
     } else {
-      this.logger.warn(JSON.stringify(diagnostic));
+      this.logger.warn(diagnosticLine);
     }
 
     void response.status(status).send(error);
