@@ -527,9 +527,11 @@ export class ReportsService {
     );
     const dateFilter = buildDateFilter(query.from, query.to);
 
+    const rows = await fetchRows(scope, dateFilter);
+
     return {
       ...scope,
-      items: await fetchRows(scope, dateFilter),
+      items: rows.map((row) => serializeReportValue(row)),
     };
   }
 
@@ -602,6 +604,28 @@ export class ReportsService {
 
 function maxBigInt(left: bigint, right: bigint): bigint {
   return left > right ? left : right;
+}
+
+function serializeReportValue<T>(value: T): T {
+  if (typeof value === 'bigint') {
+    return Number(value) as T;
+  }
+
+  if (Array.isArray(value)) {
+    const items: unknown[] = value;
+    return items.map((item) => serializeReportValue(item)) as T;
+  }
+
+  if (value instanceof Date || value === null || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      serializeReportValue(item),
+    ]),
+  ) as T;
 }
 
 function buildDateFilter(from?: string, to?: string) {
