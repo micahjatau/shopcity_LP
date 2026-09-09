@@ -224,12 +224,12 @@ jobs:
           DEPLOYED_FRONTEND_SHA: ${{ vars.SMOKE_DEPLOYED_FRONTEND_SHA }}
           DEPLOYED_BACKEND_SHA: ${{ vars.SMOKE_DEPLOYED_BACKEND_SHA }}
         run: |
-          RUN_STATE="apps/web/test-results/smoke/current-run.json"
+          RUN_STATE="test-results/smoke/current-run.json"
           OUTPUT_DIR=""
           if [ -f "$RUN_STATE" ]; then
             OUTPUT_DIR="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir)" "$RUN_STATE")"
           else
-            EVIDENCE_FILE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name smoke-evidence.json -print -quit)"
+            EVIDENCE_FILE="$(find test-results/smoke -mindepth 2 -maxdepth 3 -name smoke-evidence.json -print -quit)"
             if [ -n "$EVIDENCE_FILE" ]; then
               OUTPUT_DIR="$(dirname "$EVIDENCE_FILE")"
             fi
@@ -254,11 +254,11 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
-          RUN_STATE="apps/web/test-results/smoke/current-run.json"
+          RUN_STATE="test-results/smoke/current-run.json"
           if [ -f "$RUN_STATE" ]; then
             OUTPUT_DIR="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir)" "$RUN_STATE")"
           else
-            EVIDENCE_FILE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name smoke-evidence.json -print -quit)"
+            EVIDENCE_FILE="$(find test-results/smoke -mindepth 2 -maxdepth 3 -name smoke-evidence.json -print -quit)"
             OUTPUT_DIR="$(dirname "$EVIDENCE_FILE")"
           fi
           MANIFEST="$OUTPUT_DIR/smoke-evidence.json"
@@ -291,10 +291,10 @@ jobs:
         with:
           name: shopcity-staging-smoke-${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
           path: |
-            apps/web/test-results/smoke/**/evidence/**
-            apps/web/test-results/smoke/**/smoke-evidence.json
-            apps/web/test-results/smoke/current-run.json
-            apps/web/test-results/smoke/**/current-run.json
-            apps/web/test-results/smoke/junit.xml
+            test-results/smoke/**/evidence/**
+            test-results/smoke/**/smoke-evidence.json
+            test-results/smoke/current-run.json
+            test-results/smoke/**/current-run.json
+            test-results/smoke/junit.xml
           if-no-files-found: ignore
           retention-days: 14
