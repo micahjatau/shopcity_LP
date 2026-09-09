@@ -226,7 +226,7 @@ jobs:
         run: |
           RUN_STATE="apps/web/test-results/smoke/current-run.json"
           if [ ! -f "$RUN_STATE" ]; then
-            RUN_STATE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 2 -name current-run.json -print -quit)"
+            RUN_STATE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name current-run.json -print -quit)"
           fi
           if [ -n "$RUN_STATE" ] && [ -f "$RUN_STATE" ]; then
             OUTPUT_DIR="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir)" "$RUN_STATE")"
@@ -251,7 +251,7 @@ jobs:
         run: |
           RUN_STATE="apps/web/test-results/smoke/current-run.json"
           if [ ! -f "$RUN_STATE" ]; then
-            RUN_STATE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 2 -name current-run.json -print -quit)"
+            RUN_STATE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name current-run.json -print -quit)"
           fi
           MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir + '/smoke-evidence.json')" "$RUN_STATE")"
           PROVENANCE="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir + '/evidence/release-provenance.json')" "$RUN_STATE")"
