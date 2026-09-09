@@ -35,7 +35,7 @@ jobs:
           # GitHub's checkout action resolves branch names reliably here, while
           # the following step still requires the checked-out master tip to
           # equal the requested candidate SHA exactly.
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'master' || github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Verify candidate SHA
