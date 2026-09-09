@@ -225,11 +225,16 @@ jobs:
           DEPLOYED_BACKEND_SHA: ${{ vars.SMOKE_DEPLOYED_BACKEND_SHA }}
         run: |
           RUN_STATE="apps/web/test-results/smoke/current-run.json"
-          if [ ! -f "$RUN_STATE" ]; then
-            RUN_STATE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name current-run.json -print -quit)"
-          fi
-          if [ -n "$RUN_STATE" ] && [ -f "$RUN_STATE" ]; then
+          OUTPUT_DIR=""
+          if [ -f "$RUN_STATE" ]; then
             OUTPUT_DIR="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir)" "$RUN_STATE")"
+          else
+            EVIDENCE_FILE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name smoke-evidence.json -print -quit)"
+            if [ -n "$EVIDENCE_FILE" ]; then
+              OUTPUT_DIR="$(dirname "$EVIDENCE_FILE")"
+            fi
+          fi
+          if [ -n "$OUTPUT_DIR" ]; then
             mkdir -p "$OUTPUT_DIR/evidence"
             cat > "$OUTPUT_DIR/evidence/release-provenance.json" <<EOF
           {
@@ -250,11 +255,14 @@ jobs:
           CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
           RUN_STATE="apps/web/test-results/smoke/current-run.json"
-          if [ ! -f "$RUN_STATE" ]; then
-            RUN_STATE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name current-run.json -print -quit)"
+          if [ -f "$RUN_STATE" ]; then
+            OUTPUT_DIR="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir)" "$RUN_STATE")"
+          else
+            EVIDENCE_FILE="$(find apps/web/test-results/smoke -mindepth 2 -maxdepth 3 -name smoke-evidence.json -print -quit)"
+            OUTPUT_DIR="$(dirname "$EVIDENCE_FILE")"
           fi
-          MANIFEST="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir + '/smoke-evidence.json')" "$RUN_STATE")"
-          PROVENANCE="$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).outputDir + '/evidence/release-provenance.json')" "$RUN_STATE")"
+          MANIFEST="$OUTPUT_DIR/smoke-evidence.json"
+          PROVENANCE="$OUTPUT_DIR/evidence/release-provenance.json"
           npm run verify:smoke-evidence -- --manifest "$MANIFEST" --candidate-sha "$CANDIDATE_SHA"
           node scripts/smoke/verify-release-provenance.mjs --file "$PROVENANCE" --candidate-sha "$CANDIDATE_SHA" --environment staging
       - name: Stop staging outbox worker
