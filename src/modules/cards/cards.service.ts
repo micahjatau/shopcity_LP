@@ -8,6 +8,7 @@ import {
   CardStatus,
   CustomerStatus,
   IdempotencyRecordStatus,
+  SmsMessageStatus,
   Prisma,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -16,6 +17,8 @@ import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
+import { normalizeCardSerial } from '../../common/card-identity';
+import { buildCardReplacedSmsPayload } from '../../jobs/sms.templates';
 
 @Injectable()
 export class CardsService {
@@ -28,8 +31,9 @@ export class CardsService {
   ) {}
 
   async lookupCard(tenantId: string, serialNumber: string) {
+    const canonicalSerialNumber = normalizeCardSerial(serialNumber);
     const card = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue: serialNumber },
+      where: { tenantId, barcodeValue: canonicalSerialNumber },
       include: {
         customer: true,
       },
@@ -63,7 +67,7 @@ export class CardsService {
       tenantId,
       actorId: actor.user.id,
       customerId: data.customerId,
-      serialNumber: data.serialNumber.trim(),
+      serialNumber: normalizeCardSerial(data.serialNumber),
     });
     const existing = await findCardIdempotency(
       this.prismaService,
@@ -111,7 +115,7 @@ export class CardsService {
           data: {
             tenantId,
             customerId: customer.id,
-            barcodeValue: data.serialNumber,
+            barcodeValue: normalizeCardSerial(data.serialNumber),
             issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
@@ -157,11 +161,12 @@ export class CardsService {
   ) {
     const normalizedKey = normalizeCardIdempotencyKey(idempotencyKey);
     const endpoint = 'cards.replace';
+    const canonicalSerialNumber = normalizeCardSerial(data.serialNumber);
     const requestHash = hashCardRequest({
       tenantId,
       actorId: actor.user.id,
       cardId,
-      serialNumber: data.serialNumber.trim(),
+      serialNumber: canonicalSerialNumber,
     });
     const existing = await findCardIdempotency(
       this.prismaService,
@@ -230,7 +235,7 @@ export class CardsService {
           data: {
             tenantId,
             customerId: current.customerId,
-            barcodeValue: data.serialNumber,
+            barcodeValue: canonicalSerialNumber,
             issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
@@ -239,6 +244,38 @@ export class CardsService {
         await prisma.card.update({
           where: { id: current.id },
           data: { replacedByCardId: newCard.id },
+        });
+
+        const smsPayload = buildCardReplacedSmsPayload({
+          previousCardId: current.id,
+          replacementCardId: newCard.id,
+          customerId: current.customerId,
+          phoneE164: customer.phoneE164,
+          previousSerial: String(current.barcodeValue ?? current.id),
+          replacementSerial: canonicalSerialNumber,
+        });
+        const smsEvent = await prisma.outboxEvent.create({
+          data: {
+            tenantId,
+            aggregateType: 'card',
+            aggregateId: newCard.id,
+            eventType: 'sms.send',
+            payload: smsPayload,
+            status: 'PENDING',
+            nextAttemptAt: occurredAt,
+          },
+        });
+        await prisma.smsMessage.create({
+          data: {
+            tenantId,
+            cardId: newCard.id,
+            outboxEventId: smsEvent.id,
+            phoneE164: customer.phoneE164,
+            template: 'card-replaced',
+            payload: smsPayload,
+            status: SmsMessageStatus.QUEUED,
+            queuedAt: occurredAt,
+          },
         });
 
         await prisma.outboxEvent.create({
@@ -266,7 +303,10 @@ export class CardsService {
           action: 'card.replace',
           entityType: 'card',
           entityId: newCard.id,
-          metadata: { previousCardId: cardId, serialNumber: data.serialNumber },
+          metadata: {
+            previousCardId: cardId,
+            serialNumber: canonicalSerialNumber,
+          },
         });
 
         const response = toPublicCard(newCard);

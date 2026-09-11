@@ -760,7 +760,6 @@ function buildDailyFinancialSummaries(
     }
   }
 
-  const registeredCustomers = customers.length;
   const activeLots = lots.filter((lot) => lot.expiresAt > asOf);
   const outstandingLiabilityKobo = sumLots(activeLots, lotBalances);
   const creditExpiredKobo = sumExpiredCredit(lots, source.creditExpiries, asOf);
@@ -773,7 +772,10 @@ function buildDailyFinancialSummaries(
       scopeKey: scope.scopeKey,
       branchId: scope.branchId,
       reportDate: toDate(reportDate),
-      registeredCustomers,
+      registeredCustomers: customers.filter(
+        (customer) =>
+          toReportDate(customer.createdAt, scope.timezone) <= reportDate,
+      ).length,
       activeCustomers: activeCustomerByDate.get(reportDate)?.size ?? 0,
       transactionCount: transactionCountByDate.get(reportDate) ?? 0,
       loyaltyPurchaseValueKobo: purchaseByDate.get(reportDate) ?? 0n,
@@ -831,6 +833,13 @@ function buildCashierSummaries(
           entry.amountKobo,
       );
       addBigInt(creditIssued, key, entry.amountKobo);
+    }
+    if (
+      entry.type === 'REDEEM' &&
+      entry.direction === 'DEBIT' &&
+      !reversedEntryIds.has(entry.id)
+    ) {
+      addNumber(transactionCount, key, 1);
     }
     if (entry.reversesEntryId) {
       addNumber(reversalCount, key, 1);
@@ -1144,7 +1153,9 @@ function buildSmsSummaries(
       failedCount: 0,
       suppressedCount: 0,
     };
-    entry.queuedCount += 1;
+    if (snapshotStatus === 'QUEUED') {
+      entry.queuedCount += 1;
+    }
     if (snapshotStatus === 'SENT') {
       entry.sentCount += 1;
     }

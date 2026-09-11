@@ -142,6 +142,87 @@ describe('CardsService', () => {
     });
   });
 
+  it('canonicalizes replacement serials and queues one replacement SMS', async () => {
+    const newCard = {
+      id: 'card-new',
+      tenantId: 'tenant-id',
+      customerId: 'customer-id',
+      barcodeValue: 'CARD-NEW',
+      status: CardStatus.ACTIVE,
+    };
+    const tx = {
+      idempotencyRecord: {
+        create: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+      card: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn().mockResolvedValue(newCard),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+      outboxEvent: {
+        create: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'sms-event' })
+          .mockResolvedValueOnce({ id: 'fraud-event' }),
+      },
+      smsMessage: { create: jest.fn().mockResolvedValue({ id: 'sms-1' }) },
+    };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      card: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'card-old',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          status: CardStatus.ACTIVE,
+          customer: {
+            status: CustomerStatus.ACTIVE,
+            branchId: 'branch-id',
+            phoneE164: '+2348012345678',
+          },
+        }),
+      },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'customer-id',
+          branchId: 'branch-id',
+          status: CustomerStatus.ACTIVE,
+          phoneE164: '+2348012345678',
+        }),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.replaceCard(
+        'tenant-id',
+        actorStub(),
+        'card-old',
+        { serialNumber: ' card-new ' },
+        'replace-key',
+      ),
+    ).resolves.toMatchObject({ serialNumber: 'CARD-NEW' });
+
+    expect(tx.smsMessage.create).toHaveBeenCalledTimes(1);
+    const smsCall = tx.smsMessage.create.mock.calls[0] as unknown as [
+      {
+        data: { template: string; phoneE164: string };
+      },
+    ];
+    expect(smsCall[0].data).toMatchObject({
+      template: 'card-replaced',
+      phoneE164: '+2348012345678',
+    });
+  });
+
   it('rejects status updates for replaced cards', async () => {
     const prisma = {
       card: {

@@ -129,45 +129,47 @@ export class ReportExportService {
       throw new ConflictException('Idempotency key is still being processed');
     }
 
-    await this.auditService.record({
-      tenantId,
-      actorId: context.user.id,
-      action: 'REPORT_REFRESH_REQUESTED',
-      entityType: 'REPORT',
-      entityId: report,
-      metadata: {
-        report,
-        branchId: query.branchId ?? null,
-      },
-    });
-
-    await this.prisma.outboxEvent.create({
-      data: {
-        tenantId,
-        aggregateType: 'report',
-        aggregateId: report,
-        eventType: 'report.refresh',
-        payload: {
-          version: 1,
-          report,
-          branchId: query.branchId ?? null,
-          timezone: query.timezone ?? null,
-        },
-        status: 'PENDING',
-        nextAttemptAt: new Date(),
-      },
-    });
-    await this.prisma.idempotencyRecord.create({
-      data: {
+    await this.prisma.$transaction(async (tx) => {
+      await this.auditService.recordWithClient(tx, {
         tenantId,
         actorId: context.user.id,
-        endpoint: 'reports.refresh',
-        idempotencyKey: normalizedKey,
-        requestHash,
-        status: IdempotencyRecordStatus.COMPLETED,
-        responseJson: { status: 'accepted' },
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
+        action: 'REPORT_REFRESH_REQUESTED',
+        entityType: 'REPORT',
+        entityId: report,
+        metadata: {
+          report,
+          branchId: query.branchId ?? null,
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId,
+          aggregateType: 'report',
+          aggregateId: report,
+          eventType: 'report.refresh',
+          payload: {
+            version: 1,
+            report,
+            branchId: query.branchId ?? null,
+            timezone: query.timezone ?? null,
+          },
+          status: 'PENDING',
+          nextAttemptAt: new Date(),
+        },
+      });
+      await tx.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: context.user.id,
+          endpoint: 'reports.refresh',
+          idempotencyKey: normalizedKey,
+          requestHash,
+          status: IdempotencyRecordStatus.COMPLETED,
+          responseJson: { status: 'accepted' },
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
     });
   }
 

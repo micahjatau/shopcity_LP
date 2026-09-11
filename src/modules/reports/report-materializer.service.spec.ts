@@ -259,7 +259,7 @@ describe('ReportMaterializerService', () => {
       creditRedeemedKobo: 2000n,
     });
     expect(smsRows[0]).toMatchObject({
-      queuedCount: 1,
+      queuedCount: 0,
       sentCount: 0,
       failedCount: 1,
     });

@@ -590,6 +590,8 @@ export class OutboxWorkerRuntime {
 
     const receiptId = readStringField(payload, 'receiptId').trim() || null;
     const transactionId = readStringField(payload, 'transactionId').trim();
+    const cardId = readStringField(payload, 'replacementCardId').trim() || null;
+    const customerId = readStringField(payload, 'customerId').trim() || null;
     const redemptionId =
       readStringField(payload, 'redemptionId').trim() || null;
     const adjustmentId =
@@ -597,7 +599,17 @@ export class OutboxWorkerRuntime {
     const phoneE164 = readStringField(payload, 'phoneE164').trim();
     const template = readStringField(payload, 'template').trim();
 
-    if (!transactionId || !phoneE164 || !template) {
+    const requiresTransaction = ![
+      'credit-expiry-reminder-v1',
+      'card-replaced',
+    ].includes(template);
+    if (
+      (!transactionId && requiresTransaction) ||
+      (template === 'credit-expiry-reminder-v1' && !customerId) ||
+      (template === 'card-replaced' && !cardId) ||
+      !phoneE164 ||
+      !template
+    ) {
       throw new Error(
         `SmsMessage payload missing required fields for ${outboxEvent.id}`,
       );
@@ -615,7 +627,8 @@ export class OutboxWorkerRuntime {
       create: {
         tenantId: outboxEvent.tenantId,
         receiptId,
-        ledgerEntryId: transactionId,
+        ledgerEntryId: transactionId || null,
+        cardId,
         redemptionId,
         adjustmentId,
         outboxEventId: outboxEvent.id,

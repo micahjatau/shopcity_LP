@@ -83,7 +83,7 @@ describe('ReportExportService', () => {
 
     expect(outboxEventCreateArgs.data).toMatchObject(refreshEventData);
     expect(
-      (audit.record.mock.calls[0]?.[0] as { action?: string }).action,
+      (audit.record.mock.calls[0]?.[1] as { action?: string }).action,
     ).toBe('REPORT_REFRESH_REQUESTED');
   });
 
@@ -174,6 +174,7 @@ function auditServiceStub() {
   return {
     service: {
       record,
+      recordWithClient: record,
     } as unknown as AuditService,
     record,
   };
@@ -190,13 +191,21 @@ function prismaStub() {
     create: jest.fn().mockResolvedValue({}),
   };
 
+  const service = {
+    idempotencyRecord,
+    outboxEvent: {
+      create: outboxEventCreate,
+    },
+  } as unknown as PrismaService;
+  const transactionalService = service as unknown as {
+    $transaction: (
+      callback: (tx: typeof service) => Promise<unknown>,
+    ) => Promise<unknown>;
+  };
+  transactionalService.$transaction = async (callback) => callback(service);
+
   return {
-    service: {
-      idempotencyRecord,
-      outboxEvent: {
-        create: outboxEventCreate,
-      },
-    } as unknown as PrismaService,
+    service,
     outboxEventCreate,
   };
 }
