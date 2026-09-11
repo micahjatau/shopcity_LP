@@ -1123,6 +1123,7 @@ function buildRedemptionSummaries(
   materializedAt: Date,
 ) {
   const redemptions = filterRedemptionsForScope(source.redemptions, scope);
+  const lots = filterLotsForScope(source.creditLots, source, scope);
   const grouped = new Map<
     string,
     {
@@ -1181,25 +1182,35 @@ function buildRedemptionSummaries(
 
   return Array.from(grouped.entries())
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([reportDate, entry]) => ({
-      tenantId,
-      scope: scope.scope,
-      scopeKey: scope.scopeKey,
-      branchId: entry.branchId,
-      reportDate: toDate(reportDate),
-      redemptionCount: entry.redemptionCount,
-      requestedKobo: entry.requestedKobo,
-      confirmedKobo: entry.confirmedKobo,
-      reversedKobo: entry.reversedKobo,
-      pendingApprovalCount: entry.pendingApprovalCount,
-      basketRatioBps:
-        entry.basketKobo > 0n
-          ? Number((entry.confirmedKobo * 10_000n) / entry.basketKobo)
-          : 0,
-      lotsConsumed: entry.lotsConsumed.size,
-      allocationCount: entry.allocationCount,
-      materializedAt,
-    }));
+    .map(([reportDate, entry]) => {
+      const dayStart = toDate(reportDate);
+      const dayEnd = new Date(dayStart.getTime() + 86_400_000 - 1);
+      const balances = buildLotBalances(source, dayEnd);
+      const endingBalanceKobo = lots
+        .filter((lot) => lot.expiresAt > dayEnd)
+        .reduce((sum, lot) => sum + (balances.get(lot.id) ?? 0n), 0n);
+
+      return {
+        tenantId,
+        scope: scope.scope,
+        scopeKey: scope.scopeKey,
+        branchId: entry.branchId,
+        reportDate: dayStart,
+        redemptionCount: entry.redemptionCount,
+        requestedKobo: entry.requestedKobo,
+        confirmedKobo: entry.confirmedKobo,
+        reversedKobo: entry.reversedKobo,
+        pendingApprovalCount: entry.pendingApprovalCount,
+        basketRatioBps:
+          entry.basketKobo > 0n
+            ? Number((entry.confirmedKobo * 10_000n) / entry.basketKobo)
+            : 0,
+        lotsConsumed: entry.lotsConsumed.size,
+        allocationCount: entry.allocationCount,
+        endingBalanceKobo,
+        materializedAt,
+      };
+    });
 }
 
 function buildSmsSummaries(

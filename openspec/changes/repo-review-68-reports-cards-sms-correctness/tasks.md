@@ -9,7 +9,7 @@
 - [ ] Add multi-day watermark fixtures proving rebuilds do not rewrite historical meaning.
 - [x] Correct SMS queued status aggregation and add durable total/retry/dead-letter metrics; migration verification remains pending.
 - [x] Expand cashier activity with earn, redemption, approval, duplicate, reversal, and fraud-flag metrics; fraud flags are derived from authoritative records.
-- [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance; ratio/lots/allocation metrics are implemented, remaining-balance/drilldown work remains.
+- [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance; ratio/lots/allocation/ending-balance metrics are implemented, approval lifecycle/drilldown work remains.
 - [x] Add deterministic, bounded customer rankings for spend, balance, frequency, and dormant high-value customers, including the management UI selector.
 - [ ] Update report DTOs, OpenAPI, CSV export, frontend labels, empty states, and accessibility text. (CSV fields updated; remaining surfaces pending.)
 - [ ] Add report unit, integration, contract, and affected Playwright coverage for non-zero, empty, reversed, pending, and multi-branch fixtures.

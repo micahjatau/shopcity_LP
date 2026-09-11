@@ -50,6 +50,7 @@ These definitions are frozen for Sprint 4 reporting materialization.
 - `basketRatioBps`: confirmed redemption value divided by the confirmed redemption basket value, expressed in basis points; zero when the denominator is zero.
 - `lotsConsumed`: distinct FIFO credit lots consumed by confirmed or reversed redemptions.
 - `allocationCount`: number of FIFO allocation rows for confirmed or reversed redemptions.
+- `endingBalanceKobo`: authoritative end-of-day unexpired credit-lot balance for the report scope.
 
 ## SMS operations
 

@@ -917,6 +917,7 @@ model ReportRedemptionDailySummary {
   basketRatioBps       Int      @default(0)
   lotsConsumed         Int      @default(0)
   allocationCount      Int      @default(0)
+  endingBalanceKobo    BigInt   @default(0)
   materializedAt       DateTime
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

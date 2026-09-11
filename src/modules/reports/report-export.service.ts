@@ -355,6 +355,7 @@ function reportColumns(report: ReportExportName): string[] {
         'basketRatioBps',
         'lotsConsumed',
         'allocationCount',
+        'endingBalanceKobo',
         'materializedAt',
       ];
     case 'sms-operations':
