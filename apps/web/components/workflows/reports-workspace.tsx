@@ -13,6 +13,7 @@ import {
   reportsControllerListMaterializationStateV1,
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
+  notificationsControllerListTransactionSmsV1,
   reportsControllerRefreshReportV1,
   type ReportsControllerListExecutiveSummaryV1Params,
   type ReportsControllerRefreshReportV1Params,
@@ -262,6 +263,34 @@ export function ReportsWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report]);
 
+  async function inspectSelectedSms() {
+    const transactionId = selectedItem?.transactionId;
+    if (report !== 'sms-operations' || typeof transactionId !== 'string') {
+      setActionMessage('Select an SMS row with a transaction identifier first.');
+      return;
+    }
+    try {
+      const response = await notificationsControllerListTransactionSmsV1(
+        transactionId,
+        { page: 1, limit: 50 },
+        createApiRequest({ csrf: true }),
+      );
+      const responseData = response.data as unknown;
+      setActionResult(
+        responseData && typeof responseData === 'object'
+          ? (responseData as Record<string, unknown>)
+          : null,
+      );
+      setActionMessage(
+        response.status === 200
+          ? 'SMS inspection loaded with masked operational fields.'
+          : `SMS inspection responded with ${response.status}.`,
+      );
+    } catch {
+      setActionMessage('SMS inspection unavailable.');
+    }
+  }
+
   async function refreshReport() {
     try {
       if (!canRefreshReports || isPilotOperationsSummary) {
@@ -438,6 +467,15 @@ export function ReportsWorkspace({
           >
             Export
           </Button>
+          {report === 'sms-operations' ? (
+            <Button
+              variant="secondary"
+              onClick={() => void inspectSelectedSms()}
+              disabled={typeof selectedItem?.transactionId !== 'string'}
+            >
+              Inspect SMS
+            </Button>
+          ) : null}
         </div>
       </section>
 
