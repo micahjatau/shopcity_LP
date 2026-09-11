@@ -357,11 +357,14 @@ function reportColumns(report: ReportExportName): string[] {
         'scopeKey',
         'branchId',
         'reportDate',
+        'totalCount',
         'queuedCount',
         'sentCount',
         'deliveredCount',
         'failedCount',
         'suppressedCount',
+        'retryCount',
+        'deadLetterCount',
         'materializedAt',
       ];
     case 'audit-report':

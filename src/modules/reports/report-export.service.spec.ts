@@ -82,9 +82,9 @@ describe('ReportExportService', () => {
     const outboxEventCreateArgs = prisma.outboxEventCreate.mock.calls[0]?.[0];
 
     expect(outboxEventCreateArgs.data).toMatchObject(refreshEventData);
-    expect(
-      (audit.record.mock.calls[0]?.[1] as { action?: string }).action,
-    ).toBe('REPORT_REFRESH_REQUESTED');
+    expect(audit.record.mock.calls[0]?.[1]).toMatchObject({
+      action: 'REPORT_REFRESH_REQUESTED',
+    });
   });
 
   it('rejects non-admin refresh requests', async () => {
@@ -168,7 +168,7 @@ function reportsServiceStub() {
 }
 
 function auditServiceStub() {
-  const record = jest.fn<Promise<void>, [{ [key: string]: unknown }]>();
+  const record = jest.fn<Promise<void>, [unknown?, unknown?]>();
   record.mockResolvedValue(undefined);
 
   return {

@@ -86,6 +86,8 @@ interface SmsMessageRecord {
   id: string;
   receiptId: string | null;
   status: string;
+  attempts: number;
+  deadLetteredAt: Date | null;
   queuedAt: Date;
   createdAt: Date;
   sentAt: Date | null;
@@ -370,6 +372,8 @@ export class ReportMaterializerService {
           id: true,
           receiptId: true,
           status: true,
+          attempts: true,
+          deadLetteredAt: true,
           queuedAt: true,
           createdAt: true,
           sentAt: true,
@@ -1133,11 +1137,14 @@ function buildSmsSummaries(
     string,
     {
       branchId: string | null;
+      totalCount: number;
       queuedCount: number;
       sentCount: number;
       deliveredCount: number;
       failedCount: number;
       suppressedCount: number;
+      retryCount: number;
+      deadLetterCount: number;
     }
   >();
 
@@ -1147,14 +1154,24 @@ function buildSmsSummaries(
     const key = reportDate;
     const entry = grouped.get(key) ?? {
       branchId: scope.branchId,
+      totalCount: 0,
       queuedCount: 0,
       sentCount: 0,
       deliveredCount: 0,
       failedCount: 0,
       suppressedCount: 0,
+      retryCount: 0,
+      deadLetterCount: 0,
     };
+    entry.totalCount += 1;
     if (snapshotStatus === 'QUEUED') {
       entry.queuedCount += 1;
+    }
+    if (sms.attempts > 1) {
+      entry.retryCount += sms.attempts - 1;
+    }
+    if (sms.deadLetteredAt && sms.deadLetteredAt <= asOf) {
+      entry.deadLetterCount += 1;
     }
     if (snapshotStatus === 'SENT') {
       entry.sentCount += 1;
@@ -1179,11 +1196,14 @@ function buildSmsSummaries(
       scopeKey: scope.scopeKey,
       branchId: entry.branchId,
       reportDate: toDate(reportDate),
+      totalCount: entry.totalCount,
       queuedCount: entry.queuedCount,
       sentCount: entry.sentCount,
       deliveredCount: entry.deliveredCount,
       failedCount: entry.failedCount,
       suppressedCount: entry.suppressedCount,
+      retryCount: entry.retryCount,
+      deadLetterCount: entry.deadLetterCount,
       materializedAt,
     }));
 }

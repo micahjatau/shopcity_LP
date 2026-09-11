@@ -228,6 +228,18 @@ export class ReportsController {
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'timezone', required: false })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['spend', 'balance', 'visits', 'recent', 'dormant-value'],
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    minimum: 1,
+    maximum: 500,
+  })
   @apiSuccessEnvelopeResponse({
     description: 'Customer performance rows',
     dataSchema: reportCollectionSchema,
@@ -239,6 +251,9 @@ export class ReportsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('timezone') timezone?: string,
+    @Query('sort')
+    sort?: 'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value',
+    @Query('limit') limit?: string,
   ) {
     return this.reportsService.listCustomerPerformance(
       context.user.tenantId,
@@ -248,6 +263,8 @@ export class ReportsController {
         from,
         to,
         timezone,
+        sort,
+        limit: limit ? Number(limit) : undefined,
       },
     );
   }

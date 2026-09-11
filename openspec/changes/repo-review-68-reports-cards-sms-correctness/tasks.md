@@ -7,11 +7,11 @@
 - [ ] Split executive current snapshot from daily flow series without breaking existing authorized report routes.
 - [ ] Remove current-materialization stock values from historical daily rows, or implement separately computed end-of-day stock rows with explicit names.
 - [ ] Add multi-day watermark fixtures proving rebuilds do not rewrite historical meaning.
-- [x] Correct SMS queued status aggregation; total/submitted, retry, and dead-letter metrics remain pending.
+- [x] Correct SMS queued status aggregation and add durable total/retry/dead-letter metrics; migration verification remains pending.
 - [ ] Expand cashier activity with earn, redemption, approval, duplicate, reversal, and fraud-flag metrics; prevent double counting.
 - [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance.
-- [ ] Add deterministic customer rankings for spend, balance, frequency, and dormant high-value customers.
-- [ ] Update report DTOs, OpenAPI, CSV export, frontend labels, empty states, and accessibility text.
+- [x] Add deterministic, bounded customer rankings for spend, balance, frequency, and dormant high-value customers.
+- [ ] Update report DTOs, OpenAPI, CSV export, frontend labels, empty states, and accessibility text. (CSV fields updated; remaining surfaces pending.)
 - [ ] Add report unit, integration, contract, and affected Playwright coverage for non-zero, empty, reversed, pending, and multi-branch fixtures.
 
 ## P0 — Card lifecycle correctness
@@ -29,7 +29,7 @@
 
 ## P0 — SMS inspection, lifecycle, and recovery
 
-- [ ] Add `GET /notifications/sms/{transactionId}` for Supervisor/Admin with tenant/branch authorization, masking, redaction, pagination, and OpenAPI coverage.
+- [x] Add `GET /notifications/sms/{transactionId}` for Supervisor/Admin with tenant/branch authorization, masking, redaction, OpenAPI coverage, and bounded pagination.
 - [ ] Add transaction UI Inspect action and operational SMS failure/retry/dead-letter drilldown.
 - [ ] Confirm eBulkSMS delivery-receipt capabilities and callback authentication requirements.
 - [ ] If supported, implement authenticated/idempotent provider callback handling and monotonic status transitions.
