@@ -10,7 +10,7 @@
 - [x] Correct SMS queued status aggregation and add durable total/retry/dead-letter metrics; migration verification remains pending.
 - [x] Expand cashier activity with earn, redemption, approval, duplicate, reversal, and fraud-flag metrics; fraud flags are derived from authoritative records.
 - [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance; ratio/lots/allocation metrics are implemented, remaining-balance/drilldown work remains.
-- [x] Add deterministic, bounded customer rankings for spend, balance, frequency, and dormant high-value customers.
+- [x] Add deterministic, bounded customer rankings for spend, balance, frequency, and dormant high-value customers, including the management UI selector.
 - [ ] Update report DTOs, OpenAPI, CSV export, frontend labels, empty states, and accessibility text. (CSV fields updated; remaining surfaces pending.)
 - [ ] Add report unit, integration, contract, and affected Playwright coverage for non-zero, empty, reversed, pending, and multi-branch fixtures.
 
@@ -33,7 +33,7 @@
 - [ ] Add transaction UI Inspect action and operational SMS failure/retry/dead-letter drilldown.
 - [ ] Confirm eBulkSMS delivery-receipt capabilities and callback authentication requirements.
 - [ ] If supported, implement authenticated/idempotent provider callback handling and monotonic status transitions.
-- [ ] If unsupported, document submission-only lifecycle and update report/UI labels to avoid implying phone delivery.
+- [x] If unsupported, document submission-only lifecycle and update report/UI labels to avoid implying phone delivery; the eBulkSMS adapter is submission-only and the runbook records cost as unavailable.
 - [ ] Add provider-cost metadata/estimated-cost fields using integer minor units or an explicit unavailable state; document estimation limits.
 - [ ] Make worker SMS reconstruction template-aware for financial notifications and expiry reminders.
 - [ ] Add callback replay, invalid callback, terminal-state, expiry-reminder, missing-source, retry, and dead-letter tests.
@@ -48,8 +48,8 @@
 ## P1 — Documentation and contracts
 
 - [ ] Update report metric definitions and SMS lifecycle documentation.
-- [ ] Update notification support/runbook procedures for transaction inspection and failure triage.
-- [ ] Document provider DLR/cost limitations and the incremental-materialization follow-up separately.
+- [x] Update notification support/runbook procedures for transaction inspection and failure triage.
+- [x] Document provider DLR/cost limitations and the incremental-materialization follow-up separately.
 - [ ] Regenerate generated OpenAPI/client artifacts where source contracts change.
 
 ## P1 — Verification gates

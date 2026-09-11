@@ -11482,7 +11482,24 @@ export type ReportsControllerListCustomerPerformanceV1Params = {
   from?: string;
   to?: string;
   timezone?: string;
+  sort?: ReportsControllerListCustomerPerformanceV1Sort;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
 };
+
+export type ReportsControllerListCustomerPerformanceV1Sort =
+  (typeof ReportsControllerListCustomerPerformanceV1Sort)[keyof typeof ReportsControllerListCustomerPerformanceV1Sort];
+
+export const ReportsControllerListCustomerPerformanceV1Sort = {
+  spend: 'spend',
+  balance: 'balance',
+  visits: 'visits',
+  recent: 'recent',
+  'dormant-value': 'dormant-value',
+} as const;
 
 export type ReportsControllerListCustomerPerformanceV1200DataScope =
   (typeof ReportsControllerListCustomerPerformanceV1200DataScope)[keyof typeof ReportsControllerListCustomerPerformanceV1200DataScope];
@@ -13985,6 +14002,18 @@ export type ReportsControllerRefreshReportV1503 = {
   success: boolean;
   error: ReportsControllerRefreshReportV1503Error;
   meta: ReportsControllerRefreshReportV1503Meta;
+};
+
+export type NotificationsControllerListTransactionSmsV1Params = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
 };
 
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
@@ -20290,6 +20319,66 @@ export const reportsControllerRefreshReportV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerRefreshReportV1Response;
+};
+
+export type notificationsControllerListTransactionSmsV1Response200 = {
+  data: void;
+  status: 200;
+};
+
+export type notificationsControllerListTransactionSmsV1ResponseSuccess =
+  notificationsControllerListTransactionSmsV1Response200 & {
+    headers: Headers;
+  };
+export type notificationsControllerListTransactionSmsV1Response =
+  notificationsControllerListTransactionSmsV1ResponseSuccess;
+
+export const getNotificationsControllerListTransactionSmsV1Url = (
+  transactionId: string,
+  params?: NotificationsControllerListTransactionSmsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/notifications/sms/${transactionId}?${stringifiedParams}`
+    : `/api/v1/notifications/sms/${transactionId}`;
+};
+
+/**
+ * Inspect SMS notifications for a transaction
+ * @summary Inspect SMS notifications for a transaction
+ */
+export const notificationsControllerListTransactionSmsV1 = async (
+  transactionId: string,
+  params?: NotificationsControllerListTransactionSmsV1Params,
+  options?: RequestInit,
+): Promise<notificationsControllerListTransactionSmsV1Response> => {
+  const res = await fetch(
+    getNotificationsControllerListTransactionSmsV1Url(transactionId, params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: notificationsControllerListTransactionSmsV1Response['data'] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as notificationsControllerListTransactionSmsV1Response;
 };
 
 export type configurationControllerGetPublicConfigV1Response200 = {

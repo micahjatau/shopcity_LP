@@ -26856,6 +26856,25 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": ["spend", "balance", "visits", "recent", "dormant-value"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 500,
+              "type": "number"
+            }
           }
         ],
         "responses": {
@@ -32537,6 +32556,54 @@
         "description": "Schedule report refresh"
       }
     },
+    "/api/v1/notifications/sms/{transactionId}": {
+      "get": {
+        "operationId": "NotificationsController_listTransactionSms_v1",
+        "parameters": [
+          {
+            "name": "transactionId",
+            "required": true,
+            "in": "path",
+            "description": "Transaction identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction SMS notification details"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inspect SMS notifications for a transaction",
+        "tags": ["Notifications"],
+        "description": "Inspect SMS notifications for a transaction"
+      }
+    },
     "/api/v1/config/public": {
       "get": {
         "operationId": "ConfigurationController_getPublicConfig_v1",
@@ -33688,6 +33755,14 @@
     },
     {
       "name": "reports",
+      "description": ""
+    },
+    {
+      "name": "notifications",
+      "description": ""
+    },
+    {
+      "name": "Notifications",
       "description": ""
     },
     {

@@ -104,6 +104,9 @@ export function ReportsWorkspace({
   const [message, setMessage] = useState('Loading report summary…');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [customerSort, setCustomerSort] = useState<
+    'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value'
+  >('spend');
 
   const availableReportOptions = useMemo(
     () =>
@@ -160,7 +163,14 @@ export function ReportsWorkspace({
   const pilotSummary = isPilotOperationsSummary
     ? (summary as PilotSummary | null)
     : null;
-  const items = (reportSummary?.items ?? []) as ReportItem[];
+  const items = useMemo(
+    () =>
+      sortCustomerPerformanceItems(
+        (reportSummary?.items ?? []) as ReportItem[],
+        report === 'customer-performance' ? customerSort : undefined,
+      ),
+    [customerSort, report, reportSummary?.items],
+  );
   const selectedItem = items[selectedItemIndex] ?? null;
   const reconciliationHealthy = pilotSummary?.reconciliation?.healthy === true;
 
@@ -359,6 +369,29 @@ export function ReportsWorkspace({
           onChange={(event) => setReport(event.target.value as ReportKey)}
           options={availableReportOptions}
         />
+        {report === 'customer-performance' ? (
+          <Select
+            aria-label="Customer performance ranking"
+            value={customerSort}
+            onChange={(event) =>
+              setCustomerSort(
+                event.target.value as
+                  | 'spend'
+                  | 'balance'
+                  | 'visits'
+                  | 'recent'
+                  | 'dormant-value',
+              )
+            }
+            options={[
+              { value: 'spend', label: 'Top spenders' },
+              { value: 'balance', label: 'Highest balances' },
+              { value: 'visits', label: 'Most frequent visitors' },
+              { value: 'recent', label: 'Recently active' },
+              { value: 'dormant-value', label: 'Dormant high-value' },
+            ]}
+          />
+        ) : null}
         <div style={filterGrid}>
           <Input
             aria-label="Branch filter"
@@ -419,6 +452,12 @@ export function ReportsWorkspace({
         <Alert tone="info" title="Current filters">
           {selectedSummary}
         </Alert>
+        {report === 'sms-operations' ? (
+          <Alert tone="warning" title="SMS lifecycle">
+            eBulkSMS status reflects provider submission; handset delivery is not
+            confirmed by this report.
+          </Alert>
+        ) : null}
         {actionResult ? (
           <Table>
             <tbody>
@@ -612,6 +651,42 @@ export function ReportsWorkspace({
       ) : null}
     </section>
   );
+}
+
+function sortCustomerPerformanceItems(
+  items: ReportItem[],
+  sort: 'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value' | undefined,
+): ReportItem[] {
+  if (!sort) return items;
+  const field =
+    sort === 'spend'
+      ? 'purchaseValueKobo'
+      : sort === 'balance' || sort === 'dormant-value'
+        ? 'currentBalanceKobo'
+        : sort === 'visits'
+          ? 'visitCount'
+          : 'lastActivityAt';
+
+  return [...items].sort((left, right) => {
+    if (sort === 'dormant-value') {
+      const dormantDelta = Number(Boolean(right.dormant)) - Number(Boolean(left.dormant));
+      if (dormantDelta !== 0) return dormantDelta;
+    }
+    const leftValue = left[field];
+    const rightValue = right[field];
+    const leftTime =
+      field === 'lastActivityAt' && typeof leftValue === 'string'
+        ? Date.parse(leftValue)
+        : Number(leftValue ?? 0);
+    const rightTime =
+      field === 'lastActivityAt' && typeof rightValue === 'string'
+        ? Date.parse(rightValue)
+        : Number(rightValue ?? 0);
+    if (rightTime !== leftTime) return rightTime - leftTime;
+    return String(left.customerId ?? '').localeCompare(
+      String(right.customerId ?? ''),
+    );
+  });
 }
 
 function renderValue(value: unknown) {
