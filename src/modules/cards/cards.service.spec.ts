@@ -156,6 +156,7 @@ describe('CardsService', () => {
         update: jest.fn().mockResolvedValue(undefined),
       },
       card: {
+        findFirst: jest.fn().mockResolvedValue(null),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn().mockResolvedValue(newCard),
         update: jest.fn().mockResolvedValue(undefined),
@@ -350,6 +351,55 @@ describe('CardsService', () => {
       ),
     ).rejects.toThrow('Customer is not active');
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a canonical replacement serial collision before blocking the old card', async () => {
+    const tx = {
+      idempotencyRecord: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      card: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'other-card' }),
+        updateMany: jest.fn(),
+      },
+    };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      card: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'card-old',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          status: CardStatus.ACTIVE,
+        }),
+      },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'customer-id',
+          status: CustomerStatus.ACTIVE,
+          phoneE164: '+2348012345678',
+        }),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.replaceCard(
+        'tenant-id',
+        actorStub(),
+        'card-old',
+        { serialNumber: ' card-new ' },
+        'replace-key',
+      ),
+    ).rejects.toThrow('already assigned in this tenant');
+    expect(tx.card.updateMany).not.toHaveBeenCalled();
   });
 
   it('fails when a stale card state loses a race inside the transaction', async () => {

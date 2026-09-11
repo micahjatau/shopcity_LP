@@ -63,11 +63,12 @@ export class CardsService {
   ) {
     const normalizedKey = normalizeCardIdempotencyKey(idempotencyKey);
     const endpoint = 'cards.create';
+    const canonicalSerialNumber = normalizeCardSerial(data.serialNumber);
     const requestHash = hashCardRequest({
       tenantId,
       actorId: actor.user.id,
       customerId: data.customerId,
-      serialNumber: normalizeCardSerial(data.serialNumber),
+      serialNumber: canonicalSerialNumber,
     });
     const existing = await findCardIdempotency(
       this.prismaService,
@@ -88,6 +89,16 @@ export class CardsService {
     });
     if (!customer || customer.status !== CustomerStatus.ACTIVE) {
       throw new NotFoundException('Customer not found');
+    }
+
+    const existingSerial = await this.prismaService.card.findFirst({
+      where: { tenantId, barcodeValue: canonicalSerialNumber },
+      select: { id: true },
+    });
+    if (existingSerial) {
+      throw new ConflictException(
+        'The card serial number is already assigned in this tenant',
+      );
     }
 
     const existingActiveCard = await this.prismaService.card.findFirst({
@@ -115,7 +126,7 @@ export class CardsService {
           data: {
             tenantId,
             customerId: customer.id,
-            barcodeValue: normalizeCardSerial(data.serialNumber),
+            barcodeValue: canonicalSerialNumber,
             issuedByTenantId: actor.user.tenantId,
             issuedBy: actor.user.id,
           },
@@ -214,6 +225,20 @@ export class CardsService {
 
       const occurredAt = new Date();
       try {
+        const conflictingCard = await prisma.card.findFirst({
+          where: {
+            tenantId,
+            barcodeValue: canonicalSerialNumber,
+            id: { not: current.id },
+          },
+          select: { id: true },
+        });
+        if (conflictingCard) {
+          throw new ConflictException(
+            'The replacement serial number is already assigned in this tenant',
+          );
+        }
+
         const replaced = await prisma.card.updateMany({
           where: {
             id: current.id,
