@@ -104,7 +104,9 @@ describe('ReportMaterializerService', () => {
     const postExpiryRows =
       tx.reportDailyFinancialSummary.createMany.mock.calls[0]?.[0].data;
     const postExpiryTenantRow = postExpiryRows.find(
-      (row) => row.scopeKey === 'tenant-1',
+      (row) =>
+        row.scopeKey === 'tenant-1' &&
+        row.reportDate.toISOString().startsWith('2026-09-10'),
     );
 
     expect(postExpiryTenantRow).toMatchObject({
@@ -532,6 +534,7 @@ function reportTableStub<
 
 type DailySummaryRow = {
   scopeKey: string;
+  reportDate: Date;
   registeredCustomers: number;
   transactionCount: number;
   loyaltyPurchaseValueKobo: bigint;

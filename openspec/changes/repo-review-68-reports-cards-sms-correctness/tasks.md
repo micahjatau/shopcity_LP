@@ -5,11 +5,11 @@
 - [ ] Inventory current report tables, DTOs, controller responses, CSV columns, and frontend labels against the TRD and review 68.
 - [ ] Define and document stock, flow, cumulative, ratio, status, timezone, branch-scope, and as-of semantics.
 - [ ] Split executive current snapshot from daily flow series without breaking existing authorized report routes.
-- [ ] Remove current-materialization stock values from historical daily rows, or implement separately computed end-of-day stock rows with explicit names.
+- [x] Remove current-materialization stock values from historical daily rows by computing end-of-day liability and date-attributed expiry values.
 - [ ] Add multi-day watermark fixtures proving rebuilds do not rewrite historical meaning.
 - [x] Correct SMS queued status aggregation and add durable total/retry/dead-letter metrics; migration verification remains pending.
-- [ ] Expand cashier activity with earn, redemption, approval, duplicate, reversal, and fraud-flag metrics; prevent double counting.
-- [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance.
+- [x] Expand cashier activity with earn, redemption, approval, duplicate, reversal, and fraud-flag metrics; fraud flags are derived from authoritative records.
+- [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance; ratio/lots/allocation metrics are implemented, remaining-balance/drilldown work remains.
 - [x] Add deterministic, bounded customer rankings for spend, balance, frequency, and dormant high-value customers.
 - [ ] Update report DTOs, OpenAPI, CSV export, frontend labels, empty states, and accessibility text. (CSV fields updated; remaining surfaces pending.)
 - [ ] Add report unit, integration, contract, and affected Playwright coverage for non-zero, empty, reversed, pending, and multi-branch fixtures.

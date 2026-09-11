@@ -333,9 +333,12 @@ function reportColumns(report: ReportExportName): string[] {
         'transactionCount',
         'purchaseValueKobo',
         'creditIssuedKobo',
+        'redemptionCount',
+        'redemptionValueKobo',
         'duplicateAttempts',
         'reversalCount',
         'approvalRequests',
+        'fraudFlagCount',
         'materializedAt',
       ];
     case 'redemption-summary':
@@ -349,6 +352,9 @@ function reportColumns(report: ReportExportName): string[] {
         'confirmedKobo',
         'reversedKobo',
         'pendingApprovalCount',
+        'basketRatioBps',
+        'lotsConsumed',
+        'allocationCount',
         'materializedAt',
       ];
     case 'sms-operations':

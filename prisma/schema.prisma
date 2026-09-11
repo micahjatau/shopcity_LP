@@ -841,12 +841,15 @@ model ReportCashierDailySummary {
   branchId          String?
   cashierId         String
   reportDate        DateTime
-  transactionCount  Int      @default(0)
-  purchaseValueKobo BigInt   @default(0)
-  creditIssuedKobo  BigInt   @default(0)
-  duplicateAttempts Int      @default(0)
+  transactionCount    Int      @default(0)
+  purchaseValueKobo   BigInt   @default(0)
+  creditIssuedKobo    BigInt   @default(0)
+  redemptionCount     Int      @default(0)
+  redemptionValueKobo BigInt   @default(0)
+  duplicateAttempts   Int      @default(0)
   reversalCount     Int      @default(0)
   approvalRequests  Int      @default(0)
+  fraudFlagCount    Int      @default(0)
   materializedAt    DateTime
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -911,6 +914,9 @@ model ReportRedemptionDailySummary {
   confirmedKobo        BigInt   @default(0)
   reversedKobo         BigInt   @default(0)
   pendingApprovalCount Int      @default(0)
+  basketRatioBps       Int      @default(0)
+  lotsConsumed         Int      @default(0)
+  allocationCount      Int      @default(0)
   materializedAt       DateTime
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
