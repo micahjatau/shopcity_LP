@@ -270,7 +270,9 @@ export function ReportsWorkspace({
         ? selectedItem.transactionId
         : smsTransactionId.trim();
     if (report !== 'sms-operations' || !transactionId) {
-      setActionMessage('Select an SMS row with a transaction identifier first.');
+      setActionMessage(
+        'Select an SMS row with a transaction identifier first.',
+      );
       return;
     }
     try {
@@ -417,11 +419,7 @@ export function ReportsWorkspace({
             onChange={(event) =>
               setCustomerSort(
                 event.target.value as
-                  | 'spend'
-                  | 'balance'
-                  | 'visits'
-                  | 'recent'
-                  | 'dormant-value',
+                  'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value',
               )
             }
             options={[
@@ -507,8 +505,8 @@ export function ReportsWorkspace({
         </Alert>
         {report === 'sms-operations' ? (
           <Alert tone="warning" title="SMS lifecycle">
-            eBulkSMS status reflects provider submission; handset delivery is not
-            confirmed by this report.
+            eBulkSMS status reflects provider submission; handset delivery is
+            not confirmed by this report.
           </Alert>
         ) : null}
         {actionResult ? (
@@ -613,7 +611,7 @@ export function ReportsWorkspace({
                     }}
                   >
                     <div style={listHeaderRow}>
-                      <strong>{label}</strong>
+                      <strong>{formatReportFieldLabel(label)}</strong>
                       <StatusBadge
                         label={selected ? 'Selected' : 'Item'}
                         tone={selected ? 'success' : 'neutral'}
@@ -651,7 +649,7 @@ export function ReportsWorkspace({
                     .slice(0, 10)
                     .map(([key, value]) => (
                       <tr key={key}>
-                        <th scope="row">{key}</th>
+                        <th scope="row">{formatReportFieldLabel(key)}</th>
                         <td>{renderValue(value)}</td>
                       </tr>
                     ))}
@@ -722,7 +720,8 @@ function sortCustomerPerformanceItems(
 
   return [...items].sort((left, right) => {
     if (sort === 'dormant-value') {
-      const dormantDelta = Number(Boolean(right.dormant)) - Number(Boolean(left.dormant));
+      const dormantDelta =
+        Number(Boolean(right.dormant)) - Number(Boolean(left.dormant));
       if (dormantDelta !== 0) return dormantDelta;
     }
     const leftValue = left[field];
@@ -740,6 +739,22 @@ function sortCustomerPerformanceItems(
       String(right.customerId ?? ''),
     );
   });
+}
+
+function formatReportFieldLabel(key: string): string {
+  const knownLabels: Record<string, string> = {
+    purchaseValueKobo: 'Purchase value (kobo)',
+    creditIssuedKobo: 'Credit issued (kobo)',
+    redemptionValueKobo: 'Redemption value (kobo)',
+    endingBalanceKobo: 'Ending balance (kobo)',
+    basketRatioBps: 'Basket ratio (basis points)',
+    costStatus: 'SMS cost status',
+    fraudFlagCount: 'Fraud flags',
+  };
+  return (
+    knownLabels[key] ??
+    key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase())
+  );
 }
 
 function renderValue(value: unknown) {
