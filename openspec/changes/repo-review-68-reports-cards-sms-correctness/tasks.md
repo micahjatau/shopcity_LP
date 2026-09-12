@@ -34,9 +34,9 @@
 - [ ] Confirm eBulkSMS delivery-receipt capabilities and callback authentication requirements.
 - [ ] If supported, implement authenticated/idempotent provider callback handling and monotonic status transitions.
 - [ ] If unsupported, document submission-only lifecycle and update report/UI labels to avoid implying phone delivery; callback support is not documented, while eBulkSMS DLR polling remains to be implemented.
-- [ ] Add provider-cost metadata/estimated-cost fields using integer minor units or an explicit unavailable state; document estimation limits.
+- [x] Add provider-cost metadata/estimated-cost fields using integer minor units or an explicit unavailable state; SMS reports now expose explicit `UNAVAILABLE` cost status.
 - [ ] Make worker SMS reconstruction template-aware for financial notifications and expiry reminders.
-- [ ] Add callback replay, invalid callback, terminal-state, expiry-reminder, missing-source, retry, and dead-letter tests.
+- [ ] Add callback replay, invalid callback, terminal-state, expiry-reminder, missing-source, retry, and dead-letter tests; provider XML parsing and worker monotonic DLR update coverage are implemented, callback-specific cases remain inapplicable until a callback contract exists.
 - [ ] Verify no credentials, message content, provider payloads, or unmasked PII enter logs or evidence.
 
 ## P1 — Report refresh reliability

@@ -3,6 +3,46 @@ import { OutboxWorkerRuntime } from './outbox-worker.runtime';
 import type { OutboxJobPayload } from './outbox.worker';
 
 describe('OutboxWorkerRuntime', () => {
+  it('polls SMS DLRs and applies monotonic delivery updates', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'sms-1', providerMessageId: 'provider-1' },
+          ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest.fn().mockResolvedValue({
+        status: 'DELIVERED',
+        providerMessageId: 'provider-1',
+        occurredAt: new Date('2026-09-11T10:00:00.000Z'),
+      }),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(smsProvider.getDeliveryReport).toHaveBeenCalledWith('provider-1');
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Jest's matcher helpers are dynamically typed.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({ id: 'sms-1', status: 'SENT' }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({ status: 'DELIVERED' }),
+      }),
+    );
+  });
+
   it('stops retrying when an SMS row is already dead-lettered', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -771,6 +811,7 @@ type RuntimeWithHandleJob = {
 
 type RuntimeWithRecovery = {
   recoverAndPublishOnce(): Promise<void>;
+  pollDeliveryReports(): Promise<void>;
 };
 
 type RecoveryTx = {
