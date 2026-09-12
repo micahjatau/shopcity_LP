@@ -1136,6 +1136,9 @@ function buildRedemptionSummaries(
       lotsConsumed: Set<string>;
       allocationCount: number;
       pendingApprovalCount: number;
+      approvedCount: number;
+      rejectedCount: number;
+      expiredApprovalCount: number;
     }
   >();
 
@@ -1153,6 +1156,9 @@ function buildRedemptionSummaries(
       lotsConsumed: new Set<string>(),
       allocationCount: 0,
       pendingApprovalCount: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+      expiredApprovalCount: 0,
     };
     entry.redemptionCount += 1;
     entry.requestedKobo += redemption.requestedAmountKobo;
@@ -1176,6 +1182,13 @@ function buildRedemptionSummaries(
     }
     if (snapshotStatus === 'PENDING_APPROVAL') {
       entry.pendingApprovalCount += 1;
+    }
+    for (const approval of source.approvals) {
+      if (approval.redemptionId !== redemption.id) continue;
+      if (approval.decidedAt && approval.decidedAt > asOf) continue;
+      if (approval.status === 'APPROVED') entry.approvedCount += 1;
+      if (approval.status === 'REJECTED') entry.rejectedCount += 1;
+      if (approval.status === 'EXPIRED') entry.expiredApprovalCount += 1;
     }
     grouped.set(key, entry);
   }
@@ -1208,6 +1221,9 @@ function buildRedemptionSummaries(
         lotsConsumed: entry.lotsConsumed.size,
         allocationCount: entry.allocationCount,
         endingBalanceKobo,
+        approvedCount: entry.approvedCount,
+        rejectedCount: entry.rejectedCount,
+        expiredApprovalCount: entry.expiredApprovalCount,
         materializedAt,
       };
     });

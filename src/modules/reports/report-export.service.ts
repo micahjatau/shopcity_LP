@@ -356,6 +356,9 @@ function reportColumns(report: ReportExportName): string[] {
         'lotsConsumed',
         'allocationCount',
         'endingBalanceKobo',
+        'approvedCount',
+        'rejectedCount',
+        'expiredApprovalCount',
         'materializedAt',
       ];
     case 'sms-operations':

@@ -51,6 +51,7 @@ These definitions are frozen for Sprint 4 reporting materialization.
 - `lotsConsumed`: distinct FIFO credit lots consumed by confirmed or reversed redemptions.
 - `allocationCount`: number of FIFO allocation rows for confirmed or reversed redemptions.
 - `endingBalanceKobo`: authoritative end-of-day unexpired credit-lot balance for the report scope.
+- `approvedCount`, `rejectedCount`, `expiredApprovalCount`: approval outcomes attributed to redemption requests, excluding decisions recorded after the report `asOf` time.
 
 ## SMS operations
 
