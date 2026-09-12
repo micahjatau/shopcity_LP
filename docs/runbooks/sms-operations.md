@@ -4,9 +4,11 @@
 
 The eBulkSMS integration currently certifies provider submission only. A successful
 provider response is recorded as `SENT`; it is not evidence that the handset
-received the message. The system has no authenticated delivery-receipt callback
-contract yet, so `DELIVERED` is reserved for providers that explicitly return a
-trusted delivery result (the deterministic local provider does this for tests).
+received the message. eBulkSMS publishes a delivery-report polling API keyed by
+the per-recipient message ID, but its published JSON API does not document an
+authenticated callback/webhook contract. `DELIVERED` is therefore reserved for
+providers that explicitly return a trusted delivery result (the deterministic
+local provider does this for tests) until DLR polling is implemented.
 
 ## Failure triage
 
@@ -19,6 +21,12 @@ trusted delivery result (the deterministic local provider does this for tests).
 
 Provider payloads, credentials, message bodies, raw phone numbers, and unmasked
 errors must not be copied into logs, tickets, or evidence.
+
+The documented follow-up is a bounded polling worker using eBulkSMS `msgid`
+values and the documented `getdlr.xml` endpoint. The published JSON API does
+not define a JSON DLR response contract. It must authenticate with server-side credentials,
+be idempotent, enforce monotonic status transitions, and persist only the
+normalized status/timestamp/provider ID—not the raw provider response.
 
 ## Cost reporting
 

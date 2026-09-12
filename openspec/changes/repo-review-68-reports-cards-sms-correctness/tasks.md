@@ -16,7 +16,7 @@
 
 ## P0 — Card lifecycle correctness
 
-- [ ] Run a data preflight for noncanonical serials and canonicalization collisions by tenant.
+- [x] Run a data preflight for noncanonical serials and canonicalization collisions by tenant; added the read-only `preflight:card-serials` command and operator runbook.
 - [x] Define `normalizeCardSerial()` format and invalid-input error contract.
 - [ ] Apply normalization at DTO, idempotency hash, assignment, replacement, lookup, earn, redeem, offline-sync, and persistence boundaries.
 - [ ] Resolve existing collisions through an explicit operator/data-migration procedure; never merge wallets silently.
@@ -33,7 +33,7 @@
 - [ ] Add transaction UI Inspect action and operational SMS failure/retry/dead-letter drilldown.
 - [ ] Confirm eBulkSMS delivery-receipt capabilities and callback authentication requirements.
 - [ ] If supported, implement authenticated/idempotent provider callback handling and monotonic status transitions.
-- [x] If unsupported, document submission-only lifecycle and update report/UI labels to avoid implying phone delivery; the eBulkSMS adapter is submission-only and the runbook records cost as unavailable.
+- [ ] If unsupported, document submission-only lifecycle and update report/UI labels to avoid implying phone delivery; callback support is not documented, while eBulkSMS DLR polling remains to be implemented.
 - [ ] Add provider-cost metadata/estimated-cost fields using integer minor units or an explicit unavailable state; document estimation limits.
 - [ ] Make worker SMS reconstruction template-aware for financial notifications and expiry reminders.
 - [ ] Add callback replay, invalid callback, terminal-state, expiry-reminder, missing-source, retry, and dead-letter tests.
@@ -49,7 +49,7 @@
 
 - [ ] Update report metric definitions and SMS lifecycle documentation.
 - [x] Update notification support/runbook procedures for transaction inspection and failure triage.
-- [x] Document provider DLR/cost limitations and the incremental-materialization follow-up separately.
+- [x] Document provider DLR/cost limitations and the incremental-materialization follow-up separately; DLR polling implementation remains pending.
 - [ ] Regenerate generated OpenAPI/client artifacts where source contracts change.
 
 ## P1 — Verification gates
