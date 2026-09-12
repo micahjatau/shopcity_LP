@@ -205,6 +205,62 @@ export class OutboxWorkerRuntime {
     }
 
     await this.recoverAndPublishOnce();
+    await this.pollDeliveryReports();
+  }
+
+  private async pollDeliveryReports(): Promise<void> {
+    if (!this.smsProvider.getDeliveryReport) return;
+
+    const messages = await this.prisma.smsMessage.findMany({
+      where: {
+        providerMessageId: { not: null },
+        status: 'SENT',
+        deliveredAt: null,
+        failedAt: null,
+        deadLetteredAt: null,
+      },
+      select: { id: true, providerMessageId: true },
+      orderBy: { lastAttemptAt: 'asc' },
+      take: Math.min(this.config.publishBatchSize, 100),
+    });
+
+    for (const message of messages) {
+      if (!message.providerMessageId) continue;
+      const report = await this.smsProvider.getDeliveryReport(
+        message.providerMessageId,
+      );
+      if (!report) continue;
+
+      if (report.status === 'DELIVERED') {
+        await this.prisma.smsMessage.updateMany({
+          where: {
+            id: message.id,
+            status: 'SENT',
+            deliveredAt: null,
+            failedAt: null,
+          },
+          data: {
+            status: 'DELIVERED',
+            deliveredAt: report.occurredAt ?? new Date(),
+          },
+        });
+      } else if (report.status === 'FAILED') {
+        await this.prisma.smsMessage.updateMany({
+          where: {
+            id: message.id,
+            status: 'SENT',
+            deliveredAt: null,
+            failedAt: null,
+          },
+          data: {
+            status: 'FAILED',
+            failedAt: report.occurredAt ?? new Date(),
+            failureCategory: 'terminal',
+            lastError: 'Provider delivery report marked message failed',
+          },
+        });
+      }
+    }
   }
 
   private async recoverAndPublishOnce(): Promise<void> {
