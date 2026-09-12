@@ -108,6 +108,7 @@ export function ReportsWorkspace({
   const [customerSort, setCustomerSort] = useState<
     'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value'
   >('spend');
+  const [smsTransactionId, setSmsTransactionId] = useState('');
 
   const availableReportOptions = useMemo(
     () =>
@@ -264,8 +265,11 @@ export function ReportsWorkspace({
   }, [report]);
 
   async function inspectSelectedSms() {
-    const transactionId = selectedItem?.transactionId;
-    if (report !== 'sms-operations' || typeof transactionId !== 'string') {
+    const transactionId =
+      typeof selectedItem?.transactionId === 'string'
+        ? selectedItem.transactionId
+        : smsTransactionId.trim();
+    if (report !== 'sms-operations' || !transactionId) {
       setActionMessage('Select an SMS row with a transaction identifier first.');
       return;
     }
@@ -398,6 +402,14 @@ export function ReportsWorkspace({
           onChange={(event) => setReport(event.target.value as ReportKey)}
           options={availableReportOptions}
         />
+        {report === 'sms-operations' ? (
+          <Input
+            aria-label="SMS transaction ID"
+            placeholder="Transaction ID to inspect"
+            value={smsTransactionId}
+            onChange={(event) => setSmsTransactionId(event.target.value)}
+          />
+        ) : null}
         {report === 'customer-performance' ? (
           <Select
             aria-label="Customer performance ranking"
@@ -471,7 +483,10 @@ export function ReportsWorkspace({
             <Button
               variant="secondary"
               onClick={() => void inspectSelectedSms()}
-              disabled={typeof selectedItem?.transactionId !== 'string'}
+              disabled={
+                typeof selectedItem?.transactionId !== 'string' &&
+                smsTransactionId.trim().length === 0
+              }
             >
               Inspect SMS
             </Button>
