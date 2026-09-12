@@ -20,7 +20,7 @@
 - [x] Define `normalizeCardSerial()` format and invalid-input error contract.
 - [ ] Apply normalization at DTO, idempotency hash, assignment, replacement, lookup, earn, redeem, offline-sync, and persistence boundaries.
 - [ ] Resolve existing collisions through an explicit operator/data-migration procedure; never merge wallets silently.
-- [ ] Apply expand-and-contract schema/index migration and update `docs/database/migration-tracker.md`.
+- [x] Apply expand-and-contract schema/index migration and update `docs/database/migration-tracker.md`; added a guarded canonicalization migration that aborts on invalid values or collisions.
 - [ ] Add unit/integration tests for whitespace, case, malformed/empty values, collision handling, and all lifecycle entry points. (Implementation contract added; broader coverage remains pending.)
 - [x] Add `card-replaced` template and create exactly one replacement SMS intent/outbox pair inside replacement transaction.
 - [ ] Test replacement rollback, retry/idempotency, fraud evidence, and replacement concurrency.
