@@ -33,6 +33,7 @@ import {
 } from '../../common/pagination/cursor-pagination';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
+import { normalizeCardSerial } from '../../common/card-identity';
 import {
   ApprovalExpiryRecord,
   expireApproval,
@@ -269,6 +270,19 @@ function buildCustomerLedgerWhere(
   };
 }
 
+type DuplicateReceiptAttemptInput = {
+  tenantId: string;
+  receiptId: string;
+  originalReceiptId: string;
+  branchId: string;
+  cashierId: string;
+  customerId: string;
+  deviceId: string;
+  normalizedPosReceiptNumber: string;
+  receiptWeekStart: Date;
+  occurredAt: Date;
+};
+
 function toApprovalExpiryRecord(approval: {
   id: string;
   tenantId: string;
@@ -299,18 +313,9 @@ export class LoyaltyService {
     private readonly lotAllocationService: LotAllocationService = new LotAllocationService(),
   ) {}
 
-  private async recordDuplicateReceiptAttempt(input: {
-    tenantId: string;
-    receiptId: string;
-    originalReceiptId: string;
-    branchId: string;
-    cashierId: string;
-    customerId: string;
-    deviceId: string;
-    normalizedPosReceiptNumber: string;
-    receiptWeekStart: Date;
-    occurredAt: Date;
-  }): Promise<void> {
+  private async recordDuplicateReceiptAttempt(
+    input: DuplicateReceiptAttemptInput,
+  ): Promise<void> {
     await this.prismaService.$transaction(async (tx) => {
       await this.auditService.recordWithClient(tx, {
         tenantId: input.tenantId,
@@ -370,7 +375,7 @@ export class LoyaltyService {
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
-      cardSerialNumber: data.cardSerialNumber.trim(),
+      cardSerialNumber: normalizeCardSerial(data.cardSerialNumber),
       posReceiptNumber: normalizedPosReceiptNumber,
       purchaseAmountKobo: data.purchaseAmountKobo,
       occurredAt: occurredAt.toISOString(),
@@ -439,6 +444,7 @@ export class LoyaltyService {
     let transactionReceiptWeekStart: Date | undefined;
     let transactionCustomerId: string | undefined;
     let transactionDeviceId: string | undefined;
+    let duplicateReceiptAttempt: DuplicateReceiptAttemptInput | undefined;
 
     for (
       let attempt = 1;
@@ -454,7 +460,13 @@ export class LoyaltyService {
                 include: { branch: true },
               }),
               prisma.card.findFirst({
-                where: { tenantId, barcodeValue: data.cardSerialNumber.trim() },
+                where: {
+                  tenantId,
+                  barcodeValue: {
+                    equals: normalizeCardSerial(data.cardSerialNumber),
+                    mode: 'insensitive',
+                  },
+                },
                 include: { customer: true },
               }),
             ]);
@@ -525,7 +537,7 @@ export class LoyaltyService {
             });
 
             if (duplicateReceipt) {
-              await this.recordDuplicateReceiptAttempt({
+              duplicateReceiptAttempt = {
                 tenantId,
                 receiptId: data.posReceiptNumber,
                 originalReceiptId: duplicateReceipt.id,
@@ -536,7 +548,7 @@ export class LoyaltyService {
                 normalizedPosReceiptNumber,
                 receiptWeekStart,
                 occurredAt,
-              });
+              };
 
               throw new DomainHttpException(
                 409,
@@ -835,6 +847,11 @@ export class LoyaltyService {
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
+        if (duplicateReceiptAttempt) {
+          await this.recordDuplicateReceiptAttempt(duplicateReceiptAttempt);
+          throw error;
+        }
+
         if (isUniqueIdempotencyConflict(error)) {
           const replay = await findCompletedEarnReplay(
             this.prismaService,

@@ -33,7 +33,10 @@ export class CardsService {
   async lookupCard(tenantId: string, serialNumber: string) {
     const canonicalSerialNumber = normalizeCardSerial(serialNumber);
     const card = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue: canonicalSerialNumber },
+      where: {
+        tenantId,
+        barcodeValue: { equals: canonicalSerialNumber, mode: 'insensitive' },
+      },
       include: {
         customer: true,
       },
@@ -92,7 +95,10 @@ export class CardsService {
     }
 
     const existingSerial = await this.prismaService.card.findFirst({
-      where: { tenantId, barcodeValue: canonicalSerialNumber },
+      where: {
+        tenantId,
+        barcodeValue: { equals: canonicalSerialNumber, mode: 'insensitive' },
+      },
       select: { id: true },
     });
     if (existingSerial) {
@@ -228,7 +234,10 @@ export class CardsService {
         const conflictingCard = await prisma.card.findFirst({
           where: {
             tenantId,
-            barcodeValue: canonicalSerialNumber,
+            barcodeValue: {
+              equals: canonicalSerialNumber,
+              mode: 'insensitive',
+            },
             id: { not: current.id },
           },
           select: { id: true },
