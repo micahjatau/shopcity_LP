@@ -10,6 +10,14 @@ authenticated callback/webhook contract. `DELIVERED` is therefore reserved for
 providers that explicitly return a trusted delivery result (the deterministic
 local provider does this for tests) until DLR polling is implemented.
 
+## Connectivity
+
+The eBulkSMS API may require outbound TCP access to port `8443` on
+`api.ebulksms.com`. On shared hosting, ask the hosting provider to allow this
+destination and port before diagnosing provider failures. Do not place API
+credentials in the support request; identify only the destination, port, and
+application environment.
+
 ## Failure triage
 
 1. Inspect the SMS report for retry and dead-letter counts.
