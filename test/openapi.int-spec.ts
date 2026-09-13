@@ -58,6 +58,23 @@ describe('OpenAPI contract (int)', () => {
     expect(replaceSchema?.properties?.barcodeValue).toBeUndefined();
   });
 
+  it('documents report snapshot, drilldown, and SMS inspection paths', () => {
+    const document = buildOpenApiDocument(app);
+
+    expect(
+      document.paths['/api/v1/reports/executive-summary']?.get,
+    ).toBeDefined();
+    expect(
+      document.paths['/api/v1/reports/executive-snapshot']?.get,
+    ).toBeDefined();
+    expect(
+      document.paths['/api/v1/reports/redemptions/{redemptionId}']?.get,
+    ).toBeDefined();
+    expect(
+      document.paths['/api/v1/notifications/sms/{transactionId}']?.get,
+    ).toBeDefined();
+  });
+
   it('documents the receipt capture contract', () => {
     const document = buildOpenApiDocument(app);
     const createSchema = resolveRequestBodySchema(
