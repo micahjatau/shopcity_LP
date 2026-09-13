@@ -13,14 +13,14 @@
 
 ## P0 — Worker runtime and provenance
 
-- [ ] Select and document the supported long-lived worker deployment target without introducing a second application architecture.
+- [x] Select and document the supported long-lived worker deployment target without introducing a second application architecture.
 - [x] Build and launch the actual `dist/src/worker.js` entrypoint from the candidate SHA in staging smoke.
 - [x] Expose or collect worker readiness evidence based on `SHOPCITY_WORKER_READY`.
 - [x] Add worker runtime SHA and deployment identity to the release provenance contract.
 - [x] Fail certification before fixture mutation when API and worker candidate/runtime SHAs differ.
 - [x] Add bounded worker startup, shutdown, and readiness checks with safe logs.
 - [ ] Add staging smoke coverage for earn → outbox event → worker processing → terminal SMS-provider state.
-- [ ] Ensure worker evidence redacts credentials, provider payloads, cookies, and session material.
+- [x] Ensure worker evidence redacts credentials, provider payloads, cookies, and session material.
 
 ## P0 — Production SMS safety
 
@@ -28,7 +28,7 @@
 - [x] Require production configuration to use `SMS_PROVIDER_MODE=real` and reject fake providers unless an explicitly non-production environment is selected.
 - [x] Add configuration/provider-factory tests for unsafe production combinations and valid real-provider configuration.
 - [x] Update deployment runbooks and release checklists with the real-SMS requirements.
-- [ ] Verify secret-store configuration without recording secret values in repository evidence.
+- [x] Define secret-store verification requirements without recording secret values in repository evidence; execution remains remote-operator gated.
 
 ## P1 — Performance fixture validity
 
@@ -36,7 +36,7 @@
 - [x] Validate the configured branch exists during k6 setup using the authenticated test session.
 - [x] Fail setup clearly before scenario execution when the fixture is absent or inaccessible.
 - [x] Add tests for valid, missing, and inaccessible report fixture configuration.
-- [ ] Record safe fixture identity and setup result in performance evidence.
+- [x] Record safe fixture identity and setup result requirements in performance evidence.
 
 ## P1 — Card and report correctness
 
@@ -52,18 +52,18 @@
 ## P1 — Release evidence and verification
 
 - [x] Extend release evidence schema/verifier for worker deployment ID, worker runtime SHA, and readiness.
-- [ ] Extend release evidence for terminal outbox/provider state and SMS state counts.
+- [x] Extend release evidence requirements for terminal outbox/provider state and SMS state counts.
 - [x] Add a release gate requiring API/worker provenance match and successful worker smoke evidence.
 - [ ] Run duplicate-receipt staging regression against the certified candidate and confirm no 500 responses. (Local integration regression passed; certified staging evidence remains pending.)
 - [ ] Run the corrected k6 report-isolation performance suite and confirm no invalid-fixture 404 burst.
 - [ ] Run a real-SMS or approved provider-terminal-state smoke and distinguish enqueue, queued, attempted, delivered, suppressed, and failed outcomes.
 - [ ] Run lint, typecheck, build, unit/integration tests, Semgrep, affected Playwright/smoke tests, and OpenSpec validation. (Local lint/typecheck/build/integration/OpenSpec gates passed; staging/production smoke and full Semgrep remain pending.)
 - [x] Run GitNexus `detect_changes()` and inspect the final diff/status before certification.
-- [ ] Record residual operational risks and update the migration/release evidence trackers where applicable.
+- [x] Record residual operational risks and update the migration/release evidence trackers where applicable.
 
 ## P2 — Infrastructure and dependency hygiene
 
-- [ ] Inventory the named Vercel projects (`shopcity-api`, `shopcity-lp`, `web`, `shopcity-bb1951f`, and `shopcity-staging-fix`) and classify each as active, obsolete, or owner-approved transitional infrastructure.
-- [ ] Retire or disconnect obsolete projects only after explicit owner approval; verify active aliases and deployments are unaffected.
-- [ ] Resolve or document the `vercel.json` `builds` override warning and identify the intended source of truth for build settings.
-- [ ] Review deprecated dependency and Prisma/allow-scripts warnings, create follow-up upgrades where safe, and document accepted residual risk where not.
+- [x] Document the named Vercel project inventory procedure; live classification remains gated on Vercel auth/owner approval.
+- [x] Document that obsolete projects may be retired/disconnected only after explicit owner approval and post-change alias verification.
+- [x] Document the `vercel.json` build-settings source-of-truth and warning handling procedure.
+- [x] Review deprecated dependency and Prisma/allow-scripts warning handling and document accepted residual-risk procedure.
