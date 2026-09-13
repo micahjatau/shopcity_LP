@@ -1,6 +1,10 @@
-# Card lifecycle correctness
+# card-lifecycle-correctness Specification
 
-## MODIFIED Requirements
+## Purpose
+
+TBD - created by archiving change repo-review-68-reports-cards-sms-correctness. Update Purpose after archive.
+
+## Requirements
 
 ### Requirement: Canonicalize card serials server-side
 

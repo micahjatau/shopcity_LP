@@ -1,6 +1,10 @@
-# Report refresh idempotency
+# report-refresh-idempotency Specification
 
-## MODIFIED Requirements
+## Purpose
+
+TBD - created by archiving change repo-review-68-reports-cards-sms-correctness. Update Purpose after archive.
+
+## Requirements
 
 ### Requirement: Commit refresh intent atomically
 
