@@ -45,6 +45,13 @@
   `K6_CUSTOMER_ID`, `EBULKSMS_USERNAME`, `EBULKSMS_API_KEY`, and
   `SMS_PROVIDER_MODE` were not available.
 
+## GitHub follow-up issues
+
+- Certified staging duplicate-receipt regression: https://github.com/micahjatau/shopcity_LP/issues/39
+- Authenticated k6 report-isolation performance gate: https://github.com/micahjatau/shopcity_LP/issues/40
+- SMS/provider terminal-state smoke evidence: https://github.com/micahjatau/shopcity_LP/issues/41
+- Final runtime certification validation bundle: https://github.com/micahjatau/shopcity_LP/issues/42
+
 ## Current residual risk
 
 Vercel and Sentry credentials were not available in the local engineering

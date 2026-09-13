@@ -54,10 +54,10 @@
 - [x] Extend release evidence schema/verifier for worker deployment ID, worker runtime SHA, and readiness.
 - [x] Extend release evidence requirements for terminal outbox/provider state and SMS state counts.
 - [x] Add a release gate requiring API/worker provenance match and successful worker smoke evidence.
-- [ ] Run duplicate-receipt staging regression against the certified candidate and confirm no 500 responses. (Local integration regression passed; executable runtime runner implemented; certified staging evidence remains pending.)
-- [ ] Run the corrected k6 report-isolation performance suite and confirm no invalid-fixture 404 burst. (Fixture validation and report p95 runner are implemented; authenticated k6 execution remains pending.)
-- [ ] Run a real-SMS or approved provider-terminal-state smoke and distinguish enqueue, queued, attempted, delivered, suppressed, and failed outcomes; safe terminal-state evidence schema and executable aggregation runner are implemented.
-- [ ] Run lint, typecheck, build, unit/integration tests, Semgrep, affected Playwright/smoke tests, and OpenSpec validation. (Local lint/build/unit/integration/script/OpenSpec gates passed; full Semgrep now passes with 0 findings. Staging/production smoke execution remains pending.)
+- [ ] Run duplicate-receipt staging regression against the certified candidate and confirm no 500 responses. (Local integration regression passed; executable runtime runner implemented; certified staging evidence remains pending in https://github.com/micahjatau/shopcity_LP/issues/39.)
+- [ ] Run the corrected k6 report-isolation performance suite and confirm no invalid-fixture 404 burst. (Fixture validation and report p95 runner are implemented; authenticated k6 execution remains pending in https://github.com/micahjatau/shopcity_LP/issues/40.)
+- [ ] Run a real-SMS or approved provider-terminal-state smoke and distinguish enqueue, queued, attempted, delivered, suppressed, and failed outcomes; safe terminal-state evidence schema and executable aggregation runner are implemented; execution remains pending in https://github.com/micahjatau/shopcity_LP/issues/41.
+- [ ] Run lint, typecheck, build, unit/integration tests, Semgrep, affected Playwright/smoke tests, and OpenSpec validation. (Local lint/build/unit/integration/script/OpenSpec gates passed; full Semgrep now passes with 0 findings. Staging/production smoke execution remains pending in https://github.com/micahjatau/shopcity_LP/issues/42.)
 - [x] Run GitNexus `detect_changes()` and inspect the final diff/status before certification.
 - [x] Record residual operational risks and update the migration/release evidence trackers where applicable.
 
