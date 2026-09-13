@@ -103,6 +103,37 @@ describe('LoyaltyService earn transaction retries', () => {
     });
   });
 
+  it('surfaces duplicate evidence persistence failure without reporting earn success', async () => {
+    const duplicateTx = transactionClient();
+    duplicateTx.receipt.findFirst.mockResolvedValue({ id: 'receipt-original' });
+    const evidenceFailure = new Error('duplicate evidence write failed');
+    const transaction = jest
+      .fn()
+      .mockImplementationOnce((callback: (tx: unknown) => Promise<unknown>) =>
+        callback(duplicateTx),
+      )
+      .mockRejectedValueOnce(evidenceFailure);
+    const audit = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      audit as never,
+      configService(),
+    );
+
+    await expect(
+      service.earn('tenant-1', authContext(), 'idem-duplicate-failure', {
+        posReceiptNumber: 'POS-DUPLICATE-FAILURE',
+        cardSerialNumber: 'CARD-1',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: FIXED_OCCURRED_AT,
+      }),
+    ).rejects.toThrow(evidenceFailure);
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(duplicateTx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(duplicateTx.creditLot.create).not.toHaveBeenCalled();
+  });
+
   it('retries serialization conflicts and returns the successful earn response', async () => {
     const transaction = jest
       .fn()
