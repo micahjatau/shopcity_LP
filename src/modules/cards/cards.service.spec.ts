@@ -224,6 +224,64 @@ describe('CardsService', () => {
     });
   });
 
+  it('does not queue replacement side effects when the replacement transaction fails', async () => {
+    const tx = {
+      idempotencyRecord: {
+        create: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn(),
+      },
+      card: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest
+          .fn()
+          .mockRejectedValue(new Error('serial persistence failed')),
+        update: jest.fn(),
+      },
+      outboxEvent: { create: jest.fn() },
+      smsMessage: { create: jest.fn() },
+    };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      card: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'card-old',
+          tenantId: 'tenant-id',
+          customerId: 'customer-id',
+          status: CardStatus.ACTIVE,
+        }),
+      },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'customer-id',
+          branchId: 'branch-id',
+          status: CustomerStatus.ACTIVE,
+          phoneE164: '+2348012345678',
+        }),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.replaceCard(
+        'tenant-id',
+        actorStub(),
+        'card-old',
+        { serialNumber: 'CARD-NEW' },
+        'rollback-key',
+      ),
+    ).rejects.toThrow('serial persistence failed');
+    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+  });
+
   it('rejects status updates for replaced cards', async () => {
     const prisma = {
       card: {
