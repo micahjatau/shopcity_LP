@@ -19,7 +19,7 @@
 - [x] Add worker runtime SHA and deployment identity to the release provenance contract.
 - [x] Fail certification before fixture mutation when API and worker candidate/runtime SHAs differ.
 - [x] Add bounded worker startup, shutdown, and readiness checks with safe logs.
-- [ ] Add staging smoke coverage for earn → outbox event → worker processing → terminal SMS-provider state.
+- [ ] Add staging smoke coverage for earn → outbox event → worker processing → terminal SMS-provider state; repository evidence builder/validator is implemented, staging execution remains pending.
 - [x] Ensure worker evidence redacts credentials, provider payloads, cookies, and session material.
 
 ## P0 — Production SMS safety
@@ -44,7 +44,7 @@
 - [x] Apply canonicalization at card lookup, creation, replacement, earn, redeem, and offline-sync boundaries.
 - [x] Add unit coverage for surrounding whitespace and empty serial handling.
 - [x] Add the required card-replacement SMS outbox event and unit coverage that it is emitted once.
-- [ ] Add runtime smoke coverage for card assignment, replacement, block/unblock, and replacement concurrency; capture outcomes rather than relying on an empty error log.
+- [ ] Add runtime smoke coverage for card assignment, replacement, block/unblock, and replacement concurrency; repository evidence builder/validator is implemented, runtime execution remains pending.
 - [x] Document executive-summary metric semantics for stock versus flow values, SMS queued counts, redemptions, and cashier activity.
 - [ ] Correct report read models/queries/contracts to match those definitions and add integration tests for non-zero and empty-state fixtures.
 - [ ] Confirm valid report requests remain fast after the correctness changes.
@@ -56,7 +56,7 @@
 - [x] Add a release gate requiring API/worker provenance match and successful worker smoke evidence.
 - [ ] Run duplicate-receipt staging regression against the certified candidate and confirm no 500 responses. (Local integration regression passed; certified staging evidence remains pending.)
 - [ ] Run the corrected k6 report-isolation performance suite and confirm no invalid-fixture 404 burst.
-- [ ] Run a real-SMS or approved provider-terminal-state smoke and distinguish enqueue, queued, attempted, delivered, suppressed, and failed outcomes.
+- [ ] Run a real-SMS or approved provider-terminal-state smoke and distinguish enqueue, queued, attempted, delivered, suppressed, and failed outcomes; safe terminal-state evidence schema is implemented.
 - [ ] Run lint, typecheck, build, unit/integration tests, Semgrep, affected Playwright/smoke tests, and OpenSpec validation. (Local lint/typecheck/build/integration/OpenSpec gates passed; staging/production smoke and full Semgrep remain pending.)
 - [x] Run GitNexus `detect_changes()` and inspect the final diff/status before certification.
 - [x] Record residual operational risks and update the migration/release evidence trackers where applicable.

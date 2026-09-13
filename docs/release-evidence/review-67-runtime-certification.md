@@ -8,6 +8,9 @@
 - The supported worker target is documented as the long-lived
   `node dist/src/worker.js` runtime built from the same candidate SHA as the API.
 - Evidence redaction rules are documented for worker/SMS/provider state.
+- `scripts/smoke/runtime-certification-evidence.mjs` builds safe worker SMS,
+  card lifecycle, and k6 fixture evidence payloads and rejects secret-bearing
+  keys/raw phone values.
 
 ## Environment-gated evidence
 
