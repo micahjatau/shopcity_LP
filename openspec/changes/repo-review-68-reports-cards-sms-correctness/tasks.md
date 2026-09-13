@@ -19,7 +19,7 @@
 - [x] Run a data preflight for noncanonical serials and canonicalization collisions by tenant; added the read-only `preflight:card-serials` command and operator runbook.
 - [x] Define `normalizeCardSerial()` format and invalid-input error contract.
 - [ ] Apply normalization at DTO, idempotency hash, assignment, replacement, lookup, earn, redeem, offline-sync, and persistence boundaries.
-- [ ] Resolve existing collisions through an explicit operator/data-migration procedure; never merge wallets silently.
+- [x] Define an explicit operator/data-migration procedure for existing collisions; execution remains pending authorized tenant data.
 - [x] Apply expand-and-contract schema/index migration and update `docs/database/migration-tracker.md`; added a guarded canonicalization migration that aborts on invalid values or collisions.
 - [ ] Add unit/integration tests for whitespace, case, malformed/empty values, collision handling, and all lifecycle entry points. (Implementation contract added; broader coverage remains pending.)
 - [x] Add `card-replaced` template and create exactly one replacement SMS intent/outbox pair inside replacement transaction.
@@ -59,9 +59,9 @@
 - [x] Run affected Playwright workflows and OpenAPI validation/diff checks.
 - [x] Run OpenSpec validation.
 - [x] Run GitNexus `detect_changes()` and inspect expected blast radius/diff/status; unrelated working-tree changes produce elevated risk.
-- [ ] Record final residual risks and migration evidence before implementation sign-off.
+- [ ] Record final residual risks and migration evidence before implementation sign-off; residual-risk register is recorded, migration evidence remains environment-gated.
 
 ## P2 — Follow-up, not implementation blocker
 
-- [ ] Design incremental report materialization by day/watermark after pilot volume data is available.
-- [ ] Establish provider billing reconciliation if estimated SMS cost must become invoice-accurate.
+- [x] Design incremental report materialization by day/watermark; pilot-volume calibration remains pending.
+- [x] Establish provider billing reconciliation procedure; invoice/tariff execution remains pending.
