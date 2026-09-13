@@ -96,6 +96,7 @@ export function CustomerWorkspace({
     useState<UpdateCustomerStatusDtoStatus>('ACTIVE');
   const [customerStatusConfirmation, setCustomerStatusConfirmation] =
     useState('');
+  const [cardStatusConfirmation, setCardStatusConfirmation] = useState('');
   const [cardMessage, setCardMessage] = useState(
     'Select a customer, then assign or manage cards.',
   );
@@ -132,6 +133,7 @@ export function CustomerWorkspace({
       setReplacementSerialNumber('');
       setReplaceConfirmation('');
       setCustomerStatusConfirmation('');
+      setCardStatusConfirmation('');
       return;
     }
 
@@ -140,6 +142,7 @@ export function CustomerWorkspace({
     setReplacementSerialNumber('');
     setReplaceConfirmation('');
     setCustomerStatusConfirmation('');
+    setCardStatusConfirmation('');
     let ignore = false;
 
     async function load() {
@@ -318,6 +321,13 @@ export function CustomerWorkspace({
       setCardMessage('Select a card first.');
       return;
     }
+    if (
+      cardStatus === 'BLOCKED' &&
+      cardStatusConfirmation.trim().toUpperCase() !== 'BLOCK'
+    ) {
+      setCardMessage('Type BLOCK to confirm blocking this card.');
+      return;
+    }
 
     setBusy(true);
     setCardMessage('Updating card status…');
@@ -337,6 +347,7 @@ export function CustomerWorkspace({
           ? 'Card status updated.'
           : `Status update unavailable (${response.status}).`,
       );
+      setCardStatusConfirmation('');
       await reloadSelectedCustomer();
     } catch {
       setCardMessage('Status update unavailable.');
@@ -933,6 +944,14 @@ export function CustomerWorkspace({
                   setCardStatus(value as UpdateCardStatusDtoStatus)
                 }
                 options={cardStatuses.map((value) => ({ value, label: value }))}
+              />
+              <Input
+                aria-label="Card block confirmation"
+                placeholder="Type BLOCK before blocking"
+                value={cardStatusConfirmation}
+                onChange={(event) =>
+                  setCardStatusConfirmation(event.target.value)
+                }
               />
               {selectedCard ? (
                 <Alert tone="info" title="Selected card">

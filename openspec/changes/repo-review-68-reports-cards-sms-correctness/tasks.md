@@ -24,7 +24,7 @@
 - [x] Add unit/integration tests for whitespace, case, malformed/empty values, collision handling, and lifecycle entry points.
 - [x] Add `card-replaced` template and create exactly one replacement SMS intent/outbox pair inside replacement transaction.
 - [ ] Test replacement rollback, retry/idempotency, fraud evidence, and replacement concurrency; rollback coverage is implemented.
-- [ ] Add UI confirmation for blocking and test cancel/confirm plus server-side authorization.
+- [x] Add UI confirmation for blocking and test cancel/confirm plus server-side authorization.
 - [ ] Exercise scanner traffic against the 30/minute lookup throttle; added `scripts/performance/k6-card-throttle.js`, but execution requires a running authorized environment.
 
 ## P0 — SMS inspection, lifecycle, and recovery
