@@ -57,7 +57,7 @@
 - [ ] Run duplicate-receipt staging regression against the certified candidate and confirm no 500 responses. (Local integration regression passed; certified staging evidence remains pending.)
 - [ ] Run the corrected k6 report-isolation performance suite and confirm no invalid-fixture 404 burst.
 - [ ] Run a real-SMS or approved provider-terminal-state smoke and distinguish enqueue, queued, attempted, delivered, suppressed, and failed outcomes; safe terminal-state evidence schema is implemented.
-- [ ] Run lint, typecheck, build, unit/integration tests, Semgrep, affected Playwright/smoke tests, and OpenSpec validation. (Local lint/typecheck/build/integration/OpenSpec gates passed; staging/production smoke and full Semgrep remain pending.)
+- [ ] Run lint, typecheck, build, unit/integration tests, Semgrep, affected Playwright/smoke tests, and OpenSpec validation. (Local lint/build/unit/integration/script/OpenSpec gates passed; full Semgrep now passes with 0 findings. Staging/production smoke execution remains pending.)
 - [x] Run GitNexus `detect_changes()` and inspect the final diff/status before certification.
 - [x] Record residual operational risks and update the migration/release evidence trackers where applicable.
 

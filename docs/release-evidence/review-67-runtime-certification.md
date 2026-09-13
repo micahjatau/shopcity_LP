@@ -27,8 +27,19 @@
 | Card lifecycle smoke         | Assignment/replacement/block/unblock outcomes, concurrency result, no raw card/customer PII.      |
 | Vercel inventory             | Project name, owner, aliases, last deployment, classification, and owner approval for retirement. |
 
+## Local verification
+
+- Full Semgrep scan completed with 0 findings after workflow, Docker, runtime,
+  and test/tooling hardening.
+- Local lint, build, unit, integration, smoke-helper, and OpenSpec gates passed
+  during Review 67 follow-up.
+- Corrected k6 report-isolation execution could not run locally because
+  `K6_SESSION_TOKEN`, `K6_CSRF_TOKEN`, and `K6_REPORT_BRANCH_ID` were not
+  available.
+
 ## Current residual risk
 
 Vercel and Sentry credentials were not available in the local engineering
 session, so remote project inventory, secret-store verification, production
-runtime logs, and Sentry release inspection remain operator-gated.
+runtime logs, Sentry release inspection, authenticated k6 execution, and
+staging/provider smoke evidence remain operator-gated.
