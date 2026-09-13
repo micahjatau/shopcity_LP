@@ -59,6 +59,16 @@ type PilotSummary = {
   };
 };
 
+type SmsOperationalDrilldown = {
+  queuedCount: number;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  retryCount: number;
+  deadLetterCount: number;
+  unavailableCostRows: number;
+};
+
 type ReportSummary = {
   scope?: string;
   scopeKey?: string;
@@ -175,6 +185,10 @@ export function ReportsWorkspace({
   );
   const selectedItem = items[selectedItemIndex] ?? null;
   const reconciliationHealthy = pilotSummary?.reconciliation?.healthy === true;
+  const smsOperationalDrilldown = useMemo(
+    () => (report === 'sms-operations' ? summarizeSmsOperations(items) : null),
+    [items, report],
+  );
 
   useEffect(() => {
     if (selectedItemIndex >= items.length) {
@@ -664,6 +678,56 @@ export function ReportsWorkspace({
         </section>
       </div>
 
+      {smsOperationalDrilldown ? (
+        <section style={cardStyle} aria-label="SMS operational drilldown">
+          <h2 style={{ marginTop: 0 }}>SMS failure drilldown</h2>
+          <Alert
+            tone={
+              smsOperationalDrilldown.deadLetterCount > 0 ? 'danger' : 'info'
+            }
+            title="Retry and dead-letter status"
+          >
+            {smsOperationalDrilldown.deadLetterCount > 0
+              ? 'Dead-lettered SMS rows require operator review before replay.'
+              : 'No dead-lettered SMS rows are visible in the current filters.'}
+          </Alert>
+          <Table>
+            <tbody>
+              <tr>
+                <th scope="row">Queued</th>
+                <td>{renderValue(smsOperationalDrilldown.queuedCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Submitted to provider</th>
+                <td>{renderValue(smsOperationalDrilldown.sentCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Delivery confirmed by DLR</th>
+                <td>{renderValue(smsOperationalDrilldown.deliveredCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Failed</th>
+                <td>{renderValue(smsOperationalDrilldown.failedCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Retries</th>
+                <td>{renderValue(smsOperationalDrilldown.retryCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Dead letters</th>
+                <td>{renderValue(smsOperationalDrilldown.deadLetterCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Rows with unavailable cost</th>
+                <td>
+                  {renderValue(smsOperationalDrilldown.unavailableCostRows)}
+                </td>
+              </tr>
+            </tbody>
+          </Table>
+        </section>
+      ) : null}
+
       {reportSummary?.reconciliation ? (
         <section style={cardStyle} aria-label="Reconciliation">
           <Alert
@@ -739,6 +803,32 @@ function sortCustomerPerformanceItems(
       String(right.customerId ?? ''),
     );
   });
+}
+
+function summarizeSmsOperations(items: ReportItem[]): SmsOperationalDrilldown {
+  const summary: SmsOperationalDrilldown = {
+    queuedCount: 0,
+    sentCount: 0,
+    deliveredCount: 0,
+    failedCount: 0,
+    retryCount: 0,
+    deadLetterCount: 0,
+    unavailableCostRows: 0,
+  };
+  for (const item of items) {
+    summary.queuedCount += numericReportValue(item.queuedCount);
+    summary.sentCount += numericReportValue(item.sentCount);
+    summary.deliveredCount += numericReportValue(item.deliveredCount);
+    summary.failedCount += numericReportValue(item.failedCount);
+    summary.retryCount += numericReportValue(item.retryCount);
+    summary.deadLetterCount += numericReportValue(item.deadLetterCount);
+    summary.unavailableCostRows += item.costStatus === 'UNAVAILABLE' ? 1 : 0;
+  }
+  return summary;
+}
+
+function numericReportValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 function formatReportFieldLabel(key: string): string {

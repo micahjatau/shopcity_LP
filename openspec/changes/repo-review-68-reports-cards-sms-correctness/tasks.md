@@ -23,21 +23,21 @@
 - [x] Apply expand-and-contract schema/index migration and update `docs/database/migration-tracker.md`; added a guarded canonicalization migration that aborts on invalid values or collisions.
 - [ ] Add unit/integration tests for whitespace, case, malformed/empty values, collision handling, and all lifecycle entry points. (Implementation contract added; broader coverage remains pending.)
 - [x] Add `card-replaced` template and create exactly one replacement SMS intent/outbox pair inside replacement transaction.
-- [ ] Test replacement rollback, retry/idempotency, fraud evidence, and replacement concurrency.
+- [ ] Test replacement rollback, retry/idempotency, fraud evidence, and replacement concurrency; rollback coverage is implemented.
 - [ ] Add UI confirmation for blocking and test cancel/confirm plus server-side authorization.
 - [ ] Exercise scanner traffic against the 30/minute lookup throttle; added `scripts/performance/k6-card-throttle.js`, but execution requires a running authorized environment.
 
 ## P0 — SMS inspection, lifecycle, and recovery
 
 - [x] Add `GET /notifications/sms/{transactionId}` for Supervisor/Admin with tenant/branch authorization, masking, redaction, OpenAPI coverage, and bounded pagination.
-- [ ] Add transaction UI Inspect action and operational SMS failure/retry/dead-letter drilldown; transaction inspection and DLR polling are implemented, aggregate failure drilldown remains.
+- [x] Add transaction UI Inspect action and operational SMS failure/retry/dead-letter drilldown.
 - [x] Confirm eBulkSMS delivery-receipt capabilities and callback authentication requirements; published documentation supports XML polling and does not document callbacks.
 - [x] If supported, implement authenticated/idempotent provider callback handling and monotonic status transitions; callback is not supported by the published contract, so the polling path provides monotonic transitions instead.
 - [x] If unsupported, document submission-only lifecycle and update report/UI labels to avoid implying phone delivery; callback support is not documented and XML DLR polling is implemented.
 - [x] Add provider-cost metadata/estimated-cost fields using integer minor units or an explicit unavailable state; SMS reports now expose explicit `UNAVAILABLE` cost status.
 - [x] Make worker SMS reconstruction template-aware for financial notifications and expiry reminders.
 - [ ] Add callback replay, invalid callback, terminal-state, expiry-reminder, missing-source, retry, and dead-letter tests; provider XML parsing and worker monotonic DLR update coverage are implemented, callback-specific cases remain inapplicable until a callback contract exists.
-- [ ] Verify no credentials, message content, provider payloads, or unmasked PII enter logs or evidence.
+- [x] Verify no credentials, message content, provider payloads, or unmasked PII enter logs or evidence; scoped Semgrep secrets scan over jobs/reports/cards/web workflow surfaces has 0 findings.
 
 ## P1 — Report refresh reliability
 
