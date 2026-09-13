@@ -30,7 +30,7 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           # GitHub's checkout action resolves branch names reliably here, while
           # the following step still requires the checked-out master tip to
@@ -51,13 +51,14 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: git merge-base --is-ancestor "${CANDIDATE_SHA}" origin/master
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm --prefix apps/web ci --ignore-scripts
       - run: npm --prefix apps/web exec -- playwright install --with-deps chromium
+      - run: npm run build
       - name: Verify deployed staging provenance
         env:
           CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
@@ -138,6 +139,7 @@ jobs:
           DATABASE_URL: ${{ secrets.SMOKE_WORKER_DATABASE_URL }}
           REDIS_URL: redis://127.0.0.1:6379
           NODE_ENV: staging
+          RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
           DEFAULT_PUBLIC_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
           DEFAULT_PUBLIC_BRANCH_ID: ${{ vars.SMOKE_BRANCH_ID }}
           CORS_ORIGIN_ALLOWLIST: ${{ secrets.SMOKE_FRONTEND_URL }}
@@ -151,11 +153,12 @@ jobs:
           OUTBOX_PUBLISH_INTERVAL_MS: '250'
           OUTBOX_RETRY_DELAY_MS: '1000'
           OUTBOX_RECOVERY_THRESHOLD_MS: '1000'
+          EXPECTED_WORKER_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.event.workflow_run.head_sha }}
         run: |
           export DEVICE_ATTESTATION_KEK="$(openssl rand -hex 32)"
           export SESSION_SECRET="staging-smoke-worker-session-secret"
           export CSRF_SECRET="staging-smoke-worker-csrf-secret"
-          nohup node -r ts-node/register -r tsconfig-paths/register src/worker.ts > /tmp/shopcity-staging-worker.log 2>&1 &
+          nohup node dist/src/worker.js > /tmp/shopcity-staging-worker.log 2>&1 &
           echo $! > /tmp/shopcity-staging-worker.pid
           for i in $(seq 1 60); do
             if grep -q 'SHOPCITY_WORKER_READY' /tmp/shopcity-staging-worker.log; then
@@ -174,8 +177,9 @@ jobs:
             cat /tmp/shopcity-staging-worker.log
             exit 1
           fi
+          grep -F "SHOPCITY_WORKER_SHA=${EXPECTED_WORKER_SHA}" /tmp/shopcity-staging-worker.log
           echo 'Worker process tree:'
-          ps -ef --forest | grep -E '[s]rc/worker|[t]s-node|[n]pm run start:worker' || true
+          ps -ef --forest | grep -E '[d]ist/src/worker|[s]rc/worker|[t]s-node|[n]pm run start:worker' || true
           echo 'Redis connectivity:'
           redis-cli -h 127.0.0.1 -p 6379 ping || true
           echo 'Worker startup log:'
@@ -244,6 +248,9 @@ jobs:
             "environment": "staging",
             "deployedFrontendSha": "${DEPLOYED_FRONTEND_SHA}",
             "deployedBackendSha": "${DEPLOYED_BACKEND_SHA}",
+            "workerRuntimeSha": "${CANDIDATE_SHA}",
+            "workerDeploymentId": "github-runner-${GITHUB_RUN_ID}",
+            "workerReady": true,
             "verifierVersion": "verify-smoke-evidence-v1",
             "recordedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
@@ -287,7 +294,7 @@ jobs:
             tail -100 /tmp/shopcity-staging-worker.log
           fi
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: shopcity-staging-smoke-${{ github.event.workflow_run.head_sha || inputs.candidate_sha }}
           path: |
