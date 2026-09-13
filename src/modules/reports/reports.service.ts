@@ -95,6 +95,31 @@ export class ReportsService {
     );
   }
 
+  async getExecutiveSnapshot(
+    tenantId: string,
+    context: AuthContext,
+    query: Pick<ReportQuery, 'branchId' | 'timezone'> = {},
+  ): Promise<ReportCollection<Record<string, unknown>>> {
+    const scope = await this.resolveScope(
+      tenantId,
+      context,
+      query.branchId,
+      query.timezone,
+    );
+    const row = await this.prisma.reportDailyFinancialSummary.findFirst({
+      where: {
+        tenantId,
+        scope: scope.scope,
+        scopeKey: scope.scopeKey,
+      },
+      orderBy: { reportDate: 'desc' },
+    });
+    return {
+      ...scope,
+      items: row ? [serializeReportValue(row)] : [],
+    };
+  }
+
   async listLiabilityAgeing(
     tenantId: string,
     context: AuthContext,

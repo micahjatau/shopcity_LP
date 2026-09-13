@@ -4,7 +4,7 @@
 
 - [x] Inventory current report tables, DTOs, controller responses, CSV columns, and frontend labels against the TRD and review 68.
 - [x] Define and document stock, flow, cumulative, ratio, status, timezone, branch-scope, and as-of semantics.
-- [ ] Split executive current snapshot from daily flow series without breaking existing authorized report routes.
+- [x] Split executive current snapshot from daily flow series without breaking existing authorized report routes; added `GET /reports/executive-snapshot` while preserving the daily route.
 - [x] Remove current-materialization stock values from historical daily rows by computing end-of-day liability and date-attributed expiry values.
 - [x] Add multi-day watermark fixtures proving rebuilds do not rewrite historical meaning.
 - [x] Correct SMS queued status aggregation and add durable total/retry/dead-letter metrics; migration verification remains pending.
@@ -25,7 +25,7 @@
 - [x] Add `card-replaced` template and create exactly one replacement SMS intent/outbox pair inside replacement transaction.
 - [ ] Test replacement rollback, retry/idempotency, fraud evidence, and replacement concurrency.
 - [ ] Add UI confirmation for blocking and test cancel/confirm plus server-side authorization.
-- [ ] Exercise scanner traffic against the 30/minute lookup throttle; change/document the threshold only with workflow evidence.
+- [ ] Exercise scanner traffic against the 30/minute lookup throttle; added `scripts/performance/k6-card-throttle.js`, but execution requires a running authorized environment.
 
 ## P0 — SMS inspection, lifecycle, and recovery
 

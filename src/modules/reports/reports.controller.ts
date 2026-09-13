@@ -190,6 +190,28 @@ export class ReportsController {
     );
   }
 
+  @Get('executive-snapshot')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiQuery({ name: 'branchId', required: false })
+  @ApiQuery({ name: 'timezone', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'Latest current executive stock snapshot',
+    dataSchema: reportCollectionSchema,
+  })
+  @ApiOperation({ summary: 'Get the current executive snapshot' })
+  getExecutiveSnapshot(
+    @CurrentSession() context: AuthContext,
+    @Query('branchId') branchId?: string,
+    @Query('timezone') timezone?: string,
+  ) {
+    return this.reportsService.getExecutiveSnapshot(
+      context.user.tenantId,
+      context,
+      { branchId, timezone },
+    );
+  }
+
   @Get('liability-ageing')
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
