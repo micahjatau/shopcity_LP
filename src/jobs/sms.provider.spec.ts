@@ -454,15 +454,15 @@ describe('sms provider selection', () => {
     ).toThrow('Fake SMS providers are not allowed in production');
   });
 
-  it('allows fake providers in production only with the explicit override', () => {
-    const provider = createSmsProvider({
-      ...baseEnv(),
-      NODE_ENV: 'production',
-      SMS_PROVIDER_MODE: 'sandbox',
-      ALLOW_FAKE_SMS_IN_PRODUCTION: 'true',
-    });
-
-    expect(provider).toBeInstanceOf(SandboxSmsProvider);
+  it('rejects fake providers in production even when the override is set', () => {
+    expect(() =>
+      createSmsProvider({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'sandbox',
+        ALLOW_FAKE_SMS_IN_PRODUCTION: 'true',
+      }),
+    ).toThrow('Fake SMS providers are not allowed in production');
   });
 
   it('allows real mode in production when provider secrets are present', () => {
