@@ -90,6 +90,7 @@ export default async function globalTeardown(
       invariants: 'PASS',
     });
     const groups: Record<string, 'PASS' | 'FAIL'> = {};
+    const runtimeCertification: Record<string, unknown> = {};
     for (const filename of await readdir(run.evidenceDir)) {
       if (!filename.endsWith('.json') || filename === 'reconciliation.json')
         continue;
@@ -97,6 +98,23 @@ export default async function globalTeardown(
         const evidence = JSON.parse(
           await readFile(resolve(run.evidenceDir, filename), 'utf8'),
         ) as { group?: string; status?: 'PASS' | 'FAIL' };
+        if ('runtimeCertification' in evidence) {
+          const runtimeEvidence = evidence.runtimeCertification as Record<
+            string,
+            unknown
+          >;
+          for (const key of [
+            'duplicateReceiptRegression',
+            'workerSmsTerminalState',
+            'cardLifecycle',
+            'reportIsolationPerformance',
+            'providerTerminalState',
+          ]) {
+            if (key in runtimeEvidence) {
+              runtimeCertification[key] = runtimeEvidence[key];
+            }
+          }
+        }
         if (!evidence.group || !evidence.status) continue;
         const group =
           evidence.group === 'cross-role'
@@ -124,6 +142,9 @@ export default async function globalTeardown(
           completedAt: new Date().toISOString(),
           result: 'PASS',
           groups,
+          ...(Object.keys(runtimeCertification).length > 0
+            ? { runtimeCertification }
+            : {}),
         },
         null,
         2,

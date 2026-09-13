@@ -15,6 +15,10 @@
   requires PASS evidence for duplicate receipt regression, worker SMS terminal
   state, card lifecycle, report isolation performance, and provider terminal
   state before final Review 67 signoff.
+- `scripts/smoke/review67-runtime-certification.mjs` implements the remaining
+  authenticated runtime gates: duplicate-receipt 409/no-500 regression, card
+  assignment/block/unblock/replacement concurrency, report p95 timing, and
+  SMS/provider terminal-state aggregation.
 
 ## Environment-gated evidence
 
