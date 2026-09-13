@@ -6,7 +6,7 @@ const SECRET_KEY =
 
 function usage() {
   console.error(
-    'Usage: verify-smoke-evidence.mjs --manifest <path> --candidate-sha <40-hex-sha>',
+    'Usage: verify-smoke-evidence.mjs --manifest <path> --candidate-sha <40-hex-sha> [--require-runtime-certification]',
   );
   process.exitCode = 2;
 }
@@ -22,7 +22,7 @@ function assertSafe(value, path = 'manifest') {
   }
 }
 
-export function validateEvidence(manifest, candidateSha) {
+export function validateEvidence(manifest, candidateSha, options = {}) {
   assertSafe(manifest);
   if (!/^[0-9a-f]{40}$/i.test(candidateSha))
     throw new Error('candidate SHA is invalid');
@@ -57,7 +57,28 @@ export function validateEvidence(manifest, candidateSha) {
   for (const group of groups)
     if (manifest.groups?.[group] !== 'PASS')
       throw new Error(`mandatory group ${group} did not PASS`);
+  if (options.requireRuntimeCertification)
+    validateRuntimeCertification(manifest.runtimeCertification);
   return true;
+}
+
+function validateRuntimeCertification(runtimeCertification) {
+  if (!runtimeCertification || typeof runtimeCertification !== 'object')
+    throw new Error('runtimeCertification evidence is required');
+  const groups = [
+    'duplicateReceiptRegression',
+    'workerSmsTerminalState',
+    'cardLifecycle',
+    'reportIsolationPerformance',
+    'providerTerminalState',
+  ];
+  for (const group of groups) {
+    const evidence = runtimeCertification[group];
+    if (!evidence || typeof evidence !== 'object')
+      throw new Error(`runtimeCertification.${group} is required`);
+    if (evidence.result !== 'PASS')
+      throw new Error(`runtimeCertification.${group} did not PASS`);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -69,7 +90,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const manifest = JSON.parse(
         await readFile(process.argv[manifestIndex + 1], 'utf8'),
       );
-      validateEvidence(manifest, process.argv[shaIndex + 1]);
+      validateEvidence(manifest, process.argv[shaIndex + 1], {
+        requireRuntimeCertification: process.argv.includes(
+          '--require-runtime-certification',
+        ),
+      });
       console.log('Smoke evidence is valid');
     } catch (error) {
       console.error(

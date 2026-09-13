@@ -11,6 +11,10 @@
 - `scripts/smoke/runtime-certification-evidence.mjs` builds safe worker SMS,
   card lifecycle, and k6 fixture evidence payloads and rejects secret-bearing
   keys/raw phone values.
+- `scripts/smoke/verify-smoke-evidence.mjs --require-runtime-certification`
+  requires PASS evidence for duplicate receipt regression, worker SMS terminal
+  state, card lifecycle, report isolation performance, and provider terminal
+  state before final Review 67 signoff.
 
 ## Environment-gated evidence
 
