@@ -49,7 +49,7 @@
 
 - [x] Update report metric definitions and SMS lifecycle documentation.
 - [x] Update notification support/runbook procedures for transaction inspection and failure triage.
-- [x] Document provider DLR/cost limitations and the incremental-materialization follow-up separately; DLR polling implementation remains pending.
+- [x] Document provider DLR/cost limitations and the incremental-materialization follow-up separately; XML DLR polling implementation is complete.
 - [x] Regenerate generated OpenAPI/client artifacts where source contracts change.
 
 ## P1 — Verification gates
