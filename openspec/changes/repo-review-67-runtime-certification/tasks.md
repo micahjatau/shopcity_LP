@@ -46,7 +46,7 @@
 - [x] Add the required card-replacement SMS outbox event and unit coverage that it is emitted once.
 - [ ] Add runtime smoke coverage for card assignment, replacement, block/unblock, and replacement concurrency; repository evidence builder/validator is implemented, runtime execution remains pending.
 - [x] Document executive-summary metric semantics for stock versus flow values, SMS queued counts, redemptions, and cashier activity.
-- [ ] Correct report read models/queries/contracts to match those definitions and add integration tests for non-zero and empty-state fixtures.
+- [x] Correct report read models/queries/contracts to match those definitions and add integration tests for non-zero and empty-state fixtures.
 - [ ] Confirm valid report requests remain fast after the correctness changes.
 
 ## P1 — Release evidence and verification
