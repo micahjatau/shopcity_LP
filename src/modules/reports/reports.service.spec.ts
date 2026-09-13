@@ -65,6 +65,67 @@ describe('ReportsService', () => {
     expect(source.receipts).toHaveLength(2);
   });
 
+  it('returns the latest executive snapshot without date flow filters', async () => {
+    const latestRow = {
+      scope: 'BRANCH',
+      scopeKey: 'branch-1',
+      branchId: 'branch-1',
+      reportDate: new Date('2026-08-11T00:00:00.000Z'),
+      registeredCustomers: 3,
+      activeCustomers: 2,
+      transactionCount: 0,
+      loyaltyPurchaseValueKobo: 0n,
+      creditIssuedKobo: 0n,
+      creditRedeemedKobo: 0n,
+      creditExpiredKobo: 0n,
+      outstandingLiabilityKobo: 1200n,
+      materializedAt: new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const prisma = prismaStub({ executiveSnapshotRow: latestRow });
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.getExecutiveSnapshot('tenant-1', supervisorContext()),
+    ).resolves.toMatchObject({
+      scope: 'BRANCH',
+      scopeKey: 'branch-1',
+      branchId: 'branch-1',
+      items: [
+        expect.objectContaining({
+          reportDate: latestRow.reportDate,
+          outstandingLiabilityKobo: 1200,
+        }),
+      ],
+    });
+    const reportDailyFinancialSummary =
+      prisma.reportDailyFinancialSummary as unknown as {
+        findFirst: jest.Mock<unknown, [Record<string, unknown>]>;
+      };
+    const findFirstMock = reportDailyFinancialSummary.findFirst;
+    const firstFindFirstCall = findFirstMock.mock.calls[0]?.[0];
+    expect(firstFindFirstCall).toEqual({
+      where: {
+        tenantId: 'tenant-1',
+        scope: 'BRANCH',
+        scopeKey: 'branch-1',
+      },
+      orderBy: { reportDate: 'desc' },
+    });
+  });
+
+  it('returns an empty executive snapshot when no materialized rows exist', async () => {
+    const service = new ReportsService(prismaStub(), configService());
+
+    await expect(
+      service.getExecutiveSnapshot('tenant-1', adminContext()),
+    ).resolves.toMatchObject({
+      scope: 'TENANT',
+      scopeKey: 'tenant-1',
+      branchId: null,
+      items: [],
+    });
+  });
+
   it('returns an admin-only pilot operations summary with release metadata and source-backed counts', async () => {
     const prisma = {
       outboxEvent: {
@@ -436,6 +497,7 @@ function supervisorContext(): AuthContext {
 function prismaStub(
   options: {
     executiveSummaryRows?: Array<Record<string, unknown>>;
+    executiveSnapshotRow?: Record<string, unknown> | null;
     receipts?: Array<Record<string, unknown>>;
   } = {},
 ): PrismaService {
@@ -447,6 +509,9 @@ function prismaStub(
     },
     reportDailyFinancialSummary: {
       findMany: jest.fn().mockResolvedValue(options.executiveSummaryRows ?? []),
+      findFirst: jest
+        .fn()
+        .mockResolvedValue(options.executiveSnapshotRow ?? null),
     },
     reportLiabilityBucket: {
       findMany: jest.fn().mockResolvedValue([]),
