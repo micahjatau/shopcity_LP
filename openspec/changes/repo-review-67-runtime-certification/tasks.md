@@ -8,7 +8,7 @@
 - [x] Preserve tenant, branch, cashier, customer, device, receipt, and timestamp metadata without adding financial mutations.
 - [x] Add unit coverage for duplicate detection and the existing 409 contract.
 - [x] Add unit coverage for duplicate-evidence persistence failure handling.
-- [ ] Add an integration regression using Prisma `connection_limit=1`; assert duplicate earn returns 409 and durable evidence exists.
+- [x] Add an integration regression using Prisma `connection_limit=1`; assert duplicate earn returns 409 and durable evidence exists.
 - [x] Verify normal earn idempotency and ledger invariants remain unchanged.
 
 ## P0 — Worker runtime and provenance
