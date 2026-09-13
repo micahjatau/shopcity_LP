@@ -91,6 +91,10 @@ describe('report materialization (int)', () => {
 
     const now = Date.now();
     const occurredAt = new Date(now - 60 * 60 * 1000).toISOString();
+    await prisma.customer.update({
+      where: { id: fixture.customer.id },
+      data: { createdAt: new Date(now - 90 * 60 * 1000) },
+    });
     const initialMaterializedAt = new Date(now - 2 * 60 * 60 * 1000);
     const finalMaterializedAt = new Date(now + 60 * 60 * 1000);
     const expectedReportDate = toReportDateUtc(occurredAt, 'Africa/Lagos');
