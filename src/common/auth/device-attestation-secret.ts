@@ -17,7 +17,9 @@ export function encryptDeviceAttestationSecret(
   keyMaterial: string,
 ): string {
   const { key, iv } = deriveSecretCipherMaterial(keyMaterial);
-  const cipher = createCipheriv(DEVICE_ATTESTATION_SECRET_ALGORITHM, key, iv);
+  const cipher = createCipheriv(DEVICE_ATTESTATION_SECRET_ALGORITHM, key, iv, {
+    authTagLength: 16,
+  });
   const ciphertext = Buffer.concat([
     cipher.update(secret, 'utf8'),
     cipher.final(),
@@ -52,6 +54,7 @@ export function decryptDeviceAttestationSecret(
     DEVICE_ATTESTATION_SECRET_ALGORITHM,
     key,
     iv,
+    { authTagLength: 16 },
   );
   decipher.setAuthTag(Buffer.from(authTagRaw, 'base64url'));
 

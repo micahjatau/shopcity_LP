@@ -320,7 +320,16 @@ function parseEbulkDeliveryReport(
 }
 
 function readXmlTag(body: string, tag: string): string | undefined {
-  const match = body.match(new RegExp(`<${tag}\\b[^>]*>([^<]*)</${tag}>`, 'i'));
+  const match =
+    tag === 'uniqueid'
+      ? body.match(/<uniqueid\b[^>]*>([^<]*)<\/uniqueid>/i)
+      : tag === 'status'
+        ? body.match(/<status\b[^>]*>([^<]*)<\/status>/i)
+        : tag === 'deliverytime'
+          ? body.match(/<deliverytime\b[^>]*>([^<]*)<\/deliverytime>/i)
+          : tag === 'sendtime'
+            ? body.match(/<sendtime\b[^>]*>([^<]*)<\/sendtime>/i)
+            : null;
   const value = match?.[1]?.trim();
   return value || undefined;
 }
