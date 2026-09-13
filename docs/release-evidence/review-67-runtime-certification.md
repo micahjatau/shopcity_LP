@@ -36,6 +36,10 @@
 - Corrected k6 report-isolation execution could not run locally because
   `K6_SESSION_TOKEN`, `K6_CSRF_TOKEN`, and `K6_REPORT_BRANCH_ID` were not
   available.
+- Direct staging/provider smoke execution could not run from this shell because
+  `SMOKE_BACKEND_URL`, `SMOKE_FRONTEND_URL`, `K6_CARD_SERIAL`,
+  `K6_CUSTOMER_ID`, `EBULKSMS_USERNAME`, `EBULKSMS_API_KEY`, and
+  `SMS_PROVIDER_MODE` were not available.
 
 ## Current residual risk
 
