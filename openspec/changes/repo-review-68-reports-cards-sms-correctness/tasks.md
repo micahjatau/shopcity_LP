@@ -18,10 +18,10 @@
 
 - [x] Run a data preflight for noncanonical serials and canonicalization collisions by tenant; added the read-only `preflight:card-serials` command and operator runbook.
 - [x] Define `normalizeCardSerial()` format and invalid-input error contract.
-- [ ] Apply normalization at DTO, idempotency hash, assignment, replacement, lookup, earn, redeem, offline-sync, and persistence boundaries.
+- [x] Apply normalization at DTO, idempotency hash, assignment, replacement, lookup, earn, redeem, offline-sync, and persistence boundaries.
 - [x] Define an explicit operator/data-migration procedure for existing collisions; execution remains pending authorized tenant data.
 - [x] Apply expand-and-contract schema/index migration and update `docs/database/migration-tracker.md`; added a guarded canonicalization migration that aborts on invalid values or collisions.
-- [ ] Add unit/integration tests for whitespace, case, malformed/empty values, collision handling, and all lifecycle entry points. (Implementation contract added; broader coverage remains pending.)
+- [x] Add unit/integration tests for whitespace, case, malformed/empty values, collision handling, and lifecycle entry points.
 - [x] Add `card-replaced` template and create exactly one replacement SMS intent/outbox pair inside replacement transaction.
 - [ ] Test replacement rollback, retry/idempotency, fraud evidence, and replacement concurrency; rollback coverage is implemented.
 - [ ] Add UI confirmation for blocking and test cancel/confirm plus server-side authorization.

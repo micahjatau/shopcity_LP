@@ -56,6 +56,32 @@ describe('RedemptionsService', () => {
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 
+  it('normalizes redemption card serials before lookup', async () => {
+    const tx = transactionClient();
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const service = serviceWith({ transaction });
+
+    await service.redeem('tenant-1', authContext(), 'idem-normalized-card', {
+      cardSerialNumber: ' card-1 ',
+      posReceiptNumber: 'POS-NORMALIZED-REDEEM',
+      basketAmountKobo: 30_000,
+      requestedRedemptionKobo: 6_000,
+      occurredAt: REQUEST_OCCURRED_AT,
+    });
+
+    const findFirstMock = tx.card.findFirst as jest.Mock<
+      unknown,
+      [{ where: { barcodeValue: { equals: string; mode: string } } }]
+    >;
+    const lookupCall = findFirstMock.mock.calls[0]?.[0];
+    expect(lookupCall.where.barcodeValue).toStrictEqual({
+      equals: 'CARD-1',
+      mode: 'insensitive',
+    });
+  });
+
   it('rejects invalid high-value requests before reserving receipt identity', async () => {
     const tx = transactionClient();
     const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
