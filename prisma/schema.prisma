@@ -945,6 +945,7 @@ model ReportSmsDailySummary {
   suppressedCount Int      @default(0)
   retryCount      Int      @default(0)
   deadLetterCount Int      @default(0)
+  costStatus      String   @default("UNAVAILABLE")
   materializedAt  DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

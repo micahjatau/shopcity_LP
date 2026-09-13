@@ -1,0 +1,2 @@
+ALTER TABLE "ReportSmsDailySummary"
+  ADD COLUMN "costStatus" TEXT NOT NULL DEFAULT 'UNAVAILABLE';
