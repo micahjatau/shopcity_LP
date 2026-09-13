@@ -9,7 +9,7 @@
 - [x] Add multi-day watermark fixtures proving rebuilds do not rewrite historical meaning.
 - [x] Correct SMS queued status aggregation and add durable total/retry/dead-letter metrics; migration verification remains pending.
 - [x] Expand cashier activity with earn, redemption, approval, duplicate, reversal, and fraud-flag metrics; fraud flags are derived from authoritative records.
-- [ ] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance; ratio/lots/allocation/ending-balance/approval metrics are implemented, drilldown work remains.
+- [x] Expand redemption aggregates with ratio, approval lifecycle, lots consumed, allocation detail, and remaining authoritative balance; summary metrics and an authorized redemption drilldown endpoint are implemented.
 - [x] Add deterministic, bounded customer rankings for spend, balance, frequency, and dormant high-value customers, including the management UI selector.
 - [x] Update report DTOs, OpenAPI, CSV export, frontend labels, empty states, and accessibility text.
 - [ ] Add report unit, integration, contract, and affected Playwright coverage for non-zero, empty, reversed, pending, and multi-branch fixtures.
@@ -43,11 +43,11 @@
 
 - [x] Put refresh idempotency record, audit row, and outbox event in one transaction.
 - [ ] Preserve replay and conflicting-payload behavior and add rollback/concurrent retry tests.
-- [ ] Verify report refresh authorization and branch/tenant scope remain unchanged.
+- [x] Verify report refresh authorization and branch/tenant scope remain unchanged through existing authorization tests and scoped service queries.
 
 ## P1 — Documentation and contracts
 
-- [ ] Update report metric definitions and SMS lifecycle documentation.
+- [x] Update report metric definitions and SMS lifecycle documentation.
 - [x] Update notification support/runbook procedures for transaction inspection and failure triage.
 - [x] Document provider DLR/cost limitations and the incremental-materialization follow-up separately; DLR polling implementation remains pending.
 - [x] Regenerate generated OpenAPI/client artifacts where source contracts change.

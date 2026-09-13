@@ -316,6 +316,26 @@ export class ReportsController {
     );
   }
 
+  @Get('redemptions/:redemptionId')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiParam({ name: 'redemptionId', format: 'uuid' })
+  @apiSuccessEnvelopeResponse({
+    description: 'Redemption lifecycle and FIFO allocation detail',
+    dataSchema: { type: 'object', additionalProperties: true },
+  })
+  @ApiOperation({ summary: 'Inspect a redemption report drilldown' })
+  getRedemptionDrilldown(
+    @CurrentSession() context: AuthContext,
+    @Param('redemptionId') redemptionId: string,
+  ) {
+    return this.reportsService.getRedemptionDrilldown(
+      context.user.tenantId,
+      context,
+      redemptionId,
+    );
+  }
+
   @Get('redemption-summary')
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)

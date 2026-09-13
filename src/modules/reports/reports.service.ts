@@ -269,6 +269,101 @@ export class ReportsService {
     );
   }
 
+  async getRedemptionDrilldown(
+    tenantId: string,
+    context: AuthContext,
+    redemptionId: string,
+  ): Promise<Record<string, unknown>> {
+    if (
+      context.user.role !== UserRole.SUPERVISOR &&
+      context.user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('Redemption drilldown is restricted');
+    }
+
+    const redemption = await this.prisma.redemption.findFirst({
+      where: { tenantId, id: redemptionId.trim() },
+      select: {
+        id: true,
+        branchId: true,
+        customerId: true,
+        requestedAmountKobo: true,
+        basketAmountKobo: true,
+        maximumAllowedKobo: true,
+        confirmedAmountKobo: true,
+        status: true,
+        requestedAt: true,
+        confirmedAt: true,
+        rejectedAt: true,
+        reversedAt: true,
+        allocations: {
+          orderBy: { allocationOrder: 'asc' },
+          select: {
+            id: true,
+            creditLotId: true,
+            amountKobo: true,
+            allocationOrder: true,
+            restorations: { select: { amountKobo: true } },
+          },
+        },
+        approval: {
+          select: {
+            status: true,
+            reasonCode: true,
+            decisionReason: true,
+            requestedAt: true,
+            decidedAt: true,
+            executedAt: true,
+          },
+        },
+      },
+    });
+    if (!redemption) throw new NotFoundException('Redemption not found');
+    if (
+      context.user.role === UserRole.SUPERVISOR &&
+      context.user.branchId !== redemption.branchId
+    ) {
+      throw new NotFoundException('Redemption not found');
+    }
+
+    const allocations = redemption.allocations.map((allocation) => ({
+      id: allocation.id,
+      creditLotId: allocation.creditLotId,
+      amountKobo: Number(allocation.amountKobo),
+      allocationOrder: allocation.allocationOrder,
+      restoredAmountKobo: allocation.restorations.reduce(
+        (total, restoration) => total + Number(restoration.amountKobo),
+        0,
+      ),
+    }));
+    return {
+      id: redemption.id,
+      branchId: redemption.branchId,
+      customerId: redemption.customerId,
+      requestedAmountKobo: Number(redemption.requestedAmountKobo),
+      basketAmountKobo: Number(redemption.basketAmountKobo),
+      maximumAllowedKobo: Number(redemption.maximumAllowedKobo),
+      confirmedAmountKobo:
+        redemption.confirmedAmountKobo === null
+          ? null
+          : Number(redemption.confirmedAmountKobo),
+      status: redemption.status,
+      requestedAt: redemption.requestedAt.toISOString(),
+      confirmedAt: redemption.confirmedAt?.toISOString() ?? null,
+      rejectedAt: redemption.rejectedAt?.toISOString() ?? null,
+      reversedAt: redemption.reversedAt?.toISOString() ?? null,
+      allocations,
+      approval: redemption.approval
+        ? {
+            ...redemption.approval,
+            requestedAt: redemption.approval.requestedAt.toISOString(),
+            decidedAt: redemption.approval.decidedAt?.toISOString() ?? null,
+            executedAt: redemption.approval.executedAt?.toISOString() ?? null,
+          }
+        : null,
+    };
+  }
+
   async listSmsOperations(
     tenantId: string,
     context: AuthContext,
