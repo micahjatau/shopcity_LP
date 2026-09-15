@@ -13,6 +13,7 @@ import {
   reportsControllerListMaterializationStateV1,
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
+  notificationsControllerListTransactionSmsV1,
   reportsControllerRefreshReportV1,
   type ReportsControllerListExecutiveSummaryV1Params,
   type ReportsControllerRefreshReportV1Params,
@@ -56,6 +57,16 @@ type PilotSummary = {
     mismatchCount?: number;
     items?: unknown[];
   };
+};
+
+type SmsOperationalDrilldown = {
+  queuedCount: number;
+  sentCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  retryCount: number;
+  deadLetterCount: number;
+  unavailableCostRows: number;
 };
 
 type ReportSummary = {
@@ -104,6 +115,10 @@ export function ReportsWorkspace({
   const [message, setMessage] = useState('Loading report summary…');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [customerSort, setCustomerSort] = useState<
+    'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value'
+  >('spend');
+  const [smsTransactionId, setSmsTransactionId] = useState('');
 
   const availableReportOptions = useMemo(
     () =>
@@ -160,9 +175,20 @@ export function ReportsWorkspace({
   const pilotSummary = isPilotOperationsSummary
     ? (summary as PilotSummary | null)
     : null;
-  const items = (reportSummary?.items ?? []) as ReportItem[];
+  const items = useMemo(
+    () =>
+      sortCustomerPerformanceItems(
+        (reportSummary?.items ?? []) as ReportItem[],
+        report === 'customer-performance' ? customerSort : undefined,
+      ),
+    [customerSort, report, reportSummary?.items],
+  );
   const selectedItem = items[selectedItemIndex] ?? null;
   const reconciliationHealthy = pilotSummary?.reconciliation?.healthy === true;
+  const smsOperationalDrilldown = useMemo(
+    () => (report === 'sms-operations' ? summarizeSmsOperations(items) : null),
+    [items, report],
+  );
 
   useEffect(() => {
     if (selectedItemIndex >= items.length) {
@@ -251,6 +277,39 @@ export function ReportsWorkspace({
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report]);
+
+  async function inspectSelectedSms() {
+    const transactionId =
+      typeof selectedItem?.transactionId === 'string'
+        ? selectedItem.transactionId
+        : smsTransactionId.trim();
+    if (report !== 'sms-operations' || !transactionId) {
+      setActionMessage(
+        'Select an SMS row with a transaction identifier first.',
+      );
+      return;
+    }
+    try {
+      const response = await notificationsControllerListTransactionSmsV1(
+        transactionId,
+        { page: 1, limit: 50 },
+        createApiRequest({ csrf: true }),
+      );
+      const responseData = response.data as unknown;
+      setActionResult(
+        responseData && typeof responseData === 'object'
+          ? (responseData as Record<string, unknown>)
+          : null,
+      );
+      setActionMessage(
+        response.status === 200
+          ? 'SMS inspection loaded with masked operational fields.'
+          : `SMS inspection responded with ${response.status}.`,
+      );
+    } catch {
+      setActionMessage('SMS inspection unavailable.');
+    }
+  }
 
   async function refreshReport() {
     try {
@@ -359,6 +418,33 @@ export function ReportsWorkspace({
           onChange={(event) => setReport(event.target.value as ReportKey)}
           options={availableReportOptions}
         />
+        {report === 'sms-operations' ? (
+          <Input
+            aria-label="SMS transaction ID"
+            placeholder="Transaction ID to inspect"
+            value={smsTransactionId}
+            onChange={(event) => setSmsTransactionId(event.target.value)}
+          />
+        ) : null}
+        {report === 'customer-performance' ? (
+          <Select
+            aria-label="Customer performance ranking"
+            value={customerSort}
+            onChange={(event) =>
+              setCustomerSort(
+                event.target.value as
+                  'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value',
+              )
+            }
+            options={[
+              { value: 'spend', label: 'Top spenders' },
+              { value: 'balance', label: 'Highest balances' },
+              { value: 'visits', label: 'Most frequent visitors' },
+              { value: 'recent', label: 'Recently active' },
+              { value: 'dormant-value', label: 'Dormant high-value' },
+            ]}
+          />
+        ) : null}
         <div style={filterGrid}>
           <Input
             aria-label="Branch filter"
@@ -405,6 +491,18 @@ export function ReportsWorkspace({
           >
             Export
           </Button>
+          {report === 'sms-operations' ? (
+            <Button
+              variant="secondary"
+              onClick={() => void inspectSelectedSms()}
+              disabled={
+                typeof selectedItem?.transactionId !== 'string' &&
+                smsTransactionId.trim().length === 0
+              }
+            >
+              Inspect SMS
+            </Button>
+          ) : null}
         </div>
       </section>
 
@@ -419,6 +517,12 @@ export function ReportsWorkspace({
         <Alert tone="info" title="Current filters">
           {selectedSummary}
         </Alert>
+        {report === 'sms-operations' ? (
+          <Alert tone="warning" title="SMS lifecycle">
+            eBulkSMS status reflects provider submission; handset delivery is
+            not confirmed by this report.
+          </Alert>
+        ) : null}
         {actionResult ? (
           <Table>
             <tbody>
@@ -521,7 +625,7 @@ export function ReportsWorkspace({
                     }}
                   >
                     <div style={listHeaderRow}>
-                      <strong>{label}</strong>
+                      <strong>{formatReportFieldLabel(label)}</strong>
                       <StatusBadge
                         label={selected ? 'Selected' : 'Item'}
                         tone={selected ? 'success' : 'neutral'}
@@ -559,7 +663,7 @@ export function ReportsWorkspace({
                     .slice(0, 10)
                     .map(([key, value]) => (
                       <tr key={key}>
-                        <th scope="row">{key}</th>
+                        <th scope="row">{formatReportFieldLabel(key)}</th>
                         <td>{renderValue(value)}</td>
                       </tr>
                     ))}
@@ -573,6 +677,56 @@ export function ReportsWorkspace({
           )}
         </section>
       </div>
+
+      {smsOperationalDrilldown ? (
+        <section style={cardStyle} aria-label="SMS operational drilldown">
+          <h2 style={{ marginTop: 0 }}>SMS failure drilldown</h2>
+          <Alert
+            tone={
+              smsOperationalDrilldown.deadLetterCount > 0 ? 'danger' : 'info'
+            }
+            title="Retry and dead-letter status"
+          >
+            {smsOperationalDrilldown.deadLetterCount > 0
+              ? 'Dead-lettered SMS rows require operator review before replay.'
+              : 'No dead-lettered SMS rows are visible in the current filters.'}
+          </Alert>
+          <Table>
+            <tbody>
+              <tr>
+                <th scope="row">Queued</th>
+                <td>{renderValue(smsOperationalDrilldown.queuedCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Submitted to provider</th>
+                <td>{renderValue(smsOperationalDrilldown.sentCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Delivery confirmed by DLR</th>
+                <td>{renderValue(smsOperationalDrilldown.deliveredCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Failed</th>
+                <td>{renderValue(smsOperationalDrilldown.failedCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Retries</th>
+                <td>{renderValue(smsOperationalDrilldown.retryCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Dead letters</th>
+                <td>{renderValue(smsOperationalDrilldown.deadLetterCount)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Rows with unavailable cost</th>
+                <td>
+                  {renderValue(smsOperationalDrilldown.unavailableCostRows)}
+                </td>
+              </tr>
+            </tbody>
+          </Table>
+        </section>
+      ) : null}
 
       {reportSummary?.reconciliation ? (
         <section style={cardStyle} aria-label="Reconciliation">
@@ -611,6 +765,85 @@ export function ReportsWorkspace({
         </section>
       ) : null}
     </section>
+  );
+}
+
+function sortCustomerPerformanceItems(
+  items: ReportItem[],
+  sort: 'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value' | undefined,
+): ReportItem[] {
+  if (!sort) return items;
+  const field =
+    sort === 'spend'
+      ? 'purchaseValueKobo'
+      : sort === 'balance' || sort === 'dormant-value'
+        ? 'currentBalanceKobo'
+        : sort === 'visits'
+          ? 'visitCount'
+          : 'lastActivityAt';
+
+  return [...items].sort((left, right) => {
+    if (sort === 'dormant-value') {
+      const dormantDelta =
+        Number(Boolean(right.dormant)) - Number(Boolean(left.dormant));
+      if (dormantDelta !== 0) return dormantDelta;
+    }
+    const leftValue = left[field];
+    const rightValue = right[field];
+    const leftTime =
+      field === 'lastActivityAt' && typeof leftValue === 'string'
+        ? Date.parse(leftValue)
+        : Number(leftValue ?? 0);
+    const rightTime =
+      field === 'lastActivityAt' && typeof rightValue === 'string'
+        ? Date.parse(rightValue)
+        : Number(rightValue ?? 0);
+    if (rightTime !== leftTime) return rightTime - leftTime;
+    return String(left.customerId ?? '').localeCompare(
+      String(right.customerId ?? ''),
+    );
+  });
+}
+
+function summarizeSmsOperations(items: ReportItem[]): SmsOperationalDrilldown {
+  const summary: SmsOperationalDrilldown = {
+    queuedCount: 0,
+    sentCount: 0,
+    deliveredCount: 0,
+    failedCount: 0,
+    retryCount: 0,
+    deadLetterCount: 0,
+    unavailableCostRows: 0,
+  };
+  for (const item of items) {
+    summary.queuedCount += numericReportValue(item.queuedCount);
+    summary.sentCount += numericReportValue(item.sentCount);
+    summary.deliveredCount += numericReportValue(item.deliveredCount);
+    summary.failedCount += numericReportValue(item.failedCount);
+    summary.retryCount += numericReportValue(item.retryCount);
+    summary.deadLetterCount += numericReportValue(item.deadLetterCount);
+    summary.unavailableCostRows += item.costStatus === 'UNAVAILABLE' ? 1 : 0;
+  }
+  return summary;
+}
+
+function numericReportValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function formatReportFieldLabel(key: string): string {
+  const knownLabels: Record<string, string> = {
+    purchaseValueKobo: 'Purchase value (kobo)',
+    creditIssuedKobo: 'Credit issued (kobo)',
+    redemptionValueKobo: 'Redemption value (kobo)',
+    endingBalanceKobo: 'Ending balance (kobo)',
+    basketRatioBps: 'Basket ratio (basis points)',
+    costStatus: 'SMS cost status',
+    fraudFlagCount: 'Fraud flags',
+  };
+  return (
+    knownLabels[key] ??
+    key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase())
   );
 }
 

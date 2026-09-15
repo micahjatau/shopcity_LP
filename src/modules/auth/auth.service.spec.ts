@@ -1,5 +1,5 @@
 import { Prisma, SessionPurpose, UserRole, UserStatus } from '@prisma/client';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { AuthService } from './auth.service';
 import { encryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
 
@@ -371,7 +371,7 @@ describe('AuthService', () => {
   it('rejects replayed device attestations during login', async () => {
     const timestamp = Date.now();
     const nonce = 'nonce';
-    const signature = createHmac('sha256', 'device-secret')
+    const signature = createHmac('sha256', 'device-secret') // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- deterministic test-only device secret
       .update(`device-id.${timestamp}.${nonce}`)
       .digest('base64url');
     const attestation = `${timestamp}.${nonce}.${signature}`;
@@ -512,8 +512,8 @@ describe('AuthService', () => {
   it('allows the same nonce on different devices', async () => {
     const timestamp = Date.now();
     const nonce = 'nonce';
-    const deviceOneSecret = 'device-one-secret';
-    const deviceTwoSecret = 'device-two-secret';
+    const deviceOneSecret = randomUUID();
+    const deviceTwoSecret = randomUUID();
     const deviceOneAttestation = `${timestamp}.${nonce}.${createHmac(
       'sha256',
       deviceOneSecret,
@@ -556,7 +556,7 @@ describe('AuthService', () => {
     const timestamp = Date.now();
     const secret = 'device-secret';
     const nonce = 'nonce';
-    const attestation = `${timestamp}.${nonce}.${createHmac('sha256', secret)
+    const attestation = `${timestamp}.${nonce}.${createHmac('sha256', secret) // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- deterministic test-only device secret
       .update(`device-id.${timestamp}.${nonce}`)
       .digest('base64url')}`;
 
@@ -744,7 +744,7 @@ describe('AuthService', () => {
     const timestamp = Date.now() - 10 * 60 * 1000;
     const secret = 'device-secret';
     const nonce = 'nonce';
-    const signature = createHmac('sha256', secret)
+    const signature = createHmac('sha256', secret) // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- deterministic test-only device secret
       .update(`device-id.${timestamp}.${nonce}`)
       .digest('base64url');
     const attestation = `${timestamp}.${nonce}.${signature}`;
@@ -787,7 +787,7 @@ describe('AuthService', () => {
     const oldSecret = 'old-device-secret';
     const newSecret = 'new-device-secret';
     const nonce = 'nonce';
-    const signature = createHmac('sha256', oldSecret)
+    const signature = createHmac('sha256', oldSecret) // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- deterministic test-only device secret
       .update(`device-id.${timestamp}.${nonce}`)
       .digest('base64url');
     const attestation = `${timestamp}.${nonce}.${signature}`;

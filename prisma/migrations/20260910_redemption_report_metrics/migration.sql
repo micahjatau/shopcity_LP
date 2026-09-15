@@ -1,0 +1,4 @@
+ALTER TABLE "ReportRedemptionDailySummary"
+  ADD COLUMN "basketRatioBps" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "lotsConsumed" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "allocationCount" INTEGER NOT NULL DEFAULT 0;

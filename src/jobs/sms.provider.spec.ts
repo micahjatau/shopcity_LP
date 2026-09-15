@@ -454,15 +454,15 @@ describe('sms provider selection', () => {
     ).toThrow('Fake SMS providers are not allowed in production');
   });
 
-  it('allows fake providers in production only with the explicit override', () => {
-    const provider = createSmsProvider({
-      ...baseEnv(),
-      NODE_ENV: 'production',
-      SMS_PROVIDER_MODE: 'sandbox',
-      ALLOW_FAKE_SMS_IN_PRODUCTION: 'true',
-    });
-
-    expect(provider).toBeInstanceOf(SandboxSmsProvider);
+  it('rejects fake providers in production even when the override is set', () => {
+    expect(() =>
+      createSmsProvider({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'sandbox',
+        ALLOW_FAKE_SMS_IN_PRODUCTION: 'true',
+      }),
+    ).toThrow('Fake SMS providers are not allowed in production');
   });
 
   it('allows real mode in production when provider secrets are present', () => {
@@ -572,6 +572,38 @@ describe('sms provider selection', () => {
     );
 
     fetchSpy.mockRestore();
+  });
+
+  it('normalizes an eBulkSMS XML delivery report without exposing the payload', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          '<reports><report><uniqueid>provider-1</uniqueid><status>Delivered</status><deliverytime>2026-09-11T10:00:00Z</deliverytime></report></reports>',
+        ),
+    } as Response);
+
+    try {
+      await expect(
+        newEbulkSmsProvider().getDeliveryReport('provider-1'),
+      ).resolves.toEqual({
+        status: 'DELIVERED',
+        providerMessageId: 'provider-1',
+        occurredAt: new Date('2026-09-11T10:00:00Z'),
+      });
+      const requestUrl = fetchSpy.mock.calls[0]?.[0];
+      const requestUrlText =
+        typeof requestUrl === 'string'
+          ? requestUrl
+          : requestUrl instanceof URL
+            ? requestUrl.toString()
+            : requestUrl?.url;
+      expect(requestUrlText).toContain('/getdlr.xml');
+      expect(requestUrlText).toContain('uniqueid=provider-1');
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('keeps duplicate outbox sends idempotent at the provider boundary', async () => {

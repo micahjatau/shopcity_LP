@@ -14,11 +14,16 @@ const DEFAULT_REPORT_TIME_ZONE = 'Africa/Lagos';
 
 type ReportScope = 'TENANT' | 'BRANCH';
 
+type CustomerPerformanceSort =
+  'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value';
+
 interface ReportQuery {
   branchId?: string;
   from?: string;
   to?: string;
   timezone?: string;
+  sort?: CustomerPerformanceSort;
+  limit?: number;
 }
 
 interface ReportScopeResolution {
@@ -90,6 +95,31 @@ export class ReportsService {
     );
   }
 
+  async getExecutiveSnapshot(
+    tenantId: string,
+    context: AuthContext,
+    query: Pick<ReportQuery, 'branchId' | 'timezone'> = {},
+  ): Promise<ReportCollection<Record<string, unknown>>> {
+    const scope = await this.resolveScope(
+      tenantId,
+      context,
+      query.branchId,
+      query.timezone,
+    );
+    const row = await this.prisma.reportDailyFinancialSummary.findFirst({
+      where: {
+        tenantId,
+        scope: scope.scope,
+        scopeKey: scope.scopeKey,
+      },
+      orderBy: { reportDate: 'desc' },
+    });
+    return {
+      ...scope,
+      items: row ? [serializeReportValue(row)] : [],
+    };
+  }
+
   async listLiabilityAgeing(
     tenantId: string,
     context: AuthContext,
@@ -117,6 +147,8 @@ export class ReportsService {
     context: AuthContext,
     query: ReportQuery = {},
   ): Promise<ReportCollection<Record<string, unknown>>> {
+    const sort = normalizeCustomerPerformanceSort(query.sort);
+    const limit = normalizeReportLimit(query.limit);
     return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
       this.prisma.reportCustomerSnapshot.findMany({
         where: {
@@ -125,7 +157,8 @@ export class ReportsService {
           scopeKey: scope.scopeKey,
           ...(dateFilter ? { reportDate: dateFilter } : {}),
         },
-        orderBy: [{ reportDate: 'desc' }, { customerId: 'asc' }],
+        orderBy: customerPerformanceOrderBy(sort),
+        take: limit,
       }),
     );
   }
@@ -261,6 +294,101 @@ export class ReportsService {
     );
   }
 
+  async getRedemptionDrilldown(
+    tenantId: string,
+    context: AuthContext,
+    redemptionId: string,
+  ): Promise<Record<string, unknown>> {
+    if (
+      context.user.role !== UserRole.SUPERVISOR &&
+      context.user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('Redemption drilldown is restricted');
+    }
+
+    const redemption = await this.prisma.redemption.findFirst({
+      where: { tenantId, id: redemptionId.trim() },
+      select: {
+        id: true,
+        branchId: true,
+        customerId: true,
+        requestedAmountKobo: true,
+        basketAmountKobo: true,
+        maximumAllowedKobo: true,
+        confirmedAmountKobo: true,
+        status: true,
+        requestedAt: true,
+        confirmedAt: true,
+        rejectedAt: true,
+        reversedAt: true,
+        allocations: {
+          orderBy: { allocationOrder: 'asc' },
+          select: {
+            id: true,
+            creditLotId: true,
+            amountKobo: true,
+            allocationOrder: true,
+            restorations: { select: { amountKobo: true } },
+          },
+        },
+        approval: {
+          select: {
+            status: true,
+            reasonCode: true,
+            decisionReason: true,
+            requestedAt: true,
+            decidedAt: true,
+            executedAt: true,
+          },
+        },
+      },
+    });
+    if (!redemption) throw new NotFoundException('Redemption not found');
+    if (
+      context.user.role === UserRole.SUPERVISOR &&
+      context.user.branchId !== redemption.branchId
+    ) {
+      throw new NotFoundException('Redemption not found');
+    }
+
+    const allocations = redemption.allocations.map((allocation) => ({
+      id: allocation.id,
+      creditLotId: allocation.creditLotId,
+      amountKobo: Number(allocation.amountKobo),
+      allocationOrder: allocation.allocationOrder,
+      restoredAmountKobo: allocation.restorations.reduce(
+        (total, restoration) => total + Number(restoration.amountKobo),
+        0,
+      ),
+    }));
+    return {
+      id: redemption.id,
+      branchId: redemption.branchId,
+      customerId: redemption.customerId,
+      requestedAmountKobo: Number(redemption.requestedAmountKobo),
+      basketAmountKobo: Number(redemption.basketAmountKobo),
+      maximumAllowedKobo: Number(redemption.maximumAllowedKobo),
+      confirmedAmountKobo:
+        redemption.confirmedAmountKobo === null
+          ? null
+          : Number(redemption.confirmedAmountKobo),
+      status: redemption.status,
+      requestedAt: redemption.requestedAt.toISOString(),
+      confirmedAt: redemption.confirmedAt?.toISOString() ?? null,
+      rejectedAt: redemption.rejectedAt?.toISOString() ?? null,
+      reversedAt: redemption.reversedAt?.toISOString() ?? null,
+      allocations,
+      approval: redemption.approval
+        ? {
+            ...redemption.approval,
+            requestedAt: redemption.approval.requestedAt.toISOString(),
+            decidedAt: redemption.approval.decidedAt?.toISOString() ?? null,
+            executedAt: redemption.approval.executedAt?.toISOString() ?? null,
+          }
+        : null,
+    };
+  }
+
   async listSmsOperations(
     tenantId: string,
     context: AuthContext,
@@ -277,6 +405,113 @@ export class ReportsService {
         orderBy: [{ reportDate: 'desc' }],
       }),
     );
+  }
+
+  async listTransactionSms(
+    tenantId: string,
+    context: AuthContext,
+    transactionId: string,
+    query: { page?: number; limit?: number } = {},
+  ): Promise<{
+    transactionId: string;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+    items: Array<Record<string, unknown>>;
+  }> {
+    if (
+      context.user.role !== UserRole.SUPERVISOR &&
+      context.user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('SMS inspection is restricted');
+    }
+    const normalizedTransactionId = transactionId.trim();
+    if (!normalizedTransactionId) {
+      throw new BadRequestException('transactionId is required');
+    }
+    const page = normalizePage(query.page);
+    const limit = normalizePageLimit(query.limit);
+
+    const messages = await this.prisma.smsMessage.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { receiptId: normalizedTransactionId },
+          { ledgerEntryId: normalizedTransactionId },
+          { redemptionId: normalizedTransactionId },
+          { adjustmentId: normalizedTransactionId },
+        ],
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      skip: (page - 1) * limit,
+      take: limit + 1,
+    });
+    if (messages.length === 0) {
+      throw new NotFoundException('Transaction SMS notification not found');
+    }
+
+    if (context.user.role === UserRole.SUPERVISOR) {
+      const [receipts, redemptions] = await Promise.all([
+        this.prisma.receipt.findMany({
+          where: {
+            tenantId,
+            id: {
+              in: messages
+                .map((message) => message.receiptId)
+                .filter(Boolean) as string[],
+            },
+          },
+          select: { branchId: true },
+        }),
+        this.prisma.redemption.findMany({
+          where: {
+            tenantId,
+            id: {
+              in: messages
+                .map((message) => message.redemptionId)
+                .filter(Boolean) as string[],
+            },
+          },
+          select: { branchId: true },
+        }),
+      ]);
+      const branchIds = new Set([
+        ...receipts.map((receipt) => receipt.branchId),
+        ...redemptions.map((redemption) => redemption.branchId),
+      ]);
+      if (branchIds.size !== 1 || !branchIds.has(context.user.branchId ?? '')) {
+        throw new NotFoundException('Transaction SMS notification not found');
+      }
+    }
+
+    const hasMore = messages.length > limit;
+    const pageMessages = hasMore ? messages.slice(0, limit) : messages;
+
+    return {
+      transactionId: normalizedTransactionId,
+      page,
+      limit,
+      hasMore,
+      items: pageMessages.map((message) => ({
+        id: message.id,
+        receiptId: message.receiptId,
+        template: message.template,
+        phoneE164: maskReportPhone(message.phoneE164),
+        status: message.status,
+        attempts: message.attempts,
+        lastAttemptAt: message.lastAttemptAt,
+        nextAttemptAt: message.nextAttemptAt,
+        providerMessageId: message.providerMessageId,
+        failureCategory: message.failureCategory,
+        lastError: redactSmsError(message.lastError),
+        queuedAt: message.queuedAt,
+        sentAt: message.sentAt,
+        deliveredAt: message.deliveredAt,
+        failedAt: message.failedAt,
+        suppressedAt: message.suppressedAt,
+        deadLetteredAt: message.deadLetteredAt,
+      })),
+    };
   }
 
   async listAuditReport(
@@ -600,6 +835,96 @@ export class ReportsService {
       timezone: timezoneHint ?? branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
     };
   }
+}
+
+const MAX_SMS_INSPECTION_PAGE_SIZE = 100;
+const MAX_REPORT_RESULT_SIZE = 500;
+
+function normalizeCustomerPerformanceSort(
+  value: CustomerPerformanceSort | undefined,
+): CustomerPerformanceSort {
+  if (value === undefined || value === 'spend') return 'spend';
+  if (
+    value === 'balance' ||
+    value === 'visits' ||
+    value === 'recent' ||
+    value === 'dormant-value'
+  ) {
+    return value;
+  }
+  throw new BadRequestException('Invalid customer performance sort');
+}
+
+function normalizeReportLimit(value: number | undefined): number {
+  if (value === undefined) return MAX_REPORT_RESULT_SIZE;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_REPORT_RESULT_SIZE) {
+    throw new BadRequestException(
+      `limit must be an integer between 1 and ${MAX_REPORT_RESULT_SIZE}`,
+    );
+  }
+  return value;
+}
+
+function customerPerformanceOrderBy(sort: CustomerPerformanceSort) {
+  switch (sort) {
+    case 'balance':
+      return [
+        { currentBalanceKobo: 'desc' as const },
+        { customerId: 'asc' as const },
+      ];
+    case 'visits':
+      return [{ visitCount: 'desc' as const }, { customerId: 'asc' as const }];
+    case 'recent':
+      return [
+        { lastActivityAt: 'desc' as const },
+        { customerId: 'asc' as const },
+      ];
+    case 'dormant-value':
+      return [
+        { dormant: 'desc' as const },
+        { currentBalanceKobo: 'desc' as const },
+        { customerId: 'asc' as const },
+      ];
+    case 'spend':
+    default:
+      return [
+        { purchaseValueKobo: 'desc' as const },
+        { customerId: 'asc' as const },
+      ];
+  }
+}
+
+function normalizePage(value: number | undefined): number {
+  if (value === undefined) return 1;
+  if (!Number.isInteger(value) || value < 1) {
+    throw new BadRequestException('page must be a positive integer');
+  }
+  return value;
+}
+
+function normalizePageLimit(value: number | undefined): number {
+  if (value === undefined) return 50;
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > MAX_SMS_INSPECTION_PAGE_SIZE
+  ) {
+    throw new BadRequestException(
+      `limit must be an integer between 1 and ${MAX_SMS_INSPECTION_PAGE_SIZE}`,
+    );
+  }
+  return value;
+}
+
+function maskReportPhone(value: string): string {
+  const normalized = value.trim();
+  if (normalized.length <= 6) return '***';
+  return `${normalized.slice(0, 3)}*****${normalized.slice(-2)}`;
+}
+
+function redactSmsError(value: string | null): string | null {
+  if (!value) return null;
+  return value.replace(/[\r\n\t]+/g, ' ').slice(0, 240);
 }
 
 function maxBigInt(left: bigint, right: bigint): bigint {

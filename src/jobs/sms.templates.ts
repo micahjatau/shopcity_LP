@@ -3,6 +3,7 @@ export type SmsTemplate =
   | 'redemption-confirmed'
   | 'transaction-reversed'
   | 'balance-adjusted'
+  | 'card-replaced'
   | 'credit-expiry-reminder-v1';
 
 export type AdjustmentKind = 'CREDIT' | 'DEBIT';
@@ -49,6 +50,14 @@ export type BalanceAdjustedSmsPayload = SmsPayloadBase<'balance-adjusted'> & {
   remainingBalanceKobo?: string;
 };
 
+export type CardReplacedSmsPayload = SmsPayloadBase<'card-replaced'> & {
+  previousCardId: string;
+  replacementCardId: string;
+  customerId: string;
+  previousSerialSuffix: string;
+  replacementSerialSuffix: string;
+};
+
 export type CreditExpiryReminderSmsPayload =
   SmsPayloadBase<'credit-expiry-reminder-v1'> & {
     customerId: string;
@@ -77,6 +86,8 @@ export function renderSmsMessage(input: {
       return renderTransactionReversed(input);
     case 'balance-adjusted':
       return renderBalanceAdjusted(input);
+    case 'card-replaced':
+      return renderCardReplaced(input);
     case 'credit-expiry-reminder-v1':
       return renderCreditExpiryReminder(input);
     default:
@@ -164,6 +175,26 @@ export function buildBalanceAdjustedSmsPayload(input: {
   };
 }
 
+export function buildCardReplacedSmsPayload(input: {
+  previousCardId: string;
+  replacementCardId: string;
+  customerId: string;
+  phoneE164: string;
+  previousSerial: string;
+  replacementSerial: string;
+}): CardReplacedSmsPayload {
+  return {
+    version: 1,
+    template: 'card-replaced',
+    phoneE164: input.phoneE164,
+    previousCardId: input.previousCardId,
+    replacementCardId: input.replacementCardId,
+    customerId: input.customerId,
+    previousSerialSuffix: input.previousSerial.slice(-4),
+    replacementSerialSuffix: input.replacementSerial.slice(-4),
+  };
+}
+
 export function buildCreditExpiryReminderSmsPayload(input: {
   customerId: string;
   phoneE164: string;
@@ -198,6 +229,9 @@ export function validateSmsIntent(
       return;
     case 'balance-adjusted':
       assertBalanceAdjustedPayload(payload);
+      return;
+    case 'card-replaced':
+      assertCardReplacedPayload(payload);
       return;
     case 'credit-expiry-reminder-v1':
       assertCreditExpiryReminderPayload(payload);
@@ -307,6 +341,26 @@ function assertTransactionReversedPayload(
   if (receiptId !== undefined && receiptId !== null) {
     requirePayloadString(payload, 'receiptId');
   }
+}
+
+function renderCardReplaced(input: {
+  payload: Record<string, unknown>;
+}): string {
+  const replacementSuffix = requirePayloadString(
+    input.payload,
+    'replacementSerialSuffix',
+  );
+  return `ShopCity: Your loyalty card ending ${replacementSuffix} was replaced. If you did not request this, contact ShopCity.`;
+}
+
+function assertCardReplacedPayload(payload: Record<string, unknown>): void {
+  requirePayloadTemplate(payload, 'card-replaced');
+  requirePayloadPhone(payload);
+  requirePayloadString(payload, 'previousCardId');
+  requirePayloadString(payload, 'replacementCardId');
+  requirePayloadString(payload, 'customerId');
+  requirePayloadString(payload, 'previousSerialSuffix');
+  requirePayloadString(payload, 'replacementSerialSuffix');
 }
 
 function renderCreditExpiryReminder(input: {

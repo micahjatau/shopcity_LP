@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CustomerWorkspace } from '../components/workflows/customer-workspace';
 import {
+  cardsControllerUpdateStatusV1,
   customersControllerCreateCustomerV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
@@ -185,6 +186,86 @@ describe('CustomerWorkspace', () => {
       expect(
         screen.queryByText('should-not-be-returned@example.com'),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  it('requires explicit confirmation before blocking a card', async () => {
+    mockSearchParams.mockImplementation((key: string) =>
+      key === 'id' ? 'route-customer' : null,
+    );
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'route-customer',
+          fullName: 'Route Customer',
+          cards: [
+            {
+              id: 'card-1',
+              serialNumber: 'CARD-1',
+              status: 'ACTIVE',
+              availableBalanceKobo: 0,
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(<CustomerWorkspace canManage />);
+
+    await screen.findByRole('button', { name: 'CARD-1' });
+    fireEvent.click(screen.getByRole('button', { name: 'CARD-1' }));
+    fireEvent.click(screen.getByLabelText('BLOCKED'));
+    fireEvent.click(screen.getByRole('button', { name: 'Update status' }));
+
+    expect(
+      await screen.findByText('Type BLOCK to confirm blocking this card.'),
+    ).toBeInTheDocument();
+    expect(cardsControllerUpdateStatusV1).not.toHaveBeenCalled();
+  });
+
+  it('submits card blocking after confirmation', async () => {
+    mockSearchParams.mockImplementation((key: string) =>
+      key === 'id' ? 'route-customer' : null,
+    );
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'route-customer',
+          fullName: 'Route Customer',
+          cards: [
+            {
+              id: 'card-1',
+              serialNumber: 'CARD-1',
+              status: 'ACTIVE',
+              availableBalanceKobo: 0,
+            },
+          ],
+        },
+      },
+    } as never);
+    jest.mocked(cardsControllerUpdateStatusV1).mockResolvedValue({
+      status: 200,
+      data: { data: { id: 'card-1', status: 'BLOCKED' } },
+    } as never);
+
+    render(<CustomerWorkspace canManage />);
+
+    await screen.findByRole('button', { name: 'CARD-1' });
+    fireEvent.click(screen.getByRole('button', { name: 'CARD-1' }));
+    fireEvent.click(screen.getByLabelText('BLOCKED'));
+    fireEvent.change(screen.getByLabelText('Card block confirmation'), {
+      target: { value: 'BLOCK' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Update status' }));
+
+    await waitFor(() => {
+      expect(cardsControllerUpdateStatusV1).toHaveBeenCalledWith(
+        'card-1',
+        { status: 'BLOCKED' },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
     });
   });
 

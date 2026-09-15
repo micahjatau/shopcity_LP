@@ -57,3 +57,30 @@ test('rejects SHA mismatch and secret-like keys', () => {
   authState.storageState = { cookies: [] };
   assert.throws(() => validateEvidence(authState, sha), /secret-like/);
 });
+
+test('requires Review 67 runtime certification groups when requested', () => {
+  assert.throws(
+    () => validateEvidence(valid(), sha, { requireRuntimeCertification: true }),
+    /runtimeCertification evidence is required/,
+  );
+
+  const evidence = valid();
+  evidence.runtimeCertification = {
+    duplicateReceiptRegression: { result: 'PASS', requestId: 'req-1' },
+    workerSmsTerminalState: { result: 'PASS', outboxEventId: 'outbox-1' },
+    cardLifecycle: { result: 'PASS', assignmentStatus: 'PASS' },
+    reportIsolationPerformance: { result: 'PASS', p95Ms: 300 },
+    providerTerminalState: { result: 'PASS', smsStatus: 'SENT' },
+  };
+  assert.equal(
+    validateEvidence(evidence, sha, { requireRuntimeCertification: true }),
+    true,
+  );
+
+  evidence.runtimeCertification.providerTerminalState.result = 'PENDING';
+  assert.throws(
+    () =>
+      validateEvidence(evidence, sha, { requireRuntimeCertification: true }),
+    /providerTerminalState did not PASS/,
+  );
+});

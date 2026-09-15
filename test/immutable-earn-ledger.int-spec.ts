@@ -808,6 +808,77 @@ describe('immutable earn ledger (int)', () => {
     expect(first.transactionId).toBeDefined();
   }, 120000);
 
+  it('returns 409 and records duplicate evidence with Prisma connection_limit=1', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LEDGER-SINGLE-CONNECTION-DUPLICATE',
+    );
+    const occurredAt = recentOccurredAt();
+    await loyaltyService.earn(tenant.id, fixture.actor, 'earn-single-first', {
+      posReceiptNumber: fixture.posReceiptNumber,
+      cardSerialNumber: fixture.card.barcodeValue,
+      purchaseAmountKobo: 1_000_000,
+      occurredAt,
+    });
+
+    const previousVercel = process.env.VERCEL;
+    process.env.VERCEL = '1';
+    const singleConnectionPrisma = new PrismaService();
+    await singleConnectionPrisma.$connect();
+    try {
+      const singleConnectionLoyalty = new LoyaltyService(
+        singleConnectionPrisma,
+        new AuditService(singleConnectionPrisma),
+        { get: (key: string) => configValues[key] } as never,
+      );
+
+      await expect(
+        singleConnectionLoyalty.earn(
+          tenant.id,
+          fixture.actor,
+          'earn-single-duplicate',
+          {
+            posReceiptNumber: fixture.posReceiptNumber,
+            cardSerialNumber: fixture.card.barcodeValue,
+            purchaseAmountKobo: 1_000_000,
+            occurredAt,
+          },
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'RECEIPT_ALREADY_USED' },
+      });
+    } finally {
+      if (previousVercel === undefined) {
+        delete process.env.VERCEL;
+      } else {
+        process.env.VERCEL = previousVercel;
+      }
+      await singleConnectionPrisma.$disconnect();
+    }
+
+    expect(
+      await prisma.auditLog.count({
+        where: {
+          tenantId: tenant.id,
+          action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
+          entityType: 'RECEIPT',
+        },
+      }),
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      await prisma.outboxEvent.count({
+        where: {
+          tenantId: tenant.id,
+          aggregateType: 'receipt',
+          eventType: 'fraud.evaluate',
+        },
+      }),
+    ).toBeGreaterThanOrEqual(1);
+  }, 120000);
+
   it('records duplicate receipt evidence when concurrent earns race the unique receipt constraint', async () => {
     const fixture = await createEarnFixture(
       prisma,

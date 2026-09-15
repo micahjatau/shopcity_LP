@@ -83,7 +83,8 @@ function parseIntegerPart(value: string, separator: ',' | '.') {
   if (!value) return null;
 
   if (value.includes(separator)) {
-    const grouped = new RegExp(`^\\d{1,3}(\\${separator}\\d{3})+$`);
+    const grouped =
+      separator === ',' ? /^\d{1,3}(,\d{3})+$/ : /^\d{1,3}(\.\d{3})+$/;
     if (!grouped.test(value)) {
       return null;
     }

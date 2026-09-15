@@ -26,17 +26,12 @@ export function createSmsProvider(env = process.env): SmsProvider {
     process.env.NODE_ENV ?? 'development',
   );
 
-  const allowFakeInProduction =
-    values.ALLOW_FAKE_SMS_IN_PRODUCTION === true ||
-    readString(values, 'ALLOW_FAKE_SMS_IN_PRODUCTION').toLowerCase() === 'true';
-
   if (
     nodeEnv === 'production' &&
-    (mode === 'deterministic' || mode === 'sandbox') &&
-    !allowFakeInProduction
+    (mode === 'deterministic' || mode === 'sandbox')
   ) {
     throw new Error(
-      'Fake SMS providers are not allowed in production without ALLOW_FAKE_SMS_IN_PRODUCTION=true',
+      'Fake SMS providers are not allowed in production; use SMS_PROVIDER_MODE=real',
     );
   }
 
@@ -71,6 +66,8 @@ export function createSmsProvider(env = process.env): SmsProvider {
           typeof values.SMS_PROVIDER_TIMEOUT_MS === 'number'
             ? values.SMS_PROVIDER_TIMEOUT_MS
             : 10000,
+        deliveryReportUrl:
+          readString(values, 'SMS_PROVIDER_DLR_URL') || undefined,
       });
     }
     case 'sandbox':

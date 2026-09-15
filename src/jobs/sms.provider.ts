@@ -22,8 +22,17 @@ export interface SmsSendResult {
   failureCategory?: 'retryable' | 'terminal';
 }
 
+export interface SmsDeliveryReport {
+  status: Extract<SmsDeliveryOutcome, 'SENT' | 'DELIVERED' | 'FAILED'>;
+  providerMessageId: string;
+  occurredAt?: Date;
+}
+
 export interface SmsProvider {
   send(input: SmsSendInput): Promise<SmsSendResult>;
+  getDeliveryReport?(
+    providerMessageId: string,
+  ): Promise<SmsDeliveryReport | null>;
 }
 
 export class DeterministicSmsProvider implements SmsProvider {
@@ -50,10 +59,39 @@ export interface EbulkSmsProviderConfig {
   apiKey: string;
   senderId: string;
   timeoutMs: number;
+  deliveryReportUrl?: string;
 }
 
 export class EbulkSmsProvider implements SmsProvider {
   constructor(private readonly config: EbulkSmsProviderConfig) {}
+
+  async getDeliveryReport(
+    providerMessageId: string,
+  ): Promise<SmsDeliveryReport | null> {
+    const endpoint =
+      this.config.deliveryReportUrl ?? deriveDeliveryReportUrl(this.config.url);
+    const url = new URL(endpoint);
+    url.searchParams.set('username', this.config.username);
+    url.searchParams.set('apikey', this.config.apiKey);
+    url.searchParams.set('uniqueid', providerMessageId);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    timeout.unref?.();
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { accept: 'application/xml, text/xml' },
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      return parseEbulkDeliveryReport(await response.text(), providerMessageId);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   async send(input: SmsSendInput): Promise<SmsSendResult> {
     const controller = new AbortController();
@@ -243,6 +281,57 @@ function mapEbulkSmsResponse(body: unknown): SmsSendResult {
     default:
       return invalidProviderResponse();
   }
+}
+
+function deriveDeliveryReportUrl(sendUrl: string): string {
+  const url = new URL(sendUrl);
+  return `${url.origin}/getdlr.xml`;
+}
+
+function parseEbulkDeliveryReport(
+  body: string,
+  fallbackMessageId: string,
+): SmsDeliveryReport | null {
+  const status = readXmlTag(body, 'status')?.toUpperCase();
+  if (!status) return null;
+  const providerMessageId =
+    readXmlTag(body, 'uniqueid') ??
+    readXmlTag(body, 'msgid') ??
+    fallbackMessageId;
+  const normalizedStatus =
+    status === 'DELIVERED' || status === 'SUCCESS'
+      ? 'DELIVERED'
+      : status === 'FAILED' || status === 'DROPPED' || status === 'EXPIRED'
+        ? 'FAILED'
+        : status === 'SENT'
+          ? 'SENT'
+          : null;
+  if (!normalizedStatus) return null;
+  const timestamp =
+    readXmlTag(body, 'deliverytime') ?? readXmlTag(body, 'sendtime');
+  const occurredAt = timestamp ? new Date(timestamp) : undefined;
+  return {
+    status: normalizedStatus,
+    providerMessageId,
+    ...(occurredAt && !Number.isNaN(occurredAt.getTime())
+      ? { occurredAt }
+      : {}),
+  };
+}
+
+function readXmlTag(body: string, tag: string): string | undefined {
+  const match =
+    tag === 'uniqueid'
+      ? body.match(/<uniqueid\b[^>]*>([^<]*)<\/uniqueid>/i)
+      : tag === 'status'
+        ? body.match(/<status\b[^>]*>([^<]*)<\/status>/i)
+        : tag === 'deliverytime'
+          ? body.match(/<deliverytime\b[^>]*>([^<]*)<\/deliverytime>/i)
+          : tag === 'sendtime'
+            ? body.match(/<sendtime\b[^>]*>([^<]*)<\/sendtime>/i)
+            : null;
+  const value = match?.[1]?.trim();
+  return value || undefined;
 }
 
 function readResponseString(value: unknown, key: string): string | undefined {

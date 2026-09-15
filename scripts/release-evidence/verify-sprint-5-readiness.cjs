@@ -481,8 +481,14 @@ function validateSecurityEvidence(filePath, rawText, document, referenceTime) {
       /passed in release bundle/i.test(rawText),
     `security evidence must conclude passed for the full gate: ${filePath}`,
   );
+  const expectedCandidateLine = `Candidate SHA: ${document.releaseSha}`;
   assert(
-    new RegExp(`Candidate SHA:\\s*${document.releaseSha}`, 'i').test(rawText),
+    rawText
+      .split(/\r?\n/)
+      .some(
+        (line) =>
+          line.trim().toLowerCase() === expectedCandidateLine.toLowerCase(),
+      ),
     `security evidence candidate SHA must match readiness.json: ${filePath}`,
   );
   assert(

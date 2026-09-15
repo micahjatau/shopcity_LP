@@ -205,6 +205,62 @@ export class OutboxWorkerRuntime {
     }
 
     await this.recoverAndPublishOnce();
+    await this.pollDeliveryReports();
+  }
+
+  private async pollDeliveryReports(): Promise<void> {
+    if (!this.smsProvider.getDeliveryReport) return;
+
+    const messages = await this.prisma.smsMessage.findMany({
+      where: {
+        providerMessageId: { not: null },
+        status: 'SENT',
+        deliveredAt: null,
+        failedAt: null,
+        deadLetteredAt: null,
+      },
+      select: { id: true, providerMessageId: true },
+      orderBy: { lastAttemptAt: 'asc' },
+      take: Math.min(this.config.publishBatchSize, 100),
+    });
+
+    for (const message of messages) {
+      if (!message.providerMessageId) continue;
+      const report = await this.smsProvider.getDeliveryReport(
+        message.providerMessageId,
+      );
+      if (!report) continue;
+
+      if (report.status === 'DELIVERED') {
+        await this.prisma.smsMessage.updateMany({
+          where: {
+            id: message.id,
+            status: 'SENT',
+            deliveredAt: null,
+            failedAt: null,
+          },
+          data: {
+            status: 'DELIVERED',
+            deliveredAt: report.occurredAt ?? new Date(),
+          },
+        });
+      } else if (report.status === 'FAILED') {
+        await this.prisma.smsMessage.updateMany({
+          where: {
+            id: message.id,
+            status: 'SENT',
+            deliveredAt: null,
+            failedAt: null,
+          },
+          data: {
+            status: 'FAILED',
+            failedAt: report.occurredAt ?? new Date(),
+            failureCategory: 'terminal',
+            lastError: 'Provider delivery report marked message failed',
+          },
+        });
+      }
+    }
   }
 
   private async recoverAndPublishOnce(): Promise<void> {
@@ -590,6 +646,8 @@ export class OutboxWorkerRuntime {
 
     const receiptId = readStringField(payload, 'receiptId').trim() || null;
     const transactionId = readStringField(payload, 'transactionId').trim();
+    const cardId = readStringField(payload, 'replacementCardId').trim() || null;
+    const customerId = readStringField(payload, 'customerId').trim() || null;
     const redemptionId =
       readStringField(payload, 'redemptionId').trim() || null;
     const adjustmentId =
@@ -597,7 +655,17 @@ export class OutboxWorkerRuntime {
     const phoneE164 = readStringField(payload, 'phoneE164').trim();
     const template = readStringField(payload, 'template').trim();
 
-    if (!transactionId || !phoneE164 || !template) {
+    const requiresTransaction = ![
+      'credit-expiry-reminder-v1',
+      'card-replaced',
+    ].includes(template);
+    if (
+      (!transactionId && requiresTransaction) ||
+      (template === 'credit-expiry-reminder-v1' && !customerId) ||
+      (template === 'card-replaced' && !cardId) ||
+      !phoneE164 ||
+      !template
+    ) {
       throw new Error(
         `SmsMessage payload missing required fields for ${outboxEvent.id}`,
       );
@@ -615,7 +683,8 @@ export class OutboxWorkerRuntime {
       create: {
         tenantId: outboxEvent.tenantId,
         receiptId,
-        ledgerEntryId: transactionId,
+        ledgerEntryId: transactionId || null,
+        cardId,
         redemptionId,
         adjustmentId,
         outboxEventId: outboxEvent.id,

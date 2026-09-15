@@ -20,6 +20,7 @@ import { FINANCIAL_SERIALIZABLE_TRANSACTION_OPTIONS } from '../../common/balance
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
+import { normalizeCardSerial } from '../../common/card-identity';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RedemptionPolicyService } from '../../common/redemption-policy.service';
@@ -150,15 +151,13 @@ export class RedemptionsService {
     );
     const normalizedPosReceiptNumber =
       normalizeReceiptIdentity(posReceiptNumber);
+    const cardSerialNumber = normalizeCardSerial(dto.cardSerialNumber);
     const occurredAt = parseDate(dto.occurredAt, 'occurredAt');
     const sessionDeviceId = actor.session.deviceId;
     const requestHash = hashRequest({
       tenantId,
       actorId: actor.user.id,
-      cardSerialNumber: normalizeBoundedText(
-        dto.cardSerialNumber,
-        'cardSerialNumber',
-      ),
+      cardSerialNumber,
       posReceiptNumber: normalizedPosReceiptNumber,
       basketAmountKobo: dto.basketAmountKobo,
       requestedRedemptionKobo: dto.requestedRedemptionKobo,
@@ -248,10 +247,10 @@ export class RedemptionsService {
               prisma.card.findFirst({
                 where: {
                   tenantId,
-                  barcodeValue: normalizeBoundedText(
-                    dto.cardSerialNumber,
-                    'cardSerialNumber',
-                  ),
+                  barcodeValue: {
+                    equals: cardSerialNumber,
+                    mode: 'insensitive',
+                  },
                 },
                 include: { customer: true },
               }),

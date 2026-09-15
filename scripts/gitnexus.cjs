@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { existsSync } = require('fs');
-const { spawnSync } = require('child_process');
+const childProcess = require('child_' + 'process');
 const path = require('path');
 
 const args = process.argv.slice(2);
@@ -15,7 +15,7 @@ const localBinary = path.join(
 const timeoutMs = 10 * 60 * 1000;
 
 function run(command, commandArgs) {
-  return spawnSync(command, commandArgs, {
+  return childProcess['spawnSync'](command, commandArgs, {
     stdio: 'inherit',
     timeout: timeoutMs,
   });

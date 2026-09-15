@@ -91,6 +91,10 @@ describe('report materialization (int)', () => {
 
     const now = Date.now();
     const occurredAt = new Date(now - 60 * 60 * 1000).toISOString();
+    await prisma.customer.update({
+      where: { id: fixture.customer.id },
+      data: { createdAt: new Date(now - 90 * 60 * 1000) },
+    });
     const initialMaterializedAt = new Date(now - 2 * 60 * 60 * 1000);
     const finalMaterializedAt = new Date(now + 60 * 60 * 1000);
     const expectedReportDate = toReportDateUtc(occurredAt, 'Africa/Lagos');
@@ -241,6 +245,141 @@ describe('report materialization (int)', () => {
     ).toBe(1);
 
     expect(earn.creditKobo).toBe(20_000);
+  }, 120000);
+
+  it('excludes next-local-day activity from the prior day liability snapshot', async () => {
+    const reportDate = toReportDateUtc(
+      new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      'Africa/Lagos',
+    );
+    const firstOccurredAt = new Date(
+      reportDate.getTime() + 22 * 60 * 60 * 1000,
+    );
+    const nextLocalDayOccurredAt = new Date(
+      reportDate.getTime() + 23.5 * 60 * 60 * 1000,
+    );
+    const firstFixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-REPORT-BOUNDARY-1',
+    );
+    const secondFixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-REPORT-BOUNDARY-2',
+    );
+    const context = (deviceId: string) =>
+      makeContext(
+        {
+          id: cashier.id,
+          tenantId: tenant.id,
+          branchId: branch.id,
+          role: UserRole.SUPERVISOR,
+        },
+        deviceId,
+      );
+
+    await loyaltyService.earn(
+      tenant.id,
+      context(firstFixture.device.id),
+      'report-boundary-earn-1',
+      {
+        posReceiptNumber: firstFixture.posReceiptNumber,
+        cardSerialNumber: firstFixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: firstOccurredAt.toISOString(),
+        overrideReason: 'Historical report boundary fixture',
+      },
+    );
+    await loyaltyService.earn(
+      tenant.id,
+      context(secondFixture.device.id),
+      'report-boundary-earn-2',
+      {
+        posReceiptNumber: secondFixture.posReceiptNumber,
+        cardSerialNumber: secondFixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: nextLocalDayOccurredAt.toISOString(),
+        overrideReason: 'Historical report boundary fixture',
+      },
+    );
+
+    const asOf = new Date();
+    await reportMaterializer.materializeTenant(tenant.id, {
+      materializedAt: asOf,
+      asOf,
+    });
+
+    const row = await prisma.reportDailyFinancialSummary.findFirst({
+      where: {
+        tenantId: tenant.id,
+        scope: 'TENANT',
+        scopeKey: tenant.id,
+        reportDate,
+      },
+    });
+    expect(row).toMatchObject({
+      reportDate,
+      outstandingLiabilityKobo: BigInt(20_000),
+    });
+  }, 120000);
+
+  it('includes card-linked replacement SMS in branch reports', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-REPORT-CARD-SMS',
+    );
+    const queuedAt = new Date();
+    const event = await prisma.outboxEvent.create({
+      data: {
+        tenantId: tenant.id,
+        aggregateType: 'card',
+        aggregateId: fixture.card.id,
+        eventType: 'sms.send',
+        payload: { kind: 'card.replaced' },
+        status: 'COMPLETED',
+        processedAt: queuedAt,
+      },
+    });
+    await prisma.smsMessage.create({
+      data: {
+        tenantId: tenant.id,
+        cardId: fixture.card.id,
+        outboxEventId: event.id,
+        phoneE164: fixture.customer.phoneE164,
+        template: 'card-replaced',
+        payload: { kind: 'card.replaced' },
+        status: 'SENT',
+        queuedAt,
+        sentAt: new Date(queuedAt.getTime() + 1000),
+      },
+    });
+
+    await reportMaterializer.materializeBranch(tenant.id, branch.id, {
+      materializedAt: new Date(queuedAt.getTime() + 2000),
+      asOf: new Date(queuedAt.getTime() + 2000),
+    });
+
+    const rows = await prisma.reportSmsDailySummary.findMany({
+      where: {
+        tenantId: tenant.id,
+        scope: 'BRANCH',
+        scopeKey: branch.id,
+      },
+    });
+    expect(rows).toEqual(
+      expect.arrayContaining([expect.objectContaining({ sentCount: 1 })]),
+    );
+    expect(rows.reduce((sum, row) => sum + row.sentCount, 0)).toBeGreaterThan(
+      0,
+    );
   }, 120000);
 });
 

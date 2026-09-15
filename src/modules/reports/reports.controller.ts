@@ -190,6 +190,28 @@ export class ReportsController {
     );
   }
 
+  @Get('executive-snapshot')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiQuery({ name: 'branchId', required: false })
+  @ApiQuery({ name: 'timezone', required: false })
+  @apiSuccessEnvelopeResponse({
+    description: 'Latest current executive stock snapshot',
+    dataSchema: reportCollectionSchema,
+  })
+  @ApiOperation({ summary: 'Get the current executive snapshot' })
+  getExecutiveSnapshot(
+    @CurrentSession() context: AuthContext,
+    @Query('branchId') branchId?: string,
+    @Query('timezone') timezone?: string,
+  ) {
+    return this.reportsService.getExecutiveSnapshot(
+      context.user.tenantId,
+      context,
+      { branchId, timezone },
+    );
+  }
+
   @Get('liability-ageing')
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
@@ -228,6 +250,18 @@ export class ReportsController {
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'timezone', required: false })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['spend', 'balance', 'visits', 'recent', 'dormant-value'],
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    minimum: 1,
+    maximum: 500,
+  })
   @apiSuccessEnvelopeResponse({
     description: 'Customer performance rows',
     dataSchema: reportCollectionSchema,
@@ -239,6 +273,9 @@ export class ReportsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('timezone') timezone?: string,
+    @Query('sort')
+    sort?: 'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value',
+    @Query('limit') limit?: string,
   ) {
     return this.reportsService.listCustomerPerformance(
       context.user.tenantId,
@@ -248,6 +285,8 @@ export class ReportsController {
         from,
         to,
         timezone,
+        sort,
+        limit: limit ? Number(limit) : undefined,
       },
     );
   }
@@ -296,6 +335,26 @@ export class ReportsController {
         to,
         timezone,
       },
+    );
+  }
+
+  @Get('redemptions/:redemptionId')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiParam({ name: 'redemptionId', format: 'uuid' })
+  @apiSuccessEnvelopeResponse({
+    description: 'Redemption lifecycle and FIFO allocation detail',
+    dataSchema: { type: 'object', additionalProperties: true },
+  })
+  @ApiOperation({ summary: 'Inspect a redemption report drilldown' })
+  getRedemptionDrilldown(
+    @CurrentSession() context: AuthContext,
+    @Param('redemptionId') redemptionId: string,
+  ) {
+    return this.reportsService.getRedemptionDrilldown(
+      context.user.tenantId,
+      context,
+      redemptionId,
     );
   }
 

@@ -63,6 +63,8 @@ export function buildOpenApiDocument(app: INestApplication) {
       .addTag('transactions')
       .addTag('offline-sync')
       .addTag('reports')
+      .addTag('notifications')
+      .addTag('Notifications')
       .addTag('fraud')
       .addTag('adjustments')
       .addTag('approvals')

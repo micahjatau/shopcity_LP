@@ -51,7 +51,11 @@ export function validateStagingWorkflowSecurity(source) {
   );
 
   const steps = Array.isArray(smoke.steps) ? smoke.steps : [];
-  const checkout = steps.find((step) => step?.uses === 'actions/checkout@v4');
+  const checkout = steps.find(
+    (step) =>
+      typeof step?.uses === 'string' &&
+      /^actions\/checkout@[0-9a-f]{40}$/i.test(step.uses),
+  );
   assert(checkout, 'pinned checkout action');
   assert(
     checkout.with?.['persist-credentials'] === false,

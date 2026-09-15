@@ -1,6 +1,10 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate } from 'k6/metrics';
+import {
+  assertAccessibleReportBranch,
+  requireReportBranchId,
+} from './k6-fixtures.mjs';
 
 const baseUrl = __ENV.K6_BASE_URL || 'http://127.0.0.1:3000';
 const username = __ENV.K6_USERNAME || 'admin@shopcity.local';
@@ -11,8 +15,7 @@ const cardSerial = __ENV.K6_CARD_SERIAL || 'SYNTHETIC-CARD-0001';
 const customerId =
   __ENV.K6_CUSTOMER_ID || '00000000-0000-4000-8000-000000000201';
 const runId = __ENV.K6_RUN_ID || `${Date.now()}`;
-const reportBranchId =
-  __ENV.K6_REPORT_BRANCH_ID || '00000000-0000-4000-8000-000000000203';
+const reportBranchId = __ENV.K6_REPORT_BRANCH_ID;
 const earnAmountKobo = Number(__ENV.K6_EARN_AMOUNT_KOBO || '2500000');
 const redeemAmountKobo = Number(__ENV.K6_REDEEM_AMOUNT_KOBO || '50000');
 const isolationMultiplier = Number(
@@ -99,6 +102,21 @@ export function setup() {
       `auth verification failed with status ${verificationResponse.status} using ${session.source} session: ${safeText(verificationResponse)}`,
     );
   }
+
+  requireReportBranchId(reportBranchId);
+
+  const branchesResponse = http.get(
+    `${baseUrl}/api/v1/branches`,
+    requestParams(session, 'report_fixture_verify'),
+  );
+  assertAccessible(branchesResponse);
+  if (branchesResponse.status !== 200) {
+    throw new Error(
+      `report fixture lookup failed with status ${branchesResponse.status}: ${safeText(branchesResponse)}`,
+    );
+  }
+
+  assertAccessibleReportBranch(branchesResponse.json(), reportBranchId);
 
   const cardWarmupResponse = http.get(
     `${baseUrl}/api/v1/cards/lookup/${encodeURIComponent(cardSerial)}`,

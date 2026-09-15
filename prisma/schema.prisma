@@ -360,6 +360,7 @@ model Card {
   replacedCards    Card[]       @relation("CardReplacement")
   receipts         Receipt[]
   redemptions      Redemption[]
+  smsMessages      SmsMessage[]
 
   @@unique([tenantId, barcodeValue])
   @@unique([tenantId, id])
@@ -666,6 +667,7 @@ model SmsMessage {
   ledgerEntryId     String?
   redemptionId      String?
   adjustmentId      String?
+  cardId            String?
   phoneE164         String
   template          String
   payload           Json
@@ -690,6 +692,7 @@ model SmsMessage {
   ledgerEntry       LoyaltyLedgerEntry? @relation(fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
   redemption        Redemption?         @relation(fields: [tenantId, redemptionId], references: [tenantId, id], onDelete: Restrict)
   adjustment        Adjustment?         @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Restrict)
+  card              Card?               @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([tenantId, outboxEventId])
   @@index([tenantId, status, queuedAt])
@@ -697,6 +700,7 @@ model SmsMessage {
   @@index([tenantId, ledgerEntryId])
   @@index([tenantId, redemptionId])
   @@index([tenantId, adjustmentId])
+  @@index([tenantId, cardId])
 }
 
 model CreditExpiryReminder {
@@ -837,12 +841,15 @@ model ReportCashierDailySummary {
   branchId          String?
   cashierId         String
   reportDate        DateTime
-  transactionCount  Int      @default(0)
-  purchaseValueKobo BigInt   @default(0)
-  creditIssuedKobo  BigInt   @default(0)
-  duplicateAttempts Int      @default(0)
+  transactionCount    Int      @default(0)
+  purchaseValueKobo   BigInt   @default(0)
+  creditIssuedKobo    BigInt   @default(0)
+  redemptionCount     Int      @default(0)
+  redemptionValueKobo BigInt   @default(0)
+  duplicateAttempts   Int      @default(0)
   reversalCount     Int      @default(0)
   approvalRequests  Int      @default(0)
+  fraudFlagCount    Int      @default(0)
   materializedAt    DateTime
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -907,6 +914,13 @@ model ReportRedemptionDailySummary {
   confirmedKobo        BigInt   @default(0)
   reversedKobo         BigInt   @default(0)
   pendingApprovalCount Int      @default(0)
+  basketRatioBps       Int      @default(0)
+  lotsConsumed         Int      @default(0)
+  allocationCount      Int      @default(0)
+  endingBalanceKobo    BigInt   @default(0)
+  approvedCount        Int      @default(0)
+  rejectedCount        Int      @default(0)
+  expiredApprovalCount Int      @default(0)
   materializedAt       DateTime
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -923,11 +937,15 @@ model ReportSmsDailySummary {
   scopeKey        String
   branchId        String?
   reportDate      DateTime
+  totalCount      Int      @default(0)
   queuedCount     Int      @default(0)
   sentCount       Int      @default(0)
   deliveredCount  Int      @default(0)
   failedCount     Int      @default(0)
   suppressedCount Int      @default(0)
+  retryCount      Int      @default(0)
+  deadLetterCount Int      @default(0)
+  costStatus      String   @default("UNAVAILABLE")
   materializedAt  DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

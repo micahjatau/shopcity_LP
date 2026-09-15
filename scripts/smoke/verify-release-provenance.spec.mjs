@@ -10,6 +10,9 @@ const record = {
   environment: 'staging',
   deployedFrontendSha: sha,
   deployedBackendSha: sha,
+  workerRuntimeSha: sha,
+  workerDeploymentId: 'worker-12345',
+  workerReady: true,
   verifierVersion: 'verify-smoke-evidence-v1',
   recordedAt: '2026-09-06T00:00:00Z',
 };
@@ -27,6 +30,18 @@ test('rejects deployment SHA drift', () => {
         'staging',
       ),
     /backend deployment SHA mismatch/,
+  );
+});
+
+test('rejects missing worker readiness evidence', () => {
+  assert.throws(
+    () =>
+      validateReleaseProvenance(
+        { ...record, workerReady: false },
+        sha,
+        'staging',
+      ),
+    /worker readiness is required/,
   );
 });
 

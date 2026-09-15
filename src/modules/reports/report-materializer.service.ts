@@ -68,6 +68,7 @@ interface RedemptionRecord {
   branchId: string;
   customerId: string;
   requestedAmountKobo: bigint;
+  basketAmountKobo: bigint;
   confirmedAmountKobo: bigint | null;
   status: string;
   requestedAt: Date;
@@ -85,7 +86,10 @@ interface CreditExpiryRecord {
 interface SmsMessageRecord {
   id: string;
   receiptId: string | null;
+  cardBranchId: string | null;
   status: string;
+  attempts: number;
+  deadLetteredAt: Date | null;
   queuedAt: Date;
   createdAt: Date;
   sentAt: Date | null;
@@ -108,6 +112,7 @@ interface ApprovalRecord {
 
 interface RedemptionAllocationRecord {
   id: string;
+  redemptionId: string | null;
   creditLotId: string;
   amountKobo: bigint;
   createdAt: Date;
@@ -117,6 +122,12 @@ interface AllocationRestorationRecord {
   allocationId: string;
   amountKobo: bigint;
   createdAt: Date;
+}
+
+interface FraudFlagRecord {
+  branchId: string | null;
+  cashierId: string | null;
+  firstDetectedAt: Date;
 }
 
 interface AuditLogRecord {
@@ -140,6 +151,7 @@ interface SourceData {
   approvals: ApprovalRecord[];
   redemptionAllocations: RedemptionAllocationRecord[];
   allocationRestorations: AllocationRestorationRecord[];
+  fraudFlags: FraudFlagRecord[];
   auditLogs: AuditLogRecord[];
 }
 
@@ -282,6 +294,7 @@ export class ReportMaterializerService {
       approvals,
       redemptionAllocations,
       allocationRestorations,
+      fraudFlags,
       auditLogs,
     ] = await Promise.all([
       client.branch.findMany({
@@ -348,6 +361,7 @@ export class ReportMaterializerService {
           branchId: true,
           customerId: true,
           requestedAmountKobo: true,
+          basketAmountKobo: true,
           confirmedAmountKobo: true,
           status: true,
           requestedAt: true,
@@ -369,7 +383,16 @@ export class ReportMaterializerService {
         select: {
           id: true,
           receiptId: true,
+          card: {
+            select: {
+              customer: {
+                select: { branchId: true },
+              },
+            },
+          },
           status: true,
+          attempts: true,
+          deadLetteredAt: true,
           queuedAt: true,
           createdAt: true,
           sentAt: true,
@@ -396,6 +419,7 @@ export class ReportMaterializerService {
         where: { tenantId, createdAt: { lte: asOf } },
         select: {
           id: true,
+          redemptionId: true,
           creditLotId: true,
           amountKobo: true,
           createdAt: true,
@@ -409,6 +433,14 @@ export class ReportMaterializerService {
           createdAt: true,
         },
       }),
+      client.fraudFlag?.findMany({
+        where: { tenantId, firstDetectedAt: { lte: asOf } },
+        select: {
+          branchId: true,
+          cashierId: true,
+          firstDetectedAt: true,
+        },
+      }) ?? Promise.resolve([]),
       client.auditLog.findMany({
         where: {
           tenantId,
@@ -436,10 +468,16 @@ export class ReportMaterializerService {
         (redemption) => redemption.requestedAt <= asOf,
       ),
       creditExpiries,
-      smsMessages: smsMessages.filter((sms) => sms.queuedAt <= asOf),
+      smsMessages: smsMessages
+        .filter((sms) => sms.queuedAt <= asOf)
+        .map(({ card, ...sms }) => ({
+          ...sms,
+          cardBranchId: card?.customer.branchId ?? null,
+        })),
       approvals: approvals.filter((approval) => approval.requestedAt <= asOf),
       redemptionAllocations,
       allocationRestorations,
+      fraudFlags,
       auditLogs,
     };
   }
@@ -695,6 +733,11 @@ function buildDailyFinancialSummaries(
     scope,
   );
   const reportDates = new Set<string>();
+  for (const expiry of source.creditExpiries) {
+    if (expiry.expiredAt <= asOf) {
+      reportDates.add(toReportDate(expiry.expiredAt, scope.timezone));
+    }
+  }
   const activeCustomerByDate = new Map<string, Set<string>>();
   const purchaseByDate = new Map<string, bigint>();
   const creditIssuedByDate = new Map<string, bigint>();
@@ -710,8 +753,6 @@ function buildDailyFinancialSummaries(
         Boolean(reversesEntryId),
       ),
   );
-  const lotBalances = buildLotBalances(source, asOf);
-
   for (const entry of ledgerEntries) {
     if (
       entry.type !== 'EARN' ||
@@ -760,29 +801,42 @@ function buildDailyFinancialSummaries(
     }
   }
 
-  const registeredCustomers = customers.length;
-  const activeLots = lots.filter((lot) => lot.expiresAt > asOf);
-  const outstandingLiabilityKobo = sumLots(activeLots, lotBalances);
-  const creditExpiredKobo = sumExpiredCredit(lots, source.creditExpiries, asOf);
-
   return Array.from(reportDates)
     .sort()
-    .map((reportDate) => ({
-      tenantId,
-      scope: scope.scope,
-      scopeKey: scope.scopeKey,
-      branchId: scope.branchId,
-      reportDate: toDate(reportDate),
-      registeredCustomers,
-      activeCustomers: activeCustomerByDate.get(reportDate)?.size ?? 0,
-      transactionCount: transactionCountByDate.get(reportDate) ?? 0,
-      loyaltyPurchaseValueKobo: purchaseByDate.get(reportDate) ?? 0n,
-      creditIssuedKobo: creditIssuedByDate.get(reportDate) ?? 0n,
-      creditRedeemedKobo: creditRedeemedByDate.get(reportDate) ?? 0n,
-      creditExpiredKobo,
-      outstandingLiabilityKobo,
-      materializedAt,
-    }));
+    .map((reportDate) => {
+      const reportAsOf = endOfReportDate(reportDate, scope.timezone, asOf);
+      const reportLotBalances = buildLotBalances(source, reportAsOf);
+      const outstandingLiabilityKobo = sumLots(
+        lots.filter((lot) => lot.expiresAt > reportAsOf),
+        reportLotBalances,
+      );
+      const creditExpiredKobo = sumExpiredOnReportDate(
+        lots,
+        source.creditExpiries,
+        reportDate,
+        scope.timezone,
+      );
+
+      return {
+        tenantId,
+        scope: scope.scope,
+        scopeKey: scope.scopeKey,
+        branchId: scope.branchId,
+        reportDate: toDate(reportDate),
+        registeredCustomers: customers.filter(
+          (customer) =>
+            toReportDate(customer.createdAt, scope.timezone) <= reportDate,
+        ).length,
+        activeCustomers: activeCustomerByDate.get(reportDate)?.size ?? 0,
+        transactionCount: transactionCountByDate.get(reportDate) ?? 0,
+        loyaltyPurchaseValueKobo: purchaseByDate.get(reportDate) ?? 0n,
+        creditIssuedKobo: creditIssuedByDate.get(reportDate) ?? 0n,
+        creditRedeemedKobo: creditRedeemedByDate.get(reportDate) ?? 0n,
+        creditExpiredKobo,
+        outstandingLiabilityKobo,
+        materializedAt,
+      };
+    });
 }
 
 function buildCashierSummaries(
@@ -800,10 +854,13 @@ function buildCashierSummaries(
   const approvals = filterApprovalsForScope(source.approvals, source, scope);
   const duplicateAttempts = new Map<string, number>();
   const transactionCount = new Map<string, number>();
+  const redemptionCount = new Map<string, number>();
+  const redemptionValue = new Map<string, bigint>();
   const purchaseValue = new Map<string, bigint>();
   const creditIssued = new Map<string, bigint>();
   const reversalCount = new Map<string, number>();
   const approvalRequests = new Map<string, number>();
+  const fraudFlagCount = new Map<string, number>();
   const receiptsById = new Map(
     source.receipts.map((receipt) => [receipt.id, receipt]),
   );
@@ -832,6 +889,15 @@ function buildCashierSummaries(
       );
       addBigInt(creditIssued, key, entry.amountKobo);
     }
+    if (
+      entry.type === 'REDEEM' &&
+      entry.direction === 'DEBIT' &&
+      !reversedEntryIds.has(entry.id)
+    ) {
+      addNumber(transactionCount, key, 1);
+      addNumber(redemptionCount, key, 1);
+      addBigInt(redemptionValue, key, entry.amountKobo);
+    }
     if (entry.reversesEntryId) {
       addNumber(reversalCount, key, 1);
     }
@@ -857,6 +923,15 @@ function buildCashierSummaries(
     addNumber(duplicateAttempts, key, 1);
   }
 
+  for (const flag of source.fraudFlags) {
+    if (!flag.cashierId) continue;
+    if (scope.scope === 'BRANCH' && flag.branchId !== scope.branchId) {
+      continue;
+    }
+    const reportDate = toReportDate(flag.firstDetectedAt, scope.timezone);
+    addNumber(fraudFlagCount, cashierKey(reportDate, flag.cashierId), 1);
+  }
+
   for (const approval of approvals) {
     const reportDate = toReportDate(approval.requestedAt, scope.timezone);
     const key = cashierKey(reportDate, approval.requestedBy);
@@ -865,11 +940,14 @@ function buildCashierSummaries(
 
   const keys = new Set([
     ...transactionCount.keys(),
+    ...redemptionCount.keys(),
+    ...redemptionValue.keys(),
     ...purchaseValue.keys(),
     ...creditIssued.keys(),
     ...duplicateAttempts.keys(),
     ...reversalCount.keys(),
     ...approvalRequests.keys(),
+    ...fraudFlagCount.keys(),
   ]);
 
   return Array.from(keys)
@@ -887,9 +965,12 @@ function buildCashierSummaries(
         transactionCount: transactionCount.get(key) ?? 0,
         purchaseValueKobo: purchaseValue.get(key) ?? 0n,
         creditIssuedKobo: creditIssued.get(key) ?? 0n,
+        redemptionCount: redemptionCount.get(key) ?? 0,
+        redemptionValueKobo: redemptionValue.get(key) ?? 0n,
         duplicateAttempts: duplicateAttempts.get(key) ?? 0,
         reversalCount: reversalCount.get(key) ?? 0,
         approvalRequests: approvalRequests.get(key) ?? 0,
+        fraudFlagCount: fraudFlagCount.get(key) ?? 0,
         materializedAt,
       };
     });
@@ -1055,6 +1136,7 @@ function buildRedemptionSummaries(
   materializedAt: Date,
 ) {
   const redemptions = filterRedemptionsForScope(source.redemptions, scope);
+  const lots = filterLotsForScope(source.creditLots, source, scope);
   const grouped = new Map<
     string,
     {
@@ -1063,7 +1145,13 @@ function buildRedemptionSummaries(
       requestedKobo: bigint;
       confirmedKobo: bigint;
       reversedKobo: bigint;
+      basketKobo: bigint;
+      lotsConsumed: Set<string>;
+      allocationCount: number;
       pendingApprovalCount: number;
+      approvedCount: number;
+      rejectedCount: number;
+      expiredApprovalCount: number;
     }
   >();
 
@@ -1077,10 +1165,26 @@ function buildRedemptionSummaries(
       requestedKobo: 0n,
       confirmedKobo: 0n,
       reversedKobo: 0n,
+      basketKobo: 0n,
+      lotsConsumed: new Set<string>(),
+      allocationCount: 0,
       pendingApprovalCount: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+      expiredApprovalCount: 0,
     };
     entry.redemptionCount += 1;
     entry.requestedKobo += redemption.requestedAmountKobo;
+    if (snapshotStatus === 'CONFIRMED' || snapshotStatus === 'REVERSED') {
+      entry.basketKobo +=
+        redemption.basketAmountKobo ?? redemption.requestedAmountKobo;
+      for (const allocation of source.redemptionAllocations) {
+        if (allocation.redemptionId === redemption.id) {
+          entry.lotsConsumed.add(allocation.creditLotId);
+          entry.allocationCount += 1;
+        }
+      }
+    }
     if (snapshotStatus === 'CONFIRMED') {
       entry.confirmedKobo +=
         redemption.confirmedAmountKobo ?? redemption.requestedAmountKobo;
@@ -1092,24 +1196,50 @@ function buildRedemptionSummaries(
     if (snapshotStatus === 'PENDING_APPROVAL') {
       entry.pendingApprovalCount += 1;
     }
+    for (const approval of source.approvals) {
+      if (approval.redemptionId !== redemption.id) continue;
+      if (approval.decidedAt && approval.decidedAt > asOf) continue;
+      if (approval.status === 'APPROVED') entry.approvedCount += 1;
+      if (approval.status === 'REJECTED') entry.rejectedCount += 1;
+      if (approval.status === 'EXPIRED') entry.expiredApprovalCount += 1;
+    }
     grouped.set(key, entry);
   }
 
   return Array.from(grouped.entries())
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([reportDate, entry]) => ({
-      tenantId,
-      scope: scope.scope,
-      scopeKey: scope.scopeKey,
-      branchId: entry.branchId,
-      reportDate: toDate(reportDate),
-      redemptionCount: entry.redemptionCount,
-      requestedKobo: entry.requestedKobo,
-      confirmedKobo: entry.confirmedKobo,
-      reversedKobo: entry.reversedKobo,
-      pendingApprovalCount: entry.pendingApprovalCount,
-      materializedAt,
-    }));
+    .map(([reportDate, entry]) => {
+      const dayStart = toDate(reportDate);
+      const dayEnd = new Date(dayStart.getTime() + 86_400_000 - 1);
+      const balances = buildLotBalances(source, dayEnd);
+      const endingBalanceKobo = lots
+        .filter((lot) => lot.expiresAt > dayEnd)
+        .reduce((sum, lot) => sum + (balances.get(lot.id) ?? 0n), 0n);
+
+      return {
+        tenantId,
+        scope: scope.scope,
+        scopeKey: scope.scopeKey,
+        branchId: entry.branchId,
+        reportDate: dayStart,
+        redemptionCount: entry.redemptionCount,
+        requestedKobo: entry.requestedKobo,
+        confirmedKobo: entry.confirmedKobo,
+        reversedKobo: entry.reversedKobo,
+        pendingApprovalCount: entry.pendingApprovalCount,
+        basketRatioBps:
+          entry.basketKobo > 0n
+            ? Number((entry.confirmedKobo * 10_000n) / entry.basketKobo)
+            : 0,
+        lotsConsumed: entry.lotsConsumed.size,
+        allocationCount: entry.allocationCount,
+        endingBalanceKobo,
+        approvedCount: entry.approvedCount,
+        rejectedCount: entry.rejectedCount,
+        expiredApprovalCount: entry.expiredApprovalCount,
+        materializedAt,
+      };
+    });
 }
 
 function buildSmsSummaries(
@@ -1124,11 +1254,14 @@ function buildSmsSummaries(
     string,
     {
       branchId: string | null;
+      totalCount: number;
       queuedCount: number;
       sentCount: number;
       deliveredCount: number;
       failedCount: number;
       suppressedCount: number;
+      retryCount: number;
+      deadLetterCount: number;
     }
   >();
 
@@ -1138,13 +1271,25 @@ function buildSmsSummaries(
     const key = reportDate;
     const entry = grouped.get(key) ?? {
       branchId: scope.branchId,
+      totalCount: 0,
       queuedCount: 0,
       sentCount: 0,
       deliveredCount: 0,
       failedCount: 0,
       suppressedCount: 0,
+      retryCount: 0,
+      deadLetterCount: 0,
     };
-    entry.queuedCount += 1;
+    entry.totalCount += 1;
+    if (snapshotStatus === 'QUEUED') {
+      entry.queuedCount += 1;
+    }
+    if (sms.attempts > 1) {
+      entry.retryCount += sms.attempts - 1;
+    }
+    if (sms.deadLetteredAt && sms.deadLetteredAt <= asOf) {
+      entry.deadLetterCount += 1;
+    }
     if (snapshotStatus === 'SENT') {
       entry.sentCount += 1;
     }
@@ -1168,11 +1313,15 @@ function buildSmsSummaries(
       scopeKey: scope.scopeKey,
       branchId: entry.branchId,
       reportDate: toDate(reportDate),
+      totalCount: entry.totalCount,
       queuedCount: entry.queuedCount,
       sentCount: entry.sentCount,
       deliveredCount: entry.deliveredCount,
       failedCount: entry.failedCount,
       suppressedCount: entry.suppressedCount,
+      retryCount: entry.retryCount,
+      deadLetterCount: entry.deadLetterCount,
+      costStatus: 'UNAVAILABLE',
       materializedAt,
     }));
 }
@@ -1441,9 +1590,9 @@ function filterSmsForScope(
   );
 
   return smsMessages.filter((sms) => {
-    const branchId = sms.receiptId
-      ? (receiptBranchIds.get(sms.receiptId) ?? null)
-      : null;
+    const branchId =
+      (sms.receiptId ? (receiptBranchIds.get(sms.receiptId) ?? null) : null) ??
+      sms.cardBranchId;
     return branchId === scope.branchId;
   });
 }
@@ -1570,18 +1719,54 @@ function sumLots(
   return lots.reduce((sum, lot) => sum + (balances.get(lot.id) ?? 0n), 0n);
 }
 
-function sumExpiredCredit(
+function endOfReportDate(
+  reportDate: string,
+  timeZone: string,
+  asOf: Date,
+): Date {
+  const [year, month, day] = reportDate.split('-').map(Number);
+  const nextDayUtcGuess = Date.UTC(year, month - 1, day + 1);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(nextDayUtcGuess));
+  const value = (type: string): number =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const localAsUtc = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    value('hour'),
+    value('minute'),
+    value('second'),
+  );
+  const nextDayMidnight = new Date(
+    nextDayUtcGuess - (localAsUtc - nextDayUtcGuess),
+  );
+  const end = new Date(nextDayMidnight.getTime() - 1);
+  return end < asOf ? end : asOf;
+}
+
+function sumExpiredOnReportDate(
   lots: CreditLotRecord[],
   expiries: CreditExpiryRecord[],
-  asOf: Date,
+  reportDate: string,
+  timeZone: string,
 ): bigint {
   const lotIds = new Set(lots.map((lot) => lot.id));
-
   return expiries.reduce((sum, expiry) => {
-    if (expiry.expiredAt > asOf || !lotIds.has(expiry.creditLotId)) {
+    if (
+      !lotIds.has(expiry.creditLotId) ||
+      toReportDate(expiry.expiredAt, timeZone) !== reportDate
+    ) {
       return sum;
     }
-
     return sum + expiry.amountKobo;
   }, 0n);
 }

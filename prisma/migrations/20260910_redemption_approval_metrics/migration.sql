@@ -1,0 +1,4 @@
+ALTER TABLE "ReportRedemptionDailySummary"
+  ADD COLUMN "approvedCount" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "rejectedCount" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "expiredApprovalCount" INTEGER NOT NULL DEFAULT 0;

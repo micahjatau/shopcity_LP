@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 import { UserRole } from '@prisma/client';
 import type { AuthContext } from '../../common/auth/session.types';
 import type { PrismaService } from '../../database/prisma.service';
@@ -82,9 +83,68 @@ describe('ReportExportService', () => {
     const outboxEventCreateArgs = prisma.outboxEventCreate.mock.calls[0]?.[0];
 
     expect(outboxEventCreateArgs.data).toMatchObject(refreshEventData);
-    expect(
-      (audit.record.mock.calls[0]?.[0] as { action?: string }).action,
-    ).toBe('REPORT_REFRESH_REQUESTED');
+    expect(audit.record.mock.calls[0]?.[1]).toMatchObject({
+      action: 'REPORT_REFRESH_REQUESTED',
+    });
+  });
+
+  it('replays a completed report refresh request without creating another event', async () => {
+    const prisma = prismaStub();
+    prisma.idempotencyRecord.findUnique.mockResolvedValue({
+      requestHash: createHash('sha256')
+        .update(
+          JSON.stringify({
+            tenantId: 'tenant-1',
+            actorId: 'admin-1',
+            report: 'executive-summary',
+            query: {},
+          }),
+        )
+        .digest('hex'),
+      responseJson: { status: 'accepted' },
+    });
+    const service = new ReportExportService(
+      reportsServiceStub().service,
+      auditServiceStub().service,
+      prisma.service,
+      configService(),
+    );
+
+    await expect(
+      service.refreshReport(
+        'tenant-1',
+        adminContext(),
+        'executive-summary',
+        {},
+        'report-key-1',
+      ),
+    ).resolves.toBeUndefined();
+    expect(prisma.outboxEventCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects conflicting report refresh idempotency payloads', async () => {
+    const prisma = prismaStub();
+    prisma.idempotencyRecord.findUnique.mockResolvedValue({
+      requestHash: 'different-payload',
+      responseJson: null,
+    });
+    const service = new ReportExportService(
+      reportsServiceStub().service,
+      auditServiceStub().service,
+      prisma.service,
+      configService(),
+    );
+
+    await expect(
+      service.refreshReport(
+        'tenant-1',
+        adminContext(),
+        'executive-summary',
+        {},
+        'report-key-1',
+      ),
+    ).rejects.toHaveProperty('response.code', 'IDEMPOTENCY_CONFLICT');
+    expect(prisma.outboxEventCreate).not.toHaveBeenCalled();
   });
 
   it('rejects non-admin refresh requests', async () => {
@@ -168,12 +228,13 @@ function reportsServiceStub() {
 }
 
 function auditServiceStub() {
-  const record = jest.fn<Promise<void>, [{ [key: string]: unknown }]>();
+  const record = jest.fn<Promise<void>, [unknown?, unknown?]>();
   record.mockResolvedValue(undefined);
 
   return {
     service: {
       record,
+      recordWithClient: record,
     } as unknown as AuditService,
     record,
   };
@@ -190,14 +251,23 @@ function prismaStub() {
     create: jest.fn().mockResolvedValue({}),
   };
 
+  const service = {
+    idempotencyRecord,
+    outboxEvent: {
+      create: outboxEventCreate,
+    },
+  } as unknown as PrismaService;
+  const transactionalService = service as unknown as {
+    $transaction: (
+      callback: (tx: typeof service) => Promise<unknown>,
+    ) => Promise<unknown>;
+  };
+  transactionalService.$transaction = async (callback) => callback(service);
+
   return {
-    service: {
-      idempotencyRecord,
-      outboxEvent: {
-        create: outboxEventCreate,
-      },
-    } as unknown as PrismaService,
+    service,
     outboxEventCreate,
+    idempotencyRecord,
   };
 }
 

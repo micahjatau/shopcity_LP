@@ -15,6 +15,7 @@ export function validateReleaseProvenance(record, candidateSha, environment) {
     'workflowDefinitionSha',
     'deployedFrontendSha',
     'deployedBackendSha',
+    'workerRuntimeSha',
   ]) {
     if (!SHA.test(record[key] ?? ''))
       throw new Error(`provenance ${key} is invalid`);
@@ -23,6 +24,15 @@ export function validateReleaseProvenance(record, candidateSha, environment) {
     throw new Error('frontend deployment SHA mismatch');
   if (record.deployedBackendSha.toLowerCase() !== candidateSha.toLowerCase())
     throw new Error('backend deployment SHA mismatch');
+  if (record.workerRuntimeSha.toLowerCase() !== candidateSha.toLowerCase())
+    throw new Error('worker runtime SHA mismatch');
+  if (
+    typeof record.workerDeploymentId !== 'string' ||
+    !record.workerDeploymentId
+  )
+    throw new Error('worker deployment ID is required');
+  if (record.workerReady !== true)
+    throw new Error('worker readiness is required');
   if (!/^\d+$/.test(String(record.workflowRunId ?? '')))
     throw new Error('workflow run ID is invalid');
   if (record.verifierVersion !== 'verify-smoke-evidence-v1')

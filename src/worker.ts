@@ -88,7 +88,10 @@ export async function bootstrap() {
     await reportMaterializationRuntime.start();
     await approvalExpiryRuntime.start();
     await creditExpiryRuntime.start();
-    process.stdout.write('SHOPCITY_WORKER_READY\n');
+    const releaseSha = process.env.RELEASE_SHA?.trim() || 'dev';
+    process.stdout.write(
+      `SHOPCITY_WORKER_READY\nSHOPCITY_WORKER_SHA=${releaseSha}\n`,
+    );
   } catch (error) {
     await shutdown();
     throw error;

@@ -11221,6 +11221,260 @@ export type ReportsControllerListExecutiveSummaryV1503 = {
   meta: ReportsControllerListExecutiveSummaryV1503Meta;
 };
 
+export type ReportsControllerGetExecutiveSnapshotV1Params = {
+  branchId?: string;
+  timezone?: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1200DataScope =
+  (typeof ReportsControllerGetExecutiveSnapshotV1200DataScope)[keyof typeof ReportsControllerGetExecutiveSnapshotV1200DataScope];
+
+export const ReportsControllerGetExecutiveSnapshotV1200DataScope = {
+  TENANT: 'TENANT',
+  BRANCH: 'BRANCH',
+} as const;
+
+export type ReportsControllerGetExecutiveSnapshotV1200DataItemsItem = {
+  [key: string]: unknown;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1200Data = {
+  scope: ReportsControllerGetExecutiveSnapshotV1200DataScope;
+  scopeKey: string;
+  /** @nullable */
+  branchId: string | null;
+  timezone: string;
+  items: ReportsControllerGetExecutiveSnapshotV1200DataItemsItem[];
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1200 = {
+  success: boolean;
+  data: ReportsControllerGetExecutiveSnapshotV1200Data;
+  meta: ReportsControllerGetExecutiveSnapshotV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1400ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1400 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1400Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1401ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1401 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1401Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1403ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1403 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1403Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1404ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1404 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1404Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1409ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1409 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1409Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1422ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1422 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1422Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1429ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1429 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1429Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetExecutiveSnapshotV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetExecutiveSnapshotV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetExecutiveSnapshotV1503ErrorDetails;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetExecutiveSnapshotV1503 = {
+  success: boolean;
+  error: ReportsControllerGetExecutiveSnapshotV1503Error;
+  meta: ReportsControllerGetExecutiveSnapshotV1503Meta;
+};
+
 export type ReportsControllerListLiabilityAgeingV1Params = {
   branchId?: string;
   from?: string;
@@ -11482,7 +11736,24 @@ export type ReportsControllerListCustomerPerformanceV1Params = {
   from?: string;
   to?: string;
   timezone?: string;
+  sort?: ReportsControllerListCustomerPerformanceV1Sort;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
 };
+
+export type ReportsControllerListCustomerPerformanceV1Sort =
+  (typeof ReportsControllerListCustomerPerformanceV1Sort)[keyof typeof ReportsControllerListCustomerPerformanceV1Sort];
+
+export const ReportsControllerListCustomerPerformanceV1Sort = {
+  spend: 'spend',
+  balance: 'balance',
+  visits: 'visits',
+  recent: 'recent',
+  'dormant-value': 'dormant-value',
+} as const;
 
 export type ReportsControllerListCustomerPerformanceV1200DataScope =
   (typeof ReportsControllerListCustomerPerformanceV1200DataScope)[keyof typeof ReportsControllerListCustomerPerformanceV1200DataScope];
@@ -12240,6 +12511,238 @@ export type ReportsControllerListCashierActivityV1503 = {
   success: boolean;
   error: ReportsControllerListCashierActivityV1503Error;
   meta: ReportsControllerListCashierActivityV1503Meta;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1200 = {
+  success: boolean;
+  data: ReportsControllerGetRedemptionDrilldownV1200Data;
+  meta: ReportsControllerGetRedemptionDrilldownV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1400ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1400 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1400Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1401ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1401 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1401Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1403ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1403 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1403Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1404ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1404 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1404Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1409ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1409 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1409Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1422ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1422 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1422Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1429ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1429 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1429Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerGetRedemptionDrilldownV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerGetRedemptionDrilldownV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerGetRedemptionDrilldownV1503ErrorDetails;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerGetRedemptionDrilldownV1503 = {
+  success: boolean;
+  error: ReportsControllerGetRedemptionDrilldownV1503Error;
+  meta: ReportsControllerGetRedemptionDrilldownV1503Meta;
 };
 
 export type ReportsControllerListRedemptionSummaryV1Params = {
@@ -13985,6 +14488,18 @@ export type ReportsControllerRefreshReportV1503 = {
   success: boolean;
   error: ReportsControllerRefreshReportV1503Error;
   meta: ReportsControllerRefreshReportV1503Meta;
+};
+
+export type NotificationsControllerListTransactionSmsV1Params = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
 };
 
 export type ConfigurationControllerGetPublicConfigV1200DataTenant = {
@@ -19061,6 +19576,118 @@ export const reportsControllerListExecutiveSummaryV1 = async (
   } as reportsControllerListExecutiveSummaryV1Response;
 };
 
+export type reportsControllerGetExecutiveSnapshotV1Response200 = {
+  data: ReportsControllerGetExecutiveSnapshotV1200;
+  status: 200;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response400 = {
+  data: ReportsControllerGetExecutiveSnapshotV1400;
+  status: 400;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response401 = {
+  data: ReportsControllerGetExecutiveSnapshotV1401;
+  status: 401;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response403 = {
+  data: ReportsControllerGetExecutiveSnapshotV1403;
+  status: 403;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response404 = {
+  data: ReportsControllerGetExecutiveSnapshotV1404;
+  status: 404;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response409 = {
+  data: ReportsControllerGetExecutiveSnapshotV1409;
+  status: 409;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response422 = {
+  data: ReportsControllerGetExecutiveSnapshotV1422;
+  status: 422;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response429 = {
+  data: ReportsControllerGetExecutiveSnapshotV1429;
+  status: 429;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response503 = {
+  data: ReportsControllerGetExecutiveSnapshotV1503;
+  status: 503;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1ResponseSuccess =
+  reportsControllerGetExecutiveSnapshotV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetExecutiveSnapshotV1ResponseError = (
+  | reportsControllerGetExecutiveSnapshotV1Response400
+  | reportsControllerGetExecutiveSnapshotV1Response401
+  | reportsControllerGetExecutiveSnapshotV1Response403
+  | reportsControllerGetExecutiveSnapshotV1Response404
+  | reportsControllerGetExecutiveSnapshotV1Response409
+  | reportsControllerGetExecutiveSnapshotV1Response422
+  | reportsControllerGetExecutiveSnapshotV1Response429
+  | reportsControllerGetExecutiveSnapshotV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetExecutiveSnapshotV1Response =
+  | reportsControllerGetExecutiveSnapshotV1ResponseSuccess
+  | reportsControllerGetExecutiveSnapshotV1ResponseError;
+
+export const getReportsControllerGetExecutiveSnapshotV1Url = (
+  params?: ReportsControllerGetExecutiveSnapshotV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/executive-snapshot?${stringifiedParams}`
+    : `/api/v1/reports/executive-snapshot`;
+};
+
+/**
+ * Get the current executive snapshot
+ * @summary Get the current executive snapshot
+ */
+export const reportsControllerGetExecutiveSnapshotV1 = async (
+  params?: ReportsControllerGetExecutiveSnapshotV1Params,
+  options?: RequestInit,
+): Promise<reportsControllerGetExecutiveSnapshotV1Response> => {
+  const res = await fetch(
+    getReportsControllerGetExecutiveSnapshotV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetExecutiveSnapshotV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetExecutiveSnapshotV1Response;
+};
+
 export type reportsControllerListLiabilityAgeingV1Response200 = {
   data: ReportsControllerListLiabilityAgeingV1200;
   status: 200;
@@ -19489,6 +20116,106 @@ export const reportsControllerListCashierActivityV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerListCashierActivityV1Response;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response200 = {
+  data: ReportsControllerGetRedemptionDrilldownV1200;
+  status: 200;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response400 = {
+  data: ReportsControllerGetRedemptionDrilldownV1400;
+  status: 400;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response401 = {
+  data: ReportsControllerGetRedemptionDrilldownV1401;
+  status: 401;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response403 = {
+  data: ReportsControllerGetRedemptionDrilldownV1403;
+  status: 403;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response404 = {
+  data: ReportsControllerGetRedemptionDrilldownV1404;
+  status: 404;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response409 = {
+  data: ReportsControllerGetRedemptionDrilldownV1409;
+  status: 409;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response422 = {
+  data: ReportsControllerGetRedemptionDrilldownV1422;
+  status: 422;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response429 = {
+  data: ReportsControllerGetRedemptionDrilldownV1429;
+  status: 429;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response503 = {
+  data: ReportsControllerGetRedemptionDrilldownV1503;
+  status: 503;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1ResponseSuccess =
+  reportsControllerGetRedemptionDrilldownV1Response200 & {
+    headers: Headers;
+  };
+export type reportsControllerGetRedemptionDrilldownV1ResponseError = (
+  | reportsControllerGetRedemptionDrilldownV1Response400
+  | reportsControllerGetRedemptionDrilldownV1Response401
+  | reportsControllerGetRedemptionDrilldownV1Response403
+  | reportsControllerGetRedemptionDrilldownV1Response404
+  | reportsControllerGetRedemptionDrilldownV1Response409
+  | reportsControllerGetRedemptionDrilldownV1Response422
+  | reportsControllerGetRedemptionDrilldownV1Response429
+  | reportsControllerGetRedemptionDrilldownV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerGetRedemptionDrilldownV1Response =
+  | reportsControllerGetRedemptionDrilldownV1ResponseSuccess
+  | reportsControllerGetRedemptionDrilldownV1ResponseError;
+
+export const getReportsControllerGetRedemptionDrilldownV1Url = (
+  redemptionId: string,
+) => {
+  return `/api/v1/reports/redemptions/${redemptionId}`;
+};
+
+/**
+ * Inspect a redemption report drilldown
+ * @summary Inspect a redemption report drilldown
+ */
+export const reportsControllerGetRedemptionDrilldownV1 = async (
+  redemptionId: string,
+  options?: RequestInit,
+): Promise<reportsControllerGetRedemptionDrilldownV1Response> => {
+  const res = await fetch(
+    getReportsControllerGetRedemptionDrilldownV1Url(redemptionId),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerGetRedemptionDrilldownV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerGetRedemptionDrilldownV1Response;
 };
 
 export type reportsControllerListRedemptionSummaryV1Response200 = {
@@ -20290,6 +21017,66 @@ export const reportsControllerRefreshReportV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerRefreshReportV1Response;
+};
+
+export type notificationsControllerListTransactionSmsV1Response200 = {
+  data: void;
+  status: 200;
+};
+
+export type notificationsControllerListTransactionSmsV1ResponseSuccess =
+  notificationsControllerListTransactionSmsV1Response200 & {
+    headers: Headers;
+  };
+export type notificationsControllerListTransactionSmsV1Response =
+  notificationsControllerListTransactionSmsV1ResponseSuccess;
+
+export const getNotificationsControllerListTransactionSmsV1Url = (
+  transactionId: string,
+  params?: NotificationsControllerListTransactionSmsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/notifications/sms/${transactionId}?${stringifiedParams}`
+    : `/api/v1/notifications/sms/${transactionId}`;
+};
+
+/**
+ * Inspect SMS notifications for a transaction
+ * @summary Inspect SMS notifications for a transaction
+ */
+export const notificationsControllerListTransactionSmsV1 = async (
+  transactionId: string,
+  params?: NotificationsControllerListTransactionSmsV1Params,
+  options?: RequestInit,
+): Promise<notificationsControllerListTransactionSmsV1Response> => {
+  const res = await fetch(
+    getNotificationsControllerListTransactionSmsV1Url(transactionId, params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: notificationsControllerListTransactionSmsV1Response['data'] = body
+    ? JSON.parse(body)
+    : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as notificationsControllerListTransactionSmsV1Response;
 };
 
 export type configurationControllerGetPublicConfigV1Response200 = {

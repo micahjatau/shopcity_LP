@@ -23,6 +23,117 @@ describe('LoyaltyService earn transaction retries', () => {
     jest.restoreAllMocks();
   });
 
+  it('persists duplicate evidence after the financial transaction rolls back', async () => {
+    const duplicateTx = transactionClient();
+    duplicateTx.receipt.findFirst.mockResolvedValue({ id: 'receipt-original' });
+    const evidenceTx = {
+      outboxEvent: {
+        create: jest.fn().mockResolvedValue({ id: 'fraud-event-1' }),
+      },
+    };
+    const transaction = jest
+      .fn()
+      .mockImplementationOnce((callback: (tx: unknown) => Promise<unknown>) =>
+        callback(duplicateTx),
+      )
+      .mockImplementationOnce((callback: (tx: unknown) => Promise<unknown>) =>
+        callback(evidenceTx),
+      );
+    const audit = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      audit as never,
+      configService(),
+    );
+
+    await expect(
+      service.earn('tenant-1', authContext(), 'idem-duplicate', {
+        posReceiptNumber: 'POS-DUPLICATE-1',
+        cardSerialNumber: ' card-1 ',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: FIXED_OCCURRED_AT,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'RECEIPT_ALREADY_USED' },
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(audit.recordWithClient).toHaveBeenCalledWith(
+      evidenceTx,
+      expect.objectContaining({
+        action: 'RECEIPT_DUPLICATE_ATTEMPT_RECORDED',
+      }),
+    );
+    expect(evidenceTx.outboxEvent.create).toHaveBeenCalled();
+    const outboxCall = evidenceTx.outboxEvent.create.mock
+      .calls[0] as unknown as [
+      {
+        data: { eventType: string };
+      },
+    ];
+    expect(outboxCall[0].data.eventType).toBe('fraud.evaluate');
+  });
+
+  it('normalizes earn card serials before lookup', async () => {
+    const tx = transactionClient();
+    const transaction = jest.fn(
+      (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      configService(),
+    );
+
+    await service.earn('tenant-1', authContext(), 'idem-normalized-card', {
+      posReceiptNumber: 'POS-NORMALIZED-CARD',
+      cardSerialNumber: ' card-1 ',
+      purchaseAmountKobo: 1_000,
+      occurredAt: FIXED_OCCURRED_AT,
+    });
+
+    const findFirstMock = tx.card.findFirst as jest.Mock<
+      unknown,
+      [{ where: { barcodeValue: { equals: string; mode: string } } }]
+    >;
+    const lookupCall = findFirstMock.mock.calls[0]?.[0];
+    expect(lookupCall.where.barcodeValue).toStrictEqual({
+      equals: 'CARD-1',
+      mode: 'insensitive',
+    });
+  });
+
+  it('surfaces duplicate evidence persistence failure without reporting earn success', async () => {
+    const duplicateTx = transactionClient();
+    duplicateTx.receipt.findFirst.mockResolvedValue({ id: 'receipt-original' });
+    const evidenceFailure = new Error('duplicate evidence write failed');
+    const transaction = jest
+      .fn()
+      .mockImplementationOnce((callback: (tx: unknown) => Promise<unknown>) =>
+        callback(duplicateTx),
+      )
+      .mockRejectedValueOnce(evidenceFailure);
+    const audit = { recordWithClient: jest.fn().mockResolvedValue(undefined) };
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      audit as never,
+      configService(),
+    );
+
+    await expect(
+      service.earn('tenant-1', authContext(), 'idem-duplicate-failure', {
+        posReceiptNumber: 'POS-DUPLICATE-FAILURE',
+        cardSerialNumber: 'CARD-1',
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: FIXED_OCCURRED_AT,
+      }),
+    ).rejects.toThrow(evidenceFailure);
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(duplicateTx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(duplicateTx.creditLot.create).not.toHaveBeenCalled();
+  });
+
   it('retries serialization conflicts and returns the successful earn response', async () => {
     const transaction = jest
       .fn()
@@ -1540,6 +1651,9 @@ function transactionClient() {
       create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),
     },
     creditLot: {
+      aggregate: jest
+        .fn()
+        .mockResolvedValue({ _sum: { remainingAmountKobo: 20_000n } }),
       create: jest.fn().mockResolvedValue({
         id: 'lot-1',
         expiresAt: now,

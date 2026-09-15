@@ -12,6 +12,7 @@ import { DomainHttpException } from '../../common/errors/domain.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { getOfflineSyncPolicy } from './offline-sync.policy';
+import { normalizeCardSerial } from '../../common/card-identity';
 import {
   type OfflineEarnBatchRecordInput,
   type OfflineEarnBatchRecordResult,
@@ -540,12 +541,11 @@ function normalizeReceiptNumber(value: string): string {
 }
 
 function normalizeCardBarcode(value: string): string {
-  const normalized = value.trim();
-  if (!normalized) {
+  try {
+    return normalizeCardSerial(value);
+  } catch {
     throw new BadRequestException('cardBarcode is required');
   }
-
-  return normalized;
 }
 
 function normalizeReceiptWeekStart(value: string): string {
