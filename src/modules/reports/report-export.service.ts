@@ -375,6 +375,7 @@ function reportColumns(report: ReportExportName): string[] {
         'suppressedCount',
         'retryCount',
         'deadLetterCount',
+        'costStatus',
         'materializedAt',
       ];
     case 'audit-report':

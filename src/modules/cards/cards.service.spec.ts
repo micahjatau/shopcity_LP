@@ -142,6 +142,41 @@ describe('CardsService', () => {
     });
   });
 
+  it('replays a completed card replacement without touching card state', async () => {
+    const response = { id: 'card-new', serialNumber: 'CARD-NEW' };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue({
+          requestHash: createHash('sha256')
+            .update(
+              JSON.stringify({
+                tenantId: 'tenant-id',
+                actorId: 'user-id',
+                cardId: 'card-old',
+                serialNumber: 'CARD-NEW',
+              }),
+            )
+            .digest('hex'),
+          responseJson: response,
+        }),
+      },
+      card: { findFirst: jest.fn() },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.replaceCard(
+        'tenant-id',
+        actorStub(),
+        'card-old',
+        { serialNumber: ' card-new ' },
+        'replace-key',
+      ),
+    ).resolves.toEqual(response);
+    expect(prisma.card.findFirst).not.toHaveBeenCalled();
+  });
+
   it('canonicalizes replacement serials and queues one replacement SMS', async () => {
     const newCard = {
       id: 'card-new',
@@ -221,6 +256,18 @@ describe('CardsService', () => {
     expect(smsCall[0].data).toMatchObject({
       template: 'card-replaced',
       phoneE164: '+2348012345678',
+    });
+    expect(tx.outboxEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        aggregateType: 'card',
+        aggregateId: 'card-new',
+        eventType: 'fraud.evaluate',
+        payload: expect.objectContaining({
+          kind: 'card.replaced',
+          customerId: 'customer-id',
+          cardId: 'card-new',
+        }) as Record<string, unknown>,
+      }) as Record<string, unknown>,
     });
   });
 

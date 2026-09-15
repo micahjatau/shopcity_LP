@@ -115,6 +115,83 @@ describe('ReportMaterializerService', () => {
     });
   });
 
+  it('uses the branch timezone when calculating historical day cutoffs', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert, {
+      creditExpiries: [
+        {
+          creditLotId: 'lot-1',
+          amountKobo: 1000n,
+          expiredAt: new Date('2026-09-10T22:30:00.000Z'),
+        },
+        {
+          creditLotId: 'lot-1',
+          amountKobo: 500n,
+          expiredAt: new Date('2026-09-10T23:30:00.000Z'),
+        },
+      ],
+    });
+    const service = new ReportMaterializerService(prisma, configService());
+
+    await service.materializeTenant('tenant-1', {
+      materializedAt: new Date('2026-09-11T12:00:00.000Z'),
+      asOf: new Date('2026-09-11T12:00:00.000Z'),
+    });
+
+    const rows =
+      tx.reportDailyFinancialSummary.createMany.mock.calls[0]?.[0].data;
+    const sep10 = rows.find(
+      (row) =>
+        row.scopeKey === 'tenant-1' &&
+        row.reportDate.toISOString().startsWith('2026-09-10'),
+    );
+
+    expect(sep10).toMatchObject({
+      creditExpiredKobo: 1000n,
+      outstandingLiabilityKobo: 0n,
+    });
+  });
+
+  it('attributes card-linked SMS to the customer branch', async () => {
+    const tx = reportTxStub();
+    const stateUpsert = jest.fn().mockResolvedValue(undefined);
+    const prisma = prismaStub(tx, stateUpsert, {
+      smsMessages: [
+        {
+          id: 'replacement-sms',
+          receiptId: null,
+          card: { customer: { branchId: 'branch-1' } },
+          status: 'SENT',
+          attempts: 1,
+          deadLetteredAt: null,
+          queuedAt: new Date('2026-08-10T10:00:00.000Z'),
+          createdAt: new Date('2026-08-10T10:00:00.000Z'),
+          sentAt: new Date('2026-08-10T10:01:00.000Z'),
+          deliveredAt: null,
+          failedAt: null,
+          suppressedAt: null,
+        },
+      ],
+    });
+    const service = new ReportMaterializerService(prisma, configService());
+
+    await service.materializeBranch('tenant-1', 'branch-1', {
+      materializedAt: new Date('2026-08-10T12:00:00.000Z'),
+      asOf: new Date('2026-08-10T12:00:00.000Z'),
+    });
+
+    const rows = tx.reportSmsDailySummary.createMany.mock.calls[0]?.[0].data;
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scopeKey: 'branch-1',
+          sentCount: 1,
+        }),
+      ]),
+    );
+  });
+
   it('rebuilds redemption and SMS summaries from as-of status snapshots', async () => {
     const tx = reportTxStub();
     const stateUpsert = jest.fn().mockResolvedValue(undefined);
@@ -320,6 +397,7 @@ function prismaStub(
       amountKobo: bigint;
       expiredAt: Date;
     }>;
+    smsMessages?: Array<Record<string, unknown>>;
   } = {},
 ): PrismaService {
   return {
@@ -388,7 +466,7 @@ function prismaStub(
       findMany: jest.fn().mockResolvedValue(options.creditExpiries ?? []),
     },
     smsMessage: {
-      findMany: jest.fn().mockResolvedValue([]),
+      findMany: jest.fn().mockResolvedValue(options.smsMessages ?? []),
     },
     approval: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -479,7 +557,7 @@ function prismaStub(
                 .mockResolvedValue(options.creditExpiries ?? []),
             },
             smsMessage: {
-              findMany: jest.fn().mockResolvedValue([]),
+              findMany: jest.fn().mockResolvedValue(options.smsMessages ?? []),
             },
             approval: {
               findMany: jest.fn().mockResolvedValue([]),

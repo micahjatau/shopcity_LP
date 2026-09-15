@@ -86,6 +86,7 @@ interface CreditExpiryRecord {
 interface SmsMessageRecord {
   id: string;
   receiptId: string | null;
+  cardBranchId: string | null;
   status: string;
   attempts: number;
   deadLetteredAt: Date | null;
@@ -382,6 +383,13 @@ export class ReportMaterializerService {
         select: {
           id: true,
           receiptId: true,
+          card: {
+            select: {
+              customer: {
+                select: { branchId: true },
+              },
+            },
+          },
           status: true,
           attempts: true,
           deadLetteredAt: true,
@@ -460,7 +468,12 @@ export class ReportMaterializerService {
         (redemption) => redemption.requestedAt <= asOf,
       ),
       creditExpiries,
-      smsMessages: smsMessages.filter((sms) => sms.queuedAt <= asOf),
+      smsMessages: smsMessages
+        .filter((sms) => sms.queuedAt <= asOf)
+        .map(({ card, ...sms }) => ({
+          ...sms,
+          cardBranchId: card?.customer.branchId ?? null,
+        })),
       approvals: approvals.filter((approval) => approval.requestedAt <= asOf),
       redemptionAllocations,
       allocationRestorations,
@@ -791,7 +804,7 @@ function buildDailyFinancialSummaries(
   return Array.from(reportDates)
     .sort()
     .map((reportDate) => {
-      const reportAsOf = endOfReportDate(reportDate, asOf);
+      const reportAsOf = endOfReportDate(reportDate, scope.timezone, asOf);
       const reportLotBalances = buildLotBalances(source, reportAsOf);
       const outstandingLiabilityKobo = sumLots(
         lots.filter((lot) => lot.expiresAt > reportAsOf),
@@ -1308,6 +1321,7 @@ function buildSmsSummaries(
       suppressedCount: entry.suppressedCount,
       retryCount: entry.retryCount,
       deadLetterCount: entry.deadLetterCount,
+      costStatus: 'UNAVAILABLE',
       materializedAt,
     }));
 }
@@ -1576,9 +1590,9 @@ function filterSmsForScope(
   );
 
   return smsMessages.filter((sms) => {
-    const branchId = sms.receiptId
-      ? (receiptBranchIds.get(sms.receiptId) ?? null)
-      : null;
+    const branchId =
+      (sms.receiptId ? (receiptBranchIds.get(sms.receiptId) ?? null) : null) ??
+      sms.cardBranchId;
     return branchId === scope.branchId;
   });
 }
@@ -1705,8 +1719,37 @@ function sumLots(
   return lots.reduce((sum, lot) => sum + (balances.get(lot.id) ?? 0n), 0n);
 }
 
-function endOfReportDate(reportDate: string, asOf: Date): Date {
-  const end = new Date(`${reportDate}T23:59:59.999Z`);
+function endOfReportDate(
+  reportDate: string,
+  timeZone: string,
+  asOf: Date,
+): Date {
+  const [year, month, day] = reportDate.split('-').map(Number);
+  const nextDayUtcGuess = Date.UTC(year, month - 1, day + 1);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(nextDayUtcGuess));
+  const value = (type: string): number =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const localAsUtc = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    value('hour'),
+    value('minute'),
+    value('second'),
+  );
+  const nextDayMidnight = new Date(
+    nextDayUtcGuess - (localAsUtc - nextDayUtcGuess),
+  );
+  const end = new Date(nextDayMidnight.getTime() - 1);
   return end < asOf ? end : asOf;
 }
 

@@ -16,6 +16,10 @@ Current Review 47 status: **NO-GO**. Leave every certification checkbox unchecke
 - [ ] Performance evidence attached.
 - [ ] Restore drill evidence attached.
 - [ ] Staging validation evidence attached.
+- [ ] API and long-lived worker deployment IDs and exact runtime SHAs match the candidate.
+- [ ] Worker readiness (`SHOPCITY_WORKER_READY`) and terminal outbox/provider-state evidence attached.
+- [ ] Production SMS configuration is real-provider mode with fake SMS disabled.
+- [ ] Card lifecycle and report metric correctness evidence attached.
 - [ ] Training sign-off evidence attached.
 - [ ] Final owner/admin sign-off attached.
 

@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+process.env.DATABASE_URL ??=
+  'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public';
 const prisma = new PrismaClient();
 
 function canonical(value: string): string {
