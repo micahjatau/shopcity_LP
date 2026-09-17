@@ -164,12 +164,17 @@ describe('CustomerWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Customer full name'), {
       target: { value: 'Updated Customer' },
     });
+    fireEvent.click(screen.getByLabelText('Customer is staff'));
     fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
 
     await waitFor(() => {
       expect(customersControllerUpdateCustomerV1).toHaveBeenCalledWith(
         'route-customer',
-        { fullName: 'Updated Customer', phone: '+2348111111111' },
+        {
+          fullName: 'Updated Customer',
+          phone: '+2348111111111',
+          isStaff: true,
+        },
         expect.objectContaining({ headers: expect.any(Object) }),
       );
     });

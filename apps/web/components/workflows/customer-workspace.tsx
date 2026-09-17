@@ -23,7 +23,14 @@ import {
   type UpdateCustomerStatusDtoStatus,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Table } from '../../components/ui';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Input,
+  RadioGroup,
+  Table,
+} from '../../components/ui';
 import { Money, StatusBadge } from '../../components/shopcity';
 
 type CustomerRecord = Record<string, unknown> & {
@@ -57,6 +64,7 @@ type CustomerFormState = {
   phone: string;
   email: string;
   cardSerialNumber: string;
+  isStaff: boolean;
 };
 
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
@@ -119,6 +127,7 @@ export function CustomerWorkspace({
     phone: '',
     email: '',
     cardSerialNumber: '',
+    isStaff: false,
   });
   const [customerFormMessage, setCustomerFormMessage] = useState(
     'Register a customer or select one to edit their profile.',
@@ -171,6 +180,7 @@ export function CustomerWorkspace({
             phone: String(nextCustomer.phoneE164 ?? nextCustomer.phone ?? ''),
             email: String(nextCustomer.email ?? ''),
             cardSerialNumber: '',
+            isStaff: nextCustomer.isStaff === true,
           });
           setCustomerStatus(
             (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
@@ -374,6 +384,7 @@ export function CustomerWorkspace({
       ...(customerForm.email?.trim()
         ? { email: customerForm.email.trim() }
         : {}),
+      ...(mode === 'update' ? { isStaff: customerForm.isStaff } : {}),
     };
 
     if (!basePayload.fullName || !basePayload.phone) {
@@ -658,6 +669,27 @@ export function CustomerWorkspace({
                 }))
               }
             />
+            {selectedCustomer ? (
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--sc-spacing-2)',
+                }}
+              >
+                <Checkbox
+                  aria-label="Customer is staff"
+                  checked={customerForm.isStaff}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({
+                      ...current,
+                      isStaff: event.target.checked,
+                    }))
+                  }
+                />
+                Mark as staff (not eligible to earn)
+              </label>
+            ) : null}
             {!selectedCustomer ? (
               <Input
                 aria-label="Initial card serial number"
@@ -698,6 +730,7 @@ export function CustomerWorkspace({
                     phone: '',
                     email: '',
                     cardSerialNumber: '',
+                    isStaff: false,
                   });
                   setCustomerFormMessage(
                     'Register a customer or select one to edit their profile.',
