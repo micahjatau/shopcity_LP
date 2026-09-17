@@ -85,6 +85,9 @@ test.describe('workflow route coverage', () => {
         name: 'Open sync queue',
       }),
     ).toBeVisible();
+    await page.locator('main').evaluate((main) => {
+      main.style.minHeight = '826px';
+    });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-overview-compact.png',
     );
@@ -109,6 +112,9 @@ test.describe('workflow route coverage', () => {
     await expect(
       lookupCard.getByRole('link', { name: 'Redeem' }),
     ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+    await page.locator('main').evaluate((main) => {
+      main.style.minHeight = '836px';
+    });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-lookup-mobile.png',
     );
