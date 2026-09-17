@@ -41,6 +41,8 @@
     "start:worker": "ts-node -r tsconfig-paths/register src/worker.ts",
     "start:worker:prod": "node dist/src/worker.js",
     "verify:prod-entrypoints": "test -f dist/src/main.js && test -f dist/src/worker.js && node dist/src/worker.js --help",
+    "verify:prototype-reference": "node scripts/verify-prototype-reference.mjs",
+    "test:prototype-reference": "node --test scripts/verify-prototype-reference.spec.mjs",
     "verify:docker-image": "sh ./scripts/verify-docker-image.sh",
     "perf:k6:pilot": "k6 run scripts/performance/k6-pilot.js",
     "perf:k6:assert": "node scripts/performance/validate-k6-summary.mjs --summary tmp/k6-pilot-summary.json",
