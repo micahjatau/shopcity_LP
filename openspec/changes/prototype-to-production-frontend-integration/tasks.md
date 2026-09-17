@@ -13,10 +13,10 @@
 
 - [x] 2.1 Inventory each prototype asset's viewport states, intended hierarchy, controls, copy, data fields, and backend claims; record findings in `docs/development/prototype-react-parity-matrix.md`.
 - [x] 2.2 Map every prototype screen to one React route and owning component/module; document deliberate deviations and why they are required by security, contract, accessibility, or responsive behavior.
-- [ ] 2.3 Define reusable React design tokens and primitives for prototype typography, spacing, surfaces, status colors, buttons, inputs, tables, cards, dialogs, empty states, and responsive containers.
-- [ ] 2.4 Define semantic status and action patterns so confirmed, pending, offline, warning, rejected, and unauthorized states have consistent copy, iconography, color, and accessible text.
+- [x] 2.3 Define reusable React design tokens and primitives for prototype typography, spacing, surfaces, status colors, buttons, inputs, tables, cards, dialogs, empty states, and responsive containers.
+- [x] 2.4 Define semantic status and action patterns so confirmed, pending, offline, warning, rejected, and unauthorized states have consistent copy, iconography, color, and accessible text.
 - [x] 2.5 Establish a parity evidence convention: approved reference screenshots, route/viewport matrix, stable selectors, accessibility assertions, API/authority map, and visual diff artifacts.
-- [ ] 2.6 Add a route-level parity review checklist to frontend tests/review documentation; a screenshot match alone MUST NOT pass a route.
+- [x] 2.6 Add a route-level parity review checklist to frontend tests/review documentation; a screenshot match alone MUST NOT pass a route.
 
 ## 3. Production shell and visual migration
 
