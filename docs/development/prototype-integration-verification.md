@@ -4,18 +4,19 @@ Branch: `workflow-states-implementation`
 
 ## Local evidence
 
-| Check                                       | Result                               |
-| ------------------------------------------- | ------------------------------------ |
-| `npm test -- --runInBand`                   | Passed                               |
-| `npm run build`                             | Passed                               |
-| `npm run lint`                              | Passed                               |
-| `npm run architecture:check`                | Passed                               |
-| `npm run openapi:lint`                      | Passed                               |
-| `npm run openapi:diff`                      | Passed with no reported diff failure |
-| `npm --prefix apps/web run test`            | Passed                               |
-| Browser accessibility tests                 | Passed: 2/2, using production server |
-| Critical Playwright flows                   | Passed: 4/4, using production server |
-| Configuration controller/service Jest tests | Passed                               |
+| Check                                       | Result                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `npm test -- --runInBand`                   | Passed                                                                         |
+| `npm run build`                             | Passed                                                                         |
+| `npm run lint`                              | Passed                                                                         |
+| `npm run architecture:check`                | Passed                                                                         |
+| `npm run openapi:lint`                      | Passed                                                                         |
+| `npm run openapi:diff`                      | Passed with no reported diff failure                                           |
+| `npm --prefix apps/web run test`            | Passed                                                                         |
+| Browser accessibility tests                 | Passed: 2/2, using production server                                           |
+| Critical Playwright flows                   | Passed: 4/4, using production server                                           |
+| Configuration controller/service Jest tests | Passed                                                                         |
+| `npm run test:integration`                  | 29 suites / 146 tests passed, but exited with Prisma `P3018` migration failure |
 
 ## Blocked or requiring shared infrastructure
 

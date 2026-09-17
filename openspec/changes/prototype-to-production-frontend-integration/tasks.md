@@ -57,17 +57,17 @@
 - [x] 6.2 Label the bounded overview/activity as loaded/recent activity and remove fake pagination and unsupported full-day totals.
 - [x] 6.3 Remove browser-only pagination and ensure the UI does not claim full history beyond the bounded feed.
 - [x] 6.4 Port transaction detail and reversal actions through authoritative endpoints; do not synthesize audit trails from transaction fields.
-- [ ] 6.5 Add tests for scope, cursor boundaries, timezone/day boundaries, pagination, transaction detail, reversal authorization, and audit visibility.
+- [x] 6.5 Add tests for scope, cursor boundaries, timezone/day boundaries, pagination, transaction detail, reversal authorization, and audit visibility.
 
 ## 7. Supervisor/Admin product coverage
 
-- [ ] 7.1 Apply the prototype visual language to existing Supervisor/Admin shells and role-specific dashboards without importing Cashier pages as implementations.
-- [ ] 7.2 Complete card lifecycle UX: assign, replace, block/reactivate, replacement SMS state, and audit context.
+- [x] 7.1 Apply the prototype visual language to existing Supervisor/Admin shells and role-specific dashboards without importing Cashier pages as implementations.
+- [x] 7.2 Complete card lifecycle UX: assign, replace, block/reactivate, replacement SMS state, and audit context.
 - [x] 7.3 Complete customer lifecycle UX: edit, block/unblock, staff marking, masked projections, and branch/tenant scope.
-- [ ] 7.4 Complete transaction, reversal, adjustment, approval, and fraud workspaces with explicit capabilities and backend outcome states.
-- [ ] 7.5 Complete reporting UX: management reports, exports, materialization controls, SMS operations, transaction-level inspection, and pilot health indicators.
-- [ ] 7.6 Complete users, devices, branches, and offline queue/reconciliation administration surfaces.
-- [ ] 7.7 Replace the mixed-role Workflow States page with role-safe workspace coverage; retain any harness only as non-production developer tooling.
+- [x] 7.4 Complete transaction, reversal, adjustment, approval, and fraud workspaces with explicit capabilities and backend outcome states.
+- [x] 7.5 Complete reporting UX: management reports, exports, materialization controls, SMS operations, transaction-level inspection, and pilot health indicators.
+- [x] 7.6 Complete users, devices, branches, and offline queue/reconciliation administration surfaces.
+- [x] 7.7 Replace the mixed-role Workflow States page with role-safe workspace coverage; retain any harness only as non-production developer tooling.
 - [ ] 7.8 Add role-matrix, wrong-tenant, wrong-branch, authorization, accessibility, contract, and Playwright coverage for every shared workspace.
 
 ## 8. Policy/configuration capability
