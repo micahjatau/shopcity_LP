@@ -20,6 +20,15 @@ Parity requires visual hierarchy, interaction flow, contract authority, operatio
 | `apps/web/public/prototype/workflow-states.html`        | No production route                                                       | Mixed Cashier/Supervisor/Admin diagnostic calls                                         | Retain only as developer/test harness if needed; split concepts into role-safe workspaces; never expose in shell navigation                                                          | Navigation role matrix and route guard tests                      |
 | Shared prototype CSS/JS                                 | `apps/web/styles`, token/primitives/UI components                         | Existing CSS tokens and React UI primitives                                             | Extract only reusable visual language; do not copy inline-script behavior or create a second frontend                                                                                | Token drift, lint, visual snapshots                               |
 
+## Implementation inventory
+
+- **React routes and shell:** `apps/web/app/(auth)/login`, `apps/web/app/(shell)/cashier`, `supervisor`, and `admin` route trees, with `AppShell` and role navigation owning guarded workspace entry.
+- **Generated API client:** `client/shopcity-client.ts`, re-exported through `apps/web/lib/api/generated-client.ts`; contract changes are regenerated from `docs/api/openapi.json`.
+- **Session/bootstrap:** `apps/web/components/session-bootstrap.tsx` loads backend session, role, tenant/branch/device context, and public or operational configuration; logout and expiry clear cached state.
+- **Scanner/offline infrastructure:** `scanner-context-scope.tsx`, `cashier-overview-lookup.tsx`, `earn-transaction-form.tsx`, `offline-queue.ts`, and `/cashier/sync` carry draft/retry/reconciliation state without granting financial authority.
+- **Role capabilities:** backend `Roles` metadata and frontend `shellNavigationByRole` define Cashier, Supervisor, and Admin workspace boundaries; prototype diagnostic workflow states are not production navigation.
+- **Evidence coverage:** Jest/web tests, accessibility tests, visual snapshots, contract flows, workflow-route Playwright tests, and backend integration suites listed in each matrix row provide the verification surface.
+
 ## Authority rules
 
 - Card/customer/balance/status/eligibility/policy/device identity comes from the backend or authenticated session bootstrap.

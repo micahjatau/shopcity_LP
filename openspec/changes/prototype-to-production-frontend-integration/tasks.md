@@ -2,11 +2,11 @@
 
 ## 1. Baseline, decisions, and contracts
 
-- [ ] 1.1 Inventory prototype screens, existing React routes, generated client methods, session/bootstrap state, scanner/offline infrastructure, role capabilities, and current test/evidence coverage.
-- [ ] 1.2 Run GitNexus impact analysis for the cashier shell, card lookup, Earn, Redeem, customer registration, activity reporting, session logout, and policy configuration surfaces; record blast radius in `docs/development/gitnexus-impact-tracker.md`.
+- [x] 1.1 Inventory prototype screens, existing React routes, generated client methods, session/bootstrap state, scanner/offline infrastructure, role capabilities, and current test/evidence coverage.
+- [x] 1.2 Run GitNexus impact analysis for the cashier shell, card lookup, Earn, Redeem, customer registration, activity reporting, session logout, and policy configuration surfaces; record blast radius in `docs/development/gitnexus-impact-tracker.md`.
 - [x] 1.3 Decide and document pilot ownership from the TRD: Supervisor/Admin-only registration, atomic initial barcode-card assignment, TRD fields only, bounded cashier activity, and product-owned policy configuration.
-- [ ] 1.4 Define the authoritative card-context state machine and typed UI outcome model for lookup, Earn, Redeem, duplicate, approval, offline, retry, and session-expiry states.
-- [ ] 1.5 Define role/tenant/branch/device acceptance fixtures and prohibit client authority for balance, status, role, eligibility, approval, or policy values.
+- [x] 1.4 Define the authoritative card-context state machine and typed UI outcome model for lookup, Earn, Redeem, duplicate, approval, offline, retry, and session-expiry states.
+- [x] 1.5 Define role/tenant/branch/device acceptance fixtures and prohibit client authority for balance, status, role, eligibility, approval, or policy values.
 - [x] 1.6 Update or create OpenSpec capability specs for prototype parity, card context, activity history, and policy configuration before implementation.
 
 ## 2. Prototype/React parity foundation
