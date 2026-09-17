@@ -20,15 +20,15 @@
 
 ## 3. Production shell and visual migration
 
-- [ ] 3.1 Extract the prototype visual language into reusable React tokens, primitives, shell components, and accessible patterns without introducing inline-script production pages.
-- [ ] 3.2 Apply the design to `/login`, preserving the existing auth/session implementation and role-aware redirects.
-- [ ] 3.3 Apply the design to `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, and `/cashier/sync` while preserving deep links and route guards.
-- [ ] 3.4 Keep branch, device, session, connection, and sync context visible in the production shell without duplicating launcher grids.
-- [ ] 3.5 Implement responsive desktop, tablet, and mobile navigation with keyboard access, focus containment, escape handling, and background inertness.
-- [ ] 3.6 Add loading, empty, offline, unauthorized, validation, conflict, server-error, pending, success, and session-required states to each migrated route.
-- [ ] 3.7 Remove or make explicitly non-interactive every prototype control without a real production contract, including fake notifications, decorative global search, static health status, dead recovery, and `#logout` links.
-- [ ] 3.8 Add stable semantic selectors, accessibility assertions, route tests, and visual snapshots for every migrated shell and workflow route at desktop, tablet, and mobile breakpoints.
-- [ ] 3.9 Complete and review the parity record for each screen before marking its migration complete.
+- [x] 3.1 Extract the prototype visual language into reusable React tokens, primitives, shell components, and accessible patterns without introducing inline-script production pages.
+- [x] 3.2 Apply the design to `/login`, preserving the existing auth/session implementation and role-aware redirects.
+- [x] 3.3 Apply the design to `/cashier`, `/cashier/lookup`, `/cashier/earn`, `/cashier/redeem`, and `/cashier/sync` while preserving deep links and route guards.
+- [x] 3.4 Keep branch, device, session, connection, and sync context visible in the production shell without duplicating launcher grids.
+- [x] 3.5 Implement responsive desktop, tablet, and mobile navigation with keyboard access, focus containment, escape handling, and background inertness.
+- [x] 3.6 Add loading, empty, offline, unauthorized, validation, conflict, server-error, pending, success, and session-required states to each migrated route.
+- [x] 3.7 Remove or make explicitly non-interactive every prototype control without a real production contract, including fake notifications, decorative global search, static health status, dead recovery, and `#logout` links.
+- [x] 3.8 Add stable semantic selectors, accessibility assertions, route tests, and visual snapshots for every migrated shell and workflow route at desktop, tablet, and mobile breakpoints.
+- [x] 3.9 Complete and review the parity record for each screen before marking its migration complete.
 
 ## 4. Authoritative cashier workflows
 
@@ -73,8 +73,8 @@
 ## 8. Policy/configuration capability
 
 - [x] 8.1 Implement the decided product-owned policy capability and update Admin navigation/runbooks.
-- [ ] 8.2 Add Admin-only validated policy read/write endpoints, optimistic version checks, audit records, integer/bounds validation, OpenAPI, client generation, and integration tests.
-- [ ] 8.3 Add stale-version conflict handling and Cashier/Supervisor rejection coverage for policy mutations.
+- [x] 8.2 Add Admin-only validated policy read/write endpoints, optimistic version checks, audit records, integer/bounds validation, OpenAPI, client generation, and integration tests.
+- [x] 8.3 Add stale-version conflict handling and Cashier/Supervisor rejection coverage for policy mutations.
 - [x] 8.4 Add the Admin configuration UI after the contract and audit behavior are complete.
 
 ## 9. Repository hygiene and generated artifacts
