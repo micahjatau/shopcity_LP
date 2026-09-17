@@ -22,6 +22,7 @@ const adminRouteBodyByHref: Record<string, string> = {
   '/admin/users': 'Manage access and identities.',
   '/admin/devices': 'Track devices and sync readiness.',
   '/admin/branches': 'Manage branch policy and scope.',
+  '/admin/policies': 'Configure validated branch policy values.',
 };
 
 const adminRouteCards = shellNavigationByRole.ADMIN.flatMap(

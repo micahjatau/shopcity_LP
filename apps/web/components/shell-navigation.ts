@@ -238,6 +238,12 @@ export const shellNavigationByRole: Record<
           href: '/admin/branches',
           icon: 'branch',
         },
+        {
+          id: 'admin-policies',
+          label: 'Policies',
+          href: '/admin/policies',
+          icon: 'sliders',
+        },
       ],
     },
   ],

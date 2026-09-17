@@ -259,6 +259,48 @@ export interface FraudFlagDecisionDto {
   reason: string;
 }
 
+export interface UpdatePolicyConfigurationDto {
+  branchId: string;
+  /**
+   * @minimum 0
+   * @maximum 10000
+   */
+  defaultEarnRateBps: number;
+  /**
+   * @minimum 1
+   * @maximum 9007199254740991
+   */
+  minRedemptionKobo: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  maxRedemptionBasketPercent: number;
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  purchaseFlagThresholdKobo: number;
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  purchaseApprovalThresholdKobo: number;
+  /**
+   * @minimum 0
+   * @maximum 9007199254740991
+   */
+  purchaseAmountCeilingKobo: number;
+  /**
+   * @minimum 1
+   * @maximum 9007199254740991
+   */
+  redemptionApprovalThresholdKobo: number;
+  offlineRedemptionDisabled: boolean;
+  /** @minimum 0 */
+  expectedVersion: number;
+}
+
 export type AppControllerGetHelloV1200Meta = {
   timestamp: string;
   path: string;
@@ -14760,6 +14802,466 @@ export type ConfigurationControllerGetPublicConfigV1503 = {
   meta: ConfigurationControllerGetPublicConfigV1503Meta;
 };
 
+export type ConfigurationControllerGetPolicyConfigurationV1Params = {
+  branchId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1200 = {
+  success: boolean;
+  data: ConfigurationControllerGetPolicyConfigurationV1200Data;
+  meta: ConfigurationControllerGetPolicyConfigurationV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1400ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1400 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1400Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1401ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1401 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1401Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1403ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1403 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1403Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1404ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1404 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1404Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1409ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1409 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1409Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1422ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1422 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1422Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1429ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1429 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1429Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerGetPolicyConfigurationV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ConfigurationControllerGetPolicyConfigurationV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerGetPolicyConfigurationV1503ErrorDetails;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerGetPolicyConfigurationV1503 = {
+  success: boolean;
+  error: ConfigurationControllerGetPolicyConfigurationV1503Error;
+  meta: ConfigurationControllerGetPolicyConfigurationV1503Meta;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1200Data = {
+  [key: string]: unknown;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1200 = {
+  success: boolean;
+  data: ConfigurationControllerUpdatePolicyConfigurationV1200Data;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1400ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1400ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1400 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1400Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1401ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1401ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1401 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1401Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1403ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1403ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1403 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1403Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1404ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1404ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1404 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1404Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1409ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1409ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1409 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1409Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1422ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1422ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1422 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1422Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1429ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1429ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1429 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1429Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ConfigurationControllerUpdatePolicyConfigurationV1503ErrorDetails =
+  { [key: string]: unknown } | null;
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ConfigurationControllerUpdatePolicyConfigurationV1503ErrorDetails;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ConfigurationControllerUpdatePolicyConfigurationV1503 = {
+  success: boolean;
+  error: ConfigurationControllerUpdatePolicyConfigurationV1503Error;
+  meta: ConfigurationControllerUpdatePolicyConfigurationV1503Meta;
+};
+
 export type ConfigurationControllerGetOperationalConfigV1200Data = {
   [key: string]: unknown;
 };
@@ -21173,6 +21675,227 @@ export const configurationControllerGetPublicConfigV1 = async (
     status: res.status,
     headers: res.headers,
   } as configurationControllerGetPublicConfigV1Response;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response200 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1200;
+  status: 200;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response400 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1400;
+  status: 400;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response401 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1401;
+  status: 401;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response403 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1403;
+  status: 403;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response404 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1404;
+  status: 404;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response409 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1409;
+  status: 409;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response422 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1422;
+  status: 422;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response429 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1429;
+  status: 429;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response503 = {
+  data: ConfigurationControllerGetPolicyConfigurationV1503;
+  status: 503;
+};
+
+export type configurationControllerGetPolicyConfigurationV1ResponseSuccess =
+  configurationControllerGetPolicyConfigurationV1Response200 & {
+    headers: Headers;
+  };
+export type configurationControllerGetPolicyConfigurationV1ResponseError = (
+  | configurationControllerGetPolicyConfigurationV1Response400
+  | configurationControllerGetPolicyConfigurationV1Response401
+  | configurationControllerGetPolicyConfigurationV1Response403
+  | configurationControllerGetPolicyConfigurationV1Response404
+  | configurationControllerGetPolicyConfigurationV1Response409
+  | configurationControllerGetPolicyConfigurationV1Response422
+  | configurationControllerGetPolicyConfigurationV1Response429
+  | configurationControllerGetPolicyConfigurationV1Response503
+) & {
+  headers: Headers;
+};
+
+export type configurationControllerGetPolicyConfigurationV1Response =
+  | configurationControllerGetPolicyConfigurationV1ResponseSuccess
+  | configurationControllerGetPolicyConfigurationV1ResponseError;
+
+export const getConfigurationControllerGetPolicyConfigurationV1Url = (
+  params: ConfigurationControllerGetPolicyConfigurationV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/config/policies?${stringifiedParams}`
+    : `/api/v1/config/policies`;
+};
+
+/**
+ * Get Admin policy configuration
+ * @summary Get Admin policy configuration
+ */
+export const configurationControllerGetPolicyConfigurationV1 = async (
+  params: ConfigurationControllerGetPolicyConfigurationV1Params,
+  options?: RequestInit,
+): Promise<configurationControllerGetPolicyConfigurationV1Response> => {
+  const res = await fetch(
+    getConfigurationControllerGetPolicyConfigurationV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurationControllerGetPolicyConfigurationV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as configurationControllerGetPolicyConfigurationV1Response;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response200 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1200;
+  status: 200;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response400 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1400;
+  status: 400;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response401 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1401;
+  status: 401;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response403 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1403;
+  status: 403;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response404 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1404;
+  status: 404;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response409 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1409;
+  status: 409;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response422 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1422;
+  status: 422;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response429 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1429;
+  status: 429;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response503 = {
+  data: ConfigurationControllerUpdatePolicyConfigurationV1503;
+  status: 503;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1ResponseSuccess =
+  configurationControllerUpdatePolicyConfigurationV1Response200 & {
+    headers: Headers;
+  };
+export type configurationControllerUpdatePolicyConfigurationV1ResponseError = (
+  | configurationControllerUpdatePolicyConfigurationV1Response400
+  | configurationControllerUpdatePolicyConfigurationV1Response401
+  | configurationControllerUpdatePolicyConfigurationV1Response403
+  | configurationControllerUpdatePolicyConfigurationV1Response404
+  | configurationControllerUpdatePolicyConfigurationV1Response409
+  | configurationControllerUpdatePolicyConfigurationV1Response422
+  | configurationControllerUpdatePolicyConfigurationV1Response429
+  | configurationControllerUpdatePolicyConfigurationV1Response503
+) & {
+  headers: Headers;
+};
+
+export type configurationControllerUpdatePolicyConfigurationV1Response =
+  | configurationControllerUpdatePolicyConfigurationV1ResponseSuccess
+  | configurationControllerUpdatePolicyConfigurationV1ResponseError;
+
+export const getConfigurationControllerUpdatePolicyConfigurationV1Url = () => {
+  return `/api/v1/config/policies`;
+};
+
+/**
+ * Update Admin policy configuration
+ * @summary Update Admin policy configuration
+ */
+export const configurationControllerUpdatePolicyConfigurationV1 = async (
+  updatePolicyConfigurationDto: UpdatePolicyConfigurationDto,
+  options?: RequestInit,
+): Promise<configurationControllerUpdatePolicyConfigurationV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(
+    getConfigurationControllerUpdatePolicyConfigurationV1Url(),
+    {
+      ...options,
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(updatePolicyConfigurationDto),
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurationControllerUpdatePolicyConfigurationV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as configurationControllerUpdatePolicyConfigurationV1Response;
 };
 
 export type configurationControllerGetOperationalConfigV1Response200 = {

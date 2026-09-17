@@ -1,7 +1,19 @@
-import { Controller, Get, Req, Version } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Query,
+  Req,
+  Version,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { ConfigurationService } from './configuration.service';
+import {
+  GetPolicyConfigurationDto,
+  UpdatePolicyConfigurationDto,
+} from './configuration.dto';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
@@ -76,6 +88,45 @@ export class ConfigurationController {
   @ApiOperation({ summary: 'Get public configuration' })
   async getPublicConfig() {
     return this.configurationService.getPublicConfig();
+  }
+
+  @Get('policies')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description: 'Admin tenant/branch policy configuration',
+    dataSchema: { type: 'object' },
+  })
+  @ApiOperation({ summary: 'Get Admin policy configuration' })
+  async getPolicyConfiguration(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: GetPolicyConfigurationDto,
+  ) {
+    const authContext = request.authContext!;
+    return this.configurationService.getPolicyConfiguration(
+      authContext.user.tenantId,
+      query.branchId,
+    );
+  }
+
+  @Patch('policies')
+  @Version('1')
+  @Roles(UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description: 'Updated Admin tenant/branch policy configuration',
+    dataSchema: { type: 'object' },
+  })
+  @ApiOperation({ summary: 'Update Admin policy configuration' })
+  async updatePolicyConfiguration(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: UpdatePolicyConfigurationDto,
+  ) {
+    const authContext = request.authContext!;
+    return this.configurationService.updatePolicyConfiguration(
+      authContext.user.tenantId,
+      authContext.user.id,
+      body,
+    );
   }
 
   @Get('operational')

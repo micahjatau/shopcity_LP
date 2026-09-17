@@ -187,23 +187,25 @@ model Tenant {
   deviceAttestations     DeviceAttestation[]
   offlineSyncAttempts    OfflineSyncAttempt[]
   fraudFlags             FraudFlag[]
+  policyConfigurations   PolicyConfiguration[]
 }
 
 model Branch {
-  id                  String       @id @default(uuid())
+  id                  String               @id @default(uuid())
   tenantId            String
   name                String
-  timezone            String       @default("Africa/Lagos")
-  receiptWeekStartDay Int          @default(1)
-  status              BranchStatus @default(ACTIVE)
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  timezone            String               @default("Africa/Lagos")
+  receiptWeekStartDay Int                  @default(1)
+  status              BranchStatus         @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   devices             Device[]
   users               User[]
   customers           Customer[]
   receipts            Receipt[]
   redemptions         Redemption[]
+  policyConfiguration PolicyConfiguration?
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -266,20 +268,20 @@ model User {
 }
 
 model Session {
-  id               String        @id @default(uuid())
+  id               String         @id @default(uuid())
   userId           String
   deviceId         String?
-  sessionTokenHash String        @unique
+  sessionTokenHash String         @unique
   csrfTokenHash    String
-  status           SessionStatus @default(ACTIVE)
+  status           SessionStatus  @default(ACTIVE)
   purpose          SessionPurpose @default(USER)
   expiresAt        DateTime
   revokedAt        DateTime?
   lastUsedAt       DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  device           Device?       @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device           Device?        @relation(fields: [deviceId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([deviceId])
@@ -307,30 +309,30 @@ model DeviceAttestation {
 }
 
 model Customer {
-  id                   String               @id @default(uuid())
-  tenantId             String
-  branchId             String
-  fullName             String
-  email                String?
-  phoneE164            String
-  isStaff              Boolean              @default(false)
-  status               CustomerStatus       @default(ACTIVE)
-  registeredBy         String?
-  registeredByTenantId String?
-  blockedAt            DateTime?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch               Branch               @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  registeredByUser     User?                @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
-  cards                Card[]
-  receipts             Receipt[]
-  ledgerEntries        LoyaltyLedgerEntry[]
-  creditLots           CreditLot[]
-  creditExpiries       CreditExpiry[]
+  id                    String                 @id @default(uuid())
+  tenantId              String
+  branchId              String
+  fullName              String
+  email                 String?
+  phoneE164             String
+  isStaff               Boolean                @default(false)
+  status                CustomerStatus         @default(ACTIVE)
+  registeredBy          String?
+  registeredByTenantId  String?
+  blockedAt             DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                Branch                 @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  registeredByUser      User?                  @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
+  cards                 Card[]
+  receipts              Receipt[]
+  ledgerEntries         LoyaltyLedgerEntry[]
+  creditLots            CreditLot[]
+  creditExpiries        CreditExpiry[]
   creditExpiryReminders CreditExpiryReminder[]
-  redemptions          Redemption[]
-  adjustments          Adjustment[]
+  redemptions           Redemption[]
+  adjustments           Adjustment[]
 
   @@unique([tenantId, phoneE164])
   @@unique([tenantId, email])
@@ -636,23 +638,23 @@ model Approval {
 }
 
 model OutboxEvent {
-  id              String            @id @default(uuid())
-  tenantId        String
-  aggregateType   String
-  aggregateId     String
-  eventType       String
-  payload         Json
-  status          OutboxEventStatus @default(PENDING)
-  attempts        Int               @default(0)
-  nextAttemptAt   DateTime?
-  publishedAt     DateTime?
-  processedAt     DateTime?
-  deadLetteredAt  DateTime?
-  failureCategory String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  smsMessage      SmsMessage?
+  id                   String                @id @default(uuid())
+  tenantId             String
+  aggregateType        String
+  aggregateId          String
+  eventType            String
+  payload              Json
+  status               OutboxEventStatus     @default(PENDING)
+  attempts             Int                   @default(0)
+  nextAttemptAt        DateTime?
+  publishedAt          DateTime?
+  processedAt          DateTime?
+  deadLetteredAt       DateTime?
+  failureCategory      String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  smsMessage           SmsMessage?
   creditExpiryReminder CreditExpiryReminder?
 
   @@unique([tenantId, id])
@@ -704,17 +706,17 @@ model SmsMessage {
 }
 
 model CreditExpiryReminder {
-  id                String     @id @default(uuid())
+  id                String      @id @default(uuid())
   tenantId          String
   customerId        String
   reminderDate      DateTime
   totalExpiringKobo BigInt
   earliestExpiresAt DateTime
   latestExpiresAt   DateTime
-  outboxEventId     String     @unique
-  createdAt         DateTime   @default(now())
-  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  customer          Customer   @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  outboxEventId     String      @unique
+  createdAt         DateTime    @default(now())
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer          Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
   outboxEvent       OutboxEvent @relation(fields: [tenantId, outboxEventId], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([tenantId, id])
@@ -834,25 +836,25 @@ model ReportDailyFinancialSummary {
 }
 
 model ReportCashierDailySummary {
-  id                String   @id @default(uuid())
-  tenantId          String
-  scope             String
-  scopeKey          String
-  branchId          String?
-  cashierId         String
-  reportDate        DateTime
+  id                  String   @id @default(uuid())
+  tenantId            String
+  scope               String
+  scopeKey            String
+  branchId            String?
+  cashierId           String
+  reportDate          DateTime
   transactionCount    Int      @default(0)
   purchaseValueKobo   BigInt   @default(0)
   creditIssuedKobo    BigInt   @default(0)
   redemptionCount     Int      @default(0)
   redemptionValueKobo BigInt   @default(0)
   duplicateAttempts   Int      @default(0)
-  reversalCount     Int      @default(0)
-  approvalRequests  Int      @default(0)
-  fraudFlagCount    Int      @default(0)
-  materializedAt    DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  reversalCount       Int      @default(0)
+  approvalRequests    Int      @default(0)
+  fraudFlagCount      Int      @default(0)
+  materializedAt      DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@unique([tenantId, scope, scopeKey, cashierId, reportDate])
   @@index([tenantId, reportDate])
@@ -953,6 +955,28 @@ model ReportSmsDailySummary {
   @@unique([tenantId, scope, scopeKey, reportDate])
   @@index([tenantId, reportDate])
   @@index([tenantId, branchId, reportDate])
+}
+
+model PolicyConfiguration {
+  id                              String   @id @default(uuid())
+  tenantId                        String
+  branchId                        String
+  version                         Int      @default(1)
+  defaultEarnRateBps              Int
+  minRedemptionKobo               BigInt
+  maxRedemptionBasketPercent      Int
+  purchaseFlagThresholdKobo       BigInt
+  purchaseApprovalThresholdKobo   BigInt
+  purchaseAmountCeilingKobo       BigInt
+  redemptionApprovalThresholdKobo BigInt
+  offlineRedemptionDisabled       Boolean  @default(true)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+  tenant                          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                          Branch   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, branchId])
+  @@index([tenantId, version])
 }
 
 model IdempotencyRecord {

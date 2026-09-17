@@ -40,7 +40,11 @@ describe('ConfigurationService', () => {
             receiptWeekStartDay: 3,
           }),
         },
+        policyConfiguration: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
       } as never,
+      { recordWithClient: jest.fn() } as never,
     );
 
     await expect(service.getPublicConfig()).resolves.toEqual({
@@ -97,12 +101,112 @@ describe('ConfigurationService', () => {
             receiptWeekStartDay: 1,
           }),
         },
+        policyConfiguration: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
       } as never,
+      { recordWithClient: jest.fn() } as never,
     );
 
     await expect(service.getPublicConfig()).rejects.toThrow(
       'Public configuration bootstrap data is inconsistent',
     );
+  });
+
+  it('creates an audited branch policy at version one', async () => {
+    const tx = {
+      policyConfiguration: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({
+          id: 'policy-1',
+          tenantId: 'tenant-1',
+          branchId: 'branch-1',
+          version: 1,
+          defaultEarnRateBps: 200,
+          minRedemptionKobo: 50000n,
+          maxRedemptionBasketPercent: 30,
+          purchaseFlagThresholdKobo: 10000000n,
+          purchaseApprovalThresholdKobo: 20000000n,
+          purchaseAmountCeilingKobo: 100000000n,
+          redemptionApprovalThresholdKobo: 500000n,
+          offlineRedemptionDisabled: true,
+        }),
+      },
+    };
+    const service = new ConfigurationService(
+      { get: jest.fn() } as never,
+      {
+        branch: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'branch-1',
+            name: 'Main Branch',
+            status: BranchStatus.ACTIVE,
+          }),
+        },
+        $transaction: jest.fn((callback: (client: unknown) => unknown) =>
+          callback(tx),
+        ),
+      } as never,
+      { recordWithClient: jest.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    await expect(
+      service.updatePolicyConfiguration('tenant-1', 'admin-1', {
+        branchId: 'branch-1',
+        defaultEarnRateBps: 200,
+        minRedemptionKobo: 50000,
+        maxRedemptionBasketPercent: 30,
+        purchaseFlagThresholdKobo: 10000000,
+        purchaseApprovalThresholdKobo: 20000000,
+        purchaseAmountCeilingKobo: 100000000,
+        redemptionApprovalThresholdKobo: 500000,
+        offlineRedemptionDisabled: true,
+        expectedVersion: 0,
+      }),
+    ).resolves.toMatchObject({ version: 1, branchId: 'branch-1' });
+  });
+
+  it('rejects a stale policy version without updating', async () => {
+    const updateMany = jest.fn();
+    const service = new ConfigurationService(
+      { get: jest.fn() } as never,
+      {
+        branch: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'branch-1',
+            name: 'Main Branch',
+            status: BranchStatus.ACTIVE,
+          }),
+        },
+        $transaction: jest.fn((callback: (client: unknown) => unknown) =>
+          callback({
+            policyConfiguration: {
+              findUnique: jest.fn().mockResolvedValue({ version: 3 }),
+              updateMany,
+            },
+          }),
+        ),
+      } as never,
+      { recordWithClient: jest.fn() } as never,
+    );
+
+    await expect(
+      service.updatePolicyConfiguration('tenant-1', 'admin-1', {
+        branchId: 'branch-1',
+        defaultEarnRateBps: 200,
+        minRedemptionKobo: 50000,
+        maxRedemptionBasketPercent: 30,
+        purchaseFlagThresholdKobo: 10000000,
+        purchaseApprovalThresholdKobo: 20000000,
+        purchaseAmountCeilingKobo: 100000000,
+        redemptionApprovalThresholdKobo: 500000,
+        offlineRedemptionDisabled: true,
+        expectedVersion: 2,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'POLICY_VERSION_CONFLICT' },
+    });
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects inactive public tenant or branch configuration', async () => {
@@ -135,7 +239,11 @@ describe('ConfigurationService', () => {
             receiptWeekStartDay: 1,
           }),
         },
+        policyConfiguration: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
       } as never,
+      { recordWithClient: jest.fn() } as never,
     );
 
     await expect(service.getPublicConfig()).rejects.toBeInstanceOf(
