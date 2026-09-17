@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "npm run tokens:check",
+    "test": "npm run tokens:check && jest --config ./jest.web.config.cjs --runInBand",
+    "unit:test": "jest --config ./jest.web.config.cjs --runInBand",
     "a11y:test": "jest --config ./jest.a11y.config.cjs --runInBand",
     "a11y:browser": "playwright test --config ./playwright.config.ts tests/browser-a11y.spec.ts",
     "critical:test": "playwright test --config ./playwright.config.ts --grep @critical",
@@ -24,9 +25,13 @@
     "tokens:check": "node ./scripts/check-token-drift.mjs"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.46.0",
     "next": "^15.4.6",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.7.0"
   },
   "overrides": {
     "postcss": "^8.5.28",
@@ -36,6 +41,7 @@
     "@playwright/test": "^1.62.1",
     "@swc/core": "^1.15.47",
     "@swc/jest": "^0.2.39",
+    "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",
@@ -48,6 +54,8 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "jest-environment-jsdom": "^30.4.1",
     "jsdom": "^29.1.1",
+    "shadcn": "^4.21.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3"
   }
 }

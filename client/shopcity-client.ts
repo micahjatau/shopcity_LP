@@ -116,6 +116,8 @@ export interface UpdateDeviceDto {
 export interface CreateCustomerDto {
   fullName: string;
   phone: string;
+  /** Unused barcode for the initial customer card */
+  cardSerialNumber: string;
   isStaff?: boolean;
   email?: string;
   branchId?: string;

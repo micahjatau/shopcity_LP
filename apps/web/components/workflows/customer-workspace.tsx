@@ -52,6 +52,13 @@ type CardRecord = Record<string, unknown> & {
   availableBalanceKobo?: number;
 };
 
+type CustomerFormState = {
+  fullName: string;
+  phone: string;
+  email: string;
+  cardSerialNumber: string;
+};
+
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
 const pageNotes = [
   [
@@ -107,9 +114,12 @@ export function CustomerWorkspace({
     string,
     unknown
   > | null>(null);
-  const [customerForm, setCustomerForm] = useState<
-    CreateCustomerDto & UpdateCustomerDto
-  >({ fullName: '', phone: '', email: '' });
+  const [customerForm, setCustomerForm] = useState<CustomerFormState>({
+    fullName: '',
+    phone: '',
+    email: '',
+    cardSerialNumber: '',
+  });
   const [customerFormMessage, setCustomerFormMessage] = useState(
     'Register a customer or select one to edit their profile.',
   );
@@ -160,6 +170,7 @@ export function CustomerWorkspace({
             fullName: String(nextCustomer.fullName ?? nextCustomer.name ?? ''),
             phone: String(nextCustomer.phoneE164 ?? nextCustomer.phone ?? ''),
             email: String(nextCustomer.email ?? ''),
+            cardSerialNumber: '',
           });
           setCustomerStatus(
             (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
@@ -357,16 +368,20 @@ export function CustomerWorkspace({
   }
 
   async function saveCustomer(mode: 'create' | 'update') {
-    const payload = {
+    const basePayload = {
       fullName: customerForm.fullName.trim(),
       phone: customerForm.phone.trim(),
       ...(customerForm.email?.trim()
         ? { email: customerForm.email.trim() }
         : {}),
-    } satisfies CreateCustomerDto & UpdateCustomerDto;
+    };
 
-    if (!payload.fullName || !payload.phone) {
+    if (!basePayload.fullName || !basePayload.phone) {
       setCustomerFormMessage('Full name and phone are required.');
+      return;
+    }
+    if (mode === 'create' && !customerForm.cardSerialNumber.trim()) {
+      setCustomerFormMessage('Initial card serial number is required.');
       return;
     }
     if (mode === 'update' && !selectedId) {
@@ -382,7 +397,10 @@ export function CustomerWorkspace({
       const response =
         mode === 'create'
           ? await customersControllerCreateCustomerV1(
-              payload,
+              {
+                ...basePayload,
+                cardSerialNumber: customerForm.cardSerialNumber.trim(),
+              } satisfies CreateCustomerDto,
               createApiRequest({
                 csrf: true,
                 idempotencyKey: crypto.randomUUID(),
@@ -390,7 +408,7 @@ export function CustomerWorkspace({
             )
           : await customersControllerUpdateCustomerV1(
               selectedId!,
-              payload,
+              basePayload satisfies UpdateCustomerDto,
               createApiRequest({
                 csrf: true,
                 idempotencyKey: crypto.randomUUID(),
@@ -640,6 +658,19 @@ export function CustomerWorkspace({
                 }))
               }
             />
+            {!selectedCustomer ? (
+              <Input
+                aria-label="Initial card serial number"
+                placeholder="Initial card serial number"
+                value={customerForm.cardSerialNumber}
+                onChange={(event) =>
+                  setCustomerForm((current) => ({
+                    ...current,
+                    cardSerialNumber: event.target.value,
+                  }))
+                }
+              />
+            ) : null}
           </div>
           <div
             style={{
@@ -662,7 +693,12 @@ export function CustomerWorkspace({
                 variant="secondary"
                 onClick={() => {
                   setSelectedId(null);
-                  setCustomerForm({ fullName: '', phone: '', email: '' });
+                  setCustomerForm({
+                    fullName: '',
+                    phone: '',
+                    email: '',
+                    cardSerialNumber: '',
+                  });
                   setCustomerFormMessage(
                     'Register a customer or select one to edit their profile.',
                   );

@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { normalizePhoneToE164 } from '../../common/phone';
+import { normalizeCardSerial } from '../../common/card-identity';
 import {
   CursorPageRequest,
   decodeCursor,
@@ -169,6 +170,7 @@ export class CustomersService {
     data: {
       fullName: string;
       phone: string;
+      cardSerialNumber: string;
       email?: string;
       isStaff?: boolean;
       branchId?: string;
@@ -198,9 +200,13 @@ export class CustomersService {
     }
 
     const phoneE164 = normalizePhoneToE164(data.phone);
+    const cardSerialNumber = normalizeCardSerial(data.cardSerialNumber);
     const email = data.email?.trim().toLowerCase();
     if (!phoneE164.startsWith('+')) {
       throw new BadRequestException('Phone number is invalid');
+    }
+    if (!cardSerialNumber) {
+      throw new BadRequestException('Card serial number is required');
     }
 
     const branchId = data.branchId ?? actor.user.branchId ?? undefined;
@@ -223,6 +229,14 @@ export class CustomersService {
     });
     if (existing) {
       throw new ConflictException('Active customer already exists');
+    }
+
+    const existingCard = await this.prismaService.card.findFirst({
+      where: { tenantId, barcodeValue: cardSerialNumber },
+      select: { id: true },
+    });
+    if (existingCard) {
+      throw new ConflictException('Card serial number is already assigned');
     }
 
     return this.prismaService.$transaction(async (prisma) => {
@@ -250,6 +264,16 @@ export class CustomersService {
           registeredBy: actor.user.id,
         },
       });
+      const card = await prisma.card.create({
+        data: {
+          tenantId,
+          customerId: customer.id,
+          barcodeValue: cardSerialNumber,
+          issuedByTenantId: actor.user.tenantId,
+          issuedBy: actor.user.id,
+        },
+        select: { id: true, barcodeValue: true, status: true },
+      });
 
       await this.auditService.recordWithClient(prisma, {
         tenantId,
@@ -257,8 +281,25 @@ export class CustomersService {
         action: 'customer.create',
         entityType: 'customer',
         entityId: customer.id,
-        metadata: customer,
+        metadata: { customer, initialCardId: card.id },
       });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'card.create',
+        entityType: 'card',
+        entityId: card.id,
+        metadata: card,
+      });
+
+      const response = {
+        ...customer,
+        card: {
+          id: card.id,
+          serialNumber: card.barcodeValue,
+          status: card.status,
+        },
+      };
 
       await prisma.idempotencyRecord.update({
         where: {
@@ -271,11 +312,11 @@ export class CustomersService {
         },
         data: {
           status: IdempotencyRecordStatus.COMPLETED,
-          responseJson: customer,
+          responseJson: response,
         },
       });
 
-      return customer;
+      return response;
     });
   }
 

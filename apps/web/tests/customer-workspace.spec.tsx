@@ -83,11 +83,18 @@ describe('CustomerWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Customer phone'), {
       target: { value: '+2348000000000' },
     });
+    fireEvent.change(screen.getByLabelText('Initial card serial number'), {
+      target: { value: 'CARD-NEW-001' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
 
     await waitFor(() => {
       expect(customersControllerCreateCustomerV1).toHaveBeenCalledWith(
-        { fullName: 'New Customer', phone: '+2348000000000' },
+        {
+          fullName: 'New Customer',
+          phone: '+2348000000000',
+          cardSerialNumber: 'CARD-NEW-001',
+        },
         expect.objectContaining({ headers: expect.any(Object) }),
       );
     });
@@ -104,6 +111,27 @@ describe('CustomerWorkspace', () => {
 
     expect(
       await screen.findByText('Full name and phone are required.'),
+    ).toBeInTheDocument();
+    expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
+  });
+
+  it('rejects registration without an initial card serial number', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: { data: { items: [] } },
+    } as never);
+
+    render(<CustomerWorkspace canManage />);
+    fireEvent.change(screen.getByLabelText('Customer full name'), {
+      target: { value: 'New Customer' },
+    });
+    fireEvent.change(screen.getByLabelText('Customer phone'), {
+      target: { value: '+2348000000000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
+
+    expect(
+      await screen.findByText('Initial card serial number is required.'),
     ).toBeInTheDocument();
     expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
   });

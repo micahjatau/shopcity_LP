@@ -35042,6 +35042,10 @@
           "phone": {
             "type": "string"
           },
+          "cardSerialNumber": {
+            "type": "string",
+            "description": "Unused barcode for the initial customer card"
+          },
           "isStaff": {
             "type": "boolean"
           },
@@ -35053,7 +35057,7 @@
             "format": "uuid"
           }
         },
-        "required": ["fullName", "phone"]
+        "required": ["fullName", "phone", "cardSerialNumber"]
       },
       "UpdateCustomerDto": {
         "type": "object",

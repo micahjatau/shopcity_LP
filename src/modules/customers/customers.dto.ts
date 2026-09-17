@@ -16,6 +16,10 @@ export class CreateCustomerDto {
   @IsString()
   phone!: string;
 
+  @ApiProperty({ description: 'Unused barcode for the initial customer card' })
+  @IsString()
+  cardSerialNumber!: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

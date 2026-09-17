@@ -143,9 +143,8 @@ export function EarnTransactionForm({
     receiptNumber,
   ]);
 
-  const lookupReady = Boolean(
-    lookupContext?.cardSerialNumber || lookupContext?.customerName,
-  );
+  const authoritativeCardSerial = lookupContext?.cardSerialNumber?.trim() ?? '';
+  const lookupReady = Boolean(authoritativeCardSerial);
   const expectedCreditKobo =
     purchaseAmount === null || !policyContext?.defaultEarnRateBps
       ? null
@@ -202,7 +201,7 @@ export function EarnTransactionForm({
     setMessage('Reviewing earn transaction…');
     setResponseData(null);
 
-    if (!lookupReady || !cardSerialNumber.trim()) {
+    if (!lookupReady) {
       setStatus('error');
       setMessage('Look up an active customer card before submitting.');
       return;
@@ -221,7 +220,7 @@ export function EarnTransactionForm({
     }
 
     const payload: EarnTransactionDto = {
-      cardSerialNumber,
+      cardSerialNumber: authoritativeCardSerial,
       posReceiptNumber: receiptNumber,
       purchaseAmountKobo: purchaseAmount,
       occurredAt,
@@ -375,9 +374,12 @@ export function EarnTransactionForm({
       </div>
       <Input
         aria-label="Card serial number"
-        placeholder="Card serial"
-        value={cardSerialNumber}
-        onChange={(event) => setCardSerialNumber(event.target.value)}
+        placeholder="Look up a card first"
+        value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
+        readOnly={lookupReady}
+        onChange={(event) => {
+          if (!lookupReady) setCardSerialNumber(event.target.value);
+        }}
       />
       <Input
         aria-label="POS receipt number"

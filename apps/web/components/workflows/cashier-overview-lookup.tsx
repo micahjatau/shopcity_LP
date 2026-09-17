@@ -192,10 +192,14 @@ export function CashierOverviewLookup() {
         aria-labelledby="cashier-today-title"
       >
         <div>
-          <h3 id="cashier-today-title">Recent today</h3>
+          <h3 id="cashier-today-title">Recent activity</h3>
           {todayMessage ? (
             <p className="cashier-muted">{todayMessage}</p>
-          ) : null}
+          ) : (
+            <p className="cashier-muted">
+              Showing the latest loaded records for today.
+            </p>
+          )}
         </div>
         {todayTransactions?.length ? (
           <ul>

@@ -134,9 +134,8 @@ export function RedeemTransactionForm({
     requestedRedemption,
   ]);
 
-  const lookupReady = Boolean(
-    lookupContext?.cardSerialNumber || lookupContext?.customerName,
-  );
+  const authoritativeCardSerial = lookupContext?.cardSerialNumber?.trim() ?? '';
+  const lookupReady = Boolean(authoritativeCardSerial);
   const maxAllowedByBasketKobo =
     basketAmount === null || !policyContext?.maxRedemptionBasketPercent
       ? null
@@ -222,6 +221,12 @@ export function RedeemTransactionForm({
     setMessage('Reviewing redemption…');
     setResponseData(null);
 
+    if (!lookupReady) {
+      setStatus('error');
+      setMessage('Look up an active customer card before submitting.');
+      return;
+    }
+
     if (basketAmount === null || requestedRedemption === null) {
       setStatus('error');
       setMessage('Enter both basket and requested redemption amounts.');
@@ -229,7 +234,7 @@ export function RedeemTransactionForm({
     }
 
     const payload: RedeemTransactionDto = {
-      cardSerialNumber,
+      cardSerialNumber: authoritativeCardSerial,
       posReceiptNumber: receiptNumber,
       basketAmountKobo: basketAmount,
       requestedRedemptionKobo: requestedRedemption,
@@ -336,9 +341,12 @@ export function RedeemTransactionForm({
       </div>
       <Input
         aria-label="Card serial number"
-        placeholder="Card serial"
-        value={cardSerialNumber}
-        onChange={(event) => setCardSerialNumber(event.target.value)}
+        placeholder="Look up a card first"
+        value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
+        readOnly={lookupReady}
+        onChange={(event) => {
+          if (!lookupReady) setCardSerialNumber(event.target.value);
+        }}
       />
       <Input
         aria-label="POS receipt number"
@@ -444,7 +452,10 @@ export function RedeemTransactionForm({
           type="submit"
           loading={status === 'submitting'}
           disabled={
-            basketAmount === null || requestedRedemption === null || needsReview
+            !lookupReady ||
+            basketAmount === null ||
+            requestedRedemption === null ||
+            needsReview
           }
         >
           Submit redemption

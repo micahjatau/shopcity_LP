@@ -43,6 +43,7 @@ const policyContext = {
 describe('cashier transaction forms', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
       status: 201,
       data: { data: { transactionId: 'earn-1' } },
@@ -91,6 +92,26 @@ describe('cashier transaction forms', () => {
     expect(earnPayload).not.toHaveProperty('role');
     expect(earnPayload).not.toHaveProperty('approval');
     expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not unlock Earn from customer name without verified card context', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={{ customerName: 'Ada Shopper' }}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-NO-CARD' },
+    });
+    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+
+    expect(screen.getByRole('button', { name: 'Submit earn' })).toBeDisabled();
+    expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
   });
 
   it('requires receipt and uses ceiling rounding for the advisory preview', async () => {
@@ -142,6 +163,29 @@ describe('cashier transaction forms', () => {
         screen.getByText(/receipt has already been used this week/i),
       ).toBeInTheDocument();
     });
+  });
+
+  it('does not unlock Redeem from customer name without verified card context', () => {
+    render(
+      <RedeemTransactionForm
+        lookupContext={{ customerName: 'Ada Shopper' }}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Basket amount'), {
+      target: { value: '100' },
+    });
+    fireEvent.change(screen.getByLabelText('Requested redemption'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Basket amount'));
+    fireEvent.blur(screen.getByLabelText('Requested redemption'));
+
+    expect(
+      screen.getByRole('button', { name: 'Submit redemption' }),
+    ).toBeDisabled();
+    expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
   });
 
   it('prevents duplicate redemption submissions while the first request is pending', async () => {
