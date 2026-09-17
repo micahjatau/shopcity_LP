@@ -1,4 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  loyaltyControllerGetTransactionV1,
+  reversalsControllerReverseV1,
+} from '../lib/api/generated-client';
 import { TransactionWorkspace } from '../components/workflows/transaction-workspace';
 
 jest.mock('../lib/api/generated-client', () => ({
@@ -7,6 +11,57 @@ jest.mock('../lib/api/generated-client', () => ({
 }));
 
 describe('TransactionWorkspace', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('loads authoritative transaction detail and submits a confirmed reversal', async () => {
+    jest.mocked(loyaltyControllerGetTransactionV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          transactionId: 'txn-1',
+          state: 'POSTED',
+          type: 'EARN',
+          direction: 'CREDIT',
+          customerId: 'customer-1',
+          cardSerialNumber: 'CARD-1',
+          amountKobo: 1000,
+          availableBalanceKobo: 5000,
+        },
+      },
+    } as never);
+    jest.mocked(reversalsControllerReverseV1).mockResolvedValue({
+      status: 201,
+      data: { data: { transactionId: 'reversal-1' } },
+    } as never);
+
+    render(<TransactionWorkspace />);
+    fireEvent.change(screen.getByLabelText('Transaction ID'), {
+      target: { value: 'txn-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('POSTED').length).toBeGreaterThan(0);
+    });
+    fireEvent.change(screen.getByLabelText('Reversal reason'), {
+      target: { value: 'Duplicate capture' },
+    });
+    fireEvent.change(screen.getByLabelText('Reversal confirmation'), {
+      target: { value: 'REVERSE' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse transaction' }));
+
+    await waitFor(() => {
+      expect(reversalsControllerReverseV1).toHaveBeenCalledWith(
+        'txn-1',
+        { reason: 'Duplicate capture' },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+  });
+
   it('does not invent a supervisor destination for shared usage', () => {
     render(<TransactionWorkspace />);
 

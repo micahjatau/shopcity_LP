@@ -56,7 +56,7 @@
 - [x] 6.1 Keep the cashier-today overview bounded and label it as recent/loaded activity; defer full transaction history to a separate API proposal.
 - [x] 6.2 Label the bounded overview/activity as loaded/recent activity and remove fake pagination and unsupported full-day totals.
 - [x] 6.3 Remove browser-only pagination and ensure the UI does not claim full history beyond the bounded feed.
-- [ ] 6.4 Port transaction detail and reversal actions through authoritative endpoints; do not synthesize audit trails from transaction fields.
+- [x] 6.4 Port transaction detail and reversal actions through authoritative endpoints; do not synthesize audit trails from transaction fields.
 - [ ] 6.5 Add tests for scope, cursor boundaries, timezone/day boundaries, pagination, transaction detail, reversal authorization, and audit visibility.
 
 ## 7. Supervisor/Admin product coverage
