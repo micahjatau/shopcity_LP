@@ -1,11 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CustomerWorkspace } from '../components/workflows/customer-workspace';
 import {
+  cardsControllerCreateCardV1,
+  cardsControllerReplaceCardV1,
   cardsControllerUpdateStatusV1,
   customersControllerCreateCustomerV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
   customersControllerUpdateCustomerV1,
+  customersControllerUpdateStatusV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../lib/api/generated-client';
 
@@ -296,6 +299,111 @@ describe('CustomerWorkspace', () => {
     await waitFor(() => {
       expect(cardsControllerUpdateStatusV1).toHaveBeenCalledWith(
         'card-1',
+        { status: 'BLOCKED' },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+  });
+
+  it('assigns a card through the management workflow', async () => {
+    mockSearchParams.mockImplementation((key: string) =>
+      key === 'id' ? 'route-customer' : null,
+    );
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: { id: 'route-customer', fullName: 'Route Customer', cards: [] },
+      },
+    } as never);
+    jest.mocked(cardsControllerCreateCardV1).mockResolvedValue({
+      status: 201,
+      data: { data: { id: 'card-2', serialNumber: 'CARD-2' } },
+    } as never);
+
+    render(<CustomerWorkspace canManage />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Route Customer').length).toBeGreaterThan(0);
+    });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'CARD-2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+
+    await waitFor(() => {
+      expect(cardsControllerCreateCardV1).toHaveBeenCalledWith(
+        { customerId: 'route-customer', serialNumber: 'CARD-2' },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+  });
+
+  it('replaces a selected card after explicit confirmation', async () => {
+    mockSearchParams.mockImplementation((key: string) =>
+      key === 'id' ? 'route-customer' : null,
+    );
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'route-customer',
+          fullName: 'Route Customer',
+          cards: [{ id: 'card-1', serialNumber: 'CARD-1', status: 'ACTIVE' }],
+        },
+      },
+    } as never);
+    jest.mocked(cardsControllerReplaceCardV1).mockResolvedValue({
+      status: 201,
+      data: { data: { id: 'card-2', serialNumber: 'CARD-2' } },
+    } as never);
+
+    render(<CustomerWorkspace canManage />);
+    await screen.findByRole('button', { name: 'CARD-1' });
+    fireEvent.click(screen.getByRole('button', { name: 'CARD-1' }));
+    fireEvent.change(screen.getByLabelText('Replacement serial'), {
+      target: { value: 'CARD-2' },
+    });
+    fireEvent.change(screen.getByLabelText('Replacement confirmation'), {
+      target: { value: 'REPLACE' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Replace card' }));
+
+    await waitFor(() => {
+      expect(cardsControllerReplaceCardV1).toHaveBeenCalledWith(
+        'card-1',
+        { serialNumber: 'CARD-2' },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+  });
+
+  it('updates customer status after explicit confirmation', async () => {
+    mockSearchParams.mockImplementation((key: string) =>
+      key === 'id' ? 'route-customer' : null,
+    );
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: { id: 'route-customer', fullName: 'Route Customer', status: 'ACTIVE' },
+      },
+    } as never);
+    jest.mocked(customersControllerUpdateStatusV1).mockResolvedValue({
+      status: 200,
+      data: { data: { id: 'route-customer', status: 'BLOCKED' } },
+    } as never);
+
+    render(<CustomerWorkspace canManage />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Route Customer').length).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getByLabelText('Blocked'));
+    fireEvent.change(screen.getByLabelText('Customer status confirmation'), {
+      target: { value: 'UPDATE' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Update customer status' }));
+
+    await waitFor(() => {
+      expect(customersControllerUpdateStatusV1).toHaveBeenCalledWith(
+        'route-customer',
         { status: 'BLOCKED' },
         expect.objectContaining({ headers: expect.any(Object) }),
       );

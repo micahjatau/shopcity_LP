@@ -671,6 +671,7 @@ export function CustomerWorkspace({
             />
             {selectedCustomer ? (
               <label
+                htmlFor="customer-is-staff"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -678,6 +679,7 @@ export function CustomerWorkspace({
                 }}
               >
                 <Checkbox
+                  id="customer-is-staff"
                   aria-label="Customer is staff"
                   checked={customerForm.isStaff}
                   onChange={(event) =>
