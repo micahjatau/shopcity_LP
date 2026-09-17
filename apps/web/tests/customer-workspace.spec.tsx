@@ -410,6 +410,32 @@ describe('CustomerWorkspace', () => {
     });
   });
 
+  it('keeps cashier customer views read-only', async () => {
+    mockSearchParams.mockImplementation((key: string) =>
+      key === 'id' ? 'route-customer' : null,
+    );
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'route-customer',
+          fullName: 'Route Customer',
+          cards: [{ id: 'card-1', serialNumber: 'CARD-1', status: 'ACTIVE' }],
+        },
+      },
+    } as never);
+
+    render(<CustomerWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Route Customer').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText('Card management')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Assign card' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Customer is staff')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Update customer status' })).not.toBeInTheDocument();
+  });
+
   it('uses an explicit card mode instead of exposing customer profile management', async () => {
     render(<CustomerWorkspace canManage mode="card" />);
 
