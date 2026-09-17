@@ -50,6 +50,7 @@ describe('phase 1 service flows', () => {
       {
         fullName: 'Ada Lovelace',
         phone: '08012345678',
+        cardSerialNumber: 'SC-PHASE1-0001',
       },
       'phase-1-customer-create',
     );
@@ -63,6 +64,7 @@ describe('phase 1 service flows', () => {
         {
           fullName: 'Ada Lovelace',
           phone: '08012345678',
+          cardSerialNumber: 'SC-PHASE1-0002',
         },
         'phase-1-customer-duplicate',
       ),

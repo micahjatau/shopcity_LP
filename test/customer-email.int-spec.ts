@@ -1,7 +1,6 @@
 import { execSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import { CardsService } from '../src/modules/cards/cards.service';
 import { CustomersService } from '../src/modules/customers/customers.service';
 import { seedFoundation } from '../prisma/seed';
 
@@ -40,30 +39,22 @@ describe('customer email identity', () => {
       prisma as never,
       auditStub() as never,
     );
-    const cardsService = new CardsService(
-      prisma as never,
-      auditStub() as never,
-    );
-
-    const customer = await customersService.createCustomer(
+    const customer = (await customersService.createCustomer(
       seed.tenant.id,
       seed.actor,
       {
         fullName: 'Ada Lovelace',
         phone: '08012345678',
         email: 'Ada.Lovelace@ShopCity.Local',
+        cardSerialNumber: 'SC-EMAIL-0001',
       },
       'customer-email-create',
-    );
-    const card = await cardsService.createCard(
-      seed.tenant.id,
-      seed.actor,
-      {
-        customerId: customer.id,
-        serialNumber: 'SC-0001',
-      },
-      'customer-email-card-create',
-    );
+    )) as {
+      id: string;
+      email: string | null;
+      card: { serialNumber: string };
+    };
+    const card = customer.card;
 
     expect(customer.email).toBe('ada.lovelace@shopcity.local');
 
