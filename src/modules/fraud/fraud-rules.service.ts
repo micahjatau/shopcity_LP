@@ -16,14 +16,24 @@ const DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO = 10_000_000;
 const DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO = 20_000_000;
 const DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO = 500_000;
 
+type FraudPolicyValues = {
+  purchaseFlagThresholdKobo: bigint;
+  purchaseApprovalThresholdKobo: bigint;
+  redemptionApprovalThresholdKobo: bigint;
+};
+
 @Injectable()
 export class FraudRulesService {
   constructor(private readonly configService: ConfigService) {}
 
-  evaluateReceipt(input: FraudReceiptInput): FraudFinding[] {
+  evaluateReceipt(
+    input: FraudReceiptInput,
+    configuredPolicy?: FraudPolicyValues,
+  ): FraudFinding[] {
     const findings: FraudFinding[] = [];
-    const flagThresholdKobo = this.purchaseFlagThresholdKobo();
-    const approvalThresholdKobo = this.purchaseApprovalThresholdKobo();
+    const flagThresholdKobo = this.purchaseFlagThresholdKobo(configuredPolicy);
+    const approvalThresholdKobo =
+      this.purchaseApprovalThresholdKobo(configuredPolicy);
 
     if (input.purchaseAmountKobo > BigInt(flagThresholdKobo)) {
       findings.push({
@@ -70,8 +80,12 @@ export class FraudRulesService {
     return findings;
   }
 
-  evaluateRedemption(input: FraudRedemptionInput): FraudFinding[] {
-    const approvalThresholdKobo = this.redemptionApprovalThresholdKobo();
+  evaluateRedemption(
+    input: FraudRedemptionInput,
+    configuredPolicy?: FraudPolicyValues,
+  ): FraudFinding[] {
+    const approvalThresholdKobo =
+      this.redemptionApprovalThresholdKobo(configuredPolicy);
 
     if (input.requestedAmountKobo <= BigInt(approvalThresholdKobo)) {
       return [];
@@ -296,25 +310,31 @@ export class FraudRulesService {
     ];
   }
 
-  private purchaseFlagThresholdKobo(): number {
-    return (
-      this.configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ??
-      DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO
-    );
+  private purchaseFlagThresholdKobo(
+    configuredPolicy?: FraudPolicyValues,
+  ): number {
+    return configuredPolicy
+      ? Number(configuredPolicy.purchaseFlagThresholdKobo)
+      : (this.configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ??
+          DEFAULT_PURCHASE_FLAG_THRESHOLD_KOBO);
   }
 
-  private purchaseApprovalThresholdKobo(): number {
-    return (
-      this.configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
-      DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO
-    );
+  private purchaseApprovalThresholdKobo(
+    configuredPolicy?: FraudPolicyValues,
+  ): number {
+    return configuredPolicy
+      ? Number(configuredPolicy.purchaseApprovalThresholdKobo)
+      : (this.configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
+          DEFAULT_PURCHASE_APPROVAL_THRESHOLD_KOBO);
   }
 
-  private redemptionApprovalThresholdKobo(): number {
-    return (
-      this.configService.get<number>('REDEMPTION_APPROVAL_THRESHOLD_KOBO') ??
-      DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO
-    );
+  private redemptionApprovalThresholdKobo(
+    configuredPolicy?: FraudPolicyValues,
+  ): number {
+    return configuredPolicy
+      ? Number(configuredPolicy.redemptionApprovalThresholdKobo)
+      : (this.configService.get<number>('REDEMPTION_APPROVAL_THRESHOLD_KOBO') ??
+          DEFAULT_REDEMPTION_APPROVAL_THRESHOLD_KOBO);
   }
 
   private cardDailyCountThreshold(): number {

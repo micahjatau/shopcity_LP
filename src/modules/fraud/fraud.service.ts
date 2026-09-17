@@ -19,7 +19,10 @@ export class FraudService {
 
   async evaluateReceipt(input: FraudReceiptInput): Promise<number> {
     const duplicateFindings = await this.findDuplicateReceiptFindings(input);
-    const ruleFindings = this.fraudRulesService.evaluateReceipt(input);
+    const ruleFindings = this.fraudRulesService.evaluateReceipt(
+      input,
+      await this.getConfiguredPolicy(input.tenantId, input.branchId),
+    );
 
     return this.recordFindings(input.tenantId, [
       ...duplicateFindings,
@@ -30,8 +33,28 @@ export class FraudService {
   async evaluateRedemption(input: FraudRedemptionInput): Promise<number> {
     return this.recordFindings(
       input.tenantId,
-      this.fraudRulesService.evaluateRedemption(input),
+      this.fraudRulesService.evaluateRedemption(
+        input,
+        await this.getConfiguredPolicy(input.tenantId, input.branchId),
+      ),
     );
+  }
+
+  private async getConfiguredPolicy(tenantId: string, branchId: string) {
+    if (!this.prismaService.policyConfiguration) {
+      return undefined;
+    }
+
+    const policy = await this.prismaService.policyConfiguration.findUnique({
+      where: { tenantId_branchId: { tenantId, branchId } },
+      select: {
+        purchaseFlagThresholdKobo: true,
+        purchaseApprovalThresholdKobo: true,
+        redemptionApprovalThresholdKobo: true,
+      },
+    });
+
+    return policy ?? undefined;
   }
 
   async recordFindings(
