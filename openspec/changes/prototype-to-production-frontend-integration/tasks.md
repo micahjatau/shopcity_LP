@@ -47,7 +47,7 @@
 - [x] 5.2 Move registration into Supervisor/Admin workspaces and send only the TRD-defined full name, normalized phone, and initial card barcode fields.
 - [x] 5.3 Implement and test the atomic customer-plus-initial-card backend workflow with one idempotency boundary and truthful rollback behavior.
 - [x] 5.4 Remove birthday, consent, marketing, and consent/version inputs from the MVP UI; create a separate proposal if the TRD is later amended to require them.
-- [ ] 5.5 Add customer edit, block/unblock, staff marking, card assign, replace, block, and reactivate production workflows using existing RBAC and idempotency rules.
+- [x] 5.5 Add customer edit, block/unblock, staff marking, card assign, replace, block, and reactivate production workflows using existing RBAC and idempotency rules.
 - [x] 5.6 Implement real logout, session-expiry cleanup, and recovery routing; remove dead `#logout` and fake password-recovery behavior.
 - [ ] 5.7 Add role, tenant, branch, device, logout, expiry, and recovery regression tests.
 
@@ -63,7 +63,7 @@
 
 - [ ] 7.1 Apply the prototype visual language to existing Supervisor/Admin shells and role-specific dashboards without importing Cashier pages as implementations.
 - [ ] 7.2 Complete card lifecycle UX: assign, replace, block/reactivate, replacement SMS state, and audit context.
-- [ ] 7.3 Complete customer lifecycle UX: edit, block/unblock, staff marking, masked projections, and branch/tenant scope.
+- [x] 7.3 Complete customer lifecycle UX: edit, block/unblock, staff marking, masked projections, and branch/tenant scope.
 - [ ] 7.4 Complete transaction, reversal, adjustment, approval, and fraud workspaces with explicit capabilities and backend outcome states.
 - [ ] 7.5 Complete reporting UX: management reports, exports, materialization controls, SMS operations, transaction-level inspection, and pilot health indicators.
 - [ ] 7.6 Complete users, devices, branches, and offline queue/reconciliation administration surfaces.
