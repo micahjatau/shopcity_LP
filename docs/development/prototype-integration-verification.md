@@ -20,7 +20,8 @@ Branch: `workflow-states-implementation`
 
 ## Blocked or requiring shared infrastructure
 
-- Semgrep (`semgrep --config p/ci --error ...`) exceeded the local 60-second execution limit while scanning 1,434 tracked files and exited 124. This is not security clearance.
+- Semgrep (`semgrep --config p/ci --error ...`) exceeded the local execution limit both for the full repository (1,434 tracked files) and affected backend directories (56 files); both exited 124. This is not security clearance.
+- `npm run test:integration` completed 29 suites and 146 tests, but the overall command still exited with Prisma `P3018`; the clean migration/deployment gate remains unresolved.
 - GitNexus compare against `master` reports critical risk because the shared worktree contains unrelated dirty source, generated artifacts, and prototype screenshots. A clean exact-SHA comparison requires isolating or preserving those changes first.
 - Integration database, deployment, backup/restore, worker/SMS terminal-state, report performance/isolation, and runtime certification evidence require shared infrastructure, valid credentials, and non-synthetic fixtures.
 
