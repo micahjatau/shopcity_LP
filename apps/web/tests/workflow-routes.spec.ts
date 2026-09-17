@@ -86,7 +86,8 @@ test.describe('workflow route coverage', () => {
       }),
     ).toBeVisible();
     await page.locator('main').evaluate((main) => {
-      main.style.minHeight = '826px';
+      main.style.height = '826px';
+      main.style.overflow = 'hidden';
     });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-overview-compact.png',
@@ -114,7 +115,8 @@ test.describe('workflow route coverage', () => {
       lookupCard.getByRole('link', { name: 'Redeem' }),
     ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
     await page.locator('main').evaluate((main) => {
-      main.style.minHeight = '836px';
+      main.style.height = '836px';
+      main.style.overflow = 'hidden';
     });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-lookup-mobile.png',
