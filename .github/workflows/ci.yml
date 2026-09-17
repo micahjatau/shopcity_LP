@@ -29,6 +29,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run prisma:generate
       - run: npm run format:check
+      - run: npm run verify:prototype-reference
+      - run: npm run test:prototype-reference
       - run: npm run lint:src
       - run: npm run lint:test
       - run: npm run typecheck
