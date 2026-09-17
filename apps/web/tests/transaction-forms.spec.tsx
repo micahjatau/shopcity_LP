@@ -165,6 +165,31 @@ describe('cashier transaction forms', () => {
     });
   });
 
+  it('renders an approval-pending Earn outcome from the backend', async () => {
+    jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
+      status: 202,
+      data: { data: { transactionId: 'earn-pending' } },
+    } as never);
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-PENDING' },
+    });
+    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Earn awaiting approval.')).toBeInTheDocument();
+    });
+  });
+
   it('does not unlock Redeem from customer name without verified card context', () => {
     render(
       <RedeemTransactionForm
@@ -186,6 +211,34 @@ describe('cashier transaction forms', () => {
       screen.getByRole('button', { name: 'Submit redemption' }),
     ).toBeDisabled();
     expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
+  });
+
+  it('maps insufficient redemption balance to an actionable message', async () => {
+    jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
+      status: 422,
+      data: { error: { code: 'INSUFFICIENT_BALANCE' } },
+    } as never);
+    render(
+      <RedeemTransactionForm
+        lookupContext={{ ...lookupContext, availableBalanceKobo: 100000 }}
+        policyContext={policyContext}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Basket amount'), {
+      target: { value: '400' },
+    });
+    fireEvent.change(screen.getByLabelText('Requested redemption'), {
+      target: { value: '120' },
+    });
+    fireEvent.blur(screen.getByLabelText('Basket amount'));
+    fireEvent.blur(screen.getByLabelText('Requested redemption'));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit redemption' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Available credit is lower than this redemption.'),
+      ).toBeInTheDocument();
+    });
   });
 
   it('prevents duplicate redemption submissions while the first request is pending', async () => {
