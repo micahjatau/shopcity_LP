@@ -501,6 +501,10 @@ export function CustomerWorkspace({
       if (response.status === 200) {
         const nextCustomer = response.data.data as CustomerRecord;
         setCustomer(nextCustomer);
+        setCustomerForm((current) => ({
+          ...current,
+          isStaff: nextCustomer.isStaff === true,
+        }));
         setCustomerStatus(
           (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
         );
