@@ -383,7 +383,11 @@ describe('CustomerWorkspace', () => {
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
       data: {
-        data: { id: 'route-customer', fullName: 'Route Customer', status: 'ACTIVE' },
+        data: {
+          id: 'route-customer',
+          fullName: 'Route Customer',
+          status: 'ACTIVE',
+        },
       },
     } as never);
     jest.mocked(customersControllerUpdateStatusV1).mockResolvedValue({
@@ -399,7 +403,9 @@ describe('CustomerWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Customer status confirmation'), {
       target: { value: 'UPDATE' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Update customer status' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Update customer status' }),
+    );
 
     await waitFor(() => {
       expect(customersControllerUpdateStatusV1).toHaveBeenCalledWith(
@@ -431,9 +437,15 @@ describe('CustomerWorkspace', () => {
       expect(screen.getAllByText('Route Customer').length).toBeGreaterThan(0);
     });
     expect(screen.queryByText('Card management')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Assign card' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Customer is staff')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Update customer status' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Assign card' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Customer is staff'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Update customer status' }),
+    ).not.toBeInTheDocument();
   });
 
   it('uses an explicit card mode instead of exposing customer profile management', async () => {

@@ -51,7 +51,9 @@ describe('TransactionWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Reversal confirmation'), {
       target: { value: 'REVERSE' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Reverse transaction' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reverse transaction' }),
+    );
 
     await waitFor(() => {
       expect(reversalsControllerReverseV1).toHaveBeenCalledWith(
