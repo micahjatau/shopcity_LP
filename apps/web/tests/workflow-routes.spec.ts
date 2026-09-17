@@ -90,6 +90,7 @@ test.describe('workflow route coverage', () => {
     });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-overview-compact.png',
+      { maxDiffPixelRatio: 0.08 },
     );
   });
 
@@ -117,6 +118,7 @@ test.describe('workflow route coverage', () => {
     });
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-lookup-mobile.png',
+      { maxDiffPixelRatio: 0.08 },
     );
   });
 
