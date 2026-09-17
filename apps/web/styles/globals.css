@@ -79,6 +79,22 @@ main {
   );
 }
 
+.login-page__back {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  margin: 0 auto;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: var(--sc-font-size-sm);
+  text-decoration: none;
+}
+
+.login-page__back:hover,
+.login-page__back:focus-visible {
+  color: var(--sc-color-neutral-0);
+  text-decoration: underline;
+}
+
 .login-page__header {
   position: relative;
   z-index: 1;

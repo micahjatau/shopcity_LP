@@ -1,9 +1,13 @@
+import Link from 'next/link';
 import Image from 'next/image';
 import { LoginForm } from '../../../components/auth/login-form';
 
 export default function LoginPage() {
   return (
     <main className="login-page">
+      <Link className="login-page__back" href="/">
+        Back to overview
+      </Link>
       <header className="login-page__header">
         <Image
           src="/brand/shopcity-lockup-white.svg"
