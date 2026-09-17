@@ -93,6 +93,14 @@ export interface ApprovalDecisionResponse {
   executedAt?: string | null;
 }
 
+type EarnPolicyValues = {
+  version: number;
+  defaultEarnRateBps: number;
+  purchaseFlagThresholdKobo: bigint;
+  purchaseApprovalThresholdKobo: bigint;
+  purchaseAmountCeilingKobo: bigint;
+};
+
 export interface TransactionLedgerItem {
   id: string;
   receiptId: string | null;
@@ -432,7 +440,30 @@ export class LoyaltyService {
       );
     }
 
-    assertPurchaseAmountAllowed(data.purchaseAmountKobo, this.configService);
+    const configuredPolicy =
+      actor.user.branchId && this.prismaService.policyConfiguration
+        ? await this.prismaService.policyConfiguration.findUnique({
+            where: {
+              tenantId_branchId: {
+                tenantId,
+                branchId: actor.user.branchId,
+              },
+            },
+            select: {
+              version: true,
+              defaultEarnRateBps: true,
+              purchaseFlagThresholdKobo: true,
+              purchaseApprovalThresholdKobo: true,
+              purchaseAmountCeilingKobo: true,
+            },
+          })
+        : null;
+
+    assertPurchaseAmountAllowed(
+      data.purchaseAmountKobo,
+      this.configService,
+      configuredPolicy ?? undefined,
+    );
 
     const overrideApplied = assertReceiptTimestampAllowed(
       actor.user.role,
@@ -560,6 +591,7 @@ export class LoyaltyService {
             const captureStatus = resolveCaptureStatus(
               data.purchaseAmountKobo,
               this.configService,
+              configuredPolicy ?? undefined,
             );
             const now = new Date();
             const reviewStatus: ReceiptReviewStatus =
@@ -621,7 +653,10 @@ export class LoyaltyService {
                   requestedByTenantId: actor.user.tenantId,
                   requestedBy: actor.user.id,
                   reasonCode: APPROVAL_REASON_CODE,
-                  policyVersion: getApprovalPolicyVersion(this.configService),
+                  policyVersion: getApprovalPolicyVersion(
+                    this.configService,
+                    configuredPolicy ?? undefined,
+                  ),
                   expiresAt: new Date(now.getTime() + APPROVAL_EXPIRY_MS),
                 },
               });
@@ -697,6 +732,7 @@ export class LoyaltyService {
             const creditKobo = calculateCreditKobo(
               data.purchaseAmountKobo,
               this.configService,
+              configuredPolicy ?? undefined,
             );
 
             const ledgerEntry = await prisma.loyaltyLedgerEntry.create({
@@ -2317,13 +2353,16 @@ function parseDate(value: string, fieldName: string): Date {
 function assertPurchaseAmountAllowed(
   purchaseAmountKobo: number,
   configService: ConfigService,
+  configuredPolicy?: Pick<EarnPolicyValues, 'purchaseAmountCeilingKobo'>,
 ): void {
   if (!Number.isSafeInteger(purchaseAmountKobo)) {
     throw new BadRequestException('purchaseAmountKobo must be a safe integer');
   }
 
-  const purchaseAmountCeilingKobo =
-    configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ?? 100_000_000;
+  const purchaseAmountCeilingKobo = configuredPolicy
+    ? Number(configuredPolicy.purchaseAmountCeilingKobo)
+    : (configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ??
+      100_000_000);
 
   if (purchaseAmountKobo > purchaseAmountCeilingKobo) {
     throw new BadRequestException(
@@ -2335,11 +2374,18 @@ function assertPurchaseAmountAllowed(
 function resolveCaptureStatus(
   purchaseAmountKobo: number,
   configService: ConfigService,
+  configuredPolicy?: Pick<
+    EarnPolicyValues,
+    'purchaseFlagThresholdKobo' | 'purchaseApprovalThresholdKobo'
+  >,
 ): 'CAPTURED' | 'FLAGGED' | 'PENDING_APPROVAL' {
-  const flagThresholdKobo =
-    configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ?? 10_000_000;
-  const approvalThresholdKobo =
-    configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ?? 20_000_000;
+  const flagThresholdKobo = configuredPolicy
+    ? Number(configuredPolicy.purchaseFlagThresholdKobo)
+    : (configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ?? 10_000_000);
+  const approvalThresholdKobo = configuredPolicy
+    ? Number(configuredPolicy.purchaseApprovalThresholdKobo)
+    : (configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
+      20_000_000);
 
   if (purchaseAmountKobo > approvalThresholdKobo) {
     return 'PENDING_APPROVAL';
@@ -2448,29 +2494,50 @@ function assertOverrideAllowed(
 function calculateCreditKobo(
   purchaseAmountKobo: number,
   configService: ConfigService,
+  configuredPolicy?: Pick<EarnPolicyValues, 'defaultEarnRateBps'>,
 ): bigint {
   const earnRateBps = BigInt(
-    configService.get<number>('DEFAULT_EARN_RATE_BPS') ?? 200,
+    configuredPolicy?.defaultEarnRateBps ??
+      configService.get<number>('DEFAULT_EARN_RATE_BPS') ??
+      200,
   );
 
   return (BigInt(purchaseAmountKobo) * earnRateBps + 9_999n) / 10_000n;
 }
 
-function getApprovalPolicyVersion(configService: ConfigService): string {
+function getApprovalPolicyVersion(
+  configService: ConfigService,
+  configuredPolicy?: EarnPolicyValues,
+): string {
   return createHash('sha256')
     .update(
       stableStringify({
-        purchaseFlagThresholdKobo:
-          configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ??
-          10_000_000,
-        purchaseApprovalThresholdKobo:
-          configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
-          20_000_000,
-        purchaseAmountCeilingKobo:
-          configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ??
-          100_000_000,
+        purchaseFlagThresholdKobo: Number(
+          configuredPolicy?.purchaseFlagThresholdKobo ??
+            BigInt(
+              configService.get<number>('PURCHASE_FLAG_THRESHOLD_KOBO') ??
+                10_000_000,
+            ),
+        ),
+        purchaseApprovalThresholdKobo: Number(
+          configuredPolicy?.purchaseApprovalThresholdKobo ??
+            BigInt(
+              configService.get<number>('PURCHASE_APPROVAL_THRESHOLD_KOBO') ??
+                20_000_000,
+            ),
+        ),
+        purchaseAmountCeilingKobo: Number(
+          configuredPolicy?.purchaseAmountCeilingKobo ??
+            BigInt(
+              configService.get<number>('PURCHASE_AMOUNT_CEILING_KOBO') ??
+                100_000_000,
+            ),
+        ),
         defaultEarnRateBps:
-          configService.get<number>('DEFAULT_EARN_RATE_BPS') ?? 200,
+          configuredPolicy?.defaultEarnRateBps ??
+          configService.get<number>('DEFAULT_EARN_RATE_BPS') ??
+          200,
+        version: configuredPolicy?.version ?? null,
       }),
     )
     .digest('hex');
