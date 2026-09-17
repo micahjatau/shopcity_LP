@@ -342,6 +342,19 @@ export class RedemptionsService {
               );
             }
 
+            const configuredPolicy = prisma.policyConfiguration
+              ? await prisma.policyConfiguration.findUnique({
+                  where: {
+                    tenantId_branchId: { tenantId, branchId },
+                  },
+                  select: {
+                    version: true,
+                    minRedemptionKobo: true,
+                    maxRedemptionBasketPercent: true,
+                    redemptionApprovalThresholdKobo: true,
+                  },
+                })
+              : null;
             const now = new Date();
             const activeBalanceKobo =
               await this.activeBalanceService.getActiveBalanceKobo(
@@ -350,11 +363,23 @@ export class RedemptionsService {
                 now,
                 prisma,
               );
-            const policy = this.redemptionPolicyService.evaluate({
-              requestedAmountKobo,
-              basketAmountKobo,
-              activeBalanceKobo,
-            });
+            const policy = this.redemptionPolicyService.evaluate(
+              {
+                requestedAmountKobo,
+                basketAmountKobo,
+                activeBalanceKobo,
+              },
+              configuredPolicy
+                ? {
+                    version: configuredPolicy.version,
+                    minRedemptionKobo: configuredPolicy.minRedemptionKobo,
+                    maxRedemptionBasketPercent:
+                      configuredPolicy.maxRedemptionBasketPercent,
+                    redemptionApprovalThresholdKobo:
+                      configuredPolicy.redemptionApprovalThresholdKobo,
+                  }
+                : undefined,
+            );
 
             assertRedemptionPolicyAllowsRequest(requestedAmountKobo, policy);
 
