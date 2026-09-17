@@ -146,7 +146,6 @@ test.describe('contract-faithful frontend flows', () => {
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
     await page.getByRole('button', { name: 'Lookup' }).click();
     await expect(earn).toContainText('Ada Shopper');
-    await earn.getByLabel('Card serial number').fill('CARD-123');
     await earn.getByLabel('POS receipt number').fill('RCPT-123');
     await earn.getByLabel('Purchase amount').fill('1,234.50');
     await earn.getByLabel('Occurred at').fill('2030-01-01T12:00');
@@ -162,7 +161,6 @@ test.describe('contract-faithful frontend flows', () => {
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
     await page.getByRole('button', { name: 'Lookup' }).click();
     await expect(redeem).toContainText('Ada Shopper');
-    await redeem.getByLabel('Card serial number').fill('CARD-123');
     await redeem.getByLabel('POS receipt number').fill('RCPT-124');
     await redeem.getByLabel('Basket amount').fill('1,000.00');
     await redeem.getByLabel('Basket amount').blur();

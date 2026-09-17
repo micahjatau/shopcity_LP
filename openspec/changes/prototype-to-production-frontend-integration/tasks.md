@@ -86,7 +86,7 @@
 
 ## 10. Verification and runtime certification
 
-- [ ] 10.1 Run frontend typecheck, lint, unit tests, accessibility tests, visual tests, and affected Playwright workflows.
+- [x] 10.1 Run frontend typecheck, lint, unit tests, accessibility tests, visual tests, and affected Playwright workflows.
 - [ ] 10.2 Run backend contract/integration tests, Semgrep, build, OpenAPI lint/diff, and architecture checks for affected surfaces.
 - [ ] 10.3 Run GitNexus `detect_changes()` and confirm only expected symbols, flows, and generated artifacts changed.
 - [ ] 10.4 Verify duplicate receipt returns 409 rather than 500 with durable evidence for issue #39.
