@@ -2,6 +2,10 @@
 
 This is the working migration inventory for `prototype-to-production-frontend-integration`.
 
+## Reference location policy
+
+`apps/web/public/prototype/` is the single retained prototype reference location. The duplicate root-level HTML, CSS, JavaScript, and `.artifact.json` copies were removed once their React route mappings were recorded here. Prototype assets remain reference-only and are not production implementations.
+
 Parity requires visual hierarchy, interaction flow, contract authority, operational behavior, and verification evidence. A matching screenshot alone is insufficient.
 
 | Prototype reference                                     | Production route/component                                                | Existing authority                                                                      | Required parity work                                                                                                                                                                 | Evidence                                                          |
