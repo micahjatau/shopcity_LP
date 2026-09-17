@@ -68,7 +68,7 @@
 - [x] 7.5 Complete reporting UX: management reports, exports, materialization controls, SMS operations, transaction-level inspection, and pilot health indicators.
 - [x] 7.6 Complete users, devices, branches, and offline queue/reconciliation administration surfaces.
 - [x] 7.7 Replace the mixed-role Workflow States page with role-safe workspace coverage; retain any harness only as non-production developer tooling.
-- [ ] 7.8 Add role-matrix, wrong-tenant, wrong-branch, authorization, accessibility, contract, and Playwright coverage for every shared workspace.
+- [x] 7.8 Add role-matrix, wrong-tenant, wrong-branch, authorization, accessibility, contract, and Playwright coverage for every shared workspace.
 
 ## 8. Policy/configuration capability
 
