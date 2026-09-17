@@ -49,7 +49,7 @@
 - [x] 5.4 Remove birthday, consent, marketing, and consent/version inputs from the MVP UI; create a separate proposal if the TRD is later amended to require them.
 - [x] 5.5 Add customer edit, block/unblock, staff marking, card assign, replace, block, and reactivate production workflows using existing RBAC and idempotency rules.
 - [x] 5.6 Implement real logout, session-expiry cleanup, and recovery routing; remove dead `#logout` and fake password-recovery behavior.
-- [ ] 5.7 Add role, tenant, branch, device, logout, expiry, and recovery regression tests.
+- [x] 5.7 Add role, tenant, branch, device, logout, expiry, and recovery regression tests.
 
 ## 6. Activity, transaction, and audit truthfulness
 
@@ -89,7 +89,7 @@
 - [x] 10.1 Run frontend typecheck, lint, unit tests, accessibility tests, visual tests, and affected Playwright workflows.
 - [ ] 10.2 Run backend contract/integration tests, Semgrep, build, OpenAPI lint/diff, and architecture checks for affected surfaces.
 - [ ] 10.3 Run GitNexus `detect_changes()` and confirm only expected symbols, flows, and generated artifacts changed.
-- [ ] 10.4 Verify duplicate receipt returns 409 rather than 500 with durable evidence for issue #39.
+- [x] 10.4 Verify duplicate receipt returns 409 rather than 500 with durable evidence for issue #39.
 - [ ] 10.5 Run authenticated report-isolation/performance evidence for issue #40 with exact SHA and valid fixtures.
 - [ ] 10.6 Run worker and real-SMS terminal-state certification for issue #41 without fake production providers or sensitive evidence.
 - [ ] 10.7 Assemble the final exact-SHA runtime certification bundle for issue #42, including deployment, security, backup/restore, and residual-risk evidence.
