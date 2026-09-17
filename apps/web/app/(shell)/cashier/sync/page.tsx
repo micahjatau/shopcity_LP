@@ -525,7 +525,8 @@ function toneForResult(
 
 const layoutGrid: CSSProperties = {
   display: 'grid',
-  gap: 'var(--sc-spacing-4)',
+  gap: 'var(--sc-spacing-6)',
+  padding: 'clamp(4px, 1vw, 12px)',
 };
 
 const headerGrid: CSSProperties = {
@@ -535,11 +536,13 @@ const headerGrid: CSSProperties = {
 
 const cardStyle: CSSProperties = {
   border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-lg)',
-  padding: 'var(--sc-spacing-5)',
-  background: 'var(--sc-color-neutral-0)',
+  borderRadius: 'var(--sc-radius-xl)',
+  padding: 'clamp(var(--sc-spacing-5), 3vw, var(--sc-spacing-8))',
+  background:
+    'linear-gradient(145deg, var(--sc-color-neutral-0), rgba(255, 241, 241, 0.72))',
   display: 'grid',
   gap: 'var(--sc-spacing-4)',
+  boxShadow: 'var(--sc-shadow-level1)',
 };
 
 const muted: CSSProperties = {
@@ -581,6 +584,8 @@ const priorityGrid: CSSProperties = {
 const highlightCardStyle: CSSProperties = {
   ...cardStyle,
   borderColor: 'var(--sc-color-brand-300)',
+  background:
+    'linear-gradient(145deg, var(--sc-color-brand-50), var(--sc-color-neutral-0))',
   boxShadow: 'var(--sc-shadow-level2)',
 };
 
