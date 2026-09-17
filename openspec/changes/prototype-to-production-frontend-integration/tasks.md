@@ -34,12 +34,12 @@
 
 - [x] 4.1 Make scanner/card-serial input the first-class lookup entry point and wire it to `GET /cards/lookup/{serial}`.
 - [x] 4.2 Ensure directory search can discover customers but cannot unlock financial actions without verified card context.
-- [ ] 4.3 Carry the verified card projection from Lookup to Earn/Redeem and reject stale, missing, wrong-tenant, wrong-branch, inactive, staff, or ineligible context safely.
+- [x] 4.3 Carry the verified card projection from Lookup to Earn/Redeem and reject stale, missing, wrong-tenant, wrong-branch, inactive, staff, or ineligible context safely.
 - [x] 4.4 Ensure Earn submits the authoritative card serial, integer-kobo amount, receipt number, CSRF, and idempotency headers through the generated client.
 - [x] 4.5 Ensure Redeem submits the authoritative card serial and renders server-authoritative balance, policy, approval, insufficient-balance, and success outcomes.
-- [ ] 4.6 Cover confirmed, pending approval, duplicate, inactive card, insufficient balance, network retry, offline queue, and idempotency replay states.
+- [x] 4.6 Cover confirmed, pending approval, duplicate, inactive card, insufficient balance, network retry, offline queue, and idempotency replay states.
 - [x] 4.7 Make normal cashier login/bootstrap expose usable device, branch, actor, and session context for Offline Earn; remove manual identity fields from production UI.
-- [ ] 4.8 Add unit, contract, integration, Playwright, accessibility, and visual coverage for scanner focus/Enter, context handoff, financial rejection, and offline reconciliation.
+- [x] 4.8 Add unit, contract, integration, Playwright, accessibility, and visual coverage for scanner focus/Enter, context handoff, financial rejection, and offline reconciliation.
 
 ## 5. Customer, card, and session semantics
 
