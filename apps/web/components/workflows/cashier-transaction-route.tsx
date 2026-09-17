@@ -545,6 +545,14 @@ export function CashierWorkflowRoute({
         .cashier-route-header {
           display: grid;
           gap: var(--sc-spacing-2);
+          padding: var(--sc-spacing-2) 0;
+        }
+
+        .cashier-route-header h1 {
+          color: var(--sc-color-neutral-950);
+          font-size: clamp(30px, 4vw, 44px);
+          letter-spacing: -0.04em;
+          line-height: 1.05;
         }
 
         .cashier-route-description,
@@ -571,11 +579,24 @@ export function CashierWorkflowRoute({
         }
 
         .cashier-card {
-          background: var(--sc-color-neutral-0);
+          background: linear-gradient(145deg, var(--sc-color-neutral-0), rgba(255, 241, 241, 0.72));
           border: 1px solid var(--sc-color-semantic-border);
-          border-radius: var(--sc-radius-lg);
-          padding: var(--sc-spacing-5);
+          border-radius: var(--sc-radius-xl);
+          padding: clamp(var(--sc-spacing-5), 3vw, var(--sc-spacing-8));
           box-shadow: var(--sc-shadow-level1);
+        }
+
+        .cashier-card h2 {
+          letter-spacing: -0.03em;
+        }
+
+        .cashier-card .sc-input:focus-visible {
+          border-color: var(--sc-color-brand-500);
+          box-shadow: 0 0 0 3px rgba(177, 0, 0, 0.14);
+        }
+
+        .cashier-card .sc-button--primary {
+          background: var(--sc-color-brand-600);
         }
 
         .cashier-stat-list {

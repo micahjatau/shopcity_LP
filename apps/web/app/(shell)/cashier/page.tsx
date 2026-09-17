@@ -66,7 +66,8 @@ export default function CashierPage() {
       <style>{`
         .cashier-overview {
           display: grid;
-          gap: var(--sc-spacing-5);
+          gap: var(--sc-spacing-6);
+          padding: clamp(4px, 1vw, 12px);
         }
 
         .cashier-overview-header {
@@ -80,6 +81,12 @@ export default function CashierPage() {
         .cashier-overview-header h1,
         .cashier-launcher h2 {
           margin: 0;
+          letter-spacing: -0.04em;
+        }
+
+        .cashier-overview-header h1 {
+          font-size: clamp(30px, 4vw, 46px);
+          line-height: 1.05;
         }
 
         .cashier-kicker,
@@ -108,8 +115,11 @@ export default function CashierPage() {
         .cashier-launcher {
           display: grid;
           gap: var(--sc-spacing-4);
-          border-top: 1px solid var(--sc-color-semantic-border);
-          padding-top: var(--sc-spacing-4);
+          padding: var(--sc-spacing-6);
+          border: 1px solid var(--sc-color-semantic-border);
+          border-radius: var(--sc-radius-xl);
+          background: linear-gradient(135deg, rgba(177, 0, 0, 0.05), var(--sc-color-neutral-0));
+          box-shadow: var(--sc-shadow-level1);
         }
 
         .cashier-context-strip {
@@ -147,11 +157,23 @@ export default function CashierPage() {
         .cashier-action-card {
           display: grid;
           gap: var(--sc-spacing-2);
+          min-height: 132px;
+          align-content: space-between;
           border: 1px solid var(--sc-color-semantic-border);
           border-radius: var(--sc-radius-lg);
           background: var(--sc-color-neutral-0);
           padding: var(--sc-spacing-5);
           box-shadow: var(--sc-shadow-level1);
+        }
+
+        .cashier-action-card strong {
+          color: var(--sc-color-brand-700);
+          font-size: var(--sc-font-size-lg);
+        }
+
+        .cashier-action-card span {
+          color: var(--sc-color-semantic-textSecondary);
+          line-height: var(--sc-line-height-base);
         }
 
         .cashier-action-card {
