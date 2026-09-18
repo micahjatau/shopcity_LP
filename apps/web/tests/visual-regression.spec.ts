@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe.configure({ timeout: 120000 });
+test.use({ viewport: { width: 1440, height: 923 } });
 
 test.describe('visual regression gallery', () => {
   test('captures prototype login surface', async ({ page }) => {
