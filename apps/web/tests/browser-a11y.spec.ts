@@ -91,9 +91,7 @@ test.describe('browser accessibility', () => {
   }) => {
     await page.goto(`${baseUrl}/login`);
     await expect(
-      page.getByRole('heading', {
-        name: /sign in to the shopcity retail operations shell/i,
-      }),
+      page.getByRole('heading', { name: /staff sign in/i }),
     ).toBeVisible();
 
     let violations = await runAxe(page);

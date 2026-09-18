@@ -416,7 +416,7 @@
   max-width: var(--sc-prototype-contentMaxWidth);
   margin: 0 auto 30px;
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
 }
