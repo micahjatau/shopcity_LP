@@ -262,14 +262,10 @@ main {
 }
 
 .login-page__brand-mark {
-  display: grid;
+  display: block;
   width: 30px;
   height: 30px;
   flex: 0 0 30px;
-  place-items: center;
-  border: 2px solid white;
-  border-radius: 50%;
-  font-weight: 800;
 }
 
 .login-page__brand-copy {

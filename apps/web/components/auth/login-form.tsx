@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useId, useState } from 'react';
 import { loginWithCredentials } from '../../lib/api';
 import { Button, Input } from '../ui';
@@ -144,7 +145,11 @@ export function LoginForm() {
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             data-od-id="password-toggle"
           >
-            {showPassword ? '◉' : '◌'}
+            {showPassword ? (
+              <Eye aria-hidden="true" size={18} strokeWidth={1.8} />
+            ) : (
+              <EyeOff aria-hidden="true" size={18} strokeWidth={1.8} />
+            )}
           </button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { LoginForm } from '../../../components/auth/login-form';
 
@@ -21,9 +22,13 @@ export default function LoginPage() {
             aria-label="ShopCity Supermarket home"
             data-od-id="brand-link"
           >
-            <span className="login-page__brand-mark" aria-hidden="true">
-              B
-            </span>
+            <Image
+              className="login-page__brand-mark"
+              src="/brand/shopcity-mark-white.svg"
+              alt=""
+              width={30}
+              height={30}
+            />
             <span className="login-page__brand-copy">
               <strong>SHOPCITY</strong>
               <small>SUPERMARKET</small>
