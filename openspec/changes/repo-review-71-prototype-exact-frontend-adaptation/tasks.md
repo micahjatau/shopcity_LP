@@ -31,8 +31,8 @@
 
 - [x] 5.1 Extract `useCustomerRegistrationController` and build the Supervisor/Admin registration view with Customer information, Initial card, and Review steps; verify role-boundary and form contract tests.
 - [x] 5.2 Preserve atomic customer plus initial-card creation, CSRF, idempotency, and persisted fields while excluding birthday, marketing, loyalty-consent, and consent-version inputs; verify generated-client request assertions.
-- [ ] 5.3 Build the prototype Transactions toolbar, bounded table, filters, refresh action, notice, detail modal, and `transaction-filters` identity; verify local filtering and honest bounded-scope copy.
-- [ ] 5.4 Preserve authoritative transaction detail and reversal behavior without synthesizing audit history or implying complete history pagination; verify transaction route and modal tests.
+- [x] 5.3 Build the prototype Transactions toolbar, bounded table, filters, refresh action, notice, detail modal, and `transaction-filters` identity; verify local filtering and honest bounded-scope copy.
+- [x] 5.4 Preserve authoritative transaction detail and reversal behavior without synthesizing audit history or implying complete history pagination; verify transaction route and modal tests.
 
 ## 6. Login and view-model boundaries
 
