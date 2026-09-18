@@ -38,7 +38,7 @@ describe('LoginForm device secret handling', () => {
     } as never);
 
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Tenant / email / username'), {
+    fireEvent.change(screen.getByLabelText('Email Address'), {
       target: { value: 'cashier@example.test' },
     });
     fireEvent.change(screen.getByLabelText('Password'), {
@@ -48,7 +48,7 @@ describe('LoginForm device secret handling', () => {
       target: { value: 'one-time-secret' },
     });
 
-    fireEvent.submit(screen.getByRole('button', { name: 'Sign in' }));
+    fireEvent.submit(screen.getByRole('button', { name: 'Sign In' }));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Device attestation secret')).toHaveValue(

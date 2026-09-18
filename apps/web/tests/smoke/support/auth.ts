@@ -51,9 +51,7 @@ export async function loginRoleInUi(
   }
 
   await page.goto('/login');
-  await page
-    .getByLabel('Tenant / email / username')
-    .fill(config[role].username);
+  await page.getByLabel('Email Address').fill(config[role].username);
   await page.getByLabel('Password').fill(config[role].password);
 
   if (role === 'cashier') {

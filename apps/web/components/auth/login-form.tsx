@@ -22,9 +22,9 @@ export function LoginForm() {
     'idle' | 'submitting' | 'success' | 'error'
   >('idle');
   const [message, setMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [deviceId, setDeviceId] = useState('');
   const [deviceAttestationSecret, setDeviceAttestationSecret] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,63 +67,87 @@ export function LoginForm() {
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      className="login-form"
       data-od-id="login-form"
     >
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <label htmlFor={usernameId}>Tenant / email / username</label>
+      <fieldset className="login-role-list" data-od-id="role-selector">
+        <legend className="sr-only">Choose a staff account</legend>
+        {[
+          [
+            'CASHIER',
+            'Cashier / Loyalty Staff',
+            'Register, capture receipts and redeem credit at the till.',
+          ],
+          [
+            'SUPERVISOR',
+            'Supervisor',
+            'Approve high-value receipts, late claims and OTP overrides.',
+          ],
+          [
+            'ADMIN',
+            'Administrator',
+            'Programme configuration, wallet, campaigns and audit.',
+          ],
+          [
+            'OWNER',
+            'Owner',
+            'Liability, reconciliation and programme performance.',
+          ],
+        ].map(([value, label, detail], index) => (
+          <label
+            key={value}
+            className="login-role-option"
+            htmlFor={`role-${value.toLowerCase()}`}
+          >
+            <input
+              id={`role-${value.toLowerCase()}`}
+              type="radio"
+              name="role"
+              value={value}
+              aria-label={label}
+              defaultChecked={index === 0}
+            />
+            <span>
+              <strong>{label}</strong>
+              <small>{detail}</small>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <div className="login-field">
+        <label htmlFor={usernameId}>Email Address</label>
         <Input
           id={usernameId}
-          aria-label="Tenant / email / username"
-          placeholder="cashier@shopcity.local"
+          aria-label="Email Address"
+          placeholder="Enter your email address"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           autoComplete="username"
         />
       </div>
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+      <div className="login-field">
         <label htmlFor={passwordId}>Password</label>
-        <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)' }}>
+        <div className="login-password-wrap">
           <Input
             id={passwordId}
             aria-label="Password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
+            placeholder="Enter password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
-            style={{ flex: 1 }}
           />
-          <Button
+          <button
             type="button"
-            variant="secondary"
+            className="login-password-toggle"
             onClick={() => setShowPassword((visible) => !visible)}
-            aria-label={showPassword ? 'Hide secret' : 'Show secret'}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            data-od-id="password-toggle"
           >
-            {showPassword ? 'Hide' : 'Show'}
-          </Button>
+            {showPassword ? '◉' : '◌'}
+          </button>
         </div>
       </div>
-      <fieldset className="login-role-list" data-od-id="role-selector">
-        <legend>Choose a staff workspace</legend>
-        {[
-          ['CASHIER', 'Cashier / Loyalty Staff'],
-          ['SUPERVISOR', 'Supervisor'],
-          ['ADMIN', 'Administrator'],
-        ].map(([value, label], index) => (
-          <label key={value}>
-            <input
-              type="radio"
-              name="role"
-              value={value}
-              defaultChecked={index === 0}
-              disabled
-            />{' '}
-            {label}
-          </label>
-        ))}
-        <small>Workspace access is determined by your backend session.</small>
-      </fieldset>
       <button
         type="button"
         className="login-forgot"
@@ -132,53 +156,43 @@ export function LoginForm() {
             'Password reset is managed by your ShopCity administrator.',
           )
         }
+        data-od-id="forgot-password"
       >
         Forgot password?
       </button>
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+      <Button
+        type="submit"
+        disabled={status === 'submitting'}
+        data-od-id="sign-in-cta"
+      >
+        {status === 'submitting' ? 'Signing in…' : 'Sign In'}
+      </Button>
+      <p
+        className={`login-notice${status === 'error' ? ' is-error' : ''}`}
+        aria-live="polite"
+      >
+        {message ?? 'Use your ShopCity staff credentials.'}
+      </p>
+      <div className="login-device-fields">
         <label htmlFor="device-id">Device ID</label>
         <Input
           id="device-id"
           aria-label="Device ID"
-          placeholder="Optional cashier device ID"
           value={deviceId}
           onChange={(event) => setDeviceId(event.target.value)}
           autoComplete="off"
         />
-      </div>
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <label htmlFor="device-attestation-secret">
           Device attestation secret
         </label>
         <Input
           id="device-attestation-secret"
           aria-label="Device attestation secret"
-          placeholder="Paste the device secret for machine-bound sign in"
           value={deviceAttestationSecret}
           onChange={(event) => setDeviceAttestationSecret(event.target.value)}
           autoComplete="off"
         />
       </div>
-      <Button
-        type="submit"
-        disabled={status === 'submitting'}
-        data-od-id="sign-in-cta"
-      >
-        {status === 'submitting' ? 'Signing in…' : 'Sign in'}
-      </Button>
-      <p
-        aria-live="polite"
-        style={{
-          margin: 0,
-          minHeight: '1.25rem',
-          color:
-            status === 'error'
-              ? 'var(--sc-color-danger-strong)'
-              : 'var(--sc-color-semantic-textSecondary)',
-        }}
-      >
-        {message ?? 'Use your backend-authenticated ShopCity credentials.'}
-      </p>
     </form>
   );
 }

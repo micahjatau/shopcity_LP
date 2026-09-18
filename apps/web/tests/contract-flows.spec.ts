@@ -54,9 +54,7 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.goto('/login');
-    await page
-      .getByLabel('Tenant / email / username')
-      .fill('cashier@shopcity.local');
+    await page.getByLabel('Email Address').fill('cashier@shopcity.local');
     await page.getByLabel('Password').fill('secret');
     await page.getByLabel('Device ID').fill('cashier-device-1');
     await page

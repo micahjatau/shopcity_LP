@@ -45,32 +45,34 @@ describe('frontend accessibility gates', () => {
     );
 
     expect(
-      screen.getByRole('heading', {
-        name: /sign in to the shopcity retail operations shell/i,
-      }),
+      screen.getByRole('heading', { name: /staff sign in/i }),
     ).toBeInTheDocument();
     expect(await runAxe(document.body)).toHaveLength(0);
 
     await user.tab();
     expect(
-      screen.getByRole('link', { name: /back to overview/i }),
+      screen.getByRole('link', { name: /shopcity supermarket home/i }),
     ).toHaveFocus();
     await user.tab();
-    expect(screen.getByLabelText(/tenant/i)).toHaveFocus();
+    expect(screen.getByRole('radio', { name: /cashier/i })).toHaveFocus();
     await user.tab();
-    expect(screen.getByLabelText(/password/i)).toHaveFocus();
+    expect(screen.getByLabelText(/email address/i)).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('button', { name: /show secret/i })).toHaveFocus();
+    expect(screen.getByLabelText(/^Password$/i)).toHaveFocus();
+    await user.tab();
+    expect(
+      screen.getByRole('button', { name: /show password/i }),
+    ).toHaveFocus();
     await user.tab();
     expect(
       screen.getByRole('button', { name: /forgot password/i }),
     ).toHaveFocus();
     await user.tab();
+    expect(screen.getByRole('button', { name: /sign in/i })).toHaveFocus();
+    await user.tab();
     expect(screen.getByLabelText(/device id/i)).toHaveFocus();
     await user.tab();
     expect(screen.getByLabelText(/device attestation secret/i)).toHaveFocus();
-    await user.tab();
-    expect(screen.getByRole('button', { name: /sign in/i })).toHaveFocus();
   });
 
   it('keeps cashier, supervisor and admin shells accessible', async () => {
