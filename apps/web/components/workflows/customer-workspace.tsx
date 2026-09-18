@@ -625,9 +625,31 @@ export function CustomerWorkspace({
 
       {canManage && !isCardMode ? (
         <section
-          style={cardStyle}
+          style={{
+            ...cardStyle,
+            maxWidth: 760,
+            marginInline: 'auto',
+          }}
           aria-labelledby="customer-profile-form-title"
+          data-od-id="register-flow"
         >
+          {!selectedCustomer ? (
+            <nav
+              aria-label="Registration steps"
+              style={{
+                display: 'flex',
+                gap: 'var(--sc-spacing-3)',
+                color: 'var(--sc-color-semantic-textSecondary)',
+                fontSize: 'var(--sc-font-size-sm)',
+              }}
+            >
+              <span>Customer information</span>
+              <span aria-hidden="true">→</span>
+              <span>Initial card</span>
+              <span aria-hidden="true">→</span>
+              <span>Review</span>
+            </nav>
+          ) : null}
           <h2 id="customer-profile-form-title" style={{ marginTop: 0 }}>
             {selectedCustomer ? 'Edit customer profile' : 'Register customer'}
           </h2>
