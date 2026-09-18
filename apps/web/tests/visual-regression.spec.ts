@@ -5,7 +5,8 @@ test.describe.configure({ timeout: 120000 });
 test.describe('visual regression gallery', () => {
   test('captures prototype login surface', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 923 });
-    await page.goto('/login');
+    await page.goto('/login', { waitUntil: 'networkidle' });
+    await page.locator('[data-od-id="login-page"]').waitFor();
     await expect(page).toHaveScreenshot('visual-login-page.png');
   });
 
