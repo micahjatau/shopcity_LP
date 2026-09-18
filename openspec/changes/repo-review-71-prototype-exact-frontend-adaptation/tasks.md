@@ -14,8 +14,8 @@
 
 ## 3. Capture Purchase
 
-- [ ] 3.1 Extract existing Earn behavior into `useEarnTransactionController` with the specified step, lookup, receipt, review, submission, reset, and notice view-model; verify controller unit tests cover transitions and invalid transitions.
-- [ ] 3.2 Preserve Earn card lookup, generated client, CSRF, idempotency, integer-kobo, device/actor/branch, timezone, receipt-week, duplicate, policy, approval, and offline logic; verify existing financial and offline tests remain green.
+- [x] 3.1 Extract existing Earn behavior into `useEarnTransactionController` with the specified step, lookup, receipt, review, submission, reset, and notice view-model; verify controller unit tests cover transitions and invalid transitions.
+- [x] 3.2 Preserve Earn card lookup, generated client, CSRF, idempotency, integer-kobo, device/actor/branch, timezone, receipt-week, duplicate, policy, approval, and offline logic; verify existing financial and offline tests remain green.
 - [ ] 3.3 Build the persistent prototype `data-od-id="capture-flow"` view with find/confirm/receipt/review/success nodes and accessible state transitions; verify route tests cover every state and focus behavior.
 - [x] 3.4 Render confirmed, pending-approval, rejected, retry, and offline-saved outcomes through the prototype notice/success geometry; verify typed outcome and copy assertions.
 - [x] 3.5 Remove Policy Context, Customer Detail, Recent Ledger, and Need to Sync cards from Capture Purchase; record the approved omission of the prototype-only Till/cashier-reference input and verify no value is collected or discarded.
