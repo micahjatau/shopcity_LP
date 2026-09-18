@@ -75,7 +75,10 @@ export function useEarnTransactionController({
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [status, setStatus] = useState<EarnStatus>('idle');
   const [message, setMessage] = useState('');
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -83,12 +86,18 @@ export function useEarnTransactionController({
       const raw = window.localStorage.getItem(earnDraftStorageKey);
       if (raw) {
         const draft = JSON.parse(raw) as Partial<EarnDraftState>;
-        if (typeof draft.idempotencyKey === 'string') idempotencyKeyRef.current = draft.idempotencyKey;
-        if (typeof draft.cardSerialNumber === 'string') setCardSerialNumber(draft.cardSerialNumber);
-        if (typeof draft.receiptNumber === 'string') setReceiptNumber(draft.receiptNumber);
-        if (typeof draft.purchaseAmount === 'number') setPurchaseAmount(draft.purchaseAmount);
-        if (typeof draft.occurredAt === 'string') setOccurredAt(draft.occurredAt);
-        if (typeof draft.overrideReason === 'string') setOverrideReason(draft.overrideReason);
+        if (typeof draft.idempotencyKey === 'string')
+          idempotencyKeyRef.current = draft.idempotencyKey;
+        if (typeof draft.cardSerialNumber === 'string')
+          setCardSerialNumber(draft.cardSerialNumber);
+        if (typeof draft.receiptNumber === 'string')
+          setReceiptNumber(draft.receiptNumber);
+        if (typeof draft.purchaseAmount === 'number')
+          setPurchaseAmount(draft.purchaseAmount);
+        if (typeof draft.occurredAt === 'string')
+          setOccurredAt(draft.occurredAt);
+        if (typeof draft.overrideReason === 'string')
+          setOverrideReason(draft.overrideReason);
       }
     } catch {
       // Ignore malformed local drafts.
@@ -99,8 +108,10 @@ export function useEarnTransactionController({
 
   useEffect(() => {
     if (!lookupContext) return;
-    if (lookupContext.cardSerialNumber) setCardSerialNumber(lookupContext.cardSerialNumber);
-    if (lookupContext.receiptNumber) setReceiptNumber(lookupContext.receiptNumber);
+    if (lookupContext.cardSerialNumber)
+      setCardSerialNumber(lookupContext.cardSerialNumber);
+    if (lookupContext.receiptNumber)
+      setReceiptNumber(lookupContext.receiptNumber);
   }, [lookupContext]);
 
   useEffect(() => {
@@ -116,7 +127,14 @@ export function useEarnTransactionController({
         overrideReason,
       } satisfies EarnDraftState),
     );
-  }, [cardSerialNumber, draftHydrated, occurredAt, overrideReason, purchaseAmount, receiptNumber]);
+  }, [
+    cardSerialNumber,
+    draftHydrated,
+    occurredAt,
+    overrideReason,
+    purchaseAmount,
+    receiptNumber,
+  ]);
 
   const authoritativeCardSerial = lookupContext?.cardSerialNumber?.trim() ?? '';
   const lookupReady = Boolean(authoritativeCardSerial);
@@ -125,7 +143,11 @@ export function useEarnTransactionController({
       ? null
       : Math.ceil((purchaseAmount * policyContext.defaultEarnRateBps) / 10000);
   const submissionReady = Boolean(
-    lookupReady && cardSerialNumber.trim() && receiptNumber.trim() && purchaseAmount !== null && purchaseAmount > 0,
+    lookupReady &&
+    cardSerialNumber.trim() &&
+    receiptNumber.trim() &&
+    purchaseAmount !== null &&
+    purchaseAmount > 0,
   );
 
   function resetDraft() {
@@ -174,13 +196,25 @@ export function useEarnTransactionController({
     try {
       const response = await loyaltyControllerEarnV1(
         payload,
-        createApiRequest({ csrf: true, idempotencyKey: idempotencyKeyRef.current }),
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: idempotencyKeyRef.current,
+        }),
       );
       if (response.status === 201 || response.status === 202) {
         setStatus(response.status === 201 ? 'confirmed' : 'pending');
-        setMessage(response.status === 201 ? 'Earn confirmed by backend contract.' : 'Earn awaiting approval.');
-        setResponseData(response.data && typeof response.data === 'object' ? response.data : null);
-        if (typeof window !== 'undefined') window.localStorage.removeItem(earnDraftStorageKey);
+        setMessage(
+          response.status === 201
+            ? 'Earn confirmed by backend contract.'
+            : 'Earn awaiting approval.',
+        );
+        setResponseData(
+          response.data && typeof response.data === 'object'
+            ? response.data
+            : null,
+        );
+        if (typeof window !== 'undefined')
+          window.localStorage.removeItem(earnDraftStorageKey);
         idempotencyKeyRef.current = createDraftKey();
         setCardSerialNumber('');
         setReceiptNumber('');
@@ -191,13 +225,20 @@ export function useEarnTransactionController({
         return;
       }
       setStatus('error');
-      setMessage(cashierEarnErrorMessage(getResponseErrorCode(response.data), response.status));
+      setMessage(
+        cashierEarnErrorMessage(
+          getResponseErrorCode(response.data),
+          response.status,
+        ),
+      );
     } catch {
       setStatus('error');
       setMessage('Earn could not be submitted.');
       const offlineBranchId = branchId ?? lookupContext?.branchId ?? null;
       if (!deviceId || !offlineBranchId) {
-        setMessage('Earn could not be submitted. Offline save is unavailable until the device-bound session is ready.');
+        setMessage(
+          'Earn could not be submitted. Offline save is unavailable until the device-bound session is ready.',
+        );
         return;
       }
       try {
@@ -210,7 +251,11 @@ export function useEarnTransactionController({
           customerId: lookupContext?.customerId ?? undefined,
           cardBarcode: cardSerialNumber.trim(),
           receiptNumber: receiptNumber.trim(),
-          receiptWeekStart: deriveReceiptWeekStart(branchTimezone ?? null, receiptWeekStartDay ?? null, occurredAt),
+          receiptWeekStart: deriveReceiptWeekStart(
+            branchTimezone ?? null,
+            receiptWeekStartDay ?? null,
+            occurredAt,
+          ),
           purchaseAmountKobo: purchaseAmount ?? 0,
           occurredAtLocal: occurredAt,
           syncState: 'waiting-to-sync',
@@ -223,7 +268,9 @@ export function useEarnTransactionController({
           setMessage('Earn could not be submitted. Saved locally for sync.');
           return;
         }
-        setMessage(`Earn could not be saved locally for sync (${offlineResult.error}).`);
+        setMessage(
+          `Earn could not be saved locally for sync (${offlineResult.error}).`,
+        );
       } catch {
         // Keep the network error state if offline capture fails.
       }
@@ -253,20 +300,42 @@ export function useEarnTransactionController({
   };
 }
 
-function deriveReceiptWeekStart(timezone: string | null, receiptWeekStartDay: number | null, occurredAt: string) {
-  if (typeof receiptWeekStartDay !== 'number' || receiptWeekStartDay < 0 || receiptWeekStartDay > 6) {
+function deriveReceiptWeekStart(
+  timezone: string | null,
+  receiptWeekStartDay: number | null,
+  occurredAt: string,
+) {
+  if (
+    typeof receiptWeekStartDay !== 'number' ||
+    receiptWeekStartDay < 0 ||
+    receiptWeekStartDay > 6
+  ) {
     return new Date(occurredAt).toISOString().slice(0, 10);
   }
   const reference = new Date(occurredAt);
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone ?? 'UTC', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(reference);
-  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.find((part) => part.type === 'weekday')?.value ?? '');
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone ?? 'UTC',
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(reference);
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
+    parts.find((part) => part.type === 'weekday')?.value ?? '',
+  );
   if (weekday < 0) return new Date(occurredAt).toISOString().slice(0, 10);
   const deltaDays = (7 + weekday - receiptWeekStartDay) % 7;
-  const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone ?? 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(reference);
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone ?? 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(reference);
   const year = Number(dateParts.find((part) => part.type === 'year')?.value);
   const month = Number(dateParts.find((part) => part.type === 'month')?.value);
   const day = Number(dateParts.find((part) => part.type === 'day')?.value);
-  if (!year || !month || !day) return new Date(occurredAt).toISOString().slice(0, 10);
+  if (!year || !month || !day)
+    return new Date(occurredAt).toISOString().slice(0, 10);
   const localDate = new Date(Date.UTC(year, month - 1, day));
   localDate.setUTCDate(localDate.getUTCDate() - deltaDays);
   return localDate.toISOString().slice(0, 10);
@@ -285,13 +354,22 @@ function getResponseErrorCode(value: unknown): string | null {
 
 function cashierEarnErrorMessage(code: string | null, status: number) {
   switch (code) {
-    case 'RECEIPT_ALREADY_USED': return 'This receipt has already been used this week. Check the receipt number.';
-    case 'STAFF_INELIGIBLE': return 'Staff purchases cannot earn ShopCity credit.';
+    case 'RECEIPT_ALREADY_USED':
+      return 'This receipt has already been used this week. Check the receipt number.';
+    case 'STAFF_INELIGIBLE':
+      return 'Staff purchases cannot earn ShopCity credit.';
     case 'CARD_NOT_FOUND':
-    case 'CARD_INACTIVE': return 'This card cannot currently earn credit. Confirm the card status.';
-    case 'APPROVAL_REQUIRED': return 'Supervisor approval is required before this earn can complete.';
-    case 'INSUFFICIENT_BALANCE': return 'Available credit is lower than this redemption.';
-    case 'AUTH_SESSION_EXPIRED': return 'Your session has expired. Sign in again before continuing.';
-    default: return status === 0 ? 'Earn could not be submitted because the network is unavailable.' : `Earn could not be submitted (status ${status}). Review the transaction and try again.`;
+    case 'CARD_INACTIVE':
+      return 'This card cannot currently earn credit. Confirm the card status.';
+    case 'APPROVAL_REQUIRED':
+      return 'Supervisor approval is required before this earn can complete.';
+    case 'INSUFFICIENT_BALANCE':
+      return 'Available credit is lower than this redemption.';
+    case 'AUTH_SESSION_EXPIRED':
+      return 'Your session has expired. Sign in again before continuing.';
+    default:
+      return status === 0
+        ? 'Earn could not be submitted because the network is unavailable.'
+        : `Earn could not be submitted (status ${status}). Review the transaction and try again.`;
   }
 }

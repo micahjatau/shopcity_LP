@@ -138,7 +138,9 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/lookup`);
     await page.context().setOffline(true);
 
-    await page.getByRole('searchbox', { name: 'Customer search' }).fill('CARD-001');
+    await page
+      .getByRole('searchbox', { name: 'Customer search' })
+      .fill('CARD-001');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(
       page.getByText('Lookup unavailable offline. Reconnect to try again.'),
@@ -266,7 +268,9 @@ test.describe('workflow route coverage', () => {
     }
   });
 
-  test('keeps prototype landmarks inside the 1440px route geometry', async ({ page }) => {
+  test('keeps prototype landmarks inside the 1440px route geometry', async ({
+    page,
+  }) => {
     const fixtures = [
       ['/cashier', 'recent-transactions', 'CASHIER'],
       ['/cashier/lookup', 'customer-search', 'CASHIER'],

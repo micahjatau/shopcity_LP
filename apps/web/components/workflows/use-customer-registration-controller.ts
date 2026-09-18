@@ -63,7 +63,9 @@ export function useCustomerRegistrationController({
     }
 
     setBusy(true);
-    setMessage(mode === 'create' ? 'Registering customer…' : 'Saving customer profile…');
+    setMessage(
+      mode === 'create' ? 'Registering customer…' : 'Saving customer profile…',
+    );
     try {
       const response =
         mode === 'create'
@@ -72,26 +74,38 @@ export function useCustomerRegistrationController({
                 ...basePayload,
                 cardSerialNumber: form.cardSerialNumber.trim(),
               } satisfies CreateCustomerDto,
-              createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+              createApiRequest({
+                csrf: true,
+                idempotencyKey: crypto.randomUUID(),
+              }),
             )
           : await customersControllerUpdateCustomerV1(
               selectedId!,
               basePayload satisfies UpdateCustomerDto,
-              createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+              createApiRequest({
+                csrf: true,
+                idempotencyKey: crypto.randomUUID(),
+              }),
             );
       const successStatus = mode === 'create' ? 201 : 200;
       if (response.status !== successStatus) {
-        setMessage(`${mode === 'create' ? 'Registration' : 'Profile update'} unavailable (${response.status}).`);
+        setMessage(
+          `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable (${response.status}).`,
+        );
         return;
       }
 
       const record = response.data.data as { id?: string };
-      setMessage(mode === 'create' ? 'Customer registered.' : 'Customer profile saved.');
+      setMessage(
+        mode === 'create' ? 'Customer registered.' : 'Customer profile saved.',
+      );
       if (mode === 'create' && record.id) setSelectedId(record.id);
       await search();
       if (mode === 'update') await reloadSelectedCustomer();
     } catch {
-      setMessage(`${mode === 'create' ? 'Registration' : 'Profile update'} unavailable.`);
+      setMessage(
+        `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable.`,
+      );
     } finally {
       setBusy(false);
     }

@@ -65,7 +65,6 @@ export function CashierWorkflowRoute({
   } = useSessionBootstrapState();
   const policyConfig = publicConfig as CashierPolicyConfig | null;
 
-
   const lookupSummary: Array<[string, ReactNode]> = lookupRecord
     ? [
         [
@@ -158,58 +157,58 @@ export function CashierWorkflowRoute({
         />
       ) : (
         <WorkflowSection
-        title="Find customer context"
-        description="Look up the card first. The transaction form unlocks when the server confirms the customer context."
-      >
-        <div className="cashier-workspace-grid">
-          <article className="cashier-card" aria-label="Lookup and status">
-            <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-            <form
-              onSubmit={(event) => void handleLookup(event)}
-              style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
-            >
-              <Input
-                placeholder="Scan card serial number"
-                aria-label="Lookup"
-                value={lookupValue}
-                onChange={(event) => setLookupValue(event.target.value)}
-              />
-              <Button type="submit" disabled={lookupPending}>
-                {lookupPending ? 'Looking up…' : 'Lookup'}
-              </Button>
-            </form>
-            <Alert tone="info" title="Session-aware workflow">
-              {lookupMessage}
-            </Alert>
-            {lookupRecord ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                {lookupSummary.map(([label, value]) => (
-                  <div key={label} className="cashier-stat-row">
-                    <span>{label}</span>
-                    <span>{value}</span>
+          title="Find customer context"
+          description="Look up the card first. The transaction form unlocks when the server confirms the customer context."
+        >
+          <div className="cashier-workspace-grid">
+            <article className="cashier-card" aria-label="Lookup and status">
+              <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
+              <form
+                onSubmit={(event) => void handleLookup(event)}
+                style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+              >
+                <Input
+                  placeholder="Scan card serial number"
+                  aria-label="Lookup"
+                  value={lookupValue}
+                  onChange={(event) => setLookupValue(event.target.value)}
+                />
+                <Button type="submit" disabled={lookupPending}>
+                  {lookupPending ? 'Looking up…' : 'Lookup'}
+                </Button>
+              </form>
+              <Alert tone="info" title="Session-aware workflow">
+                {lookupMessage}
+              </Alert>
+              {lookupRecord ? (
+                <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+                  {lookupSummary.map(([label, value]) => (
+                    <div key={label} className="cashier-stat-row">
+                      <span>{label}</span>
+                      <span>{value}</span>
+                    </div>
+                  ))}
+                  <div className="cashier-tag-row">
+                    <StatusBadge
+                      label={lookupRecord.status ?? 'LOOKUP'}
+                      tone="success"
+                    />
+                    {lookupRecord.customer?.id || lookupRecord.customerId ? (
+                      <Link
+                        href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
+                      >
+                        View customer
+                      </Link>
+                    ) : null}
                   </div>
-                ))}
-                <div className="cashier-tag-row">
-                  <StatusBadge
-                    label={lookupRecord.status ?? 'LOOKUP'}
-                    tone="success"
-                  />
-                  {lookupRecord.customer?.id || lookupRecord.customerId ? (
-                    <Link
-                      href={`/cashier/customers${lookupRecord.customer?.id || lookupRecord.customerId ? `?id=${lookupRecord.customer?.id ?? lookupRecord.customerId}` : ''}`}
-                    >
-                      View customer
-                    </Link>
-                  ) : null}
                 </div>
-              </div>
-            ) : null}
-          </article>
+              ) : null}
+            </article>
 
-          <p className="cashier-workflow-notice" role="status">
-            {policyMessage}
-          </p>
-        </div>
+            <p className="cashier-workflow-notice" role="status">
+              {policyMessage}
+            </p>
+          </div>
         </WorkflowSection>
       )}
 
@@ -491,7 +490,10 @@ function FindCustomerView({
       <section className="find-customer-search" data-od-id="customer-search">
         <form onSubmit={onLookup}>
           <div className="find-customer-search-row">
-            <label className="find-customer-query" htmlFor="customer-search-query">
+            <label
+              className="find-customer-query"
+              htmlFor="customer-search-query"
+            >
               <span aria-hidden="true">⌕</span>
               <Input
                 ref={queryInputRef}
@@ -543,10 +545,14 @@ function FindCustomerView({
                 </span>
               </div>
               <div className="find-customer-actions">
-                <Link href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}>
+                <Link
+                  href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
+                >
                   Capture Purchase
                 </Link>
-                <Link href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}>
+                <Link
+                  href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
+                >
                   Redeem Credit
                 </Link>
               </div>

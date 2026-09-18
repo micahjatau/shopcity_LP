@@ -61,7 +61,11 @@ export function EarnTransactionForm({
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
       data-od-id="capture-form"
     >
-      <Alert tone="info" title="Review before submit" data-od-id="capture-review">
+      <Alert
+        tone="info"
+        title="Review before submit"
+        data-od-id="capture-review"
+      >
         Use lookup first, confirm the customer context, then submit the earn.
         {expectedCreditKobo !== null ? (
           <>
@@ -101,8 +105,8 @@ export function EarnTransactionForm({
         <Input
           aria-label="Card serial number"
           placeholder="Look up a card first"
-        value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
-        readOnly={lookupReady}
+          value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
+          readOnly={lookupReady}
           onChange={(event) => {
             if (!lookupReady) setCardSerialNumber(event.target.value);
           }}
@@ -111,12 +115,14 @@ export function EarnTransactionForm({
       <div data-od-id="capture-receipt">
         <Input
           aria-label="POS receipt number"
-        aria-required="true"
-        placeholder="Receipt number (required)"
-        value={receiptNumber}
-        onChange={(event) => setReceiptNumber(event.target.value)}
-      />
-        {!receiptNumber ? <span className="cashier-workflow-hint">Required</span> : null}
+          aria-required="true"
+          placeholder="Receipt number (required)"
+          value={receiptNumber}
+          onChange={(event) => setReceiptNumber(event.target.value)}
+        />
+        {!receiptNumber ? (
+          <span className="cashier-workflow-hint">Required</span>
+        ) : null}
       </div>
       <MoneyInput
         label="Purchase amount"

@@ -216,18 +216,20 @@ describe('Cashier lookup workflow', () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Customer search' }), {
-      target: { value: 'CARD-001' },
-    });
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+      {
+        target: { value: 'CARD-001' },
+      },
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     await waitFor(() => {
       expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: 'Capture Purchase' })).toHaveAttribute(
-      'href',
-      '/cashier/earn?card=CARD-001',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Capture Purchase' }),
+    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
     expect(screen.getByRole('link', { name: 'Redeem Credit' })).toHaveAttribute(
       'href',
       '/cashier/redeem?card=CARD-001',

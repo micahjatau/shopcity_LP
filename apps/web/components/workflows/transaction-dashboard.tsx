@@ -42,7 +42,9 @@ export function TransactionDashboard() {
       );
       if (response.status !== 200) throw new Error('activity unavailable');
       setItems(response.data.data.items);
-      setMessage(`${response.data.data.items.length} bounded live receipt${response.data.data.items.length === 1 ? '' : 's'} loaded.`);
+      setMessage(
+        `${response.data.data.items.length} bounded live receipt${response.data.data.items.length === 1 ? '' : 's'} loaded.`,
+      );
     } catch {
       setItems([]);
       setMessage('Today’s cashier activity is temporarily unavailable.');
@@ -63,7 +65,8 @@ export function TransactionDashboard() {
         item.id,
         createApiRequest({ csrf: true }),
       );
-      if (response.status === 200) setDetail(response.data.data as DetailRecord);
+      if (response.status === 200)
+        setDetail(response.data.data as DetailRecord);
     } catch {
       // Keep the bounded report row visible when detail is unavailable.
     }
@@ -73,19 +76,37 @@ export function TransactionDashboard() {
     const normalized = query.trim().toLowerCase();
     const minimumKobo = Number(minAmount || 0) * 100;
     return items.filter((item) => {
-      const matchesQuery = !normalized || `${item.receiptNumber ?? ''} ${item.id}`.toLowerCase().includes(normalized);
-      const matchesStatus = !statusFilter || String(item.status).toUpperCase().includes(statusFilter);
-      const matchesOperation = !operationFilter || item.operation === operationFilter;
-      const matchesAmount = !minimumKobo || Number(item.loyaltyAmountKobo ?? 0) >= minimumKobo;
+      const matchesQuery =
+        !normalized ||
+        `${item.receiptNumber ?? ''} ${item.id}`
+          .toLowerCase()
+          .includes(normalized);
+      const matchesStatus =
+        !statusFilter ||
+        String(item.status).toUpperCase().includes(statusFilter);
+      const matchesOperation =
+        !operationFilter || item.operation === operationFilter;
+      const matchesAmount =
+        !minimumKobo || Number(item.loyaltyAmountKobo ?? 0) >= minimumKobo;
       return matchesQuery && matchesStatus && matchesOperation && matchesAmount;
     });
   }, [items, minAmount, operationFilter, query, statusFilter]);
 
   return (
-    <section className="transaction-dashboard" data-od-id="transactions-dashboard">
-      <p className="cashier-workflow-notice" role="status">{message}</p>
+    <section
+      className="transaction-dashboard"
+      data-od-id="transactions-dashboard"
+    >
+      <p className="cashier-workflow-notice" role="status">
+        {message}
+      </p>
       <div className="transaction-toolbar" data-od-id="transaction-filters">
-        <Input aria-label="Search receipt number" placeholder="Search receipt number" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <Input
+          aria-label="Search receipt number"
+          placeholder="Search receipt number"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         <Select
           aria-label="Filter by status"
           value={statusFilter}
@@ -108,35 +129,148 @@ export function TransactionDashboard() {
             { value: 'REDEEM', label: 'Redeem' },
           ]}
         />
-        <Input aria-label="Minimum amount in naira" type="number" min="0" placeholder="Min amount" value={minAmount} onChange={(event) => setMinAmount(event.target.value)} />
-        <Button type="button" variant="secondary" onClick={() => void load()} loading={busy}>Refresh data</Button>
+        <Input
+          aria-label="Minimum amount in naira"
+          type="number"
+          min="0"
+          placeholder="Min amount"
+          value={minAmount}
+          onChange={(event) => setMinAmount(event.target.value)}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => void load()}
+          loading={busy}
+        >
+          Refresh data
+        </Button>
       </div>
-      <section className="transaction-table-card" data-od-id="transactions-table">
+      <section
+        className="transaction-table-card"
+        data-od-id="transactions-table"
+      >
         {visibleItems.length ? (
           <Table>
-            <thead><tr><th>Receipt no.</th><th>Operation</th><th>Loyalty amount</th><th>Transaction ID</th><th>Date &amp; time</th><th>Outcome</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Receipt no.</th>
+                <th>Operation</th>
+                <th>Loyalty amount</th>
+                <th>Transaction ID</th>
+                <th>Date &amp; time</th>
+                <th>Outcome</th>
+              </tr>
+            </thead>
             <tbody>
               {visibleItems.map((item) => (
-                <tr key={item.id} tabIndex={0} onClick={() => void openDetail(item)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openDetail(item); } }}>
+                <tr
+                  key={item.id}
+                  tabIndex={0}
+                  onClick={() => void openDetail(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      void openDetail(item);
+                    }
+                  }}
+                >
                   <td>{item.receiptNumber ?? '—'}</td>
                   <td>{item.operation ?? '—'}</td>
-                  <td>{item.loyaltyAmountKobo == null ? '—' : <Money amountKobo={item.loyaltyAmountKobo} />}</td>
-                  <td>{String(item.id).slice(0, 14)}{String(item.id).length > 14 ? '…' : ''}</td>
+                  <td>
+                    {item.loyaltyAmountKobo == null ? (
+                      '—'
+                    ) : (
+                      <Money amountKobo={item.loyaltyAmountKobo} />
+                    )}
+                  </td>
+                  <td>
+                    {String(item.id).slice(0, 14)}
+                    {String(item.id).length > 14 ? '…' : ''}
+                  </td>
                   <td>{new Date(item.occurredAt).toLocaleString('en-NG')}</td>
-                  <td><StatusBadge label={item.status ?? 'UNKNOWN'} tone="info" /></td>
+                  <td>
+                    <StatusBadge label={item.status ?? 'UNKNOWN'} tone="info" />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </Table>
         ) : (
-          <Alert tone="warning" title="No transactions found">Adjust the filters or refresh the bounded cashier activity feed.</Alert>
+          <Alert tone="warning" title="No transactions found">
+            Adjust the filters or refresh the bounded cashier activity feed.
+          </Alert>
         )}
-        <p className="cashier-workflow-hint">{visibleItems.length} loaded transaction{visibleItems.length === 1 ? '' : 's'} · bounded report scope</p>
+        <p className="cashier-workflow-hint">
+          {visibleItems.length} loaded transaction
+          {visibleItems.length === 1 ? '' : 's'} · bounded report scope
+        </p>
       </section>
       {selected ? (
-        <dialog open className="transaction-detail-modal" aria-labelledby="transaction-detail-title">
-          <div className="transaction-detail-modal__head"><div><p className="section-label">Transaction detail</p><h2 id="transaction-detail-title">{detail?.posReceiptNumber ?? selected.receiptNumber ?? 'Transaction'}</h2></div><Button type="button" variant="secondary" onClick={() => setSelected(null)}>Close</Button></div>
-          {detail ? <Table><tbody><tr><th>Customer</th><td>{detail.customer?.fullName ?? detail.customerId ?? '—'}</td></tr><tr><th>Amount</th><td>{detail.amountKobo == null ? '—' : <Money amountKobo={detail.amountKobo} />}</td></tr><tr><th>Credit</th><td>{detail.creditKobo == null ? '—' : <Money amountKobo={detail.creditKobo} />}</td></tr><tr><th>Status</th><td>{detail.state ?? detail.status ?? '—'}</td></tr><tr><th>Transaction ID</th><td>{detail.transactionId ?? selected.id}</td></tr></tbody></Table> : <p role="status">Loading authoritative transaction detail…</p>}
+        <dialog
+          open
+          className="transaction-detail-modal"
+          aria-labelledby="transaction-detail-title"
+        >
+          <div className="transaction-detail-modal__head">
+            <div>
+              <p className="section-label">Transaction detail</p>
+              <h2 id="transaction-detail-title">
+                {detail?.posReceiptNumber ??
+                  selected.receiptNumber ??
+                  'Transaction'}
+              </h2>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setSelected(null)}
+            >
+              Close
+            </Button>
+          </div>
+          {detail ? (
+            <Table>
+              <tbody>
+                <tr>
+                  <th>Customer</th>
+                  <td>
+                    {detail.customer?.fullName ?? detail.customerId ?? '—'}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Amount</th>
+                  <td>
+                    {detail.amountKobo == null ? (
+                      '—'
+                    ) : (
+                      <Money amountKobo={detail.amountKobo} />
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Credit</th>
+                  <td>
+                    {detail.creditKobo == null ? (
+                      '—'
+                    ) : (
+                      <Money amountKobo={detail.creditKobo} />
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Status</th>
+                  <td>{detail.state ?? detail.status ?? '—'}</td>
+                </tr>
+                <tr>
+                  <th>Transaction ID</th>
+                  <td>{detail.transactionId ?? selected.id}</td>
+                </tr>
+              </tbody>
+            </Table>
+          ) : (
+            <p role="status">Loading authoritative transaction detail…</p>
+          )}
         </dialog>
       ) : null}
     </section>

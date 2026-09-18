@@ -23,7 +23,9 @@ export default function LoginPage() {
         className="login-page__card"
         aria-labelledby="login-title"
         data-od-id="staff-sign-in"
-      >        <h1 id="login-title" className="sr-only">
+      >
+        {' '}
+        <h1 id="login-title" className="sr-only">
           Sign in to the ShopCity retail operations shell.
         </h1>
         <div className="login-page__intro">

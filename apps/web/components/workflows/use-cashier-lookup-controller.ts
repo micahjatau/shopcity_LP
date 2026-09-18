@@ -27,9 +27,7 @@ export type CashierLookupRecord = {
   branchId?: string;
 };
 
-export function useCashierLookupController(
-  initialCardSerial?: string | null,
-) {
+export function useCashierLookupController(initialCardSerial?: string | null) {
   const [lookupValue, setLookupValue] = useState(initialCardSerial ?? '');
   const [lookupMessage, setLookupMessage] = useState(
     initialCardSerial

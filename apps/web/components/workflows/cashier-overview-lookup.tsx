@@ -189,11 +189,16 @@ export function CashierOverviewLookup() {
           </div>
         ) : todayTransactions ? (
           <p className="cashier-empty">
-            {search ? 'No matching transactions.' : 'No transactions recorded today.'}
+            {search
+              ? 'No matching transactions.'
+              : 'No transactions recorded today.'}
           </p>
         ) : null}
         <div className="table-foot">
-          <span>{visibleTransactions.length} loaded transaction{visibleTransactions.length === 1 ? '' : 's'}</span>
+          <span>
+            {visibleTransactions.length} loaded transaction
+            {visibleTransactions.length === 1 ? '' : 's'}
+          </span>
           <Link href="/supervisor/transactions">View all transactions →</Link>
         </div>
       </section>

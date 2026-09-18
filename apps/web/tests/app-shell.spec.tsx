@@ -144,9 +144,7 @@ describe('AppShell', () => {
     expect(document.querySelector('.shell-body')).toHaveClass(
       'shell-body--collapsed',
     );
-    expect(
-      screen.queryByText('Branch and device'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Branch and device')).not.toBeInTheDocument();
   });
 
   it('does not expose a sidebar collapse control', async () => {
@@ -171,7 +169,9 @@ describe('AppShell', () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: /collapse sidebar|expand sidebar/i }),
+      screen.queryByRole('button', {
+        name: /collapse sidebar|expand sidebar/i,
+      }),
     ).not.toBeInTheDocument();
   });
 

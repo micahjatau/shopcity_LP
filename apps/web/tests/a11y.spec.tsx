@@ -62,7 +62,9 @@ describe('frontend accessibility gates', () => {
     await user.tab();
     expect(screen.getByRole('button', { name: /show secret/i })).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('button', { name: /forgot password/i })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: /forgot password/i }),
+    ).toHaveFocus();
     await user.tab();
     expect(screen.getByLabelText(/device id/i)).toHaveFocus();
     await user.tab();

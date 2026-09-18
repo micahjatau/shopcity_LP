@@ -58,12 +58,17 @@ export function useRedeemTransactionController({
   const [cardSerialNumber, setCardSerialNumber] = useState('');
   const [receiptNumber, setReceiptNumber] = useState('');
   const [basketAmount, setBasketAmount] = useState<number | null>(null);
-  const [requestedRedemption, setRequestedRedemption] = useState<number | null>(null);
+  const [requestedRedemption, setRequestedRedemption] = useState<number | null>(
+    null,
+  );
   const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString());
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [status, setStatus] = useState<RedeemStatus>('idle');
   const [message, setMessage] = useState('');
-  const [responseData, setResponseData] = useState<Record<string, unknown> | null>(null);
+  const [responseData, setResponseData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -71,12 +76,18 @@ export function useRedeemTransactionController({
       const raw = window.localStorage.getItem(redeemDraftStorageKey);
       if (raw) {
         const draft = JSON.parse(raw) as Partial<RedeemDraftState>;
-        if (typeof draft.idempotencyKey === 'string') idempotencyKeyRef.current = draft.idempotencyKey;
-        if (typeof draft.cardSerialNumber === 'string') setCardSerialNumber(draft.cardSerialNumber);
-        if (typeof draft.receiptNumber === 'string') setReceiptNumber(draft.receiptNumber);
-        if (typeof draft.basketAmount === 'number') setBasketAmount(draft.basketAmount);
-        if (typeof draft.requestedRedemption === 'number') setRequestedRedemption(draft.requestedRedemption);
-        if (typeof draft.occurredAt === 'string') setOccurredAt(draft.occurredAt);
+        if (typeof draft.idempotencyKey === 'string')
+          idempotencyKeyRef.current = draft.idempotencyKey;
+        if (typeof draft.cardSerialNumber === 'string')
+          setCardSerialNumber(draft.cardSerialNumber);
+        if (typeof draft.receiptNumber === 'string')
+          setReceiptNumber(draft.receiptNumber);
+        if (typeof draft.basketAmount === 'number')
+          setBasketAmount(draft.basketAmount);
+        if (typeof draft.requestedRedemption === 'number')
+          setRequestedRedemption(draft.requestedRedemption);
+        if (typeof draft.occurredAt === 'string')
+          setOccurredAt(draft.occurredAt);
       }
     } catch {
       // Ignore malformed local drafts.
@@ -87,26 +98,45 @@ export function useRedeemTransactionController({
 
   useEffect(() => {
     if (!lookupContext) return;
-    if (lookupContext.cardSerialNumber) setCardSerialNumber(lookupContext.cardSerialNumber);
-    if (lookupContext.receiptNumber) setReceiptNumber(lookupContext.receiptNumber);
+    if (lookupContext.cardSerialNumber)
+      setCardSerialNumber(lookupContext.cardSerialNumber);
+    if (lookupContext.receiptNumber)
+      setReceiptNumber(lookupContext.receiptNumber);
   }, [lookupContext]);
 
   useEffect(() => {
     if (!draftHydrated || typeof window === 'undefined') return;
     window.localStorage.setItem(
       redeemDraftStorageKey,
-      JSON.stringify({ idempotencyKey: idempotencyKeyRef.current, cardSerialNumber, receiptNumber, basketAmount, requestedRedemption, occurredAt } satisfies RedeemDraftState),
+      JSON.stringify({
+        idempotencyKey: idempotencyKeyRef.current,
+        cardSerialNumber,
+        receiptNumber,
+        basketAmount,
+        requestedRedemption,
+        occurredAt,
+      } satisfies RedeemDraftState),
     );
-  }, [basketAmount, cardSerialNumber, draftHydrated, occurredAt, receiptNumber, requestedRedemption]);
+  }, [
+    basketAmount,
+    cardSerialNumber,
+    draftHydrated,
+    occurredAt,
+    receiptNumber,
+    requestedRedemption,
+  ]);
 
   const authoritativeCardSerial = lookupContext?.cardSerialNumber?.trim() ?? '';
   const lookupReady = Boolean(authoritativeCardSerial);
   const maxAllowedByBasketKobo =
     basketAmount === null || !policyContext?.maxRedemptionBasketPercent
       ? null
-      : Math.floor((basketAmount * policyContext.maxRedemptionBasketPercent) / 100);
+      : Math.floor(
+          (basketAmount * policyContext.maxRedemptionBasketPercent) / 100,
+        );
   const maxAllowedRedemptionKobo =
-    typeof lookupContext?.availableBalanceKobo === 'number' && maxAllowedByBasketKobo !== null
+    typeof lookupContext?.availableBalanceKobo === 'number' &&
+    maxAllowedByBasketKobo !== null
       ? Math.min(lookupContext.availableBalanceKobo, maxAllowedByBasketKobo)
       : typeof lookupContext?.availableBalanceKobo === 'number'
         ? lookupContext.availableBalanceKobo
@@ -153,12 +183,27 @@ export function useRedeemTransactionController({
       occurredAt,
     };
     try {
-      const response = await redemptionsControllerRedeemV1(payload, createApiRequest({ csrf: true, idempotencyKey: idempotencyKeyRef.current }));
+      const response = await redemptionsControllerRedeemV1(
+        payload,
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: idempotencyKeyRef.current,
+        }),
+      );
       if (response.status === 201 || response.status === 202) {
         setStatus(response.status === 201 ? 'confirmed' : 'pending');
-        setMessage(response.status === 201 ? 'Redemption confirmed by backend contract.' : 'Redemption awaiting approval.');
-        setResponseData(response.data && typeof response.data === 'object' ? (response.data as Record<string, unknown>) : null);
-        if (typeof window !== 'undefined') window.localStorage.removeItem(redeemDraftStorageKey);
+        setMessage(
+          response.status === 201
+            ? 'Redemption confirmed by backend contract.'
+            : 'Redemption awaiting approval.',
+        );
+        setResponseData(
+          response.data && typeof response.data === 'object'
+            ? (response.data as Record<string, unknown>)
+            : null,
+        );
+        if (typeof window !== 'undefined')
+          window.localStorage.removeItem(redeemDraftStorageKey);
         idempotencyKeyRef.current = createDraftKey();
         setCardSerialNumber('');
         setReceiptNumber('');
@@ -169,7 +214,12 @@ export function useRedeemTransactionController({
         return;
       }
       setStatus('error');
-      setMessage(cashierRedeemErrorMessage(getResponseErrorCode(response.data), response.status));
+      setMessage(
+        cashierRedeemErrorMessage(
+          getResponseErrorCode(response.data),
+          response.status,
+        ),
+      );
     } catch {
       setStatus('error');
       setMessage('Redemption could not be submitted.');
@@ -212,12 +262,18 @@ function getResponseErrorCode(value: unknown): string | null {
 
 function cashierRedeemErrorMessage(code: string | null, status: number) {
   switch (code) {
-    case 'INSUFFICIENT_BALANCE': return 'Available credit is lower than this redemption.';
-    case 'REDEMPTION_TOO_LARGE': return 'The requested redemption exceeds the allowed basket limit.';
-    case 'APPROVAL_REQUIRED': return 'Supervisor approval is required before this redemption can complete.';
+    case 'INSUFFICIENT_BALANCE':
+      return 'Available credit is lower than this redemption.';
+    case 'REDEMPTION_TOO_LARGE':
+      return 'The requested redemption exceeds the allowed basket limit.';
+    case 'APPROVAL_REQUIRED':
+      return 'Supervisor approval is required before this redemption can complete.';
     case 'CARD_NOT_FOUND':
-    case 'CARD_INACTIVE': return 'This card cannot currently redeem credit. Confirm the card status.';
-    case 'AUTH_SESSION_EXPIRED': return 'Your session has expired. Sign in again before continuing.';
-    default: return `Redemption could not be submitted (status ${status}). Review the transaction and try again.`;
+    case 'CARD_INACTIVE':
+      return 'This card cannot currently redeem credit. Confirm the card status.';
+    case 'AUTH_SESSION_EXPIRED':
+      return 'Your session has expired. Sign in again before continuing.';
+    default:
+      return `Redemption could not be submitted (status ${status}). Review the transaction and try again.`;
   }
 }

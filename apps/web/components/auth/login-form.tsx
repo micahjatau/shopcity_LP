@@ -128,7 +128,9 @@ export function LoginForm() {
         type="button"
         className="login-forgot"
         onClick={() =>
-          setMessage('Password reset is managed by your ShopCity administrator.')
+          setMessage(
+            'Password reset is managed by your ShopCity administrator.',
+          )
         }
       >
         Forgot password?

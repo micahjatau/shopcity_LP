@@ -52,7 +52,11 @@ export function RedeemTransactionForm({
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
       data-od-id="redeem-form"
     >
-      <Alert tone="info" title="Review before submit" data-od-id="redeem-confirm">
+      <Alert
+        tone="info"
+        title="Review before submit"
+        data-od-id="redeem-confirm"
+      >
         Use lookup first, verify the remaining balance and allowed redemption,
         then confirm the redemption.
       </Alert>
@@ -80,8 +84,8 @@ export function RedeemTransactionForm({
         <Input
           aria-label="Card serial number"
           placeholder="Look up a card first"
-        value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
-        readOnly={lookupReady}
+          value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
+          readOnly={lookupReady}
           onChange={(event) => {
             if (!lookupReady) setCardSerialNumber(event.target.value);
           }}
@@ -104,7 +108,7 @@ export function RedeemTransactionForm({
       <div data-od-id="redeem-amount">
         <MoneyInput
           label="Requested redemption"
-        hint="Requested redemption in naira"
+          hint="Requested redemption in naira"
           valueKobo={requestedRedemption}
           onValueChange={setRequestedRedemption}
         />
@@ -119,12 +123,18 @@ export function RedeemTransactionForm({
       >
         <div>
           <span className="cashier-workflow-hint">Basket total</span>
-          <strong>{basketAmount === null ? '—' : <Money amountKobo={basketAmount} />}</strong>
+          <strong>
+            {basketAmount === null ? '—' : <Money amountKobo={basketAmount} />}
+          </strong>
         </div>
         <div>
           <span className="cashier-workflow-hint">Requested credit</span>
           <strong>
-            {requestedRedemption === null ? '—' : <Money amountKobo={requestedRedemption} />}
+            {requestedRedemption === null ? (
+              '—'
+            ) : (
+              <Money amountKobo={requestedRedemption} />
+            )}
           </strong>
         </div>
       </div>

@@ -85,7 +85,6 @@ export function AppTopbar({
         </div>
       </div>
 
-
       <style>{`
         .shell-topbar {
           height: 64px;

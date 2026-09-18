@@ -676,7 +676,9 @@ export function CustomerWorkspace({
               <strong>Review registration</strong>
               <span>{customerForm.fullName || 'Full name pending'}</span>
               <span>{customerForm.phone || 'Phone pending'}</span>
-              <span>{customerForm.cardSerialNumber || 'Initial card pending'}</span>
+              <span>
+                {customerForm.cardSerialNumber || 'Initial card pending'}
+              </span>
             </div>
           ) : null}
           <div
