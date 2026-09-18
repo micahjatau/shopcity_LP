@@ -73,9 +73,9 @@ export function CashierOverviewLookup() {
       className="cashier-overview-lookup"
       aria-labelledby="cashier-today-title"
     >
-      <p className="section-label" id="cashier-today-title">
+      <h2 className="section-label" id="cashier-today-title">
         Today&apos;s Activity
-      </p>
+      </h2>
       <p className="cashier-overview-notice" role="status">
         {todayMessage}
       </p>

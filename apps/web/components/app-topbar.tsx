@@ -54,6 +54,9 @@ export function AppTopbar({
                   ? 'Sign in required'
                   : 'Session check unavailable'}
           </p>
+          <p className="sr-only">
+            {deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}
+          </p>
           <span className="shell-online" title={configMessage}>
             <i aria-hidden="true" /> System Online
           </span>
