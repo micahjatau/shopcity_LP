@@ -333,6 +333,39 @@ export function CashierWorkflowRoute({
           margin: 0 auto;
         }
 
+        .cashier-workflow-form {
+          gap: 18px !important;
+        }
+
+        .cashier-workflow-steps {
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          width: max-content;
+          max-width: 100%;
+          padding: 10px 17px;
+          border-radius: 999px;
+          background: var(--sc-prototype-surface);
+          color: var(--sc-prototype-muted);
+          font-size: 12px;
+          overflow-x: auto;
+        }
+
+        .cashier-workflow-steps span {
+          white-space: nowrap;
+        }
+
+        .cashier-workflow-steps .is-active {
+          color: var(--sc-prototype-accent);
+          font-weight: 650;
+        }
+
+        .cashier-workflow-steps i {
+          width: 24px;
+          flex: 0 0 24px;
+          border-top: 1px dotted var(--sc-prototype-muted);
+        }
+
         .cashier-card h2 {
           letter-spacing: -0.03em;
         }
@@ -342,9 +375,16 @@ export function CashierWorkflowRoute({
           box-shadow: 0 0 0 3px rgba(177, 0, 0, 0.14);
         }
 
+        .cashier-card .sc-button {
+          border-radius: 9px;
+        }
+
         .cashier-card .sc-button--primary {
-          border-radius: 999px;
-          background: linear-gradient(90deg, var(--sc-color-brand-700), #d86200);
+          background: var(--sc-prototype-accent);
+        }
+
+        .cashier-card .sc-button--primary:hover:not(:disabled) {
+          background: color-mix(in oklch, var(--sc-prototype-accent) 88%, black);
         }
 
         .cashier-stat-list {

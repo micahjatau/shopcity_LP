@@ -52,7 +52,17 @@ export function RedeemTransactionForm({
       onSubmit={handleSubmit}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
       data-od-id="redeem-form"
+      className="cashier-workflow-form"
     >
+      <div className="cashier-workflow-steps" aria-label="Redeem credit steps">
+        <span className="is-active">Find customer</span>
+        <i aria-hidden="true" />
+        <span>Basket subtotal</span>
+        <i aria-hidden="true" />
+        <span>Redemption amount</span>
+        <i aria-hidden="true" />
+        <span>Confirm</span>
+      </div>
       <Alert
         tone="info"
         title="Review before submit"

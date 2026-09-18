@@ -61,7 +61,20 @@ export function EarnTransactionForm({
       onSubmit={(event) => void handleSubmit(event)}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
       data-od-id="capture-form"
+      className="cashier-workflow-form"
     >
+      <div
+        className="cashier-workflow-steps"
+        aria-label="Capture purchase steps"
+      >
+        <span className="is-active">Find customer</span>
+        <i aria-hidden="true" />
+        <span>Confirm customer</span>
+        <i aria-hidden="true" />
+        <span>Receipt details</span>
+        <i aria-hidden="true" />
+        <span>Review</span>
+      </div>
       <Alert
         tone="info"
         title="Review before submit"
