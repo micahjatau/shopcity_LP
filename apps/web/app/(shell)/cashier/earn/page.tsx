@@ -17,8 +17,8 @@ export default async function CashierEarnPage({
   return (
     <CashierWorkflowRoute
       kind="earn"
-      title="Cashier earn"
-      description="Dedicated earn workflow with route-backed lookup and authoritative backend confirmation."
+      title="Capture purchase"
+      description="Record a POS receipt so ShopCity Credit can be issued to the customer wallet."
       initialCardSerial={initialCardSerial}
     />
   );

@@ -17,8 +17,8 @@ export default async function CashierRedeemPage({
   return (
     <CashierWorkflowRoute
       kind="redeem"
-      title="Cashier redeem"
-      description="Dedicated redeem workflow with route-backed lookup and authoritative backend balance checks."
+      title="Redeem credit"
+      description="Apply ShopCity Credit against a POS basket. The customer pays the remaining balance at the till."
       initialCardSerial={initialCardSerial}
     />
   );

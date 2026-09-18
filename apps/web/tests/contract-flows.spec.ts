@@ -139,7 +139,7 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/cashier/earn');
     await expect(
-      page.getByRole('heading', { name: /cashier earn/i }),
+      page.getByRole('heading', { name: /capture purchase/i }),
     ).toBeVisible();
 
     const earn = page.getByRole('article', { name: /earn transaction/i });
@@ -154,7 +154,7 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/cashier/redeem');
     await expect(
-      page.getByRole('heading', { name: /cashier redeem/i }),
+      page.getByRole('heading', { name: /redeem credit/i }),
     ).toBeVisible();
 
     const redeem = page.getByRole('article', { name: /redeem transaction/i });

@@ -17,8 +17,8 @@ export default async function CashierLookupPage({
   return (
     <CashierWorkflowRoute
       kind="lookup"
-      title="Cashier lookup"
-      description="Dedicated lookup workflow for rehydrating authoritative customer and card context before cashier actions."
+      title="Find customer"
+      description="Search by phone number, card serial or name to continue a loyalty transaction."
       initialCardSerial={initialCardSerial}
     />
   );

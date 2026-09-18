@@ -1,24 +1,5 @@
 import Link from 'next/link';
-import { CashierOverviewContext } from '../../../components/workflows/cashier-overview-context';
 import { CashierOverviewLookup } from '../../../components/workflows/cashier-overview-lookup';
-
-const cashierActions = [
-  {
-    title: 'Capture Purchase',
-    href: '/cashier/earn',
-    body: 'Record a POS receipt so ShopCity Credit can be issued.',
-  },
-  {
-    title: 'Redeem Credit',
-    href: '/cashier/redeem',
-    body: 'Apply available ShopCity Credit to a customer basket.',
-  },
-  {
-    title: 'Find Customer',
-    href: '/cashier/lookup',
-    body: 'Search by card serial and verify the customer wallet.',
-  },
-] as const;
 
 export default function CashierPage() {
   return (
@@ -30,42 +11,26 @@ export default function CashierPage() {
             Welcome back to your dashboard
           </p>
         </div>
-        <Link href="/cashier/lookup" className="cashier-primary-action">
-          Find Customer
-        </Link>
+        <div className="cashier-overview-actions">
+          <span
+            className="cashier-secondary-action cashier-secondary-action--disabled"
+            aria-label="Register customer requires supervisor or administrator access"
+            title="Customer registration is restricted to supervisor and administrator roles"
+          >
+            Register Customer
+          </span>
+          <Link href="/cashier/lookup" className="cashier-primary-action">
+            Find Customer
+          </Link>
+        </div>
       </header>
-      <CashierOverviewContext />
       <CashierOverviewLookup />
-
-      <section
-        className="cashier-launcher"
-        aria-labelledby="cashier-launcher-title"
-      >
-        <div>
-          <h2 id="cashier-launcher-title">Quick actions</h2>
-          <p className="cashier-muted">
-            Start the same workflows from the prototype dashboard.
-          </p>
-        </div>
-        <div className="cashier-action-grid">
-          {cashierActions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="cashier-action-card"
-            >
-              <strong>{action.title}</strong>
-              <span>{action.body}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       <style>{`
         .cashier-overview {
           display: grid;
           gap: 24px;
-          max-width: 1120px;
+          max-width: 1088px;
           margin: 0 auto;
         }
 
@@ -75,7 +40,7 @@ export default function CashierPage() {
           justify-content: space-between;
           gap: 20px;
           flex-wrap: wrap;
-          margin-bottom: 6px;
+          margin-bottom: 8px;
         }
 
         .cashier-overview-header h1,
@@ -96,6 +61,14 @@ export default function CashierPage() {
           font-size: 15px;
         }
 
+        .cashier-overview-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
         .cashier-kicker,
         .cashier-context-label {
           margin: 0 0 var(--sc-spacing-2);
@@ -113,21 +86,6 @@ export default function CashierPage() {
           align-items: center;
         }
 
-        .cashier-action-grid {
-          display: grid;
-          gap: var(--sc-spacing-3);
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .cashier-launcher {
-          display: grid;
-          gap: 16px;
-          padding: 16px;
-          border: 1px solid var(--sc-color-semantic-border);
-          border-radius: 16px;
-          background: var(--sc-color-neutral-0);
-          box-shadow: none;
-        }
 
         .cashier-context-strip {
           display: grid;
@@ -161,57 +119,45 @@ export default function CashierPage() {
           font-weight: 700;
         }
 
-        .cashier-action-card {
-          display: grid;
-          gap: var(--sc-spacing-2);
-          min-height: 116px;
-          align-content: space-between;
-          border: 1px solid var(--sc-color-semantic-border);
-          border-radius: 16px;
-          background: var(--sc-color-neutral-0);
-          padding: 20px 22px;
-          box-shadow: none;
-        }
-
-        .cashier-action-card strong {
-          color: var(--sc-color-brand-700);
-          font-size: var(--sc-font-size-lg);
-        }
-
-        .cashier-action-card span {
-          color: var(--sc-color-semantic-textSecondary);
-          line-height: var(--sc-line-height-base);
-        }
-
-        .cashier-action-card {
-          color: inherit;
+        .cashier-primary-action,
+        .cashier-secondary-action {
+          align-self: start;
+          min-height: 34px;
+          border: 1px solid var(--sc-color-brand-700);
+          border-radius: 999px;
+          padding: 0 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
           text-decoration: none;
           transition: border-color 120ms ease, transform 120ms ease;
         }
 
-        .cashier-action-card:hover,
+        .cashier-primary-action {
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-brand-700);
+        }
+
+        .cashier-secondary-action {
+          background: linear-gradient(90deg, var(--sc-color-brand-700), #d86200);
+          color: var(--sc-color-neutral-0);
+          border-color: transparent;
+        }
+
+        .cashier-secondary-action--disabled {
+          cursor: not-allowed;
+          opacity: 0.72;
+        }
+
         .cashier-primary-action:hover {
           border-color: var(--sc-color-brand-500);
           transform: translateY(-1px);
         }
 
-        .cashier-primary-action {
-          align-self: start;
-          min-height: 40px;
-          border: 1px solid var(--sc-color-brand-700);
-          border-radius: 999px;
-          background: var(--sc-color-brand-700);
-          color: var(--sc-color-neutral-0);
-          padding: 0 18px;
-          display: inline-flex;
-          align-items: center;
-          font-size: 13px;
-          font-weight: 600;
-          text-decoration: none;
-          transition: border-color 120ms ease, transform 120ms ease;
-        }
-
-        .cashier-action-card:focus-visible,
         .cashier-primary-action:focus-visible {
           outline: 3px solid var(--sc-color-warning-300);
           outline-offset: 3px;
@@ -227,13 +173,10 @@ export default function CashierPage() {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
-          .cashier-action-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .cashier-primary-action {
+          .cashier-overview-actions,
+          .cashier-primary-action,
+          .cashier-secondary-action {
             width: 100%;
-            text-align: center;
           }
 
           .cashier-context-sync {

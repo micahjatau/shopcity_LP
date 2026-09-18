@@ -77,26 +77,25 @@ describe('Cashier lookup workflow', () => {
     } as never);
   });
 
-  it('looks up a card directly from the cashier overview', async () => {
+  it('renders the Figma-aligned cashier overview activity dashboard', async () => {
     render(<CashierOverviewLookup />);
 
-    const input = screen.getByRole('textbox', {
-      name: 'Scan card or enter card number',
-    });
-    expect(input).toHaveFocus();
-    fireEvent.change(input, { target: { value: 'CARD-001' } });
-    fireEvent.submit(input.closest('form')!);
+    expect(
+      screen.getByRole('heading', { name: "Today's Activity" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Recent Transactions' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'Search recent transactions' }),
+    ).toHaveValue('Search');
 
     await waitFor(() => {
-      expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
+      expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
+        expect.any(Object),
+      );
     });
-    expect(screen.getByRole('link', { name: 'Earn credit' })).toHaveAttribute(
-      'href',
-      '/cashier/earn?card=CARD-001',
-    );
-    expect(
-      screen.getByText('Customer verified. Choose the next action.'),
-    ).toBeInTheDocument();
+    expect(cardsControllerLookupCardV1).not.toHaveBeenCalled();
   });
 
   it('renders authenticated cashier activity', async () => {

@@ -76,14 +76,11 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('link', { name: 'Find Customer' }).first(),
     ).toBeVisible();
-    await expect(page.getByLabel('Cashier context')).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Quick actions' }),
+      page.getByRole('heading', { name: "Today's Activity" }),
     ).toBeVisible();
     await expect(
-      page.getByLabel('Cashier context').getByRole('link', {
-        name: 'Open sync queue',
-      }),
+      page.getByRole('heading', { name: 'Recent Transactions' }),
     ).toBeVisible();
     await page.locator('main').evaluate((main) => {
       main.style.height = '826px';
