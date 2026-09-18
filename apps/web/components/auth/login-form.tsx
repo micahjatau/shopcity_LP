@@ -98,7 +98,7 @@ export function LoginForm() {
             type="button"
             variant="secondary"
             onClick={() => setShowPassword((visible) => !visible)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? 'Hide secret' : 'Show secret'}
           >
             {showPassword ? 'Hide' : 'Show'}
           </Button>
