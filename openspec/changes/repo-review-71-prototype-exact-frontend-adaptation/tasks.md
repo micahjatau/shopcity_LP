@@ -22,9 +22,9 @@
 
 ## 4. Redeem Credit
 
-- [ ] 4.1 Extract existing redemption behavior into `useRedeemTransactionController`; verify draft persistence, transitions, and reset behavior with unit tests.
-- [ ] 4.2 Preserve authoritative card lookup, balance, basket, minimum/ceiling policy, approval, CSRF, idempotency, offline policy, typed errors, and 201/202 outcomes; verify redemption contract and offline tests.
-- [ ] 4.3 Build the persistent prototype Redeem view with find, basket, amount, confirm, and success states and the exact two-column amount summary; verify route, geometry, and accessibility tests.
+- [x] 4.1 Extract existing redemption behavior into `useRedeemTransactionController`; verify draft persistence, transitions, and reset behavior with unit tests.
+- [x] 4.2 Preserve authoritative card lookup, balance, basket, minimum/ceiling policy, approval, CSRF, idempotency, offline policy, typed errors, and 201/202 outcomes; verify redemption contract and offline tests.
+- [x] 4.3 Build the persistent prototype Redeem view with find, basket, amount, confirm, and success states and the exact two-column amount summary; verify route, geometry, and accessibility tests.
 - [x] 4.4 Remove context, draft, ceiling, offline-disabled, policy-table, draft-summary, and alert cards; verify their authoritative information appears only in approved status, summary, confirmation, or success slots.
 
 ## 5. Registration and Transactions
