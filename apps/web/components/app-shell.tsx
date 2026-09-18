@@ -37,6 +37,108 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
+function ShellLoadingScreen() {
+  return (
+    <main className="shell-loading-screen" aria-busy="true" aria-live="polite">
+      <div className="shell-loading-card">
+        <Image
+          src="/brand/shopcity-mark-white.svg"
+          alt="ShopCity"
+          width={44}
+          height={44}
+          priority
+        />
+        <div className="shell-loading-brand">
+          <strong>SHOPCITY</strong>
+          <small>SUPERMARKET</small>
+        </div>
+        <p>Preparing your workspace…</p>
+        <div className="shell-loading-lines" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+      <style>{`
+        .shell-loading-screen {
+          min-height: 100dvh;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          background:
+            linear-gradient(142deg, transparent 0 43%, rgba(255, 112, 33, .32) 43% 49%, transparent 49% 56%, rgba(255, 86, 14, .24) 56% 66%, transparent 66%),
+            linear-gradient(118deg, var(--sc-color-brand-950) 0 13%, var(--sc-color-brand-700) 13% 54%, #b93608 54% 100%);
+          color: var(--sc-color-neutral-0);
+        }
+
+        .shell-loading-card {
+          width: min(440px, 100%);
+          display: grid;
+          justify-items: center;
+          gap: 10px;
+          padding: 36px 28px;
+          border: 1px solid rgba(255, 255, 255, .42);
+          border-radius: 18px;
+          background: rgba(132, 42, 25, .68);
+          box-shadow: 0 22px 60px rgba(39, 0, 0, .18);
+          backdrop-filter: blur(12px);
+          text-align: center;
+        }
+
+        .shell-loading-brand {
+          display: grid;
+          gap: 2px;
+          line-height: 1;
+        }
+
+        .shell-loading-brand strong {
+          font-size: 16px;
+          letter-spacing: -.035em;
+        }
+
+        .shell-loading-brand small {
+          font-size: 7px;
+          font-weight: 700;
+          letter-spacing: .06em;
+        }
+
+        .shell-loading-card p {
+          margin: 12px 0 6px;
+          color: rgba(255, 255, 255, .82);
+          font-size: 13px;
+        }
+
+        .shell-loading-lines {
+          display: grid;
+          gap: 8px;
+          width: min(280px, 100%);
+        }
+
+        .shell-loading-lines span {
+          height: 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, .22);
+          animation: shell-loading-pulse 1.4s ease-in-out infinite;
+        }
+
+        .shell-loading-lines span:nth-child(2) { width: 82%; }
+        .shell-loading-lines span:nth-child(3) { width: 64%; }
+        .shell-loading-lines span:nth-child(2) { animation-delay: 120ms; }
+        .shell-loading-lines span:nth-child(3) { animation-delay: 240ms; }
+
+        @keyframes shell-loading-pulse {
+          0%, 100% { opacity: .42; }
+          50% { opacity: .9; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .shell-loading-lines span { animation: none; }
+        }
+      `}</style>
+    </main>
+  );
+}
+
 function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -270,6 +372,10 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       router.replace('/login');
       router.refresh();
     }
+  }
+
+  if (status === 'loading') {
+    return <ShellLoadingScreen />;
   }
 
   const showProtectedContent = status === 'ready' && isAuthorizedRoute;
