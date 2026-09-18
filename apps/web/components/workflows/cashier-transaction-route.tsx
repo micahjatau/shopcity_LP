@@ -333,10 +333,6 @@ export function CashierWorkflowRoute({
           margin: 0 auto;
         }
 
-        .cashier-workflow-form {
-          gap: 18px !important;
-        }
-
         .cashier-workflow-steps {
           display: flex;
           align-items: center;
@@ -408,8 +404,8 @@ export function CashierWorkflowRoute({
 
         .find-customer-search,
         .find-customer-recent {
-          max-width: 712px;
-          width: 100%;
+          width: min(640px, 100%);
+          max-width: 100%;
           margin: 0 auto;
           padding: 16px 24px 17px;
           border: 1px solid var(--sc-prototype-border);
