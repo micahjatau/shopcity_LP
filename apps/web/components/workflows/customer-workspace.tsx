@@ -8,16 +8,12 @@ import {
   cardsControllerCreateCardV1,
   cardsControllerReplaceCardV1,
   cardsControllerUpdateStatusV1,
-  customersControllerCreateCustomerV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
-  customersControllerUpdateCustomerV1,
   customersControllerUpdateStatusV1,
   loyaltyControllerGetCustomerLedgerV1,
-  type CreateCustomerDto,
   type CustomersControllerListCustomersV1Params,
   type LoyaltyControllerGetCustomerLedgerV1Params,
-  type UpdateCustomerDto,
   type LoyaltyControllerGetCustomerLedgerV1200Data,
   type UpdateCardStatusDtoStatus,
   type UpdateCustomerStatusDtoStatus,
@@ -32,6 +28,10 @@ import {
   Table,
 } from '../../components/ui';
 import { Money, StatusBadge } from '../../components/shopcity';
+import {
+  useCustomerRegistrationController,
+  type CustomerRegistrationFormState,
+} from './use-customer-registration-controller';
 
 type CustomerRecord = Record<string, unknown> & {
   id?: string;
@@ -57,14 +57,6 @@ type CardRecord = Record<string, unknown> & {
   serialNumber?: string;
   status?: string;
   availableBalanceKobo?: number;
-};
-
-type CustomerFormState = {
-  fullName: string;
-  phone: string;
-  email: string;
-  cardSerialNumber: string;
-  isStaff: boolean;
 };
 
 const cardStatuses: UpdateCardStatusDtoStatus[] = ['ACTIVE', 'BLOCKED'];
@@ -122,16 +114,14 @@ export function CustomerWorkspace({
     string,
     unknown
   > | null>(null);
-  const [customerForm, setCustomerForm] = useState<CustomerFormState>({
-    fullName: '',
-    phone: '',
-    email: '',
-    cardSerialNumber: '',
-    isStaff: false,
-  });
-  const [customerFormMessage, setCustomerFormMessage] = useState(
-    'Register a customer or select one to edit their profile.',
-  );
+  const [customerForm, setCustomerForm] =
+    useState<CustomerRegistrationFormState>({
+      fullName: '',
+      phone: '',
+      email: '',
+      cardSerialNumber: '',
+      isStaff: false,
+    });
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
   const selectedCard = useMemo(
@@ -142,6 +132,19 @@ export function CustomerWorkspace({
     [linkedCards, selectedCardId],
   );
   const selectedCustomer = customer;
+  const {
+    busy: registrationBusy,
+    message: customerFormMessage,
+    saveCustomer,
+    setMessage: setCustomerFormMessage,
+  } = useCustomerRegistrationController({
+    form: customerForm,
+    setForm: setCustomerForm,
+    selectedId,
+    setSelectedId,
+    search,
+    reloadSelectedCustomer,
+  });
 
   useEffect(() => {
     if (!selectedId) {
@@ -377,82 +380,6 @@ export function CustomerWorkspace({
     }
   }
 
-  async function saveCustomer(mode: 'create' | 'update') {
-    const basePayload = {
-      fullName: customerForm.fullName.trim(),
-      phone: customerForm.phone.trim(),
-      ...(customerForm.email?.trim()
-        ? { email: customerForm.email.trim() }
-        : {}),
-      ...(mode === 'update' ? { isStaff: customerForm.isStaff } : {}),
-    };
-
-    if (!basePayload.fullName || !basePayload.phone) {
-      setCustomerFormMessage('Full name and phone are required.');
-      return;
-    }
-    if (mode === 'create' && !customerForm.cardSerialNumber.trim()) {
-      setCustomerFormMessage('Initial card serial number is required.');
-      return;
-    }
-    if (mode === 'update' && !selectedId) {
-      setCustomerFormMessage('Select a customer before editing.');
-      return;
-    }
-
-    setBusy(true);
-    setCustomerFormMessage(
-      mode === 'create' ? 'Registering customer…' : 'Saving customer profile…',
-    );
-    try {
-      const response =
-        mode === 'create'
-          ? await customersControllerCreateCustomerV1(
-              {
-                ...basePayload,
-                cardSerialNumber: customerForm.cardSerialNumber.trim(),
-              } satisfies CreateCustomerDto,
-              createApiRequest({
-                csrf: true,
-                idempotencyKey: crypto.randomUUID(),
-              }),
-            )
-          : await customersControllerUpdateCustomerV1(
-              selectedId!,
-              basePayload satisfies UpdateCustomerDto,
-              createApiRequest({
-                csrf: true,
-                idempotencyKey: crypto.randomUUID(),
-              }),
-            );
-      const successStatus = mode === 'create' ? 201 : 200;
-      if (response.status !== successStatus) {
-        setCustomerFormMessage(
-          `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable (${response.status}).`,
-        );
-        return;
-      }
-
-      const record = response.data.data as CustomerRecord;
-      setCustomerFormMessage(
-        mode === 'create' ? 'Customer registered.' : 'Customer profile saved.',
-      );
-      if (mode === 'create' && record.id) {
-        setSelectedId(record.id);
-      }
-      await search();
-      if (mode === 'update') {
-        await reloadSelectedCustomer();
-      }
-    } catch {
-      setCustomerFormMessage(
-        `${mode === 'create' ? 'Registration' : 'Profile update'} unavailable.`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function updateCustomerStatus() {
     if (!selectedId) {
       setMessage('Select a customer first.');
@@ -660,6 +587,7 @@ export function CustomerWorkspace({
               gap: 'var(--sc-spacing-3)',
               gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             }}
+            data-od-id="registration-information"
           >
             <Input
               aria-label="Customer full name"
@@ -719,19 +647,38 @@ export function CustomerWorkspace({
               </label>
             ) : null}
             {!selectedCustomer ? (
-              <Input
-                aria-label="Initial card serial number"
-                placeholder="Initial card serial number"
-                value={customerForm.cardSerialNumber}
-                onChange={(event) =>
-                  setCustomerForm((current) => ({
-                    ...current,
-                    cardSerialNumber: event.target.value,
-                  }))
-                }
-              />
+              <div data-od-id="registration-card">
+                <Input
+                  aria-label="Initial card serial number"
+                  placeholder="Initial card serial number"
+                  value={customerForm.cardSerialNumber}
+                  onChange={(event) =>
+                    setCustomerForm((current) => ({
+                      ...current,
+                      cardSerialNumber: event.target.value,
+                    }))
+                  }
+                />
+              </div>
             ) : null}
           </div>
+          {!selectedCustomer ? (
+            <div
+              data-od-id="registration-review"
+              style={{
+                display: 'grid',
+                gap: 'var(--sc-spacing-2)',
+                padding: 'var(--sc-spacing-3)',
+                borderRadius: 'var(--sc-radius-md)',
+                background: 'var(--sc-color-semantic-surfaceSubtle)',
+              }}
+            >
+              <strong>Review registration</strong>
+              <span>{customerForm.fullName || 'Full name pending'}</span>
+              <span>{customerForm.phone || 'Phone pending'}</span>
+              <span>{customerForm.cardSerialNumber || 'Initial card pending'}</span>
+            </div>
+          ) : null}
           <div
             style={{
               display: 'flex',
@@ -744,7 +691,7 @@ export function CustomerWorkspace({
               onClick={() =>
                 void saveCustomer(selectedCustomer ? 'update' : 'create')
               }
-              loading={busy}
+              loading={registrationBusy}
             >
               {selectedCustomer ? 'Save profile' : 'Register customer'}
             </Button>
