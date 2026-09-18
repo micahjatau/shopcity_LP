@@ -59,8 +59,9 @@ export function EarnTransactionForm({
     <form
       onSubmit={(event) => void handleSubmit(event)}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      data-od-id="capture-form"
     >
-      <Alert tone="info" title="Review before submit">
+      <Alert tone="info" title="Review before submit" data-od-id="capture-review">
         Use lookup first, confirm the customer context, then submit the earn.
         {expectedCreditKobo !== null ? (
           <>
@@ -96,23 +97,27 @@ export function EarnTransactionForm({
           before submitting.
         </Alert>
       )}
-      <Input
-        aria-label="Card serial number"
-        placeholder="Look up a card first"
+      <div data-od-id="capture-find">
+        <Input
+          aria-label="Card serial number"
+          placeholder="Look up a card first"
         value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
         readOnly={lookupReady}
-        onChange={(event) => {
-          if (!lookupReady) setCardSerialNumber(event.target.value);
-        }}
-      />
-      <Input
-        aria-label="POS receipt number"
+          onChange={(event) => {
+            if (!lookupReady) setCardSerialNumber(event.target.value);
+          }}
+        />
+      </div>
+      <div data-od-id="capture-receipt">
+        <Input
+          aria-label="POS receipt number"
         aria-required="true"
         placeholder="Receipt number (required)"
         value={receiptNumber}
         onChange={(event) => setReceiptNumber(event.target.value)}
       />
-      {!receiptNumber ? <span className="cashier-workflow-hint">Required</span> : null}
+        {!receiptNumber ? <span className="cashier-workflow-hint">Required</span> : null}
+      </div>
       <MoneyInput
         label="Purchase amount"
         hint="Enter the purchase amount in naira"
@@ -185,7 +190,10 @@ export function EarnTransactionForm({
         </p>
       </div>
       {responseData ? (
-        <section style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
+        <section
+          style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+          data-od-id="capture-success"
+        >
           <Alert
             tone={status === 'confirmed' ? 'success' : 'warning'}
             title="Backend response"
