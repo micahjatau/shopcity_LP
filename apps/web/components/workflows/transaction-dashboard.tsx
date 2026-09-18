@@ -1,5 +1,6 @@
 'use client';
 
+import { RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   loyaltyControllerGetTransactionV1,
@@ -143,6 +144,7 @@ export function TransactionDashboard() {
           onClick={() => void load()}
           loading={busy}
         >
+          <RefreshCw aria-hidden="true" size={16} strokeWidth={1.8} />
           Refresh data
         </Button>
       </div>
@@ -273,6 +275,74 @@ export function TransactionDashboard() {
           )}
         </dialog>
       ) : null}
+      <style>{`
+        .transaction-dashboard {
+          display: grid;
+          gap: 22px;
+          max-width: var(--sc-prototype-contentMaxWidth);
+          margin: 0 auto;
+        }
+
+        .transaction-toolbar {
+          display: grid;
+          grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) auto;
+          gap: 14px;
+          align-items: center;
+        }
+
+        .transaction-toolbar .sc-button {
+          min-height: 38px;
+          border-radius: 9px;
+        }
+
+        .transaction-toolbar .sc-button--primary {
+          background: var(--sc-prototype-accent);
+        }
+
+        .transaction-table-card {
+          overflow: hidden;
+          border: 1px solid var(--sc-prototype-border);
+          border-radius: var(--sc-prototype-flowPanelRadius);
+          background: var(--sc-prototype-surface);
+          padding: 18px 24px;
+        }
+
+        .transaction-table-card table {
+          width: 100%;
+          min-width: 760px;
+        }
+
+        .transaction-detail-modal {
+          width: min(720px, calc(100vw - 32px));
+          border: 1px solid var(--sc-prototype-border);
+          border-radius: var(--sc-prototype-flowPanelRadius);
+          padding: 24px;
+        }
+
+        .transaction-detail-modal__head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 18px;
+        }
+
+        @media (max-width: 900px) {
+          .transaction-toolbar {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 620px) {
+          .transaction-toolbar {
+            grid-template-columns: 1fr;
+          }
+
+          .transaction-table-card {
+            padding: 14px;
+          }
+        }
+      `}</style>
     </section>
   );
 }
