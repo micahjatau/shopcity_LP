@@ -10,7 +10,9 @@ test.describe('ShopCity flow coverage', () => {
       page.getByRole('heading', { name: /staff sign in/i }),
     ).toBeVisible();
     await expect(page.getByLabel('Email Address')).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: /^Password$/i }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
 
     await page.keyboard.press('Tab');
@@ -19,12 +21,12 @@ test.describe('ShopCity flow coverage', () => {
     ).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('radio', { name: /cashier/i })).toBeFocused();
-    for (let index = 0; index < 4; index += 1) {
-      await page.keyboard.press('Tab');
-    }
+    await page.keyboard.press('Tab');
     await expect(page.getByLabel('Email Address')).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByLabel('Password')).toBeFocused();
+    await expect(
+      page.getByRole('textbox', { name: /^Password$/i }),
+    ).toBeFocused();
   });
 
   test('@critical covers lookup and earn outcomes', async ({ page }) => {
