@@ -1,5 +1,6 @@
 'use client';
 
+import { CircleCheck, RotateCcw } from 'lucide-react';
 import { Alert, Button, Input, Textarea, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 import {
@@ -157,9 +158,11 @@ export function EarnTransactionForm({
           loading={status === 'submitting'}
           disabled={!submissionReady}
         >
+          <CircleCheck aria-hidden="true" size={16} strokeWidth={1.8} />
           Submit earn
         </Button>
         <Button type="button" variant="secondary" onClick={resetDraft}>
+          <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
           Reset draft
         </Button>
       </div>

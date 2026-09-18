@@ -1,5 +1,6 @@
 'use client';
 
+import { CircleCheck, RotateCcw } from 'lucide-react';
 import { Alert, Button, Input, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 import {
@@ -168,9 +169,11 @@ export function RedeemTransactionForm({
             needsReview
           }
         >
+          <CircleCheck aria-hidden="true" size={16} strokeWidth={1.8} />
           Submit redemption
         </Button>
         <Button type="button" variant="secondary" onClick={resetDraft}>
+          <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
           Reset draft
         </Button>
       </div>

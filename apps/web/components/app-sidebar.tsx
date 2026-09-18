@@ -1,3 +1,4 @@
+import { CircleHelp, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ShellNavigationSection } from './shell-navigation';
@@ -93,14 +94,16 @@ export function AppSidebar({
 
       <div className="shell-sidebar-footer">
         <a href="/help" className="shell-sidebar-footer-link">
-          Help &amp; Training
+          <CircleHelp aria-hidden="true" size={16} strokeWidth={1.8} />
+          <span>Help &amp; Training</span>
         </a>
         <button
           type="button"
           className="shell-sidebar-footer-link"
           onClick={onLogout}
         >
-          Logout
+          <LogOut aria-hidden="true" size={16} strokeWidth={1.8} />
+          <span>Logout</span>
         </button>
         <span className="shell-sidebar-footer-meta" aria-hidden="true">
           {branchLabel} · {branchTimezone}
@@ -230,9 +233,11 @@ export function AppSidebar({
         }
 
         .shell-sidebar-footer-link {
-          display: block;
+          display: flex;
           width: 100%;
-          padding: 6px 0;
+          align-items: center;
+          gap: 14px;
+          padding: 6px 14px;
           border: 0;
           background: transparent;
           color: inherit;
