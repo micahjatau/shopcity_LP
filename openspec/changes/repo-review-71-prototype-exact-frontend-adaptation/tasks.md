@@ -38,7 +38,7 @@
 
 - [ ] 6.1 Separate login rendering from session behavior and implement the prototype auth DOM at the canonical `1440x923` reference viewport; verify login screenshot and accessibility tests.
 - [x] 6.2 Keep role selection informational only and preserve backend session issuance, role routing, recovery, logout, and expiry behavior; verify role-boundary and session tests.
-- [ ] 6.3 Audit all migrated view-models to ensure they expose no CSRF tokens, session cookies, database IDs, raw API errors, device IDs, branch IDs, DTO construction, or receipt-week internals; verify with focused type/test assertions.
+- [x] 6.3 Audit all migrated view-models to ensure they expose no CSRF tokens, session cookies, database IDs, raw API errors, device IDs, branch IDs, DTO construction, or receipt-week internals; verify with focused type/test assertions.
 
 ## 7. Quantitative acceptance and release evidence
 
