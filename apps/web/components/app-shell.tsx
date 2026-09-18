@@ -576,6 +576,23 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           display: grid;
           gap: var(--sc-spacing-5);
           padding: 16px 24px 40px;
+          font-family: var(--sc-font-family-sans);
+        }
+
+        .shell-main h1,
+        .shell-main h2,
+        .shell-main h3 {
+          font-family: var(--sc-prototype-fontDisplaySans);
+          letter-spacing: -0.03em;
+        }
+
+        .shell-main p,
+        .shell-main label,
+        .shell-main button,
+        .shell-main input,
+        .shell-main select,
+        .shell-main textarea {
+          font-family: var(--sc-font-family-sans);
         }
 
         .shell-main-status-row {

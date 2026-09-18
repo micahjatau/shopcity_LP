@@ -253,20 +253,17 @@ export function AppSidebar({
 
         .shell-nav-section {
           display: grid;
-          gap: var(--sc-spacing-2);
+          gap: 7px;
         }
 
+        /* Prototype navigation is one continuous rhythm without section chrome. */
         .shell-nav-section + .shell-nav-section {
-          border-top: 1px solid rgba(255, 255, 255, 0.16);
-          padding-top: var(--sc-spacing-4);
+          border-top: 0;
+          padding-top: 0;
         }
 
         .shell-nav-section-label {
-          margin: 0;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-size: 0.75rem;
-          opacity: 0.78;
+          display: none;
         }
 
         .shell-nav-list {
@@ -289,16 +286,11 @@ export function AppSidebar({
           color: inherit;
           background: transparent;
           font-size: 15px;
-          transition: background-color 160ms ease, color 160ms ease,
-            transform 160ms ease;
+          transition: background-color 160ms ease, color 160ms ease;
         }
 
         .shell-nav-link:hover {
           background: color-mix(in oklch, var(--sc-color-neutral-0) 14%, transparent);
-        }
-
-        .shell-nav-link:active {
-          transform: translateY(1px);
         }
 
         .shell-nav-link-icon {
