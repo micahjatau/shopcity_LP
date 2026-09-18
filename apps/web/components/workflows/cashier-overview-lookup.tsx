@@ -224,7 +224,7 @@ export function CashierOverviewLookup() {
 
         .section-label {
           color: var(--sc-color-neutral-800);
-          font-family: 'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
+          font-family: var(--sc-prototype-fontDisplaySans);
           font-size: 20px;
           font-weight: 700;
           line-height: 1.2;
@@ -261,7 +261,7 @@ export function CashierOverviewLookup() {
 
         .metric-value {
           color: var(--sc-color-brand-700);
-          font-family: 'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
+          font-family: var(--sc-prototype-fontDisplaySans);
           font-size: 28px;
           font-weight: 700;
           letter-spacing: -0.04em;

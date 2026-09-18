@@ -259,7 +259,7 @@ export function CashierWorkflowRoute({
 
         .cashier-route-header h1 {
           color: var(--sc-color-brand-700);
-          font-family: 'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
+          font-family: var(--sc-prototype-fontDisplaySans);
           font-size: clamp(30px, 4vw, 34px);
           font-weight: 700;
           letter-spacing: -0.04em;
