@@ -185,6 +185,43 @@ main {
   color: rgba(255, 255, 255, 0.76) !important;
 }
 
+.login-role-list {
+  display: grid;
+  gap: var(--sc-spacing-2);
+  margin: 0;
+  padding: var(--sc-spacing-3) var(--sc-spacing-4);
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.login-role-list legend,
+.login-role-list small {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: var(--sc-font-size-xs);
+}
+
+.login-role-list label {
+  display: flex;
+  gap: var(--sc-spacing-2);
+  align-items: center;
+}
+
+.login-role-list input {
+  accent-color: white;
+}
+
+.login-forgot {
+  justify-self: end;
+  margin-top: calc(-1 * var(--sc-spacing-2));
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: var(--sc-font-size-xs);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 @media (max-width: 640px) {
   .login-page {
     padding: 24px 18px;

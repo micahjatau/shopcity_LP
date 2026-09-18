@@ -24,6 +24,7 @@ export function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState('');
   const [deviceAttestationSecret, setDeviceAttestationSecret] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,6 +68,7 @@ export function LoginForm() {
     <form
       onSubmit={(event) => void handleSubmit(event)}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      data-od-id="login-form"
     >
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <label htmlFor={usernameId}>Tenant / email / username</label>
@@ -81,16 +83,56 @@ export function LoginForm() {
       </div>
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <label htmlFor={passwordId}>Password</label>
-        <Input
-          id={passwordId}
-          aria-label="Password"
-          type="password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="current-password"
-        />
+        <div style={{ display: 'flex', gap: 'var(--sc-spacing-2)' }}>
+          <Input
+            id={passwordId}
+            aria-label="Password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="••••••••"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            style={{ flex: 1 }}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowPassword((visible) => !visible)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? 'Hide' : 'Show'}
+          </Button>
+        </div>
       </div>
+      <fieldset className="login-role-list" data-od-id="role-selector">
+        <legend>Choose a staff workspace</legend>
+        {[
+          ['CASHIER', 'Cashier / Loyalty Staff'],
+          ['SUPERVISOR', 'Supervisor'],
+          ['ADMIN', 'Administrator'],
+        ].map(([value, label], index) => (
+          <label key={value}>
+            <input
+              type="radio"
+              name="role"
+              value={value}
+              defaultChecked={index === 0}
+              disabled
+            />{' '}
+            {label}
+          </label>
+        ))}
+        <small>Workspace access is determined by your backend session.</small>
+      </fieldset>
+      <button
+        type="button"
+        className="login-forgot"
+        onClick={() =>
+          setMessage('Password reset is managed by your ShopCity administrator.')
+        }
+      >
+        Forgot password?
+      </button>
       <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
         <label htmlFor="device-id">Device ID</label>
         <Input
@@ -115,7 +157,11 @@ export function LoginForm() {
           autoComplete="off"
         />
       </div>
-      <Button type="submit" disabled={status === 'submitting'}>
+      <Button
+        type="submit"
+        disabled={status === 'submitting'}
+        data-od-id="sign-in-cta"
+      >
         {status === 'submitting' ? 'Signing in…' : 'Sign in'}
       </Button>
       <p
