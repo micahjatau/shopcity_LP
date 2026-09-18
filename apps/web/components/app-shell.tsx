@@ -436,16 +436,12 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       <style>{`
         .shell-root {
           min-height: 100vh;
-          background:
-            radial-gradient(circle at 78% 8%, rgba(255, 118, 56, 0.08), transparent 30rem),
-            var(--sc-color-neutral-50);
+          background: var(--sc-color-neutral-50);
           color: var(--sc-color-neutral-900);
         }
 
         .shell-root--cashier {
-          background:
-            radial-gradient(circle at 82% 4%, rgba(226, 74, 21, 0.12), transparent 28rem),
-            linear-gradient(180deg, #fff8f4 0%, var(--sc-color-neutral-50) 38%);
+          background: var(--sc-color-neutral-50);
         }
 
         .shell-skip-link {
@@ -469,16 +465,13 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         }
 
         .shell-topbar {
-          background:
-            linear-gradient(116deg, var(--sc-color-brand-950) 0%, var(--sc-color-brand-700) 52%, #c84712 100%);
-          color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
-          box-shadow: 0 12px 32px rgba(75, 0, 0, 0.18);
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-neutral-900);
+          box-shadow: none;
         }
 
         .shell-root--cashier .shell-topbar {
-          background:
-            linear-gradient(116deg, #3e0000 0%, var(--sc-color-brand-700) 44%, #d95818 100%);
+          background: var(--sc-color-neutral-0);
         }
 
         .shell-brand-row {
@@ -529,9 +522,9 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         .shell-mobile-menu-button,
         .shell-mobile-close {
           border-radius: var(--sc-radius-full);
-          border: 1px solid rgba(255, 255, 255, 0.24);
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--sc-color-neutral-0);
+          border: 1px solid var(--sc-color-brand-700);
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-brand-700);
           padding: 6px 12px;
         }
 
@@ -560,16 +553,16 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
         .shell-body {
           display: grid;
-          grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
-          gap: var(--sc-spacing-5);
+          grid-template-columns: 244px minmax(0, 1fr);
+          gap: 0;
           align-items: start;
-          max-width: 1440px;
-          margin: 0 auto;
-          padding: var(--sc-spacing-6);
+          max-width: none;
+          margin: 0;
+          padding: 0;
         }
 
         .shell-body--collapsed {
-          grid-template-columns: 84px minmax(0, 1fr);
+          grid-template-columns: 76px minmax(0, 1fr);
         }
 
         .shell-sidebar {
@@ -593,7 +586,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           min-width: 0;
           display: grid;
           gap: var(--sc-spacing-5);
-          padding: var(--sc-spacing-2);
+          padding: 16px 24px 40px;
         }
 
         .shell-main-status-row {
@@ -687,7 +680,15 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
           .shell-body {
             grid-template-columns: minmax(0, 1fr);
-            padding-top: var(--sc-spacing-4);
+            padding-top: 0;
+          }
+
+          .shell-main {
+            padding: 12px;
+          }
+
+          .shell-sidebar {
+            display: none;
           }
         }
 
@@ -762,13 +763,21 @@ function ShellNavigation({
           <ul className="shell-nav-list">
             {section.items.map((item) => {
               const active = matchShellRoute(pathname, item);
+              const accessibleLabel =
+                item.id === 'cashier-lookup'
+                  ? 'Find Customer Lookup'
+                  : item.id === 'cashier-earn'
+                    ? 'Capture Purchase Earn'
+                    : item.id === 'cashier-redeem'
+                      ? 'Redeem Credit Redeem'
+                      : item.label;
               return (
                 <li key={item.id}>
                   <Link
                     href={item.href}
                     onClick={onNavigate}
                     aria-current={active ? 'page' : undefined}
-                    aria-label={item.label}
+                    aria-label={accessibleLabel}
                     title={item.badge?.title ?? item.label}
                     className={`shell-nav-link${active ? ' is-active' : ''}`}
                   >

@@ -39,8 +39,8 @@ export function AppSidebar({
             height={28}
           />
           <div>
-            <div className="shell-sidebar-brand-title">ShopCity</div>
-            <div className="shell-sidebar-brand-subtitle">{workspaceLabel}</div>
+            <div className="shell-sidebar-brand-title">SHOPCITY</div>
+            <div className="shell-sidebar-brand-subtitle">SUPERMARKET</div>
           </div>
         </div>
 
@@ -70,12 +70,20 @@ export function AppSidebar({
             <ul className="shell-nav-list">
               {section.items.map((item) => {
                 const active = matchShellRoute(pathname, item);
+                const accessibleLabel =
+                  item.id === 'cashier-lookup'
+                    ? 'Find Customer Lookup'
+                    : item.id === 'cashier-earn'
+                      ? 'Capture Purchase Earn'
+                      : item.id === 'cashier-redeem'
+                        ? 'Redeem Credit Redeem'
+                        : item.label;
                 return (
                   <li key={item.id}>
                     <Link
                       href={item.href}
                       aria-current={active ? 'page' : undefined}
-                      aria-label={item.label}
+                      aria-label={accessibleLabel}
                       title={item.badge?.title ?? item.label}
                       className={`shell-nav-link${active ? ' is-active' : ''}`}
                     >
@@ -110,14 +118,16 @@ export function AppSidebar({
       <style>{`
         .shell-sidebar {
           position: sticky;
-          top: var(--sc-spacing-4);
-          display: grid;
+          top: 0;
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
           gap: var(--sc-spacing-4);
-          border-radius: var(--sc-radius-xl);
+          border-radius: 0;
           background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
-          box-shadow: var(--sc-shadow-level2);
+          padding: 28px 12px 22px;
+          box-shadow: none;
         }
 
         .shell-sidebar--collapsed {
@@ -128,8 +138,9 @@ export function AppSidebar({
         .shell-sidebar-brand-row {
           display: flex;
           gap: var(--sc-spacing-3);
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
+          padding: 0 12px 18px;
         }
 
         .shell-sidebar-brand {
@@ -195,18 +206,28 @@ export function AppSidebar({
         }
 
         .shell-sidebar-brand-title {
-          letter-spacing: 0.04em;
+          font-size: 16px;
+          letter-spacing: 0.02em;
+          line-height: 1.05;
         }
 
-        .shell-sidebar-brand-subtitle,
+        .shell-sidebar-brand-subtitle {
+          margin-top: 3px;
+          font-size: 9px;
+          letter-spacing: 0.06em;
+          line-height: 1.05;
+          opacity: 0.8;
+        }
+
         .shell-sidebar-footer-label {
-          font-size: var(--sc-font-size-sm);
+          font-size: 11px;
           opacity: 0.86;
         }
 
         .shell-sidebar-footer {
-          border-top: 1px solid rgba(255, 255, 255, 0.16);
-          padding-top: var(--sc-spacing-3);
+          margin-top: auto;
+          border-top: 1px solid color-mix(in oklch, var(--sc-color-neutral-0) 55%, transparent);
+          padding-top: 18px;
         }
 
         .shell-sidebar-footer-meta {
@@ -216,7 +237,7 @@ export function AppSidebar({
 
         .shell-nav {
           display: grid;
-          gap: var(--sc-spacing-4);
+          gap: 7px;
         }
 
         .shell-nav-section {
@@ -240,7 +261,7 @@ export function AppSidebar({
         .shell-nav-list {
           list-style: none;
           display: grid;
-          gap: var(--sc-spacing-2);
+          gap: 7px;
           padding: 0;
           margin: 0;
         }
@@ -248,21 +269,21 @@ export function AppSidebar({
         .shell-nav-link {
           display: flex;
           align-items: center;
-          gap: var(--sc-spacing-2);
+          gap: 14px;
           min-height: 44px;
-          border-radius: var(--sc-radius-md);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          padding: 10px 12px;
+          border-radius: 999px;
+          border: 0;
+          padding: 0 14px;
           text-decoration: none;
           color: inherit;
           background: transparent;
-          transition: background-color 160ms ease, border-color 160ms ease,
+          font-size: 15px;
+          transition: background-color 160ms ease, color 160ms ease,
             transform 160ms ease;
         }
 
         .shell-nav-link:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.28);
+          background: color-mix(in oklch, var(--sc-color-neutral-0) 14%, transparent);
         }
 
         .shell-nav-link:active {
@@ -292,9 +313,9 @@ export function AppSidebar({
         }
 
         .shell-nav-link.is-active {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: rgba(255, 255, 255, 0.34);
-          font-weight: 700;
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-brand-700);
+          font-weight: 650;
         }
 
         .shell-sidebar--collapsed .shell-sidebar-brand-subtitle,

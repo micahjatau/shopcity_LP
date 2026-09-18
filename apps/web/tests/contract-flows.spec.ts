@@ -66,7 +66,7 @@ test.describe('contract-faithful frontend flows', () => {
 
     await expect(page).toHaveURL(/\/cashier$/);
     await expect(
-      page.getByRole('heading', { name: /ready for the next customer/i }),
+      page.getByRole('heading', { name: /hi, cashier/i }),
     ).toBeVisible();
     await expect(page.getByText(/device cashier-device-1/i)).toBeVisible();
   });

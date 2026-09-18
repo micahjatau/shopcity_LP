@@ -1,5 +1,3 @@
-import Image from 'next/image';
-import Link from 'next/link';
 import type { RefObject } from 'react';
 import { ConnectionStatus, SyncQueueIndicator } from './offline';
 
@@ -34,9 +32,9 @@ export function AppTopbar({
   sessionLabel,
   configMessage,
   workspaceLabel,
-  activeSectionLabel,
+
   routeTrailLabel,
-  pageTitle,
+
   deviceLabel,
   context,
   showProtectedContent,
@@ -47,21 +45,18 @@ export function AppTopbar({
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
-        <Link href="/" className="shell-brand">
-          <Image
-            src="/brand/shopcity-mark-white.svg"
-            alt="ShopCity"
-            width={40}
-            height={40}
+        <label className="shell-search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            readOnly
+            aria-label="Current route context"
+            value={routeTrailLabel}
+            title={`${configMessage} · ${sessionLabel ?? status} · ${deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}`}
           />
-          <div>
-            <div className="shell-brand-mark">SHOPCITY</div>
-            <div className="shell-brand-subtitle">Loyalty operations</div>
-          </div>
-        </Link>
+        </label>
 
         <div className="shell-topbar-actions">
-          <p data-status={status} className="shell-session-label">
+          <p data-status={status} className="shell-session-label sr-only">
             {status === 'loading'
               ? 'Checking session…'
               : status === 'ready'
@@ -70,8 +65,26 @@ export function AppTopbar({
                   ? 'Sign in required'
                   : 'Session check unavailable'}
           </p>
+          <span className="shell-online" title={configMessage}>
+            <i aria-hidden="true" /> System Online
+          </span>
           <ConnectionStatus />
           <SyncQueueIndicator />
+          <button
+            type="button"
+            className="shell-icon-button"
+            aria-label="Notifications unavailable"
+            disabled
+            title="Notifications are not enabled for this pilot"
+          >
+            ●
+          </button>
+          <span
+            className="shell-avatar"
+            aria-label={sessionLabel ?? 'Signed in user'}
+          >
+            {sessionLabel?.slice(0, 2).toUpperCase() ?? 'SC'}
+          </span>
           {showProtectedContent ? (
             <button type="button" onClick={onLogout} className="shell-signout">
               Sign out
@@ -88,90 +101,114 @@ export function AppTopbar({
         </div>
       </div>
 
-      <div className="shell-context-strip">
-        <div className="shell-context-line">
-          <strong>{configMessage}</strong>
-          <span>
-            Session {sessionLabel ?? 'pending'} · {status}
-          </span>
-          <span>
-            {workspaceLabel} · {activeSectionLabel}
-          </span>
-          <span>
-            {deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}
-          </span>
-        </div>
-        <div className="shell-context-line shell-context-line--secondary">
-          <span>
-            {context?.tenant?.name ?? context?.tenant?.id ?? 'Tenant pending'}
-            {context?.branch?.name || context?.branch?.id
-              ? ` · ${context.branch?.name ?? context.branch?.id}`
-              : ''}
-            {context?.branch?.timezone ? ` · ${context.branch.timezone}` : ''}
-          </span>
-          <span>
-            {typeof context?.branch?.receiptWeekStartDay === 'number'
-              ? `Receipt week starts ${context.branch.receiptWeekStartDay}`
-              : 'Receipt week start pending'}
-          </span>
-          <span>{routeTrailLabel}</span>
-        </div>
-      </div>
+      <p className="shell-context-strip shell-context-line--secondary">
+        {context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'} ·{' '}
+        {context?.branch?.timezone ?? 'Timezone pending'} · {routeTrailLabel} ·{' '}
+        <span>{deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}</span>
+      </p>
 
       <style>{`
         .shell-topbar {
-          background: var(--sc-color-brand-700);
-          color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-2) var(--sc-spacing-4);
+          height: auto;
+          min-height: 64px;
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-neutral-900);
+          border: 1px solid var(--sc-color-semantic-border);
+          border-radius: 16px;
+          display: grid;
+          gap: 6px;
+          padding: 8px 16px;
+          margin-bottom: 42px;
         }
 
         .shell-brand-row {
           display: flex;
-          gap: var(--sc-spacing-4);
+          gap: 20px;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
           flex-wrap: wrap;
-          margin: 0 auto;
-          max-width: 1440px;
+          width: 100%;
         }
 
-        .shell-brand {
+        .shell-search {
+          height: 36px;
+          width: min(300px, 40vw);
+          border: 1px solid var(--sc-color-semantic-border);
+          background: var(--sc-color-neutral-50);
+          border-radius: 999px;
           display: flex;
-          gap: var(--sc-spacing-3);
           align-items: center;
-          color: inherit;
-          text-decoration: none;
+          gap: 8px;
+          padding: 0 14px;
+          color: var(--sc-color-semantic-textSecondary);
+          margin-right: auto;
         }
 
-        .shell-brand-mark {
-          font-weight: 700;
-          letter-spacing: 0.04em;
-        }
-
-        .shell-brand-subtitle,
-        .shell-context-label {
-          font-size: var(--sc-font-size-sm);
-          opacity: 0.86;
+        .shell-search input {
+          border: 0;
+          outline: 0;
+          background: transparent;
+          width: 100%;
+          color: var(--sc-color-neutral-900);
+          font-size: 12px;
         }
 
         .shell-topbar-actions {
           display: flex;
-          gap: var(--sc-spacing-3);
+          gap: 20px;
           flex-wrap: wrap;
           align-items: center;
           justify-content: flex-end;
         }
 
-        .shell-session-label {
-          margin: 0;
+        .shell-online {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          color: var(--sc-color-success-700);
+          background: var(--sc-color-success-50);
+          border-radius: 999px;
+          padding: 6px 11px;
+          font-size: 11px;
+        }
+
+        .shell-online i {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--sc-color-success-600);
+        }
+
+        .shell-icon-button {
+          width: 38px;
+          height: 38px;
+          border: 0;
+          background: transparent;
+          color: var(--sc-color-neutral-900);
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          opacity: 0.5;
+        }
+
+        .shell-avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: oklch(72% 0.06 55);
+          display: grid;
+          place-items: center;
+          color: var(--sc-color-neutral-0);
+          font-weight: 700;
+          font-size: 12px;
         }
 
         .shell-signout,
         .shell-mobile-menu-button {
           border-radius: var(--sc-radius-full);
-          border: 1px solid rgba(255, 255, 255, 0.24);
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--sc-color-neutral-0);
+          border: 1px solid var(--sc-color-brand-700);
+          background: var(--sc-color-neutral-0);
+          color: var(--sc-color-brand-700);
           padding: 6px 12px;
         }
 
@@ -180,37 +217,9 @@ export function AppTopbar({
         }
 
         .shell-context-strip {
-          display: grid;
-          gap: var(--sc-spacing-2);
-          max-width: 1440px;
-          margin: var(--sc-spacing-2) auto 0;
-          padding: var(--sc-spacing-2);
-          border-radius: var(--sc-radius-lg);
-          background: rgba(255, 255, 255, 0.08);
-        }
-
-        .shell-context-line {
-          display: flex;
-          gap: var(--sc-spacing-3);
-          flex-wrap: wrap;
-          align-items: center;
-        }
-
-        .shell-context-line strong {
-          font-size: var(--sc-font-size-sm);
-        }
-
-        .shell-context-line--secondary {
-          font-size: var(--sc-font-size-sm);
-          opacity: 0.92;
-        }
-
-        .shell-topbar[data-workspace='Cashier workspace'] .shell-context-line {
-          gap: var(--sc-spacing-2);
-        }
-
-        .shell-topbar[data-workspace='Cashier workspace'] .shell-context-line--secondary {
-          font-size: var(--sc-font-size-xs);
+          margin: 0;
+          color: var(--sc-color-semantic-textSecondary);
+          font-size: 12px;
         }
 
         @media (max-width: 767px) {

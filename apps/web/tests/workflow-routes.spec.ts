@@ -71,14 +71,14 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier`);
 
     await expect(
-      page.getByRole('heading', { name: 'Ready for the next customer' }),
+      page.getByRole('heading', { name: 'Hi, Cashier!' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Scan or enter card' }).first(),
+      page.getByRole('link', { name: 'Find Customer' }).first(),
     ).toBeVisible();
     await expect(page.getByLabel('Cashier context')).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Choose a task' }),
+      page.getByRole('heading', { name: 'Quick actions' }),
     ).toBeVisible();
     await expect(
       page.getByLabel('Cashier context').getByRole('link', {

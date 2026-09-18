@@ -4,19 +4,19 @@ import { CashierOverviewLookup } from '../../../components/workflows/cashier-ove
 
 const cashierActions = [
   {
-    title: 'Earn',
+    title: 'Capture Purchase',
     href: '/cashier/earn',
-    body: 'Credit a customer after confirming the purchase amount.',
+    body: 'Record a POS receipt so ShopCity Credit can be issued.',
   },
   {
-    title: 'Redeem',
+    title: 'Redeem Credit',
     href: '/cashier/redeem',
-    body: 'Apply available loyalty credit with an authoritative review.',
+    body: 'Apply available ShopCity Credit to a customer basket.',
   },
   {
-    title: 'Find customer',
+    title: 'Find Customer',
     href: '/cashier/lookup',
-    body: 'Scan or enter a card serial to load customer context.',
+    body: 'Search by card serial and verify the customer wallet.',
   },
 ] as const;
 
@@ -25,15 +25,13 @@ export default function CashierPage() {
     <section className="cashier-overview">
       <header className="cashier-overview-header">
         <div>
-          <p className="cashier-kicker">Cashier workspace</p>
-          <h1>Ready for the next customer</h1>
-          <p className="cashier-muted">
-            Scan or enter a card, verify the customer, then confirm the server
-            result.
+          <h1>Hi, Cashier!</h1>
+          <p className="cashier-muted cashier-welcome">
+            Welcome back to your dashboard
           </p>
         </div>
         <Link href="/cashier/lookup" className="cashier-primary-action">
-          Scan or enter card
+          Find Customer
         </Link>
       </header>
       <CashierOverviewContext />
@@ -44,9 +42,9 @@ export default function CashierPage() {
         aria-labelledby="cashier-launcher-title"
       >
         <div>
-          <h2 id="cashier-launcher-title">Choose a task</h2>
+          <h2 id="cashier-launcher-title">Quick actions</h2>
           <p className="cashier-muted">
-            The three cashier actions stay one tap away.
+            Start the same workflows from the prototype dashboard.
           </p>
         </div>
         <div className="cashier-action-grid">
@@ -66,16 +64,18 @@ export default function CashierPage() {
       <style>{`
         .cashier-overview {
           display: grid;
-          gap: var(--sc-spacing-6);
-          padding: clamp(4px, 1vw, 12px);
+          gap: 24px;
+          max-width: 1120px;
+          margin: 0 auto;
         }
 
         .cashier-overview-header {
           display: flex;
-          align-items: flex-start;
+          align-items: end;
           justify-content: space-between;
-          gap: var(--sc-spacing-5);
+          gap: 20px;
           flex-wrap: wrap;
+          margin-bottom: 6px;
         }
 
         .cashier-overview-header h1,
@@ -85,8 +85,15 @@ export default function CashierPage() {
         }
 
         .cashier-overview-header h1 {
-          font-size: clamp(30px, 4vw, 46px);
-          line-height: 1.05;
+          font-family: 'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
+          font-size: 34px;
+          line-height: 1;
+          letter-spacing: -0.03em;
+        }
+
+        .cashier-welcome {
+          color: var(--sc-color-brand-700);
+          font-size: 15px;
         }
 
         .cashier-kicker,
@@ -114,12 +121,12 @@ export default function CashierPage() {
 
         .cashier-launcher {
           display: grid;
-          gap: var(--sc-spacing-4);
-          padding: var(--sc-spacing-6);
+          gap: 16px;
+          padding: 16px;
           border: 1px solid var(--sc-color-semantic-border);
-          border-radius: var(--sc-radius-xl);
-          background: linear-gradient(135deg, rgba(177, 0, 0, 0.05), var(--sc-color-neutral-0));
-          box-shadow: var(--sc-shadow-level1);
+          border-radius: 16px;
+          background: var(--sc-color-neutral-0);
+          box-shadow: none;
         }
 
         .cashier-context-strip {
@@ -157,13 +164,13 @@ export default function CashierPage() {
         .cashier-action-card {
           display: grid;
           gap: var(--sc-spacing-2);
-          min-height: 132px;
+          min-height: 116px;
           align-content: space-between;
           border: 1px solid var(--sc-color-semantic-border);
-          border-radius: var(--sc-radius-lg);
+          border-radius: 16px;
           background: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-5);
-          box-shadow: var(--sc-shadow-level1);
+          padding: 20px 22px;
+          box-shadow: none;
         }
 
         .cashier-action-card strong {
@@ -190,12 +197,16 @@ export default function CashierPage() {
 
         .cashier-primary-action {
           align-self: start;
+          min-height: 40px;
           border: 1px solid var(--sc-color-brand-700);
-          border-radius: var(--sc-radius-full);
+          border-radius: 999px;
           background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-3) var(--sc-spacing-5);
-          font-weight: 700;
+          padding: 0 18px;
+          display: inline-flex;
+          align-items: center;
+          font-size: 13px;
+          font-weight: 600;
           text-decoration: none;
           transition: border-color 120ms ease, transform 120ms ease;
         }

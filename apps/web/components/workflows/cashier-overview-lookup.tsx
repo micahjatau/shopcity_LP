@@ -107,6 +107,17 @@ export function CashierOverviewLookup() {
   const serial = record?.serialNumber ?? record?.cardSerialNumber ?? value;
   const encodedCard = encodeURIComponent(serial.trim());
   const customer = record?.customer;
+  const loadedTransactions = todayTransactions ?? [];
+  const earnTransactions = loadedTransactions.filter(
+    (transaction) => transaction.operation === 'EARN',
+  );
+  const redeemTransactions = loadedTransactions.filter(
+    (transaction) => transaction.operation === 'REDEEM',
+  );
+  const creditIssuedKobo = earnTransactions.reduce(
+    (sum, transaction) => sum + Number(transaction.loyaltyAmountKobo ?? 0),
+    0,
+  );
 
   return (
     <section
@@ -187,61 +198,118 @@ export function CashierOverviewLookup() {
         </div>
       ) : null}
 
+      <p className="section-label" id="cashier-today-title">
+        Today&apos;s Activity
+      </p>
       <section
-        className="cashier-today-card"
+        className="cashier-metrics"
         aria-labelledby="cashier-today-title"
       >
-        <div>
-          <h3 id="cashier-today-title">Recent activity</h3>
-          {todayMessage ? (
-            <p className="cashier-muted">{todayMessage}</p>
-          ) : (
-            <p className="cashier-muted">
-              Showing the latest loaded records for today.
-            </p>
-          )}
+        <article className="cashier-metric">
+          <div className="metric-label">Receipts loaded</div>
+          <div className="metric-value">{loadedTransactions.length || '—'}</div>
+          <div className="metric-note">Latest cashier activity</div>
+        </article>
+        <article className="cashier-metric">
+          <div className="metric-label">Purchases captured</div>
+          <div className="metric-value">{earnTransactions.length || '—'}</div>
+          <div className="metric-note">Earn operations</div>
+        </article>
+        <article className="cashier-metric">
+          <div className="metric-label">Credit issued</div>
+          <div className="metric-value">
+            {creditIssuedKobo > 0 ? (
+              <Money amountKobo={creditIssuedKobo} />
+            ) : (
+              '—'
+            )}
+          </div>
+          <div className="metric-note">From loaded receipts</div>
+        </article>
+        <article className="cashier-metric">
+          <div className="metric-label">Credit redeemed</div>
+          <div className="metric-value">{redeemTransactions.length || '—'}</div>
+          <div className="metric-note">Redeem operations</div>
+        </article>
+      </section>
+
+      <section className="cashier-today-card" aria-labelledby="recent-heading">
+        <div className="table-head">
+          <div>
+            <h3 id="recent-heading">Recent Transactions</h3>
+            {todayMessage ? (
+              <p className="cashier-muted">{todayMessage}</p>
+            ) : (
+              <p className="cashier-muted">
+                Live activity from your cashier account
+              </p>
+            )}
+          </div>
+          <Link href="/cashier/sync" className="table-link">
+            Open sync queue
+          </Link>
         </div>
         {todayTransactions?.length ? (
-          <ul>
-            {todayTransactions.map((transaction) => (
-              <li key={transaction.id}>
-                <time dateTime={transaction.occurredAt}>
-                  {new Intl.DateTimeFormat(undefined, {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }).format(new Date(transaction.occurredAt))}
-                </time>
-                <span>#{transaction.receiptNumber}</span>
-                <strong>{transaction.operation}</strong>
-                {transaction.loyaltyAmountKobo === null ? (
-                  <span>Pending calculation</span>
-                ) : (
-                  <span
-                    aria-label={`${transaction.operation === 'EARN' ? 'Credit added' : 'Credit redeemed'}: ${transaction.loyaltyAmountKobo} kobo`}
-                  >
-                    <span aria-hidden="true">
-                      {transaction.operation === 'EARN' ? '+' : '−'}
-                    </span>
-                    <Money amountKobo={transaction.loyaltyAmountKobo} />
-                  </span>
-                )}
-                <span>{transaction.status}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="table-wrap">
+            <table className="cashier-table">
+              <thead>
+                <tr>
+                  <th>Customer / receipt</th>
+                  <th>Operation</th>
+                  <th>Credit</th>
+                  <th>Status</th>
+                  <th>Date &amp; time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todayTransactions.map((transaction) => (
+                  <tr key={transaction.id}>
+                    <td>#{transaction.receiptNumber}</td>
+                    <td>{transaction.operation}</td>
+                    <td
+                      className="amount"
+                      aria-label={
+                        transaction.loyaltyAmountKobo === null
+                          ? undefined
+                          : `${transaction.operation === 'EARN' ? 'Credit added' : 'Credit redeemed'}: ${transaction.loyaltyAmountKobo} kobo`
+                      }
+                    >
+                      {transaction.loyaltyAmountKobo === null ? (
+                        'Pending calculation'
+                      ) : (
+                        <>
+                          <span aria-hidden="true">
+                            {transaction.operation === 'EARN' ? '+' : '−'}
+                          </span>{' '}
+                          <Money amountKobo={transaction.loyaltyAmountKobo} />
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <span className="status-pill">{transaction.status}</span>
+                    </td>
+                    <td>
+                      <time dateTime={transaction.occurredAt}>
+                        {new Intl.DateTimeFormat('en-NG', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }).format(new Date(transaction.occurredAt))}
+                      </time>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : todayTransactions ? (
-          <p className="cashier-muted">No transactions recorded today.</p>
+          <p className="cashier-empty">No transactions recorded today.</p>
         ) : null}
       </section>
 
       <style>{`
         .cashier-overview-lookup {
           display: grid;
-          gap: var(--sc-spacing-4);
-          border: 1px solid var(--sc-color-brand-200);
-          border-radius: var(--sc-radius-lg);
-          background: var(--sc-color-brand-50);
-          padding: var(--sc-spacing-5);
+          gap: 24px;
         }
 
         .cashier-overview-lookup h2,
@@ -249,32 +317,143 @@ export function CashierOverviewLookup() {
           margin: 0;
         }
 
+        .section-label {
+          font-family: 'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
+          font-size: 21px;
+          line-height: 1.2;
+          margin: 0 0 -12px;
+        }
+
+        .cashier-metrics {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 9px;
+        }
+
+        .cashier-metric,
+        .cashier-today-card,
+        .cashier-overview-lookup > div:first-child,
+        .cashier-scan-form,
+        .cashier-verified-card {
+          background: var(--sc-color-neutral-0);
+          border: 1px solid var(--sc-color-semantic-border);
+          border-radius: 16px;
+        }
+
+        .cashier-overview-lookup > div:first-child,
+        .cashier-scan-form {
+          padding: 18px 24px;
+        }
+
+        .cashier-metric {
+          min-height: 132px;
+          padding: 20px 22px;
+        }
+
+        .cashier-metric:first-child {
+          border-color: var(--sc-color-brand-700);
+        }
+
+        .metric-label {
+          font-size: 15px;
+          margin-bottom: 21px;
+        }
+
+        .metric-value {
+          color: var(--sc-color-brand-700);
+          font-family: 'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
+          font-size: 29px;
+          font-weight: 650;
+          letter-spacing: -0.03em;
+        }
+
+        .metric-note {
+          color: var(--sc-color-semantic-textSecondary);
+          font-size: 11px;
+          margin-top: 3px;
+        }
+
         .cashier-today-card {
           display: grid;
-          gap: var(--sc-spacing-3);
-          border-top: 1px solid var(--sc-color-semantic-border);
-          padding-top: var(--sc-spacing-4);
+          gap: 0;
+          overflow: hidden;
+          padding: 16px;
         }
 
-        .cashier-today-card ul {
-          display: grid;
-          gap: var(--sc-spacing-2);
-          margin: 0;
-          padding: 0;
-          list-style: none;
-        }
-
-        .cashier-today-card li {
-          display: grid;
-          grid-template-columns: auto 1fr auto auto auto;
-          gap: var(--sc-spacing-3);
-          align-items: center;
+        .table-head {
+          display: flex;
+          align-items: start;
+          justify-content: space-between;
+          gap: 16px;
+          padding-bottom: 13px;
           border-bottom: 1px solid var(--sc-color-semantic-border);
-          padding-block: var(--sc-spacing-2);
-          font-size: var(--sc-font-size-sm);
         }
 
-        .cashier-today-card li span:last-child {
+        .table-link {
+          color: var(--sc-color-brand-700);
+          font-weight: 600;
+          font-size: 12px;
+          text-decoration: none;
+        }
+
+        .table-wrap {
+          overflow-x: auto;
+        }
+
+        .cashier-table {
+          width: 100%;
+          min-width: 760px;
+          border-collapse: collapse;
+        }
+
+        .cashier-table th,
+        .cashier-table td {
+          text-align: left;
+          padding: 12px 8px;
+          border-bottom: 1px solid var(--sc-color-semantic-border);
+          white-space: nowrap;
+        }
+
+        .cashier-table th {
+          color: var(--sc-color-semantic-textSecondary);
+          font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: 0.03em;
+        }
+
+        .cashier-table td {
+          color: var(--sc-color-semantic-textSecondary);
+          font-size: 13px;
+        }
+
+        .cashier-table td:first-child,
+        .cashier-table .amount {
+          color: var(--sc-color-neutral-900);
+        }
+
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border-radius: 999px;
+          color: var(--sc-color-success-700);
+          background: var(--sc-color-success-50);
+          padding: 4px 9px;
+          font-size: 11px;
+        }
+
+        .status-pill::before {
+          content: '';
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+
+        .cashier-empty {
+          padding: 45px;
+          text-align: center;
           color: var(--sc-color-semantic-textSecondary);
         }
 
@@ -297,12 +476,14 @@ export function CashierOverviewLookup() {
 
         .cashier-scan-controls button,
         .cashier-verified-actions a {
+          min-height: 40px;
           border: 1px solid var(--sc-color-brand-700);
-          border-radius: var(--sc-radius-full);
+          border-radius: 999px;
           background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-3) var(--sc-spacing-5);
-          font-weight: 700;
+          padding: 0 18px;
+          font-size: 13px;
+          font-weight: 600;
           text-decoration: none;
           text-align: center;
         }
@@ -317,23 +498,9 @@ export function CashierOverviewLookup() {
           color: var(--sc-color-semantic-textSecondary);
         }
 
-        @media (max-width: 600px) {
-          .cashier-today-card li {
-            grid-template-columns: auto 1fr auto;
-          }
-
-          .cashier-today-card li strong,
-          .cashier-today-card li span:last-child {
-            grid-column: span 1;
-          }
-        }
-
         .cashier-verified-card {
           grid-template-columns: 1.3fr 1fr;
           align-items: center;
-          border: 1px solid var(--sc-color-semantic-border);
-          border-radius: var(--sc-radius-md);
-          background: var(--sc-color-neutral-0);
           padding: var(--sc-spacing-4);
         }
 
@@ -352,11 +519,22 @@ export function CashierOverviewLookup() {
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
+        @media (max-width: 920px) {
+          .cashier-metrics {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
         @media (max-width: 800px) {
           .cashier-scan-controls,
           .cashier-verified-card,
-          .cashier-verified-actions,
-          .cashier-today-card li {
+          .cashier-verified-actions {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 620px) {
+          .cashier-metrics {
             grid-template-columns: 1fr;
           }
         }
