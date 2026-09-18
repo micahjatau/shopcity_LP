@@ -55,9 +55,7 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email Address').fill('cashier@shopcity.local');
-    await page
-      .getByRole('textbox', { name: /^Password$/i })
-      .fill('secret');
+    await page.getByRole('textbox', { name: /^Password$/i }).fill('secret');
     await page.getByLabel('Device ID').fill('cashier-device-1');
     await page
       .getByLabel('Device attestation secret')
