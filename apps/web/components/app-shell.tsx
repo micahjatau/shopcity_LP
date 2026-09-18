@@ -307,7 +307,9 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   } | null;
 
   return (
-    <div className="shell-root">
+    <div
+      className={`shell-root${role === 'CASHIER' ? ' shell-root--cashier' : ''}`}
+    >
       <Link className="shell-skip-link" href="#shell-main-content">
         Skip to content
       </Link>
@@ -434,8 +436,16 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       <style>{`
         .shell-root {
           min-height: 100vh;
-          background: var(--sc-color-neutral-50);
+          background:
+            radial-gradient(circle at 78% 8%, rgba(255, 118, 56, 0.08), transparent 30rem),
+            var(--sc-color-neutral-50);
           color: var(--sc-color-neutral-900);
+        }
+
+        .shell-root--cashier {
+          background:
+            radial-gradient(circle at 82% 4%, rgba(226, 74, 21, 0.12), transparent 28rem),
+            linear-gradient(180deg, #fff8f4 0%, var(--sc-color-neutral-50) 38%);
         }
 
         .shell-skip-link {
@@ -459,9 +469,16 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         }
 
         .shell-topbar {
-          background: var(--sc-color-brand-700);
+          background:
+            linear-gradient(116deg, var(--sc-color-brand-950) 0%, var(--sc-color-brand-700) 52%, #c84712 100%);
           color: var(--sc-color-neutral-0);
           padding: var(--sc-spacing-4);
+          box-shadow: 0 12px 32px rgba(75, 0, 0, 0.18);
+        }
+
+        .shell-root--cashier .shell-topbar {
+          background:
+            linear-gradient(116deg, #3e0000 0%, var(--sc-color-brand-700) 44%, #d95818 100%);
         }
 
         .shell-brand-row {
@@ -560,17 +577,23 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           top: var(--sc-spacing-4);
           display: grid;
           gap: var(--sc-spacing-4);
-          border-radius: var(--sc-radius-xl);
-          background: var(--sc-color-brand-700);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 24px;
+          background: linear-gradient(160deg, #5b0000 0%, var(--sc-color-brand-700) 70%, #8f2608 100%);
           color: var(--sc-color-neutral-0);
           padding: var(--sc-spacing-4);
-          box-shadow: var(--sc-shadow-level2);
+          box-shadow: 0 18px 42px rgba(75, 0, 0, 0.18);
+        }
+
+        .shell-root--cashier .shell-sidebar {
+          background: linear-gradient(160deg, #4a0000 0%, #7d0900 62%, #ae370d 100%);
         }
 
         .shell-main {
           min-width: 0;
           display: grid;
-          gap: var(--sc-spacing-4);
+          gap: var(--sc-spacing-5);
+          padding: var(--sc-spacing-2);
         }
 
         .shell-main-status-row {
