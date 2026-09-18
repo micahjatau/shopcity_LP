@@ -1,5 +1,6 @@
 'use client';
 
+import { Search, ScanLine } from 'lucide-react';
 import Link from 'next/link';
 import type { FormEvent, ReactNode } from 'react';
 import { useRef } from 'react';
@@ -494,7 +495,7 @@ function FindCustomerView({
               className="find-customer-query"
               htmlFor="customer-search-query"
             >
-              <span aria-hidden="true">⌕</span>
+              <Search aria-hidden="true" size={16} strokeWidth={1.8} />
               <Input
                 ref={queryInputRef}
                 id="customer-search-query"
@@ -506,6 +507,7 @@ function FindCustomerView({
               />
             </label>
             <Button type="submit" disabled={lookupPending}>
+              <Search aria-hidden="true" size={16} strokeWidth={1.8} />
               {lookupPending ? 'Searching…' : 'Search'}
             </Button>
             <Button
@@ -513,6 +515,7 @@ function FindCustomerView({
               variant="secondary"
               onClick={() => queryInputRef.current?.focus()}
             >
+              <ScanLine aria-hidden="true" size={16} strokeWidth={1.8} />
               Scan
             </Button>
           </div>

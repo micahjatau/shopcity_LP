@@ -1,3 +1,4 @@
+import { Bell, Search } from 'lucide-react';
 import type { RefObject } from 'react';
 
 export type AppTopbarContext = {
@@ -26,7 +27,6 @@ export function AppTopbar({
   sessionLabel,
   configMessage,
   workspaceLabel,
-  routeTrailLabel,
   deviceLabel,
   onOpenMobileMenu,
   mobileMenuButtonRef,
@@ -35,13 +35,8 @@ export function AppTopbar({
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
         <label className="shell-search">
-          <span aria-hidden="true">⌕</span>
-          <input
-            readOnly
-            aria-label="Current route context"
-            value={routeTrailLabel}
-            title={`${configMessage} · ${sessionLabel ?? status} · ${deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}`}
-          />
+          <Search aria-hidden="true" size={16} strokeWidth={1.8} />
+          <input readOnly aria-label="Search" placeholder="Search" />
         </label>
 
         <div className="shell-topbar-actions">
@@ -66,7 +61,7 @@ export function AppTopbar({
             aria-label="Notifications"
             title="Notifications"
           >
-            <span aria-hidden="true">●</span>
+            <Bell aria-hidden="true" size={18} strokeWidth={1.8} />
           </button>
           <span
             className="shell-avatar"
