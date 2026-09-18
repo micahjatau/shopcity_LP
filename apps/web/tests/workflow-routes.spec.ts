@@ -265,6 +265,34 @@ test.describe('workflow route coverage', () => {
       expect(response.status()).toBe(200);
     }
   });
+
+  test('keeps prototype landmarks inside the 1440px route geometry', async ({ page }) => {
+    const fixtures = [
+      ['/cashier', 'recent-transactions', 'CASHIER'],
+      ['/cashier/lookup', 'customer-search', 'CASHIER'],
+      ['/cashier/earn?card=CARD-001', 'capture-flow', 'CASHIER'],
+      ['/cashier/redeem?card=CARD-001', 'redeem-flow', 'CASHIER'],
+      ['/supervisor/customers', 'register-flow', 'SUPERVISOR'],
+      ['/supervisor/transactions', 'transactions-dashboard', 'SUPERVISOR'],
+    ] as const;
+
+    await page.setViewportSize({ width: 1440, height: 923 });
+    for (const [route, landmark, role] of fixtures) {
+      await mockShell(page, role);
+      await page.goto(`${baseUrl}${route}`);
+      const element = page.locator(`[data-od-id="${landmark}"]`);
+      await expect(element).toBeVisible();
+      const box = await element.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(1440);
+      expect(box!.width).toBeGreaterThan(0);
+      expect(box!.height).toBeGreaterThan(0);
+      await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
+        maxDiffPixelRatio: 0.08,
+      });
+    }
+  });
 });
 
 async function mockShell(
