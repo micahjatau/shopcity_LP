@@ -11,6 +11,8 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+| 2026-09-17 | Final prototype adaptation review | CRITICAL (branch comparison) | 102 files / 259 symbols | 66 processes | `detect-changes --scope compare --base-ref master` includes the branch's accumulated historical work, not only the final page-at-a-time commits. Current working-tree modifications are limited to pre-existing AGENTS/CLAUDE files, generated test/build artifacts, screenshots, and caches; no unrelated source files were edited by this adaptation. Focused CashierWorkflowRoute, browser accessibility, workflow, critical-flow, build, lint, typecheck, and targeted Semgrep gates passed. |
+
 | 2026-09-17 | Repo review 71 prototype-exact cashier adaptation | HIGH | 4 | 4 | `CashierWorkflowRoute` affects `CashierEarnPage`, `CashierLookupPage`, and `CashierRedeemPage` across 3 execution processes. Exact GitNexus impact: 4 direct dependants, 3 processes, 1 module. Proceed only with focused route/workflow regression coverage and preserve the extracted business logic while replacing presentational JSX. |
 
 | 2026-09-17 | Prototype integration baseline surfaces | LOW–MEDIUM | 4–22 per symbol | 2–4 | Pre-implementation impact review covered `ConfigurationService` (LOW, 4), `RedemptionPolicyService` (LOW, 22), `LoyaltyService` (MEDIUM, 17), `FraudRulesService` (LOW, 3), and `RedemptionsService` (LOW, 5). Financial policy consumers require focused regression tests; no HIGH/CRITICAL result was returned for this change surface. |

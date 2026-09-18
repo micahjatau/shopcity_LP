@@ -46,4 +46,4 @@
 - [x] 7.2 Add `data-od-id` DOM geometry comparisons for position, size, padding, gap, radius, typography, colors, and borders; verify the specified tolerances.
 - [x] 7.3 Add and review the approved visual-deviation registry, including registration contract differences and omitted Till/cashier reference; verify every deviation has a reason and replacement.
 - [x] 7.4 Run focused CashierWorkflowRoute regression coverage across Earn, Lookup, and Redeem, then run frontend lint, typecheck, unit/a11y, affected Playwright, build, and Semgrep checks; verify all required gates pass.
-- [ ] 7.5 Run GitNexus `detect_changes()` and inspect the final diff/status for expected symbols and flows only; verify no unrelated dirty files were modified.
+- [x] 7.5 Run GitNexus `detect_changes()` and inspect the final diff/status for expected symbols and flows only; verify no unrelated dirty files were modified.
