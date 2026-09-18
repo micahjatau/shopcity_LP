@@ -9,8 +9,8 @@
 
 - [x] 2.1 Build the prototype-exact `/cashier` page head, notice, metrics, recent-transactions table, footer, and `data-od-id` attributes; verify route tests assert the required hierarchy and geometry hooks.
 - [x] 2.2 Preserve `reportsControllerListCashierTodayV1` and existing derived metrics while adding local receipt-number filtering; verify bounded-feed tests cover empty, loading, error, search, and result-count states.
-- [ ] 2.3 Extract `useCashierLookupController` and build the dedicated `/cashier/lookup` view with search, scan, hint, notice, recent customers, and exact empty state; verify lookup unit and accessibility tests.
-- [ ] 2.4 Wire `ScannerContextScope` to the prototype input and require authoritative `cardsControllerLookupCardV1` before financial context becomes verified; verify directory results cannot submit Earn or Redeem without card verification.
+- [x] 2.3 Extract `useCashierLookupController` and build the dedicated `/cashier/lookup` view with search, scan, hint, notice, recent customers, and exact empty state; verify lookup unit and accessibility tests.
+- [x] 2.4 Wire `ScannerContextScope` to the prototype input and require authoritative `cardsControllerLookupCardV1` before financial context becomes verified; verify directory results cannot submit Earn or Redeem without card verification.
 
 ## 3. Capture Purchase
 
