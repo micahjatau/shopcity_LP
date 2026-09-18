@@ -150,8 +150,14 @@ export function TransactionWorkspace({
   }
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+    <section
+      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      data-od-id="transactions-view"
+    >
+      <header
+        style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}
+        data-od-id="transactions-heading"
+      >
         <h1 style={{ margin: 0 }}>Transaction review</h1>
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
@@ -173,7 +179,8 @@ export function TransactionWorkspace({
 
       <Alert tone="info" title="Transaction route context">
         Use this route for search, detail inspection, and compensating
-        reversals.
+        reversals. Results are limited to transactions available through the
+        current transaction read contract.
       </Alert>
 
       <div style={statusRow}>
@@ -185,7 +192,7 @@ export function TransactionWorkspace({
         />
       </div>
 
-      <section style={cardStyle}>
+      <section style={cardStyle} data-od-id="transaction-filters">
         <h2 style={{ marginTop: 0 }}>Load transaction</h2>
         <div style={inputRow}>
           <Input
