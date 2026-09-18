@@ -568,11 +568,10 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         .shell-brand-row {
           display: flex;
           gap: var(--sc-spacing-4);
-          align-items: flex-start;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          margin: 0 auto;
-          max-width: 1440px;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: nowrap;
+          width: 100%;
         }
 
         .shell-brand {
@@ -667,15 +666,12 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           gap: var(--sc-spacing-4);
           border: 0;
           border-radius: 0;
-          background: linear-gradient(160deg, #5b0000 0%, var(--sc-color-brand-700) 70%, #8f2608 100%);
+          background: var(--sc-color-brand-700);
           color: var(--sc-color-neutral-0);
           padding: 28px 12px 22px;
           box-shadow: none;
         }
 
-        .shell-root--cashier .shell-sidebar {
-          background: linear-gradient(160deg, #4a0000 0%, #7d0900 62%, #ae370d 100%);
-        }
 
         .shell-main {
           min-width: 0;

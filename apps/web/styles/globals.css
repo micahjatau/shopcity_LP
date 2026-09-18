@@ -26,6 +26,15 @@ main {
   display: block;
 }
 
+/* Keep every labeled control in the prototype's icon-and-label rhythm. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
 .login-page {
   position: relative;
   display: grid;

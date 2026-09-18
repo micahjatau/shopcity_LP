@@ -36,8 +36,8 @@ export function AppSidebar({
           <Image
             src="/brand/shopcity-mark-white.svg"
             alt="ShopCity"
-            width={28}
-            height={28}
+            width={29}
+            height={29}
           />
           <div>
             <div className="shell-sidebar-brand-title">SHOPCITY</div>
@@ -135,7 +135,7 @@ export function AppSidebar({
           gap: var(--sc-spacing-3);
           align-items: center;
           justify-content: space-between;
-          padding: 0 12px 18px;
+          padding: 0 12px 34px;
         }
 
         .shell-sidebar-brand {
