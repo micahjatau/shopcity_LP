@@ -43,7 +43,6 @@ export function AppSidebar({
             <div className="shell-sidebar-brand-subtitle">SUPERMARKET</div>
           </div>
         </div>
-
       </div>
 
       <nav aria-label="Primary navigation" className="shell-nav">
@@ -96,7 +95,11 @@ export function AppSidebar({
         <a href="/help" className="shell-sidebar-footer-link">
           Help &amp; Training
         </a>
-        <button type="button" className="shell-sidebar-footer-link" onClick={onLogout}>
+        <button
+          type="button"
+          className="shell-sidebar-footer-link"
+          onClick={onLogout}
+        >
           Logout
         </button>
         <span className="shell-sidebar-footer-meta" aria-hidden="true">

@@ -327,34 +327,36 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
               onOpenMobileMenu={() => setMobileNavigationOpen(true)}
             />
 
-          <main id="shell-main-content" tabIndex={-1} className="shell-main">
-            <BrowserStateBootstrap />
-            <div className="shell-main-status-row">
-              {showProtectedContent ? null : (
-                <p className="shell-access-message">
-                  {status === 'ready'
-                    ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
-                    : 'Sign in to access cashier, supervisor and admin workflows.'}
-                </p>
+            <main id="shell-main-content" tabIndex={-1} className="shell-main">
+              <BrowserStateBootstrap />
+              <div className="shell-main-status-row">
+                {showProtectedContent ? null : (
+                  <p className="shell-access-message">
+                    {status === 'ready'
+                      ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                      : 'Sign in to access cashier, supervisor and admin workflows.'}
+                  </p>
+                )}
+              </div>
+              <OfflineIndicator />
+              {showProtectedContent ? (
+                children
+              ) : (
+                <section className="shell-gate-card">
+                  <h1 style={{ margin: 0 }}>{workspaceLabel}</h1>
+                  <p className="shell-access-message">
+                    {status === 'ready'
+                      ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
+                      : 'Sign in to access cashier, supervisor and admin workflows.'}
+                  </p>
+                  <Link href={status === 'ready' ? primaryRoute : '/login'}>
+                    {status === 'ready'
+                      ? 'Go to my workspace'
+                      : 'Go to sign in'}
+                  </Link>
+                </section>
               )}
-            </div>
-            <OfflineIndicator />
-            {showProtectedContent ? (
-              children
-            ) : (
-              <section className="shell-gate-card">
-                <h1 style={{ margin: 0 }}>{workspaceLabel}</h1>
-                <p className="shell-access-message">
-                  {status === 'ready'
-                    ? 'You do not have access to this workspace. Redirecting to your permitted shell.'
-                    : 'Sign in to access cashier, supervisor and admin workflows.'}
-                </p>
-                <Link href={status === 'ready' ? primaryRoute : '/login'}>
-                  {status === 'ready' ? 'Go to my workspace' : 'Go to sign in'}
-                </Link>
-              </section>
-            )}
-          </main>
+            </main>
           </div>
         </div>
       </div>
