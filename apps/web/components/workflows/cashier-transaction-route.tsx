@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import type { FormEvent, ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
-import { Alert, Button, Input, Separator } from '../ui';
+import { Alert, Button, Input } from '../ui';
 import { Money, StatusBadge } from '../shopcity';
 import {
   WorkflowSection,
@@ -13,33 +13,9 @@ import {
   RedeemTransactionForm,
 } from './index';
 import {
-  customersControllerGetCustomerV1,
-  loyaltyControllerGetCustomerLedgerV1,
-} from '../../lib/api/generated-client';
-import { createApiRequest } from '../../lib/api/request';
-import {
   useCashierLookupController,
   type CashierLookupRecord,
 } from './use-cashier-lookup-controller';
-
-type CashierCustomerRecord = {
-  fullName?: string;
-  name?: string;
-  status?: string;
-  balanceKobo?: number;
-  availableBalanceKobo?: number;
-};
-
-type CashierLedgerItem = {
-  id?: string;
-  type?: string;
-  transactionType?: string;
-  amountKobo?: number;
-};
-
-type CashierLedgerRecord = {
-  items?: CashierLedgerItem[];
-};
 
 type CashierPolicyConfig = {
   tenant?: { id?: string; name?: string };
@@ -81,11 +57,6 @@ export function CashierWorkflowRoute({
     setLookupValue,
     lookup: handleLookup,
   } = useCashierLookupController(initialCardSerial);
-  const [customerRecord, setCustomerRecord] =
-    useState<CashierCustomerRecord | null>(null);
-  const [ledgerRecord, setLedgerRecord] = useState<CashierLedgerRecord | null>(
-    null,
-  );
   const {
     userId,
     deviceId,
@@ -93,54 +64,6 @@ export function CashierWorkflowRoute({
     configMessage: policyMessage,
   } = useSessionBootstrapState();
   const policyConfig = publicConfig as CashierPolicyConfig | null;
-
-  const customerId = useMemo(
-    () => lookupRecord?.customer?.id ?? lookupRecord?.customerId ?? null,
-    [lookupRecord],
-  );
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadCustomer() {
-      if (kind === 'lookup' || !customerId) {
-        setCustomerRecord(null);
-        setLedgerRecord(null);
-        return;
-      }
-
-      try {
-        const response = await customersControllerGetCustomerV1(
-          customerId,
-          createApiRequest({ csrf: true }),
-        );
-        if (!ignore && response.status === 200) {
-          setCustomerRecord(response.data.data);
-        }
-      } catch {
-        if (!ignore) setCustomerRecord(null);
-      }
-
-      try {
-        const response = await loyaltyControllerGetCustomerLedgerV1(
-          customerId,
-          { limit: '5', cursor: '' },
-          createApiRequest({ csrf: true }),
-        );
-        if (!ignore && response.status === 200) {
-          setLedgerRecord(response.data.data);
-        }
-      } catch {
-        if (!ignore) setLedgerRecord(null);
-      }
-    }
-
-    void loadCustomer();
-
-    return () => {
-      ignore = true;
-    };
-  }, [customerId, kind]);
 
 
   const lookupSummary: Array<[string, ReactNode]> = lookupRecord
@@ -283,70 +206,9 @@ export function CashierWorkflowRoute({
             ) : null}
           </article>
 
-          <article className="cashier-card" aria-label="Policy context">
-              <h2 style={{ marginTop: 0 }}>Policy context</h2>
-              <p className="cashier-muted">{policyMessage}</p>
-              {policyContext ? (
-                <div className="cashier-stat-list">
-                  {kind === 'earn' ? (
-                    <>
-                      <div className="cashier-stat-row">
-                        <span>Active earn rate</span>
-                        <strong>
-                          {(policyContext.defaultEarnRateBps ?? 0) / 100}%
-                        </strong>
-                      </div>
-                      <div className="cashier-stat-row">
-                        <span>Purchase review threshold</span>
-                        {typeof policyContext.purchaseFlagThresholdKobo ===
-                        'number' ? (
-                          <Money
-                            amountKobo={policyContext.purchaseFlagThresholdKobo}
-                          />
-                        ) : (
-                          'Not configured'
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="cashier-stat-row">
-                        <span>Minimum redemption</span>
-                        {typeof policyContext.minRedemptionKobo === 'number' ? (
-                          <Money amountKobo={policyContext.minRedemptionKobo} />
-                        ) : (
-                          'Not configured'
-                        )}
-                      </div>
-                      <div className="cashier-stat-row">
-                        <span>Basket limit</span>
-                        <strong>
-                          {policyContext.maxRedemptionBasketPercent ??
-                            'Not configured'}
-                          {typeof policyContext.maxRedemptionBasketPercent ===
-                          'number'
-                            ? '%'
-                            : ''}
-                        </strong>
-                      </div>
-                      {policyContext.offlineRedemptionDisabled ? (
-                        <Alert
-                          tone="warning"
-                          title="Offline redemption disabled"
-                        >
-                          Redemption requires a live server response.
-                        </Alert>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <Alert tone="warning" title="Policy unavailable">
-                  Active policy guidance is unavailable; the server remains
-                  authoritative for this transaction.
-                </Alert>
-              )}
-            </article>
+          <p className="cashier-workflow-notice" role="status">
+            {policyMessage}
+          </p>
         </div>
         </WorkflowSection>
       )}
@@ -379,87 +241,6 @@ export function CashierWorkflowRoute({
             />
           )}
         </article>
-      ) : null}
-
-      {kind !== 'lookup' ? (
-        <div className="cashier-workspace-grid cashier-support-grid">
-          <article className="cashier-card" aria-label="Customer detail">
-            <h2 style={{ marginTop: 0 }}>Customer detail</h2>
-            {customerRecord ? (
-              <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-                <div className="cashier-stat-row">
-                  <span>Name</span>
-                  <strong>
-                    {customerRecord.fullName ?? customerRecord.name ?? '—'}
-                  </strong>
-                </div>
-                <div className="cashier-stat-row">
-                  <span>Status</span>
-                  <StatusBadge
-                    label={customerRecord.status ?? 'UNKNOWN'}
-                    tone="info"
-                  />
-                </div>
-                <div className="cashier-stat-row">
-                  <span>Balance</span>
-                  <Money
-                    amountKobo={
-                      customerRecord.balanceKobo ??
-                      customerRecord.availableBalanceKobo ??
-                      0
-                    }
-                  />
-                </div>
-                <Separator />
-                <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-                  <strong>Recent ledger</strong>
-                  {Array.isArray(ledgerRecord?.items) &&
-                  ledgerRecord.items.length > 0 ? (
-                    ledgerRecord.items.slice(0, 4).map((item) => {
-                      const ledgerKey = String(
-                        item.id ?? item.type ?? item.transactionType ?? 'Entry',
-                      );
-                      return (
-                        <div key={ledgerKey} className="cashier-stat-row">
-                          <span>
-                            {item.type ?? item.transactionType ?? 'Entry'}
-                          </span>
-                          <span>
-                            {item.amountKobo ? (
-                              <Money amountKobo={item.amountKobo} />
-                            ) : (
-                              '—'
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="cashier-muted">
-                      Ledger history will appear once the customer is loaded.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <Alert tone="warning" title="No customer selected">
-                Lookup a card first to load customer balance and history.
-              </Alert>
-            )}
-          </article>
-
-          <aside
-            className="cashier-card cashier-support-note"
-            aria-label="Sync queue"
-          >
-            <h2 style={{ marginTop: 0 }}>Need to sync?</h2>
-            <p className="cashier-muted">
-              Queue state stays in the shell header. Open the operations page
-              when a batch needs review.
-            </p>
-            <Link href="/cashier/sync">Open sync queue</Link>
-          </aside>
-        </div>
       ) : null}
 
       <style>{`
