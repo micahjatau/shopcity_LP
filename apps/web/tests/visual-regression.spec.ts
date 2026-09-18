@@ -10,7 +10,8 @@ test.describe('visual regression gallery', () => {
     await page.locator('[data-od-id="login-page"]').waitFor();
     await page.addStyleTag({
       content:
-        '.login-page { min-height: 923px !important; height: 923px !important; }',
+        '.login-page { min-height: 923px !important; height: 923px !important; }\n' +
+        '.login-page__card { backdrop-filter: none !important; }',
     });
     await expect(page).toHaveScreenshot('visual-login-page.png');
   });
