@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   redemptionsControllerRedeemV1,
   type RedeemTransactionDto,
@@ -149,58 +149,10 @@ export function RedeemTransactionForm({
       : typeof lookupContext?.availableBalanceKobo === 'number'
         ? lookupContext.availableBalanceKobo
         : maxAllowedByBasketKobo;
-  const resultingBalanceKobo =
-    typeof lookupContext?.availableBalanceKobo === 'number' &&
-    requestedRedemption !== null
-      ? lookupContext.availableBalanceKobo - requestedRedemption
-      : null;
   const needsReview =
     typeof maxAllowedRedemptionKobo === 'number' &&
     requestedRedemption !== null &&
     requestedRedemption > maxAllowedRedemptionKobo;
-
-  const draftSummary = useMemo(
-    () => [
-      {
-        label: 'Card',
-        value: cardSerialNumber || 'Scan or type a card serial',
-      },
-      { label: 'Receipt', value: receiptNumber || 'Optional' },
-      { label: 'Cashier', value: cashierId || 'Current session' },
-      {
-        label: 'Branch',
-        value: branchId || lookupContext?.branchId || 'Current branch',
-      },
-      {
-        label: 'Basket',
-        value:
-          basketAmount === null ? (
-            'Enter basket amount'
-          ) : (
-            <Money amountKobo={basketAmount} />
-          ),
-      },
-      {
-        label: 'Requested',
-        value:
-          requestedRedemption === null ? (
-            'Enter redemption amount'
-          ) : (
-            <Money amountKobo={requestedRedemption} />
-          ),
-      },
-      { label: 'Draft key', value: idempotencyKeyRef.current.slice(0, 8) },
-    ],
-    [
-      basketAmount,
-      branchId,
-      cardSerialNumber,
-      cashierId,
-      lookupContext?.branchId,
-      receiptNumber,
-      requestedRedemption,
-    ],
-  );
 
   function resetDraft() {
     idempotencyKeyRef.current = createDraftKey();
@@ -297,6 +249,9 @@ export function RedeemTransactionForm({
         Use lookup first, verify the remaining balance and allowed redemption,
         then confirm the redemption.
       </Alert>
+      <p className="cashier-workflow-status" role="status">
+        {lookupReady ? 'Context ready' : 'Awaiting lookup'}
+      </p>
       {lookupContext ? (
         <Alert tone="success" title="Lookup context applied">
           {lookupContext.customerName ?? 'Customer'} is loaded.
@@ -314,31 +269,6 @@ export function RedeemTransactionForm({
           before submitting.
         </Alert>
       )}
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-2)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <StatusBadge
-          label={lookupReady ? 'Context ready' : 'Awaiting lookup'}
-          tone={lookupReady ? 'success' : 'warning'}
-        />
-        <StatusBadge
-          label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`}
-          tone="info"
-        />
-        {typeof maxAllowedRedemptionKobo === 'number' ? (
-          <StatusBadge
-            label={`Ceiling ${maxAllowedRedemptionKobo} kobo`}
-            tone="neutral"
-          />
-        ) : null}
-        {policyContext?.offlineRedemptionDisabled ? (
-          <StatusBadge label="Offline disabled" tone="danger" />
-        ) : null}
-      </div>
       <Input
         aria-label="Card serial number"
         placeholder="Look up a card first"
@@ -374,68 +304,6 @@ export function RedeemTransactionForm({
           setOccurredAt(new Date(event.target.value).toISOString())
         }
       />
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <strong>Draft summary</strong>
-        {draftSummary.map((item) => (
-          <div
-            key={item.label}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 'var(--sc-spacing-3)',
-            }}
-          >
-            <span>{item.label}</span>
-            <span>{item.value}</span>
-          </div>
-        ))}
-      </div>
-      <Table>
-        <tbody>
-          <tr>
-            <th scope="row">Minimum redemption</th>
-            <td>
-              {policyContext?.minRedemptionKobo ? (
-                <Money amountKobo={policyContext.minRedemptionKobo} />
-              ) : (
-                '—'
-              )}
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">Maximum allowed</th>
-            <td>
-              {typeof maxAllowedRedemptionKobo === 'number' ? (
-                <Money amountKobo={maxAllowedRedemptionKobo} />
-              ) : (
-                '—'
-              )}
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">Approval threshold</th>
-            <td>
-              {policyContext?.redemptionApprovalThresholdKobo ? (
-                <Money
-                  amountKobo={policyContext.redemptionApprovalThresholdKobo}
-                />
-              ) : (
-                '—'
-              )}
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">Resulting balance</th>
-            <td>
-              {typeof resultingBalanceKobo === 'number' ? (
-                <Money amountKobo={resultingBalanceKobo} />
-              ) : (
-                '—'
-              )}
-            </td>
-          </tr>
-        </tbody>
-      </Table>
       {needsReview ? (
         <Alert tone="warning" title="Review required">
           The requested redemption exceeds the current calculated maximum.

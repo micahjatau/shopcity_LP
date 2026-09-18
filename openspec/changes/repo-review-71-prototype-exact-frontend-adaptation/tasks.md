@@ -17,7 +17,7 @@
 - [ ] 3.1 Extract existing Earn behavior into `useEarnTransactionController` with the specified step, lookup, receipt, review, submission, reset, and notice view-model; verify controller unit tests cover transitions and invalid transitions.
 - [ ] 3.2 Preserve Earn card lookup, generated client, CSRF, idempotency, integer-kobo, device/actor/branch, timezone, receipt-week, duplicate, policy, approval, and offline logic; verify existing financial and offline tests remain green.
 - [ ] 3.3 Build the persistent prototype `data-od-id="capture-flow"` view with find/confirm/receipt/review/success nodes and accessible state transitions; verify route tests cover every state and focus behavior.
-- [ ] 3.4 Render confirmed, pending-approval, rejected, retry, and offline-saved outcomes through the prototype notice/success geometry; verify typed outcome and copy assertions.
+- [x] 3.4 Render confirmed, pending-approval, rejected, retry, and offline-saved outcomes through the prototype notice/success geometry; verify typed outcome and copy assertions.
 - [x] 3.5 Remove Policy Context, Customer Detail, Recent Ledger, and Need to Sync cards from Capture Purchase; record the approved omission of the prototype-only Till/cashier-reference input and verify no value is collected or discarded.
 
 ## 4. Redeem Credit
@@ -25,7 +25,7 @@
 - [ ] 4.1 Extract existing redemption behavior into `useRedeemTransactionController`; verify draft persistence, transitions, and reset behavior with unit tests.
 - [ ] 4.2 Preserve authoritative card lookup, balance, basket, minimum/ceiling policy, approval, CSRF, idempotency, offline policy, typed errors, and 201/202 outcomes; verify redemption contract and offline tests.
 - [ ] 4.3 Build the persistent prototype Redeem view with find, basket, amount, confirm, and success states and the exact two-column amount summary; verify route, geometry, and accessibility tests.
-- [ ] 4.4 Remove context, draft, ceiling, offline-disabled, policy-table, draft-summary, and alert cards; verify their authoritative information appears only in approved status, summary, confirmation, or success slots.
+- [x] 4.4 Remove context, draft, ceiling, offline-disabled, policy-table, draft-summary, and alert cards; verify their authoritative information appears only in approved status, summary, confirmation, or success slots.
 
 ## 5. Registration and Transactions
 

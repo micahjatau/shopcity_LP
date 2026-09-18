@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   loyaltyControllerEarnV1,
   type EarnTransactionDto,
@@ -156,32 +156,6 @@ export function EarnTransactionForm({
     purchaseAmount !== null &&
     purchaseAmount > 0,
   );
-  const approvalFlagThresholdKobo =
-    policyContext?.purchaseFlagThresholdKobo ?? null;
-  const approvalThresholdKobo =
-    policyContext?.purchaseApprovalThresholdKobo ?? null;
-
-  const draftSummary = useMemo(
-    () => [
-      {
-        label: 'Card',
-        value: cardSerialNumber || 'Scan or type a card serial',
-      },
-      { label: 'Receipt', value: receiptNumber || 'Required' },
-      {
-        label: 'Purchase',
-        value:
-          purchaseAmount === null ? (
-            'Enter an amount'
-          ) : (
-            <Money amountKobo={purchaseAmount} />
-          ),
-      },
-      { label: 'Draft key', value: idempotencyKeyRef.current.slice(0, 8) },
-    ],
-    [cardSerialNumber, purchaseAmount, receiptNumber],
-  );
-
   function resetDraft() {
     idempotencyKeyRef.current = createDraftKey();
     setCardSerialNumber('');
@@ -325,7 +299,16 @@ export function EarnTransactionForm({
     >
       <Alert tone="info" title="Review before submit">
         Use lookup first, confirm the customer context, then submit the earn.
+        {expectedCreditKobo !== null ? (
+          <>
+            {' '}
+            Expected credit: <Money amountKobo={expectedCreditKobo} />.
+          </>
+        ) : null}
       </Alert>
+      <p className="cashier-workflow-status" role="status">
+        {lookupReady ? 'Context ready' : 'Awaiting lookup'}
+      </p>
       {lookupContext ? (
         <Alert tone="success" title="Lookup context applied">
           {lookupContext.customerName ?? 'Customer'} is loaded.
@@ -350,28 +333,6 @@ export function EarnTransactionForm({
           before submitting.
         </Alert>
       )}
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-2)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <StatusBadge
-          label={lookupReady ? 'Context ready' : 'Awaiting lookup'}
-          tone={lookupReady ? 'success' : 'warning'}
-        />
-        <StatusBadge
-          label={`Draft ${idempotencyKeyRef.current.slice(0, 8)}`}
-          tone="info"
-        />
-        {policyContext?.defaultEarnRateBps ? (
-          <StatusBadge
-            label={`Earn ${policyContext.defaultEarnRateBps / 100}%`}
-            tone="neutral"
-          />
-        ) : null}
-      </div>
       <Input
         aria-label="Card serial number"
         placeholder="Look up a card first"
@@ -388,6 +349,7 @@ export function EarnTransactionForm({
         value={receiptNumber}
         onChange={(event) => setReceiptNumber(event.target.value)}
       />
+      {!receiptNumber ? <span className="cashier-workflow-hint">Required</span> : null}
       <MoneyInput
         label="Purchase amount"
         hint="Enter the purchase amount in naira"
@@ -409,58 +371,6 @@ export function EarnTransactionForm({
         onChange={(event) => setOverrideReason(event.target.value)}
         rows={3}
       />
-      <div style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <strong>Draft summary</strong>
-        {draftSummary.map((item) => (
-          <div
-            key={item.label}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 'var(--sc-spacing-3)',
-            }}
-          >
-            <span>{item.label}</span>
-            <span>{item.value}</span>
-          </div>
-        ))}
-      </div>
-      {policyContext ? (
-        <Table>
-          <tbody>
-            <tr>
-              <th scope="row">Expected credit</th>
-              <td>
-                {expectedCreditKobo === null ? (
-                  'Enter purchase amount'
-                ) : (
-                  <Money amountKobo={expectedCreditKobo} />
-                )}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">Flag threshold</th>
-              <td>
-                {approvalFlagThresholdKobo === null ? (
-                  '—'
-                ) : (
-                  <Money amountKobo={approvalFlagThresholdKobo} />
-                )}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">Approval threshold</th>
-              <td>
-                {approvalThresholdKobo === null ? (
-                  '—'
-                ) : (
-                  <Money amountKobo={approvalThresholdKobo} />
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </Table>
-      ) : null}
       <div
         style={{
           display: 'flex',
