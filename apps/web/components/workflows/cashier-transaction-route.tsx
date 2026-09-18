@@ -214,6 +214,15 @@ export function CashierWorkflowRoute({
     <section className="cashier-route-page">
       <ScannerContextScope context="lookup" />
       {routeHeader}
+      {kind !== 'lookup' ? (
+        <nav className="cashier-flow-steps" aria-label={`${title} steps`}>
+          <span>Find customer</span>
+          <i aria-hidden="true" />
+          <span>{kind === 'earn' ? 'Receipt details' : 'Basket subtotal'}</span>
+          <i aria-hidden="true" />
+          <span>{kind === 'earn' ? 'Review' : 'Confirm redemption'}</span>
+        </nav>
+      ) : null}
       {kind === 'lookup' ? (
         <FindCustomerView
           lookupValue={lookupValue}
@@ -343,7 +352,11 @@ export function CashierWorkflowRoute({
       )}
 
       {showTransactionForm ? (
-        <article className="cashier-card" aria-label={`${kind} transaction`}>
+        <article
+          className="cashier-card cashier-flow-panel"
+          aria-label={`${kind} transaction`}
+          data-od-id={kind === 'earn' ? 'capture-flow' : 'redeem-flow'}
+        >
           <h2 style={{ marginTop: 0 }}>
             {kind === 'earn' ? 'Earn transaction' : 'Redeem transaction'}
           </h2>
@@ -478,6 +491,23 @@ export function CashierWorkflowRoute({
           margin: 0;
         }
 
+        .cashier-flow-steps {
+          max-width: 860px;
+          width: 100%;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: var(--sc-prototype-muted);
+          font-size: 12px;
+        }
+
+        .cashier-flow-steps i {
+          flex: 1;
+          height: 1px;
+          background: var(--sc-prototype-border);
+        }
+
         .cashier-muted {
           color: var(--sc-color-semantic-textSecondary);
           margin: 0;
@@ -514,6 +544,12 @@ export function CashierWorkflowRoute({
           border-radius: 16px;
           padding: clamp(var(--sc-spacing-5), 3vw, var(--sc-spacing-7));
           box-shadow: none;
+        }
+
+        .cashier-flow-panel {
+          max-width: 860px;
+          width: 100%;
+          margin: 0 auto;
         }
 
         .cashier-card h2 {
