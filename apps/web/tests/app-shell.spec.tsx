@@ -106,8 +106,8 @@ describe('AppShell', () => {
     );
     expect(
       container.querySelector('.shell-context-line--secondary'),
-    ).toHaveTextContent('Workspace · Overview');
-    expect(screen.getByText('Device device-1')).toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /skip to content/i }),
     ).toHaveAttribute('href', '#shell-main-content');
@@ -141,16 +141,15 @@ describe('AppShell', () => {
     await waitFor(() => {
       expect(screen.getByText(/session ready/i)).toBeInTheDocument();
     });
-    expect(
-      screen.getByRole('button', { name: /expand sidebar/i }),
-    ).toBeInTheDocument();
     expect(document.querySelector('.shell-body')).toHaveClass(
       'shell-body--collapsed',
     );
-    expect(screen.getByText('Branch and device')).not.toBeVisible();
+    expect(
+      screen.queryByText('Branch and device'),
+    ).not.toBeInTheDocument();
   });
 
-  it('persists sidebar collapse toggles to the session store', async () => {
+  it('does not expose a sidebar collapse control', async () => {
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -171,13 +170,9 @@ describe('AppShell', () => {
       expect(screen.getByText(/session ready/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /collapse sidebar/i }));
-    expect(sessionStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
-      'true',
-    );
     expect(
-      screen.getByRole('button', { name: /expand sidebar/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /collapse sidebar|expand sidebar/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('defaults tablets to the collapsed rail when no preference is stored', async () => {

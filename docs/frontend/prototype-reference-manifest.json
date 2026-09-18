@@ -1,0 +1,48 @@
+{
+  "referenceSha": "410ecd75",
+  "referenceDirectory": "figmaExport",
+  "routes": {
+    "login": {
+      "route": "/login",
+      "reference": "figmaExport/Landing-1.png",
+      "viewport": [1440, 923],
+      "fixture": "unauthenticated-login"
+    },
+    "overview": {
+      "route": "/cashier",
+      "reference": "figmaExport/Overview.png",
+      "viewport": [1440, 923],
+      "fixture": "cashier-overview-bounded-feed"
+    },
+    "findCustomer": {
+      "route": "/cashier/lookup",
+      "reference": "figmaExport/Find-Customer.png",
+      "viewport": [1440, 923],
+      "fixture": "cashier-customer-discovery"
+    },
+    "capturePurchase": {
+      "route": "/cashier/earn",
+      "reference": "figmaExport/Capture-Purchase.png",
+      "viewport": [1440, 923],
+      "fixture": "cashier-earn-verified-card"
+    },
+    "redeemCredit": {
+      "route": "/cashier/redeem",
+      "reference": "figmaExport/Redeem-Credit.png",
+      "viewport": [1440, 923],
+      "fixture": "cashier-redeem-verified-card"
+    },
+    "registerCustomer": {
+      "route": "/supervisor/customers",
+      "reference": "figmaExport/Register-New-Customer.png",
+      "viewport": [1440, 923],
+      "fixture": "supervisor-customer-registration"
+    },
+    "transactions": {
+      "route": "/supervisor/transactions",
+      "reference": "figmaExport/Transactions.png",
+      "viewport": [1440, 923],
+      "fixture": "bounded-transactions"
+    }
+  }
+}

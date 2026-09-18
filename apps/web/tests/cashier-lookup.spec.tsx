@@ -80,15 +80,13 @@ describe('Cashier lookup workflow', () => {
   it('renders the Figma-aligned cashier overview activity dashboard', async () => {
     render(<CashierOverviewLookup />);
 
-    expect(
-      screen.getByRole('heading', { name: "Today's Activity" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Today's Activity")).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Recent Transactions' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Search recent transactions' }),
-    ).toHaveValue('Search');
+      screen.getByRole('searchbox', { name: 'Search recent transactions' }),
+    ).toHaveValue('');
 
     await waitFor(() => {
       expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
@@ -96,6 +94,20 @@ describe('Cashier lookup workflow', () => {
       );
     });
     expect(cardsControllerLookupCardV1).not.toHaveBeenCalled();
+  });
+
+  it('filters the bounded activity feed locally by receipt number', async () => {
+    render(<CashierOverviewLookup />);
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search recent transactions',
+    });
+    await screen.findByText('#1831');
+    fireEvent.change(search, { target: { value: 'missing' } });
+
+    expect(screen.queryByText('#1831')).not.toBeInTheDocument();
+    expect(screen.getByText('No matching transactions.')).toBeInTheDocument();
+    expect(reportsControllerListCashierTodayV1).toHaveBeenCalledTimes(1);
   });
 
   it('renders authenticated cashier activity', async () => {
@@ -204,19 +216,19 @@ describe('Cashier lookup workflow', () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Customer search' }), {
       target: { value: 'CARD-001' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Lookup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     await waitFor(() => {
       expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: 'Earn' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Capture Purchase' })).toHaveAttribute(
       'href',
       '/cashier/earn?card=CARD-001',
     );
-    expect(screen.getByRole('link', { name: 'Redeem' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Redeem Credit' })).toHaveAttribute(
       'href',
       '/cashier/redeem?card=CARD-001',
     );

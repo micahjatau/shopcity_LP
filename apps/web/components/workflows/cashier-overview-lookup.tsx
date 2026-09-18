@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import {
   reportsControllerListCashierTodayV1,
   type ReportsControllerListCashierTodayV1200DataItemsItem,
@@ -15,6 +16,7 @@ export function CashierOverviewLookup() {
     TodayTransaction[] | null
   >(null);
   const [todayMessage, setTodayMessage] = useState('Loading today’s activity…');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -45,6 +47,16 @@ export function CashierOverviewLookup() {
   }, []);
 
   const loadedTransactions = todayTransactions ?? [];
+  const visibleTransactions = useMemo(() => {
+    const loaded = todayTransactions ?? [];
+    const normalizedSearch = search.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return loaded;
+    }
+    return loaded.filter((transaction) =>
+      transaction.receiptNumber?.toLowerCase().includes(normalizedSearch),
+    );
+  }, [search, todayTransactions]);
   const earnTransactions = loadedTransactions.filter(
     (transaction) => transaction.operation === 'EARN',
   );
@@ -61,10 +73,13 @@ export function CashierOverviewLookup() {
       className="cashier-overview-lookup"
       aria-labelledby="cashier-today-title"
     >
-      <h2 className="section-label" id="cashier-today-title">
+      <p className="section-label" id="cashier-today-title">
         Today&apos;s Activity
-      </h2>
-      <div className="cashier-metrics">
+      </p>
+      <p className="cashier-overview-notice" role="status">
+        {todayMessage}
+      </p>
+      <div className="cashier-metrics" data-od-id="activity-metrics">
         <article className="cashier-metric">
           <div className="metric-label">Receipts loaded</div>
           <div className="metric-value">{loadedTransactions.length || '—'}</div>
@@ -93,10 +108,14 @@ export function CashierOverviewLookup() {
         </article>
       </div>
 
-      <section className="cashier-today-card" aria-labelledby="recent-heading">
+      <section
+        className="cashier-today-card"
+        aria-labelledby="recent-heading"
+        data-od-id="recent-transactions"
+      >
         <div className="table-head">
           <div>
-            <h3 id="recent-heading">Recent Transactions</h3>
+            <h2 id="recent-heading">Recent Transactions</h2>
             {todayMessage ? (
               <p className="cashier-muted">{todayMessage}</p>
             ) : (
@@ -108,13 +127,15 @@ export function CashierOverviewLookup() {
           <label className="table-search">
             <span aria-hidden="true">⌕</span>
             <input
-              readOnly
+              type="search"
               aria-label="Search recent transactions"
-              value="Search"
+              placeholder="Search receipt"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
             />
           </label>
         </div>
-        {todayTransactions?.length ? (
+        {visibleTransactions.length ? (
           <div className="table-wrap">
             <table className="cashier-table">
               <thead>
@@ -127,7 +148,7 @@ export function CashierOverviewLookup() {
                 </tr>
               </thead>
               <tbody>
-                {todayTransactions.map((transaction) => (
+                {visibleTransactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td>#{transaction.receiptNumber}</td>
                     <td>{transaction.operation}</td>
@@ -167,18 +188,32 @@ export function CashierOverviewLookup() {
             </table>
           </div>
         ) : todayTransactions ? (
-          <p className="cashier-empty">No transactions recorded today.</p>
+          <p className="cashier-empty">
+            {search ? 'No matching transactions.' : 'No transactions recorded today.'}
+          </p>
         ) : null}
+        <div className="table-foot">
+          <span>{visibleTransactions.length} loaded transaction{visibleTransactions.length === 1 ? '' : 's'}</span>
+          <Link href="/supervisor/transactions">View all transactions →</Link>
+        </div>
       </section>
 
       <style>{`
         .cashier-overview-lookup {
           display: grid;
           gap: 22px;
+          max-width: 1120px;
+          margin: 0 auto;
+        }
+
+        .cashier-overview-notice {
+          margin: -8px 0 0;
+          color: var(--sc-color-semantic-textSecondary);
+          font-size: 14px;
         }
 
         .cashier-overview-lookup h2,
-        .cashier-today-card h3 {
+        .cashier-today-card h2 {
           margin: 0;
         }
 
@@ -238,6 +273,20 @@ export function CashierOverviewLookup() {
           gap: 0;
           overflow: hidden;
           padding: 16px;
+        }
+
+        .table-foot {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 14px 8px 0;
+          color: var(--sc-color-semantic-textSecondary);
+          font-size: 12px;
+        }
+
+        .table-foot a {
+          color: var(--sc-color-brand-700);
+          font-weight: 600;
         }
 
         .table-head {

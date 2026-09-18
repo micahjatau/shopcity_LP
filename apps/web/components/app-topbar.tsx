@@ -1,5 +1,4 @@
 import type { RefObject } from 'react';
-import { ConnectionStatus, SyncQueueIndicator } from './offline';
 
 export type AppTopbarContext = {
   tenant?: { id?: string; name?: string };
@@ -16,13 +15,8 @@ export type AppTopbarProps = Readonly<{
   sessionLabel: string | null;
   configMessage: string;
   workspaceLabel: string;
-  activeSectionLabel: string;
   routeTrailLabel: string;
-  pageTitle: string;
   deviceLabel: string | null;
-  context: AppTopbarContext;
-  showProtectedContent: boolean;
-  onLogout: () => void;
   onOpenMobileMenu: () => void;
   mobileMenuButtonRef: RefObject<HTMLButtonElement | null>;
 }>;
@@ -32,13 +26,8 @@ export function AppTopbar({
   sessionLabel,
   configMessage,
   workspaceLabel,
-
   routeTrailLabel,
-
   deviceLabel,
-  context,
-  showProtectedContent,
-  onLogout,
   onOpenMobileMenu,
   mobileMenuButtonRef,
 }: AppTopbarProps) {
@@ -68,16 +57,13 @@ export function AppTopbar({
           <span className="shell-online" title={configMessage}>
             <i aria-hidden="true" /> System Online
           </span>
-          <ConnectionStatus />
-          <SyncQueueIndicator />
           <button
             type="button"
             className="shell-icon-button"
-            aria-label="Notifications unavailable"
-            disabled
-            title="Notifications are not enabled for this pilot"
+            aria-label="Notifications"
+            title="Notifications"
           >
-            ●
+            <span aria-hidden="true">●</span>
           </button>
           <span
             className="shell-avatar"
@@ -85,11 +71,6 @@ export function AppTopbar({
           >
             {sessionLabel?.slice(0, 2).toUpperCase() ?? 'SC'}
           </span>
-          {showProtectedContent ? (
-            <button type="button" onClick={onLogout} className="shell-signout">
-              Sign out
-            </button>
-          ) : null}
           <button
             type="button"
             ref={mobileMenuButtonRef}
@@ -101,23 +82,19 @@ export function AppTopbar({
         </div>
       </div>
 
-      <p className="shell-context-strip shell-context-line--secondary">
-        {context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'} ·{' '}
-        {context?.branch?.timezone ?? 'Timezone pending'} · {routeTrailLabel} ·{' '}
-        <span>{deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}</span>
-      </p>
 
       <style>{`
         .shell-topbar {
-          height: auto;
+          height: 64px;
           min-height: 64px;
           background: var(--sc-color-neutral-0);
           color: var(--sc-color-neutral-900);
           border: 1px solid var(--sc-color-semantic-border);
           border-radius: 16px;
-          display: grid;
-          gap: 6px;
-          padding: 8px 16px;
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          padding: 0 16px;
           margin-bottom: 42px;
         }
 
@@ -126,7 +103,6 @@ export function AppTopbar({
           gap: 20px;
           align-items: center;
           justify-content: flex-end;
-          flex-wrap: wrap;
           width: 100%;
         }
 
@@ -156,7 +132,6 @@ export function AppTopbar({
         .shell-topbar-actions {
           display: flex;
           gap: 20px;
-          flex-wrap: wrap;
           align-items: center;
           justify-content: flex-end;
         }

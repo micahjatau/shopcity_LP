@@ -12,7 +12,7 @@ export type AppSidebarProps = Readonly<{
   branchLabel: string;
   branchTimezone: string;
   isCollapsed: boolean;
-  onToggleCollapse: () => void;
+  onLogout: () => void;
 }>;
 
 export function AppSidebar({
@@ -22,7 +22,7 @@ export function AppSidebar({
   branchLabel,
   branchTimezone,
   isCollapsed,
-  onToggleCollapse,
+  onLogout,
 }: AppSidebarProps) {
   return (
     <aside
@@ -44,23 +44,6 @@ export function AppSidebar({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="shell-sidebar-toggle"
-          onClick={onToggleCollapse}
-          aria-pressed={isCollapsed}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <span aria-hidden="true" className="shell-sidebar-toggle-icon">
-            <ShellNavigationIcon
-              name={isCollapsed ? 'chevron-right' : 'chevron-left'}
-            />
-          </span>
-          <span className="shell-sidebar-toggle-label">
-            {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          </span>
-        </button>
       </div>
 
       <nav aria-label="Primary navigation" className="shell-nav">
@@ -110,9 +93,15 @@ export function AppSidebar({
       </nav>
 
       <div className="shell-sidebar-footer">
-        <p className="shell-sidebar-footer-label">Branch and device</p>
-        <div className="shell-sidebar-footer-meta">{branchLabel}</div>
-        <div className="shell-sidebar-footer-meta">{branchTimezone}</div>
+        <a href="/help" className="shell-sidebar-footer-link">
+          Help &amp; Training
+        </a>
+        <button type="button" className="shell-sidebar-footer-link" onClick={onLogout}>
+          Logout
+        </button>
+        <span className="shell-sidebar-footer-meta" aria-hidden="true">
+          {branchLabel} · {branchTimezone}
+        </span>
       </div>
 
       <style>{`
@@ -231,8 +220,27 @@ export function AppSidebar({
         }
 
         .shell-sidebar-footer-meta {
+          display: block;
+          margin-top: 8px;
           font-size: var(--sc-font-size-sm);
           opacity: 0.9;
+        }
+
+        .shell-sidebar-footer-link {
+          display: block;
+          width: 100%;
+          padding: 6px 0;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .shell-sidebar-footer-link:hover,
+        .shell-sidebar-footer-link:focus-visible {
+          text-decoration: underline;
         }
 
         .shell-nav {

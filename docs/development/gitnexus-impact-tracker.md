@@ -11,6 +11,8 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+| 2026-09-17 | Repo review 71 prototype-exact cashier adaptation | HIGH | 4 | 4 | `CashierWorkflowRoute` affects `CashierEarnPage`, `CashierLookupPage`, and `CashierRedeemPage` across 3 execution processes. Exact GitNexus impact: 4 direct dependants, 3 processes, 1 module. Proceed only with focused route/workflow regression coverage and preserve the extracted business logic while replacing presentational JSX. |
+
 | 2026-09-17 | Prototype integration baseline surfaces | LOW–MEDIUM | 4–22 per symbol | 2–4 | Pre-implementation impact review covered `ConfigurationService` (LOW, 4), `RedemptionPolicyService` (LOW, 22), `LoyaltyService` (MEDIUM, 17), `FraudRulesService` (LOW, 3), and `RedemptionsService` (LOW, 5). Financial policy consumers require focused regression tests; no HIGH/CRITICAL result was returned for this change surface. |
 
 | Date       | Symbol                                                               |     Risk | Impacted | Direct Dependants | Notes                                                                                                                                                                                                                       |

@@ -68,6 +68,7 @@ walk(source.motion, ['motion']);
 walk(source.breakpoint, ['breakpoint']);
 walk(source.zIndex, ['z-index']);
 walk(source.shadow, ['shadow']);
+walk(source.prototype, ['prototype']);
 
 for (const [name, value] of cssVars) {
   lines.push(`  ${name}: ${value};`);

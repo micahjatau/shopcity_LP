@@ -143,7 +143,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     sections.some((section) =>
       section.items.some((item) => matchShellRoute(pathname, item)),
     );
-  const activeSection = getActiveShellNavigationSection(pathname, sections);
   const navigationTrail = getShellNavigationTrail(pathname, sections);
   const workspaceLabel = getShellWorkspaceLabel(role, status);
   const routeTrailLabel =
@@ -263,19 +262,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [closeMobileNavigation, mobileNavigationOpen]);
 
-  function handleToggleSidebar() {
-    setSidebarCollapsed((current) => {
-      const next = !current;
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(
-          'shopcity:shell:sidebar-collapsed',
-          String(next),
-        );
-      }
-      return next;
-    });
-  }
-
   async function handleLogout() {
     try {
       await logoutSession();
@@ -314,22 +300,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         Skip to content
       </Link>
       <div ref={shellFrameRef} className="shell-frame">
-        <AppTopbar
-          status={status}
-          sessionLabel={sessionLabel}
-          configMessage={configMessage}
-          workspaceLabel={workspaceLabel}
-          activeSectionLabel={activeSection?.label ?? 'Section pending'}
-          routeTrailLabel={routeTrailLabel}
-          pageTitle={pageTitle}
-          deviceLabel={deviceId}
-          context={context}
-          showProtectedContent={showProtectedContent}
-          mobileMenuButtonRef={mobileMenuButtonRef}
-          onLogout={() => void handleLogout()}
-          onOpenMobileMenu={() => setMobileNavigationOpen(true)}
-        />
-
         <div
           className={`shell-body${sidebarCollapsed ? ' shell-body--collapsed' : ''}`}
         >
@@ -342,8 +312,20 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             }
             branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
             isCollapsed={sidebarCollapsed}
-            onToggleCollapse={handleToggleSidebar}
+            onLogout={() => void handleLogout()}
           />
+
+          <div className="shell-main-column">
+            <AppTopbar
+              status={status}
+              sessionLabel={sessionLabel}
+              configMessage={configMessage}
+              workspaceLabel={workspaceLabel}
+              routeTrailLabel={routeTrailLabel}
+              deviceLabel={deviceId}
+              mobileMenuButtonRef={mobileMenuButtonRef}
+              onOpenMobileMenu={() => setMobileNavigationOpen(true)}
+            />
 
           <main id="shell-main-content" tabIndex={-1} className="shell-main">
             <BrowserStateBootstrap />
@@ -373,6 +355,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
               </section>
             )}
           </main>
+          </div>
         </div>
       </div>
 
@@ -565,17 +548,21 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           grid-template-columns: 76px minmax(0, 1fr);
         }
 
+        .shell-main-column {
+          min-width: 0;
+        }
+
         .shell-sidebar {
           position: sticky;
-          top: var(--sc-spacing-4);
+          top: 0;
           display: grid;
           gap: var(--sc-spacing-4);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 24px;
+          border: 0;
+          border-radius: 0;
           background: linear-gradient(160deg, #5b0000 0%, var(--sc-color-brand-700) 70%, #8f2608 100%);
           color: var(--sc-color-neutral-0);
-          padding: var(--sc-spacing-4);
-          box-shadow: 0 18px 42px rgba(75, 0, 0, 0.18);
+          padding: 28px 12px 22px;
+          box-shadow: none;
         }
 
         .shell-root--cashier .shell-sidebar {

@@ -378,3 +378,123 @@
   color: var(--sc-color-semantic-textSecondary);
   font-size: var(--sc-font-size-sm);
 }
+
+/* Prototype-compatible production primitives. Keep layout decisions in views,
+   while centralizing the approved reference geometry and visual language. */
+.sc-operational-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sc-prototype-shellWidth) minmax(0, 1fr);
+  background: var(--sc-prototype-canvas);
+  color: var(--sc-prototype-foreground);
+}
+
+.sc-sidebar {
+  min-height: 100vh;
+  padding: 28px 12px 22px;
+}
+
+.sc-main {
+  min-width: 0;
+  padding: 16px 24px 40px;
+}
+
+.sc-topbar {
+  min-height: var(--sc-prototype-topbarHeight);
+  margin-bottom: 42px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: var(--sc-prototype-flowPanelRadius);
+  background: var(--sc-prototype-surface);
+}
+
+.sc-page-head {
+  max-width: var(--sc-prototype-contentMaxWidth);
+  margin: 0 auto 30px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.sc-page-head h1 {
+  margin: 0;
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.sc-page-head p {
+  margin: 8px 0 0;
+  color: var(--sc-prototype-muted);
+}
+
+.sc-flow-steps {
+  max-width: 860px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--sc-prototype-muted);
+  font-size: 12px;
+}
+
+.sc-flow-panel {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 40px 40px;
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: var(--sc-prototype-flowPanelRadius);
+  background: var(--sc-prototype-surface);
+}
+
+.sc-status {
+  margin: 0 0 20px;
+  color: var(--sc-prototype-muted);
+}
+
+.sc-status[data-tone='error'] {
+  color: var(--sc-color-danger-strong);
+}
+
+.sc-status[data-tone='success'] {
+  color: var(--sc-color-success-strong);
+}
+
+.sc-table-card {
+  max-width: var(--sc-prototype-contentMaxWidth);
+  margin: 0 auto;
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: var(--sc-prototype-flowPanelRadius);
+  background: var(--sc-prototype-surface);
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .sc-operational-shell {
+    display: block;
+  }
+
+  .sc-sidebar {
+    min-height: auto;
+  }
+
+  .sc-main {
+    padding: 12px 16px 28px;
+  }
+
+  .sc-topbar,
+  .sc-page-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sc-flow-panel {
+    padding: 24px 20px 28px;
+  }
+}

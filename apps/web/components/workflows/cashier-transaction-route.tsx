@@ -298,13 +298,20 @@ export function CashierWorkflowRoute({
     <section className="cashier-route-page">
       <ScannerContextScope context="lookup" />
       {routeHeader}
-      <WorkflowSection
-        title={kind === 'lookup' ? 'Find a customer' : 'Find customer context'}
-        description={
-          kind === 'lookup'
-            ? 'Scan or enter a card serial, then continue with the smallest task that matches the customer need.'
-            : 'Look up the card first. The transaction form unlocks when the server confirms the customer context.'
-        }
+      {kind === 'lookup' ? (
+        <FindCustomerView
+          lookupValue={lookupValue}
+          lookupMessage={lookupMessage}
+          lookupPending={lookupPending}
+          lookupRecord={lookupRecord}
+          onLookup={(event) => void handleLookup(event)}
+          onQueryChange={setLookupValue}
+          selectedCardSerial={selectedCardSerial}
+        />
+      ) : (
+        <WorkflowSection
+        title="Find customer context"
+        description="Look up the card first. The transaction form unlocks when the server confirms the customer context."
       >
         <div className="cashier-workspace-grid">
           <article className="cashier-card" aria-label="Lookup and status">
@@ -335,20 +342,6 @@ export function CashierWorkflowRoute({
                   </div>
                 ))}
                 <div className="cashier-tag-row">
-                  {kind === 'lookup' && selectedCardSerial ? (
-                    <>
-                      <Link
-                        href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
-                      >
-                        Earn
-                      </Link>
-                      <Link
-                        href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
-                      >
-                        Redeem
-                      </Link>
-                    </>
-                  ) : null}
                   <StatusBadge
                     label={lookupRecord.status ?? 'LOOKUP'}
                     tone="success"
@@ -365,8 +358,7 @@ export function CashierWorkflowRoute({
             ) : null}
           </article>
 
-          {kind !== 'lookup' ? (
-            <article className="cashier-card" aria-label="Policy context">
+          <article className="cashier-card" aria-label="Policy context">
               <h2 style={{ marginTop: 0 }}>Policy context</h2>
               <p className="cashier-muted">{policyMessage}</p>
               {policyContext ? (
@@ -430,9 +422,9 @@ export function CashierWorkflowRoute({
                 </Alert>
               )}
             </article>
-          ) : null}
         </div>
-      </WorkflowSection>
+        </WorkflowSection>
+      )}
 
       {showTransactionForm ? (
         <article className="cashier-card" aria-label={`${kind} transaction`}>
@@ -633,7 +625,199 @@ export function CashierWorkflowRoute({
           gap: var(--sc-spacing-3);
           align-items: center;
         }
+
+        .find-customer-view {
+          display: grid;
+          gap: 18px;
+          max-width: 1080px;
+          margin: 0 auto;
+        }
+
+        .find-customer-search,
+        .find-customer-recent {
+          max-width: 712px;
+          width: 100%;
+          margin: 0 auto;
+          padding: 16px 24px 17px;
+          border: 1px solid var(--sc-prototype-border);
+          border-radius: 16px;
+          background: var(--sc-prototype-surface);
+        }
+
+        .find-customer-search-row {
+          display: grid;
+          grid-template-columns: 1fr 160px 160px;
+          gap: 9px;
+          align-items: center;
+        }
+
+        .find-customer-query {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .find-customer-query .sc-input {
+          min-height: 33px;
+        }
+
+        .find-customer-hint,
+        .find-customer-notice,
+        .find-customer-recent p,
+        .find-customer-empty,
+        .find-customer-row span {
+          color: var(--sc-prototype-muted);
+          font-size: 12px;
+        }
+
+        .find-customer-hint,
+        .find-customer-notice {
+          margin: 10px 0 0;
+        }
+
+        .find-customer-notice {
+          max-width: 712px;
+          width: 100%;
+          margin-inline: auto;
+        }
+
+        .find-customer-recent {
+          min-height: 398px;
+          padding: 16px 23px;
+        }
+
+        .find-customer-recent h2 {
+          margin: 0;
+          font-size: 18px;
+        }
+
+        .find-customer-list {
+          display: grid;
+          gap: 9px;
+          margin-top: 18px;
+        }
+
+        .find-customer-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: center;
+          padding: 14px 18px;
+          border-radius: 13px;
+          background: var(--sc-color-neutral-50);
+        }
+
+        .find-customer-row > div:first-child {
+          display: grid;
+          gap: 4px;
+        }
+
+        .find-customer-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .find-customer-actions a {
+          color: var(--sc-color-brand-700);
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        @media (max-width: 767px) {
+          .find-customer-search-row {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
     </section>
+  );
+}
+
+function FindCustomerView({
+  lookupValue,
+  lookupMessage,
+  lookupPending,
+  lookupRecord,
+  onLookup,
+  onQueryChange,
+  selectedCardSerial,
+}: Readonly<{
+  lookupValue: string;
+  lookupMessage: string;
+  lookupPending: boolean;
+  lookupRecord: CashierLookupRecord | null;
+  onLookup: (event: FormEvent<HTMLFormElement>) => void;
+  onQueryChange: (value: string) => void;
+  selectedCardSerial: string;
+}>) {
+  return (
+    <div className="find-customer-view">
+      <section className="find-customer-search" data-od-id="customer-search">
+        <form onSubmit={onLookup}>
+          <div className="find-customer-search-row">
+            <label className="find-customer-query" htmlFor="customer-search-query">
+              <span aria-hidden="true">⌕</span>
+              <Input
+                id="customer-search-query"
+                type="search"
+                aria-label="Customer search"
+                placeholder="Phone, card serial or name"
+                value={lookupValue}
+                onChange={(event) => onQueryChange(event.target.value)}
+              />
+            </label>
+            <Button type="submit" disabled={lookupPending}>
+              {lookupPending ? 'Searching…' : 'Search'}
+            </Button>
+            <Button type="button" variant="secondary">
+              Scan
+            </Button>
+          </div>
+          <p className="find-customer-hint">
+            Press enter or select Search to look up a customer.
+          </p>
+        </form>
+      </section>
+
+      <p className="find-customer-notice" role="status">
+        {lookupMessage}
+      </p>
+
+      <section className="find-customer-recent">
+        <div>
+          <h2>Recent customers</h2>
+          <p>Customers served most recently at this branch.</p>
+        </div>
+        <div className="find-customer-list">
+          {lookupRecord ? (
+            <div className="find-customer-row">
+              <div>
+                <strong>
+                  {lookupRecord.customer?.fullName ??
+                    lookupRecord.customerName ??
+                    'Customer'}
+                </strong>
+                <span>
+                  {lookupRecord.customer?.maskedPhone ?? selectedCardSerial}
+                </span>
+              </div>
+              <div className="find-customer-actions">
+                <Link href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}>
+                  Capture Purchase
+                </Link>
+                <Link href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}>
+                  Redeem Credit
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <p className="find-customer-empty">
+              Search for a customer to continue a loyalty transaction.
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
