@@ -36,7 +36,7 @@
 
 ## 6. Login and view-model boundaries
 
-- [ ] 6.1 Separate login rendering from session behavior and implement the prototype auth DOM at the canonical `1440x923` reference viewport; verify login screenshot and accessibility tests.
+- [x] 6.1 Separate login rendering from session behavior and implement the prototype auth DOM at the canonical `1440x923` reference viewport; verify login screenshot and accessibility tests.
 - [x] 6.2 Keep role selection informational only and preserve backend session issuance, role routing, recovery, logout, and expiry behavior; verify role-boundary and session tests.
 - [x] 6.3 Audit all migrated view-models to ensure they expose no CSRF tokens, session cookies, database IDs, raw API errors, device IDs, branch IDs, DTO construction, or receipt-week internals; verify with focused type/test assertions.
 
@@ -45,5 +45,5 @@
 - [ ] 7.1 Add screenshot comparison coverage for every manifest route with deterministic fixtures and approved dynamic masks; verify static/chrome mismatch is below 1%.
 - [ ] 7.2 Add `data-od-id` DOM geometry comparisons for position, size, padding, gap, radius, typography, colors, and borders; verify the specified tolerances.
 - [x] 7.3 Add and review the approved visual-deviation registry, including registration contract differences and omitted Till/cashier reference; verify every deviation has a reason and replacement.
-- [ ] 7.4 Run focused CashierWorkflowRoute regression coverage across Earn, Lookup, and Redeem, then run frontend lint, typecheck, unit/a11y, affected Playwright, build, and Semgrep checks; verify all required gates pass.
+- [x] 7.4 Run focused CashierWorkflowRoute regression coverage across Earn, Lookup, and Redeem, then run frontend lint, typecheck, unit/a11y, affected Playwright, build, and Semgrep checks; verify all required gates pass.
 - [ ] 7.5 Run GitNexus `detect_changes()` and inspect the final diff/status for expected symbols and flows only; verify no unrelated dirty files were modified.

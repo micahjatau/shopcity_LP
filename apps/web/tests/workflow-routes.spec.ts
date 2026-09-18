@@ -100,16 +100,15 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${baseUrl}/cashier/lookup?card=CARD-001`);
 
-    const lookup = page.getByRole('textbox', { name: 'Lookup' });
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await expect(lookup).toHaveValue('CARD-001');
     await lookup.press('Enter');
     await expect(page.getByText('Ada Shopper')).toBeVisible();
-    const lookupCard = page.getByLabel('Lookup and status');
     await expect(
-      lookupCard.getByRole('link', { name: 'Earn' }),
+      page.getByRole('link', { name: 'Capture Purchase' }),
     ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
     await expect(
-      lookupCard.getByRole('link', { name: 'Redeem' }),
+      page.getByRole('link', { name: 'Redeem Credit' }),
     ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
     await page.locator('main').evaluate((main) => {
       main.style.height = '836px';
@@ -126,9 +125,9 @@ test.describe('workflow route coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${baseUrl}/cashier/lookup`);
 
-    const lookup = page.getByRole('textbox', { name: 'Lookup' });
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await lookup.fill('UNKNOWN-CARD');
-    await page.getByRole('button', { name: 'Lookup' }).click();
+    await page.getByRole('button', { name: 'Search' }).click();
     await expect(page.getByText('Lookup unavailable (404).')).toBeVisible();
   });
 
@@ -139,8 +138,8 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/lookup`);
     await page.context().setOffline(true);
 
-    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
-    await page.getByRole('button', { name: 'Lookup' }).click();
+    await page.getByRole('searchbox', { name: 'Customer search' }).fill('CARD-001');
+    await page.getByRole('button', { name: 'Search' }).click();
     await expect(
       page.getByText('Lookup unavailable offline. Reconnect to try again.'),
     ).toBeVisible();
