@@ -1,0 +1,42 @@
+name: Format prototype topbar fix
+on:
+  push:
+    branches:
+      - fix/prototype-topbar-customer-lookup
+    paths:
+      - .github/workflows/format-prototype-topbar-fix.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Format affected files
+        run: |
+          npx prettier --write \
+            'apps/web/app/(shell)/profile/page.tsx' \
+            apps/web/components/app-shell.tsx \
+            apps/web/components/app-topbar.tsx \
+            apps/web/components/global-shell-search.tsx \
+            apps/web/components/workflows/cashier-transaction-route.tsx \
+            apps/web/components/workflows/use-cashier-lookup-controller.ts \
+            apps/web/components/workflows/verified-card-lookup-step.tsx \
+            apps/web/tests/workflow-routes.spec.ts \
+            apps/web/tests/global-shell-search.spec.tsx \
+            apps/web/tests/contract-flows.spec.ts
+      - name: Commit formatting and remove temporary workflow
+        run: |
+          git config user.name 'ShopCity CI Formatter'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/format-prototype-topbar-fix.yml
+          git add apps/web
+          git commit -m 'style(web): format prototype topbar and lookup fixes'
+          git push
