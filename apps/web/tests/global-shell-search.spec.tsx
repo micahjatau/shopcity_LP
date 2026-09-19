@@ -36,6 +36,7 @@ describe('GlobalShellSearch', () => {
 
   it('limits Cashier categories and debounces customer discovery', async () => {
     render(<GlobalShellSearch userRole="CASHIER" />);
+    fireEvent.focus(screen.getByRole('combobox'));
     expect(
       screen.getByRole('button', { name: 'Customers' }),
     ).toBeInTheDocument();
@@ -63,6 +64,7 @@ describe('GlobalShellSearch', () => {
       data: { data: { serialNumber: 'CARD-001', customerName: 'Ada Shopper' } },
     } as never);
     render(<GlobalShellSearch userRole="CASHIER" />);
+    fireEvent.focus(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'CARD-001' },
@@ -81,6 +83,7 @@ describe('GlobalShellSearch', () => {
 
   it('exposes the cashier category to Supervisor/Admin only', () => {
     render(<GlobalShellSearch userRole="SUPERVISOR" />);
+    fireEvent.focus(screen.getByRole('combobox'));
     expect(
       screen.getByRole('button', { name: 'Cashiers' }),
     ).toBeInTheDocument();
