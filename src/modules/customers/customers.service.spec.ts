@@ -190,6 +190,32 @@ describe('CustomersService', () => {
     });
   });
 
+  it('finds locally entered Nigerian phone numbers against normalized E.164 records', async () => {
+    const findMany = jest.fn().mockResolvedValue([customerRecord()]);
+    const prisma = { customer: { findMany } };
+    const service = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+
+    await service.listCustomers(
+      'tenant-id',
+      actorStub(UserRole.CASHIER),
+      '08012345678',
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: 'tenant-id',
+          OR: expect.arrayContaining([
+            { phoneE164: { contains: '+2348012345678' } },
+          ]),
+        }),
+      }),
+    );
+  });
   it('audits privileged full customer reads', async () => {
     const prisma = {
       customer: {
