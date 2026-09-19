@@ -1,3 +1,6 @@
+import { Bell } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 import type { RefObject } from 'react';
 import { GlobalShellSearch } from './global-shell-search';
 
@@ -24,40 +27,38 @@ export type AppTopbarProps = Readonly<{
 }>;
 
 export function AppTopbar({
-  status,
   sessionLabel,
-  configMessage,
   workspaceLabel,
-  deviceLabel,
   role,
   onOpenMobileMenu,
   mobileMenuButtonRef,
 }: AppTopbarProps) {
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const username = sessionLabel?.split(' · ').at(-1) ?? 'ShopCity user';
+  const initials = username.slice(0, 2).toUpperCase();
+
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
         <GlobalShellSearch userRole={role} />
 
         <div className="shell-topbar-actions">
-          <p data-status={status} className="shell-session-label sr-only">
-            {status === 'loading'
-              ? 'Checking session…'
-              : status === 'ready'
-                ? `Session ready${sessionLabel ? ` · ${sessionLabel}` : ''}`
-                : status === 'unauthenticated'
-                  ? 'Sign in required'
-                  : 'Session check unavailable'}
-          </p>
-          <p className="sr-only">
-            {deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}
-          </p>
-
-          <span
-            className="shell-avatar"
-            aria-label={sessionLabel ?? 'Signed in user'}
-          >
-            {sessionLabel?.slice(0, 2).toUpperCase() ?? 'SC'}
-          </span>
+          <div className="shell-notifications">
+            <button type="button" className="shell-icon-button" aria-label="Notifications"
+              aria-expanded={notificationsOpen} aria-controls="shell-notifications-panel"
+              onClick={() => setNotificationsOpen((current) => !current)}>
+              <Bell aria-hidden="true" size={18} strokeWidth={1.8} />
+            </button>
+            {notificationsOpen ? (
+              <div id="shell-notifications-panel" className="shell-notifications-panel" role="status">
+                <strong>Notifications</strong>
+                <p>An in-app notification inbox is not available in this release.</p>
+              </div>
+            ) : null}
+          </div>
+          <Link href="/profile" className="shell-avatar" aria-label="View user profile" title="View user profile">
+            {initials || 'SC'}
+          </Link>
           <button
             type="button"
             ref={mobileMenuButtonRef}
@@ -94,10 +95,16 @@ export function AppTopbar({
 
         .shell-topbar-actions {
           display: flex;
-          gap: 20px;
+          gap: 16px;
           align-items: center;
           justify-content: flex-end;
+          flex: none;
         }
+        .shell-notifications { position: relative; }
+        .shell-icon-button { display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: transparent; color: var(--sc-color-neutral-900); cursor: pointer; }
+        .shell-icon-button:hover, .shell-icon-button:focus-visible { background: var(--sc-color-neutral-50); }
+        .shell-notifications-panel { position: absolute; right: 0; top: calc(100% + 12px); z-index: 10; width: min(280px, 78vw); padding: 16px; border: 1px solid var(--sc-color-semantic-border); border-radius: 16px; background: var(--sc-color-neutral-0); box-shadow: var(--sc-shadow-level2); font-size: 13px; }
+        .shell-notifications-panel p { margin: 8px 0 0; white-space: normal; color: var(--sc-color-semantic-textSecondary); }
 
         .shell-avatar {
           width: 34px;
@@ -109,7 +116,10 @@ export function AppTopbar({
           color: var(--sc-color-neutral-0);
           font-weight: 700;
           font-size: 12px;
+          text-decoration: none;
+          flex: none;
         }
+        .shell-avatar:hover, .shell-avatar:focus-visible { outline: 2px solid var(--sc-color-brand-700); outline-offset: 3px; }
 
         .shell-signout,
         .shell-mobile-menu-button {
@@ -143,9 +153,7 @@ export function AppTopbar({
             gap: 8px;
           }
 
-          .shell-topbar-actions {
-            min-width: 0;
-          }
+          .shell-topbar-actions { gap: 8px; }
 
           .shell-mobile-menu-button {
             display: inline-flex;
