@@ -507,12 +507,10 @@ export function CashierWorkflowRoute({
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         }
 
-        .cashier-route-page > section:first-of-type {
-          max-width: 712px;
-          justify-self: center;
+        .cashier-stage-container {
           width: 100%;
-          border-radius: 16px !important;
-          box-shadow: none !important;
+          max-width: 860px;
+          justify-self: center;
         }
 
         .cashier-support-note {
@@ -528,7 +526,7 @@ export function CashierWorkflowRoute({
           box-shadow: none;
         }
 
-        .cashier-route-page--earn > section:first-of-type {
+        .cashier-route-page--earn > .cashier-earn-stage {
           gap: 24px !important;
           padding: clamp(28px, 4vw, 38px) !important;
         }
