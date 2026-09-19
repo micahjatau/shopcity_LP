@@ -150,7 +150,7 @@ test.describe('contract-faithful frontend flows', () => {
     await earn.getByLabel('Occurred at').fill('2030-01-01T12:00');
     await earn.getByRole('button', { name: 'Proceed to review' }).click();
     await earn.getByRole('button', { name: 'Confirm & add credit' }).click();
-    await expect(earn).toContainText(/earn confirmed/i);
+    await expect(earn).toContainText(/purchase captured and credit added/i);
 
     await page.goto('/cashier/redeem');
     await expect(
@@ -172,7 +172,9 @@ test.describe('contract-faithful frontend flows', () => {
       .getByRole('button', { name: 'Proceed to confirmation' })
       .click();
     await redeem.getByRole('button', { name: 'Confirm redemption' }).click();
-    await expect(redeem).toContainText(/redemption awaiting approval/i);
+    await expect(redeem).toContainText(
+      /redemption submitted and waiting for approval/i,
+    );
   });
 
   test('loads supervisor approvals and admin reports from contract-shaped responses', async ({
