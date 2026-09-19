@@ -140,14 +140,16 @@ test.describe('contract-faithful frontend flows', () => {
       page.getByRole('heading', { name: /capture purchase/i }),
     ).toBeVisible();
 
-    const earn = page.getByRole('article', { name: /earn transaction/i });
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
-    await page.getByRole('button', { name: 'Lookup' }).click();
-    await expect(earn).toContainText('Ada Shopper');
+    await page.getByRole('button', { name: 'Search customer' }).click();
+    await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    const earn = page.getByRole('article', { name: /earn transaction/i });
     await earn.getByLabel('POS receipt number').fill('RCPT-123');
     await earn.getByLabel('Purchase amount').fill('1,234.50');
     await earn.getByLabel('Occurred at').fill('2030-01-01T12:00');
-    await earn.getByRole('button', { name: /submit earn/i }).click();
+    await earn.getByRole('button', { name: 'Proceed to review' }).click();
+    await earn.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(earn).toContainText(/earn confirmed/i);
 
     await page.goto('/cashier/redeem');
@@ -155,17 +157,21 @@ test.describe('contract-faithful frontend flows', () => {
       page.getByRole('heading', { name: /redeem credit/i }),
     ).toBeVisible();
 
-    const redeem = page.getByRole('article', { name: /redeem transaction/i });
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
     await page.getByRole('button', { name: 'Lookup' }).click();
-    await expect(redeem).toContainText('Ada Shopper');
+    await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue to redemption' }).click();
+    const redeem = page.getByRole('article', { name: /redeem transaction/i });
     await redeem.getByLabel('POS receipt number').fill('RCPT-124');
     await redeem.getByLabel('Basket amount').fill('1,000.00');
     await redeem.getByLabel('Basket amount').blur();
     await redeem.getByLabel('Requested redemption').fill('50.00');
     await redeem.getByLabel('Requested redemption').blur();
     await redeem.getByLabel('Occurred at').fill('2030-01-01T12:00');
-    await redeem.getByRole('button', { name: /submit redemption/i }).click();
+    await redeem
+      .getByRole('button', { name: 'Proceed to confirmation' })
+      .click();
+    await redeem.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(redeem).toContainText(/redemption awaiting approval/i);
   });
 
