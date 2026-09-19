@@ -185,7 +185,7 @@ test.describe('workflow route coverage', () => {
       await page.reload();
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
       await page.getByRole('button', { name: 'Search customer' }).click();
-      await expect(page.getByText(/Lookup unavailable \(503\)/)).toBeVisible();
+      await expect(page.getByText(/Card verification unavailable \(503\)/)).toBeVisible();
       await expect(page).toHaveScreenshot(
         `financial-lookup-${kind}-error.png`,
         {
@@ -393,7 +393,7 @@ test.describe('workflow route coverage', () => {
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await lookup.fill('UNKNOWN-CARD');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.getByText('Lookup unavailable (404).')).toBeVisible();
+    await expect(page.getByText(/Customer search is unavailable on this deployment/)).toBeVisible();
   });
 
   test('shows an explicit offline lookup failure without claiming resolution', async ({
@@ -408,7 +408,7 @@ test.describe('workflow route coverage', () => {
       .fill('CARD-001');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(
-      page.getByText('Lookup unavailable offline. Reconnect to try again.'),
+      page.getByText('Customer lookup requires a connection. Reconnect to try again.'),
     ).toBeVisible();
   });
 
