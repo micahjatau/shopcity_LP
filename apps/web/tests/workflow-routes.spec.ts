@@ -41,6 +41,93 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('repairs sidebar geometry, collapse state, and mobile drawer access', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier`);
+    const sidebar = page.locator('.shell-sidebar');
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await page.waitForTimeout(300);
+    await page.mouse.move(600, 500);
+    await expect(page).toHaveScreenshot('sidebar-expanded-desktop.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(244);
+
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await page.waitForTimeout(300);
+    await page.mouse.move(600, 500);
+    await expect(
+      page.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(page).toHaveScreenshot('sidebar-collapsed-desktop.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    expect(Math.round((await sidebar.boundingBox())?.width ?? 0)).toBe(76);
+    await expect(page.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'title',
+      'Overview',
+    );
+    await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
+
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await page.getByRole('button', { name: 'Expand sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await expect(
+      page.getByRole('link', { name: 'Find Customer Lookup' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await page.waitForTimeout(300);
+    await expect(page).toHaveScreenshot('sidebar-collapsed-tablet.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(1024);
+
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.getByRole('button', { name: 'Expand sidebar' }).click();
+    await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+      await page
+        .locator('.shell-body')
+        .evaluate((element) => getComputedStyle(element).transitionDuration),
+    ).toBe('0s');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(sidebar).toBeHidden();
+    await page.getByRole('button', { name: 'Menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Primary navigation' });
+    await expect(drawer).toBeVisible();
+    await expect(
+      drawer.getByRole('link', { name: /help & training/i }),
+    ).toBeVisible();
+    await expect(drawer.getByRole('button', { name: 'Logout' })).toBeVisible();
+    await expect(page).toHaveScreenshot('sidebar-mobile-drawer.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Menu' })).toBeFocused();
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+  });
+
   test('opens and closes the cashier transaction detail modal without unsupported fields', async ({
     page,
   }) => {

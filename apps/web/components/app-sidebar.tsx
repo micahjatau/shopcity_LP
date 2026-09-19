@@ -1,4 +1,9 @@
-import { CircleHelp, LogOut } from 'lucide-react';
+import {
+  CircleHelp,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ShellNavigationSection } from './shell-navigation';
@@ -13,6 +18,7 @@ export type AppSidebarProps = Readonly<{
   branchLabel: string;
   branchTimezone: string;
   isCollapsed: boolean;
+  onToggleCollapse: () => void;
   onLogout: () => void;
 }>;
 
@@ -23,6 +29,7 @@ export function AppSidebar({
   branchLabel,
   branchTimezone,
   isCollapsed,
+  onToggleCollapse,
   onLogout,
 }: AppSidebarProps) {
   return (
@@ -44,6 +51,19 @@ export function AppSidebar({
             <div className="shell-sidebar-brand-subtitle">SUPERMARKET</div>
           </div>
         </div>
+        <button
+          type="button"
+          className="shell-sidebar-toggle"
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={onToggleCollapse}
+        >
+          {isCollapsed ? (
+            <PanelLeftOpen aria-hidden="true" size={18} strokeWidth={1.8} />
+          ) : (
+            <PanelLeftClose aria-hidden="true" size={18} strokeWidth={1.8} />
+          )}
+        </button>
       </div>
 
       <nav aria-label="Primary navigation" className="shell-nav">
@@ -117,6 +137,7 @@ export function AppSidebar({
           display: flex;
           flex-direction: column;
           min-height: 100vh;
+          min-width: 0;
           gap: var(--sc-spacing-4);
           border-radius: 0;
           background: var(--sc-color-brand-700);
@@ -280,6 +301,7 @@ export function AppSidebar({
         }
 
         .shell-nav-link {
+          position: relative;
           display: flex;
           align-items: center;
           gap: 14px;
@@ -327,10 +349,8 @@ export function AppSidebar({
         }
 
         .shell-sidebar--collapsed .shell-sidebar-brand-subtitle,
-        .shell-sidebar--collapsed .shell-sidebar-footer,
         .shell-sidebar--collapsed .shell-nav-section-label,
-        .shell-sidebar--collapsed .shell-nav-link-label,
-        .shell-sidebar--collapsed .shell-nav-badge {
+        .shell-sidebar--collapsed .shell-nav-link-label {
           display: none;
         }
 
@@ -340,7 +360,39 @@ export function AppSidebar({
 
         .shell-sidebar--collapsed .shell-nav-link {
           justify-content: center;
+          min-height: 44px;
           padding: 10px;
+        }
+
+        .shell-sidebar--collapsed .shell-nav-badge {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          min-width: 16px;
+          padding: 1px 4px;
+          font-size: 10px;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-footer-link {
+          justify-content: center;
+          min-height: 44px;
+          padding-inline: 0;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-footer-link span {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        .shell-sidebar--collapsed .shell-sidebar-footer-meta {
+          display: none;
         }
 
         .shell-sidebar--collapsed .shell-nav-link-icon {
@@ -349,13 +401,15 @@ export function AppSidebar({
         }
 
         .shell-sidebar-toggle:focus-visible,
+        .shell-sidebar-footer-link:focus-visible,
         .shell-nav-link:focus-visible {
           outline: 3px solid var(--sc-color-warning-300);
           outline-offset: 3px;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .shell-nav-link {
+          .shell-nav-link,
+          .shell-sidebar {
             transition: none;
           }
         }

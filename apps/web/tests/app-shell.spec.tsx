@@ -46,6 +46,7 @@ describe('AppShell', () => {
     mockGetOfflineEarnRecordCount.mockReset();
     mockSubscribeOfflineQueue.mockReset();
     sessionStorage.clear();
+    localStorage.clear();
     invalidatePublicConfigCache();
     mockGetPublicConfig.mockResolvedValue({
       status: 200,
@@ -150,7 +151,7 @@ describe('AppShell', () => {
     expect(screen.queryByText('Branch and device')).not.toBeInTheDocument();
   });
 
-  it('does not expose a sidebar collapse control', async () => {
+  it('toggles and persists the accessible sidebar collapse control', async () => {
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -171,29 +172,24 @@ describe('AppShell', () => {
       expect(screen.getByText(/session ready/i)).toBeInTheDocument();
     });
 
+    const collapseButton = screen.getByRole('button', {
+      name: 'Collapse sidebar',
+    });
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(collapseButton);
     expect(
-      screen.queryByRole('button', {
-        name: /collapse sidebar|expand sidebar/i,
-      }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(
+      screen.getByRole('button', { name: 'Collapse sidebar' }),
+    ).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('defaults tablets to the collapsed rail when no preference is stored', async () => {
-    const originalMatchMedia = window.matchMedia;
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: jest.fn().mockImplementation((query: string) => ({
-        matches: query.includes('768px') && query.includes('1199px'),
-        media: query,
-        onchange: null,
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        dispatchEvent: jest.fn(),
-      })),
-    });
-
+  it('keeps the expanded layout at tablet width unless the user collapses it', async () => {
     mockBootstrapSession.mockResolvedValueOnce({
       user: {
         id: 'u1',
@@ -213,14 +209,9 @@ describe('AppShell', () => {
     await waitFor(() => {
       expect(screen.getByText(/session ready/i)).toBeInTheDocument();
     });
-    expect(document.querySelector('.shell-body')).toHaveClass(
+    expect(document.querySelector('.shell-body')).not.toHaveClass(
       'shell-body--collapsed',
     );
-
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: originalMatchMedia,
-    });
   });
 
   it('keeps the drawer focus trapped and the shell inert while open', async () => {
@@ -250,10 +241,17 @@ describe('AppShell', () => {
       true,
     );
 
-    const navLinks = within(drawer).getAllByRole('link');
-    const lastLink = navLinks[navLinks.length - 1];
+    expect(
+      within(drawer).getByRole('link', { name: /help & training/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole('button', { name: 'Logout' }),
+    ).toBeInTheDocument();
+    const lastFocusable = within(drawer).getByRole('button', {
+      name: 'Logout',
+    });
     fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
-    expect(lastLink).toHaveFocus();
+    expect(lastFocusable).toHaveFocus();
 
     fireEvent.click(document.querySelector('.shell-mobile-overlay') as Element);
     await waitFor(() => {

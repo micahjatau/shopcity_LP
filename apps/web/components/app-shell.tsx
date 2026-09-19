@@ -165,16 +165,11 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     let mounted = true;
 
     if (typeof window !== 'undefined') {
-      const stored = window.sessionStorage.getItem(
-        'shopcity:shell:sidebar-collapsed',
-      );
-      if (stored !== null) {
+      const stored =
+        window.localStorage.getItem('shopcity:shell:sidebar-collapsed') ??
+        window.sessionStorage.getItem('shopcity:shell:sidebar-collapsed');
+      if (stored === 'true' || stored === 'false') {
         setSidebarCollapsed(stored === 'true');
-      } else if (
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(min-width: 768px) and (max-width: 1199px)').matches
-      ) {
-        setSidebarCollapsed(true);
       }
     }
 
@@ -202,6 +197,21 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
       mounted = false;
       unsubscribe();
     };
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      window.localStorage.setItem(
+        'shopcity:shell:sidebar-collapsed',
+        String(next),
+      );
+      window.sessionStorage.setItem(
+        'shopcity:shell:sidebar-collapsed',
+        String(next),
+      );
+      return next;
+    });
   }, []);
 
   const sections = useMemo(
@@ -418,6 +428,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             }
             branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
             isCollapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
             onLogout={() => void handleLogout()}
           />
 
@@ -513,6 +524,18 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
               onNavigate={closeMobileNavigation}
             />
             <div className="shell-mobile-drawer-footer">
+              <a href="/help" className="shell-mobile-drawer-action">
+                <span aria-hidden="true">?</span>
+                Help &amp; Training
+              </a>
+              <button
+                type="button"
+                className="shell-mobile-drawer-action"
+                onClick={() => void handleLogout()}
+              >
+                <span aria-hidden="true">↪</span>
+                Logout
+              </button>
               <span>
                 {context?.branch?.name ??
                   context?.branch?.id ??
@@ -644,6 +667,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         .shell-body {
           display: grid;
           grid-template-columns: 244px minmax(0, 1fr);
+          transition: grid-template-columns 220ms ease;
           gap: 0;
           align-items: start;
           max-width: none;
@@ -658,20 +682,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
         .shell-main-column {
           min-width: 0;
         }
-
-        .shell-sidebar {
-          position: sticky;
-          top: 0;
-          display: grid;
-          gap: var(--sc-spacing-4);
-          border: 0;
-          border-radius: 0;
-          background: var(--sc-color-brand-700);
-          color: var(--sc-color-neutral-0);
-          padding: 28px 12px 22px;
-          box-shadow: none;
-        }
-
 
         .shell-main {
           min-width: 0;
@@ -768,9 +778,28 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
         .shell-mobile-drawer-footer {
           display: grid;
-          gap: 2px;
+          gap: var(--sc-spacing-2);
           border-top: 1px solid rgba(255, 255, 255, 0.16);
           padding-top: var(--sc-spacing-3);
+        }
+
+        .shell-mobile-drawer-action {
+          display: flex;
+          align-items: center;
+          gap: var(--sc-spacing-2);
+          min-height: 44px;
+          border: 0;
+          border-radius: var(--sc-radius-md);
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          text-decoration: none;
+          text-align: left;
+        }
+
+        .shell-mobile-drawer-action:focus-visible {
+          outline: 3px solid var(--sc-color-warning-300);
+          outline-offset: 3px;
         }
 
         @media (max-width: 767px) {
@@ -795,58 +824,11 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             padding: 12px;
           }
 
-          .shell-sidebar {
-            display: none;
-          }
         }
 
-        @media (min-width: 768px) and (max-width: 1199px) {
-          .shell-body,
-          .shell-body--collapsed {
-            grid-template-columns: 84px minmax(0, 1fr);
-          }
-
-          .shell-sidebar {
-            gap: var(--sc-spacing-3);
-            padding-inline: var(--sc-spacing-3);
-          }
-
-          .shell-sidebar-brand-subtitle,
-          .shell-sidebar-footer,
-          .shell-nav-section-label,
-          .shell-nav-link-label,
-          .shell-nav-badge {
-            display: none;
-          }
-
-          .shell-sidebar-brand-title {
-            display: none;
-          }
-
-          .shell-sidebar-brand-row {
-            flex-direction: column;
-            align-items: center;
-          }
-
-          .shell-sidebar-toggle {
-            width: 2.5rem;
-            height: 2.5rem;
-            justify-content: center;
-            padding: 0;
-          }
-
-          .shell-sidebar-toggle-label {
-            display: none;
-          }
-
-          .shell-nav-link {
-            justify-content: center;
-            padding: 10px;
-          }
-
-          .shell-nav-link-icon {
-            width: 1.1rem;
-            height: 1.1rem;
+        @media (prefers-reduced-motion: reduce) {
+          .shell-body {
+            transition: none;
           }
         }
       `}</style>
