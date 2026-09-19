@@ -174,12 +174,18 @@ test.describe('workflow route coverage', () => {
       await input.fill(query);
       await page.getByRole('button', { name: 'Search customer' }).click();
       await expect(
-        page.getByText(/Customer found\. Scan or enter their active card serial/),
+        page.getByText(
+          /Customer found\. Scan or enter their active card serial/,
+        ),
       ).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Confirm customer' })).toHaveCount(0);
+      await expect(
+        page.getByRole('heading', { name: 'Confirm customer' }),
+      ).toHaveCount(0);
       await input.fill('CARD-PAIR');
       await page.getByRole('button', { name: 'Search customer' }).click();
-      await expect(page.getByRole('heading', { name: 'Confirm customer' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Confirm customer' }),
+      ).toBeVisible();
     }
   });
 
@@ -189,13 +195,19 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'CASHIER');
     await page.goto(baseUrl + '/cashier');
     const topbar = page.locator('.shell-topbar');
-    await expect(topbar.getByRole('button', { name: 'Notifications' })).toBeVisible();
-    await expect(topbar.getByRole('link', { name: 'View user profile' })).toBeVisible();
+    await expect(
+      topbar.getByRole('button', { name: 'Notifications' }),
+    ).toBeVisible();
+    await expect(
+      topbar.getByRole('link', { name: 'View user profile' }),
+    ).toBeVisible();
     await expect(topbar).not.toContainText('Device pending');
     await expect(topbar).not.toContainText('Session ready');
     await topbar.getByRole('link', { name: 'View user profile' }).click();
     await expect(page).toHaveURL(/\/profile$/);
-    await expect(page.getByRole('heading', { name: 'User profile' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'User profile' }),
+    ).toBeVisible();
   });
   test('keeps Capture Purchase and Redeem lookup states visually paired', async ({
     page,

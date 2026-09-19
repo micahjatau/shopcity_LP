@@ -663,9 +663,7 @@ function customerSearchWhere(
 ): Prisma.CustomerWhereInput {
   const term = normalizedQuery?.trim();
   const phoneSearch =
-    term && /^\+?[\d\s()-]{7,}$/.test(term)
-      ? normalizePhoneToE164(term)
-      : null;
+    term && /^\+?[\d\s()-]{7,}$/.test(term) ? normalizePhoneToE164(term) : null;
   return {
     tenantId,
     ...(term
