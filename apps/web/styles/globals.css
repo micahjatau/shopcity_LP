@@ -114,11 +114,6 @@ button {
   margin: 0 auto;
 }
 
-.login-page__header img {
-  width: clamp(138px, 14vw, 172px);
-  height: auto;
-}
-
 .login-page__rule {
   height: 1px;
   flex: 1;
@@ -265,7 +260,7 @@ button {
   width: 132px;
   min-width: 132px;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: white;
   text-decoration: none;
 }

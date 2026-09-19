@@ -45,7 +45,15 @@ export function LoginForm() {
         return;
       }
 
-      const role = response.data.data.user.role;
+      const role = response.data?.data?.user?.role;
+      if (!role) {
+        setStatus('error');
+        setMessage(
+          'Sign in succeeded, but the session response was incomplete. Please try again.',
+        );
+        return;
+      }
+
       if (role === 'SYSTEM') {
         setStatus('error');
         setMessage(
@@ -56,6 +64,9 @@ export function LoginForm() {
 
       setStatus('success');
       router.replace(routeByRole[role] ?? '/cashier');
+      // Re-run the protected shell's session bootstrap after the login cookie
+      // has been written by the API proxy.
+      router.refresh();
     } catch {
       setStatus('error');
       setMessage('Sign in failed. The session service is unavailable.');

@@ -20,6 +20,31 @@ test.describe('visual regression gallery', () => {
       'height',
       '1px',
     );
+    await expect(page.locator('[data-od-id="login-heading"]')).toHaveText(
+      'Staff sign in',
+    );
+    await expect(page.locator('[data-od-id="brand-link"]')).toBeVisible();
+    await expect(
+      page.locator('[data-od-id="role-selector"] input'),
+    ).toHaveCount(4);
+    expect(page.viewportSize()).toEqual({ width: 1440, height: 923 });
+    const loginGeometry = await page
+      .locator('[data-od-id="login-page"]')
+      .boundingBox();
+    expect(loginGeometry?.width).toBe(1440);
+    expect(loginGeometry?.height).toBeGreaterThanOrEqual(923);
+    const buttonRhythm = await page
+      .locator('button:visible')
+      .evaluateAll((buttons) =>
+        buttons.map((button) => {
+          const style = getComputedStyle(button);
+          return { display: style.display, whiteSpace: style.whiteSpace };
+        }),
+      );
+    for (const button of buttonRhythm) {
+      expect(['flex', 'inline-flex', 'grid']).toContain(button.display);
+      expect(button.whiteSpace).toBe('nowrap');
+    }
     await expect(page).toHaveScreenshot('visual-login-page.png');
   });
 
