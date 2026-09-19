@@ -252,16 +252,18 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   const isAuthorizedRoute =
     status === 'ready' &&
     role !== 'SYSTEM' &&
-    sections.some((section) =>
-      section.items.some((item) => matchShellRoute(pathname, item)),
-    );
+    (pathname === '/profile' ||
+      (role === 'CASHIER' && pathname === '/cashier/customers') ||
+      sections.some((section) =>
+        section.items.some((item) => matchShellRoute(pathname, item)),
+      ));
   const navigationTrail = getShellNavigationTrail(pathname, sections);
   const workspaceLabel = getShellWorkspaceLabel(role, status);
   const routeTrailLabel =
     navigationTrail.labels.length > 0
       ? navigationTrail.labels.join(' · ')
       : 'Route pending';
-  const pageTitle = `${
+  const pageTitle = pathname === '/profile' ? 'My Profile · ShopCity' : `${
     navigationTrail.labels.length > 0
       ? navigationTrail.labels.join(' · ')
       : workspaceLabel
