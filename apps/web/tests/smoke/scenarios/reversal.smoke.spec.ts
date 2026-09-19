@@ -63,7 +63,7 @@ test('Supervisor reverses a confirmed Earn and preserves its original evidence',
     );
     await cashier.getByRole('button', { name: /submit earn/i }).click();
     await expect(
-      cashier.getByText('Earn confirmed by backend contract.', { exact: true }),
+      cashier.getByText('Purchase captured and credit added.', { exact: true }),
     ).toBeVisible();
     const earnPayload = await (await earnResponse).json();
     const earnData = responseData(earnPayload);

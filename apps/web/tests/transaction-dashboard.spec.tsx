@@ -11,6 +11,10 @@ jest.mock('../lib/api/generated-client', () => ({
 }));
 
 describe('TransactionDashboard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('filters bounded activity and loads authoritative detail', async () => {
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
       status: 200,
@@ -62,11 +66,94 @@ describe('TransactionDashboard', () => {
     });
     fireEvent.click(screen.getByText('R-001'));
     await waitFor(() =>
-      expect(screen.getByText('customer-1')).toBeInTheDocument(),
+      expect(screen.getByRole('dialog', { name: 'R-001' })).toBeInTheDocument(),
     );
+    expect(screen.getByRole('dialog')).toHaveTextContent('txn-1');
+    expect(screen.queryByText('customer-1')).not.toBeInTheDocument();
     expect(loyaltyControllerGetTransactionV1).toHaveBeenCalledWith(
       'txn-1',
       expect.anything(),
     );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('contains focus and ignores stale detail responses', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              id: 'txn-1',
+              receiptNumber: 'R-001',
+              operation: 'EARN',
+              status: 'APPROVED',
+              loyaltyAmountKobo: 500,
+              occurredAt: '2026-01-01T10:00:00.000Z',
+            },
+            {
+              id: 'txn-2',
+              receiptNumber: 'R-002',
+              operation: 'REDEEM',
+              status: 'PENDING',
+              loyaltyAmountKobo: null,
+              occurredAt: '2026-01-01T11:00:00.000Z',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    let resolveFirst!: (value: unknown) => void;
+    let resolveSecond!: (value: unknown) => void;
+    const firstDetail = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondDetail = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+    jest
+      .mocked(loyaltyControllerGetTransactionV1)
+      .mockReturnValueOnce(firstDetail as never)
+      .mockReturnValueOnce(secondDetail as never);
+
+    render(<TransactionDashboard />);
+    await waitFor(() => expect(screen.getByText('R-001')).toBeInTheDocument());
+    const firstRow = screen.getByText('R-001').closest('tr');
+    expect(firstRow).not.toBeNull();
+    firstRow!.focus();
+    fireEvent.click(firstRow!);
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(document.activeElement).toHaveAccessibleName(
+      'Close transaction detail',
+    );
+
+    const secondRow = screen.getByText('R-002').closest('tr');
+    expect(secondRow).not.toBeNull();
+    fireEvent.click(secondRow!);
+    resolveFirst({
+      status: 200,
+      data: { data: { transactionId: 'txn-1', state: 'POSTED' } },
+    });
+    resolveSecond({
+      status: 200,
+      data: { data: { transactionId: 'txn-2', state: 'PENDING' } },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('dialog')).toHaveTextContent('txn-2'),
+    );
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('txn-1');
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toHaveAccessibleName(
+      'Close transaction detail',
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(secondRow));
   });
 });

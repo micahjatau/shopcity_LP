@@ -199,7 +199,7 @@ export function CashierOverviewLookup() {
             {visibleTransactions.length} loaded transaction
             {visibleTransactions.length === 1 ? '' : 's'}
           </span>
-          <Link href="/supervisor/transactions">View all transactions →</Link>
+          <Link href="/cashier/transactions">View all transactions →</Link>
         </div>
       </section>
 

@@ -17,7 +17,7 @@ import {
   updateOfflineEarnRecord,
   type OfflineEarnRecord,
 } from '../../../../lib/browser/offline-earn-queue';
-import { Alert, Button, Input, Table } from '../../../../components/ui';
+import { Alert, Button, Input, Select, Table } from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
 export default function CashierSyncPage() {
@@ -30,6 +30,8 @@ export default function CashierSyncPage() {
   >([]);
   const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
   const [clearConfirmation, setClearConfirmation] = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [actionResponse, setActionResponse] = useState<Record<
     string,
     unknown
@@ -72,6 +74,19 @@ export default function CashierSyncPage() {
     }),
     [records],
   );
+
+  const filteredRecords = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return records.filter((record) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        [record.localId, record.cardBarcode, record.receiptNumber]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(normalizedSearch));
+      const matchesStatus = !statusFilter || record.syncState === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [records, search, statusFilter]);
 
   const selectedPreview = selectedRecord
     ? [
@@ -159,9 +174,9 @@ export default function CashierSyncPage() {
               lastError:
                 result.errorCode ??
                 (result.status === 'RETRYABLE'
-                  ? 'Retry required by backend'
+                  ? 'Retry required'
                   : result.status === 'REJECTED'
-                    ? 'Rejected by backend'
+                    ? 'Rejected'
                     : null),
               serverTransactionId: result.transactionId,
               serverApprovalId: result.approvalId,
@@ -210,28 +225,28 @@ export default function CashierSyncPage() {
   return (
     <section style={layoutGrid}>
       <header style={headerGrid}>
-        <h1 style={{ margin: 0 }}>Sync queue</h1>
+        <h1 style={{ margin: 0 }}>Sync Queue</h1>
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
         >
-          Review local offline earn records, then submit a batch for
-          reconciliation.
+          Review transactions saved while offline, then send them when the
+          connection is ready.
         </p>
         <p
           style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
         >
-          Queue recovery stays in this route.
+          Confirmed transactions remain available until you clear them.
         </p>
       </header>
 
-      <Alert tone="info" title="Sync route context">
-        This queue view is for local offline earn records, batch reconciliation,
-        and retry cleanup.
+      <Alert tone="info" title="Offline transaction queue">
+        Transactions saved without a connection stay on this device until they
+        are sent and confirmed by ShopCity.
       </Alert>
 
       <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Batch controls</h2>
-        <div style={controlRow}>
+        <h2 style={{ marginTop: 0 }}>Sync actions</h2>
+        <div className="cashier-sync-actions" style={controlRow}>
           <Input
             aria-label="Device ID"
             placeholder="Authenticated device"
@@ -241,8 +256,12 @@ export default function CashierSyncPage() {
           <Button onClick={() => void refresh()} variant="secondary">
             Refresh
           </Button>
-          <Button onClick={() => void syncBatch()} loading={busy}>
-            Submit batch
+          <Button
+            aria-label="Submit batch"
+            onClick={() => void syncBatch()}
+            loading={busy}
+          >
+            Sync waiting transactions
           </Button>
         </div>
         <p style={muted}>{message}</p>
@@ -250,8 +269,7 @@ export default function CashierSyncPage() {
           Device ID: {deviceId || 'Unavailable until device-bound login'}
         </p>
         <p style={muted}>
-          Batchable records will be sent in a single backend reconciliation
-          request.
+          Waiting and retryable transactions are sent together for confirmation.
         </p>
       </section>
 
@@ -320,25 +338,28 @@ export default function CashierSyncPage() {
           <h2 style={{ marginTop: 0 }}>Backend response</h2>
           <p style={muted}>
             {actionResponse
-              ? 'The latest backend payload and batch outcomes are visible here.'
-              : 'Submit a batch to inspect the backend response and reconciliation results.'}
+              ? 'The latest sync result and transaction outcomes are visible here.'
+              : 'Sync a batch to inspect its technical result and transaction outcomes.'}
           </p>
           {actionResponse ? (
-            <Table>
-              <tbody>
-                {Object.entries(actionResponse)
-                  .slice(0, 8)
-                  .map(([key, value]) => (
-                    <tr key={key}>
-                      <th scope="row">{key}</th>
-                      <td>{renderValue(value)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </Table>
+            <details>
+              <summary>Technical details</summary>
+              <Table>
+                <tbody>
+                  {Object.entries(actionResponse)
+                    .slice(0, 8)
+                    .map(([key, value]) => (
+                      <tr key={key}>
+                        <th scope="row">{key}</th>
+                        <td>{renderValue(value)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </Table>
+            </details>
           ) : (
-            <Alert tone="warning" title="No backend response">
-              Sync a batch to surface the response payload.
+            <Alert tone="warning" title="No sync result">
+              Sync a batch to surface technical reconciliation details.
             </Alert>
           )}
           <div style={statusRow}>
@@ -409,10 +430,46 @@ export default function CashierSyncPage() {
       </div>
 
       <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Queue</h2>
+        <div style={queueHeaderRow}>
+          <div>
+            <h2 style={{ marginTop: 0, marginBottom: 0 }}>Queue records</h2>
+            <p style={muted}>
+              Showing {filteredRecords.length} of {records.length} local
+              records.
+            </p>
+          </div>
+          <div className="cashier-sync-filters" style={queueFilters}>
+            <Input
+              aria-label="Search sync queue"
+              placeholder="Receipt, card serial or local ID"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Select
+              aria-label="Filter sync queue by status"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              options={[
+                { value: '', label: 'All states' },
+                { value: 'waiting-to-sync', label: 'Waiting' },
+                { value: 'syncing', label: 'Syncing' },
+                { value: 'awaiting-approval', label: 'Awaiting approval' },
+                { value: 'confirmed', label: 'Confirmed' },
+                { value: 'rejected', label: 'Rejected' },
+                { value: 'retry-required', label: 'Retry required' },
+                { value: 'saved-on-device', label: 'Saved on device' },
+              ]}
+            />
+          </div>
+        </div>
         {records.length === 0 ? (
           <Alert tone="warning" title="No offline records">
             There are no local offline earn records to sync.
+          </Alert>
+        ) : filteredRecords.length === 0 ? (
+          <Alert tone="warning" title="No matching queue records">
+            Adjust the search or status filter. Summary counts above still cover
+            the full local queue.
           </Alert>
         ) : (
           <Table>
@@ -427,7 +484,7 @@ export default function CashierSyncPage() {
               </tr>
             </thead>
             <tbody>
-              {records.map((record) => (
+              {filteredRecords.map((record) => (
                 <tr key={record.localId}>
                   <td>
                     <button
@@ -480,6 +537,20 @@ export default function CashierSyncPage() {
           </Table>
         )}
       </section>
+      <style>{`
+        @media (max-width: 620px) {
+          .cashier-sync-actions,
+          .cashier-sync-filters {
+            grid-template-columns: 1fr !important;
+          }
+
+          .cashier-sync-actions > .sc-button,
+          .cashier-sync-filters > * {
+            min-width: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
     </section>
   );
 }
@@ -593,6 +664,21 @@ const controlRow: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'minmax(0, 1fr) auto auto',
   gap: 'var(--sc-spacing-3)',
+};
+
+const queueHeaderRow: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 'var(--sc-spacing-4)',
+  alignItems: 'end',
+  flexWrap: 'wrap',
+};
+
+const queueFilters: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(220px, 1fr) minmax(170px, auto)',
+  gap: 'var(--sc-spacing-3)',
+  alignItems: 'center',
 };
 
 const toolbarRow: CSSProperties = {

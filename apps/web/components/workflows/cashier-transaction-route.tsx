@@ -202,10 +202,7 @@ export function CashierWorkflowRoute({
               <div className="cashier-stage-heading">
                 <span className="cashier-stage-kicker">Step 1</span>
                 <h2>Find customer</h2>
-                <p>
-                  Scan the virtual card, or search by phone number or card
-                  serial.
-                </p>
+                <p>Scan the virtual card, or enter its card serial number.</p>
               </div>
               <form
                 onSubmit={(event) => void handleLookup(event)}
@@ -221,7 +218,7 @@ export function CashierWorkflowRoute({
                   {lookupPending ? 'Looking up…' : 'Search customer'}
                 </Button>
               </form>
-              <Alert tone="info" title="Session-aware workflow">
+              <Alert tone="info" title="Ready to continue">
                 {lookupMessage || policyMessage}
               </Alert>
             </div>
@@ -350,7 +347,7 @@ export function CashierWorkflowRoute({
                   {lookupPending ? 'Looking up…' : 'Lookup'}
                 </Button>
               </form>
-              <Alert tone="info" title="Session-aware workflow">
+              <Alert tone="info" title="Ready to continue">
                 {lookupMessage}
               </Alert>
             </article>
@@ -1072,7 +1069,7 @@ function FindCustomerView({
                 id="customer-search-query"
                 type="search"
                 aria-label="Customer search"
-                placeholder="Phone, card serial or name"
+                placeholder="Card serial number"
                 value={lookupValue}
                 onChange={(event) => onQueryChange(event.target.value)}
               />
@@ -1091,7 +1088,8 @@ function FindCustomerView({
             </Button>
           </div>
           <p className="find-customer-hint">
-            Press enter or select Search to look up a customer.
+            Press enter or select Search to look up the card and customer
+            context.
           </p>
         </form>
       </section>

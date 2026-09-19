@@ -194,8 +194,8 @@ export function useRedeemTransactionController({
         setStatus(response.status === 201 ? 'confirmed' : 'pending');
         setMessage(
           response.status === 201
-            ? 'Redemption confirmed by backend contract.'
-            : 'Redemption awaiting approval.',
+            ? 'Credit redeemed successfully.'
+            : 'Redemption submitted and waiting for approval.',
         );
         setResponseData(
           response.data && typeof response.data === 'object'

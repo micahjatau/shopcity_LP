@@ -78,7 +78,7 @@ describe('cashier transaction forms', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Earn confirmed by backend contract.'),
+        screen.getByText('Purchase captured and credit added.'),
       ).toBeInTheDocument();
     });
     expect(loyaltyControllerEarnV1).toHaveBeenCalledTimes(1);
@@ -197,7 +197,7 @@ describe('cashier transaction forms', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Earn awaiting approval.')).toBeInTheDocument();
+      expect(screen.getByText('Purchase captured and waiting for approval.')).toBeInTheDocument();
     });
   });
 
@@ -305,7 +305,7 @@ describe('cashier transaction forms', () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByText('Redemption confirmed by backend contract.'),
+        screen.getByText('Credit redeemed successfully.'),
       ).toBeInTheDocument();
     });
   });

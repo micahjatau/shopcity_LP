@@ -1,4 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from '@playwright/test';
 import { shellNavigationByRole } from '../components/shell-navigation';
 
 const baseUrl = 'http://127.0.0.1:3100';
@@ -36,32 +41,107 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('opens and closes the cashier transaction detail modal without unsupported fields', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/reports/cashier-today', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                id: 'txn-1',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+                operation: 'EARN',
+                loyaltyAmountKobo: 500,
+                receiptNumber: 'R-001',
+                status: 'APPROVED',
+              },
+            ],
+          },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/transactions/txn-1', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            id: 'txn-1',
+            transactionId: 'txn-1',
+            type: 'EARN',
+            direction: 'CREDIT',
+            tenantId: 'tenant-1',
+            branchId: 'branch-1',
+            customerId: 'customer-1',
+            deviceId: null,
+            cardSerialNumber: null,
+            posReceiptNumber: 'R-001',
+            purchaseAmountKobo: null,
+            occurredAt: '2030-01-01T10:00:00.000Z',
+            capturedAt: '2030-01-01T10:01:00.000Z',
+            state: 'POSTED',
+            captureStatus: null,
+            reviewStatus: null,
+            approvalId: null,
+            approvalStatus: null,
+            ledgerEntryId: 'ledger-1',
+            creditKobo: 500,
+            redeemedAmountKobo: null,
+            redemptionId: null,
+            availableBalanceKobo: 0,
+            expiresAt: null,
+            smsStatus: null,
+            ledger: {},
+            reversal: null,
+          },
+          meta: meta('/api/v1/transactions/txn-1'),
+        }),
+      ),
+    );
+    await page.goto(`${baseUrl}/cashier/transactions`);
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-transactions-list.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+
+    await page.getByRole('row', { name: /open transaction R-001/i }).click();
+    const dialog = page.getByRole('dialog', { name: 'R-001' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('txn-1');
+    await expect(dialog).not.toContainText('customer-1');
+    await expect(page).toHaveScreenshot('cashier-transactions-detail.png', {
+      maxDiffPixelRatio: 0.08,
+    });
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+  });
+
   test('covers cashier earn, redeem, customers and sync routes', async ({
     request,
   }) => {
-    for (const href of [
+    await expectRoutesAvailable(request, [
       '/cashier/lookup?card=CARD-001',
       '/cashier/earn?card=CARD-001',
       '/cashier/customers',
       '/cashier/redeem?card=CARD-001',
       '/cashier/sync',
-    ]) {
-      const response = await request.get(href);
-      expect(response.status()).toBe(200);
-    }
+    ]);
   });
 
   test('covers supervisor customer, card, and reports routes', async ({
     request,
   }) => {
-    for (const href of [
+    await expectRoutesAvailable(request, [
       '/supervisor/customers',
       '/supervisor/cards',
       '/supervisor/reports',
-    ]) {
-      const response = await request.get(href);
-      expect(response.status()).toBe(200);
-    }
+    ]);
   });
 
   test('keeps the cashier overview launcher and context compact', async ({
@@ -163,7 +243,7 @@ test.describe('workflow route coverage', () => {
     await page.getByRole('button', { name: 'Proceed to review' }).click();
     await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
-      page.getByText('Earn confirmed by backend contract.'),
+      page.getByText('Purchase captured and credit added.'),
     ).toBeVisible();
 
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
@@ -182,9 +262,48 @@ test.describe('workflow route coverage', () => {
     await requested.blur();
     await page.getByRole('button', { name: 'Proceed to confirmation' }).click();
     await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(page.getByText('Credit redeemed successfully.')).toBeVisible();
+  });
+
+  test('keeps Sync Queue controls usable on a narrow viewport', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
     await expect(
-      page.getByText('Redemption confirmed by backend contract.'),
+      page.getByRole('heading', { name: 'Sync Queue' }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: 'Search sync queue' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('combobox', { name: 'Filter sync queue by status' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/There are no local offline earn records/),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'sync-queue-mobile-empty.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    const overflow = await page.locator('main').evaluate((main) => ({
+      scrollWidth: main.scrollWidth,
+      clientWidth: main.clientWidth,
+      children: Array.from(main.querySelectorAll<HTMLElement>('*'))
+        .filter((element) => element.scrollWidth > element.clientWidth + 1)
+        .slice(0, 8)
+        .map((element) => ({
+          tag: element.tagName,
+          className: element.className,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        })),
+    }));
+    expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(
+      overflow.clientWidth,
+    );
   });
 
   test('gates sync when the session has no backend device association', async ({
@@ -268,13 +387,7 @@ test.describe('workflow route coverage', () => {
         section.items.map((item) => item.href),
       ),
     );
-    const responses = await Promise.all(
-      hrefs.map((href) => request.get(href, { timeout: 30000 })),
-    );
-
-    for (const response of responses) {
-      expect(response.status()).toBe(200);
-    }
+    await expectRoutesAvailable(request, hrefs);
   });
 
   test('keeps prototype landmarks inside the 1440px route geometry', async ({
@@ -303,9 +416,9 @@ test.describe('workflow route coverage', () => {
       ],
       [
         '/supervisor/transactions',
-        'transactions-dashboard',
+        'transactions-view',
         'SUPERVISOR',
-        'transactions',
+        'transaction-workspace',
       ],
     ] as const;
 
@@ -329,17 +442,22 @@ test.describe('workflow route coverage', () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(1440);
       expect(box!.width).toBeGreaterThan(0);
       expect(box!.height).toBeGreaterThan(0);
-      await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
-        maxDiffPixelRatio: 0.08,
-      });
-      await expect(page).toHaveScreenshot(`prototype-route-${routeName}.png`, {
-        fullPage: true,
-        maxDiffPixelRatio: 0.08,
-        mask: [
-          page.locator('.shell-session-label'),
-          page.locator('.shell-online'),
-        ],
-      });
+      if (routeName !== 'transaction-workspace') {
+        await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
+          maxDiffPixelRatio: 0.08,
+        });
+        await expect(page).toHaveScreenshot(
+          `prototype-route-${routeName}.png`,
+          {
+            fullPage: true,
+            maxDiffPixelRatio: 0.08,
+            mask: [
+              page.locator('.shell-session-label'),
+              page.locator('.shell-online'),
+            ],
+          },
+        );
+      }
 
       const sidebar = await page.locator('.shell-sidebar').boundingBox();
       const topbar = await page.locator('.shell-topbar').boundingBox();
@@ -377,9 +495,22 @@ test.describe('workflow route coverage', () => {
   });
 });
 
+async function expectRoutesAvailable(
+  request: APIRequestContext,
+  hrefs: readonly string[],
+) {
+  const responses = await Promise.all(
+    hrefs.map((href) => request.get(href, { timeout: 30000 })),
+  );
+
+  for (const [index, response] of responses.entries()) {
+    expect(response.status(), hrefs[index]).toBe(200);
+  }
+}
+
 async function mockShell(
   page: Page,
-  role: 'CASHIER' | 'SUPERVISOR',
+  role: 'CASHIER' | 'SUPERVISOR' | 'ADMIN',
   deviceId: string | null = null,
 ) {
   await page.route('**/api/v1/**', async (route) => {

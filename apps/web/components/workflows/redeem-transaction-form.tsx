@@ -275,7 +275,7 @@ export function RedeemTransactionForm({
           }
         />
         <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>
-          {message || 'The backend decides the final state.'}
+          {message || 'The final redemption status will appear here.'}
         </p>
       </div>
       {responseData ? (

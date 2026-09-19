@@ -45,7 +45,7 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
     await expect(
       page
         .getByText(
-          /(Earn|Redemption) (confirmed|awaiting approval) by backend contract|awaiting approval/i,
+          /(Purchase captured and credit added|Credit redeemed successfully|awaiting approval)/i,
         )
         .first(),
     ).toBeVisible();

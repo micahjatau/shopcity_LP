@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { TransactionWorkspace } from '../../../../components/workflows/transaction-workspace';
-import { TransactionDashboard } from '../../../../components/workflows/transaction-dashboard';
 import { Alert } from '../../../../components/ui';
 import { StatusBadge } from '../../../../components/shopcity';
 
@@ -50,8 +49,6 @@ export default function AdminTransactionsPage() {
           <StatusBadge label="Admin scope" tone="neutral" />
         </div>
       </section>
-
-      <TransactionDashboard />
 
       <section style={cardStyle} aria-label="Transaction workspace">
         <h2 style={{ marginTop: 0 }}>Transaction workspace</h2>

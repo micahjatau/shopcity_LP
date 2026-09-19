@@ -205,8 +205,8 @@ export function useEarnTransactionController({
         setStatus(response.status === 201 ? 'confirmed' : 'pending');
         setMessage(
           response.status === 201
-            ? 'Earn confirmed by backend contract.'
-            : 'Earn awaiting approval.',
+            ? 'Purchase captured and credit added.'
+            : 'Purchase captured and waiting for approval.',
         );
         setResponseData(
           response.data && typeof response.data === 'object'
@@ -259,7 +259,7 @@ export function useEarnTransactionController({
           purchaseAmountKobo: purchaseAmount ?? 0,
           occurredAtLocal: occurredAt,
           syncState: 'waiting-to-sync',
-          lastError: 'Earn request failed before reaching the backend.',
+          lastError: 'Purchase could not be sent and needs a retry.',
           serverTransactionId: null,
           serverApprovalId: null,
         });

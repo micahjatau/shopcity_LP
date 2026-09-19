@@ -97,6 +97,9 @@ describe('AppShell', () => {
     expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Protected content')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Search' })).toHaveAttribute(
+      'readonly',
+    );
     expect(screen.getByRole('link', { name: /overview/i })).toHaveAttribute(
       'aria-current',
       'page',

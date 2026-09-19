@@ -1,7 +1,7 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { RefreshCw, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   loyaltyControllerGetTransactionV1,
   reportsControllerListCashierTodayV1,
@@ -13,26 +13,62 @@ import { Alert, Button, Input, Select, Table } from '../ui';
 import { Money, StatusBadge } from '../shopcity';
 
 type ActivityItem = ReportsControllerListCashierTodayV1200DataItemsItem;
+type DetailRecord = LoyaltyControllerGetTransactionV1200Data;
+type DetailState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; record: DetailRecord }
+  | { status: 'error' };
 
-type DetailRecord = LoyaltyControllerGetTransactionV1200Data & {
-  status?: string;
-  customer?: { fullName?: string };
-  cardSerialNumber?: string;
-  posReceiptNumber?: string;
-  creditKobo?: number;
-  amountKobo?: number;
-};
+type DisplayStatus = 'approved' | 'failed' | 'pending' | 'reversed' | 'unknown';
+
+function normalizeStatus(status: string | null | undefined): DisplayStatus {
+  const normalized = String(status ?? '')
+    .trim()
+    .toUpperCase();
+  if (['APPROVED', 'CONFIRMED', 'POSTED', 'COMPLETED'].includes(normalized)) {
+    return 'approved';
+  }
+  if (['FAILED', 'REJECTED', 'DECLINED'].includes(normalized)) {
+    return 'failed';
+  }
+  if (['REVERSED', 'VOIDED'].includes(normalized)) {
+    return 'reversed';
+  }
+  if (['PENDING', 'PROCESSING', 'AWAITING_APPROVAL'].includes(normalized)) {
+    return 'pending';
+  }
+  return 'unknown';
+}
+
+function statusLabel(status: DisplayStatus) {
+  return status[0].toUpperCase() + status.slice(1);
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'Not available';
+  return new Intl.DateTimeFormat('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
 
 export function TransactionDashboard() {
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [operationFilter, setOperationFilter] = useState('');
-  const [minAmount, setMinAmount] = useState('');
+  const [creditFilter, setCreditFilter] = useState('');
   const [message, setMessage] = useState('Loading today’s cashier activity…');
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<ActivityItem | null>(null);
-  const [detail, setDetail] = useState<DetailRecord | null>(null);
+  const [detailState, setDetailState] = useState<DetailState>({
+    status: 'idle',
+  });
+  const requestGeneration = useRef(0);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRef = useRef<HTMLTableRowElement | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   async function load() {
     setBusy(true);
@@ -58,40 +94,89 @@ export function TransactionDashboard() {
     void load();
   }, []);
 
-  async function openDetail(item: ActivityItem) {
+  function closeDetail() {
+    requestGeneration.current += 1;
+    setSelected(null);
+    setDetailState({ status: 'idle' });
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }
+
+  async function openDetail(item: ActivityItem, trigger: HTMLTableRowElement) {
+    const generation = requestGeneration.current + 1;
+    requestGeneration.current = generation;
+    triggerRef.current = trigger;
     setSelected(item);
-    setDetail(null);
+    setDetailState({ status: 'loading' });
+
     try {
       const response = await loyaltyControllerGetTransactionV1(
         item.id,
         createApiRequest({ csrf: true }),
       );
-      if (response.status === 200)
-        setDetail(response.data.data as DetailRecord);
+      if (requestGeneration.current !== generation) return;
+      if (response.status !== 200) {
+        setDetailState({ status: 'error' });
+        return;
+      }
+      setDetailState({ status: 'loaded', record: response.data.data });
     } catch {
-      // Keep the bounded report row visible when detail is unavailable.
+      if (requestGeneration.current === generation) {
+        setDetailState({ status: 'error' });
+      }
     }
   }
 
+  useEffect(() => {
+    if (!selected) return undefined;
+
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDetail();
+        return;
+      }
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const focusable = Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute('disabled'));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selected]);
+
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const minimumKobo = Number(minAmount || 0) * 100;
     return items.filter((item) => {
       const matchesQuery =
         !normalized ||
-        `${item.receiptNumber ?? ''} ${item.id}`
-          .toLowerCase()
-          .includes(normalized);
-      const matchesStatus =
-        !statusFilter ||
-        String(item.status).toUpperCase().includes(statusFilter);
+        [item.receiptNumber, item.id].some(
+          (value) => value.trim().toLowerCase() === normalized,
+        );
+      const displayStatus = normalizeStatus(item.status);
+      const matchesStatus = !statusFilter || displayStatus === statusFilter;
       const matchesOperation =
         !operationFilter || item.operation === operationFilter;
-      const matchesAmount =
-        !minimumKobo || Number(item.loyaltyAmountKobo ?? 0) >= minimumKobo;
-      return matchesQuery && matchesStatus && matchesOperation && matchesAmount;
+      const matchesCredit =
+        !creditFilter ||
+        (creditFilter === 'issued'
+          ? item.loyaltyAmountKobo !== null
+          : item.loyaltyAmountKobo === null);
+      return matchesQuery && matchesStatus && matchesOperation && matchesCredit;
     });
-  }, [items, minAmount, operationFilter, query, statusFilter]);
+  }, [creditFilter, items, operationFilter, query, statusFilter]);
 
   return (
     <section
@@ -103,8 +188,8 @@ export function TransactionDashboard() {
       </p>
       <div className="transaction-toolbar" data-od-id="transaction-filters">
         <Input
-          aria-label="Search receipt number"
-          placeholder="Search receipt number"
+          aria-label="Search receipt number or transaction ID"
+          placeholder="Search receipt or transaction ID"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -114,10 +199,11 @@ export function TransactionDashboard() {
           onChange={(event) => setStatusFilter(event.target.value)}
           options={[
             { value: '', label: 'All statuses' },
-            { value: 'APPROVED', label: 'Approved' },
-            { value: 'FAILED', label: 'Failed' },
-            { value: 'PENDING', label: 'Pending' },
-            { value: 'REVERSED', label: 'Reversed' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'reversed', label: 'Reversed' },
+            { value: 'unknown', label: 'Unknown' },
           ]}
         />
         <Select
@@ -130,13 +216,15 @@ export function TransactionDashboard() {
             { value: 'REDEEM', label: 'Redeem' },
           ]}
         />
-        <Input
-          aria-label="Minimum amount in naira"
-          type="number"
-          min="0"
-          placeholder="Min amount"
-          value={minAmount}
-          onChange={(event) => setMinAmount(event.target.value)}
+        <Select
+          aria-label="Filter by credit"
+          value={creditFilter}
+          onChange={(event) => setCreditFilter(event.target.value)}
+          options={[
+            { value: '', label: 'All credit states' },
+            { value: 'issued', label: 'Credit recorded' },
+            { value: 'pending', label: 'Credit pending' },
+          ]}
         />
         <Button
           type="button"
@@ -151,6 +239,7 @@ export function TransactionDashboard() {
       <section
         className="transaction-table-card"
         data-od-id="transactions-table"
+        aria-label="Cashier today transactions"
       >
         {visibleItems.length ? (
           <Table>
@@ -158,44 +247,63 @@ export function TransactionDashboard() {
               <tr>
                 <th>Receipt no.</th>
                 <th>Operation</th>
-                <th>Loyalty amount</th>
+                <th>Credit</th>
                 <th>Transaction ID</th>
                 <th>Date &amp; time</th>
-                <th>Outcome</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {visibleItems.map((item) => (
-                <tr
-                  key={item.id}
-                  tabIndex={0}
-                  onClick={() => void openDetail(item)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      void openDetail(item);
+              {visibleItems.map((item) => {
+                const displayStatus = normalizeStatus(item.status);
+                return (
+                  <tr
+                    key={item.id}
+                    ref={(element) => {
+                      if (selected?.id === item.id && element) {
+                        triggerRef.current = element;
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`Open transaction ${item.receiptNumber}`}
+                    onClick={(event) =>
+                      void openDetail(item, event.currentTarget)
                     }
-                  }}
-                >
-                  <td>{item.receiptNumber ?? '—'}</td>
-                  <td>{item.operation ?? '—'}</td>
-                  <td>
-                    {item.loyaltyAmountKobo == null ? (
-                      '—'
-                    ) : (
-                      <Money amountKobo={item.loyaltyAmountKobo} />
-                    )}
-                  </td>
-                  <td>
-                    {String(item.id).slice(0, 14)}
-                    {String(item.id).length > 14 ? '…' : ''}
-                  </td>
-                  <td>{new Date(item.occurredAt).toLocaleString('en-NG')}</td>
-                  <td>
-                    <StatusBadge label={item.status ?? 'UNKNOWN'} tone="info" />
-                  </td>
-                </tr>
-              ))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void openDetail(item, event.currentTarget);
+                      }
+                    }}
+                  >
+                    <td>{item.receiptNumber}</td>
+                    <td>{item.operation}</td>
+                    <td>
+                      {item.loyaltyAmountKobo == null ? (
+                        'Not recorded'
+                      ) : (
+                        <Money amountKobo={item.loyaltyAmountKobo} />
+                      )}
+                    </td>
+                    <td>{item.id}</td>
+                    <td>{formatDate(item.occurredAt)}</td>
+                    <td>
+                      <StatusBadge
+                        label={statusLabel(displayStatus)}
+                        tone={
+                          displayStatus === 'approved'
+                            ? 'success'
+                            : displayStatus === 'failed'
+                              ? 'danger'
+                              : displayStatus === 'pending'
+                                ? 'warning'
+                                : 'neutral'
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         ) : (
@@ -209,139 +317,110 @@ export function TransactionDashboard() {
         </p>
       </section>
       {selected ? (
-        <dialog
-          open
-          className="transaction-detail-modal"
-          aria-labelledby="transaction-detail-title"
+        <div
+          className="transaction-detail-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDetail();
+          }}
         >
-          <div className="transaction-detail-modal__head">
-            <div>
-              <p className="section-label">Transaction detail</p>
-              <h2 id="transaction-detail-title">
-                {detail?.posReceiptNumber ??
-                  selected.receiptNumber ??
-                  'Transaction'}
-              </h2>
+          <div
+            ref={modalRef}
+            className="transaction-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transaction-detail-title"
+          >
+            <div className="transaction-detail-modal__head">
+              <div>
+                <p className="section-label">Transaction detail</p>
+                <h2 id="transaction-detail-title">
+                  {selected.receiptNumber || 'Transaction'}
+                </h2>
+                <p className="transaction-detail-modal__note">
+                  Detail fields are limited to the authoritative transaction
+                  response.
+                </p>
+              </div>
+              <Button
+                ref={closeButtonRef}
+                type="button"
+                variant="secondary"
+                aria-label="Close transaction detail"
+                onClick={closeDetail}
+              >
+                <X aria-hidden="true" size={16} />
+                Close
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setSelected(null)}
-            >
-              Close
-            </Button>
+            {detailState.status === 'loading' ? (
+              <p role="status">Loading authoritative transaction detail…</p>
+            ) : detailState.status === 'error' ? (
+              <Alert tone="danger" title="Transaction detail unavailable">
+                The authoritative detail could not be loaded. The bounded
+                activity row remains unchanged.
+              </Alert>
+            ) : detailState.status === 'loaded' ? (
+              <Table>
+                <tbody>
+                  <tr>
+                    <th scope="row">Receipt number</th>
+                    <td>
+                      {detailState.record.posReceiptNumber ??
+                        selected.receiptNumber}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Credit</th>
+                    <td>
+                      {detailState.record.creditKobo == null ? (
+                        'Not provided'
+                      ) : (
+                        <Money amountKobo={detailState.record.creditKobo} />
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Operation</th>
+                    <td>{detailState.record.type}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Status</th>
+                    <td>{detailState.record.state}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Transaction ID</th>
+                    <td>{detailState.record.transactionId}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Captured at</th>
+                    <td>{formatDate(detailState.record.capturedAt)}</td>
+                  </tr>
+                </tbody>
+              </Table>
+            ) : null}
           </div>
-          {detail ? (
-            <Table>
-              <tbody>
-                <tr>
-                  <th>Customer</th>
-                  <td>
-                    {detail.customer?.fullName ?? detail.customerId ?? '—'}
-                  </td>
-                </tr>
-                <tr>
-                  <th>Amount</th>
-                  <td>
-                    {detail.amountKobo == null ? (
-                      '—'
-                    ) : (
-                      <Money amountKobo={detail.amountKobo} />
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <th>Credit</th>
-                  <td>
-                    {detail.creditKobo == null ? (
-                      '—'
-                    ) : (
-                      <Money amountKobo={detail.creditKobo} />
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <th>Status</th>
-                  <td>{detail.state ?? detail.status ?? '—'}</td>
-                </tr>
-                <tr>
-                  <th>Transaction ID</th>
-                  <td>{detail.transactionId ?? selected.id}</td>
-                </tr>
-              </tbody>
-            </Table>
-          ) : (
-            <p role="status">Loading authoritative transaction detail…</p>
-          )}
-        </dialog>
+        </div>
       ) : null}
       <style>{`
-        .transaction-dashboard {
-          display: grid;
-          gap: 22px;
-          max-width: var(--sc-prototype-contentMaxWidth);
-          margin: 0 auto;
-        }
-
-        .transaction-toolbar {
-          display: grid;
-          grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) auto;
-          gap: 14px;
-          align-items: center;
-        }
-
-        .transaction-toolbar .sc-button {
-          min-height: 38px;
-          border-radius: 9px;
-        }
-
-        .transaction-toolbar .sc-button--primary {
-          background: var(--sc-prototype-accent);
-        }
-
-        .transaction-table-card {
-          overflow: hidden;
-          border: 1px solid var(--sc-prototype-border);
-          border-radius: var(--sc-prototype-flowPanelRadius);
-          background: var(--sc-prototype-surface);
-          padding: 18px 24px;
-        }
-
-        .transaction-table-card table {
-          width: 100%;
-          min-width: 760px;
-        }
-
-        .transaction-detail-modal {
-          width: min(720px, calc(100vw - 32px));
-          border: 1px solid var(--sc-prototype-border);
-          border-radius: var(--sc-prototype-flowPanelRadius);
-          padding: 24px;
-        }
-
-        .transaction-detail-modal__head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-          margin-bottom: 18px;
-        }
-
-        @media (max-width: 900px) {
-          .transaction-toolbar {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        @media (max-width: 620px) {
-          .transaction-toolbar {
-            grid-template-columns: 1fr;
-          }
-
-          .transaction-table-card {
-            padding: 14px;
-          }
-        }
+        .transaction-dashboard { display: grid; gap: 22px; max-width: var(--sc-prototype-contentMaxWidth); margin: 0 auto; }
+        .transaction-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) auto; gap: 14px; align-items: center; }
+        .transaction-toolbar .sc-button { min-height: 38px; border-radius: 9px; }
+        .transaction-table-card { overflow: hidden; border: 1px solid var(--sc-prototype-border); border-radius: var(--sc-prototype-flowPanelRadius); background: var(--sc-prototype-surface); padding: 18px 24px; }
+        .transaction-table-card table { width: 100%; min-width: 760px; }
+        .transaction-table-card tbody tr { cursor: pointer; }
+        .transaction-table-card tbody tr:focus-visible { outline: 3px solid var(--sc-prototype-accent); outline-offset: -3px; }
+        .transaction-detail-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: color-mix(in oklch, var(--sc-color-neutral-900) 76%, transparent); }
+        .transaction-detail-modal { width: min(600px, 100%); max-height: min(760px, calc(100vh - 48px)); overflow: auto; border: 1px solid var(--sc-prototype-border); border-radius: 18px; background: var(--sc-prototype-surface); padding: 30px 34px 32px; box-shadow: var(--sc-shadow-level3); }
+        .transaction-detail-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+        .transaction-detail-modal__head h2, .transaction-detail-modal__note { margin: 0; }
+        .transaction-detail-modal__note { color: var(--sc-prototype-muted); font-size: 12px; }
+        .transaction-detail-modal table { width: 100%; }
+        .transaction-detail-modal th { width: 42%; text-align: right; padding-right: 16px; }
+        .transaction-detail-modal td { text-align: left; }
+        @media (max-width: 900px) { .transaction-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 620px) { .transaction-toolbar { grid-template-columns: 1fr; } .transaction-table-card { padding: 14px; } .transaction-detail-backdrop { padding: 12px; } .transaction-detail-modal { max-height: calc(100vh - 24px); padding: 24px 20px; } }
+        @media (prefers-reduced-motion: reduce) { .transaction-detail-backdrop, .transaction-detail-modal { transition: none; } }
       `}</style>
     </section>
   );

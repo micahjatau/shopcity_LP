@@ -59,10 +59,10 @@ export const shellNavigationByRole: Record<
           icon: 'wallet',
         },
         {
-          id: 'cashier-customers',
-          label: 'Customer Records',
-          href: '/cashier/customers',
-          icon: 'users',
+          id: 'cashier-transactions',
+          label: 'Transactions',
+          href: '/cashier/transactions',
+          icon: 'list',
         },
         {
           id: 'cashier-sync',
