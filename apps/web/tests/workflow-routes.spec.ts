@@ -312,6 +312,39 @@ test.describe('workflow route coverage', () => {
       await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
         maxDiffPixelRatio: 0.08,
       });
+
+      const sidebar = await page.locator('.shell-sidebar').boundingBox();
+      const topbar = await page.locator('.shell-topbar').boundingBox();
+      expect(Math.round(sidebar?.width ?? 0)).toBe(244);
+      expect(Math.round(topbar?.height ?? 0)).toBe(64);
+      expect(
+        await page.locator('.shell-sidebar-brand img').evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return {
+            width: Math.round(box.width),
+            height: Math.round(box.height),
+          };
+        }),
+      ).toEqual({ width: 29, height: 29 });
+
+      const buttonRhythm = await page
+        .locator('button:visible')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const style = getComputedStyle(button);
+            return {
+              display: style.display,
+              whiteSpace: style.whiteSpace,
+              hasIconAndLabel:
+                Boolean(button.querySelector('svg')) &&
+                Boolean(button.textContent?.trim()),
+            };
+          }),
+        );
+      for (const button of buttonRhythm) {
+        expect(['flex', 'inline-flex', 'grid']).toContain(button.display);
+        expect(button.whiteSpace).toBe('nowrap');
+      }
     }
   });
 });
