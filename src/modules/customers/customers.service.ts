@@ -661,19 +661,25 @@ function customerSearchWhere(
   tenantId: string,
   normalizedQuery?: string,
 ): Prisma.CustomerWhereInput {
+  const term = normalizedQuery?.trim();
+  const phoneSearch =
+    term && /^\+?[\d\s()-]{7,}$/.test(term) ? normalizePhoneToE164(term) : null;
   return {
     tenantId,
-    ...(normalizedQuery
+    ...(term
       ? {
           OR: [
-            {
-              fullName: { contains: normalizedQuery, mode: 'insensitive' },
-            },
-            { phoneE164: { contains: normalizedQuery } },
-            { email: { contains: normalizedQuery, mode: 'insensitive' } },
+            { fullName: { contains: term, mode: 'insensitive' } },
+            { phoneE164: { contains: term } },
+            ...(phoneSearch && phoneSearch !== term
+              ? [{ phoneE164: { contains: phoneSearch } }]
+              : []),
+            { email: { contains: term, mode: 'insensitive' } },
             {
               cards: {
-                some: { barcodeValue: { contains: normalizedQuery } },
+                some: {
+                  barcodeValue: { contains: term, mode: 'insensitive' },
+                },
               },
             },
           ],
@@ -681,7 +687,6 @@ function customerSearchWhere(
       : {}),
   };
 }
-
 function classifyCustomerSearchQuery(
   normalizedQuery?: string,
 ): 'none' | 'phone' | 'email' | 'card' | 'name' {

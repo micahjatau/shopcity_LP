@@ -128,6 +128,87 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(375);
   });
 
+  test('discovers a customer by name or phone but requires active card verification for checkout', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/customers?**', (route) =>
+      route.fulfill(
+        json({
+          data: {
+            items: [
+              {
+                customerId: 'customer-1',
+                fullName: 'Ada Shopper',
+                maskedPhone: '+234801* *** 5678',
+                cardStatus: 'ACTIVE',
+                availableBalanceKobo: 5500,
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        }),
+      ),
+    );
+    await page.route('**/api/v1/cards/lookup/CARD-PAIR', (route) =>
+      route.fulfill(
+        json({
+          data: {
+            customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+            serialNumber: 'CARD-PAIR',
+            status: 'ACTIVE',
+            availableBalanceKobo: 5500,
+            branchId: 'branch-1',
+          },
+        }),
+      ),
+    );
+
+    for (const [kind, query] of [
+      ['earn', 'Ada Shopper'],
+      ['redeem', '08012345678'],
+    ] as const) {
+      await page.goto(baseUrl + '/cashier/' + kind);
+      const input = page.getByRole('textbox', { name: 'Lookup' });
+      await input.fill(query);
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(
+        page.getByText(
+          /Customer found\. Scan or enter their active card serial/,
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Confirm customer' }),
+      ).toHaveCount(0);
+      await input.fill('CARD-PAIR');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Confirm customer' }),
+      ).toBeVisible();
+    }
+  });
+
+  test('keeps the topbar uncluttered and opens the authenticated profile', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(baseUrl + '/cashier');
+    const topbar = page.locator('.shell-topbar');
+    await expect(
+      topbar.getByRole('button', { name: 'Notifications' }),
+    ).toBeVisible();
+    await expect(
+      topbar.getByRole('link', { name: 'View user profile' }),
+    ).toBeVisible();
+    await expect(topbar).not.toContainText('Device pending');
+    await expect(topbar).not.toContainText('Session ready');
+    await topbar.getByRole('link', { name: 'View user profile' }).click();
+    await expect(page).toHaveURL(/\/profile$/);
+    await expect(
+      page.getByRole('heading', { name: 'User profile' }),
+    ).toBeVisible();
+  });
   test('keeps Capture Purchase and Redeem lookup states visually paired', async ({
     page,
   }) => {
@@ -185,7 +266,9 @@ test.describe('workflow route coverage', () => {
       await page.reload();
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
       await page.getByRole('button', { name: 'Search customer' }).click();
-      await expect(page.getByText(/Lookup unavailable \(503\)/)).toBeVisible();
+      await expect(
+        page.getByText(/Card verification unavailable \(503\)/),
+      ).toBeVisible();
       await expect(page).toHaveScreenshot(
         `financial-lookup-${kind}-error.png`,
         {
@@ -393,7 +476,9 @@ test.describe('workflow route coverage', () => {
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await lookup.fill('UNKNOWN-CARD');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.getByText('Lookup unavailable (404).')).toBeVisible();
+    await expect(
+      page.getByText(/Customer search is unavailable on this deployment/),
+    ).toBeVisible();
   });
 
   test('shows an explicit offline lookup failure without claiming resolution', async ({
@@ -408,7 +493,9 @@ test.describe('workflow route coverage', () => {
       .fill('CARD-001');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(
-      page.getByText('Lookup unavailable offline. Reconnect to try again.'),
+      page.getByText(
+        'Customer lookup requires a connection. Reconnect to try again.',
+      ),
     ).toBeVisible();
   });
 

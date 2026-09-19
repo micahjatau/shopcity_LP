@@ -1,11 +1,13 @@
 import type { FormEvent } from 'react';
-import { Alert, Button, Input } from '../ui';
+import { Button, Input } from '../ui';
+import type { CashierDiscoveryRecord } from './use-cashier-lookup-controller';
 
 export type VerifiedCardLookupStepProps = Readonly<{
   lookupValue: string;
   lookupMessage: string;
   lookupPending: boolean;
   policyMessage?: string;
+  discoveryMatches?: CashierDiscoveryRecord[];
   onLookup: (event: FormEvent<HTMLFormElement>) => void;
   onQueryChange: (value: string) => void;
 }>;
@@ -15,6 +17,7 @@ export function VerifiedCardLookupStep({
   lookupMessage,
   lookupPending,
   policyMessage,
+  discoveryMatches = [],
   onLookup,
   onQueryChange,
 }: VerifiedCardLookupStepProps) {
@@ -28,11 +31,14 @@ export function VerifiedCardLookupStep({
         <div className="cashier-stage-heading">
           <span className="cashier-stage-kicker">Step 1</span>
           <h2 id="verified-card-lookup-title">Find customer</h2>
-          <p>Scan the virtual card, or enter its card serial number.</p>
+          <p>
+            Find a customer by name or phone, or scan their active card to
+            continue.
+          </p>
         </div>
         <form onSubmit={onLookup} className="cashier-lookup-form">
           <Input
-            placeholder="Scan card serial number"
+            placeholder="Name, phone, or active card serial"
             aria-label="Lookup"
             value={lookupValue}
             onChange={(event) => onQueryChange(event.target.value)}
@@ -41,16 +47,50 @@ export function VerifiedCardLookupStep({
             {lookupPending ? 'Looking up…' : 'Search customer'}
           </Button>
         </form>
-        <Alert tone="info" title="Ready to continue">
-          {lookupMessage ||
-            policyMessage ||
-            'Verify the card before continuing.'}
-        </Alert>
+        <p className="cashier-lookup-notice" role="status">
+          {lookupMessage || policyMessage || 'Search to continue.'}
+        </p>
+        {discoveryMatches.length > 0 ? (
+          <div
+            className="cashier-lookup-matches"
+            aria-label="Customer search results"
+          >
+            {discoveryMatches.map((customer, index) => (
+              <div
+                className="cashier-lookup-match"
+                key={customer.customerId ?? customer.id ?? index}
+              >
+                <strong>{customer.fullName ?? 'Customer'}</strong>
+                <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
+              </div>
+            ))}
+            <p>
+              Customer discovery does not verify a card. Scan or enter the
+              active card serial above to continue.
+            </p>
+          </div>
+        ) : null}
       </div>
       <style>{`
         .cashier-verified-card-lookup {
-          width: 100%;
+          width: min(860px, 100%);
+          margin: 0 auto;
+          padding: clamp(24px, 4vw, 40px);
+          border: 1px solid var(--sc-prototype-border);
+          border-radius: 16px;
+          background: var(--sc-prototype-surface);
+          box-shadow: none;
         }
+        .cashier-verified-card-lookup .cashier-stage-heading { display: grid; gap: 5px; border-bottom: 1px solid var(--sc-prototype-border); padding-bottom: 16px; }
+        .cashier-verified-card-lookup .cashier-stage-heading h2,
+        .cashier-verified-card-lookup .cashier-stage-heading p { margin: 0; }
+        .cashier-verified-card-lookup .cashier-stage-heading p,
+        .cashier-lookup-notice { font-size: 12px; color: var(--sc-prototype-muted); }
+        .cashier-lookup-notice { margin: 0; min-height: 18px; }
+        .cashier-lookup-matches { display: grid; gap: 8px; }
+        .cashier-lookup-match { display: grid; gap: 3px; padding: 12px 14px; border: 1px solid var(--sc-prototype-border); border-radius: 12px; }
+        .cashier-lookup-match span,
+        .cashier-lookup-matches p { color: var(--sc-prototype-muted); font-size: 12px; margin: 0; }
 
         .cashier-verified-card-lookup .cashier-stage-content {
           display: grid;

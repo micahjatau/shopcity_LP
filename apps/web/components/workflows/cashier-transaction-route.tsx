@@ -12,6 +12,7 @@ import { EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   useCashierLookupController,
   type CashierLookupRecord,
+  type CashierDiscoveryRecord,
 } from './use-cashier-lookup-controller';
 import { VerifiedCardLookupStep } from './verified-card-lookup-step';
 
@@ -51,6 +52,7 @@ export function CashierWorkflowRoute({
     lookupMessage,
     lookupRecord,
     lookupPending,
+    discoveryMatches,
     selectedCardSerial,
     setLookupValue,
     clearLookup,
@@ -185,13 +187,18 @@ export function CashierWorkflowRoute({
           lookupMessage={lookupMessage}
           lookupPending={lookupPending}
           lookupRecord={lookupRecord}
+          discoveryMatches={discoveryMatches}
           onLookup={(event) => void handleLookup(event)}
           onQueryChange={setLookupValue}
           selectedCardSerial={selectedCardSerial}
         />
-      ) : kind === 'earn' ? (
+      ) : kind === 'earn' && (!lookupRecord || !earnConfirmed) ? (
         <section
-          className="cashier-card cashier-earn-stage"
+          className={
+            lookupRecord
+              ? 'cashier-card cashier-earn-stage'
+              : 'cashier-stage-container'
+          }
           data-od-id="capture-stage"
         >
           {!lookupRecord ? (
@@ -200,6 +207,7 @@ export function CashierWorkflowRoute({
               lookupMessage={lookupMessage}
               lookupPending={lookupPending}
               policyMessage={policyMessage}
+              discoveryMatches={discoveryMatches}
               onLookup={(event) => void handleLookup(event)}
               onQueryChange={setLookupValue}
             />
@@ -306,16 +314,17 @@ export function CashierWorkflowRoute({
             </div>
           </div>
         </section>
-      ) : kind === 'redeem' && redeemConfirmed ? null : (
+      ) : kind === 'redeem' && !redeemConfirmed ? (
         <VerifiedCardLookupStep
           lookupValue={lookupValue}
           lookupMessage={lookupMessage}
           lookupPending={lookupPending}
           policyMessage={policyMessage}
+          discoveryMatches={discoveryMatches}
           onLookup={(event) => void handleLookup(event)}
           onQueryChange={setLookupValue}
         />
-      )}
+      ) : null}
 
       {showTransactionForm &&
       ((kind === 'earn' && earnConfirmed) ||
@@ -503,12 +512,10 @@ export function CashierWorkflowRoute({
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         }
 
-        .cashier-route-page > section:first-of-type {
-          max-width: 712px;
-          justify-self: center;
+        .cashier-stage-container {
           width: 100%;
-          border-radius: 16px !important;
-          box-shadow: none !important;
+          max-width: 860px;
+          justify-self: center;
         }
 
         .cashier-support-note {
@@ -524,7 +531,7 @@ export function CashierWorkflowRoute({
           box-shadow: none;
         }
 
-        .cashier-route-page--earn > section:first-of-type {
+        .cashier-route-page--earn > .cashier-earn-stage {
           gap: 24px !important;
           padding: clamp(28px, 4vw, 38px) !important;
         }
@@ -574,6 +581,7 @@ export function CashierWorkflowRoute({
           font-size: 20px;
         }
 
+        .cashier-stage-container { max-width: 860px; width: 100%; margin: 0 auto; }
         .cashier-earn-stage {
           max-width: 860px;
           padding: 32px 40px 40px;
@@ -999,6 +1007,7 @@ function FindCustomerView({
   lookupMessage,
   lookupPending,
   lookupRecord,
+  discoveryMatches,
   onLookup,
   onQueryChange,
   selectedCardSerial,
@@ -1007,6 +1016,7 @@ function FindCustomerView({
   lookupMessage: string;
   lookupPending: boolean;
   lookupRecord: CashierLookupRecord | null;
+  discoveryMatches: CashierDiscoveryRecord[];
   onLookup: (event: FormEvent<HTMLFormElement>) => void;
   onQueryChange: (value: string) => void;
   selectedCardSerial: string;
@@ -1028,7 +1038,7 @@ function FindCustomerView({
                 id="customer-search-query"
                 type="search"
                 aria-label="Customer search"
-                placeholder="Card serial number"
+                placeholder="Name, phone or card serial"
                 value={lookupValue}
                 onChange={(event) => onQueryChange(event.target.value)}
               />
@@ -1059,8 +1069,10 @@ function FindCustomerView({
 
       <section className="find-customer-recent">
         <div>
-          <h2>Recent customers</h2>
-          <p>Customers served most recently at this branch.</p>
+          <h2>Customer results</h2>
+          <p>
+            Search by name or phone, then verify the active card to continue.
+          </p>
         </div>
         <div className="find-customer-list">
           {lookupRecord ? (
@@ -1088,9 +1100,22 @@ function FindCustomerView({
                 </Link>
               </div>
             </div>
+          ) : discoveryMatches.length > 0 ? (
+            discoveryMatches.map((customer, index) => (
+              <div
+                className="find-customer-row"
+                key={customer.customerId ?? customer.id ?? index}
+              >
+                <div>
+                  <strong>{customer.fullName ?? 'Customer'}</strong>
+                  <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
+                </div>
+                <span>Scan active card to continue</span>
+              </div>
+            ))
           ) : (
             <p className="find-customer-empty">
-              Search for a customer to continue a loyalty transaction.
+              Search by name, phone, or an active card serial to continue.
             </p>
           )}
         </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import { Search } from 'lucide-react';
+
 import {
   cardsControllerLookupCardV1,
   customersControllerListCustomersV1,
@@ -33,6 +35,7 @@ export function GlobalShellSearch({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const requestGeneration = useRef(0);
 
   useEffect(() => {
@@ -42,6 +45,7 @@ export function GlobalShellSearch({
   }, [category, categories]);
 
   useEffect(() => {
+    ++requestGeneration.current;
     if (!open || category === 'cards' || query.trim().length < 2) {
       if (category !== 'cards') {
         setResults([]);
@@ -135,7 +139,16 @@ export function GlobalShellSearch({
           id: serial,
           label: name,
           detail: `Card ${serial}`,
-          href: `${userRole === 'CASHIER' ? '/cashier/lookup' : '/supervisor/cards'}?card=${encodeURIComponent(serial)}`,
+          href:
+            userRole === 'CASHIER'
+              ? '/cashier/lookup?card=' + encodeURIComponent(serial)
+              : (userRole === 'ADMIN' ? '/admin/cards' : '/supervisor/cards') +
+                (customer?.customerId || customer?.id
+                  ? '?id=' +
+                    encodeURIComponent(
+                      String(customer.customerId ?? customer.id),
+                    )
+                  : ''),
         },
       ]);
       setMessage('');
@@ -147,6 +160,21 @@ export function GlobalShellSearch({
       if (generation === requestGeneration.current) setPending(false);
     }
   }
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onOutsidePress(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        setOpen(false);
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener('pointerdown', onOutsidePress);
+    return () => document.removeEventListener('pointerdown', onOutsidePress);
+  }, [open]);
 
   function closeResults() {
     setOpen(false);
@@ -179,8 +207,9 @@ export function GlobalShellSearch({
   }
 
   return (
-    <div className="global-shell-search">
+    <div ref={rootRef} className="global-shell-search">
       <div className="global-shell-search__control">
+        <Search aria-hidden="true" size={16} strokeWidth={1.8} />
         <label htmlFor="global-shell-search-input" className="sr-only">
           Search ShopCity
         </label>
@@ -188,7 +217,11 @@ export function GlobalShellSearch({
           id="global-shell-search-input"
           ref={inputRef}
           value={query}
-          placeholder="Search customers, cards…"
+          placeholder={
+            userRole === 'CASHIER'
+              ? 'Search customers, cards…'
+              : 'Search customers, cards, cashiers…'
+          }
           autoComplete="off"
           role="combobox"
           aria-expanded={open}
@@ -214,68 +247,82 @@ export function GlobalShellSearch({
           </button>
         ) : null}
       </div>
-      <div
-        className="global-shell-search__categories"
-        aria-label="Search category"
-      >
-        {categories.map((item) => (
-          <button
-            type="button"
-            key={item}
-            className={item === category ? 'is-active' : ''}
-            aria-pressed={item === category}
-            onClick={() => {
-              setCategory(item);
-              setResults([]);
-              setMessage('');
-              setOpen(true);
-              inputRef.current?.focus();
-            }}
-          >
-            {item[0].toUpperCase() + item.slice(1)}
-          </button>
-        ))}
-      </div>
       {open ? (
-        <div
-          id="global-shell-search-results"
-          className="global-shell-search__results"
-          role="listbox"
-          aria-label={`${category} search results`}
-        >
-          {pending ? <p role="status">Searching…</p> : null}
-          {!pending && message ? <p role="status">{message}</p> : null}
-          {!pending
-            ? results.map((result, index) => (
-                <a
-                  id={`global-search-result-${index}`}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  href={result.href}
-                  key={result.id}
-                  onClick={() => setOpen(false)}
-                >
-                  <strong>{result.label}</strong>
-                  {result.detail ? <small>{result.detail}</small> : null}
-                </a>
-              ))
-            : null}
+        <div className="global-shell-search__popover">
+          <div
+            className="global-shell-search__categories"
+            aria-label="Search category"
+          >
+            {categories.map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={item === category ? 'is-active' : ''}
+                aria-pressed={item === category}
+                onClick={() => {
+                  ++requestGeneration.current;
+                  setCategory(item);
+                  setResults([]);
+                  setMessage('');
+                  setOpen(true);
+                  inputRef.current?.focus();
+                }}
+              >
+                {item[0].toUpperCase() + item.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div
+            id="global-shell-search-results"
+            className="global-shell-search__results"
+            role="listbox"
+            aria-label={category + ' search results'}
+          >
+            {pending ? <p role="status">Searching…</p> : null}
+            {!pending && message ? <p role="status">{message}</p> : null}
+            {!pending && !message && results.length === 0 ? (
+              <p>
+                Search{' '}
+                {category === 'cards'
+                  ? 'by exact card serial and press Enter.'
+                  : category + ' by name or identifier.'}
+              </p>
+            ) : null}
+            {!pending
+              ? results.map((result, index) => (
+                  <a
+                    id={'global-search-result-' + index}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    href={result.href}
+                    key={result.id}
+                    onClick={() => setOpen(false)}
+                  >
+                    <strong>{result.label}</strong>
+                    {result.detail ? <small>{result.detail}</small> : null}
+                  </a>
+                ))
+              : null}
+          </div>
         </div>
       ) : null}
       <style>{`
-        .global-shell-search { position: relative; width: min(430px, 42vw); z-index: 4; }
-        .global-shell-search__control { display: flex; align-items: center; gap: 6px; height: 36px; border: 1px solid var(--sc-color-semantic-border); border-radius: 999px; background: var(--sc-color-neutral-50); padding: 0 8px 0 14px; }
+        .global-shell-search { position: relative; width: min(300px, 40vw); min-width: 0; z-index: 4; }
+        .global-shell-search__control { display: flex; align-items: center; gap: 8px; height: 36px; border: 1px solid var(--sc-prototype-border); border-radius: 999px; background: var(--sc-prototype-canvas, var(--sc-color-neutral-50)); padding: 0 12px; color: var(--sc-color-semantic-textSecondary); }
         .global-shell-search__control input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--sc-color-neutral-900); font-size: 12px; }
+        .global-shell-search__control svg { flex: none; }
+        .global-shell-search__control:focus-within { border-color: var(--sc-color-brand-700); box-shadow: 0 0 0 3px color-mix(in oklch, var(--sc-color-brand-700) 15%, transparent); }
         .global-shell-search__submit { border: 0; border-radius: 999px; background: var(--sc-color-brand-700); color: var(--sc-color-neutral-0); padding: 5px 9px; font-size: 11px; }
-        .global-shell-search__categories { display: flex; gap: 4px; margin-top: 5px; }
-        .global-shell-search__categories button { border: 0; border-radius: 999px; background: transparent; color: var(--sc-color-semantic-textSecondary); padding: 2px 7px; font-size: 10px; }
+        .global-shell-search__popover { position: absolute; top: calc(100% + 8px); left: 0; width: max(100%, 320px); max-width: calc(100vw - 32px); padding: 8px; border: 1px solid var(--sc-prototype-border); border-radius: 16px; background: var(--sc-color-neutral-0); box-shadow: var(--sc-shadow-level2); }
+        .global-shell-search__categories { display: flex; flex-wrap: wrap; gap: 5px; padding: 3px 3px 8px; border-bottom: 1px solid var(--sc-prototype-border); }
+        .global-shell-search__categories button { border: 0; border-radius: 999px; background: transparent; color: var(--sc-color-semantic-textSecondary); padding: 6px 9px; font-size: 12px; }
         .global-shell-search__categories button.is-active { background: var(--sc-color-brand-50); color: var(--sc-color-brand-700); font-weight: 700; }
-        .global-shell-search__results { position: absolute; top: 68px; left: 0; right: 0; display: grid; gap: 2px; max-height: 320px; overflow: auto; border: 1px solid var(--sc-color-semantic-border); border-radius: 14px; background: var(--sc-color-neutral-0); padding: 7px; box-shadow: var(--sc-shadow-level2); }
-        .global-shell-search__results p { margin: 7px; color: var(--sc-color-semantic-textSecondary); font-size: 12px; }
+        .global-shell-search__results { display: grid; gap: 2px; max-height: 320px; overflow: auto; padding: 6px 0 0; }
+        .global-shell-search__results p { margin: 7px; color: var(--sc-color-semantic-textSecondary); font-size: 12px; white-space: normal; }
         .global-shell-search__results a { display: grid; gap: 2px; border-radius: 9px; color: var(--sc-color-neutral-900); padding: 9px 10px; text-decoration: none; }
         .global-shell-search__results a:hover, .global-shell-search__results a[aria-selected='true'] { background: var(--sc-color-brand-50); }
         .global-shell-search__results small { color: var(--sc-color-semantic-textSecondary); }
-        @media (max-width: 767px) { .global-shell-search { width: min(100%, 230px); } .global-shell-search__categories { display: none; } .global-shell-search__results { top: 42px; } }
+        @media (max-width: 767px) { .global-shell-search { flex: 1; width: min(100%, 230px); } .global-shell-search__popover { width: min(340px, calc(100vw - 24px)); } }
         @media (prefers-reduced-motion: reduce) { .global-shell-search__results a { transition: none; } }
       `}</style>
     </div>
