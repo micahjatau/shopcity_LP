@@ -205,16 +205,13 @@ describe('CustomersService', () => {
       '08012345678',
     );
 
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tenantId: 'tenant-id',
-          OR: expect.arrayContaining([
-            { phoneE164: { contains: '+2348012345678' } },
-          ]),
-        }),
-      }),
-    );
+    const search = findMany.mock.calls[0]?.[0] as {
+      where: { tenantId: string; OR: unknown[] };
+    };
+    expect(search.where.tenantId).toBe('tenant-id');
+    expect(search.where.OR).toContainEqual({
+      phoneE164: { contains: '+2348012345678' },
+    });
   });
   it('audits privileged full customer reads', async () => {
     const prisma = {
