@@ -197,7 +197,9 @@ describe('cashier transaction forms', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Purchase captured and waiting for approval.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Purchase captured and waiting for approval.'),
+      ).toBeInTheDocument();
     });
   });
 
