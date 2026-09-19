@@ -44,19 +44,35 @@ export function AppTopbar({
 
         <div className="shell-topbar-actions">
           <div className="shell-notifications">
-            <button type="button" className="shell-icon-button" aria-label="Notifications"
-              aria-expanded={notificationsOpen} aria-controls="shell-notifications-panel"
-              onClick={() => setNotificationsOpen((current) => !current)}>
+            <button
+              type="button"
+              className="shell-icon-button"
+              aria-label="Notifications"
+              aria-expanded={notificationsOpen}
+              aria-controls="shell-notifications-panel"
+              onClick={() => setNotificationsOpen((current) => !current)}
+            >
               <Bell aria-hidden="true" size={18} strokeWidth={1.8} />
             </button>
             {notificationsOpen ? (
-              <div id="shell-notifications-panel" className="shell-notifications-panel" role="status">
+              <div
+                id="shell-notifications-panel"
+                className="shell-notifications-panel"
+                role="status"
+              >
                 <strong>Notifications</strong>
-                <p>An in-app notification inbox is not available in this release.</p>
+                <p>
+                  An in-app notification inbox is not available in this release.
+                </p>
               </div>
             ) : null}
           </div>
-          <Link href="/profile" className="shell-avatar" aria-label="View user profile" title="View user profile">
+          <Link
+            href="/profile"
+            className="shell-avatar"
+            aria-label="View user profile"
+            title="View user profile"
+          >
             {initials || 'SC'}
           </Link>
           <button

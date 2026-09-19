@@ -263,11 +263,14 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     navigationTrail.labels.length > 0
       ? navigationTrail.labels.join(' · ')
       : 'Route pending';
-  const pageTitle = pathname === '/profile' ? 'My Profile · ShopCity' : `${
-    navigationTrail.labels.length > 0
-      ? navigationTrail.labels.join(' · ')
-      : workspaceLabel
-  } · ShopCity`;
+  const pageTitle =
+    pathname === '/profile'
+      ? 'My Profile · ShopCity'
+      : `${
+          navigationTrail.labels.length > 0
+            ? navigationTrail.labels.join(' · ')
+            : workspaceLabel
+        } · ShopCity`;
 
   useEffect(() => {
     if (status === 'unauthenticated') {

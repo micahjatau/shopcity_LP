@@ -139,9 +139,16 @@ export function GlobalShellSearch({
           id: serial,
           label: name,
           detail: `Card ${serial}`,
-          href: userRole === 'CASHIER'
-            ? '/cashier/lookup?card=' + encodeURIComponent(serial)
-            : (userRole === 'ADMIN' ? '/admin/cards' : '/supervisor/cards') + (customer?.customerId || customer?.id ? '?id=' + encodeURIComponent(String(customer.customerId ?? customer.id)) : ''),
+          href:
+            userRole === 'CASHIER'
+              ? '/cashier/lookup?card=' + encodeURIComponent(serial)
+              : (userRole === 'ADMIN' ? '/admin/cards' : '/supervisor/cards') +
+                (customer?.customerId || customer?.id
+                  ? '?id=' +
+                    encodeURIComponent(
+                      String(customer.customerId ?? customer.id),
+                    )
+                  : ''),
         },
       ]);
       setMessage('');
@@ -157,7 +164,10 @@ export function GlobalShellSearch({
   useEffect(() => {
     if (!open) return undefined;
     function onOutsidePress(event: PointerEvent) {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
         setOpen(false);
         setActiveIndex(-1);
       }
@@ -207,7 +217,11 @@ export function GlobalShellSearch({
           id="global-shell-search-input"
           ref={inputRef}
           value={query}
-          placeholder={userRole === 'CASHIER' ? 'Search customers, cards…' : 'Search customers, cards, cashiers…'}
+          placeholder={
+            userRole === 'CASHIER'
+              ? 'Search customers, cards…'
+              : 'Search customers, cards, cashiers…'
+          }
           autoComplete="off"
           role="combobox"
           aria-expanded={open}
@@ -235,7 +249,10 @@ export function GlobalShellSearch({
       </div>
       {open ? (
         <div className="global-shell-search__popover">
-          <div className="global-shell-search__categories" aria-label="Search category">
+          <div
+            className="global-shell-search__categories"
+            aria-label="Search category"
+          >
             {categories.map((item) => (
               <button
                 type="button"
@@ -255,25 +272,37 @@ export function GlobalShellSearch({
               </button>
             ))}
           </div>
-          <div id="global-shell-search-results" className="global-shell-search__results" role="listbox" aria-label={category + ' search results'}>
+          <div
+            id="global-shell-search-results"
+            className="global-shell-search__results"
+            role="listbox"
+            aria-label={category + ' search results'}
+          >
             {pending ? <p role="status">Searching…</p> : null}
             {!pending && message ? <p role="status">{message}</p> : null}
             {!pending && !message && results.length === 0 ? (
-              <p>Search {category === 'cards' ? 'by exact card serial and press Enter.' : category + ' by name or identifier.'}</p>
+              <p>
+                Search{' '}
+                {category === 'cards'
+                  ? 'by exact card serial and press Enter.'
+                  : category + ' by name or identifier.'}
+              </p>
             ) : null}
-            {!pending ? results.map((result, index) => (
-              <a
-                id={'global-search-result-' + index}
-                role="option"
-                aria-selected={index === activeIndex}
-                href={result.href}
-                key={result.id}
-                onClick={() => setOpen(false)}
-              >
-                <strong>{result.label}</strong>
-                {result.detail ? <small>{result.detail}</small> : null}
-              </a>
-            )) : null}
+            {!pending
+              ? results.map((result, index) => (
+                  <a
+                    id={'global-search-result-' + index}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    href={result.href}
+                    key={result.id}
+                    onClick={() => setOpen(false)}
+                  >
+                    <strong>{result.label}</strong>
+                    {result.detail ? <small>{result.detail}</small> : null}
+                  </a>
+                ))
+              : null}
           </div>
         </div>
       ) : null}

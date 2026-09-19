@@ -31,7 +31,10 @@ export function VerifiedCardLookupStep({
         <div className="cashier-stage-heading">
           <span className="cashier-stage-kicker">Step 1</span>
           <h2 id="verified-card-lookup-title">Find customer</h2>
-          <p>Find a customer by name or phone, or scan their active card to continue.</p>
+          <p>
+            Find a customer by name or phone, or scan their active card to
+            continue.
+          </p>
         </div>
         <form onSubmit={onLookup} className="cashier-lookup-form">
           <Input
@@ -48,14 +51,23 @@ export function VerifiedCardLookupStep({
           {lookupMessage || policyMessage || 'Search to continue.'}
         </p>
         {discoveryMatches.length > 0 ? (
-          <div className="cashier-lookup-matches" aria-label="Customer search results">
+          <div
+            className="cashier-lookup-matches"
+            aria-label="Customer search results"
+          >
             {discoveryMatches.map((customer, index) => (
-              <div className="cashier-lookup-match" key={customer.customerId ?? customer.id ?? index}>
+              <div
+                className="cashier-lookup-match"
+                key={customer.customerId ?? customer.id ?? index}
+              >
                 <strong>{customer.fullName ?? 'Customer'}</strong>
                 <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
               </div>
             ))}
-            <p>Customer discovery does not verify a card. Scan or enter the active card serial above to continue.</p>
+            <p>
+              Customer discovery does not verify a card. Scan or enter the
+              active card serial above to continue.
+            </p>
           </div>
         ) : null}
       </div>

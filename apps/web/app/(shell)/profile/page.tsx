@@ -4,10 +4,16 @@ import Link from 'next/link';
 import { useSessionBootstrapState } from '../../../components/session-bootstrap';
 
 export default function ProfilePage() {
-  const { status, role, branchId, deviceId, sessionLabel } = useSessionBootstrapState();
+  const { status, role, branchId, deviceId, sessionLabel } =
+    useSessionBootstrapState();
   const username = sessionLabel?.split(' · ').at(-1) ?? 'Signed in user';
   const initials = username.slice(0, 2).toUpperCase();
-  const home = role === 'SUPERVISOR' ? '/supervisor' : role === 'ADMIN' ? '/admin' : '/cashier';
+  const home =
+    role === 'SUPERVISOR'
+      ? '/supervisor'
+      : role === 'ADMIN'
+        ? '/admin'
+        : '/cashier';
   return (
     <section className="shopcity-profile">
       <header>
@@ -16,17 +22,34 @@ export default function ProfilePage() {
         <p>Your authenticated ShopCity staff account.</p>
       </header>
       <article className="shopcity-profile__card">
-        <span className="shopcity-profile__avatar" aria-hidden="true">{initials || 'SC'}</span>
+        <span className="shopcity-profile__avatar" aria-hidden="true">
+          {initials || 'SC'}
+        </span>
         <div>
           <h2>{username}</h2>
           <p>{role ?? 'Role unavailable'}</p>
         </div>
         <dl>
-          <div><dt>Account</dt><dd>{username}</dd></div>
-          <div><dt>Role</dt><dd>{role ?? 'Unavailable'}</dd></div>
-          <div><dt>Branch</dt><dd>{branchId ?? 'Not assigned'}</dd></div>
-          <div><dt>Device association</dt><dd>{deviceId ? 'Linked' : 'Not linked'}</dd></div>
-          <div><dt>Session</dt><dd>{status === 'ready' ? 'Active' : 'Unavailable'}</dd></div>
+          <div>
+            <dt>Account</dt>
+            <dd>{username}</dd>
+          </div>
+          <div>
+            <dt>Role</dt>
+            <dd>{role ?? 'Unavailable'}</dd>
+          </div>
+          <div>
+            <dt>Branch</dt>
+            <dd>{branchId ?? 'Not assigned'}</dd>
+          </div>
+          <div>
+            <dt>Device association</dt>
+            <dd>{deviceId ? 'Linked' : 'Not linked'}</dd>
+          </div>
+          <div>
+            <dt>Session</dt>
+            <dd>{status === 'ready' ? 'Active' : 'Unavailable'}</dd>
+          </div>
         </dl>
         <Link href={home}>Return to workspace</Link>
       </article>

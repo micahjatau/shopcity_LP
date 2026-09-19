@@ -51,11 +51,15 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
   const [lookupPending, setLookupPending] = useState(false);
   const initialLookupAttempted = useRef(false);
   const requestGeneration = useRef(0);
-  const [discoveryMatches, setDiscoveryMatches] = useState<CashierDiscoveryRecord[]>([]);
+  const [discoveryMatches, setDiscoveryMatches] = useState<
+    CashierDiscoveryRecord[]
+  >([]);
 
   async function lookup(eventOrValue: FormEvent<HTMLFormElement> | string) {
     if (typeof eventOrValue !== 'string') eventOrValue.preventDefault();
-    const query = (typeof eventOrValue === 'string' ? eventOrValue : lookupValue).trim();
+    const query = (
+      typeof eventOrValue === 'string' ? eventOrValue : lookupValue
+    ).trim();
     const generation = ++requestGeneration.current;
     setLookupRecord(null);
     setDiscoveryMatches([]);
@@ -64,7 +68,9 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
       return;
     }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setLookupMessage('Customer lookup requires a connection. Reconnect to try again.');
+      setLookupMessage(
+        'Customer lookup requires a connection. Reconnect to try again.',
+      );
       return;
     }
     setLookupPending(true);
@@ -85,7 +91,9 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
         return;
       }
       const data = response.data.data;
-      const matches = (Array.isArray(data) ? data : data.items ?? []) as CashierDiscoveryRecord[];
+      const matches = (
+        Array.isArray(data) ? data : (data.items ?? [])
+      ) as CashierDiscoveryRecord[];
       setDiscoveryMatches(matches);
       setLookupMessage(
         matches.length
@@ -98,7 +106,9 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
       // A customer-directory match is not financial authorization. Only the
       // exact active-card endpoint can unlock Earn or Redeem.
       const phone = /^\+?[\d\s()]{10,}$/.test(query);
-      const name = /^[\p{L}][\p{L} '\-]{1,}$/u.test(query) && !/^(SC|CARD)[- ]/i.test(query);
+      const name =
+        /^[\p{L}][\p{L} '\-]{1,}$/u.test(query) &&
+        !/^(SC|CARD)[- ]/i.test(query);
       if (phone || name) {
         await discoverCustomer();
         return;
@@ -110,17 +120,23 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
       if (generation !== requestGeneration.current) return;
       if (response.status === 200) {
         setLookupRecord(response.data.data);
-        setLookupMessage('Active card verified. Confirm the customer to continue.');
+        setLookupMessage(
+          'Active card verified. Confirm the customer to continue.',
+        );
       } else if (response.status === 404) {
         // The card could be unknown, inactive, or replaced. A directory
         // search can help identify the customer but must not unlock checkout.
         await discoverCustomer();
       } else {
-        setLookupMessage('Card verification unavailable (' + response.status + ').');
+        setLookupMessage(
+          'Card verification unavailable (' + response.status + ').',
+        );
       }
     } catch {
       if (generation === requestGeneration.current) {
-        setLookupMessage('Lookup could not be completed. Check the connection and try again.');
+        setLookupMessage(
+          'Lookup could not be completed. Check the connection and try again.',
+        );
       }
     } finally {
       if (generation === requestGeneration.current) setLookupPending(false);

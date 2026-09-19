@@ -194,7 +194,11 @@ export function CashierWorkflowRoute({
         />
       ) : kind === 'earn' && (!lookupRecord || !earnConfirmed) ? (
         <section
-          className={lookupRecord ? 'cashier-card cashier-earn-stage' : 'cashier-stage-container'}
+          className={
+            lookupRecord
+              ? 'cashier-card cashier-earn-stage'
+              : 'cashier-stage-container'
+          }
           data-od-id="capture-stage"
         >
           {!lookupRecord ? (
@@ -1066,7 +1070,9 @@ function FindCustomerView({
       <section className="find-customer-recent">
         <div>
           <h2>Customer results</h2>
-          <p>Search by name or phone, then verify the active card to continue.</p>
+          <p>
+            Search by name or phone, then verify the active card to continue.
+          </p>
         </div>
         <div className="find-customer-list">
           {lookupRecord ? (
@@ -1096,7 +1102,10 @@ function FindCustomerView({
             </div>
           ) : discoveryMatches.length > 0 ? (
             discoveryMatches.map((customer, index) => (
-              <div className="find-customer-row" key={customer.customerId ?? customer.id ?? index}>
+              <div
+                className="find-customer-row"
+                key={customer.customerId ?? customer.id ?? index}
+              >
                 <div>
                   <strong>{customer.fullName ?? 'Customer'}</strong>
                   <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
