@@ -63,7 +63,9 @@ export function EarnTransactionForm({
 
   useEffect(() => {
     if (!onFlowStepChange) return;
-    const hasReceiptDraft = Boolean(receiptNumber.trim() || purchaseAmount !== null);
+    const hasReceiptDraft = Boolean(
+      receiptNumber.trim() || purchaseAmount !== null,
+    );
     onFlowStepChange(
       status === 'confirmed' || status === 'pending'
         ? 3
@@ -169,18 +171,44 @@ export function EarnTransactionForm({
             rows={3}
           />
           {!receiptNumber ? (
-            <span className="cashier-workflow-hint">Receipt number is required</span>
+            <span className="cashier-workflow-hint">
+              Receipt number is required
+            </span>
           ) : null}
         </div>
       ) : (
-        <section className="cashier-review-card" data-od-id="capture-review-details">
+        <section
+          className="cashier-review-card"
+          data-od-id="capture-review-details"
+        >
           <div className="cashier-review-grid">
-            <div><span>Receipt number</span><strong>{receiptNumber || '—'}</strong></div>
-            <div><span>Purchase amount</span><strong>{purchaseAmount !== null ? <Money amountKobo={purchaseAmount} /> : '—'}</strong></div>
-            <div><span>Receipt date</span><strong>{new Date(occurredAt).toLocaleString()}</strong></div>
-            <div><span>Customer</span><strong>{lookupContext?.customerName ?? 'Customer'}</strong></div>
+            <div>
+              <span>Receipt number</span>
+              <strong>{receiptNumber || '—'}</strong>
+            </div>
+            <div>
+              <span>Purchase amount</span>
+              <strong>
+                {purchaseAmount !== null ? (
+                  <Money amountKobo={purchaseAmount} />
+                ) : (
+                  '—'
+                )}
+              </strong>
+            </div>
+            <div>
+              <span>Receipt date</span>
+              <strong>{new Date(occurredAt).toLocaleString()}</strong>
+            </div>
+            <div>
+              <span>Customer</span>
+              <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
+            </div>
           </div>
-          <p>Confirm the receipt details and the ShopCity earn policy will calculate the final credit.</p>
+          <p>
+            Confirm the receipt details and the ShopCity earn policy will
+            calculate the final credit.
+          </p>
         </section>
       )}
       <div
@@ -258,7 +286,9 @@ export function EarnTransactionForm({
           </div>
           <div>
             <p className="capture-result-card__eyebrow">
-              {status === 'confirmed' ? 'Transaction complete' : 'Approval required'}
+              {status === 'confirmed'
+                ? 'Transaction complete'
+                : 'Approval required'}
             </p>
             <h3>
               {status === 'confirmed'
