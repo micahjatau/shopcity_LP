@@ -158,7 +158,7 @@ test.describe('contract-faithful frontend flows', () => {
     ).toBeVisible();
 
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
-    await page.getByRole('button', { name: 'Lookup' }).click();
+    await page.getByRole('button', { name: 'Search customer' }).click();
     await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Continue to redemption' }).click();
     const redeem = page.getByRole('article', { name: /redeem transaction/i });
