@@ -12,6 +12,7 @@ import { EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   useCashierLookupController,
   type CashierLookupRecord,
+  type CashierDiscoveryRecord,
 } from './use-cashier-lookup-controller';
 import { VerifiedCardLookupStep } from './verified-card-lookup-step';
 
@@ -1002,6 +1003,7 @@ function FindCustomerView({
   lookupMessage,
   lookupPending,
   lookupRecord,
+  discoveryMatches,
   onLookup,
   onQueryChange,
   selectedCardSerial,
@@ -1010,6 +1012,7 @@ function FindCustomerView({
   lookupMessage: string;
   lookupPending: boolean;
   lookupRecord: CashierLookupRecord | null;
+  discoveryMatches: CashierDiscoveryRecord[];
   onLookup: (event: FormEvent<HTMLFormElement>) => void;
   onQueryChange: (value: string) => void;
   selectedCardSerial: string;
@@ -1031,7 +1034,7 @@ function FindCustomerView({
                 id="customer-search-query"
                 type="search"
                 aria-label="Customer search"
-                placeholder="Card serial number"
+                placeholder="Name, phone or card serial"
                 value={lookupValue}
                 onChange={(event) => onQueryChange(event.target.value)}
               />
@@ -1062,8 +1065,8 @@ function FindCustomerView({
 
       <section className="find-customer-recent">
         <div>
-          <h2>Recent customers</h2>
-          <p>Customers served most recently at this branch.</p>
+          <h2>Customer results</h2>
+          <p>Search by name or phone, then verify the active card to continue.</p>
         </div>
         <div className="find-customer-list">
           {lookupRecord ? (
@@ -1091,9 +1094,19 @@ function FindCustomerView({
                 </Link>
               </div>
             </div>
+          ) : discoveryMatches.length > 0 ? (
+            discoveryMatches.map((customer, index) => (
+              <div className="find-customer-row" key={customer.customerId ?? customer.id ?? index}>
+                <div>
+                  <strong>{customer.fullName ?? 'Customer'}</strong>
+                  <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
+                </div>
+                <span>Scan active card to continue</span>
+              </div>
+            ))
           ) : (
             <p className="find-customer-empty">
-              Search for a customer to continue a loyalty transaction.
+              Search by name, phone, or an active card serial to continue.
             </p>
           )}
         </div>
