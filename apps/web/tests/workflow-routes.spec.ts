@@ -155,11 +155,13 @@ test.describe('workflow route coverage', () => {
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed' }).click();
     await page.getByLabel('POS receipt number').fill('WORKFLOW-EARN-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
-    await page.getByRole('button', { name: 'Submit earn' }).click();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
       page.getByText('Earn confirmed by backend contract.'),
     ).toBeVisible();
@@ -170,6 +172,7 @@ test.describe('workflow route coverage', () => {
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible();
+    await page.getByRole('button', { name: 'Continue to redemption' }).click();
     await page.getByLabel('POS receipt number').fill('WORKFLOW-REDEEM-001');
     const basket = page.getByLabel('Basket amount');
     const requested = page.getByLabel('Requested redemption');
@@ -177,7 +180,8 @@ test.describe('workflow route coverage', () => {
     await basket.blur();
     await requested.fill('10');
     await requested.blur();
-    await page.getByRole('button', { name: 'Submit redemption' }).click();
+    await page.getByRole('button', { name: 'Proceed to confirmation' }).click();
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(
       page.getByText('Redemption confirmed by backend contract.'),
     ).toBeVisible();
@@ -203,11 +207,13 @@ test.describe('workflow route coverage', () => {
     await page.route('**/api/v1/transactions/earn', (route) => route.abort());
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
+    await page.getByRole('button', { name: 'Proceed' }).click();
     await page.getByLabel('POS receipt number').fill('WORKFLOW-OFFLINE-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
-    await page.getByRole('button', { name: 'Submit earn' }).click();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
       page.getByText('Earn could not be submitted. Saved locally for sync.'),
     ).toBeVisible();
@@ -242,11 +248,14 @@ test.describe('workflow route coverage', () => {
     });
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
+    await page.getByRole('button', { name: 'Proceed' }).click();
     await page.getByLabel('POS receipt number').fill('WORKFLOW-PENDING-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
-    const submit = page.getByRole('button', { name: 'Submit earn' });
+    const proceed = page.getByRole('button', { name: 'Proceed to review' });
+    await proceed.click();
+    const submit = page.getByRole('button', { name: 'Confirm & add credit' });
     await submit.click();
     await expect(submit).toBeDisabled();
   });
@@ -284,6 +293,14 @@ test.describe('workflow route coverage', () => {
     for (const [route, landmark, role] of fixtures) {
       await mockShell(page, role);
       await page.goto(`${baseUrl}${route}`);
+      if (landmark === 'capture-flow') {
+        await page.getByRole('button', { name: 'Proceed' }).click();
+      }
+      if (landmark === 'redeem-flow') {
+        await page
+          .getByRole('button', { name: 'Continue to redemption' })
+          .click();
+      }
       const element = page.locator(`[data-od-id="${landmark}"]`);
       await expect(element).toBeVisible();
       const box = await element.boundingBox();

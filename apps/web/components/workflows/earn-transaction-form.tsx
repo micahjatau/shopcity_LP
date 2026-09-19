@@ -1,6 +1,7 @@
 'use client';
 
 import { CircleCheck, RotateCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Input, Textarea, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 import {
@@ -17,6 +18,7 @@ type EarnTransactionFormProps = {
   branchId?: string | null;
   branchTimezone?: string | null;
   receiptWeekStartDay?: number | null;
+  onFlowStepChange?: (step: number) => void;
 };
 export function EarnTransactionForm({
   lookupContext,
@@ -26,7 +28,9 @@ export function EarnTransactionForm({
   branchId,
   branchTimezone,
   receiptWeekStartDay,
+  onFlowStepChange,
 }: EarnTransactionFormProps) {
+  const [reviewing, setReviewing] = useState(false);
   const {
     authoritativeCardSerial,
     cardSerialNumber,
@@ -56,9 +60,30 @@ export function EarnTransactionForm({
     branchTimezone,
     receiptWeekStartDay,
   });
+
+  useEffect(() => {
+    if (!onFlowStepChange) return;
+    const hasReceiptDraft = Boolean(receiptNumber.trim() || purchaseAmount !== null);
+    onFlowStepChange(
+      status === 'confirmed' || status === 'pending'
+        ? 3
+        : reviewing || hasReceiptDraft
+          ? 3
+          : 2,
+    );
+  }, [onFlowStepChange, purchaseAmount, receiptNumber, reviewing, status]);
+
   return (
     <form
-      onSubmit={(event) => void handleSubmit(event)}
+      onSubmit={(event) => {
+        if (!reviewing) {
+          event.preventDefault();
+          setReviewing(true);
+          onFlowStepChange?.(3);
+          return;
+        }
+        void handleSubmit(event);
+      }}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
       data-od-id="capture-form"
     >
@@ -113,39 +138,51 @@ export function EarnTransactionForm({
           }}
         />
       </div>
-      <div data-od-id="capture-receipt">
-        <Input
-          aria-label="POS receipt number"
-          aria-required="true"
-          placeholder="Receipt number (required)"
-          value={receiptNumber}
-          onChange={(event) => setReceiptNumber(event.target.value)}
-        />
-        {!receiptNumber ? (
-          <span className="cashier-workflow-hint">Required</span>
-        ) : null}
-      </div>
-      <MoneyInput
-        label="Purchase amount"
-        hint="Enter the purchase amount in naira"
-        valueKobo={purchaseAmount}
-        onValueChange={setPurchaseAmount}
-      />
-      <Input
-        aria-label="Occurred at"
-        type="datetime-local"
-        value={occurredAt.slice(0, 16)}
-        onChange={(event) =>
-          setOccurredAt(new Date(event.target.value).toISOString())
-        }
-      />
-      <Textarea
-        aria-label="Override reason"
-        placeholder="Optional override reason"
-        value={overrideReason}
-        onChange={(event) => setOverrideReason(event.target.value)}
-        rows={3}
-      />
+      {!reviewing ? (
+        <div className="cashier-receipt-fields" data-od-id="capture-receipt">
+          <Input
+            aria-label="POS receipt number"
+            aria-required="true"
+            placeholder="Receipt number (required)"
+            value={receiptNumber}
+            onChange={(event) => setReceiptNumber(event.target.value)}
+          />
+          <MoneyInput
+            label="Purchase amount"
+            hint="Enter the purchase amount in naira"
+            valueKobo={purchaseAmount}
+            onValueChange={setPurchaseAmount}
+          />
+          <Input
+            aria-label="Occurred at"
+            type="datetime-local"
+            value={occurredAt.slice(0, 16)}
+            onChange={(event) =>
+              setOccurredAt(new Date(event.target.value).toISOString())
+            }
+          />
+          <Textarea
+            aria-label="Override reason"
+            placeholder="Optional override reason"
+            value={overrideReason}
+            onChange={(event) => setOverrideReason(event.target.value)}
+            rows={3}
+          />
+          {!receiptNumber ? (
+            <span className="cashier-workflow-hint">Receipt number is required</span>
+          ) : null}
+        </div>
+      ) : (
+        <section className="cashier-review-card" data-od-id="capture-review-details">
+          <div className="cashier-review-grid">
+            <div><span>Receipt number</span><strong>{receiptNumber || '—'}</strong></div>
+            <div><span>Purchase amount</span><strong>{purchaseAmount !== null ? <Money amountKobo={purchaseAmount} /> : '—'}</strong></div>
+            <div><span>Receipt date</span><strong>{new Date(occurredAt).toLocaleString()}</strong></div>
+            <div><span>Customer</span><strong>{lookupContext?.customerName ?? 'Customer'}</strong></div>
+          </div>
+          <p>Confirm the receipt details and the ShopCity earn policy will calculate the final credit.</p>
+        </section>
+      )}
       <div
         style={{
           display: 'flex',
@@ -159,11 +196,22 @@ export function EarnTransactionForm({
           disabled={!submissionReady}
         >
           <CircleCheck aria-hidden="true" size={16} strokeWidth={1.8} />
-          Submit earn
+          {reviewing ? 'Confirm & add credit' : 'Proceed to review'}
         </Button>
-        <Button type="button" variant="secondary" onClick={resetDraft}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            if (reviewing) {
+              setReviewing(false);
+              onFlowStepChange?.(2);
+              return;
+            }
+            resetDraft();
+          }}
+        >
           <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
-          Reset draft
+          {reviewing ? 'Edit receipt' : 'Reset draft'}
         </Button>
       </div>
       <div
@@ -200,16 +248,29 @@ export function EarnTransactionForm({
       </div>
       {responseData ? (
         <section
-          style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+          className="capture-result-card"
           data-od-id="capture-success"
+          aria-live="polite"
         >
-          <Alert
-            tone={status === 'confirmed' ? 'success' : 'warning'}
-            title="Backend response"
-          >
-            The backend returned a{' '}
-            {status === 'confirmed' ? 'confirmed' : 'pending'} earn result.
-          </Alert>
+          <div className="capture-result-card__hero" aria-hidden="true">
+            <CircleCheck size={30} strokeWidth={1.8} />
+            <span>ShopCity Credit earned</span>
+          </div>
+          <div>
+            <p className="capture-result-card__eyebrow">
+              {status === 'confirmed' ? 'Transaction complete' : 'Approval required'}
+            </p>
+            <h3>
+              {status === 'confirmed'
+                ? 'Purchase captured successfully'
+                : 'Purchase is awaiting approval'}
+            </h3>
+            <p>
+              {status === 'confirmed'
+                ? 'ShopCity Credit has been issued to the customer wallet.'
+                : 'The transaction was recorded and will complete after supervisor review.'}
+            </p>
+          </div>
           <Table>
             <tbody>
               {Object.entries(responseData)
@@ -222,6 +283,18 @@ export function EarnTransactionForm({
                 ))}
             </tbody>
           </Table>
+          <div className="capture-result-card__actions">
+            <button
+              className="sc-button sc-button--primary"
+              type="button"
+              onClick={() => {
+                setReviewing(false);
+                resetDraft();
+              }}
+            >
+              Capture another
+            </button>
+          </div>
         </section>
       ) : null}
     </form>

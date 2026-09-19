@@ -1,6 +1,7 @@
 'use client';
 
 import { CircleCheck, RotateCcw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Input, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 import {
@@ -14,13 +15,16 @@ type RedeemTransactionFormProps = {
   policyContext?: RedeemPolicyContext | null;
   cashierId?: string | null;
   branchId?: string | null;
+  onFlowStepChange?: (step: number) => void;
 };
 export function RedeemTransactionForm({
   lookupContext,
   policyContext,
   cashierId,
   branchId,
+  onFlowStepChange,
 }: RedeemTransactionFormProps) {
+  const [reviewing, setReviewing] = useState(false);
   const {
     authoritativeCardSerial,
     basketAmount,
@@ -47,9 +51,22 @@ export function RedeemTransactionForm({
     cashierId,
     branchId,
   });
+
+  useEffect(() => {
+    onFlowStepChange?.(reviewing ? 3 : 2);
+  }, [onFlowStepChange, reviewing]);
+
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        if (!reviewing) {
+          event.preventDefault();
+          setReviewing(true);
+          onFlowStepChange?.(3);
+          return;
+        }
+        void handleSubmit(event);
+      }}
       style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
       data-od-id="redeem-form"
     >
@@ -152,6 +169,47 @@ export function RedeemTransactionForm({
           The requested redemption exceeds the current calculated maximum.
         </Alert>
       ) : null}
+      {reviewing ? (
+        <section
+          className="cashier-review-card"
+          data-od-id="redeem-confirmation"
+        >
+          <div className="cashier-review-grid">
+            <div>
+              <span>Customer</span>
+              <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
+            </div>
+            <div>
+              <span>Basket amount</span>
+              <strong>
+                {basketAmount === null ? (
+                  '—'
+                ) : (
+                  <Money amountKobo={basketAmount} />
+                )}
+              </strong>
+            </div>
+            <div>
+              <span>Requested credit</span>
+              <strong>
+                {requestedRedemption === null ? (
+                  '—'
+                ) : (
+                  <Money amountKobo={requestedRedemption} />
+                )}
+              </strong>
+            </div>
+            <div>
+              <span>Receipt number</span>
+              <strong>{receiptNumber || '—'}</strong>
+            </div>
+          </div>
+          <p>
+            Confirm the redemption details before sending the authoritative
+            request.
+          </p>
+        </section>
+      ) : null}
       <div
         style={{
           display: 'flex',
@@ -170,11 +228,22 @@ export function RedeemTransactionForm({
           }
         >
           <CircleCheck aria-hidden="true" size={16} strokeWidth={1.8} />
-          Submit redemption
+          {reviewing ? 'Confirm redemption' : 'Proceed to confirmation'}
         </Button>
-        <Button type="button" variant="secondary" onClick={resetDraft}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            if (reviewing) {
+              setReviewing(false);
+              onFlowStepChange?.(2);
+              return;
+            }
+            resetDraft();
+          }}
+        >
           <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
-          Reset draft
+          {reviewing ? 'Edit redemption' : 'Reset draft'}
         </Button>
       </div>
       <div

@@ -71,7 +71,10 @@ describe('cashier transaction forms', () => {
     const purchase = screen.getByLabelText('Purchase amount');
     fireEvent.change(purchase, { target: { value: '10' } });
     fireEvent.blur(purchase);
-    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
 
     await waitFor(() => {
       expect(
@@ -110,7 +113,9 @@ describe('cashier transaction forms', () => {
     });
     fireEvent.blur(screen.getByLabelText('Purchase amount'));
 
-    expect(screen.getByRole('button', { name: 'Submit earn' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Proceed to review' }),
+    ).toBeDisabled();
     expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
   });
 
@@ -122,9 +127,9 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    const submit = screen.getByRole('button', { name: 'Submit earn' });
+    const submit = screen.getByRole('button', { name: 'Proceed to review' });
     expect(submit).toBeDisabled();
-    expect(screen.getByText('Required')).toBeInTheDocument();
+    expect(screen.getByText('Receipt number is required')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('POS receipt number'), {
       target: { value: 'R-002' },
@@ -156,7 +161,10 @@ describe('cashier transaction forms', () => {
       target: { value: '10' },
     });
     fireEvent.blur(screen.getByLabelText('Purchase amount'));
-    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
 
     await waitFor(() => {
       expect(
@@ -183,7 +191,10 @@ describe('cashier transaction forms', () => {
       target: { value: '10' },
     });
     fireEvent.blur(screen.getByLabelText('Purchase amount'));
-    fireEvent.click(screen.getByRole('button', { name: 'Submit earn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Earn awaiting approval.')).toBeInTheDocument();
@@ -208,7 +219,7 @@ describe('cashier transaction forms', () => {
     fireEvent.blur(screen.getByLabelText('Requested redemption'));
 
     expect(
-      screen.getByRole('button', { name: 'Submit redemption' }),
+      screen.getByRole('button', { name: 'Proceed to confirmation' }),
     ).toBeDisabled();
     expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
   });
@@ -232,7 +243,10 @@ describe('cashier transaction forms', () => {
     });
     fireEvent.blur(screen.getByLabelText('Basket amount'));
     fireEvent.blur(screen.getByLabelText('Requested redemption'));
-    fireEvent.click(screen.getByRole('button', { name: 'Submit redemption' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Proceed to confirmation' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm redemption' }));
 
     await waitFor(() => {
       expect(
@@ -265,9 +279,13 @@ describe('cashier transaction forms', () => {
     fireEvent.change(requested, { target: { value: '10' } });
     fireEvent.blur(screen.getByLabelText('Basket amount'));
     fireEvent.blur(requested);
-    const submit = screen.getByRole('button', { name: 'Submit redemption' });
+    const submit = screen.getByRole('button', {
+      name: 'Proceed to confirmation',
+    });
     fireEvent.click(submit);
-    fireEvent.click(submit);
+    const confirm = screen.getByRole('button', { name: 'Confirm redemption' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
 
     expect(redemptionsControllerRedeemV1).toHaveBeenCalledTimes(1);
     const redeemPayload = jest.mocked(redemptionsControllerRedeemV1).mock
