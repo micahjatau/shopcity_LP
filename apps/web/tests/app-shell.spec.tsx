@@ -98,9 +98,16 @@ describe('AppShell', () => {
     expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Protected content')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Search' })).toHaveAttribute(
-      'readonly',
+    expect(
+      screen.getByRole('combobox', { name: 'Search ShopCity' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Customers' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     );
+    expect(
+      screen.queryByRole('button', { name: 'Notifications' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /overview/i })).toHaveAttribute(
       'aria-current',
       'page',

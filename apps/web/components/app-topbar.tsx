@@ -1,5 +1,5 @@
-import { Bell, Search } from 'lucide-react';
 import type { RefObject } from 'react';
+import { GlobalShellSearch } from './global-shell-search';
 
 export type AppTopbarContext = {
   tenant?: { id?: string; name?: string };
@@ -18,6 +18,7 @@ export type AppTopbarProps = Readonly<{
   workspaceLabel: string;
   routeTrailLabel: string;
   deviceLabel: string | null;
+  role: 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | null;
   onOpenMobileMenu: () => void;
   mobileMenuButtonRef: RefObject<HTMLButtonElement | null>;
 }>;
@@ -28,16 +29,14 @@ export function AppTopbar({
   configMessage,
   workspaceLabel,
   deviceLabel,
+  role,
   onOpenMobileMenu,
   mobileMenuButtonRef,
 }: AppTopbarProps) {
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
-        <label className="shell-search">
-          <Search aria-hidden="true" size={16} strokeWidth={1.8} />
-          <input readOnly aria-label="Search" placeholder="Search" />
-        </label>
+        <GlobalShellSearch userRole={role} />
 
         <div className="shell-topbar-actions">
           <p data-status={status} className="shell-session-label sr-only">
@@ -52,17 +51,7 @@ export function AppTopbar({
           <p className="sr-only">
             {deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}
           </p>
-          <span className="shell-online" title={configMessage}>
-            <i aria-hidden="true" /> System Online
-          </span>
-          <button
-            type="button"
-            className="shell-icon-button"
-            aria-label="Notifications"
-            title="Notifications"
-          >
-            <Bell aria-hidden="true" size={18} strokeWidth={1.8} />
-          </button>
+
           <span
             className="shell-avatar"
             aria-label={sessionLabel ?? 'Signed in user'}
@@ -99,31 +88,8 @@ export function AppTopbar({
           display: flex;
           gap: 20px;
           align-items: center;
-          justify-content: flex-end;
+          justify-content: space-between;
           width: 100%;
-        }
-
-        .shell-search {
-          height: 36px;
-          width: min(300px, 40vw);
-          border: 1px solid var(--sc-color-semantic-border);
-          background: var(--sc-color-neutral-50);
-          border-radius: 999px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 0 14px;
-          color: var(--sc-color-semantic-textSecondary);
-          margin-right: auto;
-        }
-
-        .shell-search input {
-          border: 0;
-          outline: 0;
-          background: transparent;
-          width: 100%;
-          color: var(--sc-color-neutral-900);
-          font-size: 12px;
         }
 
         .shell-topbar-actions {
@@ -131,36 +97,6 @@ export function AppTopbar({
           gap: 20px;
           align-items: center;
           justify-content: flex-end;
-        }
-
-        .shell-online {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          color: var(--sc-color-success-700);
-          background: var(--sc-color-success-50);
-          border-radius: 999px;
-          padding: 6px 11px;
-          font-size: 11px;
-        }
-
-        .shell-online i {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--sc-color-success-600);
-        }
-
-        .shell-icon-button {
-          width: 38px;
-          height: 38px;
-          border: 0;
-          background: transparent;
-          color: var(--sc-color-neutral-900);
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          opacity: 0.5;
         }
 
         .shell-avatar {
@@ -195,6 +131,22 @@ export function AppTopbar({
         }
 
         @media (max-width: 767px) {
+          .shell-topbar {
+            height: auto;
+            min-height: 64px;
+            margin-bottom: 16px;
+            padding: 10px 12px;
+          }
+
+          .shell-brand-row,
+          .shell-topbar-actions {
+            gap: 8px;
+          }
+
+          .shell-topbar-actions {
+            min-width: 0;
+          }
+
           .shell-mobile-menu-button {
             display: inline-flex;
           }

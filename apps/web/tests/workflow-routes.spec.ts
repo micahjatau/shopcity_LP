@@ -128,6 +128,104 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(375);
   });
 
+  test('keeps Capture Purchase and Redeem lookup states visually paired', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    let mode: 'success' | 'loading' | 'error' = 'success';
+    await page.route('**/api/v1/cards/lookup/CARD-PAIR', async (route) => {
+      if (mode === 'loading')
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      if (mode === 'error') {
+        await route.fulfill({
+          ...json({ success: false, error: { statusCode: 503 } }),
+          status: 503,
+        });
+        return;
+      }
+      await route.fulfill(
+        json({
+          success: true,
+          data: {
+            customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+            serialNumber: 'CARD-PAIR',
+            status: 'ACTIVE',
+            availableBalanceKobo: 5500,
+            branchId: 'branch-1',
+          },
+          meta: meta('/api/v1/cards/lookup/CARD-PAIR'),
+        }),
+      );
+    });
+
+    for (const kind of ['earn', 'redeem'] as const) {
+      const route = kind === 'earn' ? '/cashier/earn' : '/cashier/redeem';
+      await page.goto(`${baseUrl}${route}`);
+      const lookup = page.locator('.cashier-verified-card-lookup');
+      await expect(lookup).toBeVisible();
+      await expect(page).toHaveScreenshot(`financial-lookup-${kind}-idle.png`, {
+        maxDiffPixelRatio: 0.08,
+      });
+
+      mode = 'loading';
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(
+        page.getByRole('button', { name: 'Looking up…' }),
+      ).toBeDisabled();
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-loading.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+      await page.waitForResponse('**/api/v1/cards/lookup/CARD-PAIR');
+
+      mode = 'error';
+      await page.reload();
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(page.getByText(/Lookup unavailable \(503\)/)).toBeVisible();
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-error.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+
+      mode = 'success';
+      await page.reload();
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Confirm customer' }),
+      ).toBeVisible();
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-verified.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+      await page
+        .getByRole('button', {
+          name: kind === 'earn' ? 'Proceed' : 'Continue to redemption',
+        })
+        .click();
+      await expect(
+        page.getByRole('article', { name: `${kind} transaction` }),
+      ).toBeVisible();
+      await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
+        0,
+      );
+      await expect(page).toHaveScreenshot(
+        `financial-lookup-${kind}-confirmation.png`,
+        {
+          maxDiffPixelRatio: 0.08,
+        },
+      );
+    }
+  });
+
   test('opens and closes the cashier transaction detail modal without unsupported fields', async ({
     page,
   }) => {

@@ -440,6 +440,11 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
               workspaceLabel={workspaceLabel}
               routeTrailLabel={routeTrailLabel}
               deviceLabel={deviceId}
+              role={
+                role === 'CASHIER' || role === 'SUPERVISOR' || role === 'ADMIN'
+                  ? role
+                  : null
+              }
               mobileMenuButtonRef={mobileMenuButtonRef}
               onOpenMobileMenu={() => setMobileNavigationOpen(true)}
             />

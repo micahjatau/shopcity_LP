@@ -8,15 +8,12 @@ import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
 import { Alert, Button, Input } from '../ui';
 import { Money, StatusBadge } from '../shopcity';
-import {
-  WorkflowSection,
-  EarnTransactionForm,
-  RedeemTransactionForm,
-} from './index';
+import { EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   useCashierLookupController,
   type CashierLookupRecord,
 } from './use-cashier-lookup-controller';
+import { VerifiedCardLookupStep } from './verified-card-lookup-step';
 
 type CashierPolicyConfig = {
   tenant?: { id?: string; name?: string };
@@ -198,30 +195,14 @@ export function CashierWorkflowRoute({
           data-od-id="capture-stage"
         >
           {!lookupRecord ? (
-            <div className="cashier-stage-content">
-              <div className="cashier-stage-heading">
-                <span className="cashier-stage-kicker">Step 1</span>
-                <h2>Find customer</h2>
-                <p>Scan the virtual card, or enter its card serial number.</p>
-              </div>
-              <form
-                onSubmit={(event) => void handleLookup(event)}
-                className="cashier-lookup-form"
-              >
-                <Input
-                  placeholder="Scan card serial number"
-                  aria-label="Lookup"
-                  value={lookupValue}
-                  onChange={(event) => setLookupValue(event.target.value)}
-                />
-                <Button type="submit" disabled={lookupPending}>
-                  {lookupPending ? 'Looking up…' : 'Search customer'}
-                </Button>
-              </form>
-              <Alert tone="info" title="Ready to continue">
-                {lookupMessage || policyMessage}
-              </Alert>
-            </div>
+            <VerifiedCardLookupStep
+              lookupValue={lookupValue}
+              lookupMessage={lookupMessage}
+              lookupPending={lookupPending}
+              policyMessage={policyMessage}
+              onLookup={(event) => void handleLookup(event)}
+              onQueryChange={setLookupValue}
+            />
           ) : !earnConfirmed ? (
             <div
               className="cashier-stage-content cashier-confirm-stage"
@@ -325,37 +306,15 @@ export function CashierWorkflowRoute({
             </div>
           </div>
         </section>
-      ) : (
-        <WorkflowSection
-          title="Find customer context"
-          description="Look up the card first. The transaction form unlocks when the server confirms the customer context."
-        >
-          <div className="cashier-workspace-grid">
-            <article className="cashier-card" aria-label="Lookup and status">
-              <h2 style={{ marginTop: 0 }}>Lookup and status</h2>
-              <form
-                onSubmit={(event) => void handleLookup(event)}
-                style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
-              >
-                <Input
-                  placeholder="Scan card serial number"
-                  aria-label="Lookup"
-                  value={lookupValue}
-                  onChange={(event) => setLookupValue(event.target.value)}
-                />
-                <Button type="submit" disabled={lookupPending}>
-                  {lookupPending ? 'Looking up…' : 'Lookup'}
-                </Button>
-              </form>
-              <Alert tone="info" title="Ready to continue">
-                {lookupMessage}
-              </Alert>
-            </article>
-            <p className="cashier-workflow-notice" role="status">
-              {policyMessage}
-            </p>
-          </div>
-        </WorkflowSection>
+      ) : kind === 'redeem' && redeemConfirmed ? null : (
+        <VerifiedCardLookupStep
+          lookupValue={lookupValue}
+          lookupMessage={lookupMessage}
+          lookupPending={lookupPending}
+          policyMessage={policyMessage}
+          onLookup={(event) => void handleLookup(event)}
+          onQueryChange={setLookupValue}
+        />
       )}
 
       {showTransactionForm &&

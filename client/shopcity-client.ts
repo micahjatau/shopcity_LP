@@ -2941,6 +2941,242 @@ export type UsersControllerCreateUserV1503 = {
   meta: UsersControllerCreateUserV1503Meta;
 };
 
+export type UsersControllerListCashiersV1Params = {
+  q: string;
+};
+
+export type UsersControllerListCashiersV1200DataItem = {
+  [key: string]: unknown;
+};
+
+export type UsersControllerListCashiersV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1200 = {
+  success: boolean;
+  data: UsersControllerListCashiersV1200DataItem[];
+  meta: UsersControllerListCashiersV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1400ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1400 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1400Error;
+  meta: UsersControllerListCashiersV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1401ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1401 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1401Error;
+  meta: UsersControllerListCashiersV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1403ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1403 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1403Error;
+  meta: UsersControllerListCashiersV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1404ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1404 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1404Error;
+  meta: UsersControllerListCashiersV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1409ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1409 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1409Error;
+  meta: UsersControllerListCashiersV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1422ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1422 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1422Error;
+  meta: UsersControllerListCashiersV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1429ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1429 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1429Error;
+  meta: UsersControllerListCashiersV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type UsersControllerListCashiersV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type UsersControllerListCashiersV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: UsersControllerListCashiersV1503ErrorDetails;
+};
+
+export type UsersControllerListCashiersV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type UsersControllerListCashiersV1503 = {
+  success: boolean;
+  error: UsersControllerListCashiersV1503Error;
+  meta: UsersControllerListCashiersV1503Meta;
+};
+
 export type UsersControllerUpdateRoleV1200Data = { [key: string]: unknown };
 
 export type UsersControllerUpdateRoleV1200Meta = {
@@ -16572,6 +16808,114 @@ export const usersControllerCreateUserV1 = async (
     status: res.status,
     headers: res.headers,
   } as usersControllerCreateUserV1Response;
+};
+
+export type usersControllerListCashiersV1Response200 = {
+  data: UsersControllerListCashiersV1200;
+  status: 200;
+};
+
+export type usersControllerListCashiersV1Response400 = {
+  data: UsersControllerListCashiersV1400;
+  status: 400;
+};
+
+export type usersControllerListCashiersV1Response401 = {
+  data: UsersControllerListCashiersV1401;
+  status: 401;
+};
+
+export type usersControllerListCashiersV1Response403 = {
+  data: UsersControllerListCashiersV1403;
+  status: 403;
+};
+
+export type usersControllerListCashiersV1Response404 = {
+  data: UsersControllerListCashiersV1404;
+  status: 404;
+};
+
+export type usersControllerListCashiersV1Response409 = {
+  data: UsersControllerListCashiersV1409;
+  status: 409;
+};
+
+export type usersControllerListCashiersV1Response422 = {
+  data: UsersControllerListCashiersV1422;
+  status: 422;
+};
+
+export type usersControllerListCashiersV1Response429 = {
+  data: UsersControllerListCashiersV1429;
+  status: 429;
+};
+
+export type usersControllerListCashiersV1Response503 = {
+  data: UsersControllerListCashiersV1503;
+  status: 503;
+};
+
+export type usersControllerListCashiersV1ResponseSuccess =
+  usersControllerListCashiersV1Response200 & {
+    headers: Headers;
+  };
+export type usersControllerListCashiersV1ResponseError = (
+  | usersControllerListCashiersV1Response400
+  | usersControllerListCashiersV1Response401
+  | usersControllerListCashiersV1Response403
+  | usersControllerListCashiersV1Response404
+  | usersControllerListCashiersV1Response409
+  | usersControllerListCashiersV1Response422
+  | usersControllerListCashiersV1Response429
+  | usersControllerListCashiersV1Response503
+) & {
+  headers: Headers;
+};
+
+export type usersControllerListCashiersV1Response =
+  | usersControllerListCashiersV1ResponseSuccess
+  | usersControllerListCashiersV1ResponseError;
+
+export const getUsersControllerListCashiersV1Url = (
+  params: UsersControllerListCashiersV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/users/cashiers?${stringifiedParams}`
+    : `/api/v1/users/cashiers`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const usersControllerListCashiersV1 = async (
+  params: UsersControllerListCashiersV1Params,
+  options?: RequestInit,
+): Promise<usersControllerListCashiersV1Response> => {
+  const res = await fetch(getUsersControllerListCashiersV1Url(params), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: usersControllerListCashiersV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as usersControllerListCashiersV1Response;
 };
 
 export type usersControllerUpdateRoleV1Response200 = {

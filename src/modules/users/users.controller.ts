@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Version,
 } from '@nestjs/common';
@@ -45,6 +46,24 @@ export class UsersController {
   })
   listUsers(@Req() request: AuthenticatedRequest) {
     return this.usersService.listUsers(request.authContext!.user.tenantId);
+  }
+
+  @Get('cashiers')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    description: 'Authorized cashier directory',
+    dataSchema: { type: 'array', items: { type: 'object' } },
+  })
+  listCashiers(
+    @Req() request: AuthenticatedRequest,
+    @Query('q') query?: string,
+  ) {
+    return this.usersService.listCashiers(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      query,
+    );
   }
 
   @Post()
