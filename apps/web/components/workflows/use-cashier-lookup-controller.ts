@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cardsControllerLookupCardV1 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 
@@ -38,6 +38,7 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
     null,
   );
   const [lookupPending, setLookupPending] = useState(false);
+  const initialLookupAttempted = useRef(false);
 
   async function lookup(eventOrValue: FormEvent<HTMLFormElement> | string) {
     if (typeof eventOrValue !== 'string') {
@@ -87,10 +88,11 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
   }
 
   useEffect(() => {
-    if (!initialCardSerial || lookupRecord) {
+    if (!initialCardSerial || lookupRecord || initialLookupAttempted.current) {
       return;
     }
 
+    initialLookupAttempted.current = true;
     setLookupValue(initialCardSerial);
     void lookup(initialCardSerial);
     // The initial route card is intentionally looked up once.
@@ -102,6 +104,12 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
     lookupRecord?.cardSerialNumber ??
     lookupValue.trim();
 
+  function clearLookup() {
+    setLookupRecord(null);
+    setLookupValue('');
+    setLookupMessage('Scan or type a card serial.');
+  }
+
   return {
     lookupValue,
     lookupMessage,
@@ -109,6 +117,7 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
     lookupPending,
     selectedCardSerial,
     setLookupValue,
+    clearLookup,
     lookup,
   };
 }
