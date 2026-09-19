@@ -281,16 +281,36 @@ test.describe('workflow route coverage', () => {
     page,
   }) => {
     const fixtures = [
-      ['/cashier', 'recent-transactions', 'CASHIER'],
-      ['/cashier/lookup', 'customer-search', 'CASHIER'],
-      ['/cashier/earn?card=CARD-001', 'capture-flow', 'CASHIER'],
-      ['/cashier/redeem?card=CARD-001', 'redeem-flow', 'CASHIER'],
-      ['/supervisor/customers', 'register-flow', 'SUPERVISOR'],
-      ['/supervisor/transactions', 'transactions-dashboard', 'SUPERVISOR'],
+      ['/cashier', 'recent-transactions', 'CASHIER', 'overview'],
+      ['/cashier/lookup', 'customer-search', 'CASHIER', 'find-customer'],
+      [
+        '/cashier/earn?card=CARD-001',
+        'capture-flow',
+        'CASHIER',
+        'capture-purchase',
+      ],
+      [
+        '/cashier/redeem?card=CARD-001',
+        'redeem-flow',
+        'CASHIER',
+        'redeem-credit',
+      ],
+      [
+        '/supervisor/customers',
+        'register-flow',
+        'SUPERVISOR',
+        'register-customer',
+      ],
+      [
+        '/supervisor/transactions',
+        'transactions-dashboard',
+        'SUPERVISOR',
+        'transactions',
+      ],
     ] as const;
 
     await page.setViewportSize({ width: 1440, height: 923 });
-    for (const [route, landmark, role] of fixtures) {
+    for (const [route, landmark, role, routeName] of fixtures) {
       await mockShell(page, role);
       await page.goto(`${baseUrl}${route}`);
       if (landmark === 'capture-flow') {
@@ -311,6 +331,14 @@ test.describe('workflow route coverage', () => {
       expect(box!.height).toBeGreaterThan(0);
       await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
         maxDiffPixelRatio: 0.08,
+      });
+      await expect(page).toHaveScreenshot(`prototype-route-${routeName}.png`, {
+        fullPage: true,
+        maxDiffPixelRatio: 0.08,
+        mask: [
+          page.locator('.shell-session-label'),
+          page.locator('.shell-online'),
+        ],
       });
 
       const sidebar = await page.locator('.shell-sidebar').boundingBox();
