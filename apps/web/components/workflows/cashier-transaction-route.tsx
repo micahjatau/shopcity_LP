@@ -51,6 +51,7 @@ export function CashierWorkflowRoute({
     lookupMessage,
     lookupRecord,
     lookupPending,
+    discoveryMatches,
     selectedCardSerial,
     setLookupValue,
     clearLookup,
@@ -185,13 +186,14 @@ export function CashierWorkflowRoute({
           lookupMessage={lookupMessage}
           lookupPending={lookupPending}
           lookupRecord={lookupRecord}
+          discoveryMatches={discoveryMatches}
           onLookup={(event) => void handleLookup(event)}
           onQueryChange={setLookupValue}
           selectedCardSerial={selectedCardSerial}
         />
-      ) : kind === 'earn' ? (
+      ) : kind === 'earn' && (!lookupRecord || !earnConfirmed) ? (
         <section
-          className="cashier-card cashier-earn-stage"
+          className={lookupRecord ? 'cashier-card cashier-earn-stage' : 'cashier-stage-container'}
           data-od-id="capture-stage"
         >
           {!lookupRecord ? (
@@ -200,6 +202,7 @@ export function CashierWorkflowRoute({
               lookupMessage={lookupMessage}
               lookupPending={lookupPending}
               policyMessage={policyMessage}
+              discoveryMatches={discoveryMatches}
               onLookup={(event) => void handleLookup(event)}
               onQueryChange={setLookupValue}
             />
@@ -306,16 +309,17 @@ export function CashierWorkflowRoute({
             </div>
           </div>
         </section>
-      ) : kind === 'redeem' && redeemConfirmed ? null : (
+      ) : kind === 'redeem' && !redeemConfirmed ? (
         <VerifiedCardLookupStep
           lookupValue={lookupValue}
           lookupMessage={lookupMessage}
           lookupPending={lookupPending}
           policyMessage={policyMessage}
+          discoveryMatches={discoveryMatches}
           onLookup={(event) => void handleLookup(event)}
           onQueryChange={setLookupValue}
         />
-      )}
+      ) : null}
 
       {showTransactionForm &&
       ((kind === 'earn' && earnConfirmed) ||
@@ -574,6 +578,7 @@ export function CashierWorkflowRoute({
           font-size: 20px;
         }
 
+        .cashier-stage-container { max-width: 860px; width: 100%; margin: 0 auto; }
         .cashier-earn-stage {
           max-width: 860px;
           padding: 32px 40px 40px;
