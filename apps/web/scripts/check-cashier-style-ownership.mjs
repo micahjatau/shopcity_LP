@@ -69,6 +69,24 @@ function definesSelector(source, selector) {
   });
 }
 
+export function findRegistryCoverageFailures(
+  contents,
+  definitions = selectorDefinitions,
+) {
+  const coverageFailures = [];
+  for (const [selector, family] of definitions) {
+    const ownerContents = contents.find(
+      ([file]) => path.basename(file) === family.owner,
+    )?.[1];
+    if (!ownerContents || !definesSelector(ownerContents, selector)) {
+      coverageFailures.push(
+        `CSS: ${family.family} selector ${selector} has no definition in owner ${family.owner}`,
+      );
+    }
+  }
+  return coverageFailures;
+}
+
 export function findOwnershipFailures(contents, definitions = selectorDefinitions) {
   const ownershipFailures = [];
   for (const [selector, family] of definitions) {
@@ -90,6 +108,7 @@ export function findOwnershipFailures(contents, definitions = selectorDefinition
   return ownershipFailures;
 }
 
+failures.push(...findRegistryCoverageFailures(cssContents));
 failures.push(...findOwnershipFailures(cssContents));
 
 for (const match of css.matchAll(/var\(--sc-color-(success|warning)-\d+\)/g)) {

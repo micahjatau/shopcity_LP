@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findOwnershipFailures } from './check-cashier-style-ownership.mjs';
+import {
+  findOwnershipFailures,
+  findRegistryCoverageFailures,
+} from './check-cashier-style-ownership.mjs';
 import { selectorDefinitions } from './style-ownership-registry.mjs';
 
 const script = path.join(
@@ -15,6 +18,13 @@ test('Cashier style ownership check passes on migrated surfaces', () => {
   const result = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /16 source files/);
+});
+
+test('ownership registry requires every family owner to define its selector', () => {
+  const failures = findRegistryCoverageFailures([
+    ['primitives.css', '.sc-button { color: red; }'],
+  ], selectorDefinitions);
+  assert.ok(failures.some((failure) => failure.includes('primitive-input')));
 });
 
 test('ownership registry rejects an undeclared competing owner', () => {
