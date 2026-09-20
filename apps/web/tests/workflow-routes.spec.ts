@@ -8,6 +8,11 @@ import {
   canonicalCashierLookupControl,
   type ComputedStyleSnapshot,
 } from './fixtures/design-system-conformance';
+import {
+  cashierConformanceRoutes,
+  conformanceViewports,
+  shellConformanceRoutes,
+} from './fixtures/route-conformance-matrix';
 import { shellNavigationByRole } from '../components/shell-navigation';
 
 const baseUrl = 'http://127.0.0.1:3100';
@@ -372,6 +377,34 @@ test.describe('workflow route coverage', () => {
       '/cashier/redeem?card=CARD-001',
       '/cashier/sync',
     ]);
+  });
+
+  test('executes the route and viewport conformance matrix', async ({
+    page,
+  }) => {
+    for (const [role, routes] of [
+      ['CASHIER', cashierConformanceRoutes],
+      ['SUPERVISOR', shellConformanceRoutes.filter(({ role: routeRole }) => routeRole === 'SUPERVISOR')],
+      ['ADMIN', shellConformanceRoutes.filter(({ role: routeRole }) => routeRole === 'ADMIN')],
+    ] as const) {
+      await page.unroute('**/api/v1/**');
+      await mockShell(page, role);
+      for (const route of routes) {
+        for (const viewport of conformanceViewports) {
+          await page.setViewportSize({
+            width: viewport.width,
+            height: viewport.height,
+          });
+          await page.goto(`${baseUrl}${route.path}`);
+          await expect(page.locator('.shell-loading-screen')).toBeHidden();
+          await expect(page.locator('main')).toBeVisible();
+          expect(
+            await page.locator('body').evaluate((body) => body.scrollWidth),
+            `${role} ${route.path} ${viewport.name}`,
+          ).toBeLessThanOrEqual(viewport.width);
+        }
+      }
+    }
   });
 
   test('covers supervisor customer, card, and reports routes', async ({

@@ -19,7 +19,7 @@
 
 ## 4. Route and shell conformance evidence
 
-- [ ] 4.1 Convert the Review 74 matrix into executable route/state/viewport evidence for all six Cashier routes and Cashier/Supervisor/Admin shell roles
+- [x] 4.1 Convert the Review 74 matrix into executable route/state/viewport evidence for all six Cashier routes and Cashier/Supervisor/Admin shell roles
 - [ ] 4.2 Add computed-style comparisons for typography, colors, borders, radii, dimensions, spacing, focus treatment, and documented tolerances; verify intentional differences are reported as variants
 - [ ] 4.3 Add desktop, tablet, mobile, and applicable reduced-motion checks; verify no prohibited overflow, clipped controls, or inaccessible targets
 - [ ] 4.4 Add accessibility and interaction evidence for keyboard selection, focus return, dialogs, shell drawer/search, and protected workflow transitions

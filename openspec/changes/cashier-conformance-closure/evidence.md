@@ -52,6 +52,15 @@ The complete `workflow-routes.spec.ts` suite also passed:
 
 Browser accessibility checks passed 2/2 scenarios, including mobile drawer focus and Escape behavior.
 
+The executable route/viewport matrix now covers six Cashier routes plus Supervisor and Admin shell routes at desktop (1440), tablet (1024), and mobile (390) viewports. The matrix suite and full workflow suite passed:
+
+```text
+Matrix: 1 passed
+Workflow routes: 20 passed, 0 failed, 0 skipped
+```
+
+The tablet transaction overflow found by the matrix was fixed by constraining the transaction card and switching the toolbar to a two-column layout below 1100px.
+
 ```
 
 Additional checks:
