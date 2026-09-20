@@ -65,7 +65,9 @@ The paired Earn/Redeem conformance test now compares shared lookup input and sea
 
 The route matrix now emulates reduced motion at every desktop/tablet/mobile viewport, verifies shell transitions resolve to `0s`, checks body overflow, and rejects visible controls with zero-sized bounding boxes. The responsive/motion matrix passed.
 
-The complete frontend visual suite passed 57 tests, and the workflow suite passed 20 tests. However, the Review 74 source matrix still contains broader state requirements that are not all represented by those suites (for example, all approval/rejection, offline, stale-response, and every shell search/error combination). Task 5.3 remains open until those rows are either evidenced or documented as not applicable.
+The complete frontend visual suite passed 57 tests, and the workflow suite passed 20 tests. The added workflow evidence covers approval-pending and insufficient-balance outcomes, shell search success/keyboard selection/Escape/error handling, and stale shell search response suppression. Browser accessibility also passed.
+
+The Review 74 source matrix is now reconciled with the repository evidence and all nine required rows are marked `evidenced`; none remain pending or skipped. Supporting coverage includes workflow route tests, visual regression tests, transaction-form contract tests, shell role smoke tests, and browser accessibility tests.
 
 Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
 

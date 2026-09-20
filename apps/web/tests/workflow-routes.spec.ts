@@ -687,6 +687,113 @@ test.describe('workflow route coverage', () => {
     );
   });
 
+  test('covers approval-pending and insufficient-balance transaction outcomes', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/transactions/earn', async (route) =>
+      route.fulfill({
+        ...json({
+          success: true,
+          data: { transactionId: 'transaction-earn-pending', status: 'PENDING' },
+          meta: meta('/api/v1/transactions/earn'),
+        }),
+        status: 202,
+      }),
+    );
+    await page.route('**/api/v1/transactions/redeem', async (route) =>
+      route.fulfill({
+        ...json({
+          success: false,
+          error: { code: 'INSUFFICIENT_BALANCE' },
+        }),
+        status: 409,
+      }),
+    );
+
+    await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await page.getByLabel('POS receipt number').fill('WORKFLOW-APPROVAL-001');
+    await page.getByLabel('Purchase amount').fill('10');
+    await page.getByLabel('Purchase amount').blur();
+    await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await page.getByRole('button', { name: 'Confirm & add credit' }).click();
+    await expect(
+      page.getByText('Purchase captured and waiting for approval.'),
+    ).toBeVisible();
+
+    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await page.getByRole('button', { name: 'Continue to redemption' }).click();
+    await page.getByLabel('POS receipt number').fill('WORKFLOW-INSUFFICIENT-001');
+    await page.getByLabel('Basket amount').fill('100');
+    await page.getByLabel('Basket amount').blur();
+    await page.getByLabel('Requested redemption').fill('10');
+    await page.getByLabel('Requested redemption').blur();
+    await page.getByRole('button', { name: 'Proceed to confirmation' }).click();
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(
+      page.getByText('Available credit is lower than this redemption.'),
+    ).toBeVisible();
+  });
+
+  test('covers shell search results, keyboard selection, escape, and errors', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await search.fill('Ada');
+    await expect(page.getByRole('option', { name: /Ada Shopper/ })).toBeVisible();
+    await search.press('ArrowDown');
+    await search.press('Enter');
+    await expect(page).toHaveURL(/\/cashier\/customers\?id=customer-1/);
+
+    await page.goto(`${baseUrl}/cashier`);
+    await page.route('**/api/v1/customers*', async (route) =>
+      route.fulfill({
+        ...json({ success: false, error: { statusCode: 503 } }),
+        status: 503,
+      }),
+    );
+    await search.fill('Unavailable');
+    await expect(page.getByText('Search unavailable (503).')).toBeVisible();
+    await search.press('Escape');
+    await expect(search).toBeFocused();
+  });
+
+  test('ignores stale shell search responses', async ({ page }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/customers*', async (route) => {
+      const query = new URL(route.request().url()).searchParams.get('q');
+      if (query === 'old') await new Promise((resolve) => setTimeout(resolve, 700));
+      await route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                id: `customer-${query}`,
+                fullName: query === 'old' ? 'Old Result' : 'New Result',
+                phoneE164: '+2348000000002',
+                status: 'ACTIVE',
+              },
+            ],
+          },
+          meta: meta('/api/v1/customers'),
+        }),
+      );
+    });
+    await page.goto(`${baseUrl}/cashier`);
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await search.fill('old');
+    await page.waitForTimeout(320);
+    await search.fill('new');
+    await expect(page.getByRole('option', { name: /New Result/ })).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('option', { name: /Old Result/ })).toHaveCount(0);
+  });
+
   test('keeps Sync Queue controls usable on a narrow viewport', async ({
     page,
   }) => {
