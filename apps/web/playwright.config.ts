@@ -32,7 +32,8 @@ export default defineConfig({
         webServer: {
           command: 'npm run dev -- --port 3100',
           url: baseURL,
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer:
+            process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === 'true',
           timeout: 120000,
         },
       }),

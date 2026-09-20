@@ -67,7 +67,7 @@ The route matrix now emulates reduced motion at every desktop/tablet/mobile view
 
 Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
 
-```
+````
 
 Additional checks:
 
@@ -85,5 +85,15 @@ Additional checks:
 - Web build: passed.
 - Semgrep OWASP scan: passed; 0 findings across 108 tracked files.
 
-The stale-server incident is an environment/evidence issue, not an application-code fix. Future browser evidence must verify that the served Next.js chunks are current before classifying route failures.
+The stale-server incident is an environment/evidence issue, not an application-code fix. Future browser evidence must verify that the served Next.js chunks are current before classifying route failures. Playwright now starts a fresh server by default; reuse requires explicit `PLAYWRIGHT_REUSE_EXISTING_SERVER=true`.
+
+After killing the stale port-3100 server, the affected Overview test and the complete workflow suite passed from a fresh server:
+
+```text
+Overview failure-closure test: 1 passed
+Workflow routes: 20 passed, 0 failed, 0 skipped
+````
+
+```
+
 ```

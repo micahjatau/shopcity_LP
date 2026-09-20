@@ -27,7 +27,7 @@
 ## 5. Browser failure closure
 
 - [x] 5.1 Reproduce and classify every current Overview Playwright failure using the current candidate and preserved failure artifacts
-- [ ] 5.2 Fix production regressions or update stale assertions only when supported by the current product contract; verify the affected route tests pass
+- [x] 5.2 Fix production regressions or update stale assertions only when supported by the current product contract; verify the affected route tests pass
 - [ ] 5.3 Run the complete frontend conformance suite and verify no required row remains pending or silently skipped
 
 ## 6. Final verification and handoff
