@@ -31,10 +31,14 @@ for (const relative of files) {
     failures.push(`${relative}: embedded <style> block remains`);
   }
   if (/\bCSSProperties\b/.test(source)) {
-    failures.push(`${relative}: CSSProperties remains in the Cashier migration scope`);
+    failures.push(
+      `${relative}: CSSProperties remains in the Cashier migration scope`,
+    );
   }
   if (/\bstyle\s*=/.test(source)) {
-    failures.push(`${relative}: static inline style remains in the Cashier migration scope`);
+    failures.push(
+      `${relative}: static inline style remains in the Cashier migration scope`,
+    );
   }
 }
 
@@ -44,7 +48,9 @@ const cssFiles = [
   path.join(webRoot, 'styles', 'cashier-design-system.css'),
   path.join(webRoot, 'styles', 'cashier-routes.css'),
 ];
-const css = (await Promise.all(cssFiles.map((file) => readFile(file, 'utf8')))).join('\n');
+const css = (
+  await Promise.all(cssFiles.map((file) => readFile(file, 'utf8')))
+).join('\n');
 for (const match of css.matchAll(/var\(--sc-color-(success|warning)-\d+\)/g)) {
   failures.push(`CSS: undefined numbered semantic state token ${match[0]}`);
 }
@@ -55,4 +61,6 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Cashier style ownership checks passed for ${files.length} source files.`);
+console.log(
+  `Cashier style ownership checks passed for ${files.length} source files.`,
+);

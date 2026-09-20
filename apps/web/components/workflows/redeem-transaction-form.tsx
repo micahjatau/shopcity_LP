@@ -131,10 +131,7 @@ export function RedeemTransactionForm({
           onValueChange={setRequestedRedemption}
         />
       </div>
-      <div
-        data-od-id="redeem-summary"
-        className="cashier-redemption-summary"
-      >
+      <div data-od-id="redeem-summary" className="cashier-redemption-summary">
         <div>
           <span className="cashier-workflow-hint">Basket total</span>
           <strong>

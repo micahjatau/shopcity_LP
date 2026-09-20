@@ -501,7 +501,9 @@ export default function CashierSyncPage() {
                       tone={toneForState(record.syncState)}
                     />
                     {record.lastError ? (
-                      <div className="cashier-sync-small-text">{record.lastError}</div>
+                      <div className="cashier-sync-small-text">
+                        {record.lastError}
+                      </div>
                     ) : null}
                     {record.serverTransactionId || record.serverApprovalId ? (
                       <div className="cashier-sync-small-text">
@@ -532,7 +534,6 @@ export default function CashierSyncPage() {
           </Table>
         )}
       </section>
-
     </section>
   );
 }
