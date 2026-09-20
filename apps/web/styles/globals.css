@@ -202,6 +202,10 @@ main {
 }
 
 .login-forgot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   justify-self: end;
   margin-top: calc(-1 * var(--sc-spacing-2));
   border: 0;
@@ -365,6 +369,7 @@ main {
 
 .login-password-toggle {
   position: absolute;
+  white-space: nowrap;
   top: 50%;
   right: 5px;
   display: grid;
