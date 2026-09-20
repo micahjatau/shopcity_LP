@@ -164,14 +164,6 @@
   gap: var(--sc-spacing-3);
 }
 
-.cashier-card {
-  background: var(--sc-color-neutral-0);
-  border: 1px solid var(--sc-color-semantic-border);
-  border-radius: 16px;
-  padding: clamp(28px, 4vw, 40px);
-  box-shadow: none;
-}
-
 .cashier-route-page--earn .cashier-earn-stage {
   gap: 24px;
   padding: clamp(28px, 4vw, 38px);

@@ -62,6 +62,7 @@ Additional checks:
 - Selector registry and ownership tests: 4 passed, including duplicate-owner rejection, family coverage, and documented-exception acceptance.
 - The customer-search compact input now uses the explicit `.sc-input--compact` primitive variant; the route-owned nested input rule was removed.
 - Registry coverage now fails when a declared owner lacks its canonical selector definition; five ownership/coverage tests pass.
+- `.cashier-card` base appearance now belongs to `cashier-design-system.css`; route CSS retains layout/composition rules only for that family.
 - Web lint: passed with two pre-existing React hook warnings in global search.
 - Web typecheck: passed.
 - Web Jest/design-system tests: passed.

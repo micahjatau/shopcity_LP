@@ -61,7 +61,8 @@ test('ownership registry covers the shared component families', () => {
 test('ownership registry permits a documented exception', () => {
   const failures = findOwnershipFailures([
     ['primitives.css', '.sc-input { color: red; }'],
-    ['cashier-routes.css', '.cashier-card .sc-input:focus-visible { color: blue; }'],
+    ['cashier-design-system.css', '.cashier-card { color: red; }'],
+    ['cashier-routes.css', '.find-customer-query .sc-input:focus-visible { color: blue; }'],
   ], selectorDefinitions);
   assert.deepEqual(failures, []);
 });

@@ -63,9 +63,11 @@ const cssContents = await Promise.all(
 const css = cssContents.map(([, source]) => source).join('\n');
 
 function definesSelector(source, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+  const selectorPattern = new RegExp(`${escapedSelector}(?![-\\w])`);
   return [...source.matchAll(/([^{}]+)\{/g)].some(([, match]) => {
     const prelude = match.trim();
-    return !prelude.startsWith('@') && prelude.includes(selector);
+    return !prelude.startsWith('@') && selectorPattern.test(prelude);
   });
 }
 

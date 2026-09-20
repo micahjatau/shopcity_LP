@@ -13,7 +13,7 @@
 
 ## 3. Shared presentation normalization
 
-- [ ] 3.1 Move audited shared appearance rules to their canonical primitive or Cashier component owners without changing controller behavior; verify focused component tests and computed-style baselines
+- [x] 3.1 Move audited shared appearance rules to their canonical primitive or Cashier component owners without changing controller behavior; verify focused component tests and computed-style baselines
 - [ ] 3.2 Replace undocumented ancestor-dependent variants with explicit named modifiers where visual differences are legitimate; verify variant fixtures and route rendering
 - [x] 3.3 Confirm the Cashier shell, search, page headers, flow panels, cards, forms, statuses, tables, and dialogs use the declared owners; verify static inventory has no unowned canonical family
 

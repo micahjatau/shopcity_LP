@@ -43,8 +43,11 @@ export const canonicalSelectorFamilies = [
   },
   {
     family: 'primitive-card',
-    selectors: ['.sc-card'],
+    selectors: ['.sc-card', '.cashier-card'],
     owner: 'cashier-design-system.css',
+    exceptions: [
+      exception('globals.css', 'Legacy visual fixture/reset compatibility selector.'),
+    ],
   },
   {
     family: 'primitive-table-card',
