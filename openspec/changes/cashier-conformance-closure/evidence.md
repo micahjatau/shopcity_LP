@@ -61,6 +61,8 @@ Workflow routes: 20 passed, 0 failed, 0 skipped
 
 The tablet transaction overflow found by the matrix was fixed by constraining the transaction card and switching the toolbar to a two-column layout below 1100px.
 
+The paired Earn/Redeem conformance test now compares shared lookup input and search-button computed styles for typography, borders, colors, radius, dimensions, padding, and documented variant expectations. The paired test passed.
+
 ```
 
 Additional checks:

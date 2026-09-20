@@ -29,7 +29,11 @@ export type ComputedStyleSnapshot = {
   lineHeight: string;
   minHeight: string;
   borderRadius: string;
+  borderWidth: string;
+  borderStyle: string;
   borderColor: string;
   backgroundColor: string;
+  color: string;
   paddingInline: string;
+  paddingBlock: string;
 };

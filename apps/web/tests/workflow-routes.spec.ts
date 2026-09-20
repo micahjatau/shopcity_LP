@@ -168,6 +168,7 @@ test.describe('workflow route coverage', () => {
     });
 
     let canonicalLookupStyles: ComputedStyleSnapshot | null = null;
+    let canonicalLookupButtonStyles: Record<string, string> | null = null;
     for (const kind of ['earn', 'redeem'] as const) {
       const route = kind === 'earn' ? '/cashier/earn' : '/cashier/redeem';
       await page.goto(`${baseUrl}${route}`);
@@ -183,12 +184,38 @@ test.describe('workflow route coverage', () => {
             lineHeight: style.lineHeight,
             minHeight: style.minHeight,
             borderRadius: style.borderRadius,
+            borderWidth: style.borderWidth,
+            borderStyle: style.borderStyle,
             borderColor: style.borderColor,
             backgroundColor: style.backgroundColor,
+            color: style.color,
             paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
+            paddingBlock: `${style.paddingTop}|${style.paddingBottom}`,
           };
         });
       expect(lookupStyles).toMatchObject(canonicalCashierLookupControl);
+      const lookupButtonStyles = await page
+        .getByRole('button', { name: 'Search customer' })
+        .evaluate((button) => {
+          const style = getComputedStyle(button);
+          return {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            minHeight: style.minHeight,
+            borderRadius: style.borderRadius,
+            borderWidth: style.borderWidth,
+            borderStyle: style.borderStyle,
+            borderColor: style.borderColor,
+            backgroundColor: style.backgroundColor,
+            color: style.color,
+            paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
+          };
+        });
+      if (canonicalLookupButtonStyles) {
+        expect(lookupButtonStyles).toEqual(canonicalLookupButtonStyles);
+      } else {
+        canonicalLookupButtonStyles = lookupButtonStyles;
+      }
       if (canonicalLookupStyles) {
         expect(lookupStyles).toEqual(canonicalLookupStyles);
       } else {
