@@ -434,10 +434,6 @@
   border-top: 1px dotted var(--sc-prototype-muted);
 }
 
-.cashier-card h2 {
-  letter-spacing: -0.03em;
-}
-
 .capture-result-card {
   display: grid;
   gap: var(--sc-spacing-3);
@@ -506,11 +502,6 @@
     opacity: 1;
     transform: scale(1) translateY(0);
   }
-}
-
-.cashier-card .sc-input:focus-visible {
-  border-color: var(--sc-color-brand-500);
-  box-shadow: 0 0 0 3px rgba(177, 0, 0, 0.14);
 }
 
 .cashier-stat-list {

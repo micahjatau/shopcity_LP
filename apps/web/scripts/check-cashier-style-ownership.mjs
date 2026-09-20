@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { selectorDefinitions } from './style-ownership-registry.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(scriptDir, '..');
@@ -61,20 +62,35 @@ const cssContents = await Promise.all(
 );
 const css = cssContents.map(([, source]) => source).join('\n');
 
-const authoritativeSelectors = [
-  '.cashier-primary-action',
-  '.cashier-secondary-action',
-];
-for (const selector of authoritativeSelectors) {
-  const owners = cssContents
-    .filter(([, source]) => source.includes(selector))
-    .map(([file]) => path.relative(webRoot, file));
-  if (owners.length > 1) {
-    failures.push(
-      `CSS: shared selector ${selector} has competing owners: ${owners.join(', ')}`,
-    );
-  }
+function definesSelector(source, selector) {
+  return [...source.matchAll(/([^{}]+)\{/g)].some(([, match]) => {
+    const prelude = match.trim();
+    return !prelude.startsWith('@') && prelude.includes(selector);
+  });
 }
+
+export function findOwnershipFailures(contents, definitions = selectorDefinitions) {
+  const ownershipFailures = [];
+  for (const [selector, family] of definitions) {
+    const files = contents
+      .filter(([, source]) => definesSelector(source, selector))
+      .map(([file]) => path.basename(file));
+    for (const file of files) {
+      if (file === family.owner) continue;
+      const registeredException = family.exceptions?.find(
+        (item) => item.file === file,
+      );
+      if (!registeredException) {
+        ownershipFailures.push(
+          `CSS: ${family.family} selector ${selector} is defined by ${file}; owner is ${family.owner}`,
+        );
+      }
+    }
+  }
+  return ownershipFailures;
+}
+
+failures.push(...findOwnershipFailures(cssContents));
 
 for (const match of css.matchAll(/var\(--sc-color-(success|warning)-\d+\)/g)) {
   failures.push(`CSS: undefined numbered semantic state token ${match[0]}`);
