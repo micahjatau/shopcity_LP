@@ -151,12 +151,12 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-.cashier-route-page > section:first-of-type {
+.cashier-route-page > .cashier-stage-card {
   max-width: 712px;
   justify-self: center;
   width: 100%;
-  border-radius: 16px !important;
-  box-shadow: none !important;
+  border-radius: 16px;
+  box-shadow: none;
 }
 
 .cashier-support-note {
@@ -172,9 +172,9 @@
   box-shadow: none;
 }
 
-.cashier-route-page--earn > section:first-of-type {
-  gap: 24px !important;
-  padding: clamp(28px, 4vw, 38px) !important;
+.cashier-route-page--earn .cashier-earn-stage {
+  gap: 24px;
+  padding: clamp(28px, 4vw, 38px);
 }
 
 .cashier-route-page--earn .cashier-flow-panel {
@@ -511,18 +511,6 @@
 .cashier-card .sc-input:focus-visible {
   border-color: var(--sc-color-brand-500);
   box-shadow: 0 0 0 3px rgba(177, 0, 0, 0.14);
-}
-
-.cashier-card .sc-button {
-  border-radius: 9px;
-}
-
-.cashier-card .sc-button--primary {
-  background: var(--sc-prototype-accent);
-}
-
-.cashier-card .sc-button--primary:hover:not(:disabled) {
-  background: color-mix(in oklch, var(--sc-prototype-accent) 88%, black);
 }
 
 .cashier-stat-list {
@@ -974,52 +962,6 @@
   font-weight: 700;
 }
 
-.cashier-primary-action,
-.cashier-secondary-action {
-  align-self: start;
-  min-height: 34px;
-  border: 1px solid var(--sc-color-brand-700);
-  border-radius: 999px;
-  padding: 0 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  text-decoration: none;
-  transition:
-    border-color 120ms ease,
-    transform 120ms ease;
-}
-
-.cashier-primary-action {
-  background: var(--sc-color-neutral-0);
-  color: var(--sc-color-brand-700);
-}
-
-.cashier-secondary-action {
-  background: linear-gradient(90deg, var(--sc-color-brand-700), #d86200);
-  color: var(--sc-color-neutral-0);
-  border-color: transparent;
-}
-
-.cashier-secondary-action--disabled {
-  cursor: not-allowed;
-  opacity: 0.72;
-}
-
-.cashier-primary-action:hover {
-  border-color: var(--sc-color-brand-500);
-  transform: translateY(-1px);
-}
-
-.cashier-primary-action:focus-visible {
-  outline: 3px solid var(--sc-color-semantic-focus);
-  outline-offset: 3px;
-}
-
 .cashier-muted {
   margin: 0;
   color: var(--sc-color-semantic-textSecondary);
@@ -1030,9 +972,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .cashier-overview-actions,
-  .cashier-primary-action,
-  .cashier-secondary-action {
+  .cashier-overview-actions > * {
     width: 100%;
   }
 

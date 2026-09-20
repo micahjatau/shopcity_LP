@@ -21,7 +21,14 @@ const workflowFiles = [
   'components/workflows/earn-transaction-form.tsx',
   'components/workflows/redeem-transaction-form.tsx',
 ];
-const files = [...routeFiles, ...workflowFiles];
+const shellFiles = [
+  'components/app-shell.tsx',
+  'components/app-sidebar.tsx',
+  'components/app-topbar.tsx',
+  'components/global-shell-search.tsx',
+  'components/workflows/transaction-dashboard.tsx',
+];
+const files = [...routeFiles, ...workflowFiles, ...shellFiles];
 const failures = [];
 
 for (const relative of files) {
@@ -47,10 +54,28 @@ const cssFiles = [
   path.join(webRoot, 'styles', 'primitives.css'),
   path.join(webRoot, 'styles', 'cashier-design-system.css'),
   path.join(webRoot, 'styles', 'cashier-routes.css'),
+  path.join(webRoot, 'styles', 'shell-components.css'),
 ];
-const css = (
-  await Promise.all(cssFiles.map((file) => readFile(file, 'utf8')))
-).join('\n');
+const cssContents = await Promise.all(
+  cssFiles.map(async (file) => [file, await readFile(file, 'utf8')]),
+);
+const css = cssContents.map(([, source]) => source).join('\n');
+
+const authoritativeSelectors = [
+  '.cashier-primary-action',
+  '.cashier-secondary-action',
+];
+for (const selector of authoritativeSelectors) {
+  const owners = cssContents
+    .filter(([, source]) => source.includes(selector))
+    .map(([file]) => path.relative(webRoot, file));
+  if (owners.length > 1) {
+    failures.push(
+      `CSS: shared selector ${selector} has competing owners: ${owners.join(', ')}`,
+    );
+  }
+}
+
 for (const match of css.matchAll(/var\(--sc-color-(success|warning)-\d+\)/g)) {
   failures.push(`CSS: undefined numbered semantic state token ${match[0]}`);
 }

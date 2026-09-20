@@ -197,7 +197,7 @@ export function CashierWorkflowRoute({
         />
       ) : kind === 'earn' ? (
         <section
-          className="cashier-card cashier-earn-stage"
+          className="cashier-card cashier-stage-card cashier-earn-stage"
           data-od-id="capture-stage"
         >
           {!lookupRecord ? (
@@ -266,7 +266,7 @@ export function CashierWorkflowRoute({
         </section>
       ) : kind === 'redeem' && lookupRecord && !redeemConfirmed ? (
         <section
-          className="cashier-card cashier-earn-stage"
+          className="cashier-card cashier-stage-card cashier-redeem-stage"
           data-od-id="redeem-stage"
         >
           <div className="cashier-stage-content" aria-label="Lookup and status">

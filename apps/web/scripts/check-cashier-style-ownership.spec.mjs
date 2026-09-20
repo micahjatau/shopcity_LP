@@ -12,5 +12,5 @@ const script = path.join(
 test('Cashier style ownership check passes on migrated surfaces', () => {
   const result = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /11 source files/);
+  assert.match(result.stdout, /16 source files/);
 });
