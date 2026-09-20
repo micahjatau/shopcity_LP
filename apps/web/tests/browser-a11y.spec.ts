@@ -103,6 +103,13 @@ test.describe('browser accessibility', () => {
     expect(violations).toEqual([]);
   });
 
+  test('keeps the Cashier shell and controls axe-clean', async ({ page }) => {
+    await mockCashierShell(page);
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(page.getByRole('heading', { name: 'Hi, Cashier!' })).toBeVisible();
+    expect(await runAxe(page)).toEqual([]);
+  });
+
   test('keeps mobile drawer focus and escape behavior accessible', async ({
     page,
   }) => {

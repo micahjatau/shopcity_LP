@@ -65,6 +65,8 @@ The paired Earn/Redeem conformance test now compares shared lookup input and sea
 
 The route matrix now emulates reduced motion at every desktop/tablet/mobile viewport, verifies shell transitions resolve to `0s`, checks body overflow, and rejects visible controls with zero-sized bounding boxes. The responsive/motion matrix passed.
 
+Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
+
 ```
 
 Additional checks:

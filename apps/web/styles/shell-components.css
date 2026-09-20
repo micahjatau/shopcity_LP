@@ -382,7 +382,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: oklch(72% 0.06 55);
+  background: var(--sc-color-brand-700);
   display: grid;
   place-items: center;
   color: var(--sc-color-neutral-0);
