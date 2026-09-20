@@ -60,6 +60,7 @@ Additional checks:
 - Ownership test: passed.
 - Web typecheck: passed.
 - Selector registry and ownership tests: 4 passed, including duplicate-owner rejection, family coverage, and documented-exception acceptance.
+- The customer-search compact input now uses the explicit `.sc-input--compact` primitive variant; the route-owned nested input rule was removed.
 - Web lint: passed with two pre-existing React hook warnings in global search.
 - Web typecheck: passed.
 - Web Jest/design-system tests: passed.

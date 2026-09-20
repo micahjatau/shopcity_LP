@@ -547,10 +547,6 @@
   gap: 8px;
 }
 
-.find-customer-query .sc-input {
-  min-height: 33px;
-}
-
 .find-customer-hint,
 .find-customer-notice,
 .find-customer-recent p,

@@ -403,6 +403,7 @@ function FindCustomerView({
                 type="search"
                 aria-label="Customer search"
                 placeholder="Card serial number"
+                className="sc-input--compact"
                 value={lookupValue}
                 onChange={(event) => onQueryChange(event.target.value)}
               />

@@ -160,6 +160,10 @@
   resize: vertical;
 }
 
+.sc-input--compact {
+  min-height: var(--sc-size-controlCompact);
+}
+
 .sc-checkbox {
   width: 18px;
   height: 18px;
