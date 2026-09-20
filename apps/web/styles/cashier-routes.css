@@ -1049,10 +1049,6 @@
   gap: 14px;
   align-items: center;
 }
-.transaction-toolbar .sc-button {
-  min-height: 38px;
-  border-radius: 9px;
-}
 .transaction-table-card {
   overflow: hidden;
   padding: 18px 24px;

@@ -198,6 +198,7 @@ export function TransactionDashboard() {
         <Button
           type="button"
           variant="secondary"
+          size="compact"
           onClick={() => void load()}
           loading={busy}
         >
