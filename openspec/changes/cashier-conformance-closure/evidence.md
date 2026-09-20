@@ -63,6 +63,8 @@ The tablet transaction overflow found by the matrix was fixed by constraining th
 
 The paired Earn/Redeem conformance test now compares shared lookup input and search-button computed styles for typography, borders, colors, radius, dimensions, padding, and documented variant expectations. The paired test passed.
 
+The route matrix now emulates reduced motion at every desktop/tablet/mobile viewport, verifies shell transitions resolve to `0s`, checks body overflow, and rejects visible controls with zero-sized bounding boxes. The responsive/motion matrix passed.
+
 ```
 
 Additional checks:

@@ -422,6 +422,7 @@ test.describe('workflow route coverage', () => {
             width: viewport.width,
             height: viewport.height,
           });
+          await page.emulateMedia({ reducedMotion: 'reduce' });
           await page.goto(`${baseUrl}${route.path}`);
           await expect(page.locator('.shell-loading-screen')).toBeHidden();
           await expect(page.locator('main')).toBeVisible();
@@ -429,6 +430,21 @@ test.describe('workflow route coverage', () => {
             await page.locator('body').evaluate((body) => body.scrollWidth),
             `${role} ${route.path} ${viewport.name}`,
           ).toBeLessThanOrEqual(viewport.width);
+          expect(
+            await page
+              .locator('.shell-body')
+              .evaluate((element) => getComputedStyle(element).transitionDuration),
+            `${role} ${route.path} ${viewport.name} reduced motion`,
+          ).toBe('0s');
+          const invalidTargets = await page
+            .locator('button:visible, input:visible, select:visible, textarea:visible')
+            .evaluateAll((elements) =>
+              elements.filter((element) => {
+                const rect = element.getBoundingClientRect();
+                return rect.width <= 0 || rect.height <= 0;
+              }).length,
+            );
+          expect(invalidTargets, `${role} ${route.path} ${viewport.name} targets`).toBe(0);
         }
       }
     }
