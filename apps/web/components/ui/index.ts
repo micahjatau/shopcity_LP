@@ -7,7 +7,7 @@ export { Checkbox } from './checkbox';
 export type { CheckboxProps } from './checkbox';
 export { Combobox } from './combobox';
 export type { ComboboxOption, ComboboxProps } from './combobox';
-export { Dialog } from './dialog';
+export { Dialog, useDialogLifecycle } from './dialog';
 export { DropdownMenu } from './dropdown-menu';
 export { Input } from './input';
 export type { InputProps } from './input';

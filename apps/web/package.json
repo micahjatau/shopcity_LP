@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "npm run tokens:check && jest --config ./jest.web.config.cjs --runInBand",
+    "test": "npm run tokens:check && npm run design-system:test && jest --config ./jest.web.config.cjs --runInBand",
     "unit:test": "jest --config ./jest.web.config.cjs --runInBand",
     "a11y:test": "jest --config ./jest.a11y.config.cjs --runInBand",
     "a11y:browser": "playwright test --config ./playwright.config.ts tests/browser-a11y.spec.ts",
@@ -17,12 +17,15 @@
     "critical:update": "playwright test --config ./playwright.config.ts --grep @critical --update-snapshots",
     "visual:test": "playwright test --config ./playwright.config.ts --grep-invert @critical",
     "visual:update": "playwright test --config ./playwright.config.ts --grep-invert @critical --update-snapshots",
+    "conformance:test": "playwright test --config ./playwright.config.ts tests/workflow-routes.spec.ts -g 'overview|visually paired|prototype landmarks|transaction detail|Sync Queue controls'",
     "live:test": "playwright test --config ./playwright.config.ts tests/live-backend-e2e.spec.ts",
     "smoke:test": "playwright test --config ./playwright.smoke.config.ts",
     "smoke:cashier": "playwright test --config ./playwright.smoke.config.ts tests/smoke/roles/cashier.smoke.spec.ts",
     "smoke:production": "SMOKE_ENVIRONMENT=production playwright test --config ./playwright.smoke.config.ts",
     "tokens:generate": "node ./scripts/generate-tokens.mjs",
-    "tokens:check": "node ./scripts/check-token-drift.mjs"
+    "tokens:check": "node ./scripts/check-token-drift.mjs",
+    "design-system:check": "node ./scripts/check-cashier-style-ownership.mjs",
+    "design-system:test": "node --test ./scripts/check-cashier-style-ownership.spec.mjs ./scripts/token-validation.spec.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

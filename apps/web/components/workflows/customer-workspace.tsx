@@ -751,6 +751,7 @@ export function CustomerWorkspace({
                     <tr key={item.id ?? item.phoneE164 ?? item.fullName}>
                       <td>
                         <button
+                          className="sc-row-action"
                           type="button"
                           onClick={() => setSelectedId(item.id ?? null)}
                           style={rowButton}
@@ -928,6 +929,7 @@ export function CustomerWorkspace({
                   <tr key={card.id ?? card.serialNumber}>
                     <td>
                       <button
+                        className="sc-row-action"
                         type="button"
                         onClick={() => {
                           setSelectedCardId(card.id ?? null);

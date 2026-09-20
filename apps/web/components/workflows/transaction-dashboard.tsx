@@ -9,8 +9,8 @@ import {
   type ReportsControllerListCashierTodayV1200DataItemsItem,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, Input, Select, Table } from '../ui';
-import { Money, StatusBadge } from '../shopcity';
+import { Alert, Button, Input, Select, Table, useDialogLifecycle } from '../ui';
+import { Money, ShopCityCard, StatusBadge } from '../shopcity';
 
 type ActivityItem = ReportsControllerListCashierTodayV1200DataItemsItem;
 type DetailRecord = LoyaltyControllerGetTransactionV1200Data;
@@ -66,9 +66,9 @@ export function TransactionDashboard() {
     status: 'idle',
   });
   const requestGeneration = useRef(0);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const triggerRef = useRef<HTMLTableRowElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  useDialogLifecycle(Boolean(selected), closeDetail, modalRef);
 
   async function load() {
     setBusy(true);
@@ -125,37 +125,6 @@ export function TransactionDashboard() {
       }
     }
   }
-
-  useEffect(() => {
-    if (!selected) return undefined;
-
-    closeButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeDetail();
-        return;
-      }
-      if (event.key !== 'Tab' || !modalRef.current) return;
-      const focusable = Array.from(
-        modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((element) => !element.hasAttribute('disabled'));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [selected]);
 
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -236,7 +205,9 @@ export function TransactionDashboard() {
           Refresh data
         </Button>
       </div>
-      <section
+      <ShopCityCard
+        as="section"
+        variant="table"
         className="transaction-table-card"
         data-od-id="transactions-table"
         aria-label="Cashier today transactions"
@@ -315,7 +286,7 @@ export function TransactionDashboard() {
           {visibleItems.length} loaded transaction
           {visibleItems.length === 1 ? '' : 's'} · bounded report scope
         </p>
-      </section>
+      </ShopCityCard>
       {selected ? (
         <div
           className="transaction-detail-backdrop"
@@ -343,7 +314,6 @@ export function TransactionDashboard() {
                 </p>
               </div>
               <Button
-                ref={closeButtonRef}
                 type="button"
                 variant="secondary"
                 aria-label="Close transaction detail"
@@ -402,26 +372,6 @@ export function TransactionDashboard() {
           </div>
         </div>
       ) : null}
-      <style>{`
-        .transaction-dashboard { display: grid; gap: 22px; max-width: var(--sc-prototype-contentMaxWidth); margin: 0 auto; }
-        .transaction-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(135px, 1fr)) auto; gap: 14px; align-items: center; }
-        .transaction-toolbar .sc-button { min-height: 38px; border-radius: 9px; }
-        .transaction-table-card { overflow: hidden; border: 1px solid var(--sc-prototype-border); border-radius: var(--sc-prototype-flowPanelRadius); background: var(--sc-prototype-surface); padding: 18px 24px; }
-        .transaction-table-card table { width: 100%; min-width: 760px; }
-        .transaction-table-card tbody tr { cursor: pointer; }
-        .transaction-table-card tbody tr:focus-visible { outline: 3px solid var(--sc-prototype-accent); outline-offset: -3px; }
-        .transaction-detail-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: color-mix(in oklch, var(--sc-color-neutral-900) 76%, transparent); }
-        .transaction-detail-modal { width: min(600px, 100%); max-height: min(760px, calc(100vh - 48px)); overflow: auto; border: 1px solid var(--sc-prototype-border); border-radius: 18px; background: var(--sc-prototype-surface); padding: 30px 34px 32px; box-shadow: var(--sc-shadow-level3); }
-        .transaction-detail-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-        .transaction-detail-modal__head h2, .transaction-detail-modal__note { margin: 0; }
-        .transaction-detail-modal__note { color: var(--sc-prototype-muted); font-size: 12px; }
-        .transaction-detail-modal table { width: 100%; }
-        .transaction-detail-modal th { width: 42%; text-align: right; padding-right: 16px; }
-        .transaction-detail-modal td { text-align: left; }
-        @media (max-width: 900px) { .transaction-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 620px) { .transaction-toolbar { grid-template-columns: 1fr; } .transaction-table-card { padding: 14px; } .transaction-detail-backdrop { padding: 12px; } .transaction-detail-modal { max-height: calc(100vh - 24px); padding: 24px 20px; } }
-        @media (prefers-reduced-motion: reduce) { .transaction-detail-backdrop, .transaction-detail-modal { transition: none; } }
-      `}</style>
     </section>
   );
 }

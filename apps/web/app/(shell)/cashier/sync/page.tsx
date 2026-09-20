@@ -1,6 +1,5 @@
 'use client';
 
-import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSessionBootstrapState } from '../../../../components/session-bootstrap';
 import Link from 'next/link';
@@ -223,18 +222,14 @@ export default function CashierSyncPage() {
   }
 
   return (
-    <section style={layoutGrid}>
-      <header style={headerGrid}>
-        <h1 style={{ margin: 0 }}>Sync Queue</h1>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
+    <section className="cashier-sync-page">
+      <header className="cashier-sync-header">
+        <h1>Sync Queue</h1>
+        <p className="cashier-sync-muted">
           Review transactions saved while offline, then send them when the
           connection is ready.
         </p>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
+        <p className="cashier-sync-muted">
           Confirmed transactions remain available until you clear them.
         </p>
       </header>
@@ -244,9 +239,9 @@ export default function CashierSyncPage() {
         are sent and confirmed by ShopCity.
       </Alert>
 
-      <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Sync actions</h2>
-        <div className="cashier-sync-actions" style={controlRow}>
+      <section className="sc-card sc-card--default cashier-sync-card">
+        <h2>Sync actions</h2>
+        <div className="cashier-sync-actions">
           <Input
             aria-label="Device ID"
             placeholder="Authenticated device"
@@ -264,16 +259,16 @@ export default function CashierSyncPage() {
             Sync waiting transactions
           </Button>
         </div>
-        <p style={muted}>{message}</p>
-        <p style={muted}>
+        <p className="cashier-sync-muted">{message}</p>
+        <p className="cashier-sync-muted">
           Device ID: {deviceId || 'Unavailable until device-bound login'}
         </p>
-        <p style={muted}>
+        <p className="cashier-sync-muted">
           Waiting and retryable transactions are sent together for confirmation.
         </p>
       </section>
 
-      <div style={statusRow}>
+      <div className="cashier-sync-statuses">
         <StatusBadge label={`Waiting ${statusCounts.waiting}`} tone="info" />
         <StatusBadge label={`Syncing ${statusCounts.syncing}`} tone="neutral" />
         <StatusBadge
@@ -294,7 +289,7 @@ export default function CashierSyncPage() {
         />
       </div>
 
-      <p style={muted}>
+      <p className="cashier-sync-muted">
         Queue summary above stays aligned with the selected record and batch
         result panels below.
       </p>
@@ -307,12 +302,12 @@ export default function CashierSyncPage() {
         </Alert>
       ) : null}
 
-      <div style={priorityGrid}>
-        <section style={highlightCardStyle}>
-          <h2 style={{ marginTop: 0 }}>Selected details</h2>
+      <div className="cashier-sync-priority">
+        <section className="sc-card sc-card--default cashier-sync-card cashier-sync-card--highlight">
+          <h2>Selected details</h2>
           {selectedRecord ? (
             <>
-              <p style={muted}>
+              <p className="cashier-sync-muted">
                 This card stays ahead of the queue so the active record is
                 always obvious.
               </p>
@@ -334,9 +329,9 @@ export default function CashierSyncPage() {
           )}
         </section>
 
-        <section style={highlightCardStyle}>
-          <h2 style={{ marginTop: 0 }}>Backend response</h2>
-          <p style={muted}>
+        <section className="sc-card sc-card--default cashier-sync-card cashier-sync-card--highlight">
+          <h2>Backend response</h2>
+          <p className="cashier-sync-muted">
             {actionResponse
               ? 'The latest sync result and transaction outcomes are visible here.'
               : 'Sync a batch to inspect its technical result and transaction outcomes.'}
@@ -362,7 +357,7 @@ export default function CashierSyncPage() {
               Sync a batch to surface technical reconciliation details.
             </Alert>
           )}
-          <div style={statusRow}>
+          <div className="cashier-sync-statuses">
             <StatusBadge
               label={`Batch results ${lastBatchResults.length}`}
               tone="info"
@@ -409,7 +404,7 @@ export default function CashierSyncPage() {
               </tbody>
             </Table>
           ) : null}
-          <div style={toolbarRow}>
+          <div className="cashier-sync-toolbar">
             <Input
               aria-label="Clear confirmation"
               placeholder="Type CLEAR to remove confirmed"
@@ -429,16 +424,16 @@ export default function CashierSyncPage() {
         </section>
       </div>
 
-      <section style={cardStyle}>
-        <div style={queueHeaderRow}>
+      <section className="sc-card sc-card--default cashier-sync-card">
+        <div className="cashier-sync-queue-header">
           <div>
-            <h2 style={{ marginTop: 0, marginBottom: 0 }}>Queue records</h2>
-            <p style={muted}>
+            <h2>Queue records</h2>
+            <p className="cashier-sync-muted">
               Showing {filteredRecords.length} of {records.length} local
               records.
             </p>
           </div>
-          <div className="cashier-sync-filters" style={queueFilters}>
+          <div className="cashier-sync-filters">
             <Input
               aria-label="Search sync queue"
               placeholder="Receipt, card serial or local ID"
@@ -490,7 +485,7 @@ export default function CashierSyncPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedLocalId(record.localId)}
-                      style={rowButton}
+                      className="cashier-sync-row-button"
                     >
                       {record.localId}
                     </button>
@@ -506,10 +501,10 @@ export default function CashierSyncPage() {
                       tone={toneForState(record.syncState)}
                     />
                     {record.lastError ? (
-                      <div style={smallText}>{record.lastError}</div>
+                      <div className="cashier-sync-small-text">{record.lastError}</div>
                     ) : null}
                     {record.serverTransactionId || record.serverApprovalId ? (
-                      <div style={smallText}>
+                      <div className="cashier-sync-small-text">
                         {record.serverTransactionId
                           ? `Txn ${record.serverTransactionId}`
                           : null}
@@ -537,20 +532,7 @@ export default function CashierSyncPage() {
           </Table>
         )}
       </section>
-      <style>{`
-        @media (max-width: 620px) {
-          .cashier-sync-actions,
-          .cashier-sync-filters {
-            grid-template-columns: 1fr !important;
-          }
 
-          .cashier-sync-actions > .sc-button,
-          .cashier-sync-filters > * {
-            min-width: 0;
-            width: 100%;
-          }
-        }
-      `}</style>
     </section>
   );
 }
@@ -593,97 +575,3 @@ function toneForResult(
   if (status === 'REJECTED') return 'danger';
   return 'warning';
 }
-
-const layoutGrid: CSSProperties = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-6)',
-  padding: 'clamp(4px, 1vw, 12px)',
-};
-
-const headerGrid: CSSProperties = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-2)',
-};
-
-const cardStyle: CSSProperties = {
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-xl)',
-  padding: 'clamp(var(--sc-spacing-5), 3vw, var(--sc-spacing-8))',
-  background:
-    'linear-gradient(145deg, var(--sc-color-neutral-0), rgba(255, 241, 241, 0.72))',
-  display: 'grid',
-  gap: 'var(--sc-spacing-4)',
-  boxShadow: 'var(--sc-shadow-level1)',
-};
-
-const muted: CSSProperties = {
-  color: 'var(--sc-color-semantic-textSecondary)',
-  marginBottom: 0,
-};
-
-const smallText: CSSProperties = {
-  fontSize: 'var(--sc-font-size-sm)',
-};
-
-const rowButton: CSSProperties = {
-  padding: 0,
-  border: 0,
-  background: 'transparent',
-  cursor: 'pointer',
-  font: 'inherit',
-  textAlign: 'left',
-};
-
-const routeRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
-};
-
-const statusRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
-};
-
-const priorityGrid: CSSProperties = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-4)',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-};
-
-const highlightCardStyle: CSSProperties = {
-  ...cardStyle,
-  borderColor: 'var(--sc-color-brand-300)',
-  background:
-    'linear-gradient(145deg, var(--sc-color-brand-50), var(--sc-color-neutral-0))',
-  boxShadow: 'var(--sc-shadow-level2)',
-};
-
-const controlRow: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-  gap: 'var(--sc-spacing-3)',
-};
-
-const queueHeaderRow: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 'var(--sc-spacing-4)',
-  alignItems: 'end',
-  flexWrap: 'wrap',
-};
-
-const queueFilters: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(220px, 1fr) minmax(170px, auto)',
-  gap: 'var(--sc-spacing-3)',
-  alignItems: 'center',
-};
-
-const toolbarRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-};

@@ -4,6 +4,10 @@ import {
   type APIRequestContext,
   type Page,
 } from '@playwright/test';
+import {
+  canonicalCashierLookupControl,
+  type ComputedStyleSnapshot,
+} from './fixtures/design-system-conformance';
 import { shellNavigationByRole } from '../components/shell-navigation';
 
 const baseUrl = 'http://127.0.0.1:3100';
@@ -158,11 +162,33 @@ test.describe('workflow route coverage', () => {
       );
     });
 
+    let canonicalLookupStyles: ComputedStyleSnapshot | null = null;
     for (const kind of ['earn', 'redeem'] as const) {
       const route = kind === 'earn' ? '/cashier/earn' : '/cashier/redeem';
       await page.goto(`${baseUrl}${route}`);
       const lookup = page.locator('.cashier-verified-card-lookup');
       await expect(lookup).toBeVisible();
+      const lookupStyles = await page
+        .getByRole('textbox', { name: 'Lookup' })
+        .evaluate((input): ComputedStyleSnapshot => {
+          const style = getComputedStyle(input);
+          return {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            lineHeight: style.lineHeight,
+            minHeight: style.minHeight,
+            borderRadius: style.borderRadius,
+            borderColor: style.borderColor,
+            backgroundColor: style.backgroundColor,
+            paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
+          };
+        });
+      expect(lookupStyles).toMatchObject(canonicalCashierLookupControl);
+      if (canonicalLookupStyles) {
+        expect(lookupStyles).toEqual(canonicalLookupStyles);
+      } else {
+        canonicalLookupStyles = lookupStyles;
+      }
       await expect(page).toHaveScreenshot(`financial-lookup-${kind}-idle.png`, {
         maxDiffPixelRatio: 0.08,
       });
@@ -252,8 +278,15 @@ test.describe('workflow route coverage', () => {
         }),
       ),
     );
-    await page.route('**/api/v1/transactions/txn-1', (route) =>
-      route.fulfill(
+    let detailMode: 'success' | 'error' = 'success';
+    await page.route('**/api/v1/transactions/txn-1', (route) => {
+      if (detailMode === 'error') {
+        return route.fulfill({
+          ...json({ success: false, error: { statusCode: 503 } }),
+          status: 503,
+        });
+      }
+      return route.fulfill(
         json({
           success: true,
           data: {
@@ -287,17 +320,25 @@ test.describe('workflow route coverage', () => {
           },
           meta: meta('/api/v1/transactions/txn-1'),
         }),
-      ),
-    );
+      );
+    });
     await page.goto(`${baseUrl}/cashier/transactions`);
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-transactions-list.png',
       { maxDiffPixelRatio: 0.08 },
     );
 
-    await page.getByRole('row', { name: /open transaction R-001/i }).click();
+    const trigger = page.getByRole('row', { name: /open transaction R-001/i });
+    await trigger.click();
     const dialog = page.getByRole('dialog', { name: 'R-001' });
     await expect(dialog).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Close transaction detail' }),
+    ).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(
+      page.getByRole('button', { name: 'Close transaction detail' }),
+    ).toBeFocused();
     await expect(dialog).toContainText('txn-1');
     await expect(dialog).not.toContainText('customer-1');
     await expect(page).toHaveScreenshot('cashier-transactions-detail.png', {
@@ -305,6 +346,20 @@ test.describe('workflow route coverage', () => {
     });
     await page.keyboard.press('Escape');
     await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+
+    detailMode = 'error';
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.reload();
+    const mobileTrigger = page.getByRole('row', {
+      name: /open transaction R-001/i,
+    });
+    await mobileTrigger.click();
+    await expect(page.getByRole('dialog', { name: 'R-001' })).toContainText(
+      'Transaction detail unavailable',
+    );
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'R-001' })).not.toBeVisible();
   });
 
   test('covers cashier earn, redeem, customers and sync routes', async ({
@@ -355,6 +410,96 @@ test.describe('workflow route coverage', () => {
       'cashier-overview-compact.png',
       { maxDiffPixelRatio: 0.08 },
     );
+  });
+
+  test('covers overview empty and authoritative error states', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).toBeVisible();
+
+    await page.route('**/api/v1/reports/cashier-today', (route) =>
+      route.fulfill({
+        ...json({ success: false, error: { statusCode: 503 } }),
+        status: 503,
+      }),
+    );
+    await page.reload();
+    await expect(page.getByRole('status')).toHaveText(
+      'Today’s activity is temporarily unavailable.',
+    );
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).not.toBeVisible();
+  });
+
+  test('covers overview loading and narrow layout', async ({ page }) => {
+    await mockShell(page, 'CASHIER');
+    let releaseRequest!: () => void;
+    const requestPending = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    await page.route('**/api/v1/reports/cashier-today', async (route) => {
+      await requestPending;
+      await route.fulfill(
+        json({
+          success: true,
+          data: { branchId: 'branch-1', timezone: 'Africa/Lagos', items: [] },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      );
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    const navigation = page.goto(`${baseUrl}/cashier`);
+    await expect(page.getByRole('status')).toHaveText(
+      'Loading today’s activity…',
+    );
+    releaseRequest();
+    await navigation;
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).toBeVisible();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+  });
+
+  test('keeps overview long values inside tablet geometry', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/reports/cashier-today', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                id: 'long-transaction',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+                operation: 'EARN',
+                loyaltyAmountKobo: 999999999,
+                receiptNumber: 'R-' + '9'.repeat(80),
+                status: 'APPROVED',
+              },
+            ],
+          },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      ),
+    );
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto(`${baseUrl}/cashier`);
+    await expect(page.getByText(/R-999999/)).toBeVisible();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(768);
   });
 
   test('covers lookup success, context handoff, keyboard, and narrow layout', async ({
@@ -426,10 +571,18 @@ test.describe('workflow route coverage', () => {
     await purchase.fill('10');
     await purchase.blur();
     await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-review.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
     await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
       page.getByText('Purchase captured and credit added.'),
     ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-outcome.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
 
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
     await expect(
@@ -446,8 +599,16 @@ test.describe('workflow route coverage', () => {
     await requested.fill('10');
     await requested.blur();
     await page.getByRole('button', { name: 'Proceed to confirmation' }).click();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-review.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
     await page.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(page.getByText('Credit redeemed successfully.')).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-outcome.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
   });
 
   test('keeps Sync Queue controls usable on a narrow viewport', async ({
@@ -666,6 +827,7 @@ test.describe('workflow route coverage', () => {
             return {
               display: style.display,
               whiteSpace: style.whiteSpace,
+              className: button.className || button.outerHTML.slice(0, 120),
               hasIconAndLabel:
                 Boolean(button.querySelector('svg')) &&
                 Boolean(button.textContent?.trim()),
@@ -673,8 +835,8 @@ test.describe('workflow route coverage', () => {
           }),
         );
       for (const button of buttonRhythm) {
-        expect(['flex', 'inline-flex', 'grid']).toContain(button.display);
-        expect(button.whiteSpace).toBe('nowrap');
+        expect(['flex', 'inline-flex', 'grid'], button.className).toContain(button.display);
+        expect(button.whiteSpace, button.className).toBe('nowrap');
       }
     }
   });

@@ -11,6 +11,26 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-19 — Review 73: `unify-cashier-design-system`
+
+Planning baseline: `workflow-states-implementation` at `8d9eb98`, with existing dirty-tree changes preserved. Refreshed the index using `npm run gitnexus:analyze`; GitNexus status reports current HEAD. Ran `npm run proposal:impact -- --file <path> <symbol>` before drafting. Direction is upstream and tests are included by the script.
+
+| Symbol                   | File                                                          | Risk         | Upstream symbols | Direct dependants | Processes |
+| ------------------------ | ------------------------------------------------------------- | ------------ | ---------------: | ----------------: | --------: |
+| `Button`                 | `apps/web/components/ui/button.tsx`                           | **CRITICAL** |               53 |                24 |        29 |
+| `CashierWorkflowRoute`   | `apps/web/components/workflows/cashier-transaction-route.tsx` | **HIGH**     |                4 |                 4 |         3 |
+| `VerifiedCardLookupStep` | `apps/web/components/workflows/verified-card-lookup-step.tsx` | **HIGH**     |                5 |                 1 |         3 |
+| `TransactionDashboard`   | `apps/web/components/workflows/transaction-dashboard.tsx`     | LOW          |                2 |                 2 |         1 |
+| `CashierOverviewLookup`  | `apps/web/components/workflows/cashier-overview-lookup.tsx`   | LOW          |                2 |                 2 |         1 |
+| `AppShell`               | `apps/web/components/app-shell.tsx`                           | LOW          |                2 |                 2 |         1 |
+| `CashierSyncPage`        | `apps/web/app/(shell)/cashier/sync/page.tsx`                  | LOW          |                0 |                 0 |         0 |
+
+`Button` initially returned ambiguous const/function candidates; the authoritative result above uses `npm run proposal:impact -- --file apps/web/components/ui/button.tsx --kind Function Button`. HIGH/CRITICAL risks were explicitly reported before drafting. Workflow impact includes Cashier lookup, earn and redeem entry processes. Button reaches login, all three roles, customer/card/approval/report and operational consumers. CSS inheritance, variables and imports are not bounded by call-graph counts: LOW/zero upstream results do not make route/global-style changes safe without visual and functional coverage.
+
+Required mitigation: phase the token/cascade/primitive migration; preserve controllers, sessions, financial contracts and queue state; test affected non-Cashier consumers; add real-route computed-style plus screenshot/behavior evidence. Re-run impact before editing every actual symbol, including generator/form/dialog helpers not individually analyzed during proposal creation. See `openspec/changes/unify-cashier-design-system/audit.md` and `execution-plan.md`. This entry records proposal analysis, not implementation verification.
+
+Implementation update: the initial presentation/token/Sync slice was applied and GitNexus was re-analyzed. Final `detect-changes --scope all` passed but reports aggregate CRITICAL risk because the dirty tree also contains pre-existing AGENTS/CLAUDE/Admin/Supervisor/config changes. The aggregate must not be attributed solely to this change. The final candidate still requires computed-style conformance, reference review and remaining OpenSpec tasks before acceptance.
+
 | 2026-09-17 | Final prototype adaptation review | CRITICAL (branch comparison) | 102 files / 259 symbols | 66 processes | `detect-changes --scope compare --base-ref master` includes the branch's accumulated historical work, not only the final page-at-a-time commits. Current working-tree modifications are limited to pre-existing AGENTS/CLAUDE files, generated test/build artifacts, screenshots, and caches; no unrelated source files were edited by this adaptation. Focused CashierWorkflowRoute, browser accessibility, workflow, critical-flow, build, lint, typecheck, and targeted Semgrep gates passed. |
 
 | 2026-09-17 | Repo review 71 prototype-exact cashier adaptation | HIGH | 4 | 4 | `CashierWorkflowRoute` affects `CashierEarnPage`, `CashierLookupPage`, and `CashierRedeemPage` across 3 execution processes. Exact GitNexus impact: 4 direct dependants, 3 processes, 1 module. Proceed only with focused route/workflow regression coverage and preserve the extracted business logic while replacing presentational JSX. |

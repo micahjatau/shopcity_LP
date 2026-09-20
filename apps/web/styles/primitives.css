@@ -25,6 +25,13 @@
   box-shadow: 0 0 0 1px var(--sc-color-danger-strong);
 }
 
+.sc-row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-spacing-2);
+  white-space: nowrap;
+}
+
 .sc-button {
   display: inline-flex;
   align-items: center;
@@ -181,6 +188,14 @@
     6px 6px;
   background-repeat: no-repeat;
   padding-right: 2.5rem;
+}
+
+.sc-tabs button,
+.sc-radio-option > label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .sc-radio-group {
@@ -444,15 +459,6 @@
   font-size: 12px;
 }
 
-.sc-flow-panel {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 32px 40px 40px;
-  border: 1px solid var(--sc-prototype-border);
-  border-radius: var(--sc-prototype-flowPanelRadius);
-  background: var(--sc-prototype-surface);
-}
-
 .sc-status {
   margin: 0 0 20px;
   color: var(--sc-prototype-muted);
@@ -494,7 +500,4 @@
     flex-direction: column;
   }
 
-  .sc-flow-panel {
-    padding: 24px 20px 28px;
-  }
 }

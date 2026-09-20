@@ -67,7 +67,7 @@ export function RedeemTransactionForm({
         }
         void handleSubmit(event);
       }}
-      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      className="cashier-transaction-form"
       data-od-id="redeem-form"
     >
       <Alert
@@ -133,11 +133,7 @@ export function RedeemTransactionForm({
       </div>
       <div
         data-od-id="redeem-summary"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          gap: 'var(--sc-spacing-3)',
-        }}
+        className="cashier-redemption-summary"
       >
         <div>
           <span className="cashier-workflow-hint">Basket total</span>
@@ -210,13 +206,7 @@ export function RedeemTransactionForm({
           </p>
         </section>
       ) : null}
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-3)',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="cashier-form-actions">
         <Button
           type="submit"
           loading={status === 'submitting'}
@@ -246,14 +236,7 @@ export function RedeemTransactionForm({
           {reviewing ? 'Edit redemption' : 'Reset draft'}
         </Button>
       </div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-2)',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="cashier-form-status">
         <StatusBadge
           label={
             status === 'pending'
@@ -274,13 +257,13 @@ export function RedeemTransactionForm({
                   : 'neutral'
           }
         />
-        <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>
+        <p aria-live="polite" className="cashier-form-status__message">
           {message || 'The final redemption status will appear here.'}
         </p>
       </div>
       {responseData ? (
         <section
-          style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}
+          className="cashier-transaction-result"
           data-od-id="redeem-success"
         >
           <Alert

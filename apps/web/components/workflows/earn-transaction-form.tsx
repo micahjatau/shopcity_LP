@@ -86,7 +86,7 @@ export function EarnTransactionForm({
         }
         void handleSubmit(event);
       }}
-      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+      className="cashier-transaction-form"
       data-od-id="capture-form"
     >
       <Alert
@@ -211,13 +211,7 @@ export function EarnTransactionForm({
           </p>
         </section>
       )}
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-3)',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="cashier-form-actions">
         <Button
           type="submit"
           loading={status === 'submitting'}
@@ -242,14 +236,7 @@ export function EarnTransactionForm({
           {reviewing ? 'Edit receipt' : 'Reset draft'}
         </Button>
       </div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--sc-spacing-2)',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="cashier-form-status">
         <StatusBadge
           label={
             status === 'pending'
@@ -270,7 +257,7 @@ export function EarnTransactionForm({
                   : 'neutral'
           }
         />
-        <p aria-live="polite" style={{ margin: 0, minHeight: '1.25rem' }}>
+        <p aria-live="polite" className="cashier-form-status__message">
           {message || 'The final transaction status will appear here.'}
         </p>
       </div>

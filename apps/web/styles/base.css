@@ -1,0 +1,31 @@
+html {
+  color-scheme: light;
+  font-family: var(--sc-font-family-sans);
+  background: var(--sc-color-semantic-canvas);
+  color: var(--sc-color-semantic-textPrimary);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--sc-color-semantic-canvas);
+  color: var(--sc-color-semantic-textPrimary);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

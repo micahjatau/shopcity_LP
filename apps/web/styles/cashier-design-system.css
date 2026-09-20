@@ -1,0 +1,317 @@
+/* Shared Cashier presentation. Pages compose these classes; they do not redefine them. */
+.sc-page-head__copy {
+  min-width: 0;
+}
+
+.sc-page-head__eyebrow {
+  margin: 0 0 var(--sc-spacing-2);
+  color: var(--sc-color-semantic-actionPrimary);
+  font-size: var(--sc-font-size-sm);
+  font-weight: var(--sc-font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sc-page-head__actions,
+.sc-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-3);
+}
+
+.sc-card {
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: var(--sc-prototype-flowPanelRadius);
+  background: var(--sc-prototype-surface);
+}
+
+.sc-card--metric {
+  min-height: 132px;
+  padding: var(--sc-spacing-5) var(--sc-spacing-6);
+}
+
+.sc-card--table {
+  overflow: hidden;
+}
+
+.sc-card--flow {
+  padding: var(--sc-spacing-8) var(--sc-spacing-10) var(--sc-spacing-10);
+}
+
+.sc-flow-panel {
+  width: 100%;
+  max-width: var(--sc-flow-panel-width, 860px);
+  margin-inline: auto;
+  padding: clamp(24px, 4vw, 40px);
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: var(--sc-prototype-flowPanelRadius);
+  background: var(--sc-prototype-surface);
+}
+
+.sc-flow-panel[data-flow='redeem'] {
+  --sc-flow-panel-width: 720px;
+}
+
+.sc-flow-panel__heading {
+  display: grid;
+  gap: var(--sc-spacing-1);
+  padding-bottom: var(--sc-spacing-4);
+  border-bottom: 1px solid var(--sc-prototype-border);
+}
+
+.sc-flow-panel__heading h2,
+.sc-flow-panel__heading p {
+  margin: 0;
+}
+
+.sc-flow-panel__content {
+  display: grid;
+  gap: var(--sc-spacing-4);
+}
+
+.sc-flow-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-spacing-3);
+}
+
+.sc-status[data-tone='info'] {
+  color: var(--sc-color-info-strong);
+}
+
+.sc-status[data-tone='warning'] {
+  color: var(--sc-color-warning-strong);
+}
+
+.sc-status[data-tone='neutral'] {
+  color: var(--sc-prototype-muted);
+}
+
+.cashier-overview,
+.cashier-overview-lookup {
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  margin-inline: auto;
+}
+
+.cashier-overview {
+  display: grid;
+  gap: var(--sc-spacing-6);
+}
+
+.cashier-overview-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-5);
+}
+
+.cashier-route-title {
+  margin: 0;
+}
+
+.cashier-route-header.sc-page-head p {
+  margin: 0;
+  color: var(--sc-color-brand-700);
+}
+
+.cashier-overview-header.sc-page-head p {
+  margin: 0;
+  color: var(--sc-color-brand-700);
+}
+
+.cashier-overview-header h1 {
+  margin: 0;
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.cashier-overview-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sc-spacing-2);
+}
+
+.cashier-primary-action,
+.cashier-secondary-action {
+  min-height: var(--sc-size-controlCompact);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--sc-spacing-5);
+  border: 1px solid var(--sc-color-brand-700);
+  border-radius: var(--sc-radius-full);
+  font-size: var(--sc-font-size-sm);
+  font-weight: var(--sc-font-weight-semibold);
+  text-decoration: none;
+}
+
+.cashier-primary-action {
+  background: var(--sc-prototype-surface);
+  color: var(--sc-color-brand-700);
+}
+
+.cashier-secondary-action {
+  background: var(--sc-color-brand-700);
+  color: var(--sc-color-neutral-0);
+}
+
+.cashier-secondary-action--disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.cashier-primary-action:focus-visible,
+.cashier-secondary-action:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+  .sc-page-head__actions,
+  .sc-form-actions,
+  .cashier-overview-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .sc-page-head__actions > *,
+  .sc-form-actions > *,
+  .cashier-overview-actions > * {
+    flex: 1 1 100%;
+  }
+
+  .sc-flow-panel {
+    padding: var(--sc-spacing-6) var(--sc-spacing-5) var(--sc-spacing-7);
+  }
+
+  .sc-flow-panel__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}
+
+.cashier-transaction-form,
+.cashier-transaction-result {
+  display: grid;
+  gap: var(--sc-spacing-4);
+}
+
+.cashier-form-actions,
+.cashier-form-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-3);
+}
+
+.cashier-form-status__message {
+  min-height: 1.25rem;
+  margin: 0;
+}
+
+.cashier-redemption-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sc-spacing-3);
+}
+
+.cashier-sync-page {
+  display: grid;
+  gap: var(--sc-spacing-6);
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  margin-inline: auto;
+  padding: clamp(4px, 1vw, 12px);
+}
+
+.cashier-sync-header,
+.cashier-sync-card {
+  display: grid;
+  gap: var(--sc-spacing-4);
+}
+
+.cashier-sync-card {
+  padding: clamp(var(--sc-spacing-5), 3vw, var(--sc-spacing-8));
+}
+
+.cashier-sync-header h1,
+.cashier-sync-card h2 {
+  margin: 0;
+}
+
+.cashier-sync-muted,
+.cashier-sync-small-text {
+  margin: 0;
+  color: var(--sc-color-semantic-textSecondary);
+}
+
+.cashier-sync-small-text {
+  font-size: var(--sc-font-size-sm);
+}
+
+.cashier-sync-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sc-spacing-3);
+}
+
+.cashier-sync-statuses,
+.cashier-sync-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-3);
+}
+
+.cashier-sync-priority {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sc-spacing-4);
+}
+
+.cashier-sync-card--highlight {
+  border-color: var(--sc-color-brand-200);
+}
+
+.cashier-sync-queue-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-4);
+}
+
+.cashier-sync-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(170px, auto);
+  align-items: center;
+  gap: var(--sc-spacing-3);
+}
+
+.cashier-sync-row-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .cashier-sync-actions,
+  .cashier-sync-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .cashier-sync-priority {
+    grid-template-columns: 1fr;
+  }
+}
