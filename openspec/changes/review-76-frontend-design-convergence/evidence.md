@@ -184,3 +184,11 @@ FAIL_INFRASTRUCTURE: Missing required smoke configuration: SMOKE_ENVIRONMENT
 ```
 
 Tasks 7.1–7.4 remain unchecked. Customer/card journeys, Earn/Redeem staging mutations, cleanup, and reconciliation require an operator-approved disposable staging environment and secret injection per `docs/runbooks/smoke-testing.md`.
+
+The corrected candidate `8f8c6137959cc32f6906630825f13faf8875c9cc` was subsequently deployed to the approved Vercel staging aliases without promoting production:
+
+- Backend deployment: `dpl_HUwE7eBpXxRqBrxE8og5M86zSaYf`, aliased to `shopcity-api-git-staging-micahjatau.vercel.app`.
+- Frontend deployment: `dpl_yi3AZXZSvHNEa2gpnx4thnuks5oN`, aliased to `shopcity-lp-git-staging-micahjatau.vercel.app`.
+- Staging variables `SMOKE_DEPLOYED_BACKEND_SHA` and `SMOKE_DEPLOYED_FRONTEND_SHA` were updated to the exact candidate SHA.
+
+The current staging smoke workflow is restricted to candidates on `origin/master`; this feature candidate is not on master lineage. Therefore the corrected candidate cannot be smoke-certified through the current release gate until it is promoted through the approved master/deployment path. No provenance gate was bypassed and no production deployment was performed.
