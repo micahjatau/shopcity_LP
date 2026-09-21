@@ -199,9 +199,10 @@ export function CashierWorkflowRoute({
           selectedCardSerial={selectedCardSerial}
         />
       ) : kind === 'earn' ? (
-        <section
-          className="sc-card sc-card--flow cashier-stage-card cashier-earn-stage"
-          data-od-id="capture-stage"
+        <CashierFlowPanel
+          flow="earn"
+          className="cashier-flow-panel cashier-earn-workflow-panel"
+          dataOdId="capture-flow"
         >
           {!lookupRecord ? (
             <VerifiedCardLookupStep
@@ -265,12 +266,32 @@ export function CashierWorkflowRoute({
                 </Button>
               </div>
             </div>
-          ) : null}
-        </section>
+          ) : (
+            <div
+              className="cashier-flow-panel-form"
+              data-od-id="capture-flow-form"
+            >
+              <h2 className="cashier-flow-panel-heading">
+                {flowStep >= 3 ? 'Step 4 — Review' : 'Step 3 — Receipt details'}
+              </h2>
+              <EarnTransactionForm
+                lookupContext={lookupContext}
+                policyContext={policyContext}
+                cashierId={userId}
+                deviceId={deviceId}
+                branchId={policyConfig?.branch?.id ?? null}
+                branchTimezone={branchContext?.timezone ?? null}
+                receiptWeekStartDay={branchReceiptWeekStartDay}
+                onFlowStepChange={setFlowStep}
+              />
+            </div>
+          )}
+        </CashierFlowPanel>
       ) : kind === 'redeem' && lookupRecord && !redeemConfirmed ? (
-        <section
-          className="sc-card sc-card--flow cashier-stage-card cashier-redeem-stage"
-          data-od-id="redeem-stage"
+        <CashierFlowPanel
+          flow="redeem"
+          className="cashier-flow-panel cashier-redeem-flow-panel"
+          dataOdId="redeem-flow"
         >
           <div className="cashier-stage-content" aria-label="Lookup and status">
             <div className="cashier-stage-heading">
@@ -318,7 +339,7 @@ export function CashierWorkflowRoute({
               </Button>
             </div>
           </div>
-        </section>
+        </CashierFlowPanel>
       ) : kind === 'redeem' && redeemConfirmed ? null : (
         <VerifiedCardLookupStep
           lookupValue={lookupValue}
@@ -330,41 +351,22 @@ export function CashierWorkflowRoute({
         />
       )}
 
-      {showTransactionForm &&
-      ((kind === 'earn' && earnConfirmed) ||
-        (kind === 'redeem' && redeemConfirmed)) ? (
+      {showTransactionForm && kind === 'redeem' && redeemConfirmed ? (
         <CashierFlowPanel
-          flow={kind}
+          flow="redeem"
           className="cashier-flow-panel"
-          dataOdId={kind === 'earn' ? 'capture-flow' : 'redeem-flow'}
+          dataOdId="redeem-flow"
         >
           <h2 className="cashier-flow-panel-heading">
-            {kind === 'earn'
-              ? flowStep >= 3
-                ? 'Step 4 — Review'
-                : 'Step 3 — Receipt details'
-              : 'Step 3 — Basket & redemption'}
+            Step 3 — Basket & redemption
           </h2>
-          {kind === 'earn' ? (
-            <EarnTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              deviceId={deviceId}
-              branchId={policyConfig?.branch?.id ?? null}
-              branchTimezone={branchContext?.timezone ?? null}
-              receiptWeekStartDay={branchReceiptWeekStartDay}
-              onFlowStepChange={setFlowStep}
-            />
-          ) : (
-            <RedeemTransactionForm
-              lookupContext={lookupContext}
-              policyContext={policyContext}
-              cashierId={userId}
-              branchId={policyConfig?.branch?.id ?? null}
-              onFlowStepChange={setFlowStep}
-            />
-          )}
+          <RedeemTransactionForm
+            lookupContext={lookupContext}
+            policyContext={policyContext}
+            cashierId={userId}
+            branchId={policyConfig?.branch?.id ?? null}
+            onFlowStepChange={setFlowStep}
+          />
         </CashierFlowPanel>
       ) : null}
     </section>
@@ -394,7 +396,10 @@ function FindCustomerView({
 
   return (
     <div className="find-customer-view">
-      <section className="find-customer-search" data-od-id="customer-search">
+      <section
+        className="find-customer-search sc-discovery-panel"
+        data-od-id="customer-search"
+      >
         <form onSubmit={onLookup}>
           <div className="find-customer-search-row">
             <label
@@ -426,42 +431,46 @@ function FindCustomerView({
               Scan
             </Button>
           </div>
-          <p className="find-customer-hint">
+          <p className="find-customer-hint sc-discovery-muted">
             Press enter or select Search to look up the card and customer
             context.
           </p>
         </form>
       </section>
 
-      <p className="find-customer-notice" role="status">
+      <p className="find-customer-notice sc-discovery-muted" role="status">
         {lookupMessage}
       </p>
 
-      <section className="find-customer-recent">
+      <section className="find-customer-recent sc-discovery-panel">
         <div>
-          <h2>Recent customers</h2>
-          <p>Customers served most recently at this branch.</p>
+          <h2 className="sc-discovery-section-title">Recent customers</h2>
+          <p className="sc-discovery-muted">
+            Customers served most recently at this branch.
+          </p>
         </div>
         <div className="find-customer-list">
           {lookupRecord ? (
-            <div className="find-customer-row">
+            <div className="find-customer-row sc-discovery-row">
               <div className="find-customer-row-main">
                 <strong>
                   {lookupRecord.customer?.fullName ??
                     lookupRecord.customerName ??
                     'Customer'}
                 </strong>
-                <span>
+                <span className="sc-discovery-muted">
                   {lookupRecord.customer?.maskedPhone ?? selectedCardSerial}
                 </span>
               </div>
               <div className="find-customer-actions">
                 <Link
+                  className="sc-discovery-action"
                   href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
                 >
                   Capture Purchase
                 </Link>
                 <Link
+                  className="sc-discovery-action"
                   href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
                 >
                   Redeem Credit
@@ -476,15 +485,17 @@ function FindCustomerView({
               >
                 <div className="find-customer-row-main">
                   <strong>{customer.fullName ?? 'Customer'}</strong>
-                  <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
+                  <span className="sc-discovery-muted">
+                    {customer.maskedPhone ?? 'Phone unavailable'}
+                  </span>
                 </div>
-                <span className="find-customer-discovery-hint">
+                <span className="find-customer-discovery-hint sc-discovery-muted">
                   Scan an active card to continue
                 </span>
               </div>
             ))
           ) : (
-            <p className="find-customer-empty">
+            <p className="find-customer-empty sc-discovery-muted">
               Search by name, phone, or an active card to continue.
             </p>
           )}

@@ -80,17 +80,32 @@ export function CashierOverviewLookup() {
         {todayMessage}
       </p>
       <div className="cashier-metrics" data-od-id="activity-metrics">
-        <ShopCityCard as="article" variant="metric" className="cashier-metric">
+        <ShopCityCard
+          as="article"
+          variant="metric"
+          className="cashier-metric"
+          data-od-id="metric-receipts"
+        >
           <div className="metric-label">Receipts loaded</div>
           <div className="metric-value">{loadedTransactions.length || '—'}</div>
           <div className="metric-note">Loaded from cashier activity</div>
         </ShopCityCard>
-        <ShopCityCard as="article" variant="metric" className="cashier-metric">
+        <ShopCityCard
+          as="article"
+          variant="metric"
+          className="cashier-metric"
+          data-od-id="metric-earn"
+        >
           <div className="metric-label">Purchases captured</div>
           <div className="metric-value">{earnTransactions.length || '—'}</div>
           <div className="metric-note">Captured receipts</div>
         </ShopCityCard>
-        <ShopCityCard as="article" variant="metric" className="cashier-metric">
+        <ShopCityCard
+          as="article"
+          variant="metric"
+          className="cashier-metric"
+          data-od-id="metric-issued"
+        >
           <div className="metric-label">Credit issued</div>
           <div className="metric-value">
             {creditIssuedKobo > 0 ? (
@@ -101,7 +116,12 @@ export function CashierOverviewLookup() {
           </div>
           <div className="metric-note">Issued by the server</div>
         </ShopCityCard>
-        <ShopCityCard as="article" variant="metric" className="cashier-metric">
+        <ShopCityCard
+          as="article"
+          variant="metric"
+          className="cashier-metric"
+          data-od-id="metric-redeemed"
+        >
           <div className="metric-label">Credit redeemed</div>
           <div className="metric-value">{redeemTransactions.length || '—'}</div>
           <div className="metric-note">Redeemed transactions</div>

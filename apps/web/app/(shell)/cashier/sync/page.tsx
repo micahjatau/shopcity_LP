@@ -74,6 +74,22 @@ export default function CashierSyncPage() {
     [records],
   );
 
+  const statusBuckets = useMemo(
+    () => ({
+      waiting:
+        statusCounts.waiting +
+        records.filter((record) => record.syncState === 'saved-on-device')
+          .length,
+      syncing: statusCounts.syncing,
+      needsAttention:
+        statusCounts.awaitingApproval +
+        statusCounts.rejected +
+        statusCounts.retryRequired,
+      synced: statusCounts.confirmed,
+    }),
+    [records, statusCounts],
+  );
+
   const filteredRecords = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return records.filter((record) => {
@@ -137,6 +153,23 @@ export default function CashierSyncPage() {
     setBusy(true);
     setMessage('Submitting offline batch…');
 
+    const syncingWrites = await Promise.all(
+      queueableRecords.map((record) =>
+        updateOfflineEarnRecord(record.localId, (current) => ({
+          ...current,
+          syncState: 'syncing',
+          lastError: null,
+        })),
+      ),
+    );
+    const syncingFailure = syncingWrites.find((result) => !result.ok);
+    if (syncingFailure && !syncingFailure.ok) {
+      setBusy(false);
+      setMessage(`Could not mark records as syncing: ${syncingFailure.error}`);
+      await refresh();
+      return;
+    }
+
     const recordsDto: OfflineEarnBatchRecordDto[] = queueableRecords.map(
       (record) => ({
         localId: record.localId,
@@ -150,6 +183,25 @@ export default function CashierSyncPage() {
         occurredAtLocal: record.occurredAtLocal,
       }),
     );
+
+    const markBatchUnavailable = async (message: string) => {
+      const retryWrites = await Promise.all(
+        queueableRecords.map((record) =>
+          updateOfflineEarnRecord(record.localId, (current) => ({
+            ...current,
+            syncState: 'retry-required',
+            lastError: message,
+          })),
+        ),
+      );
+      const retryFailure = retryWrites.find((result) => !result.ok);
+      await refresh();
+      setMessage(
+        retryFailure && !retryFailure.ok
+          ? `${message} Local retry state could not be saved: ${retryFailure.error}`
+          : message,
+      );
+    };
 
     try {
       const response = await offlineSyncControllerEarnBatchV1(
@@ -165,7 +217,7 @@ export default function CashierSyncPage() {
       if (response.status === 200) {
         const nextResults = response.data.data.records;
         setLastBatchResults(nextResults);
-        await Promise.all(
+        const resultWrites = await Promise.all(
           nextResults.map((result) =>
             updateOfflineEarnRecord(result.localId, (record) => ({
               ...record,
@@ -182,14 +234,21 @@ export default function CashierSyncPage() {
             })),
           ),
         );
+        const resultFailure = resultWrites.find((result) => !result.ok);
         await refresh();
-        setMessage('Batch submitted. Review per-record results below.');
+        setMessage(
+          resultFailure && !resultFailure.ok
+            ? `Batch completed, but local result storage failed: ${resultFailure.error}`
+            : 'Batch submitted. Review per-record results below.',
+        );
         return;
       }
 
-      setMessage(`Batch sync unavailable (${response.status}).`);
+      await markBatchUnavailable(
+        `Batch sync unavailable (${response.status}).`,
+      );
     } catch {
-      setMessage('Batch sync unavailable.');
+      await markBatchUnavailable('Batch sync unavailable.');
     } finally {
       setBusy(false);
     }
@@ -201,22 +260,34 @@ export default function CashierSyncPage() {
       return;
     }
 
-    await Promise.all(
+    const deleteResults = await Promise.all(
       records
         .filter((record) => record.syncState === 'confirmed')
         .map((record) => deleteOfflineEarnRecord(record.localId)),
     );
+    const deleteFailure = deleteResults.find((result) => !result.ok);
+    if (deleteFailure && !deleteFailure.ok) {
+      setMessage(`Could not clear confirmed records: ${deleteFailure.error}`);
+      await refresh();
+      return;
+    }
     setActionResponse(null);
     setClearConfirmation('');
     await refresh();
+    setMessage('Confirmed records cleared.');
   }
 
   async function retryRecord(localId: string) {
-    await updateOfflineEarnRecord(localId, (record) => ({
+    const result = await updateOfflineEarnRecord(localId, (record) => ({
       ...record,
       syncState: 'waiting-to-sync',
       lastError: null,
     }));
+    if (!result.ok) {
+      setMessage(`Could not requeue ${localId}: ${result.error}`);
+      await refresh();
+      return;
+    }
     setMessage(`Requeued ${localId} for the next sync batch.`);
     await refresh();
   }
@@ -268,9 +339,22 @@ export default function CashierSyncPage() {
         </p>
       </section>
 
-      <div className="cashier-sync-statuses">
-        <StatusBadge label={`Waiting ${statusCounts.waiting}`} tone="info" />
-        <StatusBadge label={`Syncing ${statusCounts.syncing}`} tone="neutral" />
+      <div className="cashier-sync-statuses" aria-label="Sync queue summary">
+        <StatusBadge label={`Waiting ${statusBuckets.waiting}`} tone="info" />
+        <StatusBadge
+          label={`Syncing ${statusBuckets.syncing}`}
+          tone="neutral"
+        />
+        <StatusBadge
+          label={`Needs attention ${statusBuckets.needsAttention}`}
+          tone="warning"
+        />
+        <StatusBadge label={`Synced ${statusBuckets.synced}`} tone="success" />
+      </div>
+      <div
+        className="cashier-sync-statuses cashier-sync-statuses--raw"
+        aria-label="Raw sync states"
+      >
         <StatusBadge
           label={`Approval ${statusCounts.awaitingApproval}`}
           tone="warning"
@@ -424,7 +508,7 @@ export default function CashierSyncPage() {
         </section>
       </div>
 
-      <section className="sc-card sc-card--standard cashier-sync-card">
+      <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-queue">
         <div className="cashier-sync-queue-header">
           <div>
             <h2>Queue records</h2>
@@ -467,71 +551,73 @@ export default function CashierSyncPage() {
             the full local queue.
           </Alert>
         ) : (
-          <Table>
-            <thead>
-              <tr>
-                <th>Local ID</th>
-                <th>Card</th>
-                <th>Receipt</th>
-                <th>Amount</th>
-                <th>State</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRecords.map((record) => (
-                <tr key={record.localId}>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLocalId(record.localId)}
-                      className="cashier-sync-row-button"
-                    >
-                      {record.localId}
-                    </button>
-                  </td>
-                  <td>{record.cardBarcode}</td>
-                  <td>{record.receiptNumber}</td>
-                  <td>
-                    <Money amountKobo={record.purchaseAmountKobo} />
-                  </td>
-                  <td>
-                    <StatusBadge
-                      label={record.syncState}
-                      tone={toneForState(record.syncState)}
-                    />
-                    {record.lastError ? (
-                      <div className="cashier-sync-small-text">
-                        {record.lastError}
-                      </div>
-                    ) : null}
-                    {record.serverTransactionId || record.serverApprovalId ? (
-                      <div className="cashier-sync-small-text">
-                        {record.serverTransactionId
-                          ? `Txn ${record.serverTransactionId}`
-                          : null}
-                        {record.serverApprovalId
-                          ? ` Approval ${record.serverApprovalId}`
-                          : null}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>
-                    {record.syncState === 'retry-required' ? (
-                      <Button
-                        variant="ghost"
-                        onClick={() => void retryRecord(record.localId)}
-                      >
-                        Retry now
-                      </Button>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
+          <div className="cashier-sync-table-scroll">
+            <Table>
+              <thead>
+                <tr>
+                  <th>Local ID</th>
+                  <th>Card</th>
+                  <th>Receipt</th>
+                  <th>Amount</th>
+                  <th>State</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {filteredRecords.map((record) => (
+                  <tr key={record.localId}>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLocalId(record.localId)}
+                        className="cashier-sync-row-button"
+                      >
+                        {record.localId}
+                      </button>
+                    </td>
+                    <td>{record.cardBarcode}</td>
+                    <td>{record.receiptNumber}</td>
+                    <td>
+                      <Money amountKobo={record.purchaseAmountKobo} />
+                    </td>
+                    <td>
+                      <StatusBadge
+                        label={record.syncState}
+                        tone={toneForState(record.syncState)}
+                      />
+                      {record.lastError ? (
+                        <div className="cashier-sync-small-text">
+                          {record.lastError}
+                        </div>
+                      ) : null}
+                      {record.serverTransactionId || record.serverApprovalId ? (
+                        <div className="cashier-sync-small-text">
+                          {record.serverTransactionId
+                            ? `Txn ${record.serverTransactionId}`
+                            : null}
+                          {record.serverApprovalId
+                            ? ` Approval ${record.serverApprovalId}`
+                            : null}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td>
+                      {record.syncState === 'retry-required' ? (
+                        <Button
+                          variant="ghost"
+                          onClick={() => void retryRecord(record.localId)}
+                        >
+                          Retry now
+                        </Button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
         )}
       </section>
     </section>
