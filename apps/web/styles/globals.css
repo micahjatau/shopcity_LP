@@ -528,7 +528,7 @@ main {
 
   .shell-gate-card,
   .shell-main,
-  .cashier-card,
+  .sc-card,
   .visual-panel,
   .visual-dialog__panel,
   .visual-table-wrap,
@@ -544,7 +544,7 @@ main {
   }
 
   .shell-gate-card,
-  .cashier-card,
+  .sc-card,
   .visual-panel,
   .visual-dialog__panel,
   .visual-table-wrap {

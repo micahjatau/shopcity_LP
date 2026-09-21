@@ -239,7 +239,7 @@ export default function CashierSyncPage() {
         are sent and confirmed by ShopCity.
       </Alert>
 
-      <section className="sc-card sc-card--default cashier-sync-card">
+      <section className="sc-card sc-card--standard cashier-sync-card">
         <h2>Sync actions</h2>
         <div className="cashier-sync-actions">
           <Input
@@ -303,7 +303,7 @@ export default function CashierSyncPage() {
       ) : null}
 
       <div className="cashier-sync-priority">
-        <section className="sc-card sc-card--default cashier-sync-card cashier-sync-card--highlight">
+        <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-card--highlight">
           <h2>Selected details</h2>
           {selectedRecord ? (
             <>
@@ -329,7 +329,7 @@ export default function CashierSyncPage() {
           )}
         </section>
 
-        <section className="sc-card sc-card--default cashier-sync-card cashier-sync-card--highlight">
+        <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-card--highlight">
           <h2>Backend response</h2>
           <p className="cashier-sync-muted">
             {actionResponse
@@ -424,7 +424,7 @@ export default function CashierSyncPage() {
         </section>
       </div>
 
-      <section className="sc-card sc-card--default cashier-sync-card">
+      <section className="sc-card sc-card--standard cashier-sync-card">
         <div className="cashier-sync-queue-header">
           <div>
             <h2>Queue records</h2>

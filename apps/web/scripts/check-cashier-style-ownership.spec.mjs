@@ -67,7 +67,7 @@ test('ownership registry permits a documented exception', () => {
   const failures = findOwnershipFailures(
     [
       ['primitives.css', '.sc-input { color: red; }'],
-      ['cashier-design-system.css', '.cashier-card { color: red; }'],
+      ['cashier-design-system.css', '.sc-card { color: red; }'],
       ['cashier-routes.css', '.find-customer-query .sc-input { width: 100%; }'],
     ],
     selectorDefinitions,

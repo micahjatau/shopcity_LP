@@ -119,4 +119,23 @@ node apps/web/scripts/check-cashier-style-ownership.mjs: passed for 16 source fi
 npx openspec validate review-76-frontend-design-convergence --strict: valid
 ```
 
-Residual boundary: the profile/notification and `/profile` behavior remains intentionally open under task 2.1, as documented above; Phase 3 did not import or restyle that unsupported contract.
+Residual boundary: profile/notification and `/profile` remain deferred as GitHub issue #45; Phase 3 did not import or restyle that unsupported contract.
+
+## Phase 4 card and route-style consolidation
+
+Tasks 4.1–4.4 completed:
+
+- `ShopCityCard` now exposes the explicit `standard`, `metric`, `table`, and `flow` variants; the canonical card base owns shared surface, border, radius, and variant layout.
+- Transaction stage consumers migrated from the obsolete `.cashier-card` family to `.sc-card sc-card--flow`; `CashierFlowPanel` retains its canonical flow-panel owner without a duplicate card class.
+- Sync Queue default card consumers now use the explicit `standard` variant, and print compatibility targets the canonical `.sc-card` family.
+- The ownership registry and negative/positive fixtures now cover the complete canonical card selector family; no `.cashier-card` owner remains (card-preview selectors are a distinct route component).
+- Existing route CSS ownership remains composition-only or explicitly classified by the property-scoped checker for forms, statuses, headers, tables, dialogs, and focus behavior; no controller, backend, financial, authentication, queue, or RBAC behavior changed.
+
+Validation:
+
+```text
+node --test apps/web/scripts/check-cashier-style-ownership.spec.mjs: 8 passed
+node apps/web/scripts/check-cashier-style-ownership.mjs: 16 source files passed
+web:typecheck: passed
+focused workflow routes: 7 passed, 0 failed, 0 skipped
+```

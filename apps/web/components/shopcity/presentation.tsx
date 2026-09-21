@@ -29,13 +29,13 @@ export function CashierPageHeader({
 
 export function ShopCityCard({
   as: Element = 'section',
-  variant = 'default',
+  variant = 'standard',
   className = '',
   children,
   ...props
 }: Readonly<{
   as?: 'article' | 'section' | 'div';
-  variant?: 'default' | 'metric' | 'table' | 'flow';
+  variant?: 'standard' | 'metric' | 'table' | 'flow';
   className?: string;
   children: ReactNode;
 }> &

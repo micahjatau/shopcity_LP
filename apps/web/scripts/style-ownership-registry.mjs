@@ -177,7 +177,13 @@ export const canonicalSelectorFamilies = [
   },
   {
     family: 'primitive-card',
-    selectors: ['.sc-card', '.cashier-card'],
+    selectors: [
+      '.sc-card',
+      '.sc-card--standard',
+      '.sc-card--metric',
+      '.sc-card--table',
+      '.sc-card--flow',
+    ],
     owner: 'cashier-design-system.css',
     exceptions: [
       exception(
