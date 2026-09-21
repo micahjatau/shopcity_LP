@@ -163,3 +163,15 @@ web:typecheck: passed
 Tasks 6.1–6.4 are complete as a categorized reference-mapping and conformance exercise. The committed reference inventory is governed by `docs/frontend/prototype-reference-manifest.json` at immutable reference SHA `410ecd75`; it records actual PNG dimensions separately from source design viewport, inspected `Landing-1.png` through `Landing-18.png` mappings, target landmarks, source bounds, categories, and blocked statuses. `prototype-acceptance.spec.ts` validates the metadata and asset inventory; `workflow-routes.spec.ts` and `visual-regression.spec.ts` remain separate React-rendered evidence.
 
 Task 6.4 does not claim blanket Figma parity. Mapped full-page assets are Category A candidates; named crop assets remain explicitly source-bounds-blocked until original coordinates are available; shared design-system evidence is Category B; Cashier-specific, Sync Queue, responsive, and unsupported states are Category C. Computed typography properties are recorded as derived evidence, while exact Figma typography remains blocked pending font identity. The comparison contract, approved tolerances, inspected mappings, and residual blockers are documented in `docs/frontend/design-system/figma-comparison-report.md`, `reference-provenance.md`, and the deviation registry. GitHub issue #46 remains the follow-on for source-bound measurement and a production comparison runner.
+
+## Phase 7 staging journeys
+
+Phase 7 is blocked at the staging prerequisite. The repository documents the required disposable smoke tenant, branch, role accounts, device, cards, manifest, and `SMOKE_*` environment secrets, but this shared session exposes none of the required smoke environment variables. No credentials were fabricated, no production endpoint was called, and no staging tenant or branch was provisioned.
+
+The smoke configuration validation itself is present, but the Playwright smoke setup correctly fails closed before tests when `SMOKE_ENVIRONMENT` is absent:
+
+```text
+FAIL_INFRASTRUCTURE: Missing required smoke configuration: SMOKE_ENVIRONMENT
+```
+
+Tasks 7.1–7.4 remain unchecked. Customer/card journeys, Earn/Redeem staging mutations, cleanup, and reconciliation require an operator-approved disposable staging environment and secret injection per `docs/runbooks/smoke-testing.md`.
