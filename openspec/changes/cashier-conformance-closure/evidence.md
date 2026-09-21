@@ -69,6 +69,12 @@ The complete frontend visual suite passed 57 tests, and the workflow suite passe
 
 The Review 74 source matrix is now reconciled with the repository evidence and all nine required rows are marked `evidenced`; none remain pending or skipped. Supporting coverage includes workflow route tests, visual regression tests, transaction-form contract tests, shell role smoke tests, and browser accessibility tests.
 
+Final diff/status inspection for task 6.2:
+
+- GitNexus `detect-changes --scope compare --base-ref master` reported **CRITICAL** across 187 files, 740 symbols, and 82 processes because the branch contains unrelated work relative to `master`; this is not a closure-specific risk signal.
+- The closure commit range is isolated to the committed conformance work; the remaining dirty tree is pre-existing Admin/Supervisor/configuration work, generated test/build artifacts, screenshots, and documentation artifacts.
+- No unrelated dirty files were staged or modified by the closure commits.
+
 Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
 
 ````
