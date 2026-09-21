@@ -41,6 +41,36 @@ test('ownership registry rejects an undeclared competing owner', () => {
   assert.match(failures[0], /unexpected\.css/);
 });
 
+test('ownership matching does not treat a longer selector as an owner', () => {
+  const definitions = new Map([
+    [
+      '.sc-button',
+      { family: 'test-button', owner: 'primitives.css' },
+    ],
+  ]);
+  const failures = findOwnershipFailures(
+    [
+      ['primitives.css', '.sc-buttonish { color: red; }'],
+      ['unexpected.css', '.sc-buttonish { color: blue; }'],
+    ],
+    definitions,
+  );
+  assert.deepEqual(failures, []);
+});
+
+test('canonical primary button appearance cannot be overridden by route CSS', () => {
+  const failures = findOwnershipFailures(
+    [
+      ['primitives.css', '.sc-button { background: red; }'],
+      ['cashier-routes.css', '.sc-button { background: blue; }'],
+    ],
+    selectorDefinitions,
+  );
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /property background/);
+  assert.match(failures[0], /cashier-routes\.css/);
+});
+
 test('ownership registry covers the shared component families', () => {
   const families = new Set(
     [...selectorDefinitions.values()].map((family) => family.family),

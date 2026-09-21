@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, ScanLine } from 'lucide-react';
+import { CreditCard, Search, ScanLine } from 'lucide-react';
 import Link from 'next/link';
 import type { FormEvent, ReactNode } from 'react';
 import { useRef, useState } from 'react';
@@ -133,7 +133,6 @@ export function CashierWorkflowRoute({
         branchId: lookupRecord.branchId ?? branchContext?.id,
       }
     : undefined;
-  const showTransactionForm = kind !== 'lookup';
   const currentFlowStep =
     kind === 'earn'
       ? !lookupRecord
@@ -149,7 +148,7 @@ export function CashierWorkflowRoute({
   const flowSteps =
     kind === 'earn'
       ? ['Find customer', 'Confirm customer', 'Receipt details', 'Review']
-      : ['Find customer', 'Confirm customer', 'Basket & redemption', 'Confirm'];
+      : ['Find customer', 'Basket subtotal', 'Redemption amount', 'Confirm'];
   const routeHeader = (
     <CashierPageHeader
       className="cashier-route-header"
@@ -201,6 +200,7 @@ export function CashierWorkflowRoute({
       ) : kind === 'earn' ? (
         <CashierFlowPanel
           flow="earn"
+          state={`step-${currentFlowStep + 1}`}
           className="cashier-flow-panel cashier-earn-workflow-panel"
           dataOdId="capture-flow"
         >
@@ -217,39 +217,21 @@ export function CashierWorkflowRoute({
             <div
               className="cashier-stage-content cashier-confirm-stage"
               data-od-id="capture-confirm-customer"
-              aria-label="Lookup and status"
+              aria-label="Confirm customer"
             >
               <div className="cashier-stage-heading">
                 <span className="cashier-stage-kicker">Step 2</span>
                 <h2 className="cashier-stage-heading-title">
-                  Confirm customer
+                  Step 2 — Confirm customer
                 </h2>
                 <p className="cashier-stage-heading-description">
                   Read the name back to the customer before continuing.
                 </p>
               </div>
-              <div className="cashier-confirm-layout">
-                <div className="cashier-confirm-details">
-                  {lookupSummary.map(([label, value]) => (
-                    <div key={label} className="cashier-detail-row">
-                      <span>{label}</span>
-                      <strong>{value}</strong>
-                    </div>
-                  ))}
-                </div>
-                <div
-                  className="cashier-card-preview"
-                  aria-label="Virtual ShopCity card preview"
-                >
-                  <span className="cashier-card-preview__mark">S</span>
-                  <strong>SHOPCITY</strong>
-                  <small>SUPERMARKET</small>
-                  <span className="cashier-card-preview__number">
-                    {lookupContext?.cardSerialNumber ?? 'SC—CARD—0000'}
-                  </span>
-                  <StatusBadge label="Active" tone="success" />
-                </div>
-              </div>
+              <CustomerConfirmationSummary
+                lookupSummary={lookupSummary}
+                cardSerialNumber={lookupContext?.cardSerialNumber}
+              />
               <div className="cashier-stage-actions">
                 <Button
                   type="button"
@@ -271,9 +253,6 @@ export function CashierWorkflowRoute({
               className="cashier-flow-panel-form"
               data-od-id="capture-flow-form"
             >
-              <h2 className="cashier-flow-panel-heading">
-                {flowStep >= 3 ? 'Step 4 — Review' : 'Step 3 — Receipt details'}
-              </h2>
               <EarnTransactionForm
                 lookupContext={lookupContext}
                 policyContext={policyContext}
@@ -287,89 +266,101 @@ export function CashierWorkflowRoute({
             </div>
           )}
         </CashierFlowPanel>
-      ) : kind === 'redeem' && lookupRecord && !redeemConfirmed ? (
+      ) : (
         <CashierFlowPanel
           flow="redeem"
+          state={`step-${currentFlowStep + 1}`}
           className="cashier-flow-panel cashier-redeem-flow-panel"
           dataOdId="redeem-flow"
         >
-          <div className="cashier-stage-content" aria-label="Lookup and status">
-            <div className="cashier-stage-heading">
-              <span className="cashier-stage-kicker">Step 2</span>
-              <h2 className="cashier-stage-heading-title">Confirm customer</h2>
-              <p className="cashier-stage-heading-description">
-                Verify the customer and card before entering the redemption.
-              </p>
-            </div>
-            <div className="cashier-confirm-layout">
-              <div className="cashier-confirm-details">
-                {lookupSummary.map(([label, value]) => (
-                  <div key={label} className="cashier-detail-row">
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                  </div>
-                ))}
+          {!lookupRecord ? (
+            <VerifiedCardLookupStep
+              lookupValue={lookupValue}
+              lookupMessage={lookupMessage}
+              lookupPending={lookupPending}
+              policyMessage={policyMessage}
+              onLookup={(event) => void handleLookup(event)}
+              onQueryChange={setLookupValue}
+            />
+          ) : !redeemConfirmed ? (
+            <div
+              className="cashier-stage-content"
+              aria-label="Confirm customer"
+            >
+              <div className="cashier-stage-heading">
+                <span className="cashier-stage-kicker">Step 2</span>
+                <h2 className="cashier-stage-heading-title">
+                  Confirm customer
+                </h2>
+                <p className="cashier-stage-heading-description">
+                  Verify the customer and card before entering the redemption.
+                </p>
               </div>
-              <div
-                className="cashier-card-preview"
-                aria-label="Virtual ShopCity card preview"
-              >
-                <span className="cashier-card-preview__mark">S</span>
-                <strong>SHOPCITY</strong>
-                <small>SUPERMARKET</small>
-                <span className="cashier-card-preview__number">
-                  {lookupContext?.cardSerialNumber ?? 'SC—CARD—0000'}
-                </span>
-                <StatusBadge label="Active" tone="success" />
+              <CustomerConfirmationSummary
+                lookupSummary={lookupSummary}
+                cardSerialNumber={lookupContext?.cardSerialNumber}
+              />
+              <div className="cashier-stage-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    clearLookup();
+                    setRedeemConfirmed(false);
+                  }}
+                >
+                  Back
+                </Button>
+                <Button type="button" onClick={() => setRedeemConfirmed(true)}>
+                  Continue to redemption
+                </Button>
               </div>
             </div>
-            <div className="cashier-stage-actions">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  clearLookup();
-                  setRedeemConfirmed(false);
-                }}
-              >
-                Back
-              </Button>
-              <Button type="button" onClick={() => setRedeemConfirmed(true)}>
-                Continue to redemption
-              </Button>
-            </div>
-          </div>
+          ) : (
+            <RedeemTransactionForm
+              lookupContext={lookupContext}
+              policyContext={policyContext}
+              cashierId={userId}
+              branchId={policyConfig?.branch?.id ?? null}
+              onFlowStepChange={setFlowStep}
+            />
+          )}
         </CashierFlowPanel>
-      ) : kind === 'redeem' && redeemConfirmed ? null : (
-        <VerifiedCardLookupStep
-          lookupValue={lookupValue}
-          lookupMessage={lookupMessage}
-          lookupPending={lookupPending}
-          policyMessage={policyMessage}
-          onLookup={(event) => void handleLookup(event)}
-          onQueryChange={setLookupValue}
-        />
       )}
-
-      {showTransactionForm && kind === 'redeem' && redeemConfirmed ? (
-        <CashierFlowPanel
-          flow="redeem"
-          className="cashier-flow-panel"
-          dataOdId="redeem-flow"
-        >
-          <h2 className="cashier-flow-panel-heading">
-            Step 3 — Basket & redemption
-          </h2>
-          <RedeemTransactionForm
-            lookupContext={lookupContext}
-            policyContext={policyContext}
-            cashierId={userId}
-            branchId={policyConfig?.branch?.id ?? null}
-            onFlowStepChange={setFlowStep}
-          />
-        </CashierFlowPanel>
-      ) : null}
     </section>
+  );
+}
+
+function CustomerConfirmationSummary({
+  lookupSummary,
+  cardSerialNumber,
+}: Readonly<{
+  lookupSummary: Array<[string, ReactNode]>;
+  cardSerialNumber?: string;
+}>) {
+  return (
+    <div className="cashier-confirm-layout">
+      <div className="cashier-confirm-details">
+        {lookupSummary.map(([label, value]) => (
+          <div key={label} className="cashier-detail-row">
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+      <div
+        className="cashier-card-preview"
+        aria-label="Virtual ShopCity card preview"
+      >
+        <span className="cashier-card-preview__mark">S</span>
+        <strong>SHOPCITY</strong>
+        <small>SUPERMARKET</small>
+        <span className="cashier-card-preview__number">
+          {cardSerialNumber ?? 'SC—CARD—0000'}
+        </span>
+        <StatusBadge label="Active" tone="success" />
+      </div>
+    </div>
   );
 }
 
@@ -395,12 +386,13 @@ function FindCustomerView({
   const queryInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <div className="find-customer-view">
+    <div className="find-customer-view" data-od-id="find-customer-content">
       <section
         className="find-customer-search sc-discovery-panel"
         data-od-id="customer-search"
+        aria-busy={lookupPending}
       >
-        <form onSubmit={onLookup}>
+        <form id="customer-search-form" onSubmit={onLookup}>
           <div className="find-customer-search-row">
             <label
               className="find-customer-query"
@@ -412,19 +404,25 @@ function FindCustomerView({
                 id="customer-search-query"
                 type="search"
                 aria-label="Customer search"
-                placeholder="Card serial number"
+                placeholder="Search"
+                autoComplete="off"
                 className="sc-input--compact"
                 value={lookupValue}
                 onChange={(event) => onQueryChange(event.target.value)}
               />
             </label>
-            <Button type="submit" disabled={lookupPending}>
+            <Button
+              type="submit"
+              disabled={lookupPending}
+              data-od-id="customer-search-button"
+            >
               <Search aria-hidden="true" size={16} strokeWidth={1.8} />
               {lookupPending ? 'Searching…' : 'Search'}
             </Button>
             <Button
               type="button"
               variant="secondary"
+              data-od-id="customer-scan-button"
               onClick={() => queryInputRef.current?.focus()}
             >
               <ScanLine aria-hidden="true" size={16} strokeWidth={1.8} />
@@ -432,8 +430,7 @@ function FindCustomerView({
             </Button>
           </div>
           <p className="find-customer-hint sc-discovery-muted">
-            Press enter or select Search to look up the card and customer
-            context.
+            Press enter or select Search to look up a customer.
           </p>
         </form>
       </section>
@@ -442,16 +439,22 @@ function FindCustomerView({
         {lookupMessage}
       </p>
 
-      <section className="find-customer-recent sc-discovery-panel">
-        <div>
+      <section
+        className="find-customer-recent sc-discovery-panel"
+        data-od-id="recent-customers"
+      >
+        <div className="find-customer-recent-head">
           <h2 className="sc-discovery-section-title">Recent customers</h2>
           <p className="sc-discovery-muted">
             Customers served most recently at this branch.
           </p>
         </div>
-        <div className="find-customer-list">
+        <div className="find-customer-list" data-od-id="customer-results">
           {lookupRecord ? (
-            <div className="find-customer-row sc-discovery-row">
+            <article
+              className="find-customer-row sc-discovery-row"
+              data-od-id="customer-selection"
+            >
               <div className="find-customer-row-main">
                 <strong>
                   {lookupRecord.customer?.fullName ??
@@ -461,43 +464,80 @@ function FindCustomerView({
                 <span className="sc-discovery-muted">
                   {lookupRecord.customer?.maskedPhone ?? selectedCardSerial}
                 </span>
-              </div>
-              <div className="find-customer-actions">
-                <Link
-                  className="sc-discovery-action"
-                  href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
-                >
-                  Capture Purchase
-                </Link>
-                <Link
-                  className="sc-discovery-action"
-                  href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
-                >
-                  Redeem Credit
-                </Link>
-              </div>
-            </div>
-          ) : discoveryMatches.length > 0 ? (
-            discoveryMatches.map((customer, index) => (
-              <div
-                className="find-customer-row"
-                key={customer.customerId ?? customer.id ?? index}
-              >
-                <div className="find-customer-row-main">
-                  <strong>{customer.fullName ?? 'Customer'}</strong>
-                  <span className="sc-discovery-muted">
-                    {customer.maskedPhone ?? 'Phone unavailable'}
-                  </span>
-                </div>
-                <span className="find-customer-discovery-hint sc-discovery-muted">
-                  Scan an active card to continue
+                <span className="find-customer-status sc-discovery-muted">
+                  {lookupRecord.status ??
+                    lookupRecord.cardStatus ??
+                    'Card verified'}
                 </span>
               </div>
-            ))
+              <div className="find-customer-row-side">
+                <span className="find-customer-balance">
+                  {typeof lookupRecord.availableBalanceKobo === 'number' ? (
+                    <Money amountKobo={lookupRecord.availableBalanceKobo} />
+                  ) : (
+                    'Balance unavailable'
+                  )}
+                </span>
+                <div className="find-customer-actions">
+                  <Link
+                    className="sc-discovery-action"
+                    href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
+                  >
+                    Capture Purchase
+                  </Link>
+                  <Link
+                    className="sc-discovery-action"
+                    href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
+                  >
+                    Redeem Credit
+                  </Link>
+                </div>
+              </div>
+            </article>
+          ) : discoveryMatches.length > 0 ? (
+            discoveryMatches.map((customer, index) => {
+              const customerKey = customer.customerId ?? customer.id ?? index;
+              const cardStatus =
+                customer.cardStatus?.toLowerCase() === 'active'
+                  ? 'Active card'
+                  : 'Card status unavailable';
+
+              return (
+                <article
+                  className="find-customer-row sc-discovery-row"
+                  data-od-id={`customer-card-${customerKey}`}
+                  key={customerKey}
+                >
+                  <div className="find-customer-row-main">
+                    <strong>{customer.fullName ?? 'Customer'}</strong>
+                    <span className="sc-discovery-muted">
+                      {customer.maskedPhone ?? 'Phone unavailable'}
+                    </span>
+                    <span className="find-customer-status sc-discovery-muted">
+                      {cardStatus}
+                    </span>
+                  </div>
+                  <div className="find-customer-row-side">
+                    <span className="find-customer-balance">
+                      {typeof customer.availableBalanceKobo === 'number' ? (
+                        <Money amountKobo={customer.availableBalanceKobo} />
+                      ) : (
+                        'Balance unavailable'
+                      )}
+                    </span>
+                    <span className="find-customer-discovery-hint sc-discovery-muted">
+                      Scan an active card to continue
+                    </span>
+                  </div>
+                </article>
+              );
+            })
           ) : (
-            <p className="find-customer-empty sc-discovery-muted">
-              Search by name, phone, or an active card to continue.
-            </p>
+            <div className="find-customer-empty">
+              <CreditCard aria-hidden="true" size={62} strokeWidth={1.2} />
+              <strong>No customers found</strong>
+              <span>Search by name, phone, or an active card to continue.</span>
+            </div>
           )}
         </div>
       </section>

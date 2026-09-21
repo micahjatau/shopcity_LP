@@ -36,6 +36,7 @@ export type CashierDiscoveryRecord = {
   fullName?: string;
   maskedPhone?: string;
   cardStatus?: string;
+  availableBalanceKobo?: number;
 };
 
 export function useCashierLookupController(initialCardSerial?: string | null) {

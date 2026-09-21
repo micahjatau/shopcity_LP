@@ -5,6 +5,8 @@ import {
   type Page,
 } from '@playwright/test';
 import {
+  canonicalCashierContractSelectors,
+  canonicalCashierLayout,
   canonicalCashierLookupControl,
   type ComputedStyleSnapshot,
 } from './fixtures/design-system-conformance';
@@ -128,7 +130,17 @@ test.describe('workflow route coverage', () => {
     });
     await page.keyboard.press('Escape');
     await expect(drawer).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Menu' })).toBeFocused();
+    const menuButton = page.getByRole('button', { name: 'Menu' });
+    await expect(menuButton).toBeFocused();
+    expect(
+      await menuButton.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          outlineWidth: style.outlineWidth,
+          outlineOffset: style.outlineOffset,
+        };
+      }),
+    ).toEqual({ outlineWidth: '2px', outlineOffset: '2px' });
 
     await page.setViewportSize({ width: 375, height: 812 });
     await page.reload();
@@ -366,6 +378,10 @@ test.describe('workflow route coverage', () => {
     await trigger.click();
     const dialog = page.getByRole('dialog', { name: 'R-001' });
     await expect(dialog).toBeVisible();
+    await expect(page.locator('.transaction-detail-modal')).toHaveCSS(
+      'width',
+      '600px',
+    );
     await expect(
       page.getByRole('button', { name: 'Close transaction detail' }),
     ).toBeFocused();
@@ -438,6 +454,31 @@ test.describe('workflow route coverage', () => {
           await page.goto(`${baseUrl}${route.path}`);
           await expect(page.locator('.shell-loading-screen')).toBeHidden();
           await expect(page.locator('main')).toBeVisible();
+          await expect(page.locator('.shell-main')).toHaveCSS(
+            'max-width',
+            canonicalCashierLayout.contentMaxWidth,
+          );
+          await expect(page.locator('.global-shell-search')).toHaveCSS(
+            'width',
+            viewport.width < 768
+              ? canonicalCashierLayout.mobileSearchWidth
+              : canonicalCashierLayout.searchMaxWidth,
+          );
+
+          for (const contract of canonicalCashierContractSelectors) {
+            const subjects = page.locator(contract.selector);
+            const subjectCount = await subjects.count();
+            // Some canonical owners are legitimately absent on routes whose
+            // state does not render that component. Every matching instance is
+            // checked when the documented scope is present.
+            for (let index = 0; index < subjectCount; index += 1) {
+              await expect(subjects.nth(index)).toHaveCSS(
+                contract.property,
+                contract.expected,
+              );
+            }
+          }
+
           expect(
             await page.locator('body').evaluate((body) => body.scrollWidth),
             `${role} ${route.path} ${viewport.name}`,
@@ -506,6 +547,74 @@ test.describe('workflow route coverage', () => {
       'cashier-overview-compact.png',
       { maxDiffPixelRatio: 0.08 },
     );
+  });
+
+  test('aligns overview composition across prototype viewports', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.reload();
+
+      const overview = page.locator('.cashier-overview');
+      await expect(overview).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Hi, Cashier!' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'View all transactions' }),
+      ).toBeVisible();
+
+      const transactionSearch = page.getByRole('searchbox', {
+        name: 'Search recent transactions',
+      });
+      await transactionSearch.focus();
+      await expect(transactionSearch).toBeFocused();
+      await expect
+        .poll(() =>
+          transactionSearch.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return `${style.outlineStyle} ${style.outlineWidth}`;
+          }),
+        )
+        .toBe('solid 2px');
+
+      const overviewWidth = await overview.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      );
+      expect(overviewWidth).toBeGreaterThan(0);
+      expect(overviewWidth).toBeLessThanOrEqual(1120);
+      expect(
+        await page.locator('body').evaluate((body) => body.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+
+      const metricBoxes = await page
+        .locator('[data-od-id^="metric-"]')
+        .evaluateAll((elements) =>
+          elements.map((element) => {
+            const box = element.getBoundingClientRect();
+            return {
+              width: Math.round(box.width),
+              height: Math.round(box.height),
+            };
+          }),
+        );
+      expect(metricBoxes).toHaveLength(4);
+      expect(
+        metricBoxes.every(({ width, height }) => width > 0 && height > 0),
+      ).toBe(true);
+      expect(Math.max(...metricBoxes.map(({ height }) => height))).toBe(
+        Math.min(...metricBoxes.map(({ height }) => height)),
+      );
+    }
   });
 
   test('covers overview empty and authoritative error states', async ({
@@ -626,6 +735,65 @@ test.describe('workflow route coverage', () => {
     );
   });
 
+  test('aligns Find Customer geometry and keyboard focus across viewports', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const searchPanel = page.locator('.find-customer-search');
+    const recentPanel = page.locator('.find-customer-recent');
+    const searchRow = page.locator('.find-customer-search-row');
+    const lookup = page.getByRole('searchbox', { name: 'Customer search' });
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.reload();
+      await expect(searchPanel).toBeVisible();
+      await expect(recentPanel).toBeVisible();
+
+      const panelWidths = await searchPanel.evaluate((element) => ({
+        search: Math.round(element.getBoundingClientRect().width),
+        recent: Math.round(
+          element.parentElement
+            ?.querySelector('.find-customer-recent')
+            ?.getBoundingClientRect().width ?? 0,
+        ),
+      }));
+      expect(panelWidths.search).toBeLessThanOrEqual(712);
+      expect(panelWidths.recent).toBeLessThanOrEqual(712);
+      expect(
+        await page.locator('body').evaluate((body) => body.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+
+      await lookup.focus();
+      await expect(lookup).toBeFocused();
+      await expect
+        .poll(() =>
+          lookup.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return `${style.outlineStyle} ${style.outlineWidth}`;
+          }),
+        )
+        .toBe('solid 2px');
+
+      const columns = await searchRow.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns,
+      );
+      if (viewport.width <= 620) {
+        expect(columns.trim().split(/\s+/)).toHaveLength(1);
+      } else if (viewport.width <= 920) {
+        expect(columns).toContain('140px 140px');
+      } else {
+        expect(columns).toContain('160px 160px');
+      }
+    }
+  });
+
   test('discovers customers by name without unlocking financial workflows', async ({
     page,
   }) => {
@@ -688,12 +856,22 @@ test.describe('workflow route coverage', () => {
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible();
+    const captureFlow = page.locator('[data-od-id="capture-flow"]');
+    await expect(captureFlow).toBeVisible();
+    const capturePanelWidth = await captureFlow.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().width),
+    );
+    expect(capturePanelWidth).toBeLessThanOrEqual(860);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(1440);
     await page.getByRole('button', { name: 'Proceed' }).click();
     await page.getByLabel('POS receipt number').fill('WORKFLOW-EARN-001');
     const purchase = page.getByLabel('Purchase amount');
     await purchase.fill('10');
     await purchase.blur();
     await page.getByRole('button', { name: 'Proceed to review' }).click();
+    await expect(captureFlow).toBeVisible();
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-earn-review.png',
       { maxDiffPixelRatio: 0.08 },
@@ -713,7 +891,24 @@ test.describe('workflow route coverage', () => {
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible();
+    const redeemFlow = page.locator('[data-od-id="redeem-flow"]');
+    await expect(redeemFlow).toBeVisible();
+    expect(
+      await redeemFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBeLessThanOrEqual(720);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(1440);
     await page.getByRole('button', { name: 'Continue to redemption' }).click();
+    await expect(redeemFlow).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(redeemFlow).toBeVisible();
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByLabel('POS receipt number').fill('WORKFLOW-REDEEM-001');
     const basket = page.getByLabel('Basket amount');
     const requested = page.getByLabel('Requested redemption');
@@ -814,6 +1009,22 @@ test.describe('workflow route coverage', () => {
     await expect(page.getByText('Search unavailable (503).')).toBeVisible();
     await search.press('Escape');
     await expect(search).toBeFocused();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${baseUrl}/cashier`);
+    const mobileSearch = page.getByRole('combobox', {
+      name: 'Search ShopCity',
+    });
+    await expect(page.locator('.global-shell-search')).toHaveCSS(
+      'width',
+      canonicalCashierLayout.mobileSearchWidth,
+    );
+    await mobileSearch.fill('Ada');
+    await expect(
+      page.getByRole('option', { name: /Ada Shopper/ }),
+    ).toBeVisible();
+    await mobileSearch.press('Escape');
+    await expect(mobileSearch).toBeFocused();
   });
 
   test('keeps role search categories authorized and card deep links explicit', async ({
@@ -834,8 +1045,8 @@ test.describe('workflow route coverage', () => {
         role === 'CASHIER' ? 0 : 1,
       );
       await expect(
-        page.getByRole('button', { name: /profile|notifications/i }),
-      ).toHaveCount(0);
+        page.getByRole('button', { name: 'Notifications' }),
+      ).toBeDisabled();
     }
 
     await mockShell(page, 'CASHIER');
@@ -908,6 +1119,21 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByText(/There are no local offline earn records/),
     ).toBeVisible();
+    for (const label of [
+      'Waiting 0',
+      'Syncing 0',
+      'Needs attention 0',
+      'Synced 0',
+    ]) {
+      await expect(page.getByText(label, { exact: true })).toBeVisible();
+    }
+    const queueTop = await page
+      .locator('.cashier-sync-queue')
+      .evaluate((element) => element.getBoundingClientRect().top);
+    const detailsTop = await page
+      .locator('.cashier-sync-priority')
+      .evaluate((element) => element.getBoundingClientRect().top);
+    expect(queueTop).toBeLessThan(detailsTop);
     await expect(page.locator('main')).toHaveScreenshot(
       'sync-queue-mobile-empty.png',
       { maxDiffPixelRatio: 0.08 },

@@ -3,6 +3,7 @@ import { CashierOverviewLookup } from '../components/workflows/cashier-overview-
 import { CashierWorkflowRoute } from '../components/workflows/cashier-transaction-route';
 import {
   cardsControllerLookupCardV1,
+  customersControllerListCustomersV1,
   reportsControllerListCashierTodayV1,
 } from '../lib/api/generated-client';
 
@@ -36,6 +37,7 @@ jest.mock('../lib/api/generated-client', () => {
     ...actual,
     cardsControllerLookupCardV1: jest.fn(),
     reportsControllerListCashierTodayV1: jest.fn(),
+    customersControllerListCustomersV1: jest.fn(),
     customersControllerGetCustomerV1: jest.fn(),
     loyaltyControllerGetCustomerLedgerV1: jest.fn(),
   };
@@ -205,6 +207,75 @@ describe('Cashier lookup workflow', () => {
     expect(await screen.findByText('#1831-AUTH')).toBeInTheDocument();
     expect(screen.getByLabelText('Credit added: 42 kobo')).toBeInTheDocument();
     expect(screen.queryByText('Pending calculation')).not.toBeInTheDocument();
+  });
+
+  it('reconstructs the committed Find Customer presentation landmarks', () => {
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+
+    expect(
+      document.querySelector('[data-od-id="customer-search"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="recent-customers"]'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+    ).toHaveAttribute('placeholder', 'Search');
+    expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
+    expect(screen.getByText('No customers found')).toBeInTheDocument();
+  });
+
+  it('keeps discovery results masked and prevents unverified workflow selection', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              id: 'customer-name',
+              fullName: 'Ada Shopper',
+              maskedPhone: '+234801* *** 5678',
+              cardStatus: 'ACTIVE',
+              availableBalanceKobo: 5500,
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+      {
+        target: { value: 'Ada Shopper' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
+    expect(screen.getByText('+234801* *** 5678')).toBeInTheDocument();
+    expect(screen.getByText('Active card')).toBeInTheDocument();
+    expect(
+      screen.getByText('Scan an active card to continue'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Capture Purchase' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Redeem Credit' }),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps lookup focused and preserves context for Earn and Redeem', async () => {

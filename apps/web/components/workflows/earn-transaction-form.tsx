@@ -141,74 +141,97 @@ export function EarnTransactionForm({
         />
       </div>
       {!reviewing ? (
-        <div className="cashier-receipt-fields" data-od-id="capture-receipt">
-          <Input
-            aria-label="POS receipt number"
-            aria-required="true"
-            placeholder="Receipt number (required)"
-            value={receiptNumber}
-            onChange={(event) => setReceiptNumber(event.target.value)}
-          />
-          <MoneyInput
-            label="Purchase amount"
-            hint="Enter the purchase amount in naira"
-            valueKobo={purchaseAmount}
-            onValueChange={setPurchaseAmount}
-          />
-          <Input
-            aria-label="Occurred at"
-            type="datetime-local"
-            value={occurredAt.slice(0, 16)}
-            onChange={(event) =>
-              setOccurredAt(new Date(event.target.value).toISOString())
-            }
-          />
-          <Textarea
-            aria-label="Override reason"
-            placeholder="Optional override reason"
-            value={overrideReason}
-            onChange={(event) => setOverrideReason(event.target.value)}
-            rows={3}
-          />
-          {!receiptNumber ? (
-            <span className="cashier-workflow-hint">
-              Receipt number is required
-            </span>
-          ) : null}
-        </div>
+        <section
+          className="cashier-workflow-stage"
+          data-od-id="capture-receipt"
+        >
+          <div className="cashier-stage-heading">
+            <span className="cashier-stage-kicker">Step 3</span>
+            <h2 className="cashier-stage-heading-title">
+              Step 3 — Receipt details
+            </h2>
+            <p className="cashier-stage-heading-description">
+              Enter the values exactly as shown on the POS receipt.
+            </p>
+          </div>
+          <div className="cashier-receipt-fields">
+            <Input
+              aria-label="POS receipt number"
+              aria-required="true"
+              placeholder="Receipt number (required)"
+              value={receiptNumber}
+              onChange={(event) => setReceiptNumber(event.target.value)}
+            />
+            <MoneyInput
+              label="Purchase amount"
+              hint="Enter the purchase amount in naira"
+              valueKobo={purchaseAmount}
+              onValueChange={setPurchaseAmount}
+            />
+            <Input
+              aria-label="Occurred at"
+              type="datetime-local"
+              value={occurredAt.slice(0, 16)}
+              onChange={(event) =>
+                setOccurredAt(new Date(event.target.value).toISOString())
+              }
+            />
+            <Textarea
+              aria-label="Override reason"
+              placeholder="Optional override reason"
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              rows={3}
+            />
+            {!receiptNumber ? (
+              <span className="cashier-workflow-hint">
+                Receipt number is required
+              </span>
+            ) : null}
+          </div>
+        </section>
       ) : (
         <section
-          className="cashier-review-card"
+          className="cashier-workflow-stage"
           data-od-id="capture-review-details"
         >
-          <div className="cashier-review-grid">
-            <div>
-              <span>Receipt number</span>
-              <strong>{receiptNumber || '—'}</strong>
-            </div>
-            <div>
-              <span>Purchase amount</span>
-              <strong>
-                {purchaseAmount !== null ? (
-                  <Money amountKobo={purchaseAmount} />
-                ) : (
-                  '—'
-                )}
-              </strong>
-            </div>
-            <div>
-              <span>Receipt date</span>
-              <strong>{new Date(occurredAt).toLocaleString()}</strong>
-            </div>
-            <div>
-              <span>Customer</span>
-              <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
-            </div>
+          <div className="cashier-stage-heading">
+            <span className="cashier-stage-kicker">Step 4</span>
+            <h2 className="cashier-stage-heading-title">Step 4 — Review</h2>
+            <p className="cashier-stage-heading-description">
+              Confirm the receipt and credit calculation before saving.
+            </p>
           </div>
-          <p>
-            Confirm the receipt details and the ShopCity earn policy will
-            calculate the final credit.
-          </p>
+          <div className="cashier-review-card">
+            <div className="cashier-review-grid">
+              <div>
+                <span>Receipt number</span>
+                <strong>{receiptNumber || '—'}</strong>
+              </div>
+              <div>
+                <span>Purchase amount</span>
+                <strong>
+                  {purchaseAmount !== null ? (
+                    <Money amountKobo={purchaseAmount} />
+                  ) : (
+                    '—'
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Receipt date</span>
+                <strong>{new Date(occurredAt).toLocaleString()}</strong>
+              </div>
+              <div>
+                <span>Customer</span>
+                <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
+              </div>
+            </div>
+            <p>
+              Confirm the receipt details and the ShopCity earn policy will
+              calculate the final credit.
+            </p>
+          </div>
         </section>
       )}
       <div className="cashier-form-actions">
@@ -263,10 +286,17 @@ export function EarnTransactionForm({
       </div>
       {responseData ? (
         <section
-          className="capture-result-card"
+          className="capture-result-card cashier-workflow-stage"
           data-od-id="capture-success"
           aria-live="polite"
         >
+          <div className="cashier-stage-heading">
+            <span className="cashier-stage-kicker">Result</span>
+            <h2 className="cashier-stage-heading-title">Purchase captured</h2>
+            <p className="cashier-stage-heading-description">
+              The authoritative transaction status is shown below.
+            </p>
+          </div>
           <div className="capture-result-card__hero" aria-hidden="true">
             <CircleCheck size={30} strokeWidth={1.8} />
             <span>ShopCity Credit earned</span>

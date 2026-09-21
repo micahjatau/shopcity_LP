@@ -66,7 +66,7 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(
       page.getByRole('heading', { name: /hi, cashier/i }),
     ).toBeVisible();
-    await expect(page.getByText(/device cashier-device-1/i)).toBeVisible();
+    await expect(page.getByText(/device cashier-device-1/i)).toHaveCount(0);
   });
 
   test('submits earn and redeem through generated client contracts', async ({

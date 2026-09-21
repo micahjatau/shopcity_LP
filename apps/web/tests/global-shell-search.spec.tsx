@@ -37,6 +37,10 @@ describe('GlobalShellSearch', () => {
   it('limits Cashier categories and debounces customer discovery', async () => {
     render(<GlobalShellSearch userRole="CASHIER" />);
     expect(
+      screen.getByRole('combobox', { name: 'Search ShopCity' }).parentElement
+        ?.parentElement,
+    ).toContainElement(screen.getByRole('button', { name: 'Customers' }));
+    expect(
       screen.getByRole('button', { name: 'Customers' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cards' })).toBeInTheDocument();

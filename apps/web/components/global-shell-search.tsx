@@ -180,61 +180,65 @@ export function GlobalShellSearch({
 
   return (
     <div className="global-shell-search">
-      <div className="global-shell-search__control">
-        <label htmlFor="global-shell-search-input" className="sr-only">
-          Search ShopCity
-        </label>
-        <input
-          id="global-shell-search-input"
-          ref={inputRef}
-          value={query}
-          placeholder="Search customers, cards…"
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={open}
-          aria-controls="global-shell-search-results"
-          aria-activedescendant={
-            activeIndex >= 0 ? `global-search-result-${activeIndex}` : undefined
-          }
-          onFocus={() => setOpen(true)}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOpen(true);
-          }}
-          onKeyDown={handleKeyDown}
-        />
-        {category === 'cards' ? (
-          <button
-            type="button"
-            className="global-shell-search__submit"
-            onClick={() => void searchCard()}
-            disabled={pending}
-          >
-            Search
-          </button>
-        ) : null}
-      </div>
-      <div
-        className="global-shell-search__categories"
-        aria-label="Search category"
-      >
-        {categories.map((item) => (
-          <button
-            type="button"
-            key={item}
-            className={item === category ? 'is-active' : ''}
-            aria-pressed={item === category}
-            onClick={() => {
-              setCategory(item);
-              setResults([]);
-              setMessage('');
+      <div className="global-shell-search__row">
+        <div className="global-shell-search__control">
+          <label htmlFor="global-shell-search-input" className="sr-only">
+            Search ShopCity
+          </label>
+          <input
+            id="global-shell-search-input"
+            ref={inputRef}
+            value={query}
+            placeholder="Search customers, cards…"
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls="global-shell-search-results"
+            aria-activedescendant={
+              activeIndex >= 0
+                ? `global-search-result-${activeIndex}`
+                : undefined
+            }
+            onFocus={() => setOpen(true)}
+            onChange={(event) => {
+              setQuery(event.target.value);
               setOpen(true);
-              inputRef.current?.focus();
             }}
-          >
-            {item[0].toUpperCase() + item.slice(1)}
-          </button>
-        ))}
+            onKeyDown={handleKeyDown}
+          />
+          {category === 'cards' ? (
+            <button
+              type="button"
+              className="global-shell-search__submit"
+              onClick={() => void searchCard()}
+              disabled={pending}
+            >
+              Search
+            </button>
+          ) : null}
+        </div>
+        <div
+          className="global-shell-search__categories"
+          aria-label="Search category"
+        >
+          {categories.map((item) => (
+            <button
+              type="button"
+              key={item}
+              className={item === category ? 'is-active' : ''}
+              aria-pressed={item === category}
+              onClick={() => {
+                setCategory(item);
+                setResults([]);
+                setMessage('');
+                setOpen(true);
+                inputRef.current?.focus();
+              }}
+            >
+              {item[0].toUpperCase() + item.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
       {open ? (
         <div

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionBootstrapState } from '../../../../components/session-bootstrap';
-import Link from 'next/link';
 import {
   offlineSyncControllerEarnBatchV1,
   type OfflineEarnBatchRecordDto,
@@ -16,7 +16,14 @@ import {
   updateOfflineEarnRecord,
   type OfflineEarnRecord,
 } from '../../../../lib/browser/offline-earn-queue';
-import { Alert, Button, Input, Select, Table } from '../../../../components/ui';
+import {
+  Alert,
+  Button,
+  Input,
+  Select,
+  Table,
+  useDialogLifecycle,
+} from '../../../../components/ui';
 import { Money, StatusBadge } from '../../../../components/shopcity';
 
 export default function CashierSyncPage() {
@@ -28,7 +35,10 @@ export default function CashierSyncPage() {
     OfflineSyncControllerEarnBatchV1200DataRecordsItem[]
   >([]);
   const [selectedLocalId, setSelectedLocalId] = useState<string | null>(null);
+  const [detailLocalId, setDetailLocalId] = useState<string | null>(null);
   const [clearConfirmation, setClearConfirmation] = useState('');
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const detailModalRef = useRef<HTMLDivElement | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [actionResponse, setActionResponse] = useState<Record<
@@ -41,6 +51,11 @@ export default function CashierSyncPage() {
     () => records.find((record) => record.localId === selectedLocalId) ?? null,
     [records, selectedLocalId],
   );
+  const detailRecord = useMemo(
+    () => records.find((record) => record.localId === detailLocalId) ?? null,
+    [detailLocalId, records],
+  );
+  useDialogLifecycle(Boolean(detailRecord), closeDetail, detailModalRef);
 
   const queueableRecords = useMemo(
     () =>
@@ -97,7 +112,7 @@ export default function CashierSyncPage() {
         !normalizedSearch ||
         [record.localId, record.cardBarcode, record.receiptNumber]
           .filter(Boolean)
-          .some((value) => value!.toLowerCase().includes(normalizedSearch));
+          .some((value) => value.toLowerCase().includes(normalizedSearch));
       const matchesStatus = !statusFilter || record.syncState === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -277,6 +292,17 @@ export default function CashierSyncPage() {
     setMessage('Confirmed records cleared.');
   }
 
+  function closeDetail() {
+    setDetailLocalId(null);
+    requestAnimationFrame(() => detailTriggerRef.current?.focus());
+  }
+
+  function openDetail(record: OfflineEarnRecord, trigger: HTMLButtonElement) {
+    setSelectedLocalId(record.localId);
+    setDetailLocalId(record.localId);
+    detailTriggerRef.current = trigger;
+  }
+
   async function retryRecord(localId: string) {
     const result = await updateOfflineEarnRecord(localId, (record) => ({
       ...record,
@@ -293,9 +319,13 @@ export default function CashierSyncPage() {
   }
 
   return (
-    <section className="cashier-sync-page">
-      <header className="cashier-sync-header">
-        <h1>Sync Queue</h1>
+    <section
+      className="cashier-sync-page"
+      data-od-id="sync-queue-view"
+      aria-labelledby="cashier-sync-title"
+    >
+      <header className="cashier-sync-header" data-od-id="sync-queue-heading">
+        <h1 id="cashier-sync-title">Sync Queue</h1>
         <p className="cashier-sync-muted">
           Review transactions saved while offline, then send them when the
           connection is ready.
@@ -312,7 +342,7 @@ export default function CashierSyncPage() {
 
       <section className="sc-card sc-card--standard cashier-sync-card">
         <h2>Sync actions</h2>
-        <div className="cashier-sync-actions">
+        <div className="cashier-sync-actions" data-od-id="sync-queue-toolbar">
           <Input
             aria-label="Device ID"
             placeholder="Authenticated device"
@@ -339,39 +369,48 @@ export default function CashierSyncPage() {
         </p>
       </section>
 
-      <div className="cashier-sync-statuses" aria-label="Sync queue summary">
-        <StatusBadge label={`Waiting ${statusBuckets.waiting}`} tone="info" />
-        <StatusBadge
-          label={`Syncing ${statusBuckets.syncing}`}
-          tone="neutral"
-        />
-        <StatusBadge
-          label={`Needs attention ${statusBuckets.needsAttention}`}
-          tone="warning"
-        />
-        <StatusBadge label={`Synced ${statusBuckets.synced}`} tone="success" />
-      </div>
-      <div
-        className="cashier-sync-statuses cashier-sync-statuses--raw"
-        aria-label="Raw sync states"
+      <section
+        className="cashier-sync-metrics"
+        data-od-id="sync-queue-metrics"
+        aria-label="Sync queue summary"
       >
-        <StatusBadge
-          label={`Approval ${statusCounts.awaitingApproval}`}
-          tone="warning"
-        />
-        <StatusBadge
-          label={`Confirmed ${statusCounts.confirmed}`}
-          tone="success"
-        />
-        <StatusBadge
-          label={`Rejected ${statusCounts.rejected}`}
-          tone="danger"
-        />
-        <StatusBadge
-          label={`Retryable ${statusCounts.retryRequired}`}
-          tone="warning"
-        />
-      </div>
+        <div className="cashier-sync-statuses">
+          <StatusBadge label={`Waiting ${statusBuckets.waiting}`} tone="info" />
+          <StatusBadge
+            label={`Syncing ${statusBuckets.syncing}`}
+            tone="neutral"
+          />
+          <StatusBadge
+            label={`Needs attention ${statusBuckets.needsAttention}`}
+            tone="warning"
+          />
+          <StatusBadge
+            label={`Synced ${statusBuckets.synced}`}
+            tone="success"
+          />
+        </div>
+        <div
+          className="cashier-sync-statuses cashier-sync-statuses--raw"
+          aria-label="Raw sync states"
+        >
+          <StatusBadge
+            label={`Approval ${statusCounts.awaitingApproval}`}
+            tone="warning"
+          />
+          <StatusBadge
+            label={`Confirmed ${statusCounts.confirmed}`}
+            tone="success"
+          />
+          <StatusBadge
+            label={`Rejected ${statusCounts.rejected}`}
+            tone="danger"
+          />
+          <StatusBadge
+            label={`Retryable ${statusCounts.retryRequired}`}
+            tone="warning"
+          />
+        </div>
+      </section>
 
       <p className="cashier-sync-muted">
         Queue summary above stays aligned with the selected record and batch
@@ -508,8 +547,14 @@ export default function CashierSyncPage() {
         </section>
       </div>
 
-      <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-queue">
-        <div className="cashier-sync-queue-header">
+      <section
+        className="sc-card sc-card--standard cashier-sync-card cashier-sync-queue"
+        data-od-id="sync-queue-table"
+      >
+        <div
+          className="cashier-sync-queue-header"
+          data-od-id="sync-queue-toolbar"
+        >
           <div>
             <h2>Queue records</h2>
             <p className="cashier-sync-muted">
@@ -552,7 +597,7 @@ export default function CashierSyncPage() {
           </Alert>
         ) : (
           <div className="cashier-sync-table-scroll">
-            <Table>
+            <Table aria-label="Offline sync queue records">
               <thead>
                 <tr>
                   <th>Local ID</th>
@@ -569,8 +614,11 @@ export default function CashierSyncPage() {
                     <td>
                       <button
                         type="button"
-                        onClick={() => setSelectedLocalId(record.localId)}
+                        onClick={(event) =>
+                          openDetail(record, event.currentTarget)
+                        }
                         className="cashier-sync-row-button"
+                        aria-label={`Open sync details for ${record.localId}`}
                       >
                         {record.localId}
                       </button>
@@ -619,7 +667,102 @@ export default function CashierSyncPage() {
             </Table>
           </div>
         )}
+        <footer className="cashier-sync-footer">
+          <p className="cashier-sync-muted">
+            Showing {filteredRecords.length} of {records.length} local records.
+          </p>
+          <span className="cashier-sync-muted">
+            Queue state remains device-local until confirmed.
+          </span>
+        </footer>
       </section>
+      {detailRecord ? (
+        <div
+          className="transaction-detail-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDetail();
+          }}
+        >
+          <div
+            ref={detailModalRef}
+            className="transaction-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sync-detail-title"
+          >
+            <div className="transaction-detail-modal__head">
+              <div>
+                <p className="section-label">Offline transaction detail</p>
+                <h2 id="sync-detail-title">{detailRecord.localId}</h2>
+                <p className="transaction-detail-modal__note">
+                  Device-local metadata and sync outcome only.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                aria-label="Close sync detail"
+                onClick={closeDetail}
+              >
+                <X aria-hidden="true" size={16} />
+                Close
+              </Button>
+            </div>
+            <div className="transaction-detail-columns">
+              <dl className="transaction-detail-list">
+                <div>
+                  <dt>Card</dt>
+                  <dd>{detailRecord.cardBarcode || 'Not provided'}</dd>
+                </div>
+                <div>
+                  <dt>Receipt</dt>
+                  <dd>{detailRecord.receiptNumber || 'Not provided'}</dd>
+                </div>
+                <div>
+                  <dt>Purchase amount</dt>
+                  <dd>
+                    <Money amountKobo={detailRecord.purchaseAmountKobo} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>State</dt>
+                  <dd>{detailRecord.syncState}</dd>
+                </div>
+              </dl>
+              <div className="transaction-detail-context">
+                <div className="transaction-receipt-preview">
+                  Offline receipt image not stored in the queue record
+                </div>
+                <section
+                  className="transaction-audit"
+                  aria-labelledby="sync-audit-title"
+                >
+                  <h3 id="sync-audit-title">Sync trail</h3>
+                  <div className="transaction-audit-list">
+                    <div>
+                      <strong>Server transaction</strong>
+                      <span>
+                        {detailRecord.serverTransactionId ?? 'Not provided'}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Server approval</strong>
+                      <span>
+                        {detailRecord.serverApprovalId ?? 'Not provided'}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>Last error</strong>
+                      <span>{detailRecord.lastError ?? 'None recorded'}</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

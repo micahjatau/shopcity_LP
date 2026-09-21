@@ -37,6 +37,33 @@
   overflow: hidden;
 }
 
+/* Discovery presentation owns appearance; route styles only compose geometry. */
+.sc-discovery-panel {
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: 16px;
+  background: var(--sc-prototype-surface);
+}
+
+.sc-discovery-muted {
+  color: var(--sc-prototype-muted);
+  font-size: 12px;
+}
+
+.sc-discovery-section-title {
+  font-size: 18px;
+}
+
+.sc-discovery-row {
+  border-radius: 13px;
+  background: var(--sc-color-neutral-50);
+}
+
+.sc-discovery-action {
+  color: var(--sc-color-brand-700);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .sc-card--flow {
   padding: var(--sc-spacing-8) var(--sc-spacing-10) var(--sc-spacing-10);
 }

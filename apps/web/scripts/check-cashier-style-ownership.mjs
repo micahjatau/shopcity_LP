@@ -65,12 +65,32 @@ const cssContents = await Promise.all(
 );
 const css = cssContents.map(([, source]) => source).join('\n');
 
+function isCssIdentifierCharacter(character) {
+  if (!character) return false;
+  const code = character.charCodeAt(0);
+  return (
+    character === '-' ||
+    character === '_' ||
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122)
+  );
+}
+
+function containsSelectorToken(prelude, selector) {
+  let offset = prelude.indexOf(selector);
+  while (offset !== -1) {
+    const nextCharacter = prelude[offset + selector.length];
+    if (!isCssIdentifierCharacter(nextCharacter)) return true;
+    offset = prelude.indexOf(selector, offset + 1);
+  }
+  return false;
+}
+
 function definesSelector(source, selector) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-  const selectorPattern = new RegExp(`${escapedSelector}(?![-\\w])`);
   return [...source.matchAll(/([^{}]+)\{/g)].some(([, match]) => {
     const prelude = match.trim();
-    return !prelude.startsWith('@') && selectorPattern.test(prelude);
+    return !prelude.startsWith('@') && containsSelectorToken(prelude, selector);
   });
 }
 
@@ -93,12 +113,9 @@ export function findRegistryCoverageFailures(
 }
 
 function declaredProperties(source, selector) {
-  const selectorPattern = new RegExp(
-    `${selector.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(?![-\\w])`,
-  );
   const properties = new Set();
   for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!selectorPattern.test(match[1])) continue;
+    if (!containsSelectorToken(match[1], selector)) continue;
     for (const declaration of match[2].matchAll(/(?:^|;)\s*([\w-]+)\s*:/g)) {
       properties.add(declaration[1]);
     }

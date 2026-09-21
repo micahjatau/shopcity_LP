@@ -229,7 +229,8 @@
   animation: cashier-panel-enter 360ms ease both;
 }
 
-.cashier-stage-content {
+.cashier-stage-content,
+.cashier-workflow-stage {
   display: grid;
   gap: 24px;
 }
@@ -355,6 +356,10 @@
 .cashier-receipt-fields {
   display: grid;
   gap: 16px;
+}
+
+.cashier-workflow-stage + .cashier-workflow-stage {
+  padding-top: 8px;
 }
 
 .cashier-review-card {
@@ -494,7 +499,7 @@
 
 .find-customer-view {
   display: grid;
-  gap: 18px;
+  gap: 9px;
   max-width: 1080px;
   margin: 0 auto;
 }
@@ -505,14 +510,11 @@
   max-width: 100%;
   margin: 0 auto;
   padding: 16px 24px 17px;
-  border: 1px solid var(--sc-prototype-border);
-  border-radius: 16px;
-  background: var(--sc-prototype-surface);
 }
 
 .find-customer-search-row {
   display: grid;
-  grid-template-columns: 1fr 160px 160px;
+  grid-template-columns: minmax(0, 1fr) 160px 160px;
   gap: 9px;
   align-items: center;
 }
@@ -524,22 +526,13 @@
 }
 
 .find-customer-hint,
-.find-customer-notice,
-.find-customer-recent p,
-.find-customer-empty,
-.find-customer-row span {
-  color: var(--sc-prototype-muted);
-  font-size: 12px;
-}
-
-.find-customer-hint,
 .find-customer-notice {
   margin: 10px 0 0;
 }
 
 .find-customer-notice {
-  max-width: 712px;
-  width: 100%;
+  width: min(712px, 100%);
+  min-height: 18px;
   margin-inline: auto;
 }
 
@@ -548,49 +541,96 @@
   padding: 16px 23px;
 }
 
+.find-customer-recent-head {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sc-prototype-border);
+}
+
 .find-customer-recent h2 {
-  margin: 0;
-  font-size: 18px;
+  margin: 0 0 2px;
 }
 
 .find-customer-list {
   display: grid;
   gap: 9px;
-  margin-top: 18px;
+  padding-top: 9px;
 }
 
 .find-customer-row {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 18px;
   align-items: center;
   padding: 14px 18px;
-  border-radius: 13px;
-  background: var(--sc-color-neutral-50);
 }
 
 .find-customer-row-main {
   display: grid;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
+}
+
+.find-customer-row-main strong {
+  font-weight: 650;
+}
+
+.find-customer-row-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.find-customer-status {
+  font-size: 11px;
+}
+
+.find-customer-balance {
+  color: var(--sc-color-success-strong, #247a4b);
+  font-family: var(--sc-font-family-mono, ui-monospace, monospace);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .find-customer-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.find-customer-actions a {
-  color: var(--sc-color-brand-700);
-  font-size: 12px;
-  font-weight: 600;
+.find-customer-empty {
+  display: grid;
+  min-height: 300px;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  color: var(--sc-prototype-muted);
+  text-align: center;
+}
+
+.find-customer-empty svg {
+  margin-bottom: 12px;
+  color: var(--sc-prototype-border);
+}
+
+.find-customer-empty strong {
+  color: var(--sc-color-semantic-textPrimary);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+}
+
+.find-customer-empty span {
+  font-size: 11px;
+}
+
+@media (max-width: 920px) and (min-width: 621px) {
+  .find-customer-search-row {
+    grid-template-columns: minmax(0, 1fr) 140px 140px;
+  }
 }
 
 @media (max-width: 767px) {
-  .find-customer-search-row {
-    grid-template-columns: 1fr;
-  }
-
   .cashier-flow-steps {
     grid-template-columns: 1fr;
     gap: 4px;
@@ -627,6 +667,27 @@
   }
 }
 
+@media (max-width: 620px) {
+  .find-customer-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .find-customer-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .find-customer-row-side {
+    width: 100%;
+    justify-items: start;
+  }
+
+  .find-customer-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
 /* Extracted from apps/web/components/workflows/cashier-overview-lookup.tsx during Cashier design-system migration. */
 .cashier-overview-lookup {
   display: grid;
@@ -636,9 +697,14 @@
 }
 
 .cashier-overview-notice {
+  min-height: 20px;
   margin: -8px 0 0;
   color: var(--sc-color-semantic-textSecondary);
-  font-size: 14px;
+  font-size: 12px;
+}
+
+.cashier-overview-notice.error {
+  color: var(--sc-color-error-strong, #b42318);
 }
 
 .cashier-overview-lookup h2,
@@ -661,20 +727,8 @@
   gap: 9px;
 }
 
-.cashier-metric,
-.cashier-today-card {
-  background: var(--sc-color-neutral-0);
-  border: 1px solid var(--sc-color-semantic-border);
-  border-radius: 16px;
-}
-
 .cashier-metric {
-  min-height: 133px;
-  padding: 20px 24px;
-}
-
-.cashier-metric:first-child {
-  border-color: var(--sc-color-brand-700);
+  min-width: 0;
 }
 
 .metric-label {
@@ -743,10 +797,14 @@
 .table-search input {
   width: 100%;
   border: 0;
-  outline: 0;
   background: transparent;
   color: currentColor;
   font-size: 11px;
+}
+
+.table-search input:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 2px;
 }
 
 .table-wrap {
@@ -803,6 +861,16 @@
   background: currentColor;
 }
 
+.status-pill--pending {
+  color: var(--sc-color-warning-strong, #9a6700);
+  background: var(--sc-color-warning-surface, #fff7d6);
+}
+
+.status-pill--failed {
+  color: var(--sc-color-error-strong, #b42318);
+  background: var(--sc-color-error-surface, #fff0ed);
+}
+
 .cashier-empty {
   padding: 45px;
   text-align: center;
@@ -836,8 +904,9 @@
 .cashier-overview {
   display: grid;
   gap: 24px;
-  max-width: 1088px;
-  margin: 0 auto;
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  max-width: var(--sc-prototype-contentMaxWidth);
+  margin-inline: auto;
 }
 
 .cashier-overview-header {
@@ -847,20 +916,6 @@
   gap: 20px;
   flex-wrap: wrap;
   margin-bottom: 8px;
-}
-
-.cashier-overview-header h1,
-.cashier-launcher h2 {
-  margin: 0;
-  letter-spacing: -0.04em;
-}
-
-.cashier-overview-header h1 {
-  font-family:
-    'Avenir Next', 'Century Gothic', 'Trebuchet MS', var(--sc-font-family-sans);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.03em;
 }
 
 .cashier-welcome {
@@ -984,6 +1039,121 @@
   text-transform: uppercase;
 }
 
+/* Derived Sync Queue composition: Transactions vocabulary, no direct Figma parity claim. */
+.cashier-sync-page {
+  display: grid;
+  gap: var(--sc-spacing-5);
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  margin-inline: auto;
+}
+
+.cashier-sync-header {
+  display: grid;
+  gap: var(--sc-spacing-2);
+}
+
+.cashier-sync-header h1,
+.cashier-sync-header p,
+.cashier-sync-card h2 {
+  margin: 0;
+}
+
+.cashier-sync-actions,
+.cashier-sync-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sc-spacing-3);
+  align-items: center;
+}
+
+.cashier-sync-filters {
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, auto);
+}
+
+.cashier-sync-muted,
+.cashier-sync-small-text {
+  color: var(--sc-prototype-muted);
+  font-size: var(--sc-font-size-sm);
+}
+
+.cashier-sync-metrics {
+  display: grid;
+  gap: var(--sc-spacing-2);
+}
+.cashier-sync-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-2);
+}
+
+.cashier-sync-statuses--raw {
+  opacity: 0.82;
+}
+
+.cashier-sync-priority {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sc-spacing-5);
+  order: 4;
+}
+
+.cashier-sync-queue {
+  order: 3;
+  min-width: 0;
+}
+
+.cashier-sync-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.cashier-sync-queue table {
+  width: 100%;
+  min-width: 760px;
+}
+
+.cashier-sync-queue > .sc-table,
+.cashier-sync-card table {
+  max-width: 100%;
+}
+
+.cashier-sync-row-button {
+  color: var(--sc-color-brand-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cashier-sync-row-button:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 2px;
+}
+
+.cashier-sync-card details {
+  margin-top: var(--sc-spacing-3);
+}
+.cashier-sync-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-spacing-3);
+  border-top: 1px solid var(--sc-prototype-border);
+  margin-top: var(--sc-spacing-4);
+  padding-top: var(--sc-spacing-3);
+}
+.cashier-sync-footer p {
+  margin: 0;
+}
+
+@media (max-width: 920px) {
+  .cashier-sync-priority {
+    grid-template-columns: 1fr;
+  }
+  .cashier-sync-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Extracted from apps/web/app/(shell)/cashier/sync/page.tsx during Cashier design-system migration. */
 @media (max-width: 620px) {
   .cashier-sync-actions,
@@ -1035,7 +1205,7 @@
 }
 .transaction-table-card {
   overflow: hidden;
-  padding: 18px 24px;
+  padding: 18px 24px 8px;
 }
 .transaction-table-card table {
   width: 100%;
@@ -1056,6 +1226,23 @@
   place-items: center;
   padding: 24px;
   background: color-mix(in oklch, var(--sc-color-neutral-900) 76%, transparent);
+}
+.transaction-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 10px;
+}
+.transaction-table-footer .cashier-workflow-hint {
+  margin: 0;
+}
+.transaction-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  white-space: nowrap;
 }
 .transaction-detail-modal {
   width: min(600px, 100%);
@@ -1082,16 +1269,86 @@
   color: var(--sc-prototype-muted);
   font-size: 12px;
 }
-.transaction-detail-modal table {
-  width: 100%;
+.transaction-detail-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.82fr);
+  gap: 30px;
 }
-.transaction-detail-modal th {
-  width: 42%;
-  text-align: right;
-  padding-right: 16px;
+.transaction-detail-list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
 }
-.transaction-detail-modal td {
-  text-align: left;
+.transaction-detail-list div {
+  display: grid;
+  gap: 3px;
+}
+.transaction-detail-list dt {
+  color: var(--sc-prototype-muted);
+  font-size: 11px;
+}
+.transaction-detail-list dd {
+  margin: 0;
+  color: var(--sc-color-semantic-textPrimary);
+  font-size: 15px;
+}
+.transaction-detail-context {
+  display: grid;
+  gap: 24px;
+}
+.transaction-receipt-preview {
+  min-height: 210px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border-radius: 22px;
+  background: color-mix(
+    in oklch,
+    var(--sc-prototype-canvas) 76%,
+    var(--sc-prototype-surface)
+  );
+  color: var(--sc-prototype-muted);
+  font-family: var(--sc-font-family-mono);
+  font-size: 11px;
+  text-align: center;
+}
+.transaction-audit {
+  display: grid;
+  gap: 14px;
+}
+.transaction-audit h3 {
+  margin: 0;
+  font-family: var(--sc-prototype-fontDisplaySerif);
+  font-size: 18px;
+}
+.transaction-audit-list {
+  display: grid;
+  gap: 12px;
+  border-left: 1px solid var(--sc-prototype-border);
+  padding-left: 18px;
+}
+.transaction-audit-list div {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+.transaction-audit-list div::before {
+  position: absolute;
+  top: 5px;
+  left: -22px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sc-prototype-accent);
+  content: '';
+}
+.transaction-audit-list strong {
+  color: var(--sc-color-semantic-textPrimary);
+  font-weight: 500;
+}
+.transaction-audit-list span {
+  color: var(--sc-prototype-muted);
 }
 @media (max-width: 1100px) {
   .transaction-table-card {
@@ -1115,9 +1372,24 @@
   .transaction-detail-backdrop {
     padding: 12px;
   }
+  .transaction-table-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .transaction-pagination {
+    justify-content: space-between;
+    width: 100%;
+  }
   .transaction-detail-modal {
     max-height: calc(100vh - 24px);
     padding: 24px 20px;
+  }
+  .transaction-detail-columns {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .transaction-receipt-preview {
+    min-height: 150px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1125,4 +1397,27 @@
   .transaction-detail-modal {
     transition: none;
   }
+}
+
+/* Keep the empty prototype composition compact while retaining its table state. */
+.transaction-toolbar > .sc-input[type='number'],
+.transaction-pagination {
+  display: none;
+}
+.cashier-today-card:has(.cashier-empty) .cashier-table thead {
+  display: none;
+}
+
+.cashier-today-card:has(.cashier-empty) {
+  width: calc(100% + 16px);
+}
+
+@media (max-width: 620px) {
+  .cashier-today-card:has(.cashier-empty) {
+    width: 100%;
+  }
+}
+
+.cashier-today-card:has(.cashier-empty) .cashier-empty {
+  padding-block: 33.5px;
 }

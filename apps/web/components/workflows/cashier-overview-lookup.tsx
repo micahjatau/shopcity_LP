@@ -11,11 +11,23 @@ import { Money, CashierTableToolbar, ShopCityCard } from '../shopcity';
 
 type TodayTransaction = ReportsControllerListCashierTodayV1200DataItemsItem;
 
+function statusTone(status: TodayTransaction['status']) {
+  const normalized = String(status ?? '').toUpperCase();
+  if (normalized.includes('APPROV') || normalized === 'CONFIRMED') {
+    return 'approved';
+  }
+  if (normalized.includes('FAIL') || normalized.includes('REJECT')) {
+    return 'failed';
+  }
+  return 'pending';
+}
+
 export function CashierOverviewLookup() {
   const [todayTransactions, setTodayTransactions] = useState<
     TodayTransaction[] | null
   >(null);
   const [todayMessage, setTodayMessage] = useState('Loading today’s activity…');
+  const [activityError, setActivityError] = useState(false);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -31,11 +43,13 @@ export function CashierOverviewLookup() {
         if (!ignore) {
           setTodayTransactions(response.data.data.items);
           setTodayMessage('');
+          setActivityError(false);
         }
       } catch {
         if (!ignore) {
           setTodayTransactions(null);
           setTodayMessage('Today’s activity is temporarily unavailable.');
+          setActivityError(true);
         }
       }
     }
@@ -72,11 +86,19 @@ export function CashierOverviewLookup() {
     <section
       className="cashier-overview-lookup"
       aria-labelledby="cashier-today-title"
+      data-od-id="overview-activity"
     >
-      <h2 className="section-label" id="cashier-today-title">
+      <h2
+        className="section-label"
+        id="cashier-today-title"
+        data-od-id="activity-heading"
+      >
         Today&apos;s Activity
       </h2>
-      <p className="cashier-overview-notice" role="status">
+      <p
+        className={`cashier-overview-notice notice${activityError ? ' error' : ''}`}
+        role="status"
+      >
         {todayMessage}
       </p>
       <div className="cashier-metrics" data-od-id="activity-metrics">
@@ -120,7 +142,7 @@ export function CashierOverviewLookup() {
           as="article"
           variant="metric"
           className="cashier-metric"
-          data-od-id="metric-redeemed"
+          data-od-id="metric-redeem"
         >
           <div className="metric-label">Credit redeemed</div>
           <div className="metric-value">{redeemTransactions.length || '—'}</div>
@@ -136,29 +158,31 @@ export function CashierOverviewLookup() {
         data-od-id="recent-transactions"
       >
         <CashierTableToolbar
-          title={<span id="recent-heading">Recent Transactions</span>}
-          description={
-            todayMessage || 'Live activity from your cashier account'
+          title={
+            <span id="recent-heading" data-od-id="recent-heading">
+              Recent Transactions
+            </span>
           }
+          description="Live activity from your cashier account"
           searchLabel="Search recent transactions"
           searchPlaceholder="Search receipt"
           searchValue={search}
           onSearchChange={(event) => setSearch(event.target.value)}
         />
-        {visibleTransactions.length ? (
-          <div className="table-wrap">
-            <table className="cashier-table">
-              <thead>
-                <tr>
-                  <th>Customer / receipt</th>
-                  <th>Operation</th>
-                  <th>Credit</th>
-                  <th>Status</th>
-                  <th>Date &amp; time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleTransactions.map((transaction) => (
+        <div className="table-wrap">
+          <table className="cashier-table">
+            <thead>
+              <tr>
+                <th>Customer / receipt</th>
+                <th>Operation</th>
+                <th>Credit</th>
+                <th>Status</th>
+                <th>Date &amp; time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleTransactions.length ? (
+                visibleTransactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td>#{transaction.receiptNumber}</td>
                     <td>{transaction.operation}</td>
@@ -182,7 +206,11 @@ export function CashierOverviewLookup() {
                       )}
                     </td>
                     <td>
-                      <span className="status-pill">{transaction.status}</span>
+                      <span
+                        className={`status-pill status-pill--${statusTone(transaction.status)}`}
+                      >
+                        {transaction.status}
+                      </span>
                     </td>
                     <td>
                       <time dateTime={transaction.occurredAt}>
@@ -193,17 +221,26 @@ export function CashierOverviewLookup() {
                       </time>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : todayTransactions ? (
-          <p className="cashier-empty">
-            {search
-              ? 'No matching transactions.'
-              : 'No transactions recorded today.'}
-          </p>
-        ) : null}
+                ))
+              ) : todayTransactions ? (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="cashier-empty">
+                      {search ? (
+                        <>
+                          <span>No matching transactions.</span>{' '}
+                          <span>Try another receipt number.</span>
+                        </>
+                      ) : (
+                        <strong>No transactions recorded today.</strong>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
         <div className="table-foot">
           <span>
             {visibleTransactions.length} loaded transaction

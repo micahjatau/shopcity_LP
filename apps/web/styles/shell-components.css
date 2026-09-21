@@ -197,7 +197,11 @@
 }
 
 .shell-main {
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  max-width: var(--sc-prototype-contentMaxWidth);
   min-width: 0;
+  margin-inline: auto;
+  box-sizing: border-box;
   display: grid;
   gap: var(--sc-spacing-5);
   padding: 16px 24px 40px;
@@ -366,7 +370,7 @@
   display: flex;
   gap: 20px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
 }
 
@@ -376,6 +380,33 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
+}
+
+.shell-notifications {
+  display: inline-grid;
+  white-space: nowrap;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sc-color-neutral-700);
+}
+
+.shell-notifications svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.shell-notifications:disabled {
+  cursor: default;
+  opacity: 0.72;
 }
 
 .shell-avatar {
@@ -412,12 +443,21 @@
 
 .global-shell-search {
   position: relative;
-  width: min(430px, 42vw);
+  width: min(300px, 42vw);
   z-index: 4;
+}
+
+.global-shell-search__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .global-shell-search__control {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: center;
   gap: 6px;
   height: 36px;
@@ -448,8 +488,15 @@
 
 .global-shell-search__categories {
   display: flex;
-  gap: 4px;
-  margin-top: 5px;
+  flex: 0 0 auto;
+  gap: 2px;
+  max-width: 58%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.global-shell-search__categories::-webkit-scrollbar {
+  display: none;
 }
 
 .global-shell-search__categories button {
@@ -461,8 +508,13 @@
   border-radius: 999px;
   background: transparent;
   color: var(--sc-color-semantic-textSecondary);
-  padding: 2px 7px;
+  padding: 4px 6px;
   font-size: 10px;
+}
+
+.global-shell-search__categories button:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 1px;
 }
 
 .global-shell-search__categories button.is-active {
@@ -473,7 +525,7 @@
 
 .global-shell-search__results {
   position: absolute;
-  top: 68px;
+  top: 42px;
   left: 0;
   right: 0;
   display: grid;
@@ -517,7 +569,7 @@
   }
 
   .global-shell-search__categories {
-    display: none;
+    max-width: 58%;
   }
 
   .global-shell-search__results {
@@ -541,15 +593,22 @@
 
   .shell-brand-row,
   .shell-topbar-actions {
-    gap: 8px;
+    gap: 4px;
   }
 
   .shell-topbar-actions {
     min-width: 0;
   }
 
+  .shell-notifications,
+  .shell-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
   .shell-mobile-menu-button {
     display: inline-flex;
+    padding-inline: 8px;
   }
 }
 
@@ -845,4 +904,10 @@
   .shell-sidebar {
     display: none;
   }
+}
+
+/* The transactions workspace owns the full content column; its inner page remains bounded. */
+.shell-main:has(.cashier-transactions-page) {
+  width: 100%;
+  max-width: none;
 }

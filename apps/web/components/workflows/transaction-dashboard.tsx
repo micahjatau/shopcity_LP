@@ -59,7 +59,10 @@ export function TransactionDashboard() {
   const [statusFilter, setStatusFilter] = useState('');
   const [operationFilter, setOperationFilter] = useState('');
   const [creditFilter, setCreditFilter] = useState('');
+  const [minimumAmount, setMinimumAmount] = useState('');
+  const [page, setPage] = useState(1);
   const [message, setMessage] = useState('Loading today’s cashier activity…');
+  const [loadError, setLoadError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<ActivityItem | null>(null);
   const [detailState, setDetailState] = useState<DetailState>({
@@ -72,6 +75,7 @@ export function TransactionDashboard() {
 
   async function load() {
     setBusy(true);
+    setLoadError(false);
     setMessage('Loading today’s cashier activity…');
     try {
       const response = await reportsControllerListCashierTodayV1(
@@ -79,11 +83,13 @@ export function TransactionDashboard() {
       );
       if (response.status !== 200) throw new Error('activity unavailable');
       setItems(response.data.data.items);
+      setPage(1);
       setMessage(
         `${response.data.data.items.length} bounded live receipt${response.data.data.items.length === 1 ? '' : 's'} loaded.`,
       );
     } catch {
       setItems([]);
+      setLoadError(true);
       setMessage('Today’s cashier activity is temporarily unavailable.');
     } finally {
       setBusy(false);
@@ -128,11 +134,12 @@ export function TransactionDashboard() {
 
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
+    const minimumAmountKobo = Number(minimumAmount || 0) * 100;
     return items.filter((item) => {
       const matchesQuery =
         !normalized ||
-        [item.receiptNumber, item.id].some(
-          (value) => value.trim().toLowerCase() === normalized,
+        [item.receiptNumber, item.id].some((value) =>
+          value.trim().toLowerCase().includes(normalized),
         );
       const displayStatus = normalizeStatus(item.status);
       const matchesStatus = !statusFilter || displayStatus === statusFilter;
@@ -143,9 +150,37 @@ export function TransactionDashboard() {
         (creditFilter === 'issued'
           ? item.loyaltyAmountKobo !== null
           : item.loyaltyAmountKobo === null);
-      return matchesQuery && matchesStatus && matchesOperation && matchesCredit;
+      const matchesMinimum =
+        !minimumAmountKobo ||
+        (item.loyaltyAmountKobo ?? 0) >= minimumAmountKobo;
+      return (
+        matchesQuery &&
+        matchesStatus &&
+        matchesOperation &&
+        matchesCredit &&
+        matchesMinimum
+      );
     });
-  }, [creditFilter, items, operationFilter, query, statusFilter]);
+  }, [
+    creditFilter,
+    items,
+    minimumAmount,
+    operationFilter,
+    query,
+    statusFilter,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / 10));
+  const pagedItems = visibleItems.slice((page - 1) * 10, page * 10);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  function updateFilter(setter: (value: string) => void, value: string) {
+    setter(value);
+    setPage(1);
+  }
 
   return (
     <section
@@ -158,14 +193,16 @@ export function TransactionDashboard() {
       <div className="transaction-toolbar" data-od-id="transaction-filters">
         <Input
           aria-label="Search receipt number or transaction ID"
-          placeholder="Search receipt or transaction ID"
+          placeholder="Search receipt number"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => updateFilter(setQuery, event.target.value)}
         />
         <Select
           aria-label="Filter by status"
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
+          onChange={(event) =>
+            updateFilter(setStatusFilter, event.target.value)
+          }
           options={[
             { value: '', label: 'All statuses' },
             { value: 'approved', label: 'Approved' },
@@ -178,7 +215,9 @@ export function TransactionDashboard() {
         <Select
           aria-label="Filter by operation"
           value={operationFilter}
-          onChange={(event) => setOperationFilter(event.target.value)}
+          onChange={(event) =>
+            updateFilter(setOperationFilter, event.target.value)
+          }
           options={[
             { value: '', label: 'All operations' },
             { value: 'EARN', label: 'Earn' },
@@ -188,12 +227,24 @@ export function TransactionDashboard() {
         <Select
           aria-label="Filter by credit"
           value={creditFilter}
-          onChange={(event) => setCreditFilter(event.target.value)}
+          onChange={(event) =>
+            updateFilter(setCreditFilter, event.target.value)
+          }
           options={[
             { value: '', label: 'All credit states' },
             { value: 'issued', label: 'Credit recorded' },
             { value: 'pending', label: 'Credit pending' },
           ]}
+        />
+        <Input
+          aria-label="Minimum amount in naira"
+          type="number"
+          min="0"
+          placeholder="Min amount"
+          value={minimumAmount}
+          onChange={(event) =>
+            updateFilter(setMinimumAmount, event.target.value)
+          }
         />
         <Button
           type="button"
@@ -226,7 +277,7 @@ export function TransactionDashboard() {
               </tr>
             </thead>
             <tbody>
-              {visibleItems.map((item) => {
+              {pagedItems.map((item) => {
                 const displayStatus = normalizeStatus(item.status);
                 return (
                   <tr
@@ -279,14 +330,60 @@ export function TransactionDashboard() {
             </tbody>
           </Table>
         ) : (
-          <Alert tone="warning" title="No transactions found">
-            Adjust the filters or refresh the bounded cashier activity feed.
+          <Alert
+            tone={loadError ? 'danger' : 'warning'}
+            title={
+              loadError ? 'Transactions unavailable' : 'No transactions found'
+            }
+          >
+            {loadError
+              ? 'The bounded cashier activity feed could not be loaded.'
+              : 'Adjust the filters or refresh the bounded cashier activity feed.'}
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              onClick={() => void load()}
+              loading={busy}
+            >
+              Retry
+            </Button>
           </Alert>
         )}
-        <p className="cashier-workflow-hint">
-          {visibleItems.length} loaded transaction
-          {visibleItems.length === 1 ? '' : 's'} · bounded report scope
-        </p>
+        <footer className="transaction-table-footer">
+          <p className="cashier-workflow-hint">
+            {visibleItems.length} loaded transaction
+            {visibleItems.length === 1 ? '' : 's'} · bounded report scope
+          </p>
+          <div
+            className="transaction-pagination"
+            aria-label="Transaction pages"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              disabled={page === 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Previous
+            </Button>
+            <span aria-live="polite">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              disabled={page === totalPages}
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
+            >
+              Next
+            </Button>
+          </div>
+        </footer>
       </ShopCityCard>
       {selected ? (
         <div
@@ -332,43 +429,77 @@ export function TransactionDashboard() {
                 activity row remains unchanged.
               </Alert>
             ) : detailState.status === 'loaded' ? (
-              <Table>
-                <tbody>
-                  <tr>
-                    <th scope="row">Receipt number</th>
-                    <td>
-                      {detailState.record.posReceiptNumber ??
-                        selected.receiptNumber}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Credit</th>
-                    <td>
-                      {detailState.record.creditKobo == null ? (
+              <div className="transaction-detail-columns">
+                <dl className="transaction-detail-list">
+                  <div>
+                    <dt>Customer</dt>
+                    <dd>Not included in cashier report</dd>
+                  </div>
+                  <div>
+                    <dt>Receipt amount</dt>
+                    <dd>
+                      {detailState.record.purchaseAmountKobo == null ? (
                         'Not provided'
                       ) : (
-                        <Money amountKobo={detailState.record.creditKobo} />
+                        <Money
+                          amountKobo={detailState.record.purchaseAmountKobo}
+                        />
                       )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Operation</th>
-                    <td>{detailState.record.type}</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Status</th>
-                    <td>{detailState.record.state}</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Transaction ID</th>
-                    <td>{detailState.record.transactionId}</td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Captured at</th>
-                    <td>{formatDate(detailState.record.capturedAt)}</td>
-                  </tr>
-                </tbody>
-              </Table>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Credit amount</dt>
+                    <dd>
+                      <Money amountKobo={detailState.record.creditKobo} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Operation</dt>
+                    <dd>{detailState.record.type}</dd>
+                  </div>
+                  <div>
+                    <dt>Transaction ID</dt>
+                    <dd>{detailState.record.transactionId}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{detailState.record.state || 'Not provided'}</dd>
+                  </div>
+                  <div>
+                    <dt>Captured at</dt>
+                    <dd>{formatDate(detailState.record.capturedAt)}</dd>
+                  </div>
+                </dl>
+                <div className="transaction-detail-context">
+                  <div className="transaction-receipt-preview">
+                    Receipt image not included in the cashier report
+                  </div>
+                  <section
+                    className="transaction-audit"
+                    aria-labelledby="transaction-audit-title"
+                  >
+                    <h3 id="transaction-audit-title">Audit trail</h3>
+                    <div className="transaction-audit-list">
+                      <div>
+                        <strong>Created</strong>
+                        <span>{formatDate(detailState.record.occurredAt)}</span>
+                      </div>
+                      <div>
+                        <strong>Captured by</strong>
+                        <span>
+                          {detailState.record.deviceId ?? 'Not provided'}
+                        </span>
+                      </div>
+                      <div>
+                        <strong>Outcome</strong>
+                        <span>
+                          {detailState.record.state || 'Not provided'}
+                        </span>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
             ) : null}
           </div>
         </div>

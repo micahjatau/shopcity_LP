@@ -92,7 +92,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
       expect(document.title).toMatch(/workspace · overview · shopcity/i);
     });
     expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
@@ -106,8 +106,8 @@ describe('AppShell', () => {
       'true',
     );
     expect(
-      screen.queryByRole('button', { name: 'Notifications' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Notifications' }),
+    ).toBeDisabled();
     expect(screen.getByRole('link', { name: /overview/i })).toHaveAttribute(
       'aria-current',
       'page',
@@ -150,7 +150,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
     expect(document.querySelector('.shell-body')).toHaveClass(
       'shell-body--collapsed',
@@ -176,7 +176,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     const collapseButton = screen.getByRole('button', {
@@ -214,7 +214,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
     expect(document.querySelector('.shell-body')).not.toHaveClass(
       'shell-body--collapsed',
@@ -239,7 +239,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
@@ -290,7 +290,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(
@@ -345,7 +345,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
@@ -379,7 +379,7 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/session ready/i)).toBeInTheDocument();
+      expect(screen.getByText('Protected content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
@@ -404,7 +404,9 @@ describe('AppShell', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/sign in required/i)).toBeInTheDocument();
+      expect(
+        screen.getAllByText(/sign in to access cashier/i),
+      ).not.toHaveLength(0);
     });
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
     expect(

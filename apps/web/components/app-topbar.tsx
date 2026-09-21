@@ -24,11 +24,8 @@ export type AppTopbarProps = Readonly<{
 }>;
 
 export function AppTopbar({
-  status,
   sessionLabel,
-  configMessage,
   workspaceLabel,
-  deviceLabel,
   role,
   onOpenMobileMenu,
   mobileMenuButtonRef,
@@ -39,23 +36,17 @@ export function AppTopbar({
         <GlobalShellSearch userRole={role} />
 
         <div className="shell-topbar-actions">
-          <p data-status={status} className="shell-session-label sr-only">
-            {status === 'loading'
-              ? 'Checking session…'
-              : status === 'ready'
-                ? `Session ready${sessionLabel ? ` · ${sessionLabel}` : ''}`
-                : status === 'unauthenticated'
-                  ? 'Sign in required'
-                  : 'Session check unavailable'}
-          </p>
-          <p className="sr-only">
-            {deviceLabel ? `Device ${deviceLabel}` : 'Device pending'}
-          </p>
-
-          <span
-            className="shell-avatar"
-            aria-label={sessionLabel ?? 'Signed in user'}
+          <button
+            type="button"
+            className="shell-notifications"
+            aria-label="Notifications"
+            disabled
           >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+            </svg>
+          </button>
+          <span className="shell-avatar" role="img" aria-label="Signed in user">
             {sessionLabel?.slice(0, 2).toUpperCase() ?? 'SC'}
           </span>
           <button

@@ -182,3 +182,13 @@ Implementation update: the initial presentation/token/Sync slice was applied and
 | 2026-09-14 | `ReportMaterializerService`                                          |   MEDIUM |       12 |                 6 | Repo review 69 timezone-correct historical cutoffs and SMS ownership changes affect the materializer core; preserve as-of semantics and add boundary/integration coverage.                                                  |
 | 2026-09-14 | `filterSmsForScope`                                                  |      LOW |        4 |                 1 | Repo review 69 adds card-linked replacement SMS branch attribution; keep tenant/branch isolation and unresolved-ownership exclusion explicit.                                                                               |
 | 2026-09-14 | `ReportsService`                                                     |   MEDIUM |        9 |                 7 | Repo review 69 report read-path changes may expose corrected historical and SMS aggregates; preserve authorization and scope filtering.                                                                                     |
+
+### 2026-09-21 — Review 78: `repo-review-78-prototype-first-frontend-reconstruction`
+
+Planning baseline: `workflow-states-implementation` at `3ca692b`, with existing dirty-tree changes preserved. GitNexus was refreshed before analysis. Direction is upstream and tests are included.
+
+| Symbol      | File                                 | Risk | Upstream symbols | Direct dependants | Processes |
+| ----------- | ------------------------------------ | ---- | ---------------: | ----------------: | --------: |
+| `AppTopbar` | `apps/web/components/app-topbar.tsx` | LOW  |                3 |                 1 |         2 |
+
+The affected processes are `ShellLayout` and `AppShellContent`; the affected module is `Components`. This is a presentation/shell surface, so CSS cascade, DOM hierarchy, responsive geometry, and browser evidence exceed call-graph counts. Re-run impact for each additional symbol before implementation and preserve the backend, authorization, and financial boundaries recorded in the proposal.

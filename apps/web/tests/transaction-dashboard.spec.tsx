@@ -64,11 +64,18 @@ describe('TransactionDashboard', () => {
     fireEvent.change(screen.getByLabelText('Filter by operation'), {
       target: { value: '' },
     });
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Page 1 of 1');
     fireEvent.click(screen.getByText('R-001'));
     await waitFor(() =>
       expect(screen.getByRole('dialog', { name: 'R-001' })).toBeInTheDocument(),
     );
     expect(screen.getByRole('dialog')).toHaveTextContent('txn-1');
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'Receipt image not included in the cashier report',
+    );
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'Not included in cashier report',
+    );
     expect(screen.queryByText('customer-1')).not.toBeInTheDocument();
     expect(loyaltyControllerGetTransactionV1).toHaveBeenCalledWith(
       'txn-1',

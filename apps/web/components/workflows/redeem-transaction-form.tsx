@@ -115,40 +115,62 @@ export function RedeemTransactionForm({
         value={receiptNumber}
         onChange={(event) => setReceiptNumber(event.target.value)}
       />
-      <div data-od-id="redeem-basket">
+      <section className="cashier-workflow-stage" data-od-id="redeem-basket">
+        <div className="cashier-stage-heading">
+          <span className="cashier-stage-kicker">Step 2</span>
+          <h2 className="cashier-stage-heading-title">
+            Step 2 — Basket subtotal
+          </h2>
+          <p className="cashier-stage-heading-description">
+            Enter the full POS basket amount before applying credit.
+          </p>
+        </div>
         <MoneyInput
           label="Basket amount"
           hint="Basket amount in naira"
           valueKobo={basketAmount}
           onValueChange={setBasketAmount}
         />
-      </div>
-      <div data-od-id="redeem-amount">
+      </section>
+      <section className="cashier-workflow-stage" data-od-id="redeem-amount">
+        <div className="cashier-stage-heading">
+          <span className="cashier-stage-kicker">Step 3</span>
+          <h2 className="cashier-stage-heading-title">
+            Step 3 — Redemption amount
+          </h2>
+          <p className="cashier-stage-heading-description">
+            Choose how much of the available credit to apply.
+          </p>
+        </div>
         <MoneyInput
           label="Requested redemption"
           hint="Requested redemption in naira"
           valueKobo={requestedRedemption}
           onValueChange={setRequestedRedemption}
         />
-      </div>
-      <div data-od-id="redeem-summary" className="cashier-redemption-summary">
-        <div>
-          <span className="cashier-workflow-hint">Basket total</span>
-          <strong>
-            {basketAmount === null ? '—' : <Money amountKobo={basketAmount} />}
-          </strong>
+        <div data-od-id="redeem-summary" className="cashier-redemption-summary">
+          <div>
+            <span className="cashier-workflow-hint">Basket total</span>
+            <strong>
+              {basketAmount === null ? (
+                '—'
+              ) : (
+                <Money amountKobo={basketAmount} />
+              )}
+            </strong>
+          </div>
+          <div>
+            <span className="cashier-workflow-hint">Requested credit</span>
+            <strong>
+              {requestedRedemption === null ? (
+                '—'
+              ) : (
+                <Money amountKobo={requestedRedemption} />
+              )}
+            </strong>
+          </div>
         </div>
-        <div>
-          <span className="cashier-workflow-hint">Requested credit</span>
-          <strong>
-            {requestedRedemption === null ? (
-              '—'
-            ) : (
-              <Money amountKobo={requestedRedemption} />
-            )}
-          </strong>
-        </div>
-      </div>
+      </section>
       <Input
         aria-label="Occurred at"
         type="datetime-local"
@@ -164,43 +186,55 @@ export function RedeemTransactionForm({
       ) : null}
       {reviewing ? (
         <section
-          className="cashier-review-card"
+          className="cashier-workflow-stage"
           data-od-id="redeem-confirmation"
         >
-          <div className="cashier-review-grid">
-            <div>
-              <span>Customer</span>
-              <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
-            </div>
-            <div>
-              <span>Basket amount</span>
-              <strong>
-                {basketAmount === null ? (
-                  '—'
-                ) : (
-                  <Money amountKobo={basketAmount} />
-                )}
-              </strong>
-            </div>
-            <div>
-              <span>Requested credit</span>
-              <strong>
-                {requestedRedemption === null ? (
-                  '—'
-                ) : (
-                  <Money amountKobo={requestedRedemption} />
-                )}
-              </strong>
-            </div>
-            <div>
-              <span>Receipt number</span>
-              <strong>{receiptNumber || '—'}</strong>
-            </div>
+          <div className="cashier-stage-heading">
+            <span className="cashier-stage-kicker">Step 4</span>
+            <h2 className="cashier-stage-heading-title">
+              Step 4 — Confirm redemption
+            </h2>
+            <p className="cashier-stage-heading-description">
+              Confirm the customer, POS receipt and credit amount before
+              submitting.
+            </p>
           </div>
-          <p>
-            Confirm the redemption details before sending the authoritative
-            request.
-          </p>
+          <div className="cashier-review-card">
+            <div className="cashier-review-grid">
+              <div>
+                <span>Customer</span>
+                <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
+              </div>
+              <div>
+                <span>Basket amount</span>
+                <strong>
+                  {basketAmount === null ? (
+                    '—'
+                  ) : (
+                    <Money amountKobo={basketAmount} />
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Requested credit</span>
+                <strong>
+                  {requestedRedemption === null ? (
+                    '—'
+                  ) : (
+                    <Money amountKobo={requestedRedemption} />
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Receipt number</span>
+                <strong>{receiptNumber || '—'}</strong>
+              </div>
+            </div>
+            <p>
+              Confirm the redemption details before sending the authoritative
+              request.
+            </p>
+          </div>
         </section>
       ) : null}
       <div className="cashier-form-actions">
@@ -260,9 +294,18 @@ export function RedeemTransactionForm({
       </div>
       {responseData ? (
         <section
-          className="cashier-transaction-result"
+          className="cashier-transaction-result cashier-workflow-stage"
           data-od-id="redeem-success"
         >
+          <div className="cashier-stage-heading">
+            <span className="cashier-stage-kicker">Result</span>
+            <h2 className="cashier-stage-heading-title">
+              Redemption submitted
+            </h2>
+            <p className="cashier-stage-heading-description">
+              The authoritative transaction status is shown below.
+            </p>
+          </div>
           <Alert
             tone={status === 'confirmed' ? 'success' : 'warning'}
             title="Backend response"
