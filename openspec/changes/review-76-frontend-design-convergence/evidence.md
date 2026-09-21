@@ -139,3 +139,21 @@ node apps/web/scripts/check-cashier-style-ownership.mjs: 16 source files passed
 web:typecheck: passed
 focused workflow routes: 7 passed, 0 failed, 0 skipped
 ```
+
+## Phase 5 shell and workflow verification
+
+Phase 5 added role-aware browser evidence without inventing the deferred profile contract:
+
+- Cashier exposes Customers and Cards; Supervisor/Admin expose Customers, Cards, and Cashiers; profile/notification controls remain absent until issue #45 is implemented.
+- Exact card search uses one explicit lookup and deep-links to `/cashier/lookup?card=CARD-001`; customer discovery remains separate from financial authority.
+- Existing route matrix coverage verifies all six Cashier routes plus Supervisor/Admin shell consumers at desktop/tablet/mobile viewports, reduced motion, overflow, target dimensions, drawer focus, Escape/focus return, loading/empty/error, stale responses, keyboard selection, offline status, and protected Earn/Redeem transitions.
+- Earn/Redeem paired lookup computed-style and workflow tests pass after the canonical card consolidation.
+
+Validation:
+
+```text
+Focused role/category/card-deep-link test: 1 passed
+Frontend visual/workflow suite: 58 passed
+Browser accessibility suite: passed
+web:typecheck: passed
+```

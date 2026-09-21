@@ -816,6 +816,40 @@ test.describe('workflow route coverage', () => {
     await expect(search).toBeFocused();
   });
 
+  test('keeps role search categories authorized and card deep links explicit', async ({
+    page,
+  }) => {
+    for (const [role, route] of [
+      ['CASHIER', '/cashier'],
+      ['SUPERVISOR', '/supervisor'],
+      ['ADMIN', '/admin'],
+    ] as const) {
+      await mockShell(page, role);
+      await page.goto(`${baseUrl}${route}`);
+      await expect(
+        page.getByRole('button', { name: 'Customers' }),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Cards' })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Cashiers' }),
+      ).toHaveCount(role === 'CASHIER' ? 0 : 1);
+      await expect(page.getByRole('button', { name: /profile|notifications/i })).toHaveCount(0);
+    }
+
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier`);
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await page.getByRole('button', { name: 'Cards' }).click();
+    await search.fill('CARD-001');
+    await search.press('Enter');
+    const cardResult = page.getByRole('option', { name: /Ada Shopper/ });
+    await expect(cardResult).toBeVisible();
+    await expect(cardResult).toHaveAttribute(
+      'href',
+      '/cashier/lookup?card=CARD-001',
+    );
+  });
+
   test('ignores stale shell search responses', async ({ page }) => {
     await mockShell(page, 'CASHIER');
     await page.route('**/api/v1/customers*', async (route) => {

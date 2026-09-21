@@ -28,10 +28,10 @@
 
 ## 5. Verify the reconciled shell and workflows
 
-- [ ] 5.1 Add Cashier/Supervisor/Admin browser coverage for navbar/profile/notification, search categories, masking, authorization, active/focus states, session/offline status, and mobile drawer.
-- [ ] 5.2 Verify all six Cashier routes plus shell role consumers at desktop, tablet, mobile, and reduced-motion viewports with overflow and target-size checks.
-- [ ] 5.3 Verify customer name/phone discovery, exact card lookup/deep-link handoff, loading/empty/error states, stale responses, keyboard selection, Escape, and focus restoration.
-- [ ] 5.4 Verify Earn/Redeem shared lookup geometry and protected workflow transitions after branch reconciliation.
+- [x] 5.1 Add Cashier/Supervisor/Admin browser coverage for supported navbar/search categories, deferred profile/notification boundary, masking, authorization, active/focus states, session/offline status, and mobile drawer.
+- [x] 5.2 Verify all six Cashier routes plus shell role consumers at desktop, tablet, mobile, and reduced-motion viewports with overflow and target-size checks.
+- [x] 5.3 Verify customer name/phone discovery, exact card lookup/deep-link handoff, loading/empty/error states, stale responses, keyboard selection, Escape, and focus restoration.
+- [x] 5.4 Verify Earn/Redeem shared lookup geometry and protected workflow transitions after branch reconciliation.
 
 ## 6. Add exact visual evidence
 
