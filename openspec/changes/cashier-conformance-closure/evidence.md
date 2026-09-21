@@ -86,6 +86,8 @@ Final diff/status inspection for task 6.2:
 - Accepted deviations: backend, authentication, queue, controller, and financial behavior were intentionally unchanged; browser evidence uses contract-shaped mocked responses for deterministic UI conformance.
 - Residual risks: production API/schema behavior and live-device/offline infrastructure remain outside this frontend evidence run; the preserved dirty working tree contains unrelated generated artifacts and pre-existing Admin/Supervisor/configuration changes.
 
+Final acceptance: `npx openspec validate cashier-conformance-closure --strict` passed, every task in `tasks.md` is checked, and the route, ownership, responsive, accessibility, regression, and handoff acceptance criteria are evidenced in this change.
+
 Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
 
 ````
