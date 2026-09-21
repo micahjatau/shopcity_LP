@@ -5,8 +5,8 @@
 Task 1.1 baseline captured on 2026-09-21:
 
 - Working branch: `workflow-states-implementation`.
-- Current HEAD: `5402eede15a7344a04834d825969001f41f09d72`.
-- Remote `workflow-states-implementation`: `ea0891805c90911019d942cf78b0762cefd37e2a` (local branch is ahead by the two local OpenSpec commits).
+- Current HEAD: `0130f9317cf3ff8a47b78fe9183866b52532b1b6`.
+- Remote `workflow-states-implementation`: `8f8c6137959cc32f6906630825f13faf8875c9cc` (local branch is ahead by the two local OpenSpec evidence commits).
 - Remote `fix/prototype-topbar-customer-lookup`: `eee2b6b57da23212988f3675dc6f5d85f8118965`.
 - Latest successful CI on this branch: run `35562764130`, `style(web): format conformance checks`.
 - The prior failed static check was superseded by that successful formatting run.
@@ -21,7 +21,7 @@ The working tree was already dirty and was preserved. The captured inventory con
 - `apps/web/test-results/.last-run.json`
 - `apps/web/tsconfig.tsbuildinfo`
 
-It also contains 41 untracked entries: screenshots, generated/test artifacts, `docs/repo_review_70.md` through `docs/repo_review_76.md`, `docs/.repo_review_76.md.swp`, `docs/development/opendesign-live-preview.md`, frontend utility/config files, and `openspec/changes/development-preview-framing/`. None were staged or altered for this baseline task.
+It also contains 41 untracked entries: screenshots, generated/test artifacts, `docs/repo_review_70.md` through `docs/repo_review_76.md`, `docs/development/opendesign-live-preview.md`, frontend utility/config files, and `openspec/changes/development-preview-framing/`. The previously listed `docs/.repo_review_76.md.swp` is not present in the current inventory. None were staged or altered for this baseline task.
 
 ## GitNexus impact analysis
 
@@ -194,3 +194,9 @@ The corrected candidate `8f8c6137959cc32f6906630825f13faf8875c9cc` was subsequen
 The current staging smoke workflow is restricted to candidates on `origin/master`; this feature candidate is not on master lineage. Therefore the corrected candidate cannot be smoke-certified through the current release gate until it is promoted through the approved master/deployment path. No provenance gate was bypassed and no production deployment was performed.
 
 Because the owner is not ready to merge this feature branch, the shared staging aliases and SHA variables were restored to their prior deployed candidate `118facd5bf2dd282a84d4157c7ebcd40cdac0ee6`. The temporary feature deployment remains an unpromoted Vercel preview and is not staging certification evidence.
+
+## Phase 8 local verification
+
+Pi-native verification was run in a clean temporary worktree at `0130f9317cf3ff8a47b78fe9183866b52532b1b6`, without modifying this dirty worktree or staging. Ownership, lint, backend/frontend typechecks, backend Jest, frontend Jest/accessibility, token drift, backend/frontend builds, strict OpenSpec validation, and GitNexus `detect_changes` passed. The GitNexus result covered 6 files and 9 symbols, with 0 affected processes and low risk.
+
+Browser conformance (8 tests) and browser accessibility (3 tests) initially hit a stale occupied port/runtime setup; rerunning against the clean worktree's dev server on port 3210 passed all 11 tests. Bounded Semgrep over the frontend application/component/lib/script scope scanned 117 tracked files with 315 rules and reported 0 findings. These results are local evidence only; Phase 7 staging journeys and the full final handoff remain incomplete.
