@@ -100,3 +100,23 @@ web:typecheck: passed
 workflow-routes.spec.ts: 24 passed, 0 failed, 0 skipped
 focused discovery/error/paired lookup tests: 3 passed
 ```
+
+## Phase 3 property-scoped ownership
+
+Tasks 3.1–3.4 completed without changing financial, backend, controller, or authentication behavior:
+
+- Registry exceptions now carry explicit property allowlists instead of file-only reasons.
+- Composition properties are enumerated; route exceptions default to composition-only declarations.
+- Unknown selectors, missing allowlists, blank/unknown properties, undeclared competing owners, and canonical appearance leakage fail with source/selector/property diagnostics.
+- Legacy print/login compatibility and named Cashier status/header variants are explicitly classified with their exact properties; route header and preview-badge appearance was moved to the canonical Cashier design-system owner.
+- Production inventory covers 16 source files and all five audited stylesheets.
+
+Validation:
+
+```text
+node --test apps/web/scripts/check-cashier-style-ownership.spec.mjs: 8 passed, 0 failed
+node apps/web/scripts/check-cashier-style-ownership.mjs: passed for 16 source files
+npx openspec validate review-76-frontend-design-convergence --strict: valid
+```
+
+Residual boundary: the profile/notification and `/profile` behavior remains intentionally open under task 2.1, as documented above; Phase 3 did not import or restyle that unsupported contract.

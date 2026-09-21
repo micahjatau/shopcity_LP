@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   findOwnershipFailures,
+  findRegistryExceptionFailures,
   findRegistryCoverageFailures,
 } from './check-cashier-style-ownership.mjs';
 import { selectorDefinitions } from './style-ownership-registry.mjs';
@@ -67,12 +68,63 @@ test('ownership registry permits a documented exception', () => {
     [
       ['primitives.css', '.sc-input { color: red; }'],
       ['cashier-design-system.css', '.cashier-card { color: red; }'],
-      [
-        'cashier-routes.css',
-        '.find-customer-query .sc-input:focus-visible { color: blue; }',
-      ],
+      ['cashier-routes.css', '.find-customer-query .sc-input { width: 100%; }'],
     ],
     selectorDefinitions,
   );
   assert.deepEqual(failures, []);
+});
+
+test('ownership registry rejects appearance properties in a layout exception', () => {
+  const failures = findOwnershipFailures(
+    [
+      ['primitives.css', '.sc-input { color: red; }'],
+      ['cashier-routes.css', '.find-customer-query .sc-input { color: blue; }'],
+    ],
+    selectorDefinitions,
+  );
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /property color/);
+  assert.match(failures[0], /allowed exception properties/);
+});
+
+test('ownership registry rejects unknown selectors and properties', () => {
+  const definitions = new Map([
+    [
+      '.unknown-selector',
+      {
+        family: 'test-button',
+        owner: 'primitives.css',
+        exceptions: [
+          {
+            file: 'cashier-routes.css',
+            reason: 'unknown fixture',
+            properties: ['not-a-css-property'],
+          },
+        ],
+      },
+    ],
+  ]);
+  const failures = findRegistryExceptionFailures(definitions);
+  assert.equal(failures.length, 2);
+  assert.match(failures[0], /unknown selector/);
+  assert.match(failures[1], /unknown property/);
+});
+
+test('ownership registry rejects exception definitions without property allowlists', () => {
+  const definitions = new Map([
+    [
+      '.sc-button',
+      {
+        family: 'test-button',
+        owner: 'primitives.css',
+        exceptions: [
+          { file: 'cashier-routes.css', reason: 'missing allowlist' },
+        ],
+      },
+    ],
+  ]);
+  const failures = findRegistryExceptionFailures(definitions);
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /no property allowlist/);
 });

@@ -1,7 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { selectorDefinitions } from './style-ownership-registry.mjs';
+import {
+  knownStyleProperties,
+  selectorDefinitions,
+} from './style-ownership-registry.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(scriptDir, '..');
@@ -89,17 +92,31 @@ export function findRegistryCoverageFailures(
   return coverageFailures;
 }
 
+function declaredProperties(source, selector) {
+  const selectorPattern = new RegExp(
+    `${selector.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(?![-\\w])`,
+  );
+  const properties = new Set();
+  for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!selectorPattern.test(match[1])) continue;
+    for (const declaration of match[2].matchAll(/(?:^|;)\s*([\w-]+)\s*:/g)) {
+      properties.add(declaration[1]);
+    }
+  }
+  return properties;
+}
+
 export function findOwnershipFailures(
   contents,
   definitions = selectorDefinitions,
 ) {
   const ownershipFailures = [];
   for (const [selector, family] of definitions) {
-    const files = contents
-      .filter(([, source]) => definesSelector(source, selector))
-      .map(([file]) => path.basename(file));
-    for (const file of files) {
+    for (const [filePath, source] of contents) {
+      const file = path.basename(filePath);
       if (file === family.owner) continue;
+      const properties = declaredProperties(source, selector);
+      if (!properties.size) continue;
       const registeredException = family.exceptions?.find(
         (item) => item.file === file,
       );
@@ -107,13 +124,55 @@ export function findOwnershipFailures(
         ownershipFailures.push(
           `CSS: ${family.family} selector ${selector} is defined by ${file}; owner is ${family.owner}`,
         );
+        continue;
+      }
+      const allowed = new Set(registeredException.properties ?? []);
+      for (const property of properties) {
+        if (!allowed.has(property)) {
+          ownershipFailures.push(
+            `CSS: ${family.family} selector ${selector} property ${property} is defined by ${file}; allowed exception properties are ${[...allowed].join(', ') || 'none'}`,
+          );
+        }
       }
     }
   }
   return ownershipFailures;
 }
 
+export function findRegistryExceptionFailures(
+  definitions = selectorDefinitions,
+  knownDefinitions = selectorDefinitions,
+) {
+  const failures = [];
+  for (const [selector, family] of definitions) {
+    if (!knownDefinitions.has(selector)) {
+      failures.push(`Registry: unknown selector ${selector}`);
+    }
+    for (const exception of family.exceptions ?? []) {
+      if (!Array.isArray(exception.properties)) {
+        failures.push(
+          `Registry: ${family.family} selector ${selector} exception ${exception.file} has no property allowlist`,
+        );
+        continue;
+      }
+      for (const property of exception.properties) {
+        if (
+          typeof property !== 'string' ||
+          !property.trim() ||
+          !knownStyleProperties.has(property)
+        ) {
+          failures.push(
+            `Registry: ${family.family} selector ${selector} exception ${exception.file} contains unknown property ${String(property)}`,
+          );
+        }
+      }
+    }
+  }
+  return failures;
+}
+
 failures.push(...findRegistryCoverageFailures(cssContents));
+failures.push(...findRegistryExceptionFailures());
 failures.push(...findOwnershipFailures(cssContents));
 
 for (const match of css.matchAll(/var\(--sc-color-(success|warning)-\d+\)/g)) {

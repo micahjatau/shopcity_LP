@@ -14,10 +14,10 @@
 
 ## 3. Enforce property-scoped style ownership
 
-- [ ] 3.1 Extend the ownership registry schema from file-level exceptions to selector/property-scoped exceptions with canonical appearance and allowed composition property sets.
-- [ ] 3.2 Make unknown selectors, exception properties, and canonical appearance declarations in route exceptions fail closed with actionable diagnostics.
-- [ ] 3.3 Add positive and negative fixtures for layout-only overrides, color/border/typography leakage, focus leakage, unknown exceptions, and duplicate owners.
-- [ ] 3.4 Run the checker against every production stylesheet and remove or explicitly classify remaining competing appearance rules.
+- [x] 3.1 Extend the ownership registry schema from file-level exceptions to selector/property-scoped exceptions with canonical appearance and allowed composition property sets.
+- [x] 3.2 Make unknown selectors, exception properties, and canonical appearance declarations in route exceptions fail closed with actionable diagnostics.
+- [x] 3.3 Add positive and negative fixtures for layout-only overrides, color/border/typography leakage, focus leakage, unknown exceptions, and duplicate owners.
+- [x] 3.4 Run the checker against every production stylesheet and remove or explicitly classify remaining competing appearance rules.
 
 ## 4. Consolidate cards and route CSS
 

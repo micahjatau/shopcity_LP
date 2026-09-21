@@ -20,16 +20,6 @@
   max-width: 760px;
 }
 
-.cashier-route-header h1 {
-  color: var(--sc-color-brand-700);
-  font-family: var(--sc-prototype-fontDisplaySans);
-  font-size: clamp(30px, 4vw, 34px);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.05;
-  text-transform: none;
-}
-
 .cashier-route-description {
   color: var(--sc-color-brand-700);
   margin: 0;
@@ -353,12 +343,6 @@
   margin-top: auto;
   font-size: 12px;
   letter-spacing: 0.04em;
-}
-
-.cashier-card-preview .sc-badge {
-  justify-self: end;
-  min-height: 20px;
-  font-size: 10px;
 }
 
 .cashier-stage-actions {

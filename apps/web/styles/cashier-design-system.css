@@ -121,9 +121,25 @@
   margin: 0;
 }
 
+.cashier-route-header h1 {
+  color: var(--sc-color-brand-700);
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: clamp(30px, 4vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  text-transform: none;
+}
+
 .cashier-route-header.sc-page-head p {
   margin: 0;
   color: var(--sc-color-brand-700);
+}
+
+.cashier-card-preview .sc-badge {
+  justify-self: end;
+  min-height: 20px;
+  font-size: 10px;
 }
 
 .cashier-overview-header.sc-page-head p {
