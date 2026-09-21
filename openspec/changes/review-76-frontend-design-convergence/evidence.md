@@ -192,3 +192,5 @@ The corrected candidate `8f8c6137959cc32f6906630825f13faf8875c9cc` was subsequen
 - Staging variables `SMOKE_DEPLOYED_BACKEND_SHA` and `SMOKE_DEPLOYED_FRONTEND_SHA` were updated to the exact candidate SHA.
 
 The current staging smoke workflow is restricted to candidates on `origin/master`; this feature candidate is not on master lineage. Therefore the corrected candidate cannot be smoke-certified through the current release gate until it is promoted through the approved master/deployment path. No provenance gate was bypassed and no production deployment was performed.
+
+Because the owner is not ready to merge this feature branch, the shared staging aliases and SHA variables were restored to their prior deployed candidate `118facd5bf2dd282a84d4157c7ebcd40cdac0ee6`. The temporary feature deployment remains an unpromoted Vercel preview and is not staging certification evidence.
