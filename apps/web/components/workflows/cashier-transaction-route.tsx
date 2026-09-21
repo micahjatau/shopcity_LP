@@ -339,7 +339,11 @@ function CustomerConfirmationSummary({
   cardSerialNumber?: string;
 }>) {
   return (
-    <div className="cashier-confirm-layout">
+    <div
+      className="cashier-confirm-layout"
+      role="region"
+      aria-label="Lookup and status"
+    >
       <div className="cashier-confirm-details">
         {lookupSummary.map(([label, value]) => (
           <div key={label} className="cashier-detail-row">

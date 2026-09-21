@@ -905,9 +905,3 @@
     display: none;
   }
 }
-
-/* The transactions workspace owns the full content column; its inner page remains bounded. */
-.shell-main:has(.cashier-transactions-page) {
-  width: 100%;
-  max-width: none;
-}

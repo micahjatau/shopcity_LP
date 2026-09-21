@@ -62,6 +62,10 @@ Replace legacy layout wrappers where they prevent prototype fidelity, but keep w
 
 Translate Transactions into heading → filters → table → footer and a prototype-derived two-column detail dialog. Preserve bounded history and truthful empty fields. Build Sync Queue from completed shared toolbar, table, status-badge, button, metric/status, and detail-dialog components; document it as a derived composition because it has no full-page Figma reference.
 
+### 6. Register Customer reference reconciliation
+
+Treat the remaining Register Customer mismatch as an evidence question before changing presentation code. Compare the retained `1440x3140` reference and current `1440x3244` production capture at the same route, role, state, browser, and viewport. If the additional current content is required for accessibility, truthful production behavior, or authorization, update the approved reference with explicit provenance and an approved deviation, following the Capture/Redeem decision. If the current DOM is not contractually justified, create a separately reviewed presentation change; do not hide content or alter registration/RBAC behavior solely to satisfy a screenshot.
+
 ## Evidence and acceptance
 
 For every route/state/viewport row, collect:

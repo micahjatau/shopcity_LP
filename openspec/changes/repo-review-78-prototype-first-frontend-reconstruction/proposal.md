@@ -14,10 +14,11 @@ The next phase must treat the committed prototypes as the presentation specifica
 - Reconstruct Find Customer, Capture Purchase, Redeem Credit, and Transactions as prototype-faithful React presentation compositions around existing controllers.
 - Assemble Sync Queue from the approved shared shell, toolbar, table, badges, buttons, and detail-dialog components rather than claiming a verbatim Figma adaptation.
 - Add route/state/viewport, accessibility, responsive, functional, and prototype-comparison evidence for each slice.
+- Reconcile the remaining Register Customer reference mismatch by determining whether the retained screenshot is stale or the current production composition violates the approved prototype/accessibility contract.
 
 ## Scope boundaries
 
-In scope: `apps/web` presentation JSX, shared shell/search components, Cashier route composition, prototype comparison evidence, conformance tests, accessibility checks, and related documentation.
+In scope: `apps/web` presentation JSX, shared shell/search components, Cashier route composition, the shared Supervisor Register Customer reference comparison, prototype comparison evidence, conformance tests, accessibility checks, and related documentation.
 
 Out of scope: backend financial calculations, ledger/history semantics, authentication/session authority, RBAC policy, API contracts, database schema, offline reconciliation semantics, queue processing semantics, and unrelated working-tree changes.
 
@@ -32,6 +33,7 @@ Out of scope: backend financial calculations, ledger/history semantics, authenti
 - Sync Queue is explicitly documented as a derived composition.
 - Every route has comparison evidence, responsive and keyboard/accessibility checks, approved deviations, and a documented reason for any production-required divergence.
 - Existing backend, authorization, financial, generated-client, and offline safeguards remain unchanged and continue to pass their relevant tests.
+- Register Customer is either certified against an attributable current reference or receives an explicitly approved reference update with route/state/viewport provenance; no stale screenshot is silently rebaselined.
 
 ## Delivery strategy
 

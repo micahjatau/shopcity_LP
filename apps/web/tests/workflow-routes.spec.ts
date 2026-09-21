@@ -1010,6 +1010,7 @@ test.describe('workflow route coverage', () => {
     await search.press('Escape');
     await expect(search).toBeFocused();
 
+    await page.unroute('**/api/v1/customers*');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${baseUrl}/cashier`);
     const mobileSearch = page.getByRole('combobox', {

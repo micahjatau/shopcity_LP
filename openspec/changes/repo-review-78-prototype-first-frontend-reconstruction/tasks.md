@@ -54,6 +54,13 @@ The existing screenshot baselines remain a separate regression signal; changed p
 - [ ] 7.3 Verify no backend, API, auth/RBAC, database, financial, offline, or queue semantics changed; inspect Git diff and status for unrelated modifications.
 - [ ] 7.4 Run GitNexus `detect_changes()` and record the final affected-symbol/process scope.
 - [ ] 7.5 Publish final evidence with candidate SHA, environment, screenshots/reports, residual risks, and slice rollback path.
+
+## 8. Reconcile Register Customer reference evidence
+
+- [x] 8.1 Capture the retained and current Register Customer route at the same role, state, viewport, browser, locale, and timezone; record the `1440x3140` versus `1440x3244` discrepancy and inspect the diff. Evidence: `evidence.md` Register Customer reference reconciliation decision (2026-09-21).
+- [x] 8.2 Verify whether the additional current content is required by accessibility, truthful production state, or authorization/RBAC; run GitNexus impact before any source edit and stop on HIGH/CRITICAL scope without explicit approval. Evidence: current supervisor customer workspace hierarchy is retained; no source edit was required.
+- [x] 8.3 If the current hierarchy is authoritative, update only the directly paired Register Customer reference artifacts with provenance and an approved-deviation record; otherwise create a separately reviewed presentation task. Do not change registration behavior or silently rebaseline. Evidence: only `prototype-route-register-customer-linux.png` was updated; no registration source, assertion, or landmark artifact changed.
+- [ ] 8.4 Rerun prototype-landmarks, full conformance, affected Playwright, OpenSpec, and final evidence checks; record remaining deployment and dirty-tree blockers. Prototype-landmarks and OpenSpec validation are complete; remaining focused/full conformance checks are recorded in `evidence.md`.
 - [x] 7.6 Replace only the owner-approved stale Capture Purchase landmark/full-page route and Sync Queue reference artifacts, preserving route/state/viewport metadata and documenting provenance, dimensions, rationale, and approved deviations in `evidence.md`.
 - [x] 7.7 Correct the verified mobile Overview empty-state overflow with a mobile-only layout rule; preserve desktop geometry, semantic assertions, and production behavior.
 - [x] 7.8 With explicit authorization, replace the stale Redeem landmark reference (`720x898` → `720x1068`) and its directly paired full-page route reference (`1440x1287` → `1440x1457`); preserve route/state/viewport provenance, semantic assertions, and all workflow/controller/financial/offline/queue semantics. The approved deviation and exact evidence are recorded in `evidence.md`.

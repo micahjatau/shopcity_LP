@@ -263,3 +263,41 @@ The explicitly authorized update supersedes the retained compact Redeem landmark
 - **Checks:** `npm --prefix apps/web run typecheck`, `npm --prefix apps/web run design-system:test`, `npm --prefix apps/web run design-system:check`, `npm --prefix apps/web run build`, `npm run openspec:validate -- --changes repo-review-78-prototype-first-frontend-reconstruction`, and `git diff --check` passed. The focused financial/draft Jest suites passed; Jest accessibility passed **3/3**; browser accessibility passed **3/3**. The build retains the existing frontend lint warnings documented above.
 - **Semgrep:** bounded scan `semgrep scan --config auto --error --metrics on apps/web/scripts/check-cashier-style-ownership.mjs apps/web/public/prototype/transactions-dashboard.html` passed with **0 findings** across 2 files/383 rules. Full scan `semgrep scan --config auto --error --metrics on apps/web` scanned 159 files/2,930 rules but timed out with exit **124**; no full-scan pass is claimed.
 - **GitNexus/status:** `node scripts/gitnexus.cjs detect_changes --repo shopcity_LP --scope unstaged --limit 200` exited 0 with **32 files, 33 symbols, 28 affected processes, critical risk**, reflecting the inherited dirty tree. This is not clean scope evidence and is not attributed to the two reference artifacts. `git diff --cached --name-only` is empty; no staged files are present.
+
+### Register Customer reference reconciliation scope (2026-09-21)
+
+The remaining full-page conformance mismatch is Register Customer: retained reference `1440x3140`, current capture `1440x3244`. This is now explicitly in scope for investigation, not yet approved for a reference update. The next evidence pass must compare the same route, role, state, viewport, browser, locale, and timezone; identify whether the extra 104px represents required accessible/truthful production content or stale presentation; and preserve registration/RBAC behavior. No source, test, assertion, or snapshot change is authorized by this scope update alone.
+
+### Register Customer reference reconciliation decision (2026-09-21)
+
+The retained and current artifacts were compared at the same deterministic route/state: `/supervisor/customers`, `SUPERVISOR`, loaded mocked customer `Ada Shopper`, viewport `1440x923`, device scale factor `1`, Chromium via Playwright `1.62.1`, locale `en-NG`, and timezone `Africa/Lagos`. The retained full-page artifact `apps/web/tests/workflow-routes.spec.ts-snapshots/prototype-route-register-customer-linux.png` was `1440x3140`; the current capture was `1440x3244`, a `104px` height difference. The landmark `prototype-register-flow-linux.png` remained unchanged and matched its assertion.
+
+Inspection established that the current additional content is authoritative production presentation, not disposable prototype filler: the selected customer state truthfully exposes edit-profile controls, staff eligibility, card management/status confirmation, selected customer context, and the backend action response. These regions are required for the supervisor-authorized route and accessible operational context. Removing, collapsing, or hiding them would change truthful production presentation and authorization visibility; no source or registration behavior edit was justified. GitNexus upstream impact was not required for a source edit because no source edit was made; the previously recorded HIGH `CashierWorkflowRoute` impact was unrelated to this supervisor customer workspace artifact.
+
+Under the Phase 8 scope, only the directly paired full-page reference artifact was regenerated from the deterministic local Playwright flow. `prototype-route-register-customer-linux.png` now records `1440x3244`; `prototype-register-flow-linux.png`, assertions, route/controller/API/auth/RBAC/financial/offline/queue behavior, and all unrelated references were unchanged. This is an approved provenance-backed reference update, not a blind rebaseline. The focused command was:
+
+```text
+cd apps/web && PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100 npx playwright test --config ./playwright.config.ts tests/workflow-routes.spec.ts --grep 'prototype landmarks' --update-snapshots --timeout=90000
+```
+
+It passed `1/1` and wrote only the directly paired Register Customer full-page artifact. Full conformance and final certification remain tracked under task 8.4.
+
+### CI visual failure remediation follow-up (2026-09-21)
+
+The approved presentation-only fixes were applied without changing API, auth/RBAC, financial, offline, or queue behavior:
+
+- `apps/web/styles/shell-components.css`: removed only the transaction-specific `.shell-main:has(.cashier-transactions-page)` `max-width: none` override; the shared `.shell-main` contract now computes to `1120px` on all conformance routes.
+- `apps/web/components/workflows/cashier-transaction-route.tsx`: wrapped the existing authoritative Earn/Redeem confirmation summary in `role="region" aria-label="Lookup and status"`; no lookup controller, result masking, stale-response, or transaction semantics changed.
+- `apps/web/tests/workflow-routes.spec.ts`: unregisters the intentional 503 customer-search route before the later mobile success case, preserving category/query/result, keyboard selection, Escape focus return, and error assertions.
+- `apps/web/tests/workflow-routes.spec.ts-snapshots/prototype-route-register-customer-linux.png`: updated only the directly paired Phase 8 full-page reference from `1440x3140` to `1440x3244` with the provenance above.
+
+GitNexus upstream impact was run before source edits: `GlobalShellSearch` LOW; `AppShell` LOW; `CashierWorkflowRoute` and `FindCustomerView` HIGH (three direct route callers/processes). Supervisor approval limited the source changes to the two presentation-only edits above. Final `detect_changes --scope unstaged` exited 0 and reported the inherited dirty-tree scope as 14 files, 10 symbols, 15 affected processes, risk HIGH.
+
+Validation results:
+
+- Viewport conformance matrix — **passed 1/1** after restarting the stale local dev server.
+- Shell search results/keyboard/Escape workflow — **passed 1/1**.
+- Prototype landmarks, including the reconciled Register Customer reference — **passed 1/1**.
+- Focused shell-search Jest, cashier lookup/app-shell Jest, accessibility Jest, typecheck, design-system tests, design-system ownership, OpenSpec validation (`22 passed, 0 failed`), and `git diff --check` — **passed**.
+- Full `visual:test` was attempted (72 tests) but the runner timed out after the first 7 tests completed; no snapshot update was performed by that run. The Earn/Redeem authoritative workflow reached Ada Shopper and then exposed a pre-existing unrelated screenshot baseline mismatch (`cashier-earn-review`: expected `1196x956`, received `1120x997`); that retained visual artifact was not changed because Phase 8 authorizes only the directly paired Register Customer reference.
+- `git diff --cached --name-only` remained empty; no staged files were created. The working tree retains unrelated inherited dirty changes and artifacts.
