@@ -34,5 +34,5 @@
 
 - [x] 6.1 Run frontend lint, typecheck, Jest/accessibility, build, Semgrep, ownership, and conformance gates; record every command exit
 - [x] 6.2 Run GitNexus detect-changes and inspect the scoped diff/status; separate closure changes from pre-existing working-tree changes
-- [ ] 6.3 Publish final conformance evidence with candidate revision, environment, screenshots/reports, accepted deviations, and residual risks
+- [x] 6.3 Publish final conformance evidence with candidate revision, environment, screenshots/reports, accepted deviations, and residual risks
 - [ ] 6.4 Validate this OpenSpec change and confirm every acceptance criterion is evidenced before claiming completion

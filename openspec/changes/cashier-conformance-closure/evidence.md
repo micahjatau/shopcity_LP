@@ -75,6 +75,17 @@ Final diff/status inspection for task 6.2:
 - The closure commit range is isolated to the committed conformance work; the remaining dirty tree is pre-existing Admin/Supervisor/configuration work, generated test/build artifacts, screenshots, and documentation artifacts.
 - No unrelated dirty files were staged or modified by the closure commits.
 
+## Final handoff
+
+- Candidate baseline: `d2bb996f1800a0d6e6bdd20d413c42ef37699caa`.
+- Closure tip before this handoff publication: `41806e7607d683645a464446a9661060c462e766`.
+- Branch: `workflow-states-implementation`.
+- Environment: Node `v22.22.1`, npm `11.19.1`, Playwright `1.62.1`, Chromium via the repository Playwright configuration.
+- Viewports/modes: 1440×923 desktop, 1024×1366 tablet, 390×844 mobile, light mode, and reduced-motion emulation where applicable.
+- Reports/evidence: `apps/web/test-results/`, committed workflow screenshots under `apps/web/tests/`, `apps/web/tests/workflow-routes.spec.ts`, `apps/web/tests/browser-a11y.spec.ts`, and the reconciled Review 74 matrix.
+- Accepted deviations: backend, authentication, queue, controller, and financial behavior were intentionally unchanged; browser evidence uses contract-shaped mocked responses for deterministic UI conformance.
+- Residual risks: production API/schema behavior and live-device/offline infrastructure remain outside this frontend evidence run; the preserved dirty working tree contains unrelated generated artifacts and pre-existing Admin/Supervisor/configuration changes.
+
 Browser accessibility evidence now includes an axe scan of the Cashier shell plus mobile drawer focus/escape coverage. The new Cashier scan initially found insufficient avatar contrast (`#fff` on `#c39b81`); the shell avatar now uses the brand-700 background token. Browser accessibility and focused conformance suites pass after the fix.
 
 ````
