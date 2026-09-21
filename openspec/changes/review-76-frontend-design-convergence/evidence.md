@@ -101,6 +101,15 @@ workflow-routes.spec.ts: 24 passed, 0 failed, 0 skipped
 focused discovery/error/paired lookup tests: 3 passed
 ```
 
+## Staging smoke watcher evidence
+
+- Run `35579631618` reached staging setup but failed before smoke because the legacy worker emitted readiness without the expected SHA line.
+- Workflow correction `ced7afd` added readiness polling for both worker readiness and release SHA.
+- Run `35580764516` confirmed the worker compatibility correction but was blocked by the legacy deployed candidate's missing SHA output; compatibility correction `80e531c` preserved legacy readiness while requiring exact SHA for newer workers.
+- Run `35581559416` completed staging setup, build, health, migrations, worker startup, and all 46 smoke journeys, then failed closed during teardown with `FAIL_RECONCILIATION: Smoke invariants failed: open fraud flags`. This recurred in historical run `34811448547`; it is a staging fixture/reconciliation issue, not a Review 76 browser failure.
+- Correction in the smoke fixture helper collects tagged fraud-flag IDs across all pages before mutating the paginated result set, preventing cursor shifts from leaving tagged flags open. This is committed locally but requires deployment before it can be exercised by staging.
+- Review 76 staging tasks remain open because the current feature candidate is not deployed to staging and the existing staging candidate cannot validate this new helper.
+
 ## Phase 3 property-scoped ownership
 
 Tasks 3.1–3.4 completed without changing financial, backend, controller, or authentication behavior:
