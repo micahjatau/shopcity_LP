@@ -13,10 +13,37 @@ test.describe('prototype acceptance contract', () => {
   test('keeps every manifest reference present and dimensioned', async () => {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
       referenceDirectory: string;
-      routes: Record<string, { reference: string; viewport: [number, number] }>;
+      routes: Record<
+        string,
+        {
+          reference: string;
+          viewport: [number, number];
+          sourceViewport: [number, number];
+          actualDimensions: [number, number];
+          sourceBounds: [number, number, number, number] | null;
+          targetLandmark: string;
+          comparisonMode: string;
+          category: string;
+          status: string;
+        }
+      >;
+      assets: Record<
+        string,
+        {
+          sourceAsset: string;
+          sourceSha: string;
+          actualDimensions: [number, number];
+          sourceBounds: [number, number, number, number] | null;
+          targetLandmark: string;
+          comparisonMode: string;
+          category: string;
+          status: string;
+        }
+      >;
     };
 
     expect(Object.keys(manifest.routes)).toHaveLength(7);
+    expect(Object.keys(manifest.assets).length).toBeGreaterThanOrEqual(21);
     for (const [routeName, route] of Object.entries(manifest.routes)) {
       const referencePath = path.join(repoRoot, route.reference);
       expect(fs.existsSync(referencePath), `${routeName} reference`).toBe(true);
@@ -24,9 +51,29 @@ test.describe('prototype acceptance contract', () => {
         route.reference.startsWith(`${manifest.referenceDirectory}/`),
       ).toBe(true);
       expect(route.viewport).toEqual([1440, 923]);
+      expect(route.sourceViewport).toEqual([1440, 923]);
+      expect(route.targetLandmark).toMatch(/^\[data-od-id=/);
+      expect(['A', 'B', 'C']).toContain(route.category);
+      expect(route.status).toBe('source-bounds-blocked');
       const metadata = await sharp(referencePath).metadata();
-      expect(metadata.width, `${routeName} width`).toBeGreaterThan(0);
-      expect(metadata.height, `${routeName} height`).toBeGreaterThan(0);
+      expect([metadata.width, metadata.height]).toEqual(route.actualDimensions);
+    }
+
+    for (const [assetName, asset] of Object.entries(manifest.assets)) {
+      const referencePath = path.join(repoRoot, asset.sourceAsset);
+      expect(fs.existsSync(referencePath), `${assetName} asset`).toBe(true);
+      expect(asset.sourceSha).toBe('410ecd75');
+      expect(asset.targetLandmark).toMatch(/^\[data-od-id=/);
+      expect(['full-page', 'full-page-reference', 'crop-landmark']).toContain(
+        asset.comparisonMode,
+      );
+      expect(['A', 'B', 'C']).toContain(asset.category);
+      expect(['mapped', 'source-bounds-blocked']).toContain(asset.status);
+      const metadata = await sharp(referencePath).metadata();
+      expect([metadata.width, metadata.height]).toEqual(asset.actualDimensions);
+      if (asset.status === 'source-bounds-blocked') {
+        expect(asset.sourceBounds).toBeNull();
+      }
     }
   });
 });

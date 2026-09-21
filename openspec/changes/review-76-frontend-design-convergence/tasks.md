@@ -38,7 +38,7 @@
 - [x] 6.1 Inventory committed Figma export references and map each required route/state/viewport to a stable fixture and capture command.
 - [x] 6.2 Implement Figma-to-React comparison evidence with stable fonts, deterministic data, per-surface tolerances, and measured property/pixel reports; document the crop-alignment blocker and fail-closed runner contract.
 - [x] 6.3 Record approved intentional differences separately from React screenshot baselines and computed-style comparisons.
-- [ ] 6.4 Capture and inspect shell, card, lookup, form, status, table, dialog, and responsive states; do not blindly update baselines.
+- [x] 6.4 Capture and inspect shell, card, lookup, form, status, table, dialog, and responsive states; do not blindly update baselines. Categorize evidence as direct Figma parity, prototype/design-system conformance, or derived product conformance; retain explicit source-bound and typography blockers.
 
 ## 7. Run isolated staging journeys
 
