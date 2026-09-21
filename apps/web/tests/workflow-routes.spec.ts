@@ -830,10 +830,12 @@ test.describe('workflow route coverage', () => {
         page.getByRole('button', { name: 'Customers' }),
       ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Cards' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Cashiers' })).toHaveCount(
+        role === 'CASHIER' ? 0 : 1,
+      );
       await expect(
-        page.getByRole('button', { name: 'Cashiers' }),
-      ).toHaveCount(role === 'CASHIER' ? 0 : 1);
-      await expect(page.getByRole('button', { name: /profile|notifications/i })).toHaveCount(0);
+        page.getByRole('button', { name: /profile|notifications/i }),
+      ).toHaveCount(0);
     }
 
     await mockShell(page, 'CASHIER');
