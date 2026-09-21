@@ -1,7 +1,7 @@
 ## 1. Baseline and branch contract
 
 - [x] 1.1 Record current HEAD, branch, dirty-tree inventory, CI status, and both branch SHAs; preserve unrelated changes and do not stage them.
-- [ ] 1.2 Run GitNexus impact for `AppShellContent`, `GlobalShellSearch`, `useCashierLookupController`, `VerifiedCardLookupStep`, `CashierWorkflowRoute`, and canonical card/search style owners; record risk before edits.
+- [x] 1.2 Run GitNexus impact for `AppShellContent`, `GlobalShellSearch`, `useCashierLookupController`, `VerifiedCardLookupStep`, `CashierWorkflowRoute`, and canonical card/search style owners; record risk before edits.
 - [ ] 1.3 Compare `workflow-states-implementation` with `fix/prototype-topbar-customer-lookup` for navbar, profile/notification, customer discovery, card lookup, generated contracts, and tests; document behavior conflicts and the selected source of truth.
 - [ ] 1.4 Confirm the accepted backend/API/RBAC boundary and create a separate follow-on proposal if integration requires a backend contract or authorization change.
 
