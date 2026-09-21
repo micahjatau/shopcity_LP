@@ -16,6 +16,7 @@ import {
 import { EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   useCashierLookupController,
+  type CashierDiscoveryRecord,
   type CashierLookupRecord,
 } from './use-cashier-lookup-controller';
 import { VerifiedCardLookupStep } from './verified-card-lookup-step';
@@ -56,6 +57,7 @@ export function CashierWorkflowRoute({
     lookupMessage,
     lookupRecord,
     lookupPending,
+    discoveryMatches,
     selectedCardSerial,
     setLookupValue,
     clearLookup,
@@ -191,6 +193,7 @@ export function CashierWorkflowRoute({
           lookupMessage={lookupMessage}
           lookupPending={lookupPending}
           lookupRecord={lookupRecord}
+          discoveryMatches={discoveryMatches}
           onLookup={(event) => void handleLookup(event)}
           onQueryChange={setLookupValue}
           selectedCardSerial={selectedCardSerial}
@@ -373,6 +376,7 @@ function FindCustomerView({
   lookupMessage,
   lookupPending,
   lookupRecord,
+  discoveryMatches,
   onLookup,
   onQueryChange,
   selectedCardSerial,
@@ -381,6 +385,7 @@ function FindCustomerView({
   lookupMessage: string;
   lookupPending: boolean;
   lookupRecord: CashierLookupRecord | null;
+  discoveryMatches: CashierDiscoveryRecord[];
   onLookup: (event: FormEvent<HTMLFormElement>) => void;
   onQueryChange: (value: string) => void;
   selectedCardSerial: string;
@@ -463,9 +468,24 @@ function FindCustomerView({
                 </Link>
               </div>
             </div>
+          ) : discoveryMatches.length > 0 ? (
+            discoveryMatches.map((customer, index) => (
+              <div
+                className="find-customer-row"
+                key={customer.customerId ?? customer.id ?? index}
+              >
+                <div className="find-customer-row-main">
+                  <strong>{customer.fullName ?? 'Customer'}</strong>
+                  <span>{customer.maskedPhone ?? 'Phone unavailable'}</span>
+                </div>
+                <span className="find-customer-discovery-hint">
+                  Scan an active card to continue
+                </span>
+              </div>
+            ))
           ) : (
             <p className="find-customer-empty">
-              Search for a customer to continue a loyalty transaction.
+              Search by name, phone, or an active card to continue.
             </p>
           )}
         </div>

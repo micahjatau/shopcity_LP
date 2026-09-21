@@ -55,6 +55,25 @@ Task 1.3 compared the current branch with `origin/fix/prototype-topbar-customer-
 
 The prototype branch is therefore a behavior/reference source for role-aware profile, notification, customer discovery, and selected-route handling—not a stylesheet source of truth. The current branch remains authoritative for centralized CSS ownership, shared card/lookup geometry, reduced motion, and conformance gates.
 
+## Phase 2 frontend reconciliation
+
+Phase 2 ported the safe customer-discovery behavior into the current shared lookup controller and route view without importing the prototype branch's embedded styles or backend phone-normalization change:
+
+- Name/phone queries use the existing customer directory client and render safe discovery matches.
+- Exact card queries continue using authoritative card verification; directory matches never unlock Earn or Redeem.
+- Card 404 fallback discovery, request-generation guards, offline messaging, stale-result clearing, and truthful error states are covered.
+- Find Customer discovery results intentionally do not expose financial workflow links until an active card is verified.
+- The prototype profile/notification panel and `/profile` route were not imported because Phase 1 identified their route/authorization contract as a separate proposal boundary; the existing role-aware search, avatar, mobile menu, and session diagnostics remain authoritative.
+- Task 2.1 remains explicitly open: the available prototype implementation embeds styles and introduces an absent `/profile` contract. Porting it would overlap Phase 3 ownership work and/or invent an authorization contract, so it requires a separate approved follow-on boundary.
+
+Validation:
+
+```text
+web:typecheck: passed
+workflow-routes.spec.ts: 24 passed, 0 failed, 0 skipped
+focused discovery/error/paired lookup tests: 3 passed
+```
+
 Task 1.4 accepted backend/API/RBAC boundary:
 
 - No backend, generated API, financial, authentication, queue, or authorization implementation is changed by this phase.
@@ -62,3 +81,22 @@ Task 1.4 accepted backend/API/RBAC boundary:
 - The prototype branch's Nigerian phone normalization is a backend query-contract change. If required for adoption, create a separate follow-on OpenSpec proposal (suggested id: `customer-directory-phone-normalization`) with tenant/branch scope, masking, query semantics, migration/rollback, and service/integration tests. Do not alter `src/modules/customers/` in this change.
 - If `/profile` or contextual customer routes require new RBAC/API permissions rather than existing route protection, create a separate authorization proposal; do not widen permissions here.
 - No separate backend proposal was implemented during this task because Phase 1 is documentation-only and the required contract boundary is now explicit.
+
+## Phase 2 frontend reconciliation
+
+Phase 2 ported the safe customer-discovery behavior into the current shared lookup controller and route view without importing the prototype branch's embedded styles or backend phone-normalization change:
+
+- Name/phone queries use the existing customer directory client and render safe discovery matches.
+- Exact card queries continue using authoritative card verification; directory matches never unlock Earn or Redeem.
+- Card 404 fallback discovery, request-generation guards, offline messaging, stale-result clearing, and truthful error states are covered.
+- Find Customer discovery results intentionally do not expose financial workflow links until an active card is verified.
+- The prototype profile/notification panel and `/profile` route were not imported because Phase 1 identified their route/authorization contract as a separate proposal boundary; the existing role-aware search, avatar, mobile menu, and session diagnostics remain authoritative.
+- Task 2.1 remains explicitly open: the available prototype implementation embeds styles and introduces an absent `/profile` contract. Porting it would overlap Phase 3 ownership work and/or invent an authorization contract, so it requires a separate approved follow-on boundary.
+
+Validation:
+
+```text
+web:typecheck: passed
+workflow-routes.spec.ts: 24 passed, 0 failed, 0 skipped
+focused discovery/error/paired lookup tests: 3 passed
+```

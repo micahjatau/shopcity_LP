@@ -8,9 +8,9 @@
 ## 2. Reconcile functional frontend behavior
 
 - [ ] 2.1 Integrate the role-aware navbar/profile/search/customer-discovery behavior through a reviewable patch or merge, preserving the centralized `shell-*` ownership and current conformance tests.
-- [ ] 2.2 Preserve Cashier-safe masking, tenant/branch scope, supported destinations, exact card verification, stale-request protection, keyboard/Escape/focus behavior, and truthful session/offline status.
-- [ ] 2.3 Reconcile `VerifiedCardLookupStep` and Earn/Redeem transitions with the integrated customer/card discovery behavior without changing controller, financial, approval, offline, or idempotency authority.
-- [ ] 2.4 Add conflict-resolution and branch-lineage evidence, including the files and behaviors intentionally retained from each source branch.
+- [x] 2.2 Preserve Cashier-safe masking, tenant/branch scope, supported destinations, exact card verification, stale-request protection, keyboard/Escape/focus behavior, and truthful session/offline status.
+- [x] 2.3 Reconcile `VerifiedCardLookupStep` and Earn/Redeem transitions with the integrated customer/card discovery behavior without changing controller, financial, approval, offline, or idempotency authority.
+- [x] 2.4 Add conflict-resolution and branch-lineage evidence, including the files and behaviors intentionally retained from each source branch.
 
 ## 3. Enforce property-scoped style ownership
 
