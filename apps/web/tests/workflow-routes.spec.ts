@@ -411,8 +411,18 @@ test.describe('workflow route coverage', () => {
   }) => {
     for (const [role, routes] of [
       ['CASHIER', cashierConformanceRoutes],
-      ['SUPERVISOR', shellConformanceRoutes.filter(({ role: routeRole }) => routeRole === 'SUPERVISOR')],
-      ['ADMIN', shellConformanceRoutes.filter(({ role: routeRole }) => routeRole === 'ADMIN')],
+      [
+        'SUPERVISOR',
+        shellConformanceRoutes.filter(
+          ({ role: routeRole }) => routeRole === 'SUPERVISOR',
+        ),
+      ],
+      [
+        'ADMIN',
+        shellConformanceRoutes.filter(
+          ({ role: routeRole }) => routeRole === 'ADMIN',
+        ),
+      ],
     ] as const) {
       await page.unroute('**/api/v1/**');
       await mockShell(page, role);
@@ -433,18 +443,26 @@ test.describe('workflow route coverage', () => {
           expect(
             await page
               .locator('.shell-body')
-              .evaluate((element) => getComputedStyle(element).transitionDuration),
+              .evaluate(
+                (element) => getComputedStyle(element).transitionDuration,
+              ),
             `${role} ${route.path} ${viewport.name} reduced motion`,
           ).toBe('0s');
           const invalidTargets = await page
-            .locator('button:visible, input:visible, select:visible, textarea:visible')
-            .evaluateAll((elements) =>
-              elements.filter((element) => {
-                const rect = element.getBoundingClientRect();
-                return rect.width <= 0 || rect.height <= 0;
-              }).length,
+            .locator(
+              'button:visible, input:visible, select:visible, textarea:visible',
+            )
+            .evaluateAll(
+              (elements) =>
+                elements.filter((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return rect.width <= 0 || rect.height <= 0;
+                }).length,
             );
-          expect(invalidTargets, `${role} ${route.path} ${viewport.name} targets`).toBe(0);
+          expect(
+            invalidTargets,
+            `${role} ${route.path} ${viewport.name} targets`,
+          ).toBe(0);
         }
       }
     }
@@ -695,7 +713,10 @@ test.describe('workflow route coverage', () => {
       route.fulfill({
         ...json({
           success: true,
-          data: { transactionId: 'transaction-earn-pending', status: 'PENDING' },
+          data: {
+            transactionId: 'transaction-earn-pending',
+            status: 'PENDING',
+          },
           meta: meta('/api/v1/transactions/earn'),
         }),
         status: 202,
@@ -724,7 +745,9 @@ test.describe('workflow route coverage', () => {
 
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
     await page.getByRole('button', { name: 'Continue to redemption' }).click();
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-INSUFFICIENT-001');
+    await page
+      .getByLabel('POS receipt number')
+      .fill('WORKFLOW-INSUFFICIENT-001');
     await page.getByLabel('Basket amount').fill('100');
     await page.getByLabel('Basket amount').blur();
     await page.getByLabel('Requested redemption').fill('10');
@@ -744,7 +767,9 @@ test.describe('workflow route coverage', () => {
 
     const search = page.getByRole('combobox', { name: 'Search ShopCity' });
     await search.fill('Ada');
-    await expect(page.getByRole('option', { name: /Ada Shopper/ })).toBeVisible();
+    await expect(
+      page.getByRole('option', { name: /Ada Shopper/ }),
+    ).toBeVisible();
     await search.press('ArrowDown');
     await search.press('Enter');
     await expect(page).toHaveURL(/\/cashier\/customers\?id=customer-1/);
@@ -766,7 +791,8 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'CASHIER');
     await page.route('**/api/v1/customers*', async (route) => {
       const query = new URL(route.request().url()).searchParams.get('q');
-      if (query === 'old') await new Promise((resolve) => setTimeout(resolve, 700));
+      if (query === 'old')
+        await new Promise((resolve) => setTimeout(resolve, 700));
       await route.fulfill(
         json({
           success: true,
@@ -789,9 +815,13 @@ test.describe('workflow route coverage', () => {
     await search.fill('old');
     await page.waitForTimeout(320);
     await search.fill('new');
-    await expect(page.getByRole('option', { name: /New Result/ })).toBeVisible();
+    await expect(
+      page.getByRole('option', { name: /New Result/ }),
+    ).toBeVisible();
     await page.waitForTimeout(500);
-    await expect(page.getByRole('option', { name: /Old Result/ })).toHaveCount(0);
+    await expect(page.getByRole('option', { name: /Old Result/ })).toHaveCount(
+      0,
+    );
   });
 
   test('keeps Sync Queue controls usable on a narrow viewport', async ({

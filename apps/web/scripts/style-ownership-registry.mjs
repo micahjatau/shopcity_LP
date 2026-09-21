@@ -12,7 +12,10 @@ export const canonicalSelectorFamilies = [
     owner: 'primitives.css',
     exceptions: [
       exception('globals.css', 'Login/document compatibility selectors.'),
-      exception('cashier-routes.css', 'Route action density/layout selectors pending normalization.'),
+      exception(
+        'cashier-routes.css',
+        'Route action density/layout selectors pending normalization.',
+      ),
     ],
   },
   {
@@ -21,7 +24,10 @@ export const canonicalSelectorFamilies = [
     owner: 'primitives.css',
     exceptions: [
       exception('globals.css', 'Login and document compatibility selectors.'),
-      exception('cashier-routes.css', 'Scoped focus and density selectors pending normalization.'),
+      exception(
+        'cashier-routes.css',
+        'Scoped focus and density selectors pending normalization.',
+      ),
     ],
   },
   {
@@ -29,8 +35,14 @@ export const canonicalSelectorFamilies = [
     selectors: ['.sc-status', '.sc-badge'],
     owner: 'primitives.css',
     exceptions: [
-      exception('cashier-design-system.css', 'Cashier semantic status variants.'),
-      exception('cashier-routes.css', 'Route status composition selectors pending normalization.'),
+      exception(
+        'cashier-design-system.css',
+        'Cashier semantic status variants.',
+      ),
+      exception(
+        'cashier-routes.css',
+        'Route status composition selectors pending normalization.',
+      ),
     ],
   },
   {
@@ -46,7 +58,10 @@ export const canonicalSelectorFamilies = [
     selectors: ['.sc-card', '.cashier-card'],
     owner: 'cashier-design-system.css',
     exceptions: [
-      exception('globals.css', 'Legacy visual fixture/reset compatibility selector.'),
+      exception(
+        'globals.css',
+        'Legacy visual fixture/reset compatibility selector.',
+      ),
     ],
   },
   {
@@ -95,7 +110,10 @@ export const canonicalSelectorFamilies = [
     selectors: ['.shell-topbar', '.shell-sidebar'],
     owner: 'shell-components.css',
     exceptions: [
-      exception('globals.css', 'Legacy global shell reset retained until shell cleanup.'),
+      exception(
+        'globals.css',
+        'Legacy global shell reset retained until shell cleanup.',
+      ),
     ],
   },
 ];

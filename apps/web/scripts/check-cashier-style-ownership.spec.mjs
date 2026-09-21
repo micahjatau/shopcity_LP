@@ -21,17 +21,21 @@ test('Cashier style ownership check passes on migrated surfaces', () => {
 });
 
 test('ownership registry requires every family owner to define its selector', () => {
-  const failures = findRegistryCoverageFailures([
-    ['primitives.css', '.sc-button { color: red; }'],
-  ], selectorDefinitions);
+  const failures = findRegistryCoverageFailures(
+    [['primitives.css', '.sc-button { color: red; }']],
+    selectorDefinitions,
+  );
   assert.ok(failures.some((failure) => failure.includes('primitive-input')));
 });
 
 test('ownership registry rejects an undeclared competing owner', () => {
-  const failures = findOwnershipFailures([
-    ['primitives.css', '.sc-button { color: red; }'],
-    ['unexpected.css', '.sc-button { color: blue; }'],
-  ], selectorDefinitions);
+  const failures = findOwnershipFailures(
+    [
+      ['primitives.css', '.sc-button { color: red; }'],
+      ['unexpected.css', '.sc-button { color: blue; }'],
+    ],
+    selectorDefinitions,
+  );
   assert.equal(failures.length, 1);
   assert.match(failures[0], /unexpected\.css/);
 });
@@ -59,10 +63,16 @@ test('ownership registry covers the shared component families', () => {
 });
 
 test('ownership registry permits a documented exception', () => {
-  const failures = findOwnershipFailures([
-    ['primitives.css', '.sc-input { color: red; }'],
-    ['cashier-design-system.css', '.cashier-card { color: red; }'],
-    ['cashier-routes.css', '.find-customer-query .sc-input:focus-visible { color: blue; }'],
-  ], selectorDefinitions);
+  const failures = findOwnershipFailures(
+    [
+      ['primitives.css', '.sc-input { color: red; }'],
+      ['cashier-design-system.css', '.cashier-card { color: red; }'],
+      [
+        'cashier-routes.css',
+        '.find-customer-query .sc-input:focus-visible { color: blue; }',
+      ],
+    ],
+    selectorDefinitions,
+  );
   assert.deepEqual(failures, []);
 });

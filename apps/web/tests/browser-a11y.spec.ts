@@ -106,7 +106,9 @@ test.describe('browser accessibility', () => {
   test('keeps the Cashier shell and controls axe-clean', async ({ page }) => {
     await mockCashierShell(page);
     await page.goto(`${baseUrl}/cashier`);
-    await expect(page.getByRole('heading', { name: 'Hi, Cashier!' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Hi, Cashier!' }),
+    ).toBeVisible();
     expect(await runAxe(page)).toEqual([]);
   });
 

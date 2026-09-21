@@ -89,7 +89,10 @@ export function findRegistryCoverageFailures(
   return coverageFailures;
 }
 
-export function findOwnershipFailures(contents, definitions = selectorDefinitions) {
+export function findOwnershipFailures(
+  contents,
+  definitions = selectorDefinitions,
+) {
   const ownershipFailures = [];
   for (const [selector, family] of definitions) {
     const files = contents
