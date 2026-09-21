@@ -43,10 +43,7 @@ test('ownership registry rejects an undeclared competing owner', () => {
 
 test('ownership matching does not treat a longer selector as an owner', () => {
   const definitions = new Map([
-    [
-      '.sc-button',
-      { family: 'test-button', owner: 'primitives.css' },
-    ],
+    ['.sc-button', { family: 'test-button', owner: 'primitives.css' }],
   ]);
   const failures = findOwnershipFailures(
     [
