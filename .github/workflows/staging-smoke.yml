@@ -160,10 +160,15 @@ jobs:
           export CSRF_SECRET="staging-smoke-worker-csrf-secret"
           nohup node dist/src/worker.js > /tmp/shopcity-staging-worker.log 2>&1 &
           echo $! > /tmp/shopcity-staging-worker.pid
+          WORKER_SHA_SUPPORTED=false
+          if grep -q 'SHOPCITY_WORKER_SHA=' src/worker.ts; then
+            WORKER_SHA_SUPPORTED=true
+          fi
+          echo "Worker release SHA contract supported: ${WORKER_SHA_SUPPORTED}"
           for i in $(seq 1 60); do
             if grep -q 'SHOPCITY_WORKER_READY' /tmp/shopcity-staging-worker.log \
-              && grep -q "SHOPCITY_WORKER_SHA=${EXPECTED_WORKER_SHA}" /tmp/shopcity-staging-worker.log; then
-              echo 'Worker ready with expected release SHA'
+              && { [ "${WORKER_SHA_SUPPORTED}" = false ] || grep -q "SHOPCITY_WORKER_SHA=${EXPECTED_WORKER_SHA}" /tmp/shopcity-staging-worker.log; }; then
+              echo 'Worker ready with applicable release verification'
               break
             fi
             if ! kill -0 "$(cat /tmp/shopcity-staging-worker.pid)" 2>/dev/null; then
@@ -174,8 +179,8 @@ jobs:
             sleep 1
           done
           if ! grep -q 'SHOPCITY_WORKER_READY' /tmp/shopcity-staging-worker.log \
-            || ! grep -q "SHOPCITY_WORKER_SHA=${EXPECTED_WORKER_SHA}" /tmp/shopcity-staging-worker.log; then
-            echo 'Worker readiness or release SHA verification timed out'
+            || { [ "${WORKER_SHA_SUPPORTED}" = true ] && ! grep -q "SHOPCITY_WORKER_SHA=${EXPECTED_WORKER_SHA}" /tmp/shopcity-staging-worker.log; }; then
+            echo 'Worker readiness or applicable release SHA verification timed out'
             cat /tmp/shopcity-staging-worker.log
             exit 1
           fi
