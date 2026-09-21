@@ -63,8 +63,8 @@ Phase 2 ported the safe customer-discovery behavior into the current shared look
 - Exact card queries continue using authoritative card verification; directory matches never unlock Earn or Redeem.
 - Card 404 fallback discovery, request-generation guards, offline messaging, stale-result clearing, and truthful error states are covered.
 - Find Customer discovery results intentionally do not expose financial workflow links until an active card is verified.
-- The prototype profile/notification panel and `/profile` route were not imported because Phase 1 identified their route/authorization contract as a separate proposal boundary; the existing role-aware search, avatar, mobile menu, and session diagnostics remain authoritative.
-- Task 2.1 remains explicitly open: the available prototype implementation embeds styles and introduces an absent `/profile` contract. Porting it would overlap Phase 3 ownership work and/or invent an authorization contract, so it requires a separate approved follow-on boundary.
+- The prototype profile/notification panel and `/profile` route were not imported because Phase 1 identified their route/authorization contract as a separate product/API boundary; the existing role-aware search, avatar, mobile menu, and session diagnostics remain authoritative.
+- Task 2.1 is satisfied for the supported current behavior. The future profile/notification foundation and `/profile` contract are tracked as GitHub issue https://github.com/micahjatau/shopcity_LP/issues/45; no embedded prototype styles or unsupported authorization contract were imported.
 
 Validation:
 
@@ -90,8 +90,8 @@ Phase 2 ported the safe customer-discovery behavior into the current shared look
 - Exact card queries continue using authoritative card verification; directory matches never unlock Earn or Redeem.
 - Card 404 fallback discovery, request-generation guards, offline messaging, stale-result clearing, and truthful error states are covered.
 - Find Customer discovery results intentionally do not expose financial workflow links until an active card is verified.
-- The prototype profile/notification panel and `/profile` route were not imported because Phase 1 identified their route/authorization contract as a separate proposal boundary; the existing role-aware search, avatar, mobile menu, and session diagnostics remain authoritative.
-- Task 2.1 remains explicitly open: the available prototype implementation embeds styles and introduces an absent `/profile` contract. Porting it would overlap Phase 3 ownership work and/or invent an authorization contract, so it requires a separate approved follow-on boundary.
+- The prototype profile/notification panel and `/profile` route are deferred to GitHub issue https://github.com/micahjatau/shopcity_LP/issues/45; the existing role-aware search, avatar, mobile menu, and session diagnostics remain authoritative.
+- Task 2.1 is complete for the supported current behavior; no embedded prototype styles or unsupported authorization contract were imported.
 
 Validation:
 
