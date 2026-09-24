@@ -953,6 +953,7 @@
   .shell-brand-row,
   .shell-topbar-actions {
     gap: 4px;
+    min-width: 0;
   }
 
   .shell-topbar-actions {
@@ -975,7 +976,9 @@
   }
 
   .global-shell-search {
+    display: block;
     width: auto;
+    min-width: 0;
     flex: 1 1 0;
   }
 
