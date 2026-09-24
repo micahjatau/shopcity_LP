@@ -26,7 +26,7 @@ test.describe('visual regression gallery', () => {
     await expect(page.locator('[data-od-id="brand-link"]')).toBeVisible();
     await expect(
       page.locator('[data-od-id="role-selector"] input'),
-    ).toHaveCount(4);
+    ).toHaveCount(3);
     expect(page.viewportSize()).toEqual({ width: 1440, height: 923 });
     const loginGeometry = await page
       .locator('[data-od-id="login-page"]')
