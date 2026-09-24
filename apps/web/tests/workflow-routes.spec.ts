@@ -570,7 +570,7 @@ test.describe('workflow route coverage', () => {
         page.getByRole('heading', { name: 'Hi, Cashier!' }),
       ).toBeVisible();
       await expect(
-        page.getByRole('link', { name: 'View all transactions' }),
+        page.getByRole('link', { name: 'View today’s transactions →' }),
       ).toBeVisible();
 
       const transactionSearch = page.getByRole('searchbox', {

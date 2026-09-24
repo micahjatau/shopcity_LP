@@ -81,6 +81,12 @@ export function CashierOverviewLookup() {
     (sum, transaction) => sum + Number(transaction.loyaltyAmountKobo ?? 0),
     0,
   );
+  const activityLoaded = todayTransactions !== null;
+  const creditIssuedAvailable =
+    activityLoaded &&
+    earnTransactions.every(
+      (transaction) => transaction.loyaltyAmountKobo !== null,
+    );
 
   return (
     <section
@@ -109,7 +115,9 @@ export function CashierOverviewLookup() {
           data-od-id="metric-receipts"
         >
           <div className="metric-label">Receipts loaded</div>
-          <div className="metric-value">{loadedTransactions.length || '—'}</div>
+          <div className="metric-value">
+            {activityLoaded ? loadedTransactions.length : '—'}
+          </div>
           <div className="metric-note">Loaded from cashier activity</div>
         </ShopCityCard>
         <ShopCityCard
@@ -119,7 +127,9 @@ export function CashierOverviewLookup() {
           data-od-id="metric-earn"
         >
           <div className="metric-label">Purchases captured</div>
-          <div className="metric-value">{earnTransactions.length || '—'}</div>
+          <div className="metric-value">
+            {activityLoaded ? earnTransactions.length : '—'}
+          </div>
           <div className="metric-note">Captured receipts</div>
         </ShopCityCard>
         <ShopCityCard
@@ -130,7 +140,7 @@ export function CashierOverviewLookup() {
         >
           <div className="metric-label">Credit issued</div>
           <div className="metric-value">
-            {creditIssuedKobo > 0 ? (
+            {creditIssuedAvailable ? (
               <Money amountKobo={creditIssuedKobo} />
             ) : (
               '—'
@@ -144,8 +154,10 @@ export function CashierOverviewLookup() {
           className="cashier-metric"
           data-od-id="metric-redeem"
         >
-          <div className="metric-label">Credit redeemed</div>
-          <div className="metric-value">{redeemTransactions.length || '—'}</div>
+          <div className="metric-label">Redemptions</div>
+          <div className="metric-value">
+            {activityLoaded ? redeemTransactions.length : '—'}
+          </div>
           <div className="metric-note">Redeemed transactions</div>
         </ShopCityCard>
       </div>
@@ -163,7 +175,7 @@ export function CashierOverviewLookup() {
               Recent Transactions
             </span>
           }
-          description="Live activity from your cashier account"
+          description="Today’s bounded cashier activity feed"
           searchLabel="Search recent transactions"
           searchPlaceholder="Search receipt"
           searchValue={search}
@@ -246,7 +258,7 @@ export function CashierOverviewLookup() {
             {visibleTransactions.length} loaded transaction
             {visibleTransactions.length === 1 ? '' : 's'}
           </span>
-          <Link href="/cashier/transactions">View all transactions →</Link>
+          <Link href="/cashier/transactions">View today’s transactions →</Link>
         </div>
       </ShopCityCard>
     </section>

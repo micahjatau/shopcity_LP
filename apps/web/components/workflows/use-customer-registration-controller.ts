@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   customersControllerCreateCustomerV1,
   customersControllerUpdateCustomerV1,
@@ -40,6 +40,7 @@ export function useCustomerRegistrationController({
     'Register a customer or select one to edit their profile.',
   );
   const [busy, setBusy] = useState(false);
+  const createIdempotencyKey = useRef<string | null>(null);
 
   async function saveCustomer(mode: RegistrationMode) {
     const basePayload = {
@@ -76,7 +77,9 @@ export function useCustomerRegistrationController({
               } satisfies CreateCustomerDto,
               createApiRequest({
                 csrf: true,
-                idempotencyKey: crypto.randomUUID(),
+                idempotencyKey:
+                  createIdempotencyKey.current ??
+                  (createIdempotencyKey.current = crypto.randomUUID()),
               }),
             )
           : await customersControllerUpdateCustomerV1(
@@ -99,7 +102,10 @@ export function useCustomerRegistrationController({
       setMessage(
         mode === 'create' ? 'Customer registered.' : 'Customer profile saved.',
       );
-      if (mode === 'create' && record.id) setSelectedId(record.id);
+      if (mode === 'create') {
+        createIdempotencyKey.current = null;
+        if (record.id) setSelectedId(record.id);
+      }
       await search();
       if (mode === 'update') await reloadSelectedCustomer();
     } catch {

@@ -12,7 +12,7 @@ jest.mock('../lib/api', () => ({
   loginWithCredentials: jest.fn(),
 }));
 
-describe('LoginForm device secret handling', () => {
+describe('LoginForm', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockReplace.mockReset();
@@ -56,5 +56,41 @@ describe('LoginForm device secret handling', () => {
       );
     });
     expect(mockReplace).toHaveBeenCalledWith('/cashier');
+  });
+
+  it('only presents supported staff roles', () => {
+    render(<LoginForm />);
+
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(
+      screen.getByRole('radio', { name: 'Cashier / Loyalty Staff' }),
+    ).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Supervisor' })).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Administrator' })).toBeVisible();
+    expect(
+      screen.queryByRole('radio', { name: 'Owner' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/owner/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the backend-returned role for navigation', async () => {
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'SUPERVISOR' } } },
+    } as never);
+
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Supervisor' }));
+    fireEvent.change(screen.getByLabelText('Email Address'), {
+      target: { value: 'staff@example.test' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password' },
+    });
+    fireEvent.submit(screen.getByRole('button', { name: 'Sign In' }));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/supervisor');
+    });
   });
 });

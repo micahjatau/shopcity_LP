@@ -326,6 +326,10 @@ main {
   color: white;
 }
 
+.login-role-option.is-unavailable {
+  opacity: 0.72;
+}
+
 .login-role-option input {
   width: 14px;
   height: 14px;

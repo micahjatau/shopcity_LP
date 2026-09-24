@@ -51,6 +51,10 @@ export function RedeemTransactionForm({
     cashierId,
     branchId,
   });
+  const remainingPayableKobo =
+    basketAmount !== null && requestedRedemption !== null
+      ? Math.max(0, basketAmount - requestedRedemption)
+      : null;
 
   useEffect(() => {
     onFlowStepChange?.(reviewing ? 3 : 2);
@@ -169,6 +173,18 @@ export function RedeemTransactionForm({
               )}
             </strong>
           </div>
+          <div>
+            <span className="cashier-workflow-hint">
+              Remaining payable amount
+            </span>
+            <strong>
+              {remainingPayableKobo === null ? (
+                '—'
+              ) : (
+                <Money amountKobo={remainingPayableKobo} />
+              )}
+            </strong>
+          </div>
         </div>
       </section>
       <Input
@@ -226,6 +242,16 @@ export function RedeemTransactionForm({
                 </strong>
               </div>
               <div>
+                <span>Remaining payable amount</span>
+                <strong>
+                  {remainingPayableKobo === null ? (
+                    '—'
+                  ) : (
+                    <Money amountKobo={remainingPayableKobo} />
+                  )}
+                </strong>
+              </div>
+              <div>
                 <span>Receipt number</span>
                 <strong>{receiptNumber || '—'}</strong>
               </div>
@@ -267,7 +293,12 @@ export function RedeemTransactionForm({
           {reviewing ? 'Edit redemption' : 'Reset draft'}
         </Button>
       </div>
-      <div className="cashier-form-status">
+      <section
+        className="cashier-form-status"
+        data-od-id="redeem-outcome"
+        aria-live="polite"
+        aria-label="Redeem credit outcome"
+      >
         <StatusBadge
           label={
             status === 'pending'
@@ -288,22 +319,27 @@ export function RedeemTransactionForm({
                   : 'neutral'
           }
         />
-        <p aria-live="polite" className="cashier-form-status__message">
+        <p className="cashier-form-status__message">
           {message || 'The final redemption status will appear here.'}
         </p>
-      </div>
+      </section>
       {responseData ? (
         <section
-          className="cashier-transaction-result cashier-workflow-stage"
+          className={`cashier-transaction-result cashier-workflow-stage redeem-result--${status}`}
           data-od-id="redeem-success"
+          aria-live="polite"
+          aria-label="Redeem credit result"
         >
           <div className="cashier-stage-heading">
             <span className="cashier-stage-kicker">Result</span>
             <h2 className="cashier-stage-heading-title">
-              Redemption submitted
+              {status === 'confirmed'
+                ? 'Redemption completed'
+                : 'Redemption pending approval'}
             </h2>
             <p className="cashier-stage-heading-description">
-              The authoritative transaction status is shown below.
+              The authoritative transaction status is shown below; pending
+              approval is not a completed debit.
             </p>
           </div>
           <Alert

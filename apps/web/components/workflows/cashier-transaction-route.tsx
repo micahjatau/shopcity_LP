@@ -3,7 +3,7 @@
 import { CreditCard, Search, ScanLine } from 'lucide-react';
 import Link from 'next/link';
 import type { FormEvent, ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
 import { Alert, Button, Input } from '../ui';
@@ -150,11 +150,21 @@ export function CashierWorkflowRoute({
       ? ['Find customer', 'Confirm customer', 'Receipt details', 'Review']
       : ['Find customer', 'Basket subtotal', 'Redemption amount', 'Confirm'];
   const routeHeader = (
-    <CashierPageHeader
-      className="cashier-route-header"
-      title={title}
-      description={description}
-    />
+    <div
+      data-od-id={
+        kind === 'lookup'
+          ? 'find-customer-heading'
+          : kind === 'earn'
+            ? 'capture-purchase-heading'
+            : 'redeem-heading'
+      }
+    >
+      <CashierPageHeader
+        className="cashier-route-header"
+        title={title}
+        description={description}
+      />
+    </div>
   );
 
   return (
@@ -169,6 +179,7 @@ export function CashierWorkflowRoute({
           key={currentFlowStep}
           className="cashier-flow-steps"
           aria-label={`${title} steps`}
+          data-od-id={kind === 'earn' ? 'capture-stages' : 'redeem-stages'}
         >
           {flowSteps.map((step, index) => (
             <span
@@ -196,6 +207,7 @@ export function CashierWorkflowRoute({
           onLookup={(event) => void handleLookup(event)}
           onQueryChange={setLookupValue}
           selectedCardSerial={selectedCardSerial}
+          onClearLookup={clearLookup}
         />
       ) : kind === 'earn' ? (
         <CashierFlowPanel
@@ -377,6 +389,7 @@ function FindCustomerView({
   onLookup,
   onQueryChange,
   selectedCardSerial,
+  onClearLookup,
 }: Readonly<{
   lookupValue: string;
   lookupMessage: string;
@@ -386,8 +399,26 @@ function FindCustomerView({
   onLookup: (event: FormEvent<HTMLFormElement>) => void;
   onQueryChange: (value: string) => void;
   selectedCardSerial: string;
+  onClearLookup: () => void;
 }>) {
   const queryInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    function restoreLookupFocus(event: KeyboardEvent) {
+      if (
+        event.key !== 'Escape' ||
+        (!lookupValue && !lookupRecord && discoveryMatches.length === 0)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      onClearLookup();
+      queryInputRef.current?.focus();
+    }
+
+    window.addEventListener('keydown', restoreLookupFocus);
+    return () => window.removeEventListener('keydown', restoreLookupFocus);
+  }, [discoveryMatches.length, lookupRecord, lookupValue, onClearLookup]);
 
   return (
     <div className="find-customer-view" data-od-id="find-customer-content">
@@ -408,6 +439,7 @@ function FindCustomerView({
                 id="customer-search-query"
                 type="search"
                 aria-label="Customer search"
+                aria-describedby="customer-search-hint"
                 placeholder="Search"
                 autoComplete="off"
                 className="sc-input--compact"
@@ -433,13 +465,22 @@ function FindCustomerView({
               Scan
             </Button>
           </div>
-          <p className="find-customer-hint sc-discovery-muted">
-            Press enter or select Search to look up a customer.
+          <p
+            id="customer-search-hint"
+            className="find-customer-hint sc-discovery-muted"
+          >
+            Search by name, phone number, or card serial. Press enter or select
+            Search to look up a customer.
           </p>
         </form>
       </section>
 
-      <p className="find-customer-notice sc-discovery-muted" role="status">
+      <p
+        className="find-customer-notice sc-discovery-muted"
+        data-od-id="customer-search-state"
+        role="status"
+        aria-live="polite"
+      >
         {lookupMessage}
       </p>
 
@@ -459,7 +500,10 @@ function FindCustomerView({
               className="find-customer-row sc-discovery-row"
               data-od-id="customer-selection"
             >
-              <div className="find-customer-row-main">
+              <div
+                className="find-customer-row-main"
+                data-od-id="verified-card-handoff"
+              >
                 <strong>
                   {lookupRecord.customer?.fullName ??
                     lookupRecord.customerName ??

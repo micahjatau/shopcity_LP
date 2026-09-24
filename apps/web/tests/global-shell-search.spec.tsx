@@ -84,7 +84,7 @@ describe('GlobalShellSearch', () => {
   });
 
   it('exposes the cashier category to Supervisor/Admin only', () => {
-    render(<GlobalShellSearch userRole="SUPERVISOR" />);
+    const { unmount } = render(<GlobalShellSearch userRole="SUPERVISOR" />);
     expect(
       screen.getByRole('button', { name: 'Cashiers' }),
     ).toBeInTheDocument();
@@ -92,5 +92,11 @@ describe('GlobalShellSearch', () => {
       screen.getByRole('button', { name: 'Customers' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cards' })).toBeInTheDocument();
+
+    unmount();
+    render(<GlobalShellSearch userRole="ADMIN" />);
+    expect(
+      screen.getByRole('button', { name: 'Cashiers' }),
+    ).toBeInTheDocument();
   });
 });

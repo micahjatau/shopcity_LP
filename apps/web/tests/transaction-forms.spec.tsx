@@ -201,6 +201,69 @@ describe('cashier transaction forms', () => {
         screen.getByText('Purchase captured and waiting for approval.'),
       ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole('heading', { name: 'Purchase pending approval' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('ShopCity Credit earned'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows remaining payable amount in the distinct redemption flow', () => {
+    render(
+      <RedeemTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Basket amount'), {
+      target: { value: '100' },
+    });
+    fireEvent.change(screen.getByLabelText('Requested redemption'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Basket amount'));
+    fireEvent.blur(screen.getByLabelText('Requested redemption'));
+
+    expect(screen.getByText('Remaining payable amount')).toBeInTheDocument();
+    expect(screen.getAllByText('₦90.00').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('keeps a pending redemption outcome distinct from a completed debit', async () => {
+    jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
+      status: 202,
+      data: { data: { transactionId: 'redeem-pending' } },
+    } as never);
+    render(
+      <RedeemTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Basket amount'), {
+      target: { value: '100' },
+    });
+    fireEvent.change(screen.getByLabelText('Requested redemption'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Basket amount'));
+    fireEvent.blur(screen.getByLabelText('Requested redemption'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Proceed to confirmation' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm redemption' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Redemption submitted and waiting for approval.'),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('heading', { name: 'Redemption pending approval' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Redemption completed')).not.toBeInTheDocument();
   });
 
   it('does not unlock Redeem from customer name without verified card context', () => {

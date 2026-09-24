@@ -11,6 +11,26 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-23 — Review 78b Phase 4 implementation impact
+
+Before Phase 4 source edits, exact upstream GitNexus impact was run with tests included:
+
+```text
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/use-customer-registration-controller.ts useCustomerRegistrationController
+```
+
+`useCustomerRegistrationController`: **CRITICAL**, 7 impacted symbols, 1 direct dependant, 5 affected processes, and 1 affected module. Direct/indirect route consumers are `SupervisorCustomersPage`, `AdminCustomersPage`, `CashierCustomersPage`, `SupervisorCardsPage`, and `AdminCardsPage`. The controller edit is limited to preserving one logical registration idempotency key across uncertain retries; customer/card/auth contracts remain unchanged.
+
+The new `CustomerRegistrationFlow` target was not yet indexed (`impactedCount: 0`, risk `UNKNOWN`); local route/type/test coverage is used for this new symbol.
+
+The required pre-edit impact for `CustomerWorkspace` was also run:
+
+```text
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/customer-workspace.tsx CustomerWorkspace
+```
+
+`CustomerWorkspace`: **CRITICAL**, 6 impacted symbols, 6 direct dependants, 5 affected processes, and 1 affected module (`AdminCardsPage`, `CashierCustomersPage`, `SupervisorCardsPage`, `AdminCustomersPage`, `SupervisorCustomersPage`). No `CustomerWorkspace` edit is authorized or made in Phase 4; the focused registration flow composes the existing controller separately.
+
 ### 2026-09-19 — Review 73: `unify-cashier-design-system`
 
 Planning baseline: `workflow-states-implementation` at `8d9eb98`, with existing dirty-tree changes preserved. Refreshed the index using `npm run gitnexus:analyze`; GitNexus status reports current HEAD. Ran `npm run proposal:impact -- --file <path> <symbol>` before drafting. Direction is upstream and tests are included by the script.
@@ -192,3 +212,52 @@ Planning baseline: `workflow-states-implementation` at `3ca692b`, with existing 
 | `AppTopbar` | `apps/web/components/app-topbar.tsx` | LOW  |                3 |                 1 |         2 |
 
 The affected processes are `ShellLayout` and `AppShellContent`; the affected module is `Components`. This is a presentation/shell surface, so CSS cascade, DOM hierarchy, responsive geometry, and browser evidence exceed call-graph counts. Re-run impact for each additional symbol before implementation and preserve the backend, authorization, and financial boundaries recorded in the proposal.
+
+### 2026-09-23 — Review 78b: `review-78b-prototype-parity-closure`
+
+Planning baseline: `workflow-states-implementation` at `0b56977`, with existing dirty-tree changes preserved. GitNexus direction is upstream and tests are included. The index is stale relative to HEAD.
+
+| Symbol                  | File                                                        | Risk     |  Direct dependants | Processes | Finding                                                                                    |
+| ----------------------- | ----------------------------------------------------------- | -------- | -----------------: | --------: | ------------------------------------------------------------------------------------------ |
+| `LoginForm`             | `apps/web/components/auth/login-form.tsx`                   | LOW      |                  2 |         1 | `LoginPage`                                                                                |
+| `CashierOverviewLookup` | `apps/web/components/workflows/cashier-overview-lookup.tsx` | LOW      |                  2 |         1 | `CashierPage`                                                                              |
+| `TransactionDashboard`  | `apps/web/components/workflows/transaction-dashboard.tsx`   | LOW      |                  2 |         1 | `CashierTransactionsPage`                                                                  |
+| `RedeemTransactionForm` | `apps/web/components/workflows/redeem-transaction-form.tsx` | HIGH     | 3 direct / 7 total |         3 | Lookup, Earn, and Redeem processes                                                         |
+| `CustomerWorkspace`     | `apps/web/components/workflows/customer-workspace.tsx`      | CRITICAL |                  6 |         5 | Admin/Supervisor/Cashier customer and card pages                                           |
+| `CashierWorkflowRoute`  | `apps/web/components/workflows/cashier-workflow-route.tsx`  | UNKNOWN  |                  0 |         0 | Target not found in stale index; verify with local search and focused tests before editing |
+
+HIGH/CRITICAL findings require focused regression coverage and explicit review before shared workflow or customer workspace edits. No implementation edit was made during proposal drafting.
+
+### 2026-09-23 — Review 78b Phase 2 implementation impact
+
+Exact GitNexus upstream impact was run with `--include-tests` before the Phase 2 source edits. All resolved targets were LOW risk; no HIGH or CRITICAL result was returned.
+
+| Symbol                  | File                                                        | Risk |  Direct dependants | Processes | Finding                                                           |
+| ----------------------- | ----------------------------------------------------------- | ---- | -----------------: | --------: | ----------------------------------------------------------------- |
+| `CashierOverviewLookup` | `apps/web/components/workflows/cashier-overview-lookup.tsx` | LOW  |                  2 |         1 | `CashierPage`; overview metric and bounded-feed presentation      |
+| `AppShell`              | `apps/web/components/app-shell.tsx`                         | LOW  |                  2 |         1 | `ShellLayout`; shared one-sidebar/one-topbar geometry boundary    |
+| `GlobalShellSearch`     | `apps/web/components/global-shell-search.tsx`               | LOW  | 2 direct / 4 total |         2 | `ShellLayout` and `AppShellContent`; role-aware search categories |
+
+The exact commands were `npx gitnexus impact <symbol> --direction upstream --repo shopcity_LP --file <file> --include-tests --summary-only`. A second exact LOW-risk `CashierOverviewLookup` impact was run immediately before refining authoritative zero/unavailable credit handling. CSS token/cascade verification remains broader than call-graph counts, so shell geometry is covered by source checks and focused shell/search tests without changing backend, auth, RBAC, or financial code.
+
+### 2026-09-23 — Review 78b Phase 3 workflow impact
+
+Exact GitNexus upstream impact was run with tests included before the Phase 3 workflow edits. The approved bounded scope is presentation/accessibility only; no controller state transitions, API, auth/RBAC, masking/scope, financial, idempotency, or offline semantics are changed.
+
+| Symbol                       | File                                                             | Risk     |  Direct dependants | Processes | Finding                                                                                |
+| ---------------------------- | ---------------------------------------------------------------- | -------- | -----------------: | --------: | -------------------------------------------------------------------------------------- |
+| `CashierWorkflowRoute`       | `apps/web/components/workflows/cashier-transaction-route.tsx`    | **HIGH** |                  4 |         3 | `CashierEarnPage`, `CashierLookupPage`, and `CashierRedeemPage`; shared workflow route |
+| `useCashierLookupController` | `apps/web/components/workflows/use-cashier-lookup-controller.ts` | **HIGH** | 1 direct / 5 total |         3 | Lookup controller used by all three cashier workflow routes                            |
+| `EarnTransactionForm`        | `apps/web/components/workflows/earn-transaction-form.tsx`        | LOW      |                  2 |         0 | Direct form consumers only                                                             |
+| `RedeemTransactionForm`      | `apps/web/components/workflows/redeem-transaction-form.tsx`      | LOW      |                  2 |         0 | Direct form consumers only                                                             |
+
+Exact commands:
+
+```text
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/use-cashier-lookup-controller.ts useCashierLookupController
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/earn-transaction-form.tsx EarnTransactionForm
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests --file apps/web/components/workflows/redeem-transaction-form.tsx RedeemTransactionForm
+```
+
+The HIGH findings were reported and bounded presentation/accessibility edits were subsequently approved. Any edit widening beyond those boundaries must stop for fresh impact review and approval.

@@ -10,6 +10,36 @@
   gap: 34px;
 }
 
+/* Redeem keeps every production-required stage visible, but uses the
+ * prototype's tighter review rhythm instead of adding vertical whitespace. */
+.cashier-route-page--redeem .cashier-flow-panel[data-state='step-3'] {
+  padding: 22px;
+}
+
+.cashier-route-page--redeem
+  .cashier-flow-panel[data-state='step-4']:not(:has(.redeem-result)) {
+  padding: 30px;
+}
+
+.cashier-route-page--redeem
+  .cashier-flow-panel[data-state='step-4']:not(:has(.redeem-result))
+  .cashier-transaction-form {
+  gap: 12px;
+}
+
+.cashier-route-page--redeem
+  .cashier-flow-panel[data-state='step-4']:not(:has(.redeem-result))
+  .cashier-workflow-stage {
+  gap: 16px;
+}
+
+/* The approved outcome keeps the compact review rhythm while restoring the
+ * prototype's final-panel breathing room for its fuller production result. */
+.cashier-route-page--redeem
+  .cashier-flow-panel[data-state='step-4']:has([data-od-id='redeem-success']) {
+  padding: 40px 40px 39px;
+}
+
 .cashier-route-header {
   display: grid;
   gap: 10px;
@@ -449,6 +479,24 @@
   font-size: 12px;
 }
 
+.capture-result-card--pending {
+  border-color: color-mix(
+    in oklch,
+    var(--sc-color-warning-strong, #9a6700) 24%,
+    var(--sc-prototype-border)
+  );
+  background: color-mix(
+    in oklch,
+    var(--sc-color-warning-surface, #fff7d6) 42%,
+    var(--sc-prototype-surface)
+  );
+}
+
+.capture-result-card--pending .capture-result-card__hero {
+  background: var(--sc-color-warning-surface, #fff7d6);
+  color: var(--sc-color-warning-strong, #9a6700);
+}
+
 .capture-result-card__eyebrow {
   margin: 0 0 4px;
   color: var(--sc-color-success-strong);
@@ -528,6 +576,14 @@
 .find-customer-hint,
 .find-customer-notice {
   margin: 10px 0 0;
+}
+
+/* Keep the full lookup guidance available while matching the prototype's
+ * single-line hint rhythm at the approved desktop width. */
+.find-customer-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 18px;
 }
 
 .find-customer-notice {
@@ -1187,6 +1243,178 @@
 @media (max-width: 620px) {
   .cashier-verified-card-lookup .cashier-lookup-form {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Focused Supervisor/Admin registration composition. */
+.customer-registration-page {
+  display: grid;
+  gap: 24px;
+  max-width: var(--sc-prototype-contentMaxWidth);
+  margin: 0 auto;
+}
+.customer-registration-page__header,
+.customer-registration-flow {
+  display: grid;
+  gap: 16px;
+}
+.customer-registration-page__header h1,
+.customer-registration-page__header p {
+  margin: 0;
+}
+.customer-registration-page__header h1 {
+  color: var(--sc-color-brand-700);
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: clamp(30px, 4vw, 36px);
+  letter-spacing: -0.04em;
+}
+.customer-registration-page__eyebrow,
+.customer-registration-stage-heading p {
+  color: var(--sc-prototype-accent);
+  font-family: var(--sc-font-family-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.customer-registration-flow {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 32px);
+}
+.customer-registration-steps {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--sc-prototype-canvas);
+  color: var(--sc-prototype-muted);
+  list-style: none;
+}
+.customer-registration-steps li {
+  flex: 1;
+  font-size: 12px;
+}
+.customer-registration-steps li[aria-current='step'] {
+  color: var(--sc-prototype-accent);
+  font-weight: 700;
+}
+.customer-registration-steps li span {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  margin-right: 4px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sc-prototype-border);
+}
+.customer-registration-steps li[aria-current='step'] span {
+  background: var(--sc-prototype-accent);
+  color: var(--sc-prototype-surface);
+}
+.customer-registration-status {
+  min-height: 20px;
+  margin: 0;
+  color: var(--sc-prototype-muted);
+  font-size: 12px;
+}
+.customer-registration-form,
+.customer-registration-review {
+  display: grid;
+  gap: 18px;
+}
+.customer-registration-form > label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+}
+.customer-registration-form .sc-input {
+  min-height: 42px;
+}
+.customer-registration-stage-heading {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--sc-prototype-border);
+}
+.customer-registration-stage-heading p,
+.customer-registration-stage-heading h2,
+.customer-registration-stage-heading span {
+  margin: 0;
+}
+.customer-registration-stage-heading h2 {
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: 22px;
+}
+.customer-registration-stage-heading span {
+  color: var(--sc-prototype-muted);
+  font-size: 12px;
+}
+.customer-registration-review dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+.customer-registration-review dl div {
+  display: grid;
+  gap: 3px;
+}
+.customer-registration-review dt {
+  color: var(--sc-prototype-muted);
+  font-size: 11px;
+}
+.customer-registration-review dd {
+  margin: 0;
+  font-weight: 600;
+}
+.customer-registration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding-top: 8px;
+}
+.customer-registration-actions a {
+  text-decoration: none;
+}
+.customer-registration-result {
+  display: grid;
+  gap: 12px;
+  padding: 20px 4px 4px;
+}
+.customer-registration-result h2,
+.customer-registration-result p {
+  margin: 0;
+}
+.customer-registration-result__icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid var(--sc-color-semantic-success);
+  border-radius: 12px;
+  color: var(--sc-color-semantic-success);
+  font-size: 24px;
+}
+@media (max-width: 620px) {
+  .customer-registration-flow {
+    padding: 16px;
+  }
+  .customer-registration-steps {
+    gap: 6px;
+    overflow-x: auto;
+    padding-inline: 10px;
+  }
+  .customer-registration-steps li {
+    min-width: 132px;
+  }
+  .customer-registration-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .customer-registration-actions .sc-button {
+    width: 100%;
   }
 }
 

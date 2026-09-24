@@ -259,7 +259,12 @@ export function EarnTransactionForm({
           {reviewing ? 'Edit receipt' : 'Reset draft'}
         </Button>
       </div>
-      <div className="cashier-form-status">
+      <section
+        className="cashier-form-status"
+        data-od-id="capture-outcome"
+        aria-live="polite"
+        aria-label="Capture purchase outcome"
+      >
         <StatusBadge
           label={
             status === 'pending'
@@ -280,26 +285,40 @@ export function EarnTransactionForm({
                   : 'neutral'
           }
         />
-        <p aria-live="polite" className="cashier-form-status__message">
+        <p className="cashier-form-status__message">
           {message || 'The final transaction status will appear here.'}
         </p>
-      </div>
+      </section>
       {responseData ? (
         <section
-          className="capture-result-card cashier-workflow-stage"
+          className={`capture-result-card cashier-workflow-stage capture-result-card--${status}`}
           data-od-id="capture-success"
           aria-live="polite"
+          aria-label="Capture purchase result"
         >
           <div className="cashier-stage-heading">
             <span className="cashier-stage-kicker">Result</span>
-            <h2 className="cashier-stage-heading-title">Purchase captured</h2>
+            <h2 className="cashier-stage-heading-title">
+              {status === 'confirmed'
+                ? 'Purchase captured'
+                : 'Purchase pending approval'}
+            </h2>
             <p className="cashier-stage-heading-description">
-              The authoritative transaction status is shown below.
+              The authoritative transaction status is shown below; pending
+              approval is not a completed credit.
             </p>
           </div>
-          <div className="capture-result-card__hero" aria-hidden="true">
-            <CircleCheck size={30} strokeWidth={1.8} />
-            <span>ShopCity Credit earned</span>
+          <div className="capture-result-card__hero">
+            {status === 'confirmed' ? (
+              <CircleCheck aria-hidden="true" size={30} strokeWidth={1.8} />
+            ) : (
+              <span aria-hidden="true">…</span>
+            )}
+            <span>
+              {status === 'confirmed'
+                ? 'ShopCity Credit earned'
+                : 'Awaiting supervisor approval'}
+            </span>
           </div>
           <div>
             <p className="capture-result-card__eyebrow">

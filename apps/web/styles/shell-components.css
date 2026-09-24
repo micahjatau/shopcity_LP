@@ -179,7 +179,7 @@
 
 .shell-body {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
+  grid-template-columns: var(--sc-prototype-shellWidth) minmax(0, 1fr);
   transition: grid-template-columns 220ms ease;
   gap: 0;
   align-items: start;
@@ -189,7 +189,7 @@
 }
 
 .shell-body--collapsed {
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: var(--sc-prototype-shellCollapsedWidth) minmax(0, 1fr);
 }
 
 .shell-main-column {
@@ -353,8 +353,8 @@
 }
 
 .shell-topbar {
-  height: 64px;
-  min-height: 64px;
+  height: var(--sc-prototype-topbarHeight);
+  min-height: var(--sc-prototype-topbarHeight);
   background: var(--sc-color-neutral-0);
   color: var(--sc-color-neutral-900);
   border: 1px solid var(--sc-color-semantic-border);
@@ -443,7 +443,7 @@
 
 .global-shell-search {
   position: relative;
-  width: min(300px, 42vw);
+  width: min(var(--sc-prototype-sharedSearchMaxWidth), 42vw);
   z-index: 4;
 }
 

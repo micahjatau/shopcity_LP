@@ -98,6 +98,64 @@ describe('Cashier lookup workflow', () => {
     expect(cardsControllerLookupCardV1).not.toHaveBeenCalled();
   });
 
+  it('renders zero for a loaded empty activity feed', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [],
+        },
+      },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+    await waitFor(() => {
+      expect(reportsControllerListCashierTodayV1).toHaveBeenCalled();
+    });
+
+    for (const metricId of [
+      'metric-receipts',
+      'metric-earn',
+      'metric-redeem',
+    ]) {
+      expect(
+        document.querySelector(`[data-od-id="${metricId}"] .metric-value`),
+      ).toHaveTextContent('0');
+    }
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('₦0.00');
+    expect(screen.getByText('Redemptions')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'View today’s transactions →' }),
+    ).toBeInTheDocument();
+  });
+
+  it('reserves em dashes for an unavailable activity feed', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 503,
+      data: { data: {} },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+    expect(
+      await screen.findByText('Today’s activity is temporarily unavailable.'),
+    ).toBeInTheDocument();
+
+    for (const metricId of [
+      'metric-receipts',
+      'metric-earn',
+      'metric-issued',
+      'metric-redeem',
+    ]) {
+      expect(
+        document.querySelector(`[data-od-id="${metricId}"] .metric-value`),
+      ).toHaveTextContent('—');
+    }
+  });
+
   it('filters the bounded activity feed locally by receipt number', async () => {
     render(<CashierOverviewLookup />);
 
@@ -179,6 +237,9 @@ describe('Cashier lookup workflow', () => {
 
     expect(await screen.findByText('Pending calculation')).toBeInTheDocument();
     expect(screen.queryByText('₦10,000.00')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('—');
   });
 
   it('renders pending Earn with an authoritative credit amount', async () => {
@@ -229,6 +290,27 @@ describe('Cashier lookup workflow', () => {
     ).toHaveAttribute('placeholder', 'Search');
     expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
     expect(screen.getByText('No customers found')).toBeInTheDocument();
+  });
+
+  it('restores lookup focus and clears discovery state on Escape', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Find customer"
+        description="Find a customer"
+      />,
+    );
+
+    const search = screen.getByRole('searchbox', { name: 'Customer search' });
+    fireEvent.change(search, { target: { value: 'Ada Shopper' } });
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(search).toHaveFocus();
+    expect(search).toHaveValue('');
+    expect(screen.getByText('No customers found')).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="customer-search-state"]'),
+    ).toHaveAttribute('role', 'status');
   });
 
   it('keeps discovery results masked and prevents unverified workflow selection', async () => {

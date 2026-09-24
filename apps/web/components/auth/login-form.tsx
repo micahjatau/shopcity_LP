@@ -13,6 +13,24 @@ const routeByRole = {
   ADMIN: '/admin',
 } as const;
 
+const loginRoles = [
+  [
+    'CASHIER',
+    'Cashier / Loyalty Staff',
+    'Register, capture receipts and redeem credit at the till.',
+  ],
+  [
+    'SUPERVISOR',
+    'Supervisor',
+    'Approve high-value receipts, late claims and OTP overrides.',
+  ],
+  [
+    'ADMIN',
+    'Administrator',
+    'Programme configuration, wallet, campaigns and audit.',
+  ],
+] as const;
+
 export function LoginForm() {
   const router = useRouter();
   const usernameId = useId();
@@ -84,47 +102,31 @@ export function LoginForm() {
     >
       <fieldset className="login-role-list" data-od-id="role-selector">
         <legend className="sr-only">Choose a staff account</legend>
-        {[
-          [
-            'CASHIER',
-            'Cashier / Loyalty Staff',
-            'Register, capture receipts and redeem credit at the till.',
-          ],
-          [
-            'SUPERVISOR',
-            'Supervisor',
-            'Approve high-value receipts, late claims and OTP overrides.',
-          ],
-          [
-            'ADMIN',
-            'Administrator',
-            'Programme configuration, wallet, campaigns and audit.',
-          ],
-          [
-            'OWNER',
-            'Owner',
-            'Liability, reconciliation and programme performance.',
-          ],
-        ].map(([value, label, detail], index) => (
-          <label
-            key={value}
-            className="login-role-option"
-            htmlFor={`role-${value.toLowerCase()}`}
-          >
-            <input
-              id={`role-${value.toLowerCase()}`}
-              type="radio"
-              name="role"
-              value={value}
-              aria-label={label}
-              defaultChecked={index === 0}
-            />
-            <span>
-              <strong>{label}</strong>
-              <small>{detail}</small>
-            </span>
-          </label>
-        ))}
+        {loginRoles.map(([value, label, detail], index) => {
+          const detailId = `role-${value.toLowerCase()}-detail`;
+
+          return (
+            <label
+              key={value}
+              className="login-role-option"
+              htmlFor={`role-${value.toLowerCase()}`}
+            >
+              <input
+                id={`role-${value.toLowerCase()}`}
+                type="radio"
+                name="role"
+                value={value}
+                aria-label={label}
+                aria-describedby={detailId}
+                defaultChecked={index === 0}
+              />
+              <span>
+                <strong>{label}</strong>
+                <small id={detailId}>{detail}</small>
+              </span>
+            </label>
+          );
+        })}
       </fieldset>
       <div className="login-field">
         <label htmlFor={usernameId}>Email Address</label>
