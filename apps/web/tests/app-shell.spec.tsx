@@ -105,6 +105,7 @@ describe('AppShell', () => {
       'aria-pressed',
       'true',
     );
+    expect(screen.getByRole('status')).toHaveTextContent('System Online');
     expect(
       screen.getByRole('button', { name: 'Notifications' }),
     ).toBeDisabled();

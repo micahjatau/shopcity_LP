@@ -1,92 +1,123 @@
 # Design: Prototype-first frontend reconstruction
 
-## Context
+> **Repair addendum (2026-09-23):** This document is a planning contract, not an implementation-complete claim. The matrix, ownership rules, and gates below are normative for the remaining implementation and review work. Tasks in the audit-driven implementation section remain unchecked.
 
-Review 78 identifies a mismatch between the intended prototype-first product direction and the current implementation: CSS is increasingly centralized, but page-level React composition remains legacy. The approved prototype HTML and mapped Figma exports are the source of truth for visible structure; production controllers and backend contracts remain the source of truth for behavior, authority, and financial validity.
+## Source and invariants
 
-The repository has pre-existing dirty changes. This change must not reset, overwrite, or absorb unrelated work. Prototype references must be frozen by commit, route, state, viewport, and screenshot before visual implementation begins.
+The committed route HTML/CSS is the visible-structure source of truth. The prototype audit identifies `apps/web/public/prototype/overview-dashboard.html`, `find-customer.html`, `capture-purchase.html`, `redeem-credit.html`, `global.css`, and `prototype-ui.js` as the reference set. The JSX audit identifies the React shell and route implementations to compare. Prototypes provide structure, geometry, spacing, and responsive intent—not authority, fake data, or unsafe behavior.
 
-## Goals
+Preserve `AppShell` session bootstrap, redirects, route guards, RBAC navigation, mobile drawer, focus handling, offline indicators/queue counts, and logout. Preserve lookup masking/stale-response handling, integer-kobo financial handling, idempotency/draft recovery, approval/pending distinctions, no-offline-redemption rules, bounded transaction scope, and Sync Queue IndexedDB/device-binding/retry/reconciliation/confirmed-clear semantics. Client presentation must never become authoritative for roles, balances, approvals, or financial outcomes.
 
-- Convert approved prototype structure to React JSX with minimal hierarchy drift.
-- Keep workflow controllers, API clients, route guards, RBAC, masking, idempotency, offline behavior, and financial safeguards authoritative.
-- Establish a shared shell and page-heading rhythm before reconstructing dependent routes.
-- Make visual acceptance an aligned prototype-to-React comparison, not merely a passing React snapshot.
-- Record intentional deviations where production accessibility, security, or truthful data requires a change.
+## Shared shell geometry and ownership
 
-## Non-goals
+The implementation must reproduce the HTML model rather than copying its numbers into a different wrapper:
 
-- No backend or database changes.
-- No redesign of financial workflows, authorization, authentication, queue semantics, or generated API contracts.
-- No broad CSS-centralization exercise or replacement of every reusable component.
-- No screenshot updates used to conceal a structural mismatch.
+```text
+app grid (244px sidebar; 76px collapsed; 62px mobile bar)
+└─ full remaining-column main with outer padding
+   ├─ topbar (64px desktop; 56px mobile; full padded-column width)
+   └─ independently centered route content
+      └─ route-specific width (1120px general; 1080px Find Customer; 712px search/recent cards)
+```
 
-## Architecture and ownership
+Desktop main padding is `16px 24px 40px`; tablet is 16px horizontal and mobile is 12px. The topbar uses the prototype gap, radius, border, and post-topbar spacing (42px desktop, 28px mobile). Do not leave `.shell-main` as a max-width wrapper that makes route content 1072px and caps the topbar. Remove or replace old wrappers that own competing width, order, or landmark behavior; route components should own route-specific grouping and the shared shell should own only shell geometry.
 
-| Concern                                                | Owner                                                    |
-| ------------------------------------------------------ | -------------------------------------------------------- |
-| Visible screen structure and reference content         | Committed HTML prototypes and mapped Figma exports       |
-| React element hierarchy and page composition           | Route/presentation components                            |
-| Colors, type, borders, controls, and shared appearance | Centralized design-system CSS and shared primitives      |
-| Visible workflow stage                                 | Existing workflow controller/state machine               |
-| Customer/card discovery                                | Existing lookup and verification controllers             |
-| Financial validity and persistence                     | Backend services and API contracts                       |
-| Responsive geometry                                    | Shared layout and route-composition CSS                  |
-| Visual acceptance                                      | Prototype comparison evidence with documented deviations |
+Responsive acceptance covers 1024, 920, 768, 767, 700, 620, 390, and 375px. At 920px the sidebar collapses and dashboard metrics/search controls follow prototype tablet rules; at 620px the shell stacks, controls stack, headings reflow, and metrics become one column. Capture/Redeem use their documented 700px transition. No horizontal overflow is accepted.
 
-Generic primitives may be reused only when their DOM hierarchy does not force a different prototype composition. When a prototype requires page-specific grouping, retain a page-specific presentation wrapper and reuse behavior below it.
+## Topbar and search composition
 
-## Slice design
+`AppTopbar` remains the one shared operational topbar. Its visible hierarchy is global search (with a bounded, readable role-authorized category pill), System Online state, notifications, avatar, and mobile menu as applicable. Keep category authorization: Cashier gets Customers/Cards; Supervisor/Admin additionally get Cashiers. Preserve query behavior, keyboard navigation, result masking, focus return, and route guards. Correct Admin card results to `/admin/cards` if the audited implementation still targets `/supervisor/cards`.
 
-### 0. Reference baseline
+The category control must remain adjacent to the search input while being visually composed as a bounded pill; it must not become a narrow set of ungrouped buttons or force mobile overflow. Verify the System Online visual state against the intended fixture; do not remove or fake operational status to achieve a screenshot.
 
-Record candidate Git SHA, deployed frontend SHA, route, exact state, browser viewport, prototype commit/reference, browser screenshot, prototype screenshot, environment, and known differences. The approved prototype reference is commit `410ecd75` unless repository evidence identifies a newer approved source.
+## Route-by-route hierarchy contract
 
-### 1. Shared navbar
+Before and after each presentation edit, compare JSX and the corresponding HTML in the table below. Record element order, grouping, width owner, responsive transition, landmark IDs, and intentional production deviations in `evidence.md`.
 
-Use the prototype operational topbar geometry as the baseline. Keep one shared `AppTopbar` across operational routes. Remove the session-ready, user-email/role, and device-pending diagnostic paragraphs from rendered presentation. Restructure `GlobalShellSearch` so the role-aware category pill is a sibling beside the search input rather than a block rendered below it. Preserve sidebar, mobile drawer, route guards, and existing search behavior. Notification and avatar controls may be presentation-ready while their completion remains bounded by the approved issue #45 functionality.
+| Route/state                | HTML reference                                                                                                          | Required React presentation order                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `/cashier` overview        | `overview-dashboard.html`                                                                                               | heading/greeting → quick actions → activity metrics → recent-transactions table/footer                             |
+| `/cashier/lookup`          | `find-customer.html`                                                                                                    | heading/action → centered search card (query/Search/Scan/hint) → status → recent customers/results and row actions |
+| `/cashier/earn`            | `capture-purchase.html`                                                                                                 | persistent heading/stages → Find → Confirm customer → Receipt details → Review → status/outcome                    |
+| `/cashier/redeem`          | `redeem-credit.html`                                                                                                    | persistent heading/stages → Find → Basket subtotal → Redemption amount → Confirm → status/outcome                  |
+| `/cashier/transactions`    | `transactions-dashboard.html` shared table/detail structure; cashier route is production-bounded                        | heading/refresh → bounded filters → table/footer → detail dialog                                                   |
+| `/supervisor/transactions` | `transactions-dashboard.html` shared table/detail structure; supervisor route chrome is a production deviation          | heading/refresh → bounded filters → table/footer → detail dialog                                                   |
+| `/admin/transactions`      | `transactions-dashboard.html` shared table/detail structure; admin route map/reversal context is a production deviation | heading/refresh → bounded filters → table/footer → detail dialog                                                   |
+| `/cashier/sync` (derived)  | shared prototype primitives, no full-page Figma                                                                         | metrics/status → unique toolbar → queue table → selected details/dialog in DOM and visual order                    |
 
-### 2. Overview
+Replace migration-era route/header/overview wrappers when they obscure this contract. Do not flatten intentional Capture/Redeem width/content differences or hide required financial/accessibility context to match stale images. Transactions refresh belongs in the heading/action region. Sync Queue must not rely on CSS `order` to contradict assistive-technology order, and its toolbar landmark must be unique.
 
-Translate `apps/web/public/prototype/overview-dashboard.html` and `Landing-2.png` into the route's visible structure: page heading, greeting, quick-action region, four activity metrics, recent-transactions table, and footer/spacing. Bind existing bounded activity data and authorized quick actions without changing their contracts.
+## Evidence gates and artifact policy
 
-### 3. Find Customer
-
-Translate the prototype heading, centered search panel, search/scan actions, recent customers/results, and customer selection regions. Reuse existing customer discovery and card-verification controllers. Preserve name/phone/card scope, masking, stale-response handling, keyboard behavior, and error contracts.
-
-### 4. Capture Purchase and Redeem Credit
-
-Replace legacy layout wrappers where they prevent prototype fidelity, but keep workflow state and handlers. Both routes use a persistent flow panel, prototype-derived stage headings, status placement, lookup/form controls, review summary, and result composition. Capture Purchase follows its committed four-step prototype with its intentional panel width; Redeem follows its distinct width and financial content. Unsupported or unsafe prototype fields are replaced with truthful approved alternatives.
-
-### 5. Transactions and Sync Queue
-
-Translate Transactions into heading → filters → table → footer and a prototype-derived two-column detail dialog. Preserve bounded history and truthful empty fields. Build Sync Queue from completed shared toolbar, table, status-badge, button, metric/status, and detail-dialog components; document it as a derived composition because it has no full-page Figma reference.
-
-### 6. Register Customer reference reconciliation
-
-Treat the remaining Register Customer mismatch as an evidence question before changing presentation code. Compare the retained `1440x3140` reference and current `1440x3244` production capture at the same route, role, state, browser, and viewport. If the additional current content is required for accessibility, truthful production behavior, or authorization, update the approved reference with explicit provenance and an approved deviation, following the Capture/Redeem decision. If the current DOM is not contractually justified, create a separately reviewed presentation change; do not hide content or alter registration/RBAC behavior solely to satisfy a screenshot.
-
-## Evidence and acceptance
-
-For every route/state/viewport row, collect:
-
-- prototype reference and React screenshot at the same viewport;
-- DOM landmark and element-order check;
-- computed-style or geometry evidence for important regions;
-- loading, empty, error, success, disabled, focus, keyboard, responsive, and reduced-motion checks as applicable;
-- functional evidence for the existing controller interaction;
-- intentional deviation entry with rationale and owner.
-
-React snapshots remain a separate regression signal. They must not replace prototype comparisons.
-
-## Risks and mitigations
-
-- **Legacy JSX blocks fidelity:** replace presentation wrappers while retaining controller hooks and handlers.
-- **Visual work regresses authority:** keep route guards, masking, API contracts, and backend behavior out of the presentation rewrite; run focused functional tests.
-- **Prototype contains obsolete behavior:** copy structure and appearance, not unsafe/fake navigation, placeholder data, or unauthorized registration behavior.
-- **Dirty tree contaminates evidence:** record baseline SHA/status and maintain an excluded-file list.
-- **Navbar functionality is incomplete:** mark notification/profile as pending until the approved issue #45 contract is implemented; do not overclaim completion.
+1. Freeze candidate SHA, dirty-tree exclusions, route/state/role, browser, locale/timezone, viewport, prototype source, and artifact paths.
+2. Capture a same route/state/role/browser/viewport prototype-vs-React comparison before accepting visual changes. A React snapshot alone is insufficient.
+3. Do not update visual baselines or reference images before that comparison. If a retained artifact is proven stale, obtain explicit approval and update only the directly paired artifact with old/new dimensions, provenance, rationale, and assertion status.
+4. Run focused functional, accessibility, keyboard/focus, responsive/no-overflow, and role-handoff checks without changing backend behavior.
+5. Perform a second passthrough review of every route, shell width owner, breakpoint, landmark/order contract, and residual deviation. Resolve or explicitly record every P1/P2 gap.
+6. Validate final artifacts: OpenSpec files, route/state/viewport matrix, screenshot dimensions/provenance, test reports, changed-path inventory, `git diff --check`, and no staged files. Run GitNexus `detect_changes()` and distinguish inherited dirty-tree scope from this change.
 
 ## Rollback
 
-Each slice is independently revertible at the presentation/evidence layer. Roll back the affected route component and comparison fixtures without changing backend contracts, database state, or financial history. Do not revert unrelated pre-existing working-tree changes.
+Keep presentation slices independently revertible. Roll back only affected JSX/CSS/evidence artifacts; never reset unrelated dirty files or change backend contracts, database state, financial history, auth/RBAC authority, offline queue data, or visual baselines without the evidence and approval gates above.
+
+## Repair contract: route, state, role, and viewport matrix
+
+The following matrix is the complete comparison inventory. A cell marked **HTML** names the exact static reference. **Derived** means that no complete page exists and parity is limited to named shared primitives and production semantics. **Out of scope** means that the nearest prototype is not an exact route and must not be presented as evidence for that route.
+
+| Route                       | Exact HTML / disposition                                                                                                                                                                       | React entry → root landmark                                                                                                                                                                                                                                  | Role         | Required state set                                                                                                                       | 1440/1024                                                       | 920/768/767                                                             | 700                                            | 620/390/375                                                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`                    | **HTML:** `apps/web/public/prototype/login-page.html`                                                                                                                                          | `app/(auth)/login/page.tsx` → `LoginPage`/`LoginForm` → `login-page`, `login-heading`, `login-form`, `role-selector`, `sign-in-cta`                                                                                                                          | anonymous    | idle, submitting, invalid, authoritative auth error, backend-role redirect                                                               | centered desktop card; no overflow                              | centered tablet card; controls retain order                             | same centered card; no shell sidebar           | stacked fields; role fieldset, password toggle, CTA remain in DOM order                                                                  |
+| `/cashier`                  | **HTML:** `overview-dashboard.html`                                                                                                                                                            | `app/(shell)/cashier/page.tsx` → `CashierPage`/`CashierOverviewLookup` → `overview-main`, `overview-heading`, `overview-actions`, `overview-activity`, `activity-metrics`, `recent-transactions`                                                             | `CASHIER`    | loading, data, empty, authoritative error, pending/approved/failed row                                                                   | 1120px route content; metrics and table desktop                 | sidebar-collapse state; metrics remain multi-column where space permits | action/metric reflow at workflow breakpoint    | one-column metrics; action controls stack; no horizontal overflow                                                                        |
+| `/cashier/lookup`           | **HTML:** `find-customer.html`; the HTML search panel width is **712px authoritative** (the historical 640px screenshot is superseded evidence)                                                | `app/(shell)/cashier/lookup/page.tsx` → `CashierLookupPage`/`CashierWorkflowRoute` → `find-customer-content`, `customer-search`, `customer-search-state`, `recent-customers`, `customer-results`, `verified-card-handoff`                                    | `CASHIER`    | idle, query, loading, directory results, verified-card result, empty, exact error, offline, stale response, focus return                 | 1080px outer route; 712px centered search panel                 | centered 712px panel; actions stay adjacent                             | 712px panel until mobile contract; no clipping | panel becomes fluid; actions stack; query/status/results remain DOM ordered                                                              |
+| `/cashier/transactions`     | **HTML:** `transactions-dashboard.html` for shared table/detail structure; cashier route is production-bounded                                                                                 | `app/(shell)/cashier/transactions/page.tsx` → `CashierTransactionsPage`/`TransactionDashboard` → `transactions-view`, `transactions-heading`, `transaction-filters`, table/footer, dialog                                                                    | `CASHIER`    | loading, bounded data, empty, error, filter, refresh, detail dialog                                                                      | heading/refresh → filters → table/footer → dialog within 1120px | filters wrap after sidebar collapse                                     | compact toolbar remains readable               | table/filters stack without overflow; dialog follows table in DOM                                                                        |
+| `/cashier/earn`             | **HTML:** `capture-purchase.html`                                                                                                                                                              | `app/(shell)/cashier/earn/page.tsx` → `CashierEarnPage`/`CashierWorkflowRoute`/`EarnTransactionForm` → `capture-purchase-page`, `capture-stages`, `capture-find`, `capture-confirm-customer`, `capture-receipt`, `capture-review-details`, `capture-outcome` | `CASHIER`    | initial, lookup loading/error, confirmed customer, draft, validation error, review, pending, success, failed/uncertain, offline recovery | 860px flow panel within 1120px route                            | flow panel remains readable; sidebar collapse only                      | explicit Capture/Redeem 700px transition       | stages and fields stack; outcome follows review in DOM and visual order                                                                  |
+| `/cashier/redeem`           | **HTML:** `redeem-credit.html`                                                                                                                                                                 | `app/(shell)/cashier/redeem/page.tsx` → `CashierRedeemPage`/`CashierWorkflowRoute`/`RedeemTransactionForm` → `redeem-page`, `redeem-stages`, `redeem-find`, `redeem-basket`, `redeem-amount`, `redeem-confirmation`, `redeem-outcome`                        | `CASHIER`    | initial, lookup loading/error, verified card, basket/amount validation, review, pending approval, success, failed, offline prohibition   | 720px flow panel within 1120px route                            | readable narrow panel; no category/control overflow                     | explicit Capture/Redeem 700px transition       | stages stack; no offline redemption control appears; status/outcome follows form                                                         |
+| `/supervisor/customers`     | **Out of scope for direct prototype parity:** `register-customer.html` is exact only for the focused registration routes below; this workspace is a production customer-management composition | `app/(shell)/supervisor/customers/page.tsx` → `SupervisorCustomersPage`/`CustomerWorkspace` → workspace root plus search/list/detail/register regions                                                                                                        | `SUPERVISOR` | loading, search results, selected customer, empty, error, card/action response, registration handoff                                     | production workspace; no claim against focused register HTML    | list/detail remain usable through sidebar collapse                      | toolbar and detail reflow                      | list/detail stack; selected-customer context precedes actions in DOM                                                                     |
+| `/supervisor/customers/new` | **HTML:** `register-customer.html`                                                                                                                                                             | `app/(shell)/supervisor/customers/new/page.tsx` → `SupervisorNewCustomerPage`/`CustomerRegistrationFlow` → `register-page`, `register-flow`, `register-information`, `register-review`, `register-result`                                                    | `SUPERVISOR` | idle, validation error, submitting, uncertain retry, success, authoritative error                                                        | focused registration form                                       | form groups wrap; review remains after information                      | fields/actions stack                           | information → review → result remains DOM ordered; no unsupported fields                                                                 |
+| `/admin/customers/new`      | **HTML:** `register-customer.html`; Admin authorization is the production deviation from the prototype's staff context                                                                         | `app/(shell)/admin/customers/new/page.tsx` → `AdminNewCustomerPage`/`CustomerRegistrationFlow` → `register-page`, `register-flow`, `register-information`, `register-review`, `register-result`                                                              | `ADMIN`      | idle, validation error, submitting, uncertain retry, success, authoritative error                                                        | focused registration form                                       | form groups wrap; review remains after information                      | fields/actions stack                           | information → review → result remains DOM ordered; role authority remains backend-owned                                                  |
+| `/supervisor/transactions`  | **HTML:** `transactions-dashboard.html` used for shared transaction table/detail structure; supervisor route chrome is a documented production deviation                                       | `app/(shell)/supervisor/transactions/page.tsx` → `SupervisorTransactionsPage`/`TransactionWorkspace` → `transactions-view`, `transactions-heading`, `transaction-filters`, table/footer, dialog                                                              | `SUPERVISOR` | loading, bounded data, empty, error, filter, refresh, detail dialog                                                                      | heading/refresh → filters → table/footer → dialog               | filters wrap without reordering                                         | compact toolbar and dialog                     | table becomes readable stacked/card rows; dialog remains after table in DOM                                                              |
+| `/admin/transactions`       | **HTML:** `transactions-dashboard.html` for the shared table/detail regions; admin route map/immutable-reversal context is a documented production deviation                                   | `app/(shell)/admin/transactions/page.tsx` → `AdminTransactionsPage`/`TransactionWorkspace` → page heading, route context, route map, workspace, `transactions-view` and dialog                                                                               | `ADMIN`      | loading, bounded data, empty, error, filter, refresh, detail, permitted compensating-reversal state                                      | admin context precedes workspace; 1120px content                | route links wrap; workspace remains bounded                             | route map becomes stacked                      | route map/actions stack; dialog follows workspace; no overflow                                                                           |
+| `/cashier/sync`             | **Derived:** no complete prototype page; use shared shell/status/metric/toolbar/table/detail primitives only; never claim direct Figma/HTML parity                                             | `app/(shell)/cashier/sync/page.tsx` → `CashierSyncPage` → `sync-queue-view`, `sync-queue-heading`, `sync-queue-metrics`, unique `sync-queue-toolbar`, `sync-queue-table`, details/dialog                                                                     | `CASHIER`    | no-device authorization, loading, empty, waiting, retryable error, syncing, confirmed, clear confirmation                                | derived 1120px composition                                      | metrics and toolbar remain readable                                     | controls wrap at 700px                         | **DOM and visual order:** metrics/status → unique toolbar → queue table → selected details/dialog; queue precedes details at every width |
+
+For every row, comparison evidence records the exact route, role, state, browser, locale/timezone, candidate SHA, viewport, reference path or disposition, root landmark, and child order. The matrix contains **12 rows total**: 10 operational routes plus 2 focused registration routes. “Responsive” is not a single pass: each listed width receives the state named in the last four columns, including empty/error/loading where that route supports it.
+
+## Shell geometry ownership and wrapper contract
+
+The shell geometry has one owner: `AppShell`/`AppShellContent` and its shell CSS. Let `W` be viewport CSS width, `S(W)` be sidebar width (`244px` at desktop, `76px` collapsed at the 920px transition, and `0px` when the mobile bar replaces the sidebar), and `P(W)` be outer route padding (`24px` horizontal for desktop, `16px` for tablet, `12px` for mobile). The post-sidebar column is `M(W) = max(0px, W - S(W))`. The topbar content box is exactly `M(W) - 2P(W)` and is **not** capped by a route max-width. The route content slot is independently centered in that box: `R(W, route) = min(C(route), M(W) - 2P(W))`, where `C(route) = 1120px` generally, `1080px` for Find Customer's outer route, `860px` Capture, `720px` Redeem, and `712px` for the authoritative Find Customer search panel. Topbar height is `64px` above the mobile transition and `56px` at mobile; post-topbar spacing is `42px` desktop and `28px` mobile.
+
+Ownership is explicit:
+
+- `AppShell` owns the skip link, shell frame/body, sidebar/mobile navigation, topbar, the full-width post-sidebar column, `<main id="shell-main-content">`, and shell-level spacing/padding.
+- `AppTopbar` owns the topbar hierarchy: global search/category, **System Online**, notifications, avatar, and applicable mobile menu control. It does not own route content width.
+- Inside `<main>`, `BrowserStateBootstrap`, the shell status row, and `OfflineIndicator` are auxiliary shell regions and remain before protected route children. They are not route wrappers and may not be duplicated by a route.
+- The route root owns only route semantics, route-specific width, stage/group order, and route landmarks. A route must not re-center or cap the topbar.
+
+The wrapper allowlist is: `shell-frame`, `shell-body`, `shell-main-column`, `shell-main`, one named route root/landmark, route-specific semantic groups/cards, and an explicit dialog/portal container. A wrapper is allowed only when it owns one of those responsibilities and has no competing max-width/order/landmark behavior. Forbidden wrappers are an additional capped `.shell-main` descendant, duplicate topbar/sidebar/status/offline regions, anonymous migration-era width wrappers, and CSS `order` used to contradict DOM/assistive-technology order.
+
+Exact wrapper actions for implementation review:
+
+1. **Retain and centralize** `shell-frame`, `shell-body`, `shell-main-column`, and `shell-main` under `AppShell`; remove the route-content max-width responsibility from `shell-main` while retaining its outer padding.
+2. **Retain exactly once** `BrowserStateBootstrap`, `.shell-main-status-row`, and `OfflineIndicator` in `AppShell` before `{children}`; do not move them into a route or add route duplicates.
+3. **Replace or justify** every route-local `header`/`section` wrapper that caps width, owns global order, or creates a competing landmark; retain a transparent semantic route root when it adds heading association or route-specific grouping.
+4. **Retain** `CashierFlowPanel` widths (`860px` Capture, `720px` Redeem) as route-owned presentation; it must not alter shell/topbar width.
+5. **Recompose** Transactions so refresh is in the heading/action group and filters → table/footer → dialog remain in DOM order; retain only a named workspace wrapper.
+6. **Recompose** Sync Queue to one unique toolbar and the DOM order specified in the matrix; remove compensating CSS `order` rather than moving queue semantics into a visual-only wrapper.
+7. **Allow** a dialog portal/overlay wrapper only for dialog semantics and focus management; it may not be used to hide route content or change reading order.
+8. **Reject** any wrapper whose only purpose is to satisfy a stale screenshot dimension; record it as a blocker or approved deviation instead.
+
+## Artifact taxonomy and provenance
+
+Artifacts are four non-interchangeable classes:
+
+| Class               | Examples                                                                                                      | Authority/use                                       | Prohibited substitution                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Prototype source    | `apps/web/public/prototype/*.html`, `global.css`, `prototype-ui.js`                                           | structure, geometry, spacing, responsive intent     | never treated as production data or behavior                                      |
+| Production capture  | a route/state/role/browser/viewport capture from the React app, with candidate SHA and environment metadata   | current production presentation and truthful states | never silently used as an original prototype or baseline                          |
+| Playwright baseline | `apps/web/tests/**-snapshots/*` and assertion-owned expected images                                           | regression signal for the exact test contract       | never treated as prototype parity proof; never updated before comparison/approval |
+| Parity evidence     | this change's matrix, DOM/geometry reports, side-by-side comparison records, test output, provenance manifest | acceptance traceability and deviations/blockers     | never replaced by a screenshot or a passing React snapshot alone                  |
+
+A retained image with a conflicting dimension is first classified as historical failure, approved deviation, or current blocker. It is not relabeled as parity evidence by editing its filename or replacing it without the direct-pair/provenance gate.
+
+## Required measurable assertions
+
+The search and shell checks must use measurable assertions, not visual adjectives: (a) Cashier exposes exactly `Customers` and `Cards`, while Supervisor/Admin expose exactly `Customers`, `Cards`, and `Cashiers`; (b) the category control is adjacent to the input, has a measurable non-zero width at 1440/1024/920/768/767/700/620/390/375, and the input/category/action group has no horizontal overflow; (c) the Admin card result link has exact `href="/admin/cards"`; (d) the shell status contains visible exact text `System Online` and its status region is present in the topbar DOM; (e) query submission renders the requested query in the result/status region, loading disables duplicate submission, empty renders an explicit empty state, and authoritative error renders the API error; and (f) `document.documentElement.scrollWidth <= document.documentElement.clientWidth` at every listed narrow viewport. These assertions are required even if screenshots pass.

@@ -1,4 +1,11 @@
 import type { RefObject } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  getConnectivityState,
+  initializeConnectivityTracking,
+  subscribeConnectivityState,
+  type ConnectivityState,
+} from '../lib/browser/connectivity';
 import { GlobalShellSearch } from './global-shell-search';
 
 export type AppTopbarContext = {
@@ -30,10 +37,35 @@ export function AppTopbar({
   onOpenMobileMenu,
   mobileMenuButtonRef,
 }: AppTopbarProps) {
+  const [connectivityState, setConnectivityState] = useState<ConnectivityState>(
+    getConnectivityState(),
+  );
+
+  useEffect(() => {
+    const stopTracking = initializeConnectivityTracking();
+    return stopTracking;
+  }, []);
+
+  useEffect(() => subscribeConnectivityState(setConnectivityState), []);
+
+  const systemStatusLabel =
+    connectivityState === 'online'
+      ? 'System Online'
+      : `System ${connectivityState}`;
+
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
         <GlobalShellSearch userRole={role} />
+
+        <div
+          className={`shell-system-status shell-system-status--${connectivityState}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span aria-hidden="true" />
+          {systemStatusLabel}
+        </div>
 
         <div className="shell-topbar-actions">
           <button

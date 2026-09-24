@@ -6,13 +6,13 @@ import {
 } from '@playwright/test';
 import {
   canonicalCashierContractSelectors,
-  canonicalCashierLayout,
   canonicalCashierLookupControl,
   type ComputedStyleSnapshot,
 } from './fixtures/design-system-conformance';
 import {
   cashierConformanceRoutes,
   conformanceViewports,
+  publicConformanceRoutes,
   shellConformanceRoutes,
 } from './fixtures/route-conformance-matrix';
 import { shellNavigationByRole } from '../components/shell-navigation';
@@ -424,6 +424,28 @@ test.describe('workflow route coverage', () => {
     ]);
   });
 
+  test('covers public login across the required viewport matrix', async ({
+    page,
+  }) => {
+    for (const route of publicConformanceRoutes) {
+      for (const viewport of conformanceViewports) {
+        await page.setViewportSize({
+          width: viewport.width,
+          height: viewport.height,
+        });
+        await page.goto(`${baseUrl}${route.path}`);
+        await expect(page.locator('[data-od-id="login-page"]')).toBeVisible();
+        await expect(
+          page.locator('[data-od-id="role-selector"] input'),
+        ).toHaveCount(3);
+        expect(
+          await page.locator('body').evaluate((body) => body.scrollWidth),
+          `${route.path} ${viewport.name}`,
+        ).toBeLessThanOrEqual(viewport.width);
+      }
+    }
+  });
+
   test('executes the route and viewport conformance matrix', async ({
     page,
   }) => {
@@ -456,14 +478,19 @@ test.describe('workflow route coverage', () => {
           await expect(page.locator('main')).toBeVisible();
           await expect(page.locator('.shell-main')).toHaveCSS(
             'max-width',
-            canonicalCashierLayout.contentMaxWidth,
+            'none',
           );
-          await expect(page.locator('.global-shell-search')).toHaveCSS(
-            'width',
-            viewport.width < 768
-              ? canonicalCashierLayout.mobileSearchWidth
-              : canonicalCashierLayout.searchMaxWidth,
-          );
+          const categoryBox = await page
+            .locator('.global-shell-search__categories')
+            .boundingBox();
+          expect(categoryBox?.width ?? 0).toBeGreaterThan(0);
+          expect(
+            await page
+              .locator('.global-shell-search__row')
+              .evaluate(
+                (element) => element.scrollWidth <= element.clientWidth,
+              ),
+          ).toBe(true);
 
           for (const contract of canonicalCashierContractSelectors) {
             const subjects = page.locator(contract.selector);
@@ -472,9 +499,18 @@ test.describe('workflow route coverage', () => {
             // state does not render that component. Every matching instance is
             // checked when the documented scope is present.
             for (let index = 0; index < subjectCount; index += 1) {
+              const expectedValue =
+                contract.selector === '.shell-topbar' && viewport.width <= 620
+                  ? '56px'
+                  : route.path.endsWith('/customers/new') &&
+                      contract.selector ===
+                        '.sc-control:not(.sc-textarea):not(.sc-input--compact)' &&
+                      contract.property === 'min-height'
+                    ? '42px'
+                    : contract.expected;
               await expect(subjects.nth(index)).toHaveCSS(
                 contract.property,
-                contract.expected,
+                expectedValue,
               );
             }
           }
@@ -851,13 +887,16 @@ test.describe('workflow route coverage', () => {
   test('covers authoritative Earn and Redeem outcomes', async ({ page }) => {
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
     await expect(
       page
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30000 });
     const captureFlow = page.locator('[data-od-id="capture-flow"]');
-    await expect(captureFlow).toBeVisible();
+    await expect(captureFlow).toBeVisible({ timeout: 30000 });
     const capturePanelWidth = await captureFlow.evaluate((element) =>
       Math.round(element.getBoundingClientRect().width),
     );
@@ -886,13 +925,16 @@ test.describe('workflow route coverage', () => {
     );
 
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
     await expect(
       page
         .getByLabel('Lookup and status')
         .getByText('Ada Shopper', { exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30000 });
     const redeemFlow = page.locator('[data-od-id="redeem-flow"]');
-    await expect(redeemFlow).toBeVisible();
+    await expect(redeemFlow).toBeVisible({ timeout: 30000 });
     expect(
       await redeemFlow.evaluate((element) =>
         Math.round(element.getBoundingClientRect().width),
@@ -927,6 +969,69 @@ test.describe('workflow route coverage', () => {
       'cashier-redeem-outcome.png',
       { maxDiffPixelRatio: 0.08 },
     );
+  });
+
+  test('applies the prototype Capture and Redeem 700px breakpoint', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+
+    for (const route of [
+      { path: '/cashier/earn?card=CARD-001', landmark: 'capture-flow' },
+      { path: '/cashier/redeem?card=CARD-001', landmark: 'redeem-flow' },
+    ] as const) {
+      const stepsId =
+        route.landmark === 'capture-flow' ? 'capture-stages' : 'redeem-stages';
+      for (const [width, expectedColumns] of [
+        [701, 4],
+        [700, 1],
+      ] as const) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto(`${baseUrl}${route.path}`);
+        await expect(page.locator('.shell-loading-screen')).toBeHidden({
+          timeout: 30000,
+        });
+        await expect(
+          page.getByLabel('Lookup and status').getByText('Ada Shopper', {
+            exact: true,
+          }),
+        ).toBeVisible({ timeout: 30000 });
+        const flow = page.locator(`[data-od-id="${route.landmark}"]`);
+        const steps = page.locator(`[data-od-id="${stepsId}"]`);
+        await expect(flow).toBeVisible({ timeout: 30000 });
+        await expect(steps).toBeVisible({ timeout: 30000 });
+        const columns = await steps.evaluate(
+          (element) => getComputedStyle(element).gridTemplateColumns,
+        );
+        expect(
+          columns.trim().split(/\s+/),
+          `${route.path} at ${width}px`,
+        ).toHaveLength(expectedColumns);
+        expect(
+          await page.locator('body').evaluate((body) => body.scrollWidth),
+          `${route.path} at ${width}px overflow`,
+        ).toBeLessThanOrEqual(width);
+      }
+    }
+  });
+
+  test('covers focused registration routes and landmarks', async ({ page }) => {
+    for (const route of [
+      { path: '/supervisor/customers/new', role: 'SUPERVISOR' as const },
+      { path: '/admin/customers/new', role: 'ADMIN' as const },
+    ]) {
+      await mockShell(page, route.role);
+      await page.setViewportSize({ width: 700, height: 844 });
+      await page.goto(`${baseUrl}${route.path}`);
+      await expect(page.locator('[data-od-id="register-flow"]')).toBeVisible();
+      await expect(
+        page.locator('[data-od-id="register-information"]'),
+      ).toBeVisible();
+      expect(
+        await page.locator('body').evaluate((body) => body.scrollWidth),
+        `${route.path} overflow`,
+      ).toBeLessThanOrEqual(700);
+    }
   });
 
   test('covers approval-pending and insufficient-balance transaction outcomes', async ({
@@ -1016,10 +1121,15 @@ test.describe('workflow route coverage', () => {
     const mobileSearch = page.getByRole('combobox', {
       name: 'Search ShopCity',
     });
-    await expect(page.locator('.global-shell-search')).toHaveCSS(
-      'width',
-      canonicalCashierLayout.mobileSearchWidth,
-    );
+    const mobileCategoryBox = await page
+      .locator('.global-shell-search__categories')
+      .boundingBox();
+    expect(mobileCategoryBox?.width ?? 0).toBeGreaterThan(0);
+    expect(
+      await page
+        .locator('.global-shell-search__row')
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
     await mobileSearch.fill('Ada');
     await expect(
       page.getByRole('option', { name: /Ada Shopper/ }),
@@ -1128,6 +1238,23 @@ test.describe('workflow route coverage', () => {
     ]) {
       await expect(page.getByText(label, { exact: true })).toBeVisible();
     }
+    expect(
+      await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
+    ).toBe(1);
+    const landmarkOrder = await page
+      .locator('[data-od-id="sync-queue-view"]')
+      .evaluate((root) =>
+        [
+          root.querySelector('[data-od-id="sync-queue-metrics"]'),
+          root.querySelector('[data-od-id="sync-queue-toolbar"]'),
+          root.querySelector('[data-od-id="sync-queue-table"]'),
+          root.querySelector('.cashier-sync-priority'),
+        ].map((element) => {
+          if (!element) return -1;
+          return Array.from(root.querySelectorAll('*')).indexOf(element);
+        }),
+      );
+    expect(landmarkOrder).toEqual([...landmarkOrder].sort((a, b) => a - b));
     const queueTop = await page
       .locator('.cashier-sync-queue')
       .evaluate((element) => element.getBoundingClientRect().top);

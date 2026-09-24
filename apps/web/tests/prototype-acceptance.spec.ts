@@ -42,7 +42,19 @@ test.describe('prototype acceptance contract', () => {
       >;
     };
 
-    expect(Object.keys(manifest.routes)).toHaveLength(7);
+    expect(Object.keys(manifest.routes)).toHaveLength(8);
+    expect(manifest.routes.registerCustomer.route).toBe(
+      '/supervisor/customers/new',
+    );
+    expect(manifest.routes.registerCustomer.targetLandmark).toBe(
+      '[data-od-id="register-flow"]',
+    );
+    expect(manifest.routes.registerCustomerAdmin.route).toBe(
+      '/admin/customers/new',
+    );
+    expect(manifest.routes.registerCustomerAdmin.targetLandmark).toBe(
+      '[data-od-id="register-flow"]',
+    );
     expect(Object.keys(manifest.assets).length).toBeGreaterThanOrEqual(21);
     for (const [routeName, route] of Object.entries(manifest.routes)) {
       const referencePath = path.join(repoRoot, route.reference);

@@ -53,8 +53,30 @@ describe('TransactionDashboard', () => {
       },
     } as never);
 
-    render(<TransactionDashboard />);
+    const { container } = render(<TransactionDashboard />);
     await waitFor(() => expect(screen.getByText('R-001')).toBeInTheDocument());
+    const heading = container.querySelector(
+      '[data-od-id="transactions-heading"]',
+    );
+    const filters = container.querySelector(
+      '[data-od-id="transaction-filters"]',
+    );
+    const table = container.querySelector('[data-od-id="transactions-table"]');
+    expect(heading).not.toBeNull();
+    expect(filters).not.toBeNull();
+    expect(table).not.toBeNull();
+    expect(heading).toContainElement(
+      screen.getByRole('button', { name: /Refresh data/ }),
+    );
+    expect(filters).not.toContainElement(
+      screen.getByRole('button', { name: /Refresh data/ }),
+    );
+    expect(heading!.compareDocumentPosition(filters!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(filters!.compareDocumentPosition(table!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     fireEvent.change(screen.getByLabelText('Filter by operation'), {
       target: { value: 'REDEEM' },
     });

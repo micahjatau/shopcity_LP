@@ -118,12 +118,6 @@
   color: var(--sc-prototype-muted);
 }
 
-.cashier-overview,
-.cashier-overview-lookup {
-  width: min(100%, var(--sc-prototype-contentMaxWidth));
-  margin-inline: auto;
-}
-
 .cashier-overview {
   display: grid;
   gap: var(--sc-spacing-6);
@@ -149,6 +143,11 @@
   letter-spacing: -0.04em;
   line-height: 1.05;
   text-transform: none;
+}
+
+.cashier-route-header.sc-page-head {
+  max-width: none;
+  margin: 0;
 }
 
 .cashier-route-header.sc-page-head p {
@@ -307,7 +306,8 @@
 }
 
 .cashier-sync-statuses,
-.cashier-sync-toolbar {
+.cashier-sync-toolbar,
+.cashier-sync-clear-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;

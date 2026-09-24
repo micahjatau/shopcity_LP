@@ -340,35 +340,6 @@ export default function CashierSyncPage() {
         are sent and confirmed by ShopCity.
       </Alert>
 
-      <section className="sc-card sc-card--standard cashier-sync-card">
-        <h2>Sync actions</h2>
-        <div className="cashier-sync-actions" data-od-id="sync-queue-toolbar">
-          <Input
-            aria-label="Device ID"
-            placeholder="Authenticated device"
-            value={deviceId}
-            readOnly
-          />
-          <Button onClick={() => void refresh()} variant="secondary">
-            Refresh
-          </Button>
-          <Button
-            aria-label="Submit batch"
-            onClick={() => void syncBatch()}
-            loading={busy}
-          >
-            Sync waiting transactions
-          </Button>
-        </div>
-        <p className="cashier-sync-muted">{message}</p>
-        <p className="cashier-sync-muted">
-          Device ID: {deviceId || 'Unavailable until device-bound login'}
-        </p>
-        <p className="cashier-sync-muted">
-          Waiting and retryable transactions are sent together for confirmation.
-        </p>
-      </section>
-
       <section
         className="cashier-sync-metrics"
         data-od-id="sync-queue-metrics"
@@ -412,149 +383,50 @@ export default function CashierSyncPage() {
         </div>
       </section>
 
+      <section className="sc-card sc-card--standard cashier-sync-card">
+        <h2>Sync actions</h2>
+        <div
+          className="cashier-sync-actions"
+          data-od-id="sync-queue-toolbar"
+          role="toolbar"
+          aria-label="Sync queue controls"
+        >
+          <Input
+            aria-label="Device ID"
+            placeholder="Authenticated device"
+            value={deviceId}
+            readOnly
+          />
+          <Button onClick={() => void refresh()} variant="secondary">
+            Refresh
+          </Button>
+          <Button
+            aria-label="Submit batch"
+            onClick={() => void syncBatch()}
+            loading={busy}
+          >
+            Sync waiting transactions
+          </Button>
+        </div>
+        <p className="cashier-sync-muted">{message}</p>
+        <p className="cashier-sync-muted">
+          Device ID: {deviceId || 'Unavailable until device-bound login'}
+        </p>
+        <p className="cashier-sync-muted">
+          Waiting and retryable transactions are sent together for confirmation.
+        </p>
+      </section>
+
       <p className="cashier-sync-muted">
         Queue summary above stays aligned with the selected record and batch
         result panels below.
       </p>
 
-      {selectedRecord ? (
-        <Alert tone="info" title="Selected record">
-          {selectedRecord.localId} ·{' '}
-          {selectedRecord.cardBarcode ?? 'Card pending'} ·{' '}
-          {selectedRecord.syncState}
-        </Alert>
-      ) : null}
-
-      <div className="cashier-sync-priority">
-        <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-card--highlight">
-          <h2>Selected details</h2>
-          {selectedRecord ? (
-            <>
-              <p className="cashier-sync-muted">
-                This card stays ahead of the queue so the active record is
-                always obvious.
-              </p>
-              <Table>
-                <tbody>
-                  {selectedPreview.map(([key, value]) => (
-                    <tr key={key}>
-                      <th scope="row">{key}</th>
-                      <td>{renderValue(value)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </>
-          ) : (
-            <Alert tone="warning" title="No selected record">
-              Pick a queue entry to inspect its local metadata.
-            </Alert>
-          )}
-        </section>
-
-        <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-card--highlight">
-          <h2>Backend response</h2>
-          <p className="cashier-sync-muted">
-            {actionResponse
-              ? 'The latest sync result and transaction outcomes are visible here.'
-              : 'Sync a batch to inspect its technical result and transaction outcomes.'}
-          </p>
-          {actionResponse ? (
-            <details>
-              <summary>Technical details</summary>
-              <Table>
-                <tbody>
-                  {Object.entries(actionResponse)
-                    .slice(0, 8)
-                    .map(([key, value]) => (
-                      <tr key={key}>
-                        <th scope="row">{key}</th>
-                        <td>{renderValue(value)}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </Table>
-            </details>
-          ) : (
-            <Alert tone="warning" title="No sync result">
-              Sync a batch to surface technical reconciliation details.
-            </Alert>
-          )}
-          <div className="cashier-sync-statuses">
-            <StatusBadge
-              label={`Batch results ${lastBatchResults.length}`}
-              tone="info"
-            />
-            <StatusBadge
-              label={`Queueable ${queueableRecords.length}`}
-              tone="neutral"
-            />
-          </div>
-          {lastBatchResults.length > 0 ? (
-            <Table>
-              <thead>
-                <tr>
-                  <th>Local ID</th>
-                  <th>Status</th>
-                  <th>Transaction</th>
-                  <th>Approval</th>
-                  <th>Credit</th>
-                  <th>Retryable</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lastBatchResults.map((result) => (
-                  <tr key={result.localId}>
-                    <td>{result.localId}</td>
-                    <td>
-                      <StatusBadge
-                        label={result.status}
-                        tone={toneForResult(result.status)}
-                      />
-                    </td>
-                    <td>{result.transactionId ?? '—'}</td>
-                    <td>{result.approvalId ?? '—'}</td>
-                    <td>
-                      {typeof result.creditEarnedKobo === 'number' ? (
-                        <Money amountKobo={result.creditEarnedKobo} />
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td>{result.retryable ? 'Yes' : 'No'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          ) : null}
-          <div className="cashier-sync-toolbar">
-            <Input
-              aria-label="Clear confirmation"
-              placeholder="Type CLEAR to remove confirmed"
-              value={clearConfirmation}
-              onChange={(event) => setClearConfirmation(event.target.value)}
-            />
-            <Button
-              variant="ghost"
-              onClick={() => void clearConfirmed()}
-              disabled={
-                !records.some((record) => record.syncState === 'confirmed')
-              }
-            >
-              Clear confirmed
-            </Button>
-          </div>
-        </section>
-      </div>
-
       <section
         className="sc-card sc-card--standard cashier-sync-card cashier-sync-queue"
         data-od-id="sync-queue-table"
       >
-        <div
-          className="cashier-sync-queue-header"
-          data-od-id="sync-queue-toolbar"
-        >
+        <div className="cashier-sync-queue-header">
           <div>
             <h2>Queue records</h2>
             <p className="cashier-sync-muted">
@@ -676,6 +548,136 @@ export default function CashierSyncPage() {
           </span>
         </footer>
       </section>
+
+      {selectedRecord ? (
+        <Alert tone="info" title="Selected record">
+          {selectedRecord.localId} ·{' '}
+          {selectedRecord.cardBarcode ?? 'Card pending'} ·{' '}
+          {selectedRecord.syncState}
+        </Alert>
+      ) : null}
+
+      <div className="cashier-sync-priority">
+        <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-card--highlight">
+          <h2>Selected details</h2>
+          {selectedRecord ? (
+            <>
+              <p className="cashier-sync-muted">
+                This card stays ahead of the queue so the active record is
+                always obvious.
+              </p>
+              <Table>
+                <tbody>
+                  {selectedPreview.map(([key, value]) => (
+                    <tr key={key}>
+                      <th scope="row">{key}</th>
+                      <td>{renderValue(value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </>
+          ) : (
+            <Alert tone="warning" title="No selected record">
+              Pick a queue entry to inspect its local metadata.
+            </Alert>
+          )}
+        </section>
+
+        <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-card--highlight">
+          <h2>Backend response</h2>
+          <p className="cashier-sync-muted">
+            {actionResponse
+              ? 'The latest sync result and transaction outcomes are visible here.'
+              : 'Sync a batch to inspect its technical result and transaction outcomes.'}
+          </p>
+          {actionResponse ? (
+            <details>
+              <summary>Technical details</summary>
+              <Table>
+                <tbody>
+                  {Object.entries(actionResponse)
+                    .slice(0, 8)
+                    .map(([key, value]) => (
+                      <tr key={key}>
+                        <th scope="row">{key}</th>
+                        <td>{renderValue(value)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </Table>
+            </details>
+          ) : (
+            <Alert tone="warning" title="No sync result">
+              Sync a batch to surface technical reconciliation details.
+            </Alert>
+          )}
+          <div className="cashier-sync-statuses">
+            <StatusBadge
+              label={`Batch results ${lastBatchResults.length}`}
+              tone="info"
+            />
+            <StatusBadge
+              label={`Queueable ${queueableRecords.length}`}
+              tone="neutral"
+            />
+          </div>
+          {lastBatchResults.length > 0 ? (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Local ID</th>
+                  <th>Status</th>
+                  <th>Transaction</th>
+                  <th>Approval</th>
+                  <th>Credit</th>
+                  <th>Retryable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastBatchResults.map((result) => (
+                  <tr key={result.localId}>
+                    <td>{result.localId}</td>
+                    <td>
+                      <StatusBadge
+                        label={result.status}
+                        tone={toneForResult(result.status)}
+                      />
+                    </td>
+                    <td>{result.transactionId ?? '—'}</td>
+                    <td>{result.approvalId ?? '—'}</td>
+                    <td>
+                      {typeof result.creditEarnedKobo === 'number' ? (
+                        <Money amountKobo={result.creditEarnedKobo} />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>{result.retryable ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : null}
+          <div className="cashier-sync-clear-actions">
+            <Input
+              aria-label="Clear confirmation"
+              placeholder="Type CLEAR to remove confirmed"
+              value={clearConfirmation}
+              onChange={(event) => setClearConfirmation(event.target.value)}
+            />
+            <Button
+              variant="ghost"
+              onClick={() => void clearConfirmed()}
+              disabled={
+                !records.some((record) => record.syncState === 'confirmed')
+              }
+            >
+              Clear confirmed
+            </Button>
+          </div>
+        </section>
+      </div>
       {detailRecord ? (
         <div
           className="transaction-detail-backdrop"

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import CashierPage from '../app/(shell)/cashier/page';
 import { CashierOverviewLookup } from '../components/workflows/cashier-overview-lookup';
 import { CashierWorkflowRoute } from '../components/workflows/cashier-transaction-route';
 import {
@@ -96,6 +97,26 @@ describe('Cashier lookup workflow', () => {
       );
     });
     expect(cardsControllerLookupCardV1).not.toHaveBeenCalled();
+  });
+
+  it('keeps overview landmarks in heading, activity, metrics, and table order', () => {
+    render(<CashierPage />);
+
+    const overview = document.querySelector('[data-od-id="overview-main"]');
+    expect(overview).not.toBeNull();
+    expect(
+      Array.from(overview!.children).map((element) => element.dataset.odId),
+    ).toEqual(['overview-heading', 'overview-activity']);
+    expect(
+      Array.from(
+        document.querySelector('[data-od-id="overview-activity"]')!.children,
+      ).map((element) => element.dataset.odId || element.tagName.toLowerCase()),
+    ).toEqual([
+      'activity-heading',
+      'p',
+      'activity-metrics',
+      'recent-transactions',
+    ]);
   });
 
   it('renders zero for a loaded empty activity feed', async () => {
@@ -290,6 +311,70 @@ describe('Cashier lookup workflow', () => {
     ).toHaveAttribute('placeholder', 'Search');
     expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
     expect(screen.getByText('No customers found')).toBeInTheDocument();
+  });
+
+  it('keeps workflow landmarks in prototype reading order', () => {
+    const routes = [
+      {
+        kind: 'lookup' as const,
+        page: 'lookup-page',
+        heading: 'find-customer-heading',
+        stages: null,
+        flow: null,
+      },
+      {
+        kind: 'earn' as const,
+        page: 'capture-purchase-page',
+        heading: 'capture-purchase-heading',
+        stages: 'capture-stages',
+        flow: 'capture-flow',
+      },
+      {
+        kind: 'redeem' as const,
+        page: 'redeem-page',
+        heading: 'redeem-heading',
+        stages: 'redeem-stages',
+        flow: 'redeem-flow',
+      },
+    ];
+
+    for (const route of routes) {
+      const { unmount } = render(
+        <CashierWorkflowRoute
+          kind={route.kind}
+          title={route.kind === 'lookup' ? 'Find customer' : route.kind}
+          description="Route description"
+        />,
+      );
+      const page = document.querySelector(`[data-od-id="${route.page}"]`);
+      expect(page).toBeInTheDocument();
+      expect(page?.firstElementChild).toHaveAttribute(
+        'data-od-id',
+        route.heading,
+      );
+      if (route.stages && route.flow) {
+        expect(page?.children[1]).toHaveAttribute('data-od-id', route.stages);
+        expect(page?.children[2]).toHaveAttribute('data-od-id', route.flow);
+      } else {
+        const content = page?.querySelector(
+          '[data-od-id="find-customer-content"]',
+        );
+        expect(content?.children).toHaveLength(3);
+        expect(content?.children[0]).toHaveAttribute(
+          'data-od-id',
+          'customer-search',
+        );
+        expect(content?.children[1]).toHaveAttribute(
+          'data-od-id',
+          'customer-search-state',
+        );
+        expect(content?.children[2]).toHaveAttribute(
+          'data-od-id',
+          'recent-customers',
+        );
+      }
+      unmount();
+    }
   });
 
   it('restores lookup focus and clears discovery state on Escape', async () => {

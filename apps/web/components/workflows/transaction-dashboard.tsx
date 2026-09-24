@@ -184,9 +184,32 @@ export function TransactionDashboard() {
 
   return (
     <section
-      className="transaction-dashboard"
-      data-od-id="transactions-dashboard"
+      className="transaction-dashboard cashier-transactions-page"
+      data-od-id="transactions-view"
+      aria-labelledby="cashier-transactions-title"
     >
+      <header
+        className="cashier-transactions-page__header"
+        data-od-id="transactions-heading"
+      >
+        <div>
+          <p className="cashier-transactions-page__eyebrow">
+            Operations · Live ledger
+          </p>
+          <h1 id="cashier-transactions-title">Transactions</h1>
+          <p>Captured receipts and the credit issued against them.</p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          onClick={() => void load()}
+          loading={busy}
+        >
+          <RefreshCw aria-hidden="true" size={16} strokeWidth={1.8} />
+          Refresh data
+        </Button>
+      </header>
       <p className="cashier-workflow-notice" role="status">
         {message}
       </p>
@@ -246,16 +269,6 @@ export function TransactionDashboard() {
             updateFilter(setMinimumAmount, event.target.value)
           }
         />
-        <Button
-          type="button"
-          variant="secondary"
-          size="compact"
-          onClick={() => void load()}
-          loading={busy}
-        >
-          <RefreshCw aria-hidden="true" size={16} strokeWidth={1.8} />
-          Refresh data
-        </Button>
       </div>
       <ShopCityCard
         as="section"

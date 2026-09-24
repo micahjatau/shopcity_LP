@@ -3,7 +3,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { shellNavigationByRole } from '../../../components/shell-navigation';
 import {
   AdminOperationsPanel,
   WorkflowSection,
@@ -25,16 +24,26 @@ const adminRouteBodyByHref: Record<string, string> = {
   '/admin/policies': 'Configure validated branch policy values.',
 };
 
-const adminRouteCards = shellNavigationByRole.ADMIN.flatMap(
-  (section) => section.items,
-)
-  .filter((item) => item.href !== '/admin')
-  .map((item) => ({
-    href: item.href,
-    label: item.label,
-    body: adminRouteBodyByHref[item.href] ?? 'Route-backed admin workspace.',
-    featured: item.href === '/admin/operations',
-  }));
+const adminRouteCards = [
+  ['/admin/operations', 'Operations'],
+  ['/admin/transactions', 'Transactions'],
+  ['/admin/approvals', 'Approvals'],
+  ['/admin/fraud', 'Fraud'],
+  ['/admin/customers', 'Customers'],
+  ['/admin/cards', 'Cards'],
+  ['/admin/adjustments', 'Adjustments'],
+  ['/admin/reports', 'Reports'],
+  ['/admin/audit', 'Audit'],
+  ['/admin/users', 'Users'],
+  ['/admin/devices', 'Devices'],
+  ['/admin/branches', 'Branches'],
+  ['/admin/policies', 'Policies'],
+].map(([href, label]) => ({
+  href,
+  label,
+  body: adminRouteBodyByHref[href] ?? 'Route-backed admin workspace.',
+  featured: href === '/admin/operations',
+}));
 
 export default function AdminPage() {
   return (

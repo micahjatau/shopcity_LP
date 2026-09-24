@@ -2,8 +2,12 @@
 .cashier-route-page {
   display: grid;
   gap: 32px;
-  max-width: 1088px;
+  width: min(100%, 1120px);
   margin: 0 auto;
+}
+
+.cashier-route-page--lookup {
+  width: min(100%, 1080px);
 }
 
 .cashier-route-page--earn {
@@ -44,10 +48,6 @@
   display: grid;
   gap: 10px;
   padding: 0;
-}
-
-.cashier-route-page--earn .cashier-route-header {
-  max-width: 760px;
 }
 
 .cashier-route-description {
@@ -548,13 +548,11 @@
 .find-customer-view {
   display: grid;
   gap: 9px;
-  max-width: 1080px;
-  margin: 0 auto;
 }
 
 .find-customer-search,
 .find-customer-recent {
-  width: min(640px, 100%);
+  width: min(712px, 100%);
   max-width: 100%;
   margin: 0 auto;
   padding: 16px 24px 17px;
@@ -686,7 +684,7 @@
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 700px) {
   .cashier-flow-steps {
     grid-template-columns: 1fr;
     gap: 4px;
@@ -748,8 +746,6 @@
 .cashier-overview-lookup {
   display: grid;
   gap: 22px;
-  max-width: 1120px;
-  margin: 0 auto;
 }
 
 .cashier-overview-notice {
@@ -961,7 +957,6 @@
   display: grid;
   gap: 24px;
   width: min(100%, var(--sc-prototype-contentMaxWidth));
-  max-width: var(--sc-prototype-contentMaxWidth);
   margin-inline: auto;
 }
 
@@ -1064,6 +1059,13 @@
 }
 
 .cashier-transactions-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.cashier-transactions-page__header > div {
   display: grid;
   gap: 8px;
 }
@@ -1081,9 +1083,13 @@
   line-height: 1.05;
 }
 
-.cashier-transactions-page__header > p:last-child {
+.cashier-transactions-page__header > div > p:last-child {
   color: var(--sc-color-brand-700);
   font-size: 15px;
+}
+
+.cashier-transactions-page__header > .sc-button {
+  flex: none;
 }
 
 .cashier-transactions-page__eyebrow {
@@ -1093,6 +1099,13 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+@media (max-width: 620px) {
+  .cashier-transactions-page__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 /* Derived Sync Queue composition: Transactions vocabulary, no direct Figma parity claim. */
@@ -1150,11 +1163,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--sc-spacing-5);
-  order: 4;
 }
 
 .cashier-sync-queue {
-  order: 3;
   min-width: 0;
 }
 
@@ -1250,7 +1261,7 @@
 .customer-registration-page {
   display: grid;
   gap: 24px;
-  max-width: var(--sc-prototype-contentMaxWidth);
+  width: min(100%, var(--sc-prototype-contentMaxWidth));
   margin: 0 auto;
 }
 .customer-registration-page__header,

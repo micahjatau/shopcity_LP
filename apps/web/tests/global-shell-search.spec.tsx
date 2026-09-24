@@ -83,6 +83,24 @@ describe('GlobalShellSearch', () => {
     expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
   });
 
+  it('routes Admin card results to the Admin card workspace', async () => {
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValue({
+      status: 200,
+      data: { data: { serialNumber: 'CARD-001', customerName: 'Ada Shopper' } },
+    } as never);
+    render(<GlobalShellSearch userRole="ADMIN" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByRole('option')).toHaveAttribute(
+      'href',
+      '/admin/cards?card=CARD-001',
+    );
+  });
+
   it('exposes the cashier category to Supervisor/Admin only', () => {
     const { unmount } = render(<GlobalShellSearch userRole="SUPERVISOR" />);
     expect(

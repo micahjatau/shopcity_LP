@@ -61,9 +61,9 @@ The existing screenshot baselines remain a separate regression signal; changed p
 - [x] 8.2 Verify whether the additional current content is required by accessibility, truthful production state, or authorization/RBAC; run GitNexus impact before any source edit and stop on HIGH/CRITICAL scope without explicit approval. Evidence: current supervisor customer workspace hierarchy is retained; no source edit was required.
 - [x] 8.3 If the current hierarchy is authoritative, update only the directly paired Register Customer reference artifacts with provenance and an approved-deviation record; otherwise create a separately reviewed presentation task. Do not change registration behavior or silently rebaseline. Evidence: only `prototype-route-register-customer-linux.png` was updated; no registration source, assertion, or landmark artifact changed.
 - [x] 8.4 Rerun prototype-landmarks, full conformance, affected Playwright, OpenSpec, and final evidence checks; record remaining deployment and dirty-tree blockers. Prototype-landmarks, full route/viewport conformance, affected workflow screenshots, and OpenSpec validation pass; the repository-native command requires a clean port 3100, while the equivalent CI test completed 69 passed and 3 skipped with the existing server.
-- [x] 7.6 Replace only the owner-approved stale Capture Purchase landmark/full-page route and Sync Queue reference artifacts, preserving route/state/viewport metadata and documenting provenance, dimensions, rationale, and approved deviations in `evidence.md`.
-- [x] 7.7 Correct the verified mobile Overview empty-state overflow with a mobile-only layout rule; preserve desktop geometry, semantic assertions, and production behavior.
-- [x] 7.8 With explicit authorization, replace the stale Redeem landmark reference (`720x898` → `720x1068`) and its directly paired full-page route reference (`1440x1287` → `1440x1457`); preserve route/state/viewport provenance, semantic assertions, and all workflow/controller/financial/offline/queue semantics. The approved deviation and exact evidence are recorded in `evidence.md`.
+- [x] 8.6 Replace only the owner-approved stale Capture Purchase landmark/full-page route and Sync Queue reference artifacts, preserving route/state/viewport metadata and documenting provenance, dimensions, rationale, and approved deviations in `evidence.md`.
+- [x] 8.7 Correct the verified mobile Overview empty-state overflow with a mobile-only layout rule; preserve desktop geometry, semantic assertions, and production behavior.
+- [x] 8.8 With explicit authorization, replace the stale Redeem landmark reference (`720x898` → `720x1068`) and its directly paired full-page route reference (`1440x1287` → `1440x1457`); preserve route/state/viewport provenance, semantic assertions, and all workflow/controller/financial/offline/queue semantics. The approved deviation and exact evidence are recorded in `evidence.md`.
 
 ### Redeem reference update status (2026-09-21)
 
@@ -92,3 +92,44 @@ Tasks 7.1 and 7.2 remain unchecked for the Sync Queue slice. Focused Playwright 
 - This is a structural baseline conflict, not a safe CSS spacing correction. Hiding or compressing the current review/status/context/card-serial content to force `893px` would violate the approved workflow DOM/accessibility/financial review hierarchy. The blocker remains documented; no CSS, component, controller, API, auth/RBAC, financial, offline, queue, test, or snapshot change was made.
 - Capture Purchase checks passed: `npx jest apps/web/tests/transaction-forms.spec.tsx apps/web/tests/draft-persistence.spec.tsx --config apps/web/jest.web.config.cjs --runInBand`; `npx jest apps/web/tests/a11y.spec.tsx --config apps/web/jest.a11y.config.cjs --runInBand`; Playwright `covers cashier earn, redeem, customers and sync routes` (1 passed); `disables Earn submission while the authoritative request is pending` (1 passed); and `keeps Capture Purchase and Redeem lookup states visually paired` (1 passed). Ownership checks and `git diff --check` passed.
 - **Decision recorded (2026-09-21): Option 1 approved.** The current accessible 684x934 Capture Purchase hierarchy is authoritative for this slice; the retained 684x893 image is superseded reference evidence and must not drive content hiding or a CSS height hack. Updating the approved prototype/reference requires normal provenance and review. Snapshot/assertion changes remain disallowed. The attributable deployed 1440x923 comparison gate remains pending.
+
+## 9. Audit-driven reconstruction completion (implementation-ready)
+
+These tasks incorporate the prototype and JSX audits. They are intentionally separate from the historical slice notes above and must not be marked complete from existing snapshot or functional-test results alone.
+
+### 9.1 Freeze and compare the shared shell
+
+- [ ] Record the exact candidate SHA, dirty-tree exclusions, route/state/role/browser/locale/timezone, and prototype source for the comparison run.
+- [ ] Compare `overview-dashboard.html` and `find-customer.html` with `AppShell`, `AppShellContent`, `AppTopbar`, and shell CSS. Make the full remaining-column outer-padding plus independently centered inner-content-width model explicit; remove the old capped wrapper where it shrinks route content or topbar width.
+- [ ] Compare topbar hierarchy and computed geometry at 1440x923, 1024, 920, 768, 767, 620, 390, and 375px. Correct sidebar collapse, topbar width/height, content widths, and overflow without changing shell auth/session/RBAC/offline behavior.
+- [ ] Correct search/category composition to a readable adjacent pill. Verify Cashier Customers/Cards and Supervisor/Admin Customers/Cards/Cashiers authorization, masking, keyboard/focus behavior, mobile layout, System Online state, and Admin card handoff to `/admin/cards`.
+
+### 9.2 Route-by-route JSX/HTML reconstruction
+
+- [ ] For `/cashier`, compare JSX hierarchy and landmarks against `overview-dashboard.html`; retain API-backed loading/empty/error data and role-authorized actions.
+- [ ] For `/cashier/lookup`, compare against `find-customer.html`; preserve discovery-only behavior, active-card verification, masking, stale responses, keyboard navigation, and focus return.
+- [ ] For `/cashier/earn` and `/cashier/redeem`, compare against their corresponding HTML stage order and responsive widths. Replace old layout wrappers only where they block parity; preserve controllers, approval/pending/status, integer-kobo, idempotency, draft recovery, and no-offline-redemption rules.
+- [ ] For Transactions, compare heading/refresh → filters → table/footer → dialog; move presentation of existing refresh behavior to the heading/action region without changing bounded report scope or truthful unavailable fields.
+- [ ] For Sync Queue, compare the derived composition and make metrics/status → unique toolbar → queue table → details/dialog the DOM and visual order. Remove compensating CSS order rules only with queue persistence, device binding, retry, sync, and confirmed-clear tests.
+- [ ] Replace or justify each migration-era route/header/overview wrapper and record the exact before/after hierarchy and stable `data-od-id` landmarks. Do not hide accessibility/financial context to fit stale reference dimensions.
+
+### 9.3 Comparison and behavior gates
+
+- [ ] Capture same route/state/role/browser/viewport prototype and React evidence before any visual baseline/reference update. Keep React snapshots separate; do not update baselines before the comparison.
+- [ ] Run focused route, controller, auth/RBAC, masking, financial/idempotency, offline, queue, keyboard/accessibility, responsive/no-overflow, and reduced-motion checks. Record intentional production deviations and unavailable deployment evidence.
+- [ ] Perform the required second passthrough gap review across shell, search, every mapped route, breakpoint matrix, DOM/visual order, and wrapper ownership. Resolve or explicitly disposition all P1/P2 gaps; do not silently widen scope.
+- [ ] Run final artifact validation: OpenSpec validation; evidence/provenance and screenshot-dimension checks; changed-path inventory; `git diff --check`; staged-file check; and GitNexus `detect_changes()` with inherited dirty-tree risk called out. No visual baseline update is permitted unless the comparison, stale-artifact decision, and direct pairing are recorded.
+
+## 10. Artifact-repair implementation and certification gates (all intentionally unchecked)
+
+These tasks are the current implementation contract. Historical checked entries above document prior slices and do not certify this reconstruction; do not mark these tasks complete from historical evidence.
+
+- [ ] 10.1 Use the complete operational-route matrix plus focused `/supervisor/customers/new` and `/admin/customers/new` registration rows in `design.md`; fill any missing same route/state/role/browser/viewport capture metadata and record exact HTML or derived/out-of-scope disposition.
+- [ ] 10.2 Implement and verify the numeric shell formula and ownership boundary: full remaining-column topbar, independently centered route slot, route widths 1120/1080/860/720/712, and no competing capped wrapper.
+- [ ] 10.3 Preserve exactly one `BrowserStateBootstrap`, shell status row, and `OfflineIndicator` in `AppShell` before protected children; audit and action every wrapper against the allowlist.
+- [ ] 10.4 Implement measurable search assertions: exact per-role category sets, adjacent readable category control at every matrix width, query/loading/empty/error assertions, no overflow, exact Admin card handoff `/admin/cards`, and visible exact `System Online` status in the documented online fixture.
+- [ ] 10.5 Resolve the Find Customer reference contract using the 712px HTML authority; classify the historical 640px screenshot as superseded and obtain explicit approval before any production deviation or directly paired artifact update.
+- [ ] 10.6 Verify route landmark and child order for all twelve matrix rows (10 operational routes plus 2 focused registration routes), including Transactions refresh placement and Sync Queue metrics/status → unique toolbar → queue table → details/dialog in DOM and visual reading order.
+- [ ] 10.7 Keep prototype source, production captures, Playwright baselines, and parity evidence in their separate taxonomy; prohibit baseline updates until same route/state/role/browser/viewport comparison and provenance approval are recorded.
+- [ ] 10.8 Perform the second passthrough review and classify every P1/P2 item as resolved, approved deviation, historical failure, or current blocker.
+- [ ] 10.9 Run final artifact gates: exact strict OpenSpec validation, matrix/provenance review, screenshot dimensions, changed-path inventory, `git diff --check`, no staged files, and GitNexus detection with inherited dirty-tree scope distinguished.

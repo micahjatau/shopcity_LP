@@ -63,7 +63,7 @@ export function GlobalShellSearch({
     generation: number,
   ) {
     setPending(true);
-    setMessage('Searching…');
+    setMessage(`Searching for “${term}”…`);
     try {
       const response =
         nextCategory === 'customers'
@@ -78,7 +78,12 @@ export function GlobalShellSearch({
       if (generation !== requestGeneration.current) return;
       if (response.status !== 200) {
         setResults([]);
-        setMessage(`Search unavailable (${response.status}).`);
+        setMessage(
+          getAuthoritativeErrorMessage(
+            response.data,
+            `Search unavailable (${response.status}).`,
+          ),
+        );
         return;
       }
       const data = response.data.data;
@@ -90,7 +95,9 @@ export function GlobalShellSearch({
         .filter((item): item is SearchResult => item !== null);
       setResults(nextResults);
       setActiveIndex(-1);
-      setMessage(nextResults.length ? '' : 'No matching records.');
+      setMessage(
+        nextResults.length ? '' : `No matching records for “${term}”.`,
+      );
     } catch {
       if (generation === requestGeneration.current) {
         setResults([]);
@@ -110,7 +117,7 @@ export function GlobalShellSearch({
     const generation = ++requestGeneration.current;
     setPending(true);
     setOpen(true);
-    setMessage('Verifying card…');
+    setMessage(`Verifying “${term}”…`);
     setResults([]);
     try {
       const response = await cardsControllerLookupCardV1(
@@ -119,7 +126,12 @@ export function GlobalShellSearch({
       );
       if (generation !== requestGeneration.current) return;
       if (response.status !== 200) {
-        setMessage(`Card verification unavailable (${response.status}).`);
+        setMessage(
+          getAuthoritativeErrorMessage(
+            response.data,
+            `Card verification unavailable (${response.status}).`,
+          ),
+        );
         return;
       }
       const record = response.data.data as Record<string, unknown>;
@@ -135,7 +147,7 @@ export function GlobalShellSearch({
           id: serial,
           label: name,
           detail: `Card ${serial}`,
-          href: `${userRole === 'CASHIER' ? '/cashier/lookup' : '/supervisor/cards'}?card=${encodeURIComponent(serial)}`,
+          href: `${userRole === 'CASHIER' ? '/cashier/lookup' : userRole === 'ADMIN' ? '/admin/cards' : '/supervisor/cards'}?card=${encodeURIComponent(serial)}`,
         },
       ]);
       setMessage('');
@@ -219,6 +231,7 @@ export function GlobalShellSearch({
         </div>
         <div
           className="global-shell-search__categories"
+          role="group"
           aria-label="Search category"
         >
           {categories.map((item) => (
@@ -268,6 +281,21 @@ export function GlobalShellSearch({
       ) : null}
     </div>
   );
+}
+
+function getAuthoritativeErrorMessage(
+  payload: unknown,
+  fallback: string,
+): string {
+  if (!payload || typeof payload !== 'object') return fallback;
+  const record = payload as Record<string, unknown>;
+  const nested = record.error;
+  const message =
+    record.message ??
+    (nested && typeof nested === 'object'
+      ? (nested as Record<string, unknown>).message
+      : undefined);
+  return typeof message === 'string' && message.trim() ? message : fallback;
 }
 
 function normalizeResult(

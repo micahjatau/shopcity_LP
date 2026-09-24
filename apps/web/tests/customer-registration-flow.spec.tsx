@@ -27,6 +27,15 @@ describe('CustomerRegistrationFlow', () => {
       screen.getByRole('region', { name: 'Customer registration' }),
     ).toHaveTextContent('Customer information');
     expect(
+      document.querySelector('[data-od-id="register-information"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="register-review"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="register-result"]'),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByLabelText(/birthday|marketing/i),
     ).not.toBeInTheDocument();
 
@@ -40,6 +49,12 @@ describe('CustomerRegistrationFlow', () => {
       target: { value: 'CARD-001' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review details' }));
+    expect(
+      document.querySelector('[data-od-id="register-information"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="register-review"]'),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
 
     await waitFor(() =>
@@ -54,6 +69,12 @@ describe('CustomerRegistrationFlow', () => {
         screen.getByRole('heading', { name: 'Registration successful' }),
       ).toBeInTheDocument(),
     );
+    expect(
+      document.querySelector('[data-od-id="register-review"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="register-result"]'),
+    ).toBeInTheDocument();
     const calls = jest.mocked(customersControllerCreateCustomerV1).mock.calls;
     expect(calls).toHaveLength(2);
     expect(calls[0][1]).toEqual(

@@ -11,6 +11,16 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-23 — Review 78 prototype-first reconstruction proposal impact
+
+Before updating `openspec/changes/repo-review-78-prototype-first-frontend-reconstruction`, the required proposal-time command was run:
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-topbar.tsx AppTopbar
+```
+
+`AppTopbar`: **LOW**, exact, 4 impacted symbols, 1 direct dependant, 2 affected processes (`ShellLayout`, `AppShellContent`), and 1 affected module (`Components`). This is documentation-only proposal work; no source symbol was edited. The audit separately records `CashierWorkflowRoute` as **HIGH**, so any future route JSX edit must rerun exact upstream impact and obtain review before editing.
+
 ### 2026-09-23 — Review 78b Phase 4 implementation impact
 
 Before Phase 4 source edits, exact upstream GitNexus impact was run with tests included:

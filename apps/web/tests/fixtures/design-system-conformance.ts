@@ -8,7 +8,9 @@ export const canonicalCashierLookupControl = {
 export const canonicalCashierLayout = {
   contentMaxWidth: '1120px',
   searchMaxWidth: '300px',
-  mobileSearchWidth: '230px',
+  mobileSearchWidth: 'remaining row width (flex: 1 1 0)',
+  mobileSearchComposition:
+    'adjacent category pill; category may scroll internally without row overflow',
   cardRadius: '16px',
 } as const;
 

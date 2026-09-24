@@ -150,21 +150,18 @@ export function CashierWorkflowRoute({
       ? ['Find customer', 'Confirm customer', 'Receipt details', 'Review']
       : ['Find customer', 'Basket subtotal', 'Redemption amount', 'Confirm'];
   const routeHeader = (
-    <div
-      data-od-id={
+    <CashierPageHeader
+      className="cashier-route-header"
+      dataOdId={
         kind === 'lookup'
           ? 'find-customer-heading'
           : kind === 'earn'
             ? 'capture-purchase-heading'
             : 'redeem-heading'
       }
-    >
-      <CashierPageHeader
-        className="cashier-route-header"
-        title={title}
-        description={description}
-      />
-    </div>
+      title={title}
+      description={description}
+    />
   );
 
   return (

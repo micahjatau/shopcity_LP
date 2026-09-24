@@ -8,15 +8,20 @@ export function CashierPageHeader({
   description,
   actions,
   className = '',
+  dataOdId,
 }: Readonly<{
   eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  dataOdId?: string;
 }>) {
   return (
-    <header className={['sc-page-head', className].filter(Boolean).join(' ')}>
+    <header
+      className={['sc-page-head', className].filter(Boolean).join(' ')}
+      data-od-id={dataOdId}
+    >
       <div className="sc-page-head__copy">
         {eyebrow ? <p className="sc-page-head__eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>

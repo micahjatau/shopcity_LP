@@ -3,7 +3,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ScannerContextScope } from '../../../components/scanner-context-scope';
-import { shellNavigationByRole } from '../../../components/shell-navigation';
 import {
   ApprovalsPanel,
   FraudFlagsPanel,
@@ -20,18 +19,19 @@ const supervisorRouteBodyByHref: Record<string, string> = {
   '/supervisor/reports': 'Compare live queue health and reports.',
 };
 
-const supervisorRouteCards = shellNavigationByRole.SUPERVISOR.flatMap(
-  (section) => section.items,
-)
-  .filter((item) => item.href !== '/supervisor')
-  .map((item) => ({
-    href: item.href,
-    label: item.label,
-    body:
-      supervisorRouteBodyByHref[item.href] ??
-      'Route-backed supervisor workspace.',
-    featured: item.href === '/supervisor/customers',
-  }));
+const supervisorRouteCards = [
+  ['/supervisor/transactions', 'Transactions'],
+  ['/supervisor/customers', 'Customers'],
+  ['/supervisor/cards', 'Cards'],
+  ['/supervisor/approvals', 'Approvals'],
+  ['/supervisor/fraud', 'Fraud'],
+  ['/supervisor/reports', 'Reports'],
+].map(([href, label]) => ({
+  href,
+  label,
+  body: supervisorRouteBodyByHref[href] ?? 'Route-backed supervisor workspace.',
+  featured: href === '/supervisor/customers',
+}));
 
 export default function SupervisorPage() {
   return (
