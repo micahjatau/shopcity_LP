@@ -985,11 +985,20 @@
   }
 
   .global-shell-search__row {
+    display: flex;
+    visibility: visible;
     flex-wrap: nowrap;
   }
 
   .global-shell-search__control {
+    display: flex;
+    visibility: visible;
     flex: 1 1 0;
+  }
+
+  .global-shell-search__control input {
+    display: block;
+    visibility: visible;
   }
 
   .global-shell-search__categories {
