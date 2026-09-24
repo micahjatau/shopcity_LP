@@ -1647,16 +1647,6 @@
   display: none;
 }
 
-.cashier-today-card:has(.cashier-empty) {
-  width: calc(100% + 16px);
-}
-
-@media (max-width: 620px) {
-  .cashier-today-card:has(.cashier-empty) {
-    width: 100%;
-  }
-}
-
 .cashier-today-card:has(.cashier-empty) .cashier-empty {
   padding-block: 33.5px;
 }

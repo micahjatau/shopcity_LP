@@ -575,6 +575,9 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('heading', { name: 'Recent Transactions' }),
     ).toBeVisible();
+    await expect(
+      page.getByText('No transactions recorded today.'),
+    ).toBeVisible();
     await page.locator('main').evaluate((main) => {
       main.style.height = '826px';
       main.style.overflow = 'hidden';
@@ -669,9 +672,9 @@ test.describe('workflow route coverage', () => {
       }),
     );
     await page.reload();
-    await expect(page.getByRole('status')).toHaveText(
-      'Today’s activity is temporarily unavailable.',
-    );
+    await expect(
+      page.locator('.cashier-overview-notice[role="status"]'),
+    ).toHaveText('Today’s activity is temporarily unavailable.');
     await expect(
       page.getByText('No transactions recorded today.'),
     ).not.toBeVisible();
@@ -696,9 +699,9 @@ test.describe('workflow route coverage', () => {
 
     await page.setViewportSize({ width: 375, height: 812 });
     const navigation = page.goto(`${baseUrl}/cashier`);
-    await expect(page.getByRole('status')).toHaveText(
-      'Loading today’s activity…',
-    );
+    await expect(
+      page.locator('.cashier-overview-notice[role="status"]'),
+    ).toHaveText('Loading today’s activity…');
     releaseRequest();
     await navigation;
     await expect(
@@ -1095,6 +1098,9 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier`);
 
     const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(search).toBeVisible();
+    await expect(search).toBeEditable();
     await search.fill('Ada');
     await expect(
       page.getByRole('option', { name: /Ada Shopper/ }),
@@ -1118,9 +1124,12 @@ test.describe('workflow route coverage', () => {
     await page.unroute('**/api/v1/customers*');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${baseUrl}/cashier`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
     const mobileSearch = page.getByRole('combobox', {
       name: 'Search ShopCity',
     });
+    await expect(mobileSearch).toBeVisible();
+    await expect(mobileSearch).toBeEditable();
     const mobileCategoryBox = await page
       .locator('.global-shell-search__categories')
       .boundingBox();
@@ -1413,7 +1422,13 @@ test.describe('workflow route coverage', () => {
           .click();
       }
       const element = page.locator(`[data-od-id="${landmark}"]`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
+      if (landmark === 'recent-transactions') {
+        await expect(
+          page.getByText('No transactions recorded today.'),
+        ).toBeVisible();
+      }
       const box = await element.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.x).toBeGreaterThanOrEqual(0);
