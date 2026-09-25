@@ -11,6 +11,16 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-25 — Sync Queue constrained-width header follow-up
+
+Before updating the active Sync Queue OpenSpec and its responsive header, the proposal-time impact command was run:
+
+```text
+npm run proposal:impact -- --file apps/web/app/(shell)/cashier/sync/page.tsx CashierSyncPage
+```
+
+`CashierSyncPage`: **LOW**, exact, zero upstream dependants and zero affected processes. The initial follow-up stacks `.cashier-sync-header` at constrained widths. The additional phone-width correction is scoped to `.cashier-sync-queue-header` and `.cashier-sync-filters`; shell navigation, sync handlers, state values, and API interactions remain out of scope. Responsive coverage checks 375px full-width filters, 1080px stacked header, and 1440px two-column header.
+
 ### 2026-09-23 — Review 78 prototype-first reconstruction proposal impact
 
 Before updating `openspec/changes/repo-review-78-prototype-first-frontend-reconstruction`, the required proposal-time command was run:

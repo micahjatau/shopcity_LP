@@ -35,4 +35,12 @@ The Sync Queue SHALL retain its table, search and status filters, summary, selec
 - **WHEN** `/cashier/sync` is rendered at 375 CSS pixels wide
 - **THEN** heading, refresh and sync controls, summary, search, and status filter remain visible and usable
 - **AND** table scrolling is contained within its existing scroll region
+- **AND** search and status filters span the available queue-card width
 - **AND** the main page has no horizontal overflow
+
+#### Scenario: Cashier uses the queue where shell content is constrained
+
+- **WHEN** `/cashier/sync` is rendered at 1080 CSS pixels wide
+- **THEN** the explanatory heading copy occupies a full row above the action toolbar
+- **AND** refresh and sync controls remain visible without horizontal page overflow
+- **AND** the two-column heading composition remains available at 1440 CSS pixels

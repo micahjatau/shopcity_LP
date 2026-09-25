@@ -355,6 +355,15 @@
     grid-template-columns: 1fr;
   }
 
+  .cashier-sync-queue-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cashier-sync-filters {
+    width: 100%;
+  }
+
   .cashier-sync-priority {
     grid-template-columns: 1fr;
   }

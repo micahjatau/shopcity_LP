@@ -1457,6 +1457,13 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('combobox', { name: 'Filter sync queue by status' }),
     ).toBeVisible();
+    const filterControlWidths = await page
+      .locator('.cashier-sync-filters > *')
+      .evaluateAll((controls) =>
+        controls.map((control) => control.getBoundingClientRect().width),
+      );
+    expect(filterControlWidths).toHaveLength(2);
+    expect(filterControlWidths.every((width) => width > 270)).toBe(true);
     await expect(
       page.getByText('No purchases are saved on this device for sync.'),
     ).toBeVisible();
@@ -1498,6 +1505,9 @@ test.describe('workflow route coverage', () => {
       .locator('.cashier-sync-results')
       .evaluate((element) => element.getBoundingClientRect().top);
     expect(queueTop).toBeLessThan(detailsTop);
+    await page.screenshot({
+      path: testInfo.outputPath('sync-queue-mobile-full-current.png'),
+    });
     await page.locator('main').screenshot({
       path: testInfo.outputPath('sync-queue-mobile-empty-current.png'),
     });
@@ -1517,6 +1527,45 @@ test.describe('workflow route coverage', () => {
     expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(
       overflow.clientWidth,
     );
+  });
+
+  test('stacks the Sync Queue header when shell width is constrained', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1080, height: 900 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    const header = page.locator('[data-od-id="sync-queue-heading"]');
+    const trackCount = () =>
+      header.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      );
+    await expect(header.locator('.cashier-sync-muted').first()).toBeVisible();
+    expect(await trackCount()).toBe(1);
+    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeVisible();
+
+    const headingCopyWidth = await header
+      .locator('.cashier-sync-muted')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().width);
+    expect(headingCopyWidth).toBeGreaterThan(400);
+
+    const mainOverflow = await page
+      .locator('main')
+      .evaluate((element) => element.scrollWidth - element.clientWidth);
+    expect(mainOverflow).toBeLessThanOrEqual(0);
+    await page.screenshot({
+      path: testInfo.outputPath('sync-queue-constrained-header.png'),
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await trackCount()).toBe(2);
   });
 
   test('gates sync when the session has no backend device association', async ({

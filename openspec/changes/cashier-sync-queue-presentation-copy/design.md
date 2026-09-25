@@ -5,6 +5,8 @@ Reading this as: a cashier operational queue for frontline staff, with conservat
 ## Decisions
 
 - Retain the current hierarchy, table, controls, existing status summary, and design tokens. Make no new layout system or motion treatment.
+- At constrained shell widths up to 1100 CSS pixels, stack the Sync Queue introduction above its action toolbar so the explanatory copy does not collapse beside the device status and buttons. Preserve the two-column heading at wide desktop widths.
+- On phone widths, stack the queue title and filters, and let the search and status controls fill the card’s available content width.
 - Describe batch inclusion as waiting, saved on this device, and retry-required records. The source selects these three local states for submission. Keep confirmed records distinct and do not imply a server confirmation until the existing result/state indicates it.
 - Present local state enums as readable text (`Waiting`, `Saved on this device`, `Syncing`, `Needs another attempt`, `Awaiting approval`, `Confirmed`, `Rejected`) only at visible presentation sites. Leave enum values, filtering, tone selection, state transitions, and payloads untouched.
 - Replace em-dash display placeholders with `Not available` only where absent values are already represented as missing, and use no action indicator rather than a punctuation placeholder.
