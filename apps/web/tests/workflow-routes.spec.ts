@@ -484,13 +484,16 @@ test.describe('workflow route coverage', () => {
             .locator('.global-shell-search__categories')
             .boundingBox();
           expect(categoryBox?.width ?? 0).toBeGreaterThan(0);
+          const searchRowWidth = await page
+            .locator('.global-shell-search__row')
+            .evaluate((element) => ({
+              scrollWidth: element.scrollWidth,
+              clientWidth: element.clientWidth,
+            }));
           expect(
-            await page
-              .locator('.global-shell-search__row')
-              .evaluate(
-                (element) => element.scrollWidth <= element.clientWidth,
-              ),
-          ).toBe(true);
+            searchRowWidth.scrollWidth,
+            `${role} ${route.path} ${viewport.name} search row overflow: ${JSON.stringify(searchRowWidth)}`,
+          ).toBeLessThanOrEqual(searchRowWidth.clientWidth);
 
           for (const contract of canonicalCashierContractSelectors) {
             const subjects = page.locator(contract.selector);
@@ -841,7 +844,10 @@ test.describe('workflow route coverage', () => {
 
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await lookup.fill('Ada Shopper');
-    await page.getByRole('button', { name: 'Search' }).click();
+    await page
+      .locator('#customer-search-form')
+      .getByRole('button', { name: 'Search' })
+      .click();
     await expect(page.getByText('Ada Shopper')).toBeVisible();
     await expect(
       page.getByText('Scan an active card to continue'),
@@ -861,7 +867,10 @@ test.describe('workflow route coverage', () => {
 
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await lookup.fill('UNKNOWN-CARD');
-    await page.getByRole('button', { name: 'Search' }).click();
+    await page
+      .locator('#customer-search-form')
+      .getByRole('button', { name: 'Search' })
+      .click();
     await expect(
       page.getByText(
         'Customer search is unavailable on this deployment. Check the API route.',
@@ -879,7 +888,10 @@ test.describe('workflow route coverage', () => {
     await page
       .getByRole('searchbox', { name: 'Customer search' })
       .fill('CARD-001');
-    await page.getByRole('button', { name: 'Search' }).click();
+    await page
+      .locator('#customer-search-form')
+      .getByRole('button', { name: 'Search' })
+      .click();
     await expect(
       page.getByText(
         'Customer lookup requires a connection. Reconnect to try again.',
@@ -1316,10 +1328,11 @@ test.describe('workflow route coverage', () => {
       pageScrollWidth: number;
     }> = [];
 
-    for (const width of [1440, 920, 390, 375]) {
+    for (const { width } of conformanceViewports) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(50);
-      const minimumWidth = width >= 920 ? 180 : 120;
+      const minimumWidth =
+        width >= 920 ? 180 : [390, 375].includes(width) ? 120 : 0;
       const initialWidth = (await search.boundingBox())?.width ?? 0;
       expect(initialWidth).toBeGreaterThanOrEqual(minimumWidth);
       const button = page.getByRole('button', { name: 'Search' });
