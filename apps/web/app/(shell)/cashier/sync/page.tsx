@@ -121,12 +121,15 @@ export default function CashierSyncPage() {
   const selectedPreview = selectedRecord
     ? [
         ['Local ID', selectedRecord.localId],
-        ['Card', selectedRecord.cardBarcode ?? '—'],
-        ['Receipt', selectedRecord.receiptNumber ?? '—'],
-        ['State', selectedRecord.syncState],
-        ['Server transaction', selectedRecord.serverTransactionId ?? '—'],
-        ['Server approval', selectedRecord.serverApprovalId ?? '—'],
-        ['Last error', selectedRecord.lastError ?? '—'],
+        ['Card', selectedRecord.cardBarcode ?? 'Not available'],
+        ['Receipt', selectedRecord.receiptNumber ?? 'Not available'],
+        ['State', labelForSyncState(selectedRecord.syncState)],
+        [
+          'Server transaction',
+          selectedRecord.serverTransactionId ?? 'Not available',
+        ],
+        ['Server approval', selectedRecord.serverApprovalId ?? 'Not available'],
+        ['Last error', selectedRecord.lastError ?? 'None recorded'],
       ]
     : [];
 
@@ -327,8 +330,9 @@ export default function CashierSyncPage() {
         <div>
           <h1 id="cashier-sync-title">Sync Queue</h1>
           <p className="cashier-sync-muted">
-            Review purchases saved on this device while offline. Sync sends
-            waiting records and includes those needing another attempt.
+            Review purchases saved on this device while offline. Sync submits
+            records waiting to sync, saved on this device, or needing another
+            attempt. A record stays in the local queue until it is confirmed.
           </p>
         </div>
         <div
@@ -344,12 +348,12 @@ export default function CashierSyncPage() {
             Refresh
           </Button>
           <Button
-            aria-label="Submit batch"
+            aria-label="Sync eligible records"
             className="cashier-sync-header-submit"
             onClick={() => void syncBatch()}
             loading={busy}
           >
-            Sync waiting transactions
+            Sync eligible records
           </Button>
         </div>
         <p className="cashier-sync-muted" role="status">
@@ -437,8 +441,8 @@ export default function CashierSyncPage() {
           </div>
         </div>
         {records.length === 0 ? (
-          <Alert tone="warning" title="No offline records">
-            There are no local offline earn records to sync.
+          <Alert tone="warning" title="No local records">
+            No purchases are saved on this device for sync.
           </Alert>
         ) : filteredRecords.length === 0 ? (
           <Alert tone="warning" title="No matching queue records">
@@ -480,7 +484,7 @@ export default function CashierSyncPage() {
                     </td>
                     <td>
                       <StatusBadge
-                        label={record.syncState}
+                        label={labelForSyncState(record.syncState)}
                         tone={toneForState(record.syncState)}
                       />
                       {record.lastError ? (
@@ -508,7 +512,7 @@ export default function CashierSyncPage() {
                           Retry now
                         </Button>
                       ) : (
-                        '—'
+                        'No action'
                       )}
                     </td>
                   </tr>
@@ -522,7 +526,7 @@ export default function CashierSyncPage() {
             Showing {filteredRecords.length} of {records.length} local records.
           </p>
           <span className="cashier-sync-muted">
-            Queue state remains device-local until confirmed.
+            Records remain on this device until confirmed.
           </span>
         </footer>
       </section>
@@ -531,7 +535,7 @@ export default function CashierSyncPage() {
         <details className="cashier-sync-secondary-details">
           <summary>
             Selected record details · {selectedRecord.localId} ·{' '}
-            {selectedRecord.syncState}
+            {labelForSyncState(selectedRecord.syncState)}
           </summary>
           <Table>
             <tbody>
@@ -549,7 +553,8 @@ export default function CashierSyncPage() {
       <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-results">
         <h2>Sync results</h2>
         <p className="cashier-sync-muted">
-          Per-record confirmations and retry states appear here after syncing.
+          Results are shown per record. A record may be confirmed, await
+          approval, be rejected, or need another attempt.
         </p>
         <div className="cashier-sync-statuses">
           <StatusBadge
@@ -581,17 +586,17 @@ export default function CashierSyncPage() {
                     <td>{result.localId}</td>
                     <td>
                       <StatusBadge
-                        label={result.status}
+                        label={labelForSyncResult(result.status)}
                         tone={toneForResult(result.status)}
                       />
                     </td>
-                    <td>{result.transactionId ?? '—'}</td>
-                    <td>{result.approvalId ?? '—'}</td>
+                    <td>{result.transactionId ?? 'Not available'}</td>
+                    <td>{result.approvalId ?? 'Not available'}</td>
                     <td>
                       {typeof result.creditEarnedKobo === 'number' ? (
                         <Money amountKobo={result.creditEarnedKobo} />
                       ) : (
-                        '—'
+                        'Not available'
                       )}
                     </td>
                     <td>{result.retryable ? 'Yes' : 'No'}</td>
@@ -687,7 +692,7 @@ export default function CashierSyncPage() {
                 </div>
                 <div>
                   <dt>State</dt>
-                  <dd>{detailRecord.syncState}</dd>
+                  <dd>{labelForSyncState(detailRecord.syncState)}</dd>
                 </div>
               </dl>
               <div className="transaction-detail-context">
@@ -728,7 +733,7 @@ export default function CashierSyncPage() {
 }
 
 function renderValue(value: unknown) {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined) return 'Not available';
   if (
     typeof value === 'string' ||
     typeof value === 'number' ||
@@ -736,6 +741,34 @@ function renderValue(value: unknown) {
   )
     return String(value);
   return JSON.stringify(value, null, 2);
+}
+
+function labelForSyncState(state: OfflineEarnRecord['syncState']) {
+  switch (state) {
+    case 'waiting-to-sync':
+      return 'Waiting to sync';
+    case 'saved-on-device':
+      return 'Saved on this device';
+    case 'syncing':
+      return 'Syncing';
+    case 'retry-required':
+      return 'Needs another attempt';
+    case 'awaiting-approval':
+      return 'Awaiting approval';
+    case 'confirmed':
+      return 'Confirmed';
+    case 'rejected':
+      return 'Rejected';
+  }
+}
+
+function labelForSyncResult(
+  status: OfflineSyncControllerEarnBatchV1200DataRecordsItem['status'],
+) {
+  if (status === 'CONFIRMED') return 'Confirmed';
+  if (status === 'PENDING_APPROVAL') return 'Awaiting approval';
+  if (status === 'REJECTED') return 'Rejected';
+  return 'Needs another attempt';
 }
 
 function mapSyncState(

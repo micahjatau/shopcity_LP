@@ -1427,14 +1427,20 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     const heading = page.locator('[data-od-id="sync-queue-heading"]');
     await expect(heading).toContainText(
-      'Review purchases saved on this device while offline',
+      'Review purchases saved on this device while offline.',
+    );
+    await expect(heading).toContainText(
+      'records waiting to sync, saved on this device, or needing another attempt.',
+    );
+    await expect(heading).toContainText(
+      'A record stays in the local queue until it is confirmed.',
     );
     await expect(
       heading.locator('[data-od-id="sync-queue-toolbar"]'),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Submit batch' }),
+      page.getByRole('button', { name: 'Sync eligible records' }),
     ).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
       0,
@@ -1452,8 +1458,11 @@ test.describe('workflow route coverage', () => {
       page.getByRole('combobox', { name: 'Filter sync queue by status' }),
     ).toBeVisible();
     await expect(
-      page.getByText(/There are no local offline earn records/),
+      page.getByText('No purchases are saved on this device for sync.'),
     ).toBeVisible();
+    await expect(
+      page.getByRole('option', { name: 'Waiting', exact: true }),
+    ).toHaveAttribute('value', 'waiting-to-sync');
     for (const label of [
       'Waiting 0',
       'Syncing 0',
@@ -1465,6 +1474,9 @@ test.describe('workflow route coverage', () => {
     expect(
       await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
     ).toBe(1);
+    await expect(
+      page.locator('[data-od-id="sync-queue-view"]'),
+    ).not.toContainText('—');
     const landmarkOrder = await page
       .locator('[data-od-id="sync-queue-view"]')
       .evaluate((root) =>
@@ -1512,7 +1524,7 @@ test.describe('workflow route coverage', () => {
   }) => {
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/sync`);
-    await page.getByRole('button', { name: 'Submit batch' }).click();
+    await page.getByRole('button', { name: 'Sync eligible records' }).click();
     await expect(
       page.getByText(
         'Authenticated device ID is unavailable. Reconnect the session.',
@@ -1542,13 +1554,18 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('cell', { name: 'CARD-001' }).first(),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Submit batch' }).click();
+    await expect(
+      page
+        .getByRole('table', { name: 'Offline sync queue records' })
+        .getByText('Waiting to sync', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Sync eligible records' }).click();
     await expect(
       page.getByText('Batch submitted. Review per-record results below.'),
     ).toBeVisible();
     await page.getByText('Per-record results (1)').click();
     await expect(
-      page.getByRole('cell', { name: 'CONFIRMED', exact: true }).first(),
+      page.getByRole('cell', { name: 'Confirmed', exact: true }).first(),
     ).toBeVisible();
   });
 

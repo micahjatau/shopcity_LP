@@ -271,3 +271,13 @@ node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests -
 ```
 
 The HIGH findings were reported and bounded presentation/accessibility edits were subsequently approved. Any edit widening beyond those boundaries must stop for fresh impact review and approval.
+
+### 2026-09-27 — Cashier Sync Queue presentation/copy follow-up
+
+Before drafting `openspec/changes/cashier-sync-queue-presentation-copy`, ran the required proposal-time command:
+
+```text
+npm run proposal:impact -- --file openspec/changes/cashier-sync-queue-presentation-copy/proposal.md CashierSyncPage
+```
+
+The local CLI reported `Target 'CashierSyncPage' not found` (`UNKNOWN`, 0 impacted) despite the supplied file/symbol. The parent-provided refreshed-index upstream analysis for this exact planned page surface is authoritative: **LOW**, 0 direct callers, 0 affected flows. No app source was edited before this proposal and impact record. Scope remains presentation/copy only.
