@@ -8,6 +8,14 @@ import {
 } from '../lib/browser/connectivity';
 import { GlobalShellSearch } from './global-shell-search';
 
+const connectivityLabels: Record<ConnectivityState, string> = {
+  online: 'Browser online',
+  'connection-unstable': 'Connection unstable',
+  offline: 'Browser offline',
+  synchronizing: 'Sync in progress',
+  'sync-failed': 'Sync failed',
+};
+
 export type AppTopbarContext = {
   tenant?: { id?: string; name?: string };
   branch?: {
@@ -48,10 +56,7 @@ export function AppTopbar({
 
   useEffect(() => subscribeConnectivityState(setConnectivityState), []);
 
-  const systemStatusLabel =
-    connectivityState === 'online'
-      ? 'System Online'
-      : `System ${connectivityState}`;
+  const systemStatusLabel = connectivityLabels[connectivityState];
 
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>

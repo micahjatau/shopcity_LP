@@ -6,7 +6,7 @@ import {
   usersControllerListCashiersV1,
 } from '../lib/api/generated-client';
 import { createApiRequest } from '../lib/api/request';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 type SearchRole = 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | null;
@@ -21,10 +21,13 @@ type SearchResult = {
 export function GlobalShellSearch({
   userRole,
 }: Readonly<{ userRole: SearchRole }>) {
-  const categories: SearchCategory[] =
-    userRole === 'SUPERVISOR' || userRole === 'ADMIN'
-      ? ['customers', 'cards', 'cashiers']
-      : ['customers', 'cards'];
+  const categories = useMemo<SearchCategory[]>(
+    () =>
+      userRole === 'SUPERVISOR' || userRole === 'ADMIN'
+        ? ['customers', 'cards', 'cashiers']
+        : ['customers', 'cards'],
+    [userRole],
+  );
   const [category, setCategory] = useState<SearchCategory>('customers');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -33,92 +36,110 @@ export function GlobalShellSearch({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const requestGeneration = useRef(0);
+
+  const invalidateRequest = useCallback(() => {
+    requestGeneration.current += 1;
+    setPending(false);
+  }, []);
 
   useEffect(() => {
     if (!categories.includes(category)) {
+      invalidateRequest();
       setCategory('customers');
     }
-  }, [category, categories]);
+  }, [category, categories, invalidateRequest]);
 
-  useEffect(() => {
-    if (!open || category === 'cards' || query.trim().length < 2) {
-      if (category !== 'cards') {
-        setResults([]);
-        setMessage('');
-      }
-      return undefined;
-    }
-
-    const generation = ++requestGeneration.current;
-    const timer = window.setTimeout(() => {
-      void searchDirectory(category, query.trim(), generation);
-    }, 280);
-    return () => window.clearTimeout(timer);
-  }, [category, open, query, userRole]);
-
-  async function searchDirectory(
-    nextCategory: SearchCategory,
-    term: string,
-    generation: number,
-  ) {
-    setPending(true);
-    setMessage(`Searching for “${term}”…`);
-    try {
-      const response =
-        nextCategory === 'customers'
-          ? await customersControllerListCustomersV1(
-              { q: term, limit: '8', cursor: '' },
-              createApiRequest({ csrf: true }),
-            )
-          : await usersControllerListCashiersV1(
-              { q: term },
-              createApiRequest({ csrf: true }),
-            );
+  const searchDirectory = useCallback(
+    async function searchDirectory(
+      nextCategory: SearchCategory,
+      term: string,
+      generation: number,
+    ) {
       if (generation !== requestGeneration.current) return;
-      if (response.status !== 200) {
-        setResults([]);
+      setPending(true);
+      setMessage(`Searching for “${term}”…`);
+      setResults([]);
+      try {
+        const response =
+          nextCategory === 'customers'
+            ? await customersControllerListCustomersV1(
+                { q: term, limit: '8', cursor: '' },
+                createApiRequest({ csrf: true }),
+              )
+            : await usersControllerListCashiersV1(
+                { q: term },
+                createApiRequest({ csrf: true }),
+              );
+        if (generation !== requestGeneration.current) return;
+        if (response.status !== 200) {
+          setResults([]);
+          setMessage(
+            getAuthoritativeErrorMessage(
+              response.data,
+              `Search unavailable (${response.status}).`,
+            ),
+          );
+          return;
+        }
+        const data = response.data.data;
+        const items = Array.isArray(data) ? data : data.items;
+        const nextResults = (items ?? [])
+          .map((item, index) =>
+            normalizeResult(nextCategory, item, userRole, index),
+          )
+          .filter((item): item is SearchResult => item !== null);
+        setResults(nextResults);
+        setActiveIndex(-1);
         setMessage(
-          getAuthoritativeErrorMessage(
-            response.data,
-            `Search unavailable (${response.status}).`,
-          ),
+          nextResults.length ? '' : `No matching records for “${term}”.`,
         );
-        return;
+      } catch {
+        if (generation === requestGeneration.current) {
+          setResults([]);
+          setMessage('Search could not be completed.');
+        }
+      } finally {
+        if (generation === requestGeneration.current) setPending(false);
       }
-      const data = response.data.data;
-      const items = Array.isArray(data) ? data : data.items;
-      const nextResults = (items ?? [])
-        .map((item, index) =>
-          normalizeResult(nextCategory, item, userRole, index),
-        )
-        .filter((item): item is SearchResult => item !== null);
-      setResults(nextResults);
-      setActiveIndex(-1);
+    },
+    [userRole],
+  );
+
+  function submitDirectorySearch() {
+    const term = query.trim();
+    invalidateRequest();
+    setActiveIndex(-1);
+    if (!term || term.length < 2) {
+      setResults([]);
       setMessage(
-        nextResults.length ? '' : `No matching records for “${term}”.`,
+        term
+          ? 'Enter at least 2 characters to search.'
+          : 'Enter a search term first.',
       );
-    } catch {
-      if (generation === requestGeneration.current) {
-        setResults([]);
-        setMessage('Search could not be completed.');
-      }
-    } finally {
-      if (generation === requestGeneration.current) setPending(false);
+      setOpen(true);
+      return;
     }
+    const generation = requestGeneration.current;
+    setOpen(true);
+    void searchDirectory(category, term, generation);
   }
 
   async function searchCard() {
     const term = query.trim();
+    invalidateRequest();
+    setActiveIndex(-1);
+    setResults([]);
     if (!term) {
       setMessage('Enter a card serial or barcode first.');
+      setOpen(true);
       return;
     }
-    const generation = ++requestGeneration.current;
+    const generation = requestGeneration.current;
     setPending(true);
     setOpen(true);
     setMessage(`Verifying “${term}”…`);
-    setResults([]);
     try {
       const response = await cardsControllerLookupCardV1(
         term,
@@ -135,13 +156,15 @@ export function GlobalShellSearch({
         return;
       }
       const record = response.data.data as Record<string, unknown>;
-      const serial = String(
-        record.serialNumber ?? record.cardSerialNumber ?? term,
-      );
+      const serial =
+        valueToText(record.serialNumber) ||
+        valueToText(record.cardSerialNumber) ||
+        term;
       const customer = record.customer as Record<string, unknown> | undefined;
-      const name = String(
-        customer?.fullName ?? record.customerName ?? 'Verified card',
-      );
+      const name =
+        valueToText(customer?.fullName) ||
+        valueToText(record.customerName) ||
+        'Verified card';
       setResults([
         {
           id: serial,
@@ -160,21 +183,51 @@ export function GlobalShellSearch({
     }
   }
 
-  function closeResults() {
+  const dismissResults = useCallback(() => {
+    invalidateRequest();
     setOpen(false);
     setActiveIndex(-1);
-    window.setTimeout(() => inputRef.current?.focus(), 0);
+    setResults([]);
+    setMessage('');
+  }, [invalidateRequest]);
+
+  useEffect(() => {
+    if (!open || category === 'cards' || query.trim().length < 2) return;
+
+    const generation = ++requestGeneration.current;
+    const timer = window.setTimeout(() => {
+      void searchDirectory(category, query.trim(), generation);
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [category, open, query, searchDirectory]);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        dismissResults();
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [dismissResults]);
+
+  function closeResultsAndRestoreFocus() {
+    dismissResults();
+    inputRef.current?.focus();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Escape') {
       event.preventDefault();
-      closeResults();
+      closeResultsAndRestoreFocus();
       return;
     }
-    if (event.key === 'Enter' && category === 'cards') {
+    if (event.key === 'Enter') {
       event.preventDefault();
-      void searchCard();
+      if (category === 'cards') void searchCard();
+      else if (activeIndex >= 0 && results[activeIndex]) {
+        window.location.assign(results[activeIndex].href);
+      } else submitDirectorySearch();
       return;
     }
     if (!results.length) return;
@@ -184,14 +237,14 @@ export function GlobalShellSearch({
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setActiveIndex((index) => (index <= 0 ? results.length - 1 : index - 1));
-    } else if (event.key === 'Enter' && activeIndex >= 0) {
-      event.preventDefault();
-      window.location.assign(results[activeIndex].href);
     }
   }
 
+  const showResults =
+    open && (pending || Boolean(message) || results.length > 0);
+
   return (
-    <div className="global-shell-search">
+    <div className="global-shell-search" ref={rootRef}>
       <div className="global-shell-search__row">
         <div className="global-shell-search__control">
           <label htmlFor="global-shell-search-input" className="sr-only">
@@ -204,30 +257,40 @@ export function GlobalShellSearch({
             placeholder="Search customers, cards…"
             autoComplete="off"
             role="combobox"
-            aria-expanded={open}
-            aria-controls="global-shell-search-results"
+            aria-expanded={showResults}
+            aria-controls={
+              results.length ? 'global-shell-search-results' : undefined
+            }
             aria-activedescendant={
               activeIndex >= 0
                 ? `global-search-result-${activeIndex}`
                 : undefined
             }
-            onFocus={() => setOpen(true)}
+            onFocus={() => {
+              if (query.trim().length >= 2 || category === 'cards')
+                setOpen(true);
+            }}
             onChange={(event) => {
-              setQuery(event.target.value);
-              setOpen(true);
+              invalidateRequest();
+              const nextQuery = event.target.value;
+              setQuery(nextQuery);
+              setResults([]);
+              setMessage('');
+              setActiveIndex(-1);
+              setOpen(nextQuery.trim().length >= 2);
             }}
             onKeyDown={handleKeyDown}
           />
-          {category === 'cards' ? (
-            <button
-              type="button"
-              className="global-shell-search__submit"
-              onClick={() => void searchCard()}
-              disabled={pending}
-            >
-              Search
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="global-shell-search__submit"
+            onClick={() =>
+              category === 'cards' ? void searchCard() : submitDirectorySearch()
+            }
+            disabled={pending}
+          >
+            Search
+          </button>
         </div>
         <div
           className="global-shell-search__categories"
@@ -241,10 +304,12 @@ export function GlobalShellSearch({
               className={item === category ? 'is-active' : ''}
               aria-pressed={item === category}
               onClick={() => {
+                invalidateRequest();
                 setCategory(item);
                 setResults([]);
                 setMessage('');
-                setOpen(true);
+                setActiveIndex(-1);
+                setOpen(false);
                 inputRef.current?.focus();
               }}
             >
@@ -253,34 +318,46 @@ export function GlobalShellSearch({
           ))}
         </div>
       </div>
-      {open ? (
-        <div
-          id="global-shell-search-results"
-          className="global-shell-search__results"
-          role="listbox"
-          aria-label={`${category} search results`}
-        >
-          {pending ? <p role="status">Searching…</p> : null}
+      {showResults ? (
+        <div className="global-shell-search__results">
+          {pending ? (
+            <p role="status">
+              {category === 'cards' ? 'Verifying card…' : 'Searching…'}
+            </p>
+          ) : null}
           {!pending && message ? <p role="status">{message}</p> : null}
-          {!pending
-            ? results.map((result, index) => (
+          {!pending && results.length > 0 ? (
+            <div
+              id="global-shell-search-results"
+              className="global-shell-search__options"
+              role="listbox"
+              aria-label={`${category} search results`}
+            >
+              {results.map((result, index) => (
                 <a
                   id={`global-search-result-${index}`}
                   role="option"
                   aria-selected={index === activeIndex}
                   href={result.href}
                   key={result.id}
-                  onClick={() => setOpen(false)}
+                  onClick={dismissResults}
                 >
                   <strong>{result.label}</strong>
                   {result.detail ? <small>{result.detail}</small> : null}
                 </a>
-              ))
-            : null}
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
   );
+}
+
+function valueToText(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return fallback;
 }
 
 function getAuthoritativeErrorMessage(
@@ -306,22 +383,30 @@ function normalizeResult(
 ): SearchResult | null {
   if (!item || typeof item !== 'object') return null;
   const record = item as Record<string, unknown>;
-  const id = String(record.id ?? record.customerId ?? record.userId ?? index);
+  const id =
+    valueToText(record.id) ||
+    valueToText(record.customerId) ||
+    valueToText(record.userId) ||
+    String(index);
   if (category === 'cashiers') {
-    const username = String(record.username ?? 'Cashier');
+    const username = valueToText(record.username, 'Cashier');
+    const branchId = valueToText(record.branchId);
     return {
       id,
       label: username,
-      detail: record.branchId ? `Branch ${String(record.branchId)}` : undefined,
+      detail: branchId ? `Branch ${branchId}` : undefined,
       href: `${role === 'ADMIN' ? '/admin/users' : '/supervisor/reports'}?cashierId=${encodeURIComponent(id)}`,
     };
   }
-  const label = String(
-    record.fullName ?? record.name ?? record.email ?? 'Customer',
-  );
-  const detail = String(
-    record.maskedPhone ?? record.phone ?? record.email ?? '',
-  );
+  const label =
+    valueToText(record.fullName) ||
+    valueToText(record.name) ||
+    valueToText(record.email) ||
+    'Customer';
+  const detail =
+    valueToText(record.maskedPhone) ||
+    valueToText(record.phone) ||
+    valueToText(record.email);
   return {
     id,
     label,

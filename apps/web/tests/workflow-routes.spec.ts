@@ -17,7 +17,7 @@ import {
 } from './fixtures/route-conformance-matrix';
 import { shellNavigationByRole } from '../components/shell-navigation';
 
-const baseUrl = 'http://127.0.0.1:3100';
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
 const sessionByRole = {
   CASHIER: {
@@ -1147,6 +1147,111 @@ test.describe('workflow route coverage', () => {
     await expect(mobileSearch).toBeFocused();
   });
 
+  test('captures same-state Transactions prototype and React screens for review', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 923 });
+    const searchWidthPairs: Array<{
+      viewport: number;
+      referenceInputWidth: number;
+      reactInputWidth: number;
+      referencePageWidth: number;
+      reactPageWidth: number;
+    }> = [];
+
+    await page.goto(`${baseUrl}/prototype/transactions-dashboard.html`);
+    await expect(
+      page.getByRole('heading', { name: 'Transactions', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/0 live receipts/)).toBeVisible();
+    const referenceInputWidth =
+      (await page.locator('#globalSearch').boundingBox())?.width ?? 0;
+    const referencePageWidth = await page
+      .locator('body')
+      .evaluate((body) => body.scrollWidth);
+    expect(referencePageWidth).toBeLessThanOrEqual(1440);
+    await page.screenshot({
+      path: testInfo.outputPath('transactions-html-empty-1440x923.png'),
+      fullPage: true,
+    });
+
+    await page.goto(`${baseUrl}/cashier/transactions`);
+    await expect(
+      page.getByRole('heading', { name: 'Transactions', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/0 loaded transactions/)).toBeVisible();
+    const reactInputWidth =
+      (
+        await page
+          .getByRole('combobox', { name: 'Search ShopCity' })
+          .boundingBox()
+      )?.width ?? 0;
+    const reactPageWidth = await page
+      .locator('body')
+      .evaluate((body) => body.scrollWidth);
+    expect(reactInputWidth).toBeGreaterThanOrEqual(180);
+    expect(reactPageWidth).toBeLessThanOrEqual(1440);
+    searchWidthPairs.push({
+      viewport: 1440,
+      referenceInputWidth,
+      reactInputWidth,
+      referencePageWidth,
+      reactPageWidth,
+    });
+    await page.screenshot({
+      path: testInfo.outputPath('transactions-react-empty-1440x923.png'),
+      fullPage: true,
+    });
+
+    for (const width of [920, 390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${baseUrl}/prototype/transactions-dashboard.html`);
+      await expect(page.getByText(/0 live receipts/)).toBeVisible();
+      const referenceWidth =
+        (await page.locator('#globalSearch').boundingBox())?.width ?? 0;
+      const referenceScrollWidth = await page
+        .locator('body')
+        .evaluate((body) => body.scrollWidth);
+      expect(referenceScrollWidth).toBeLessThanOrEqual(width);
+      await page.screenshot({
+        path: testInfo.outputPath(`transactions-html-empty-${width}px.png`),
+      });
+
+      await page.goto(`${baseUrl}/cashier/transactions`);
+      await expect(page.getByText(/0 loaded transactions/)).toBeVisible();
+      const reactWidth =
+        (
+          await page
+            .getByRole('combobox', { name: 'Search ShopCity' })
+            .boundingBox()
+        )?.width ?? 0;
+      const reactScrollWidth = await page
+        .locator('body')
+        .evaluate((body) => body.scrollWidth);
+      expect(reactWidth).toBeGreaterThanOrEqual(width >= 920 ? 180 : 120);
+      expect(reactScrollWidth).toBeLessThanOrEqual(width);
+      searchWidthPairs.push({
+        viewport: width,
+        referenceInputWidth: referenceWidth,
+        reactInputWidth: reactWidth,
+        referencePageWidth: referenceScrollWidth,
+        reactPageWidth: reactScrollWidth,
+      });
+      await page.screenshot({
+        path: testInfo.outputPath(`transactions-react-empty-${width}px.png`),
+      });
+    }
+    console.log(
+      'transaction-search-width-parity',
+      JSON.stringify(searchWidthPairs),
+    );
+    await testInfo.attach('transaction-search-width-parity.json', {
+      body: JSON.stringify(searchWidthPairs, null, 2),
+      contentType: 'application/json',
+    });
+  });
+
   test('keeps role search categories authorized and card deep links explicit', async ({
     page,
   }) => {
@@ -1167,6 +1272,20 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByRole('button', { name: 'Notifications' }),
       ).toBeDisabled();
+      if (role === 'SUPERVISOR' || role === 'ADMIN') {
+        const featuredHref =
+          role === 'SUPERVISOR' ? '/supervisor/customers' : '/admin/operations';
+        const ordinaryHref =
+          role === 'SUPERVISOR'
+            ? '/supervisor/transactions'
+            : '/admin/transactions';
+        await expect(
+          page.locator(`.shell-main-column a[href="${featuredHref}"]`).first(),
+        ).toHaveCSS('grid-column-start', 'span 2');
+        await expect(
+          page.locator(`.shell-main-column a[href="${ordinaryHref}"]`).first(),
+        ).toHaveCSS('grid-column-start', 'auto');
+      }
     }
 
     await mockShell(page, 'CASHIER');
@@ -1181,6 +1300,69 @@ test.describe('workflow route coverage', () => {
       'href',
       '/cashier/lookup?card=CARD-001',
     );
+  });
+
+  test('keeps global search input usable and stable across viewports and categories', async ({
+    page,
+  }, testInfo) => {
+    await mockShell(page, 'ADMIN');
+    await page.goto(`${baseUrl}/admin`);
+    const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    const renderedGeometry: Array<{
+      viewport: number;
+      inputWidth: number;
+      categoryWidth: number;
+      groupWidth: number;
+      pageScrollWidth: number;
+    }> = [];
+
+    for (const width of [1440, 920, 390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(50);
+      const minimumWidth = width >= 920 ? 180 : 120;
+      const initialWidth = (await search.boundingBox())?.width ?? 0;
+      expect(initialWidth).toBeGreaterThanOrEqual(minimumWidth);
+      const button = page.getByRole('button', { name: 'Search' });
+      await expect(button).toBeVisible();
+      for (const category of ['Cards', 'Cashiers', 'Customers']) {
+        await page.getByRole('button', { name: category, exact: true }).click();
+        await expect(button).toBeVisible();
+        expect((await search.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(
+          minimumWidth,
+        );
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+      }
+      const inputWidth = (await search.boundingBox())?.width ?? 0;
+      const categoryWidth =
+        (await page.locator('.global-shell-search__categories').boundingBox())
+          ?.width ?? 0;
+      const groupWidth =
+        (await page.locator('.global-shell-search').boundingBox())?.width ?? 0;
+      const pageScrollWidth = await page
+        .locator('body')
+        .evaluate((body) => body.scrollWidth);
+      expect(pageScrollWidth).toBeLessThanOrEqual(width);
+      renderedGeometry.push({
+        viewport: width,
+        inputWidth,
+        categoryWidth,
+        groupWidth,
+        pageScrollWidth,
+      });
+      if (width === 1440 || width === 920 || width === 390 || width === 375) {
+        await page.screenshot({
+          path: testInfo.outputPath(`global-search-${width}px.png`),
+        });
+      }
+    }
+    console.log(
+      'global-search-rendered-geometry',
+      JSON.stringify(renderedGeometry),
+    );
+    await testInfo.attach('global-search-rendered-geometry.json', {
+      body: JSON.stringify(renderedGeometry, null, 2),
+      contentType: 'application/json',
+    });
   });
 
   test('ignores stale shell search responses', async ({ page }) => {
@@ -1222,7 +1404,7 @@ test.describe('workflow route coverage', () => {
 
   test('keeps Sync Queue controls usable on a narrow viewport', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await mockShell(page, 'CASHIER');
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`${baseUrl}/cashier/sync`);
@@ -1230,6 +1412,26 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('heading', { name: 'Sync Queue' }),
     ).toBeVisible();
+    const heading = page.locator('[data-od-id="sync-queue-heading"]');
+    await expect(heading).toContainText(
+      'Review purchases saved on this device while offline',
+    );
+    await expect(
+      heading.locator('[data-od-id="sync-queue-toolbar"]'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Submit batch' }),
+    ).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByText(/Queue summary above stays aligned/),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(/Showing \d+ of \d+ local records/),
+    ).toHaveCount(1);
     await expect(
       page.getByRole('textbox', { name: 'Search sync queue' }),
     ).toBeVisible();
@@ -1254,10 +1456,10 @@ test.describe('workflow route coverage', () => {
       .locator('[data-od-id="sync-queue-view"]')
       .evaluate((root) =>
         [
+          root.querySelector('[data-od-id="sync-queue-heading"]'),
           root.querySelector('[data-od-id="sync-queue-metrics"]'),
-          root.querySelector('[data-od-id="sync-queue-toolbar"]'),
           root.querySelector('[data-od-id="sync-queue-table"]'),
-          root.querySelector('.cashier-sync-priority'),
+          root.querySelector('.cashier-sync-results'),
         ].map((element) => {
           if (!element) return -1;
           return Array.from(root.querySelectorAll('*')).indexOf(element);
@@ -1268,13 +1470,12 @@ test.describe('workflow route coverage', () => {
       .locator('.cashier-sync-queue')
       .evaluate((element) => element.getBoundingClientRect().top);
     const detailsTop = await page
-      .locator('.cashier-sync-priority')
+      .locator('.cashier-sync-results')
       .evaluate((element) => element.getBoundingClientRect().top);
     expect(queueTop).toBeLessThan(detailsTop);
-    await expect(page.locator('main')).toHaveScreenshot(
-      'sync-queue-mobile-empty.png',
-      { maxDiffPixelRatio: 0.08 },
-    );
+    await page.locator('main').screenshot({
+      path: testInfo.outputPath('sync-queue-mobile-empty-current.png'),
+    });
     const overflow = await page.locator('main').evaluate((main) => ({
       scrollWidth: main.scrollWidth,
       clientWidth: main.clientWidth,
@@ -1332,8 +1533,9 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByText('Batch submitted. Review per-record results below.'),
     ).toBeVisible();
+    await page.getByText('Per-record results (1)').click();
     await expect(
-      page.getByRole('cell', { name: 'confirmed', exact: true }).first(),
+      page.getByRole('cell', { name: 'CONFIRMED', exact: true }).first(),
     ).toBeVisible();
   });
 

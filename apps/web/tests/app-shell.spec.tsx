@@ -1,10 +1,17 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
+import { createRef } from 'react';
+import { AppTopbar } from '../components/app-topbar';
+import {
+  setConnectivityState,
+  type ConnectivityState,
+} from '../lib/browser/connectivity';
 import { AppShell } from '../components/app-shell';
 import { invalidatePublicConfigCache } from '../components/session-bootstrap';
 
@@ -37,6 +44,47 @@ jest.mock('next/navigation', () => ({
     refresh: jest.fn(),
   }),
 }));
+
+const connectivityLabels: Array<[ConnectivityState, string]> = [
+  ['online', 'Browser online'],
+  ['connection-unstable', 'Connection unstable'],
+  ['offline', 'Browser offline'],
+  ['synchronizing', 'Sync in progress'],
+  ['sync-failed', 'Sync failed'],
+];
+
+describe('AppTopbar connectivity labels', () => {
+  afterEach(() => act(() => setConnectivityState('online')));
+
+  it.each(connectivityLabels)(
+    'labels %s without claiming API health',
+    async (state, label) => {
+      const buttonRef = createRef<HTMLButtonElement>();
+      const topbarProps = {
+        status: 'ready' as const,
+        sessionLabel: 'Cashier',
+        configMessage: '',
+        workspaceLabel: 'Cashier',
+        routeTrailLabel: 'Overview',
+        deviceLabel: null,
+        role: 'CASHIER' as const,
+        onOpenMobileMenu: () => undefined,
+        mobileMenuButtonRef: buttonRef,
+      };
+      render(<AppTopbar {...topbarProps} />);
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent('Browser online'),
+      );
+
+      act(() => setConnectivityState(state));
+      expect(screen.getByRole('status')).toHaveTextContent(label);
+      expect(screen.getByRole('status').textContent?.trim()).not.toBe(state);
+      expect(screen.getByRole('status')).not.toHaveTextContent(
+        /system|api healthy/i,
+      );
+    },
+  );
+});
 
 describe('AppShell', () => {
   beforeEach(() => {
@@ -105,7 +153,7 @@ describe('AppShell', () => {
       'aria-pressed',
       'true',
     );
-    expect(screen.getByRole('status')).toHaveTextContent('System Online');
+    expect(screen.getByRole('status')).toHaveTextContent('Browser online');
     expect(
       screen.getByRole('button', { name: 'Notifications' }),
     ).toBeDisabled();

@@ -59,6 +59,99 @@ describe('GlobalShellSearch', () => {
         expect.any(Object),
       );
     });
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'No matching records for “Ada”.',
+      ),
+    );
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('keeps the action available for every category and does not open an empty list', () => {
+    render(<GlobalShellSearch userRole="ADMIN" />);
+    const input = screen.getByRole('combobox');
+    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
+    fireEvent.focus(input);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('submits customer searches immediately and discards a result after clearing', async () => {
+    let resolveSearch!: (value: unknown) => void;
+    jest.mocked(customersControllerListCustomersV1).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      }) as never,
+    );
+    render(<GlobalShellSearch userRole="CASHIER" />);
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'Ada' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(customersControllerListCustomersV1).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    resolveSearch({
+      status: 200,
+      data: { data: { items: [{ id: 'cust-1', fullName: 'Ada Shopper' }] } },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(screen.queryByText('Ada Shopper')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('discards a customer result after switching to Cards', async () => {
+    let resolveSearch!: (value: unknown) => void;
+    jest.mocked(customersControllerListCustomersV1).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      }) as never,
+    );
+    render(<GlobalShellSearch userRole="ADMIN" />);
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'Ada' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    resolveSearch({
+      status: 200,
+      data: { data: { items: [{ id: 'cust-1', fullName: 'Ada Shopper' }] } },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(screen.queryByText('Ada Shopper')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('discards pending results when dismissed outside without restoring focus', async () => {
+    let resolveSearch!: (value: unknown) => void;
+    jest.mocked(customersControllerListCustomersV1).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      }) as never,
+    );
+    render(
+      <>
+        <GlobalShellSearch userRole="CASHIER" />
+        <button>Outside</button>
+      </>,
+    );
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: 'Ada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    const outside = screen.getByRole('button', { name: 'Outside' });
+    outside.focus();
+    fireEvent.pointerDown(outside);
+    expect(outside).toHaveFocus();
+    resolveSearch({
+      status: 200,
+      data: { data: { items: [{ id: 'cust-1', fullName: 'Ada Shopper' }] } },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
   it('only calls exact card lookup after explicit submission', async () => {

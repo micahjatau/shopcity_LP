@@ -1,0 +1,69 @@
+{
+  "capturedAt": "2026-09-25",
+  "browser": "Playwright Chromium, local Next dev server on 127.0.0.1:3101",
+  "state": "Cashier session; same empty bounded-transactions API fixture (items: []); browser document dimensions measured after load",
+  "reference": "apps/web/public/prototype/transactions-dashboard.html#globalSearch",
+  "react": "apps/web/app/(shell)/cashier/transactions and apps/web/components/global-shell-search.tsx",
+  "pairedMeasurementsCssPx": [
+    {
+      "viewport": "1440x923",
+      "referenceInputWidth": 246,
+      "reactInputWidth": 299.4375,
+      "referenceDocumentWidth": 1440,
+      "reactDocumentWidth": 1440
+    },
+    {
+      "viewport": "920x900",
+      "referenceInputWidth": 186,
+      "reactInputWidth": 297.1875,
+      "referenceDocumentWidth": 920,
+      "reactDocumentWidth": 920
+    },
+    {
+      "viewport": "390x900",
+      "referenceInputWidth": 121.5,
+      "reactInputWidth": 124.265625,
+      "referenceDocumentWidth": 390,
+      "reactDocumentWidth": 390
+    },
+    {
+      "viewport": "375x900",
+      "referenceInputWidth": 114.75,
+      "reactInputWidth": 124.203125,
+      "referenceDocumentWidth": 375,
+      "reactDocumentWidth": 375
+    }
+  ],
+  "adminCategoryStressMeasurementsCssPx": [
+    {
+      "viewport": 1440,
+      "inputWidth": 238.515625,
+      "categoryPillWidth": 189.6875,
+      "searchGroupWidth": 520,
+      "documentWidth": 1440
+    },
+    {
+      "viewport": 920,
+      "inputWidth": 236.265625,
+      "categoryPillWidth": 189.6875,
+      "searchGroupWidth": 517.75,
+      "documentWidth": 920
+    },
+    {
+      "viewport": 390,
+      "inputWidth": 124.265625,
+      "categoryPillWidth": 189.6875,
+      "searchGroupWidth": 210.0625,
+      "documentWidth": 390
+    },
+    {
+      "viewport": 375,
+      "inputWidth": 124.203125,
+      "categoryPillWidth": 189.6875,
+      "searchGroupWidth": 195.0625,
+      "documentWidth": 375
+    }
+  ],
+  "method": "Tests measured actual input and document bounding boxes. The React input is at least 180px at 1440/920 and 120px at 390/375; HTML reference measurements are recorded for direct comparison. At all paired viewports the document scroll width equals, and does not exceed, the viewport.",
+  "test": "apps/web/tests/workflow-routes.spec.ts: captures same-state Transactions prototype and React screens for review; keeps global search input usable and stable across viewports and categories"
+}

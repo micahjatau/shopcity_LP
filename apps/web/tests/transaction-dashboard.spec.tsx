@@ -55,6 +55,13 @@ describe('TransactionDashboard', () => {
 
     const { container } = render(<TransactionDashboard />);
     await waitFor(() => expect(screen.getByText('R-001')).toBeInTheDocument());
+    expect(screen.getByText('Today’s cashier activity')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Review purchases, redemptions and their current status.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Live ledger|credit issued against/)).toBeNull();
     const heading = container.querySelector(
       '[data-od-id="transactions-heading"]',
     );
@@ -93,7 +100,7 @@ describe('TransactionDashboard', () => {
     );
     expect(screen.getByRole('dialog')).toHaveTextContent('txn-1');
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Receipt image not included in the cashier report',
+      'Receipt images are not included in this activity report.',
     );
     expect(screen.getByRole('dialog')).toHaveTextContent(
       'Not included in cashier report',
@@ -106,6 +113,44 @@ describe('TransactionDashboard', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('preserves the table composition for an empty bounded report', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
+      status: 200,
+      data: { data: { items: [] } },
+    } as never);
+
+    render(<TransactionDashboard />);
+
+    expect(
+      await screen.findByText('No transactions found'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Receipt no.' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Operation' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Credit' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Status' }),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText(
+          'Adjust the filters or refresh the bounded cashier activity feed.',
+        )
+        .closest('[role="status"]'),
+    ).toHaveTextContent(
+      'Adjust the filters or refresh the bounded cashier activity feed.',
+    );
+    expect(screen.getByRole('contentinfo')).toHaveTextContent(
+      '0 loaded transactions · bounded report scope',
+    );
   });
 
   it('contains focus and ignores stale detail responses', async () => {

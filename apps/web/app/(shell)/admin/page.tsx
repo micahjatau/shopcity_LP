@@ -67,7 +67,7 @@ export default function AdminPage() {
             <Link
               key={route.href}
               href={route.href}
-              style={'featured' in route ? featuredRouteLink : routeLink}
+              style={route.featured ? featuredRouteLink : routeLink}
             >
               <strong>{route.label}</strong>
               <span style={routeBody}>{route.body}</span>

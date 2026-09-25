@@ -36,6 +36,28 @@ describe('frontend accessibility gates', () => {
     expect(await runAxe(container)).toHaveLength(0);
   });
 
+  it('uses the featured grid span only for featured Admin and Supervisor routes', () => {
+    const { container } = render(
+      <main>
+        <SupervisorPage />
+        <AdminPage />
+      </main>,
+    );
+
+    expect(
+      container.querySelector('a[href="/supervisor/customers"]'),
+    ).toHaveStyle({ gridColumn: 'span 2' });
+    expect(
+      container.querySelector('a[href="/supervisor/transactions"]'),
+    ).not.toHaveStyle({ gridColumn: 'span 2' });
+    expect(container.querySelector('a[href="/admin/operations"]')).toHaveStyle({
+      gridColumn: 'span 2',
+    });
+    expect(
+      container.querySelector('a[href="/admin/transactions"]'),
+    ).not.toHaveStyle({ gridColumn: 'span 2' });
+  });
+
   it('keeps the login route accessible and keyboard navigable', async () => {
     const user = userEvent.setup();
     render(

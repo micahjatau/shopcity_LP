@@ -1118,7 +1118,27 @@
 
 .cashier-sync-header {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sc-spacing-2) var(--sc-spacing-4);
+}
+
+.cashier-sync-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--sc-spacing-2);
+}
+
+.cashier-sync-device {
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.cashier-sync-header > [role='status'] {
+  grid-column: 1 / -1;
 }
 
 .cashier-sync-header h1,
@@ -1195,7 +1215,20 @@
   outline-offset: 2px;
 }
 
-.cashier-sync-card details {
+.cashier-sync-card details,
+.cashier-sync-secondary-details {
+  margin-top: var(--sc-spacing-3);
+}
+
+.cashier-sync-secondary-details summary {
+  color: var(--sc-color-brand-700);
+  cursor: pointer;
+  font-size: var(--sc-font-size-sm);
+  font-weight: 600;
+}
+
+.cashier-sync-secondary-details > .cashier-sync-statuses,
+.cashier-sync-secondary-details > .sc-table {
   margin-top: var(--sc-spacing-3);
 }
 .cashier-sync-footer {
@@ -1223,15 +1256,37 @@
 
 /* Extracted from apps/web/app/(shell)/cashier/sync/page.tsx during Cashier design-system migration. */
 @media (max-width: 620px) {
-  .cashier-sync-actions,
-  .cashier-sync-filters {
-    grid-template-columns: 1fr !important;
+  .cashier-sync-header {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .cashier-sync-actions > .sc-button,
+  .cashier-sync-header-actions {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-content: stretch;
+  }
+
+  .cashier-sync-device {
+    grid-column: 1 / -1;
+  }
+
+  .cashier-sync-header-actions > .sc-button {
+    min-width: 0;
+    width: auto;
+  }
+
+  .cashier-sync-header-actions > .cashier-sync-header-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
   .cashier-sync-filters > * {
     min-width: 0;
     width: 100%;
+  }
+
+  .cashier-sync-filters {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -1450,6 +1505,18 @@
   width: 100%;
   min-width: 760px;
 }
+.transaction-empty-state {
+  display: grid;
+  min-height: 240px;
+  align-content: center;
+  justify-items: center;
+  gap: var(--sc-spacing-2);
+  text-align: center;
+}
+.transaction-empty-state p {
+  margin: 0;
+  color: var(--sc-color-semantic-textSecondary);
+}
 .transaction-table-card tbody tr {
   cursor: pointer;
 }
@@ -1607,6 +1674,10 @@
   }
   .transaction-table-card {
     padding: 14px;
+  }
+  .transaction-empty-state {
+    width: calc(100vw - 72px);
+    min-height: 180px;
   }
   .transaction-detail-backdrop {
     padding: 12px;

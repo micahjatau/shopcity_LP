@@ -194,10 +194,10 @@ export function TransactionDashboard() {
       >
         <div>
           <p className="cashier-transactions-page__eyebrow">
-            Operations · Live ledger
+            Today’s cashier activity
           </p>
           <h1 id="cashier-transactions-title">Transactions</h1>
-          <p>Captured receipts and the credit issued against them.</p>
+          <p>Review purchases, redemptions and their current status.</p>
         </div>
         <Button
           type="button"
@@ -277,20 +277,20 @@ export function TransactionDashboard() {
         data-od-id="transactions-table"
         aria-label="Cashier today transactions"
       >
-        {visibleItems.length ? (
-          <Table>
-            <thead>
-              <tr>
-                <th>Receipt no.</th>
-                <th>Operation</th>
-                <th>Credit</th>
-                <th>Transaction ID</th>
-                <th>Date &amp; time</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedItems.map((item) => {
+        <Table>
+          <thead>
+            <tr>
+              <th>Receipt no.</th>
+              <th>Operation</th>
+              <th>Credit</th>
+              <th>Transaction ID</th>
+              <th>Date &amp; time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleItems.length ? (
+              pagedItems.map((item) => {
                 const displayStatus = normalizeStatus(item.status);
                 return (
                   <tr
@@ -339,30 +339,39 @@ export function TransactionDashboard() {
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </Table>
-        ) : (
-          <Alert
-            tone={loadError ? 'danger' : 'warning'}
-            title={
-              loadError ? 'Transactions unavailable' : 'No transactions found'
-            }
-          >
-            {loadError
-              ? 'The bounded cashier activity feed could not be loaded.'
-              : 'Adjust the filters or refresh the bounded cashier activity feed.'}
-            <Button
-              type="button"
-              variant="ghost"
-              size="compact"
-              onClick={() => void load()}
-              loading={busy}
-            >
-              Retry
-            </Button>
-          </Alert>
-        )}
+              })
+            ) : (
+              <tr>
+                <td colSpan={6}>
+                  <div
+                    className="transaction-empty-state"
+                    role={loadError ? 'alert' : 'status'}
+                  >
+                    <strong>
+                      {loadError
+                        ? 'Transactions unavailable'
+                        : 'No transactions found'}
+                    </strong>
+                    <p>
+                      {loadError
+                        ? 'The bounded cashier activity feed could not be loaded.'
+                        : 'Adjust the filters or refresh the bounded cashier activity feed.'}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="compact"
+                      onClick={() => void load()}
+                      loading={busy}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
         <footer className="transaction-table-footer">
           <p className="cashier-workflow-hint">
             {visibleItems.length} loaded transaction
@@ -484,9 +493,9 @@ export function TransactionDashboard() {
                   </div>
                 </dl>
                 <div className="transaction-detail-context">
-                  <div className="transaction-receipt-preview">
-                    Receipt image not included in the cashier report
-                  </div>
+                  <p className="cashier-workflow-hint">
+                    Receipt images are not included in this activity report.
+                  </p>
                   <section
                     className="transaction-audit"
                     aria-labelledby="transaction-audit-title"
