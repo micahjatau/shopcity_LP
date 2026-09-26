@@ -1427,13 +1427,7 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     const heading = page.locator('[data-od-id="sync-queue-heading"]');
     await expect(heading).toContainText(
-      'Review purchases saved on this device while offline.',
-    );
-    await expect(heading).toContainText(
-      'records waiting to sync, saved on this device, or needing another attempt.',
-    );
-    await expect(heading).toContainText(
-      'A record stays in the local queue until it is confirmed.',
+      'Purchases saved offline on this device.',
     );
     await expect(
       heading.locator('[data-od-id="sync-queue-toolbar"]'),
@@ -1441,6 +1435,14 @@ test.describe('workflow route coverage', () => {
     await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('heading', {
+        name: 'Device unavailable in this session',
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Retry access' }),
     ).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
       0,
@@ -1453,31 +1455,15 @@ test.describe('workflow route coverage', () => {
     ).toHaveCount(1);
     await expect(
       page.getByRole('textbox', { name: 'Search sync queue' }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       page.getByRole('combobox', { name: 'Filter sync queue by status' }),
-    ).toBeVisible();
-    const filterControlWidths = await page
-      .locator('.cashier-sync-filters > *')
-      .evaluateAll((controls) =>
-        controls.map((control) => control.getBoundingClientRect().width),
-      );
-    expect(filterControlWidths).toHaveLength(2);
-    expect(filterControlWidths.every((width) => width > 270)).toBe(true);
+    ).toHaveCount(0);
+    await expect(page.getByText('No purchases waiting to sync')).toBeVisible();
     await expect(
-      page.getByText('No purchases are saved on this device for sync.'),
+      page.getByRole('link', { name: 'Back to Capture Purchase' }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('option', { name: 'Waiting', exact: true }),
-    ).toHaveAttribute('value', 'waiting-to-sync');
-    for (const label of [
-      'Waiting 0',
-      'Syncing 0',
-      'Needs attention 0',
-      'Synced 0',
-    ]) {
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
-    }
+    await expect(page.getByText('0 waiting · 0 need attention')).toBeVisible();
     expect(
       await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
     ).toBe(1);
@@ -1491,7 +1477,6 @@ test.describe('workflow route coverage', () => {
           root.querySelector('[data-od-id="sync-queue-heading"]'),
           root.querySelector('[data-od-id="sync-queue-metrics"]'),
           root.querySelector('[data-od-id="sync-queue-table"]'),
-          root.querySelector('.cashier-sync-results'),
         ].map((element) => {
           if (!element) return -1;
           return Array.from(root.querySelectorAll('*')).indexOf(element);
@@ -1501,10 +1486,8 @@ test.describe('workflow route coverage', () => {
     const queueTop = await page
       .locator('.cashier-sync-queue')
       .evaluate((element) => element.getBoundingClientRect().top);
-    const detailsTop = await page
-      .locator('.cashier-sync-results')
-      .evaluate((element) => element.getBoundingClientRect().top);
-    expect(queueTop).toBeLessThan(detailsTop);
+    expect(queueTop).toBeGreaterThan(0);
+    await expect(page.locator('.cashier-sync-results')).toHaveCount(0);
     await page.screenshot({
       path: testInfo.outputPath('sync-queue-mobile-full-current.png'),
     });

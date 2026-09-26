@@ -61,6 +61,9 @@ export function AppTopbar({
   return (
     <header className="shell-topbar" data-workspace={workspaceLabel}>
       <div className="shell-brand-row">
+        <span className="shell-mobile-brand" aria-hidden="true">
+          SHOPCITY
+        </span>
         <GlobalShellSearch userRole={role} />
 
         <div
