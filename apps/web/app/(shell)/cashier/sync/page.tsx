@@ -364,7 +364,9 @@ export default function CashierSyncPage() {
             className="cashier-sync-header-submit"
             onClick={() => void syncBatch()}
             disabled={
-              queueAccessAvailable !== true || queueableRecords.length === 0
+              queueAccessAvailable !== true ||
+              !deviceId.trim() ||
+              queueableRecords.length === 0
             }
             loading={busy}
           >
@@ -395,11 +397,11 @@ export default function CashierSyncPage() {
             {queueAccessAvailable === false
               ? 'This session cannot access purchases saved on this device. Your internet connection may be active, but device queue access is not ready.'
               : deviceUnavailable
-                ? 'The browser may be online, but this session has no ready device identity for syncing.'
+                ? 'The browser may be online, but this session has no ready device identity for syncing. Reconnect the cashier session before syncing.'
                 : 'Saved purchases can be reviewed here before they are submitted for sync.'}
           </p>
         </div>
-        {deviceUnavailable && queueAccessAvailable !== null ? (
+        {queueAccessAvailable === false ? (
           <Button onClick={() => void refresh()} variant="secondary">
             Retry access
           </Button>

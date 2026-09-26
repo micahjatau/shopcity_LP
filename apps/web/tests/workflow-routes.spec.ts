@@ -1443,6 +1443,9 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Retry access' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(/Reconnect the cashier session before syncing/),
     ).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
       0,
@@ -1551,16 +1554,21 @@ test.describe('workflow route coverage', () => {
     expect(await trackCount()).toBe(2);
   });
 
-  test('gates sync when the session has no backend device association', async ({
+  test('disables sync when the session has no backend device association', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/sync`);
-    await page.getByRole('button', { name: 'Sync eligible records' }).click();
     await expect(
-      page.getByText(
-        'Authenticated device ID is unavailable. Reconnect the session.',
-      ),
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('heading', {
+        name: 'Device unavailable in this session',
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Reconnect the cashier session before syncing/),
     ).toBeVisible();
   });
 
