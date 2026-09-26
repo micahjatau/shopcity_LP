@@ -30,17 +30,40 @@ The Sync Queue SHALL show human-readable labels for local state values in the qu
 
 The Sync Queue SHALL retain its table, search and status filters, summary, selected-record detail, sync results, and expandable technical diagnostics. At narrow viewport widths the controls SHALL remain operable and table overflow SHALL remain contained without document-level horizontal overflow.
 
-#### Scenario: Cashier uses the queue on a narrow viewport
+#### Scenario: Cashier uses a populated queue on a narrow viewport
 
-- **WHEN** `/cashier/sync` is rendered at 375 CSS pixels wide
+- **WHEN** `/cashier/sync` is rendered at 375 CSS pixels wide with local records
 - **THEN** heading, refresh and sync controls, summary, search, and status filter remain visible and usable
 - **AND** table scrolling is contained within its existing scroll region
 - **AND** search and status filters span the available queue-card width
+- **AND** the shell shows compact mobile navigation instead of a permanent sidebar
 - **AND** the main page has no horizontal overflow
 
 #### Scenario: Cashier uses the queue where shell content is constrained
 
-- **WHEN** `/cashier/sync` is rendered at 1080 CSS pixels wide
-- **THEN** the explanatory heading copy occupies a full row above the action toolbar
-- **AND** refresh and sync controls remain visible without horizontal page overflow
-- **AND** the two-column heading composition remains available at 1440 CSS pixels
+- **WHEN** `/cashier/sync` is rendered with less than 1040 CSS pixels of available page-container width
+- **THEN** the queue records panel occupies the full available width when sync activity is absent
+- **AND** the heading copy stacks above the action toolbar
+- **AND** the page has no horizontal overflow
+
+#### Scenario: Cashier has meaningful queue and sync activity
+
+- **WHEN** `/cashier/sync` is rendered with queue records and sync results at 1040 CSS pixels or more of available page-container width
+- **THEN** Queue records and Sync activity may render side by side
+- **AND** the layout uses the available content width after the shared sidebar
+
+### Requirement: Queue availability and session identity are truthful
+
+The Sync Queue SHALL model local queue read availability separately from session device identity. It SHALL show a loading state while a local read is pending, an empty state and zero count only after a successful empty read, and an unavailable state with unknown count after a failed read. When local records are readable but the session device identity is missing, the records SHALL remain visible and sync SHALL remain disabled. The page SHALL offer only recovery actions supported by the app.
+
+#### Scenario: Local queue read is pending or fails
+
+- **WHEN** local queue access is pending or fails
+- **THEN** the page SHALL NOT show a definitive empty queue or zero count
+- **AND** a failed queue read SHALL offer a retry of local queue access
+
+#### Scenario: Queue is empty or session device identity is unavailable
+
+- **WHEN** a local queue read succeeds with zero records
+- **THEN** the page shows “0 records” and a next-step Capture Purchase link without an empty-state footer
+- **AND** if session device identity is missing, the page keeps the empty state truthful, disables Sync, and offers the supported reconnect-to-sign-in action

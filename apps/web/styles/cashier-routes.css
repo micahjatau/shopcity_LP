@@ -1113,24 +1113,37 @@
   display: grid;
   gap: var(--sc-spacing-5);
   width: 100%;
+  min-width: 0;
+  max-width: none;
   margin-inline: auto;
+  padding: 0;
+  container-name: sync-queue-workspace;
+  container-type: inline-size;
 }
 
 .cashier-sync-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: var(--sc-spacing-2) var(--sc-spacing-4);
 }
 
-@media (max-width: 1100px) {
+.cashier-sync-header-actions {
+  justify-content: flex-start;
+}
+
+@container sync-queue-workspace (min-width: 1040px) {
   .cashier-sync-header {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 
-  .cashier-sync-header-actions {
-    justify-content: flex-start;
+  .cashier-sync-page .cashier-sync-header-actions {
+    justify-content: flex-end;
+  }
+
+  .cashier-sync-page .cashier-sync-priority--with-activity {
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   }
 }
 
@@ -1138,7 +1151,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--sc-spacing-2);
 }
 
@@ -1212,6 +1225,13 @@
   gap: 6px;
 }
 
+.cashier-sync-device-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  flex: none;
+  gap: var(--sc-spacing-2);
+}
+
 .cashier-sync-device-status > div > p:last-child {
   color: var(--sc-color-semantic-textSecondary);
   max-width: 720px;
@@ -1244,9 +1264,24 @@
 
 .cashier-sync-priority {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sc-spacing-5);
   align-items: start;
+}
+
+.cashier-sync-queue-title {
+  display: grid;
+  gap: 4px;
+}
+
+.cashier-sync-queue-title h2,
+.cashier-sync-queue-title span {
+  margin: 0;
+}
+
+.cashier-sync-queue-title span {
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-sm);
 }
 
 .cashier-sync-empty-state {
@@ -1327,10 +1362,6 @@
 }
 
 @media (max-width: 920px) {
-  .cashier-sync-priority {
-    grid-template-columns: 1fr;
-  }
-
   .cashier-sync-device-status {
     align-items: flex-start;
     flex-direction: column;

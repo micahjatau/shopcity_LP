@@ -1437,15 +1437,18 @@ test.describe('workflow route coverage', () => {
       page.getByRole('button', { name: 'Sync eligible records' }),
     ).toBeDisabled();
     await expect(
-      page.getByRole('heading', {
-        name: 'Device unavailable in this session',
-      }),
+      page.getByRole('heading', { name: 'Device identity unavailable' }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Retry access' }),
     ).toHaveCount(0);
     await expect(
-      page.getByText(/Reconnect the cashier session before syncing/),
+      page.getByText(
+        /Reconnect the cashier session to sign in with device access/,
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Reconnect cashier session' }),
     ).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
       0,
@@ -1453,9 +1456,10 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByText(/Queue summary above stays aligned/),
     ).toHaveCount(0);
+    await expect(page.getByText('0 records', { exact: true })).toBeVisible();
     await expect(
       page.getByText(/Showing \d+ of \d+ local records/),
-    ).toHaveCount(1);
+    ).toHaveCount(0);
     await expect(
       page.getByRole('textbox', { name: 'Search sync queue' }),
     ).toHaveCount(0);
@@ -1467,6 +1471,8 @@ test.describe('workflow route coverage', () => {
       page.getByRole('link', { name: 'Back to Capture Purchase' }),
     ).toBeVisible();
     await expect(page.getByText('0 waiting · 0 need attention')).toBeVisible();
+    await expect(page.locator('.shell-sidebar')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
     expect(
       await page.locator('[data-od-id="sync-queue-toolbar"]').count(),
     ).toBe(1);
@@ -1515,6 +1521,109 @@ test.describe('workflow route coverage', () => {
     );
   });
 
+  test('keeps the empty queue full width across workspace sizes', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER', 'device-1');
+
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${baseUrl}/cashier/sync`);
+      await expect(
+        page.getByRole('heading', { name: 'Device queue ready' }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'No purchases waiting to sync' }),
+      ).toBeVisible();
+      await expect(page.getByText('0 records', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Showing 0 of 0 local records/)).toHaveCount(
+        0,
+      );
+
+      const geometry = await page.evaluate(() => {
+        const page = document.querySelector('.cashier-sync-page');
+        const queue = document.querySelector('.cashier-sync-queue');
+        const priority = document.querySelector('.cashier-sync-priority');
+        if (!page || !queue || !priority) return null;
+        return {
+          pageWidth: page.getBoundingClientRect().width,
+          queueWidth: queue.getBoundingClientRect().width,
+          columns: getComputedStyle(priority)
+            .gridTemplateColumns.trim()
+            .split(/\s+/).length,
+          bodyWidth: document.body.scrollWidth,
+        };
+      });
+      expect(geometry).not.toBeNull();
+      expect(geometry!.queueWidth).toBeCloseTo(geometry!.pageWidth, 0);
+      expect(geometry!.columns).toBe(1);
+      expect(geometry!.bodyWidth).toBeLessThanOrEqual(width);
+    }
+  });
+
+  test('does not report zero while the local queue is loading', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', {
+        configurable: true,
+        value: { open: () => ({}) },
+      });
+    });
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Checking device access…' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Loading saved purchases', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('Loading…', { exact: true })).toBeVisible();
+    await expect(page.getByText('0 records', { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/0 waiting/)).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'No purchases waiting to sync' }),
+    ).toHaveCount(0);
+  });
+
+  test('shows unknown queue counts and retry when the local read fails', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', {
+        configurable: true,
+        value: undefined,
+      });
+    });
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${baseUrl}/cashier/sync`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Offline queue unavailable' }),
+    ).toBeVisible();
+    await expect(page.getByText('Count unavailable')).toBeVisible();
+    await expect(
+      page.getByText('Unable to load saved purchases', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/0 waiting/)).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'No purchases waiting to sync' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Sync eligible records' }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'Retry access' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Retry access' }).click();
+    await expect(
+      page.getByText('Unable to load saved purchases', { exact: true }),
+    ).toBeVisible();
+  });
+
   test('stacks the Sync Queue header when shell width is constrained', async ({
     page,
   }, testInfo) => {
@@ -1554,7 +1663,7 @@ test.describe('workflow route coverage', () => {
     expect(await trackCount()).toBe(2);
   });
 
-  test('disables sync when the session has no backend device association', async ({
+  test('offers supported session reconnection when the backend has no device association', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
@@ -1563,12 +1672,17 @@ test.describe('workflow route coverage', () => {
       page.getByRole('button', { name: 'Sync eligible records' }),
     ).toBeDisabled();
     await expect(
-      page.getByRole('heading', {
-        name: 'Device unavailable in this session',
-      }),
+      page.getByRole('heading', { name: 'Device identity unavailable' }),
     ).toBeVisible();
     await expect(
-      page.getByText(/Reconnect the cashier session before syncing/),
+      page.getByRole('button', { name: 'Reconnect cashier session' }),
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Reconnect cashier session' })
+      .click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(
+      page.getByRole('textbox', { name: 'Device ID' }),
     ).toBeVisible();
   });
 
@@ -1607,6 +1721,23 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('cell', { name: 'Confirmed', exact: true }).first(),
     ).toBeVisible();
+    const activityGrid = page.locator('.cashier-sync-priority');
+    await expect(page.locator('.cashier-sync-results')).toBeVisible();
+    expect(
+      await activityGrid.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      ),
+    ).toBe(2);
+    await page.setViewportSize({ width: 768, height: 900 });
+    expect(
+      await activityGrid.evaluate(
+        (element) =>
+          getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      ),
+    ).toBe(1);
   });
 
   test('disables Earn submission while the authoritative request is pending', async ({

@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionBootstrapState } from '../../../../components/session-bootstrap';
 import {
@@ -9,6 +10,7 @@ import {
   type OfflineEarnBatchRecordDto,
   type OfflineSyncControllerEarnBatchV1200DataRecordsItem,
 } from '../../../../lib/api/generated-client';
+import { logoutSession } from '../../../../lib/api/session';
 import { createApiRequest } from '../../../../lib/api/request';
 import {
   deleteOfflineEarnRecord,
@@ -49,8 +51,15 @@ export default function CashierSyncPage() {
     string,
     unknown
   > | null>(null);
-  const { deviceId: sessionDeviceId } = useSessionBootstrapState();
-  const deviceUnavailable = queueAccessAvailable !== true || !deviceId;
+  const { deviceId: sessionDeviceId, reset: resetSession } =
+    useSessionBootstrapState();
+  const router = useRouter();
+  const hasDeviceIdentity = Boolean(deviceId.trim());
+  const deviceUnavailable =
+    queueAccessAvailable === false ||
+    (queueAccessAvailable === true && !hasDeviceIdentity);
+  const hasSyncActivity =
+    lastBatchResults.length > 0 || actionResponse !== null;
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.localId === selectedLocalId) ?? null,
@@ -162,6 +171,20 @@ export default function CashierSyncPage() {
       void refresh();
     });
   }, [sessionDeviceId]);
+
+  async function reconnectCashierSession() {
+    setBusy(true);
+    try {
+      await logoutSession();
+    } catch {
+      // Reset locally and send the cashier through the supported sign-in flow.
+    } finally {
+      resetSession();
+      router.replace('/login');
+      router.refresh();
+      setBusy(false);
+    }
+  }
 
   async function syncBatch() {
     if (queueAccessAvailable !== true) {
@@ -389,23 +412,38 @@ export default function CashierSyncPage() {
           <h2>
             {queueAccessAvailable === null
               ? 'Checking device access…'
-              : deviceUnavailable
-                ? 'Device unavailable in this session'
-                : 'Device queue ready'}
+              : queueAccessAvailable === false
+                ? 'Offline queue unavailable'
+                : !hasDeviceIdentity
+                  ? 'Device identity unavailable'
+                  : 'Device queue ready'}
           </h2>
           <p>
-            {queueAccessAvailable === false
-              ? 'This session cannot access purchases saved on this device. Your internet connection may be active, but device queue access is not ready.'
-              : deviceUnavailable
-                ? 'The browser may be online, but this session has no ready device identity for syncing. Reconnect the cashier session before syncing.'
-                : 'Saved purchases can be reviewed here before they are submitted for sync.'}
+            {queueAccessAvailable === null
+              ? 'Checking this device for saved purchases.'
+              : queueAccessAvailable === false
+                ? 'This session cannot read purchases saved on this device. The queue count is unknown until access is restored.'
+                : !hasDeviceIdentity
+                  ? 'This session can read saved purchases but cannot sync them without a device identity. Reconnect the cashier session to sign in with device access.'
+                  : 'Saved purchases can be reviewed here before they are submitted for sync.'}
           </p>
         </div>
-        {queueAccessAvailable === false ? (
-          <Button onClick={() => void refresh()} variant="secondary">
-            Retry access
-          </Button>
-        ) : null}
+        <div className="cashier-sync-device-status__actions">
+          {queueAccessAvailable === false ? (
+            <Button onClick={() => void refresh()} variant="secondary">
+              Retry access
+            </Button>
+          ) : null}
+          {queueAccessAvailable !== null && !hasDeviceIdentity ? (
+            <Button
+              onClick={() => void reconnectCashierSession()}
+              loading={busy}
+              variant="secondary"
+            >
+              Reconnect cashier session
+            </Button>
+          ) : null}
+        </div>
       </section>
 
       <section
@@ -413,7 +451,7 @@ export default function CashierSyncPage() {
         data-od-id="sync-queue-metrics"
         aria-label="Sync queue summary"
       >
-        {queueAccessAvailable === false ? null : records.length === 0 ? (
+        {queueAccessAvailable !== true ? null : records.length === 0 ? (
           <p className="cashier-sync-summary-line">
             0 waiting · 0 need attention
           </p>
@@ -437,7 +475,7 @@ export default function CashierSyncPage() {
             />
           </div>
         )}
-        {records.length > 0 ? (
+        {queueAccessAvailable === true && records.length > 0 ? (
           <details className="cashier-sync-secondary-details">
             <summary>Detailed queue states</summary>
             <div
@@ -466,14 +504,23 @@ export default function CashierSyncPage() {
         ) : null}
       </section>
 
-      <div className="cashier-sync-priority">
+      <div
+        className={`cashier-sync-priority${hasSyncActivity ? ' cashier-sync-priority--with-activity' : ''}`}
+      >
         <section
           className="sc-card sc-card--standard cashier-sync-card cashier-sync-queue"
           data-od-id="sync-queue-table"
         >
           <div className="cashier-sync-queue-header">
-            <div>
+            <div className="cashier-sync-queue-title">
               <h2>Queue records</h2>
+              <span aria-live="polite">
+                {queueAccessAvailable === null
+                  ? 'Loading…'
+                  : queueAccessAvailable === false
+                    ? 'Count unavailable'
+                    : `${records.length} ${records.length === 1 ? 'record' : 'records'}`}
+              </span>
             </div>
             {records.length > 0 && queueAccessAvailable !== false ? (
               <div className="cashier-sync-filters">
@@ -501,18 +548,19 @@ export default function CashierSyncPage() {
               </div>
             ) : null}
           </div>
-          {queueAccessAvailable === false ? (
+          {queueAccessAvailable === null ? (
+            <Alert tone="info" title="Loading saved purchases">
+              Checking this device for purchases saved offline…
+            </Alert>
+          ) : queueAccessAvailable === false ? (
             <Alert tone="warning" title="Unable to load saved purchases">
-              Restore device access to view the queue. This session cannot
-              confirm whether saved purchases are waiting.
+              Restore local queue access to view the records. The number of
+              saved purchases is unknown.
             </Alert>
           ) : records.length === 0 ? (
             <div className="cashier-sync-empty-state">
               <h3>No purchases waiting to sync</h3>
-              <p>
-                Purchases saved offline on this device will appear here until
-                they are confirmed.
-              </p>
+              <p>Purchases saved offline on this device will appear here.</p>
               <Link
                 className="sc-button sc-button--secondary"
                 href="/cashier/earn"
@@ -598,7 +646,7 @@ export default function CashierSyncPage() {
               </Table>
             </div>
           )}
-          {queueAccessAvailable !== false ? (
+          {queueAccessAvailable === true && records.length > 0 ? (
             <footer className="cashier-sync-footer">
               <p className="cashier-sync-muted">
                 Showing {filteredRecords.length} of {records.length} local
@@ -609,28 +657,27 @@ export default function CashierSyncPage() {
               </span>
             </footer>
           ) : null}
+          {selectedRecord ? (
+            <details className="cashier-sync-secondary-details cashier-sync-selected-record">
+              <summary>
+                Selected record details · {selectedRecord.localId} ·{' '}
+                {labelForSyncState(selectedRecord.syncState)}
+              </summary>
+              <Table>
+                <tbody>
+                  {selectedPreview.map(([key, value]) => (
+                    <tr key={key}>
+                      <th scope="row">{key}</th>
+                      <td>{renderValue(value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </details>
+          ) : null}
         </section>
 
-        {selectedRecord ? (
-          <details className="cashier-sync-secondary-details">
-            <summary>
-              Selected record details · {selectedRecord.localId} ·{' '}
-              {labelForSyncState(selectedRecord.syncState)}
-            </summary>
-            <Table>
-              <tbody>
-                {selectedPreview.map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{renderValue(value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </details>
-        ) : null}
-
-        {lastBatchResults.length > 0 || actionResponse ? (
+        {hasSyncActivity ? (
           <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-results">
             <h2>Sync activity</h2>
             <p className="cashier-sync-muted">

@@ -17,3 +17,11 @@
 - [x] 3.3 Confirm no API/behavior change, no staged files, and preservation of all pre-existing dirty/untracked work.
 - [x] 3.4 Verify responsive heading geometry at 1080px and 1440px and rerun the focused Sync Queue Playwright checks.
 - [x] 3.5 Verify mobile filter widths and shell layout against the narrow viewport contract.
+
+## 4. Correct responsive composition and queue availability
+
+- [x] 4.1 Use available page-container width to make Queue records full width when Sync activity is absent; use two columns only for meaningful results at wide workspace widths.
+- [x] 4.2 Keep compact shell navigation on phones and verify mobile, tablet, and desktop geometry.
+- [x] 4.3 Distinguish loading, successful empty, queue read failure, missing session identity, populated queue, and sync activity states without changing queue or financial semantics.
+- [x] 4.4 Add the supported logout-and-sign-in recovery action for a missing device identity; retain queue-read retry only for read failures.
+- [x] 4.5 Remove redundant empty-state footer and assert unknown rather than zero counts on loading/read failure.
