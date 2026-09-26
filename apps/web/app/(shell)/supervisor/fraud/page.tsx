@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { FraudFlagsPanel } from '../../../../components/workflows';
-import { Alert } from '../../../../components/ui';
-import { StatusBadge } from '../../../../components/shopcity';
+import {
+  StatusBadge,
+  CashierPageHeader,
+} from '../../../../components/shopcity';
 
 const routeLinks = [
   ['/supervisor/transactions', 'Transactions'],
@@ -12,24 +14,16 @@ const routeLinks = [
 
 export default function SupervisorFraudPage() {
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>Fraud</h1>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          Evidence-led fraud review and decisioning.
-        </p>
-        <Link href="/supervisor">Back to supervisor</Link>
-      </header>
-
-      <Alert tone="info" title="Fraud route context">
-        Keep evidence review, acknowledgment, and resolution on this dedicated
-        route.
-      </Alert>
+    <section className="supervisor-page">
+      <CashierPageHeader
+        className="cashier-route-header supervisor-page__header"
+        title="Review fraud flags"
+        description="Examine available evidence and use the existing review actions."
+        actions={<Link href="/supervisor">Back to supervisor</Link>}
+      />
 
       <section style={cardStyle} aria-label="Related routes">
-        <h2 style={{ marginTop: 0 }}>Route map</h2>
+        <h2 className="supervisor-page__section-title">Related workspaces</h2>
         <div
           style={{
             display: 'flex',
@@ -51,7 +45,7 @@ export default function SupervisorFraudPage() {
       </section>
 
       <section style={cardStyle} aria-label="Fraud workspace">
-        <h2 style={{ marginTop: 0 }}>Fraud workspace</h2>
+        <h2 className="supervisor-page__section-title">Fraud records</h2>
         <FraudFlagsPanel />
       </section>
     </section>

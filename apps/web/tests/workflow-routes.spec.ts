@@ -560,6 +560,161 @@ test.describe('workflow route coverage', () => {
     ]);
   });
 
+  test('verifies copy hierarchy, Cashier header typography, and responsive width across all Supervisor routes', async ({
+    page,
+  }) => {
+    const routes = [
+      [
+        '/supervisor',
+        'Supervisor workspace',
+        'Review operational work across approvals, fraud, transactions, and reports.',
+      ],
+      [
+        '/supervisor/approvals',
+        'Review approvals',
+        'Inspect approval details and submit an available decision.',
+      ],
+      [
+        '/supervisor/cards',
+        'Manage cards',
+        'Find a customer to assign, replace, or update card status.',
+      ],
+      [
+        '/supervisor/customers',
+        'Manage customers',
+        'Find customer profiles, review account details, and manage linked cards.',
+      ],
+      [
+        '/supervisor/fraud',
+        'Review fraud flags',
+        'Examine available evidence and use the existing review actions.',
+      ],
+      [
+        '/supervisor/reports',
+        'Operational reports',
+        'Choose a report, apply available filters, and inspect its rows and freshness details.',
+      ],
+      [
+        '/supervisor/transactions',
+        'Review transactions',
+        'Find and inspect a transaction, then submit a compensating reversal where allowed. The original transaction remains unchanged.',
+      ],
+    ] as const;
+    const headerTypography = async (header: ReturnType<typeof page.locator>) =>
+      header.evaluate((element) => {
+        const title = getComputedStyle(element.querySelector('h1')!);
+        const description = getComputedStyle(element.querySelector('p')!);
+        return {
+          title: [
+            title.fontFamily,
+            title.fontSize,
+            title.fontWeight,
+            title.lineHeight,
+            title.color,
+          ],
+          description: [
+            description.fontFamily,
+            description.fontSize,
+            description.fontWeight,
+            description.lineHeight,
+            description.color,
+          ],
+        };
+      });
+
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/lookup`);
+    const cashierTypography = await headerTypography(
+      page.locator('.cashier-route-header'),
+    );
+
+    await mockShell(page, 'SUPERVISOR');
+    for (const [path, title, description] of routes) {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(`${baseUrl}${path}`);
+      const root = page.locator('.supervisor-page');
+      const header = root.locator(':scope > .cashier-route-header');
+      await expect(root.getByRole('heading', { level: 1 })).toHaveCount(1);
+      await expect(
+        header.getByRole('heading', { level: 1, name: title }),
+      ).toBeVisible();
+      await expect(header.locator('p')).toHaveText(description);
+      expect(
+        await headerTypography(header),
+        `${path} header typography`,
+      ).toEqual(cashierTypography);
+
+      const sectionHeading = root.locator('h2').first();
+      const bodyCopy = root.locator('p').filter({ visible: true }).nth(1);
+      await expect(sectionHeading).toBeVisible();
+      await expect(bodyCopy).toBeVisible();
+      const hierarchy = await root.evaluate((element) => {
+        const heading = element.querySelector('h1')!;
+        const section = element.querySelector('h2')!;
+        const body = Array.from(element.querySelectorAll('p')).find(
+          (paragraph) => !paragraph.closest('.cashier-route-header'),
+        )!;
+        return [heading, section, body].map((node) =>
+          Number.parseFloat(getComputedStyle(node).fontSize),
+        );
+      });
+      expect(hierarchy, `${path} title/section/body scale`).toHaveLength(3);
+      expect(hierarchy[0], `${path} title scale`).toBeGreaterThan(hierarchy[1]);
+      expect(hierarchy[1], `${path} section scale`).toBeGreaterThanOrEqual(
+        hierarchy[2],
+      );
+
+      for (const width of [1440, 768, 375]) {
+        await page.setViewportSize({ width, height: 900 });
+        const documentWidth = await page.evaluate(() =>
+          Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ),
+        );
+        expect(
+          documentWidth,
+          `${path} document width at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+      }
+    }
+
+    await mockShell(page, 'ADMIN');
+    await page.goto(`${baseUrl}/admin/customers`);
+    const adminCustomerWorkspace = page.locator(
+      '[aria-label="Customer workspace"]',
+    );
+    await expect(
+      adminCustomerWorkspace.getByRole('heading', {
+        level: 1,
+        name: 'Customers',
+      }),
+    ).toBeVisible();
+    await expect(
+      adminCustomerWorkspace.getByText(
+        'Use the shell navigation for cashier, sync, and supervisor routes.',
+      ),
+    ).toBeVisible();
+
+    await page.goto(`${baseUrl}/admin/transactions`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Transaction review' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('alert').filter({
+        hasText:
+          'Use this route for search, detail inspection, and compensating reversals.',
+      }),
+    ).toBeVisible();
+
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/customers`);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Hi, Cashier!' }),
+    ).toBeVisible();
+  });
+
   test('keeps the cashier overview launcher and context compact', async ({
     page,
   }) => {

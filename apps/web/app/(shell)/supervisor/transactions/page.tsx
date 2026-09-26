@@ -6,6 +6,7 @@ export default function SupervisorTransactionsPage() {
       <TransactionWorkspace
         backHref="/supervisor"
         backLabel="Back to supervisor"
+        presentation="supervisor"
       />
     </section>
   );

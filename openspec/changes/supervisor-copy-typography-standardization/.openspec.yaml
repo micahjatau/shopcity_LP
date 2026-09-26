@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-26
+goal: Give every Supervisor page clear, accurate copy and the same title/body
+  typography as Cashier while preserving role-specific workflows and shared
+  Admin/Cashier behavior.

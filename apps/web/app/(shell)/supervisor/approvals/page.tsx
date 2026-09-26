@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { ApprovalsPanel } from '../../../../components/workflows';
-import { Alert } from '../../../../components/ui';
-import { StatusBadge } from '../../../../components/shopcity';
+import {
+  StatusBadge,
+  CashierPageHeader,
+} from '../../../../components/shopcity';
 
 const routeLinks = [
   ['/supervisor/transactions', 'Transactions'],
@@ -12,24 +14,16 @@ const routeLinks = [
 
 export default function SupervisorApprovalsPage() {
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>Approvals</h1>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          Detail-led approval review with live backend data.
-        </p>
-        <Link href="/supervisor">Back to supervisor</Link>
-      </header>
-
-      <Alert tone="info" title="Approval route context">
-        Review decisions happen here while transaction, fraud, and report detail
-        stay on their own routes.
-      </Alert>
+    <section className="supervisor-page">
+      <CashierPageHeader
+        className="cashier-route-header supervisor-page__header"
+        title="Review approvals"
+        description="Inspect approval details and submit an available decision."
+        actions={<Link href="/supervisor">Back to supervisor</Link>}
+      />
 
       <section style={cardStyle} aria-label="Related routes">
-        <h2 style={{ marginTop: 0 }}>Route map</h2>
+        <h2 className="supervisor-page__section-title">Related workspaces</h2>
         <div
           style={{
             display: 'flex',
@@ -51,7 +45,7 @@ export default function SupervisorApprovalsPage() {
       </section>
 
       <section style={cardStyle} aria-label="Approval workspace">
-        <h2 style={{ marginTop: 0 }}>Approval workspace</h2>
+        <h2 className="supervisor-page__section-title">Approval records</h2>
         <ApprovalsPanel />
       </section>
     </section>

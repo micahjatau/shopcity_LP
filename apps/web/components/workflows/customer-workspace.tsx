@@ -27,7 +27,11 @@ import {
   RadioGroup,
   Table,
 } from '../../components/ui';
-import { Money, StatusBadge } from '../../components/shopcity';
+import {
+  CashierPageHeader,
+  Money,
+  StatusBadge,
+} from '../../components/shopcity';
 import {
   useCustomerRegistrationController,
   type CustomerRegistrationFormState,
@@ -78,9 +82,11 @@ const pageNotes = [
 export function CustomerWorkspace({
   canManage = false,
   mode = 'customer',
+  presentation = 'default',
 }: Readonly<{
   canManage?: boolean;
   mode?: 'customer' | 'card';
+  presentation?: 'default' | 'supervisor';
 }> = {}) {
   const isCardMode = mode === 'card';
   const isCashier = !canManage;
@@ -466,33 +472,56 @@ export function CustomerWorkspace({
     : [];
 
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>{isCardMode ? 'Cards' : 'Customers'}</h1>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          {isCardMode
-            ? 'Find a customer, then assign, replace, or update card state.'
-            : canManage
-              ? 'Search, inspect, and manage customer profiles and card state.'
-              : 'Search, inspect, and trace customer balance, history, and card state.'}
-        </p>
-        <p
-          style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}
-        >
-          Use the shell navigation for cashier, sync, and supervisor routes.
-        </p>
-      </header>
+    <section
+      className={presentation === 'supervisor' ? 'supervisor-page' : undefined}
+      style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}
+    >
+      {presentation === 'supervisor' ? (
+        <CashierPageHeader
+          className="cashier-route-header supervisor-page__header"
+          title={isCardMode ? 'Manage cards' : 'Manage customers'}
+          description={
+            isCardMode
+              ? 'Find a customer to assign, replace, or update card status.'
+              : 'Find customer profiles, review account details, and manage linked cards.'
+          }
+        />
+      ) : (
+        <>
+          <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
+            <h1 style={{ margin: 0 }}>{isCardMode ? 'Cards' : 'Customers'}</h1>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
+              {isCardMode
+                ? 'Find a customer, then assign, replace, or update card state.'
+                : canManage
+                  ? 'Search, inspect, and manage customer profiles and card state.'
+                  : 'Search, inspect, and trace customer balance, history, and card state.'}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--sc-color-semantic-textSecondary)',
+              }}
+            >
+              Use the shell navigation for cashier, sync, and supervisor routes.
+            </p>
+          </header>
 
-      <Alert
-        tone="info"
-        title={isCardMode ? 'Card route context' : 'Customer route context'}
-      >
-        {isCardMode
-          ? 'Select a customer to manage card assignment, replacement, and status.'
-          : 'Use this route for customer detail, profile editing, card assignment, replacement, and status changes.'}
-      </Alert>
+          <Alert
+            tone="info"
+            title={isCardMode ? 'Card route context' : 'Customer route context'}
+          >
+            {isCardMode
+              ? 'Select a customer to manage card assignment, replacement, and status.'
+              : 'Use this route for customer detail, profile editing, card assignment, replacement, and status changes.'}
+          </Alert>
+        </>
+      )}
 
       <div style={summaryRow}>
         <StatusBadge label="Detail-led" tone="success" />

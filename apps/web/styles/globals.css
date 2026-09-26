@@ -4,6 +4,7 @@
 @import './primitives.css';
 @import './cashier-design-system.css';
 @import './cashier-routes.css';
+@import './supervisor-routes.css';
 @import './shell-components.css';
 
 /* Keep semantic labels available to assistive technology without consuming layout space. */

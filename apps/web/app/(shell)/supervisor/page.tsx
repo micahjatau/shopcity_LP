@@ -9,6 +9,7 @@ import {
   ReportsWorkspace,
   WorkflowSection,
 } from '../../../components/workflows';
+import { CashierPageHeader } from '../../../components/shopcity';
 
 const supervisorRouteBodyByHref: Record<string, string> = {
   '/supervisor/customers': 'Search customer detail and cards.',
@@ -16,7 +17,7 @@ const supervisorRouteBodyByHref: Record<string, string> = {
   '/supervisor/transactions': 'Open a transaction and inspect it.',
   '/supervisor/approvals': 'Review pending decisions.',
   '/supervisor/fraud': 'Investigate flags and evidence.',
-  '/supervisor/reports': 'Compare live queue health and reports.',
+  '/supervisor/reports': 'Filter operational reports and inspect results.',
 };
 
 const supervisorRouteCards = [
@@ -35,20 +36,17 @@ const supervisorRouteCards = [
 
 export default function SupervisorPage() {
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-5)' }}>
+    <section className="supervisor-page">
       <ScannerContextScope context="lookup" />
-      <header style={{ display: 'grid', gap: 'var(--sc-spacing-2)' }}>
-        <h1 style={{ margin: 0 }}>Supervisor shell</h1>
-        <p
-          style={{ color: 'var(--sc-color-semantic-textSecondary)', margin: 0 }}
-        >
-          Approvals, fraud review, transaction detail and reports.
-        </p>
-      </header>
+      <CashierPageHeader
+        className="cashier-route-header supervisor-page__header"
+        title="Supervisor workspace"
+        description="Review operational work across approvals, fraud, transactions, and reports."
+      />
 
       <WorkflowSection
-        title="Review lanes"
-        description="Jump straight into the route-backed workspace for the item you need to investigate."
+        title="Review work"
+        description="Choose a workspace to review the relevant records and available actions."
       >
         <div style={routeGrid}>
           {supervisorRouteCards.map((route) => (
@@ -66,15 +64,14 @@ export default function SupervisorPage() {
 
       <div style={gridStyle}>
         <article style={cardStyle} aria-label="Supervisor scope">
-          <h2 style={{ marginTop: 0 }}>Scope</h2>
+          <h2 className="supervisor-page__section-title">Workspace guide</h2>
           <p style={muted}>
-            Supervisor work stays route-backed: launch the review lane you need,
-            then use this shell for a quick status glance.
+            Open the workspace for the records and review tasks you need.
           </p>
         </article>
 
         <article style={cardStyle} aria-label="Primary review lanes">
-          <h2 style={{ marginTop: 0 }}>Primary lanes</h2>
+          <h2 className="supervisor-page__section-title">Review areas</h2>
           <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
             {['Approvals', 'Fraud', 'Reports'].map((label) => (
               <div key={label} style={noteStyle}>
@@ -84,7 +81,7 @@ export default function SupervisorPage() {
                     ? 'Pending decisions and evidence.'
                     : label === 'Fraud'
                       ? 'Flags and supporting evidence.'
-                      : 'Queue health and reconciliation.'}
+                      : 'Operational reports and available details.'}
                 </p>
               </div>
             ))}

@@ -1,0 +1,17 @@
+.supervisor-page {
+  display: grid;
+  gap: var(--sc-spacing-5);
+}
+
+.supervisor-page__header {
+  display: grid;
+  gap: var(--sc-spacing-2);
+}
+
+.supervisor-page__section-title {
+  margin-top: 0;
+  color: var(--sc-color-semantic-textPrimary);
+  font-size: var(--sc-font-size-lg);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: 1.3;
+}
