@@ -111,7 +111,7 @@ describe('frontend accessibility gates', () => {
       screen.getByRole('heading', { name: /cashier shell/i, level: 2 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /supervisor shell/i, level: 1 }),
+      screen.getByRole('heading', { name: /supervisor workspace/i, level: 1 }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /admin shell/i, level: 1 }),
