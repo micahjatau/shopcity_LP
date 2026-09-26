@@ -1,5 +1,22 @@
 ## ADDED Requirements
 
+### Requirement: Sync Queue shares Cashier typography and copy hierarchy
+
+The Sync Queue SHALL compose its page heading with the shared Cashier page header and SHALL match the title and description typography used by the other Cashier workflow routes. Its single page title SHALL be visually strongest; status/card headings SHALL be subordinate and body copy SHALL remain readable and concise. Copy SHALL identify saved purchases and explain the local queue without implying that submission guarantees confirmation.
+
+#### Scenario: Cashier opens the Sync Queue
+
+- **WHEN** `/cashier/sync` is rendered beside another Cashier workflow route
+- **THEN** both routes use the same page-title and description typography
+- **AND** the Sync Queue uses one H1 followed by lower-level section headings and body copy
+- **AND** its copy explains what is saved locally and what happens during sync
+
+#### Scenario: Cashier has no local purchases
+
+- **WHEN** a successful local queue read returns no records
+- **THEN** the empty-state heading and body describe that there are no saved purchases on this device
+- **AND** the Capture Purchase action is labeled consistently with the workflow route
+
 ### Requirement: Sync Queue explains the local queue and batch scope truthfully
 
 The Sync Queue SHALL describe records as saved on the current device and SHALL state that sync submits waiting, saved-on-device, and retry-required records. It SHALL NOT claim that submission confirms every record. The page SHALL retain an explicit distinction between local queue state and confirmation.

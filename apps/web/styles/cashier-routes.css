@@ -1216,8 +1216,14 @@
   margin: 0;
 }
 
-.cashier-sync-device-status h2 {
-  font-size: clamp(20px, 2.2vw, 28px);
+.cashier-sync-device-status h2,
+.cashier-sync-card h2 {
+  color: var(--sc-color-neutral-800);
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: var(--sc-font-size-h3);
+  font-weight: var(--sc-font-weight-bold);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
 
 .cashier-sync-device-status > div {
@@ -1235,14 +1241,6 @@
 .cashier-sync-device-status > div > p:last-child {
   color: var(--sc-color-semantic-textSecondary);
   max-width: 720px;
-}
-
-.cashier-sync-eyebrow {
-  color: var(--sc-color-brand-700);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .cashier-sync-summary-line {
@@ -1298,8 +1296,18 @@
   margin: 0;
 }
 
+.cashier-sync-empty-state h3 {
+  color: var(--sc-color-semantic-textPrimary);
+  font-family: var(--sc-prototype-fontDisplaySans);
+  font-size: var(--sc-font-size-lg);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: 1.25;
+}
+
 .cashier-sync-empty-state p {
   color: var(--sc-color-semantic-textSecondary);
+  font-size: var(--sc-font-size-base);
+  line-height: 1.5;
 }
 
 .cashier-sync-queue {

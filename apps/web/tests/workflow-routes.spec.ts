@@ -1415,6 +1415,81 @@ test.describe('workflow route coverage', () => {
     );
   });
 
+  test('uses the shared Cashier header and a clear text hierarchy', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER', 'device-1');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const lookupTypography = await page
+      .locator('[data-od-id="find-customer-heading"]')
+      .evaluate((header) => {
+        const title = header.querySelector('h1');
+        const description = header.querySelector('.sc-page-head__copy > p');
+        if (!title || !description) return null;
+        const style = (element: Element) => {
+          const computed = getComputedStyle(element);
+          return {
+            fontFamily: computed.fontFamily,
+            fontSize: computed.fontSize,
+            fontWeight: computed.fontWeight,
+            lineHeight: computed.lineHeight,
+            color: computed.color,
+            letterSpacing: computed.letterSpacing,
+          };
+        };
+        return { title: style(title), description: style(description) };
+      });
+    expect(lookupTypography).not.toBeNull();
+
+    await page.goto(`${baseUrl}/cashier/sync`);
+    const syncTypography = await page
+      .locator('[data-od-id="sync-queue-heading"]')
+      .evaluate((header) => {
+        const title = header.querySelector('h1');
+        const description = header.querySelector('.sc-page-head__copy > p');
+        if (!title || !description) return null;
+        const style = (element: Element) => {
+          const computed = getComputedStyle(element);
+          return {
+            fontFamily: computed.fontFamily,
+            fontSize: computed.fontSize,
+            fontWeight: computed.fontWeight,
+            lineHeight: computed.lineHeight,
+            color: computed.color,
+            letterSpacing: computed.letterSpacing,
+          };
+        };
+        return { title: style(title), description: style(description) };
+      });
+    expect(syncTypography).toEqual(lookupTypography);
+
+    const hierarchy = await page.evaluate(() => {
+      const pageTitle = document.querySelector('.cashier-sync-header h1');
+      const statusTitle = document.querySelector(
+        '.cashier-sync-device-status h2',
+      );
+      const cardTitle = document.querySelector('.cashier-sync-queue-title h2');
+      const body = document.querySelector(
+        '.cashier-sync-header .sc-page-head__copy > p',
+      );
+      if (!pageTitle || !statusTitle || !cardTitle || !body) return null;
+      const fontSize = (element: Element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize);
+      return {
+        pageTitle: fontSize(pageTitle),
+        statusTitle: fontSize(statusTitle),
+        cardTitle: fontSize(cardTitle),
+        body: fontSize(body),
+      };
+    });
+    expect(hierarchy).not.toBeNull();
+    expect(hierarchy!.pageTitle).toBeGreaterThan(hierarchy!.statusTitle);
+    expect(hierarchy!.statusTitle).toBe(hierarchy!.cardTitle);
+    expect(hierarchy!.cardTitle).toBeGreaterThan(hierarchy!.body);
+  });
+
   test('keeps Sync Queue controls usable on a narrow viewport', async ({
     page,
   }, testInfo) => {
@@ -1427,7 +1502,7 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     const heading = page.locator('[data-od-id="sync-queue-heading"]');
     await expect(heading).toContainText(
-      'Purchases saved offline on this device.',
+      'Review purchases saved on this device, sync eligible records, and check each result.',
     );
     await expect(
       heading.locator('[data-od-id="sync-queue-toolbar"]'),
@@ -1437,18 +1512,16 @@ test.describe('workflow route coverage', () => {
       page.getByRole('button', { name: 'Sync eligible records' }),
     ).toBeDisabled();
     await expect(
-      page.getByRole('heading', { name: 'Device identity unavailable' }),
+      page.getByRole('heading', { name: 'Session needs device access' }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Retry access' }),
     ).toHaveCount(0);
     await expect(
-      page.getByText(
-        /Reconnect the cashier session to sign in with device access/,
-      ),
+      page.getByText(/Sign in again to restore device access/),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Reconnect cashier session' }),
+      page.getByRole('button', { name: 'Sign in again' }),
     ).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
       0,
@@ -1466,9 +1539,11 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('combobox', { name: 'Filter sync queue by status' }),
     ).toHaveCount(0);
-    await expect(page.getByText('No purchases waiting to sync')).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Back to Capture Purchase' }),
+      page.getByRole('heading', { name: 'No saved purchases on this device' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Capture Purchase' }),
     ).toBeVisible();
     await expect(page.getByText('0 waiting · 0 need attention')).toBeVisible();
     await expect(page.locator('.shell-sidebar')).toBeHidden();
@@ -1530,10 +1605,12 @@ test.describe('workflow route coverage', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`${baseUrl}/cashier/sync`);
       await expect(
-        page.getByRole('heading', { name: 'Device queue ready' }),
+        page.getByRole('heading', { name: 'Device access ready' }),
       ).toBeVisible();
       await expect(
-        page.getByRole('heading', { name: 'No purchases waiting to sync' }),
+        page.getByRole('heading', {
+          name: 'No saved purchases on this device',
+        }),
       ).toBeVisible();
       await expect(page.getByText('0 records', { exact: true })).toBeVisible();
       await expect(page.getByText(/Showing 0 of 0 local records/)).toHaveCount(
@@ -1575,7 +1652,7 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/sync`);
 
     await expect(
-      page.getByRole('heading', { name: 'Checking device access…' }),
+      page.getByRole('heading', { name: 'Checking saved purchases…' }),
     ).toBeVisible();
     await expect(
       page.getByText('Loading saved purchases', { exact: true }),
@@ -1584,7 +1661,7 @@ test.describe('workflow route coverage', () => {
     await expect(page.getByText('0 records', { exact: true })).toHaveCount(0);
     await expect(page.getByText(/0 waiting/)).toHaveCount(0);
     await expect(
-      page.getByRole('heading', { name: 'No purchases waiting to sync' }),
+      page.getByRole('heading', { name: 'No saved purchases on this device' }),
     ).toHaveCount(0);
   });
 
@@ -1602,7 +1679,7 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/sync`);
 
     await expect(
-      page.getByRole('heading', { name: 'Offline queue unavailable' }),
+      page.getByRole('heading', { name: 'Local queue unavailable' }),
     ).toBeVisible();
     await expect(page.getByText('Count unavailable')).toBeVisible();
     await expect(
@@ -1610,7 +1687,7 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     await expect(page.getByText(/0 waiting/)).toHaveCount(0);
     await expect(
-      page.getByRole('heading', { name: 'No purchases waiting to sync' }),
+      page.getByRole('heading', { name: 'No saved purchases on this device' }),
     ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Sync eligible records' }),
@@ -1638,7 +1715,7 @@ test.describe('workflow route coverage', () => {
           getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
             .length,
       );
-    await expect(header.locator('.cashier-sync-muted').first()).toBeVisible();
+    await expect(header.locator('.sc-page-head__copy > p')).toBeVisible();
     expect(await trackCount()).toBe(1);
     await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
     await expect(
@@ -1646,8 +1723,7 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
 
     const headingCopyWidth = await header
-      .locator('.cashier-sync-muted')
-      .first()
+      .locator('.sc-page-head__copy > p')
       .evaluate((element) => element.getBoundingClientRect().width);
     expect(headingCopyWidth).toBeGreaterThan(400);
 
@@ -1672,14 +1748,12 @@ test.describe('workflow route coverage', () => {
       page.getByRole('button', { name: 'Sync eligible records' }),
     ).toBeDisabled();
     await expect(
-      page.getByRole('heading', { name: 'Device identity unavailable' }),
+      page.getByRole('heading', { name: 'Session needs device access' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Reconnect cashier session' }),
+      page.getByRole('button', { name: 'Sign in again' }),
     ).toBeVisible();
-    await page
-      .getByRole('button', { name: 'Reconnect cashier session' })
-      .click();
+    await page.getByRole('button', { name: 'Sign in again' }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(
       page.getByRole('textbox', { name: 'Device ID' }),

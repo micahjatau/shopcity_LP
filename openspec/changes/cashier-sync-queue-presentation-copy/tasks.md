@@ -25,3 +25,10 @@
 - [x] 4.3 Distinguish loading, successful empty, queue read failure, missing session identity, populated queue, and sync activity states without changing queue or financial semantics.
 - [x] 4.4 Add the supported logout-and-sign-in recovery action for a missing device identity; retain queue-read retry only for read failures.
 - [x] 4.5 Remove redundant empty-state footer and assert unknown rather than zero counts on loading/read failure.
+
+## 5. Shared page typography and copy hierarchy
+
+- [x] 5.1 Compose the Sync Queue heading with the shared CashierPageHeader and match its title/description styles to the Cashier workflow routes.
+- [x] 5.2 Clarify status, saved-purchase, empty-state, and sync-result copy with a single H1 and subordinate section headings/body.
+- [x] 5.3 Verify shared computed typography and heading hierarchy in Playwright; update copy assertions.
+- [x] 5.4 Validate formatting, typecheck, lint, focused Sync Queue workflows, and OpenSpec.

@@ -27,7 +27,11 @@ import {
   Table,
   useDialogLifecycle,
 } from '../../../../components/ui';
-import { Money, StatusBadge } from '../../../../components/shopcity';
+import {
+  CashierPageHeader,
+  Money,
+  StatusBadge,
+} from '../../../../components/shopcity';
 
 export default function CashierSyncPage() {
   const [records, setRecords] = useState<OfflineEarnRecord[]>([]);
@@ -361,71 +365,71 @@ export default function CashierSyncPage() {
     <section
       className="cashier-sync-page"
       data-od-id="sync-queue-view"
-      aria-labelledby="cashier-sync-title"
+      aria-label="Sync Queue"
     >
-      <header className="cashier-sync-header" data-od-id="sync-queue-heading">
-        <div>
-          <h1 id="cashier-sync-title">Sync Queue</h1>
-          <p className="cashier-sync-muted">
-            Purchases saved offline on this device.
-          </p>
-        </div>
-        <div
-          className="cashier-sync-header-actions"
-          data-od-id="sync-queue-toolbar"
-          role="toolbar"
-          aria-label="Sync queue controls"
-        >
-          <span className="cashier-sync-device" aria-label="Device identity">
-            Device: {deviceId || 'Unavailable in this session'}
-          </span>
-          <Button onClick={() => void refresh()} variant="secondary">
-            Refresh
-          </Button>
-          <Button
-            aria-label="Sync eligible records"
-            className="cashier-sync-header-submit"
-            onClick={() => void syncBatch()}
-            disabled={
-              queueAccessAvailable !== true ||
-              !deviceId.trim() ||
-              queueableRecords.length === 0
-            }
-            loading={busy}
+      <CashierPageHeader
+        className="cashier-route-header cashier-sync-header"
+        dataOdId="sync-queue-heading"
+        title="Sync Queue"
+        description="Review purchases saved on this device, sync eligible records, and check each result."
+        actions={
+          <div
+            className="cashier-sync-header-actions"
+            data-od-id="sync-queue-toolbar"
+            role="toolbar"
+            aria-label="Sync queue controls"
           >
-            Sync eligible records
-          </Button>
-        </div>
-        {message && message !== 'Loading offline queue…' ? (
-          <p className="cashier-sync-muted" role="status">
-            {message}
-          </p>
-        ) : null}
-      </header>
+            <span className="cashier-sync-device" aria-label="Device identity">
+              Device: {deviceId || 'Unavailable in this session'}
+            </span>
+            <Button onClick={() => void refresh()} variant="secondary">
+              Refresh
+            </Button>
+            <Button
+              aria-label="Sync eligible records"
+              className="cashier-sync-header-submit"
+              onClick={() => void syncBatch()}
+              disabled={
+                queueAccessAvailable !== true ||
+                !deviceId.trim() ||
+                queueableRecords.length === 0
+              }
+              loading={busy}
+            >
+              Sync eligible records
+            </Button>
+          </div>
+        }
+      />
+      {message && message !== 'Loading offline queue…' ? (
+        <p className="cashier-sync-muted" role="status">
+          {message}
+        </p>
+      ) : null}
 
       <section
         className={`cashier-sync-device-status${deviceUnavailable ? ' cashier-sync-device-status--unavailable' : ''}`}
         aria-live="polite"
       >
         <div>
-          <p className="cashier-sync-eyebrow">Device access</p>
+          <p className="sc-page-head__eyebrow">Queue status</p>
           <h2>
             {queueAccessAvailable === null
-              ? 'Checking device access…'
+              ? 'Checking saved purchases…'
               : queueAccessAvailable === false
-                ? 'Offline queue unavailable'
+                ? 'Local queue unavailable'
                 : !hasDeviceIdentity
-                  ? 'Device identity unavailable'
-                  : 'Device queue ready'}
+                  ? 'Session needs device access'
+                  : 'Device access ready'}
           </h2>
           <p>
             {queueAccessAvailable === null
-              ? 'Checking this device for saved purchases.'
+              ? 'Checking this device for purchases saved offline.'
               : queueAccessAvailable === false
-                ? 'This session cannot read purchases saved on this device. The queue count is unknown until access is restored.'
+                ? 'Local access is unavailable, so the saved-purchase count is unknown. Restore access to review the queue.'
                 : !hasDeviceIdentity
-                  ? 'This session can read saved purchases but cannot sync them without a device identity. Reconnect the cashier session to sign in with device access.'
-                  : 'Saved purchases can be reviewed here before they are submitted for sync.'}
+                  ? 'Saved purchases are readable, but syncing requires a cashier session linked to this device. Sign in again to restore device access.'
+                  : 'Review each sync result below. Purchases stay on this device until their result is confirmed.'}
           </p>
         </div>
         <div className="cashier-sync-device-status__actions">
@@ -440,7 +444,7 @@ export default function CashierSyncPage() {
               loading={busy}
               variant="secondary"
             >
-              Reconnect cashier session
+              Sign in again
             </Button>
           ) : null}
         </div>
@@ -513,7 +517,7 @@ export default function CashierSyncPage() {
         >
           <div className="cashier-sync-queue-header">
             <div className="cashier-sync-queue-title">
-              <h2>Queue records</h2>
+              <h2>Saved purchases</h2>
               <span aria-live="polite">
                 {queueAccessAvailable === null
                   ? 'Loading…'
@@ -554,24 +558,27 @@ export default function CashierSyncPage() {
             </Alert>
           ) : queueAccessAvailable === false ? (
             <Alert tone="warning" title="Unable to load saved purchases">
-              Restore local queue access to view the records. The number of
-              saved purchases is unknown.
+              Restore local access to review these purchases. Their count is
+              unknown.
             </Alert>
           ) : records.length === 0 ? (
             <div className="cashier-sync-empty-state">
-              <h3>No purchases waiting to sync</h3>
-              <p>Purchases saved offline on this device will appear here.</p>
+              <h3>No saved purchases on this device</h3>
+              <p>
+                Purchases saved while offline will appear here so you can review
+                and sync them later.
+              </p>
               <Link
                 className="sc-button sc-button--secondary"
                 href="/cashier/earn"
               >
-                Back to Capture Purchase
+                Capture Purchase
               </Link>
             </div>
           ) : filteredRecords.length === 0 ? (
-            <Alert tone="warning" title="No matching queue records">
-              Adjust the search or status filter. Summary counts above still
-              cover the full local queue.
+            <Alert tone="warning" title="No matching purchases">
+              Try another receipt, card serial, local ID or status. Queue counts
+              above include all saved purchases.
             </Alert>
           ) : (
             <div className="cashier-sync-table-scroll">
@@ -681,8 +688,8 @@ export default function CashierSyncPage() {
           <section className="sc-card sc-card--standard cashier-sync-card cashier-sync-results">
             <h2>Sync activity</h2>
             <p className="cashier-sync-muted">
-              Results are shown per record. A record may be confirmed, await
-              approval, be rejected, or need another attempt.
+              Each purchase has its own result: confirmed, awaiting approval,
+              rejected, or ready to retry.
             </p>
             <div className="cashier-sync-statuses">
               <StatusBadge
