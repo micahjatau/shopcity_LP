@@ -268,7 +268,7 @@ test.describe('backend-connected frontend flows', () => {
     );
     await page.goto('/supervisor');
     await expect(
-      page.getByRole('heading', { name: /supervisor shell/i }),
+      page.getByRole('heading', { name: /supervisor workspace/i }),
     ).toBeVisible();
     await expect(
       page.getByRole('article', { name: /approvals panel/i }),

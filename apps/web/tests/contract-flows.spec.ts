@@ -282,7 +282,7 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/supervisor');
     await expect(
-      page.getByRole('heading', { name: /supervisor shell/i }),
+      page.getByRole('heading', { name: /supervisor workspace/i }),
     ).toBeVisible();
     await expect(page.getByText(/approvals panel/i)).toBeVisible();
     await expect(page.getByText(/loaded 1 approvals/i)).toBeVisible();
