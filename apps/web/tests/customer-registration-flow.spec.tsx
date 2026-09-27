@@ -36,16 +36,25 @@ describe('CustomerRegistrationFlow', () => {
     );
     expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Customer full name')).toHaveValue('   ');
-    expect(screen.getByLabelText('Customer phone')).toHaveValue('+2348000000000');
+    expect(screen.getByLabelText('Customer phone')).toHaveValue(
+      '+2348000000000',
+    );
   });
 
   it('keeps pending submission single and safely retries a 503 without claiming success', async () => {
     let resolveRequest!: (value: unknown) => void;
-    jest.mocked(customersControllerCreateCustomerV1)
+    jest
+      .mocked(customersControllerCreateCustomerV1)
       .mockImplementationOnce(
-        () => new Promise((resolve) => { resolveRequest = resolve; }) as never,
+        () =>
+          new Promise((resolve) => {
+            resolveRequest = resolve;
+          }) as never,
       )
-      .mockResolvedValueOnce({ status: 201, data: { data: { id: 'customer-retry' } } } as never);
+      .mockResolvedValueOnce({
+        status: 201,
+        data: { data: { id: 'customer-retry' } },
+      } as never);
     render(<CustomerRegistrationFlow backHref="/supervisor/customers" />);
     fireEvent.change(screen.getByLabelText('Customer full name'), {
       target: { value: 'Ada Shopper' },
@@ -63,16 +72,30 @@ describe('CustomerRegistrationFlow', () => {
     expect(customersControllerCreateCustomerV1).toHaveBeenCalledTimes(1);
     expect(submit).toBeDisabled();
     resolveRequest({ status: 503, data: {} });
-    expect(await screen.findByText('Registration unavailable (503).')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Registration successful' })).not.toBeInTheDocument();
+    expect(
+      await screen.findByText('Registration unavailable (503).'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Registration successful' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
     expect(screen.getByText('CARD-001')).toBeInTheDocument();
-    const firstKey = (jest.mocked(customersControllerCreateCustomerV1).mock.calls[0][1] as RequestInit & { headers: Record<string, string> }).headers['idempotency-key'];
+    const firstKey = (
+      jest.mocked(customersControllerCreateCustomerV1).mock
+        .calls[0][1] as RequestInit & { headers: Record<string, string> }
+    ).headers['idempotency-key'];
     fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
-    await waitFor(() => expect(customersControllerCreateCustomerV1).toHaveBeenCalledTimes(2));
-    const retryKey = (jest.mocked(customersControllerCreateCustomerV1).mock.calls[1][1] as RequestInit & { headers: Record<string, string> }).headers['idempotency-key'];
+    await waitFor(() =>
+      expect(customersControllerCreateCustomerV1).toHaveBeenCalledTimes(2),
+    );
+    const retryKey = (
+      jest.mocked(customersControllerCreateCustomerV1).mock
+        .calls[1][1] as RequestInit & { headers: Record<string, string> }
+    ).headers['idempotency-key'];
     expect(retryKey).toBe(firstKey);
-    expect(await screen.findByRole('heading', { name: 'Registration successful' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Registration successful' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps registration focused on supported fields and preserves one logical retry key', async () => {

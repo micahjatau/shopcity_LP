@@ -37,11 +37,17 @@ export function SupervisorCardWorkflows() {
           Cards
         </h1>
       </header>
-      <div role="tablist" aria-label="Card tasks" className="sc-tabs mb-6 flex flex-wrap gap-2">
+      <div
+        role="tablist"
+        aria-label="Card tasks"
+        className="sc-tabs mb-6 flex flex-wrap gap-2"
+      >
         {tabs.map((tab, index) => (
           <button
             key={tab.value}
-            ref={(node) => { tabRefs.current[index] = node; }}
+            ref={(node) => {
+              tabRefs.current[index] = node;
+            }}
             id={`card-tab-${tab.value}`}
             type="button"
             role="tab"
@@ -51,8 +57,10 @@ export function SupervisorCardWorkflows() {
             onClick={() => selectTab(index)}
             onKeyDown={(event) => {
               let nextIndex: number | undefined;
-              if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
-              if (event.key === 'ArrowLeft') nextIndex = (index + tabs.length - 1) % tabs.length;
+              if (event.key === 'ArrowRight')
+                nextIndex = (index + 1) % tabs.length;
+              if (event.key === 'ArrowLeft')
+                nextIndex = (index + tabs.length - 1) % tabs.length;
               if (event.key === 'Home') nextIndex = 0;
               if (event.key === 'End') nextIndex = tabs.length - 1;
               if (nextIndex !== undefined) {
@@ -78,23 +86,24 @@ export function SupervisorCardWorkflows() {
             hidden={!isActive}
             className="min-w-0 focus-visible:outline focus-visible:outline-2"
           >
-            {isActive && (tab.value === 'assign' ? (
-              <SupervisorCardAssignment
-                customerId={params.get('id')}
-                initialQuery={params.get('q') ?? ''}
-                onCustomerId={(id) => {
-                  const next = new URLSearchParams(params.toString());
-                  if (id) next.set('id', id);
-                  else next.delete('id');
-                  next.set('tab', 'assign');
-                  router.replace(`/supervisor/cards?${next.toString()}`, {
-                    scroll: false,
-                  });
-                }}
-              />
-            ) : (
-              <SupervisorCardManagement />
-            ))}
+            {isActive &&
+              (tab.value === 'assign' ? (
+                <SupervisorCardAssignment
+                  customerId={params.get('id')}
+                  initialQuery={params.get('q') ?? ''}
+                  onCustomerId={(id) => {
+                    const next = new URLSearchParams(params.toString());
+                    if (id) next.set('id', id);
+                    else next.delete('id');
+                    next.set('tab', 'assign');
+                    router.replace(`/supervisor/cards?${next.toString()}`, {
+                      scroll: false,
+                    });
+                  }}
+                />
+              ) : (
+                <SupervisorCardManagement />
+              ))}
           </section>
         );
       })}

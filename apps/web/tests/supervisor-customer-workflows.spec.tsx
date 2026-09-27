@@ -103,7 +103,9 @@ describe('SupervisorCardWorkflows', () => {
         },
       },
     };
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue(response as never);
+    jest
+      .mocked(customersControllerGetCustomerV1)
+      .mockResolvedValue(response as never);
     query = new URLSearchParams('tab=assign');
     const view = render(<SupervisorCardWorkflows />);
     expect(
@@ -264,58 +266,110 @@ describe('SupervisorCardWorkflows', () => {
     ['403', { status: 403, data: {} }],
     ['5xx', { status: 503, data: {} }],
     ['network timeout', new Error('timeout')],
-  ])('blocks duplicate assignment while pending and refreshes authority after %s', async (_failure, failure) => {
-    query = new URLSearchParams('tab=assign&id=eligible');
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
-      status: 200,
-      data: { data: { id: 'eligible', fullName: 'Ada Customer', status: 'ACTIVE', activeCardStatus: 'BLOCKED' } },
-    } as never);
-    let rejectRequest!: (reason: unknown) => void;
-    if (failure instanceof Error) {
-      jest.mocked(cardsControllerCreateCardV1).mockImplementation(
-        () => new Promise((_resolve, reject) => { rejectRequest = reject; }) as never,
+  ])(
+    'blocks duplicate assignment while pending and refreshes authority after %s',
+    async (_failure, failure) => {
+      query = new URLSearchParams('tab=assign&id=eligible');
+      jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+        status: 200,
+        data: {
+          data: {
+            id: 'eligible',
+            fullName: 'Ada Customer',
+            status: 'ACTIVE',
+            activeCardStatus: 'BLOCKED',
+          },
+        },
+      } as never);
+      let rejectRequest!: (reason: unknown) => void;
+      if (failure instanceof Error) {
+        jest.mocked(cardsControllerCreateCardV1).mockImplementation(
+          () =>
+            new Promise((_resolve, reject) => {
+              rejectRequest = reject;
+            }) as never,
+        );
+      } else {
+        jest.mocked(cardsControllerCreateCardV1).mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              rejectRequest = resolve;
+            }) as never,
+        );
+      }
+      render(<SupervisorCardWorkflows />);
+      fireEvent.change(await screen.findByLabelText('New card serial'), {
+        target: { value: 'RETRY-101' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Review assignment' }),
       );
-    } else {
-      jest.mocked(cardsControllerCreateCardV1).mockImplementation(
-        () => new Promise((resolve) => { rejectRequest = resolve; }) as never,
+      const submit = screen.getByRole('button', { name: 'Assign card' });
+      fireEvent.click(submit);
+      fireEvent.click(submit);
+      expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(1);
+      expect(submit).toBeDisabled();
+      if (failure instanceof Error) rejectRequest(failure);
+      else rejectRequest(failure);
+      expect(
+        await screen.findByText(
+          /could not be confirmed|not completed \((?:403|503)\)/i,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText('New card serial')).toHaveValue('RETRY-101');
+      expect(
+        screen.queryByText('Card assigned successfully.'),
+      ).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(2),
       );
-    }
-    render(<SupervisorCardWorkflows />);
-    fireEvent.change(await screen.findByLabelText('New card serial'), {
-      target: { value: 'RETRY-101' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    const submit = screen.getByRole('button', { name: 'Assign card' });
-    fireEvent.click(submit);
-    fireEvent.click(submit);
-    expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(1);
-    expect(submit).toBeDisabled();
-    if (failure instanceof Error) rejectRequest(failure);
-    else rejectRequest(failure);
-    expect(await screen.findByText(/could not be confirmed|not completed \((?:403|503)\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText('New card serial')).toHaveValue('RETRY-101');
-    expect(screen.queryByText('Card assigned successfully.')).not.toBeInTheDocument();
-    await waitFor(() => expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(2));
-  });
+    },
+  );
 
   it('reuses an idempotency key after an uncertain assignment and explicit re-review', async () => {
     query = new URLSearchParams('tab=assign&id=eligible');
-    jest.mocked(customersControllerGetCustomerV1)
+    jest
+      .mocked(customersControllerGetCustomerV1)
       .mockResolvedValueOnce({
         status: 200,
-        data: { data: { id: 'eligible', fullName: 'Ada Customer', status: 'ACTIVE', activeCardStatus: 'BLOCKED' } },
+        data: {
+          data: {
+            id: 'eligible',
+            fullName: 'Ada Customer',
+            status: 'ACTIVE',
+            activeCardStatus: 'BLOCKED',
+          },
+        },
       } as never)
       .mockResolvedValueOnce({
         status: 200,
-        data: { data: { id: 'eligible', fullName: 'Ada Customer', status: 'ACTIVE', activeCardStatus: 'BLOCKED' } },
+        data: {
+          data: {
+            id: 'eligible',
+            fullName: 'Ada Customer',
+            status: 'ACTIVE',
+            activeCardStatus: 'BLOCKED',
+          },
+        },
       } as never)
       .mockResolvedValueOnce({
         status: 200,
-        data: { data: { id: 'eligible', fullName: 'Ada Customer', status: 'ACTIVE', activeCardStatus: 'ACTIVE' } },
+        data: {
+          data: {
+            id: 'eligible',
+            fullName: 'Ada Customer',
+            status: 'ACTIVE',
+            activeCardStatus: 'ACTIVE',
+          },
+        },
       } as never);
-    jest.mocked(cardsControllerCreateCardV1)
+    jest
+      .mocked(cardsControllerCreateCardV1)
       .mockResolvedValueOnce({ status: 503, data: {} } as never)
-      .mockResolvedValueOnce({ status: 201, data: { data: { id: 'card-1' } } } as never);
+      .mockResolvedValueOnce({
+        status: 201,
+        data: { data: { id: 'card-1' } },
+      } as never);
 
     render(<SupervisorCardWorkflows />);
     const serialInput = await screen.findByLabelText('New card serial');
@@ -323,25 +377,41 @@ describe('SupervisorCardWorkflows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
     fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
 
-    expect(await screen.findByText(/not completed \(503\)/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/not completed \(503\)/i),
+    ).toBeInTheDocument();
     expect(await screen.findByText('Customer status')).toBeInTheDocument();
     expect(serialInput).toHaveValue(' RETRY-101 ');
-    expect(screen.getByRole('button', { name: 'Review assignment' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Review assignment' }),
+    ).toBeInTheDocument();
     expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    expect(screen.getByRole('heading', { name: 'Review card assignment' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Review card assignment' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
-    await waitFor(() => expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2),
+    );
 
-    const firstKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[0][1].headers?.['idempotency-key'];
-    const retryKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[1][1].headers?.['idempotency-key'];
+    const firstKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[0][1]
+      .headers?.['idempotency-key'];
+    const retryKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[1][1]
+      .headers?.['idempotency-key'];
     expect(firstKey).toEqual(expect.any(String));
     expect(retryKey).toBe(firstKey);
-    expect(await screen.findByText('Card assigned successfully.')).toBeInTheDocument();
-    expect(await screen.findByText('This customer already has an active card.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Card assigned successfully.'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('This customer already has an active card.'),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText('New card serial')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Review assignment' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Review assignment' }),
+    ).not.toBeInTheDocument();
     expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2);
   });
 
@@ -349,9 +419,17 @@ describe('SupervisorCardWorkflows', () => {
     query = new URLSearchParams('tab=assign&id=eligible');
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
-      data: { data: { id: 'eligible', fullName: 'Ada Customer', status: 'ACTIVE', activeCardStatus: 'BLOCKED' } },
+      data: {
+        data: {
+          id: 'eligible',
+          fullName: 'Ada Customer',
+          status: 'ACTIVE',
+          activeCardStatus: 'BLOCKED',
+        },
+      },
     } as never);
-    jest.mocked(cardsControllerCreateCardV1)
+    jest
+      .mocked(cardsControllerCreateCardV1)
       .mockResolvedValueOnce({ status: 503, data: {} } as never)
       .mockResolvedValueOnce({ status: 503, data: {} } as never);
     render(<SupervisorCardWorkflows />);
@@ -359,25 +437,42 @@ describe('SupervisorCardWorkflows', () => {
     fireEvent.change(serialInput, { target: { value: 'RETRY-101' } });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
     fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
-    expect(await screen.findByText(/not completed \(503\)/i)).toBeInTheDocument();
-    expect(await screen.findByText('Customer details loaded.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(/not completed \(503\)/i),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Customer details loaded.'),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('New card serial'), {
       target: { value: 'RETRY-102' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
     fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
-    await waitFor(() => expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2));
-    const firstKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[0][1].headers?.['idempotency-key'];
-    const changedPayloadKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[1][1].headers?.['idempotency-key'];
+    await waitFor(() =>
+      expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2),
+    );
+    const firstKey = jest.mocked(cardsControllerCreateCardV1).mock.calls[0][1]
+      .headers?.['idempotency-key'];
+    const changedPayloadKey = jest.mocked(cardsControllerCreateCardV1).mock
+      .calls[1][1].headers?.['idempotency-key'];
     expect(changedPayloadKey).not.toBe(firstKey);
   });
 
   it('does not trust URL status or balance over freshly loaded customer details', async () => {
-    query = new URLSearchParams('tab=assign&id=eligible&status=BLOCKED&balance=999999');
+    query = new URLSearchParams(
+      'tab=assign&id=eligible&status=BLOCKED&balance=999999',
+    );
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
-      data: { data: { id: 'eligible', fullName: 'Authoritative Customer', status: 'ACTIVE', activeCardStatus: 'BLOCKED' } },
+      data: {
+        data: {
+          id: 'eligible',
+          fullName: 'Authoritative Customer',
+          status: 'ACTIVE',
+          activeCardStatus: 'BLOCKED',
+        },
+      },
     } as never);
     render(<SupervisorCardWorkflows />);
     expect(await screen.findByLabelText('New card serial')).toBeInTheDocument();
@@ -527,7 +622,9 @@ describe('SupervisorCustomerWorkflows', () => {
 
     query = new URLSearchParams('tab=manage&id=selected-customer');
     view.rerender(<SupervisorCustomerWorkflows />);
-    expect(await screen.findByText('Customer details loaded.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Customer details loaded.'),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Full name')).toHaveValue('Selected Customer');
 
     const registerTab = screen.getByRole('tab', { name: 'Register customer' });
@@ -540,10 +637,9 @@ describe('SupervisorCustomerWorkflows', () => {
     query = new URLSearchParams('tab=register&id=selected-customer');
     view.rerender(<SupervisorCustomerWorkflows />);
 
-    expect(screen.getByRole('tab', { name: 'Register customer' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(
+      screen.getByRole('tab', { name: 'Register customer' }),
+    ).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Full name')).toHaveValue('');
     expect(screen.getByLabelText('Phone number')).toHaveValue('');
     expect(screen.getByLabelText('First card serial')).toHaveValue('');
@@ -560,8 +656,12 @@ describe('SupervisorCustomerWorkflows', () => {
     expect(
       await screen.findByText('Customer details could not be verified (404).'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Save profile' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Update customer status' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save profile' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Update customer status' }),
+    ).not.toBeInTheDocument();
     expect(customersControllerUpdateCustomerV1).not.toHaveBeenCalled();
     expect(customersControllerUpdateStatusV1).not.toHaveBeenCalled();
   });
@@ -655,7 +755,10 @@ describe('SupervisorCustomerWorkflows', () => {
     jest
       .mocked(customersControllerCreateCustomerV1)
       .mockImplementationOnce(
-        () => new Promise((resolve) => { resolveRequest = resolve; }) as never,
+        () =>
+          new Promise((resolve) => {
+            resolveRequest = resolve;
+          }) as never,
       )
       .mockResolvedValueOnce({
         status: 201,
@@ -679,22 +782,38 @@ describe('SupervisorCustomerWorkflows', () => {
     expect(customersControllerCreateCustomerV1).toHaveBeenCalledTimes(1);
     expect(submit).toBeDisabled();
     resolveRequest({ status: 503, data: {} });
-    expect(await screen.findByText(/Registration was not confirmed \(503\)/)).toBeInTheDocument();
-    expect(screen.queryByText('Customer and first card were registered successfully.')).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(/Registration was not confirmed \(503\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Customer and first card were registered successfully.',
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText('Full name')).toHaveValue('Ada Customer');
     expect(screen.getByLabelText('Phone number')).toHaveValue('+234800000030');
     expect(screen.getByLabelText('First card serial')).toHaveValue('CARD-030');
-    const firstHeaders = jest.mocked(customersControllerCreateCustomerV1).mock.calls[0][1]
-      .headers as Record<string, string>;
-    fireEvent.click(screen.getByRole('button', {
-      name: 'Register customer and first card',
-    }));
-    expect(await screen.findByText('Customer and first card were registered successfully.')).toBeInTheDocument();
+    const firstHeaders = jest.mocked(customersControllerCreateCustomerV1).mock
+      .calls[0][1].headers as Record<string, string>;
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Register customer and first card',
+      }),
+    );
+    expect(
+      await screen.findByText(
+        'Customer and first card were registered successfully.',
+      ),
+    ).toBeInTheDocument();
     expect(customersControllerCreateCustomerV1).toHaveBeenCalledTimes(2);
-    const retryHeaders = jest.mocked(customersControllerCreateCustomerV1).mock.calls[1][1]
-      .headers as Record<string, string>;
-    expect(retryHeaders['idempotency-key']).toBe(firstHeaders['idempotency-key']);
-    expect(screen.getByRole('link', { name: 'Manage customer retry-customer' })).toHaveAttribute(
+    const retryHeaders = jest.mocked(customersControllerCreateCustomerV1).mock
+      .calls[1][1].headers as Record<string, string>;
+    expect(retryHeaders['idempotency-key']).toBe(
+      firstHeaders['idempotency-key'],
+    );
+    expect(
+      screen.getByRole('link', { name: 'Manage customer retry-customer' }),
+    ).toHaveAttribute(
       'href',
       '/supervisor/customers?tab=manage&id=retry-customer',
     );

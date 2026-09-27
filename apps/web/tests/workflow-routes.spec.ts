@@ -2145,7 +2145,9 @@ test.describe('workflow route coverage', () => {
         position: labelStyle.position,
         width: labelStyle.width,
         clip: labelStyle.clip,
-        linkContained: linkRect.left >= sidebarRect.left && linkRect.right <= sidebarRect.right,
+        linkContained:
+          linkRect.left >= sidebarRect.left &&
+          linkRect.right <= sidebarRect.right,
       };
     });
     expect(supervisorTreatment).toEqual({
@@ -2240,15 +2242,23 @@ test.describe('workflow route coverage', () => {
         await expect(panels).toHaveCount(1);
         const panel = panels.first();
         await expect(panel).toBeVisible();
-        await expect(panel.getByRole('heading', { name: workspace.heading })).toBeVisible();
+        await expect(
+          panel.getByRole('heading', { name: workspace.heading }),
+        ).toBeVisible();
 
         const measurements = await page.evaluate(() => ({
           documentWidth: document.documentElement.scrollWidth,
           bodyWidth: document.body.scrollWidth,
           viewportWidth: window.innerWidth,
         }));
-        expect(measurements.documentWidth, `${workspace.task} at ${width}px`).toBeLessThanOrEqual(width);
-        expect(measurements.bodyWidth, `${workspace.task} at ${width}px`).toBeLessThanOrEqual(width);
+        expect(
+          measurements.documentWidth,
+          `${workspace.task} at ${width}px`,
+        ).toBeLessThanOrEqual(width);
+        expect(
+          measurements.bodyWidth,
+          `${workspace.task} at ${width}px`,
+        ).toBeLessThanOrEqual(width);
         expect(measurements.viewportWidth).toBe(width);
 
         const controls = panel.locator('input, button, textarea, select, a');
@@ -2287,10 +2297,17 @@ test.describe('workflow route coverage', () => {
           );
         }
         for (const rect of visibleControlRects) {
-          expect(rect.x, `${workspace.task} control left edge at ${width}px`).toBeGreaterThanOrEqual(0);
-          expect(rect.right, `${workspace.task} control right edge at ${width}px`).toBeLessThanOrEqual(width);
+          expect(
+            rect.x,
+            `${workspace.task} control left edge at ${width}px`,
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            rect.right,
+            `${workspace.task} control right edge at ${width}px`,
+          ).toBeLessThanOrEqual(width);
           expect(rect.width).toBeGreaterThan(0);
-          if (rect.tag === 'BUTTON') expect(rect.height).toBeGreaterThanOrEqual(40);
+          if (rect.tag === 'BUTTON')
+            expect(rect.height).toBeGreaterThanOrEqual(40);
         }
         const tabRects = await tablist.getByRole('tab').evaluateAll((tabs) =>
           tabs.map((tab) => {
@@ -2299,19 +2316,33 @@ test.describe('workflow route coverage', () => {
           }),
         );
         for (const rect of tabRects) {
-          expect(rect.x, `${workspace.task} tab at ${width}px`).toBeGreaterThanOrEqual(0);
-          expect(rect.right, `${workspace.task} tab at ${width}px`).toBeLessThanOrEqual(width);
+          expect(
+            rect.x,
+            `${workspace.task} tab at ${width}px`,
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            rect.right,
+            `${workspace.task} tab at ${width}px`,
+          ).toBeLessThanOrEqual(width);
           expect(rect.width).toBeGreaterThan(0);
         }
-        const statusRects = await panel.getByRole('status').evaluateAll((statuses) =>
-          statuses.map((status) => {
-            const rect = status.getBoundingClientRect();
-            return { x: rect.x, right: rect.right, width: rect.width };
-          }),
-        );
+        const statusRects = await panel
+          .getByRole('status')
+          .evaluateAll((statuses) =>
+            statuses.map((status) => {
+              const rect = status.getBoundingClientRect();
+              return { x: rect.x, right: rect.right, width: rect.width };
+            }),
+          );
         for (const rect of statusRects) {
-          expect(rect.x, `${workspace.task} status at ${width}px`).toBeGreaterThanOrEqual(0);
-          expect(rect.right, `${workspace.task} status at ${width}px`).toBeLessThanOrEqual(width);
+          expect(
+            rect.x,
+            `${workspace.task} status at ${width}px`,
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            rect.right,
+            `${workspace.task} status at ${width}px`,
+          ).toBeLessThanOrEqual(width);
           expect(rect.width).toBeGreaterThan(0);
         }
         const firstInput = panel.locator('input:visible').first();
@@ -2349,17 +2380,27 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'SUPERVISOR');
     await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    await expect(page.getByRole('tab', { name: 'Register customer' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Register customer' }),
+    ).toHaveAttribute('aria-selected', 'true');
 
     await page.getByRole('tab', { name: 'Manage customers' }).click();
     await expect(page).toHaveURL(`${baseUrl}/supervisor/customers?tab=manage`);
-    await expect(page.getByRole('tab', { name: 'Manage customers' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage customers' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
-    await expect(page.getByRole('tab', { name: 'Manage customers' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage customers' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.goBack({ waitUntil: 'commit', timeout: 15_000 });
-    await expect(page.getByRole('tab', { name: 'Register customer' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Register customer' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.goForward({ waitUntil: 'commit', timeout: 15_000 });
-    await expect(page.getByRole('tab', { name: 'Manage customers' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage customers' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tabpanel')).toHaveCount(1);
   });
 
@@ -2369,13 +2410,21 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'SUPERVISOR');
     await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Assign card' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.goto(`${baseUrl}/supervisor/cards?tab=manage`);
-    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage cards' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
-    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage cards' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.goto(`${baseUrl}/supervisor/cards?tab=invalid`);
-    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Assign card' }),
+    ).toHaveAttribute('aria-selected', 'true');
   });
 
   test('restores Supervisor card task tabs with browser back and forward', async ({
@@ -2384,15 +2433,23 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'SUPERVISOR');
     await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Assign card' }),
+    ).toHaveAttribute('aria-selected', 'true');
 
     await page.getByRole('tab', { name: 'Manage cards' }).click();
     await expect(page).toHaveURL(`${baseUrl}/supervisor/cards?tab=manage`);
-    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage cards' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.goBack({ waitUntil: 'commit', timeout: 15_000 });
-    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Assign card' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await page.goForward({ waitUntil: 'commit', timeout: 15_000 });
-    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { name: 'Manage cards' }),
+    ).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tabpanel')).toHaveCount(1);
   });
 

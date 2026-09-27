@@ -24,8 +24,13 @@ jest.mock('../lib/api/generated-client', () => ({
 }));
 
 const active = {
-  id: 'card-1', serialNumber: 'SER-1', status: 'ACTIVE', issuedAt: '2026-01-01',
-  blockedAt: null, replacedAt: null, customer: { id: 'customer-1', fullName: 'Ada Example', status: 'ACTIVE' },
+  id: 'card-1',
+  serialNumber: 'SER-1',
+  status: 'ACTIVE',
+  issuedAt: '2026-01-01',
+  blockedAt: null,
+  replacedAt: null,
+  customer: { id: 'customer-1', fullName: 'Ada Example', status: 'ACTIVE' },
 };
 const ok = (card: typeof active) => ({ status: 200, data: { data: card } });
 
@@ -33,7 +38,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   document.cookie = 'shopcity_csrf=test-csrf';
   query = new URLSearchParams();
-  jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue(ok(active) as never);
+  jest
+    .mocked(cardsControllerLookupManagementCardV1)
+    .mockResolvedValue(ok(active) as never);
 });
 
 describe('Supervisor card management tabs', () => {
@@ -53,21 +60,41 @@ describe('Supervisor card management tabs', () => {
     expect(assign).toHaveAttribute('tabindex', '0');
     expect(manage).toHaveAttribute('tabindex', '-1');
     expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(2);
-    expect(document.getElementById('card-panel-assign')).not.toHaveAttribute('hidden');
-    expect(document.getElementById('card-panel-manage')).toHaveAttribute('hidden');
+    expect(document.getElementById('card-panel-assign')).not.toHaveAttribute(
+      'hidden',
+    );
+    expect(document.getElementById('card-panel-manage')).toHaveAttribute(
+      'hidden',
+    );
     expect(screen.getByText('Assignment workspace')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Manage cards' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Manage cards' }),
+    ).not.toBeInTheDocument();
     fireEvent.keyDown(assign, { key: 'ArrowRight' });
     expect(manage).toHaveFocus();
     query = new URLSearchParams('tab=manage');
     rerender(<SupervisorCardWorkflows />);
     expectValidPanelTargets();
-    expect(screen.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
-    expect(pushUrl).toHaveBeenLastCalledWith('/supervisor/cards?tab=manage', { scroll: false });
-    expect(document.getElementById('card-panel-assign')).toHaveAttribute('hidden');
-    expect(document.getElementById('card-panel-manage')).not.toHaveAttribute('hidden');
-    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'card-tab-manage');
-    expect(screen.getByRole('heading', { name: 'Manage cards' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(pushUrl).toHaveBeenLastCalledWith('/supervisor/cards?tab=manage', {
+      scroll: false,
+    });
+    expect(document.getElementById('card-panel-assign')).toHaveAttribute(
+      'hidden',
+    );
+    expect(document.getElementById('card-panel-manage')).not.toHaveAttribute(
+      'hidden',
+    );
+    expect(screen.getByRole('tabpanel')).toHaveAttribute(
+      'aria-labelledby',
+      'card-tab-manage',
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Manage cards' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Assignment workspace')).not.toBeInTheDocument();
     const selectedManage = screen.getByRole('tab', { name: 'Manage cards' });
     fireEvent.keyDown(selectedManage, { key: 'Home' });
@@ -83,14 +110,21 @@ describe('Supervisor card management tabs', () => {
       debugMetadata: { privateValue: privateDebugField },
     };
     const response = { status: 200, data: { data: responseData } };
-    jest.mocked(cardsControllerLookupManagementCardV1)
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(response as never)
       .mockResolvedValueOnce(response as never);
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    expect(await screen.findByRole('button', { name: 'Block card' })).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Block card' }),
+    ).toBeInTheDocument();
 
     expect(screen.getByText('Card status')).toBeInTheDocument();
     expect(document.body.textContent).not.toContain(privateDebugField);
@@ -98,16 +132,25 @@ describe('Supervisor card management tabs', () => {
   });
 
   it('requires explicit candidate selection and authoritative ID verification before actions', async () => {
-    jest.mocked(cardsControllerLookupManagementCardV1)
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok(active) as never);
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
     await screen.findByRole('button', { name: 'Select and verify card' });
-    expect(screen.queryByRole('button', { name: 'Block card' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Select and verify card' }));
-    expect(await screen.findByRole('button', { name: 'Block card' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Block card' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select and verify card' }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Block card' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Card status')).toBeInTheDocument();
     expect(screen.getByText('Customer status')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(
@@ -118,70 +161,117 @@ describe('Supervisor card management tabs', () => {
   });
 
   it('blocks only after explicit confirmation, sends CSRF/idempotency request and refreshes authority', async () => {
-    jest.mocked(cardsControllerUpdateStatusV1).mockResolvedValue({ status: 200 } as never);
-    jest.mocked(cardsControllerLookupManagementCardV1)
+    jest
+      .mocked(cardsControllerUpdateStatusV1)
+      .mockResolvedValue({ status: 200 } as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok({ ...active, status: 'BLOCKED' }) as never);
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
     fireEvent.click(await screen.findByRole('button', { name: 'Block card' }));
-    fireEvent.change(screen.getByLabelText('Type BLOCK to confirm'), { target: { value: 'BLOCK' } });
+    fireEvent.change(screen.getByLabelText('Type BLOCK to confirm'), {
+      target: { value: 'BLOCK' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm block' }));
-    await waitFor(() => expect(cardsControllerUpdateStatusV1).toHaveBeenCalledTimes(1));
-    const [id, body, options] = jest.mocked(cardsControllerUpdateStatusV1).mock.calls[0];
+    await waitFor(() =>
+      expect(cardsControllerUpdateStatusV1).toHaveBeenCalledTimes(1),
+    );
+    const [id, body, options] = jest.mocked(cardsControllerUpdateStatusV1).mock
+      .calls[0];
     expect(id).toBe('card-1');
     expect(body).toEqual({ status: 'BLOCKED' });
     expect(new Headers(options?.headers).get('x-csrf-token')).toBeTruthy();
     expect(new Headers(options?.headers).get('Idempotency-Key')).toBeTruthy();
     expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(3);
     expect(await screen.findByText('BLOCKED')).toBeInTheDocument();
-    expect(await screen.findByText('Card status updated and current details refreshed.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Card status updated and current details refreshed.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('does not report success or retain actions when refreshed status differs from the requested status', async () => {
-    jest.mocked(cardsControllerUpdateStatusV1).mockResolvedValue({ status: 200 } as never);
-    jest.mocked(cardsControllerLookupManagementCardV1)
+    jest
+      .mocked(cardsControllerUpdateStatusV1)
+      .mockResolvedValue({ status: 200 } as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok(active) as never);
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
     fireEvent.click(await screen.findByRole('button', { name: 'Block card' }));
-    fireEvent.change(screen.getByLabelText('Type BLOCK to confirm'), { target: { value: 'BLOCK' } });
+    fireEvent.change(screen.getByLabelText('Type BLOCK to confirm'), {
+      target: { value: 'BLOCK' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm block' }));
 
-    expect(await screen.findByText(/status request could not be verified/i)).toBeInTheDocument();
-    expect(screen.getByText(/refresh the card lookup and reconcile its status/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/status request could not be verified/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/refresh the card lookup and reconcile its status/i),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/status updated/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Block card' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reactivate card' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Block card' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Reactivate card' }),
+    ).not.toBeInTheDocument();
   });
 
   it('offers replacement only for active customer, starts with blank serial and never displays balance controls', async () => {
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Replace card' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Replace card' }),
+    );
     expect(screen.getByLabelText('New replacement serial')).toHaveValue('');
     expect(screen.queryByText(/balance|transfer/i)).not.toBeInTheDocument();
     expect(cardsControllerReplaceCardV1).not.toHaveBeenCalled();
   });
 
   it('keeps the serial and fails closed on no-match and lookup errors', async () => {
-    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValueOnce({ status: 404 } as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
+      .mockResolvedValueOnce({ status: 404 } as never);
     const { rerender } = render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'MISSING' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'MISSING' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
     expect(await screen.findByText(/no matching card/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Card serial')).toHaveValue('MISSING');
-    expect(screen.queryByRole('button', { name: 'Select and verify card' })).not.toBeInTheDocument();
-    jest.mocked(cardsControllerLookupManagementCardV1).mockRejectedValueOnce(new Error('offline'));
+    expect(
+      screen.queryByRole('button', { name: 'Select and verify card' }),
+    ).not.toBeInTheDocument();
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
+      .mockRejectedValueOnce(new Error('offline'));
     rerender(<SupervisorCardManagement />);
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
     expect(await screen.findByText(/lookup failed/i)).toBeInTheDocument();
@@ -189,96 +279,201 @@ describe('Supervisor card management tabs', () => {
   });
 
   it('verifies replacement ID and same customer without any balance operation', async () => {
-    jest.mocked(cardsControllerReplaceCardV1).mockResolvedValue({ status: 201, data: { data: { id: 'card-2' } } } as never);
-    jest.mocked(cardsControllerLookupManagementCardV1)
+    jest.mocked(cardsControllerReplaceCardV1).mockResolvedValue({
+      status: 201,
+      data: { data: { id: 'card-2' } },
+    } as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok({ ...active, status: 'REPLACED' }) as never)
-      .mockResolvedValueOnce(ok({ ...active, id: 'card-2', serialNumber: 'SER-2' }) as never);
+      .mockResolvedValueOnce(
+        ok({ ...active, id: 'card-2', serialNumber: 'SER-2' }) as never,
+      );
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Replace card' }));
-    fireEvent.change(screen.getByLabelText('New replacement serial'), { target: { value: 'SER-2' } });
-    fireEvent.change(screen.getByLabelText('Type REPLACE to confirm'), { target: { value: 'REPLACE' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm replacement' }));
-    await waitFor(() => expect(cardsControllerReplaceCardV1).toHaveBeenCalledTimes(1));
-    expect(cardsControllerReplaceCardV1).toHaveBeenCalledWith('card-1', { serialNumber: 'SER-2' }, expect.objectContaining({ headers: expect.any(Object) }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Replace card' }),
+    );
+    fireEvent.change(screen.getByLabelText('New replacement serial'), {
+      target: { value: 'SER-2' },
+    });
+    fireEvent.change(screen.getByLabelText('Type REPLACE to confirm'), {
+      target: { value: 'REPLACE' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm replacement' }),
+    );
+    await waitFor(() =>
+      expect(cardsControllerReplaceCardV1).toHaveBeenCalledTimes(1),
+    );
+    expect(cardsControllerReplaceCardV1).toHaveBeenCalledWith(
+      'card-1',
+      { serialNumber: 'SER-2' },
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
     expect(await screen.findByText('SER-2')).toBeInTheDocument();
-    expect(await screen.findByText('Replacement verified for the same customer.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Replacement verified for the same customer.'),
+    ).toBeInTheDocument();
     expect(cardsControllerUpdateStatusV1).not.toHaveBeenCalled();
   });
 
   it('prevents duplicate replacement submission and safely retries an uncertain response with the same key', async () => {
-    jest.mocked(cardsControllerReplaceCardV1)
+    jest
+      .mocked(cardsControllerReplaceCardV1)
       .mockResolvedValueOnce({ status: 503 } as never)
-      .mockResolvedValueOnce({ status: 201, data: { data: { id: 'card-2' } } } as never);
-    jest.mocked(cardsControllerLookupManagementCardV1)
+      .mockResolvedValueOnce({
+        status: 201,
+        data: { data: { id: 'card-2' } },
+      } as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok({ ...active, status: 'REPLACED' }) as never)
-      .mockResolvedValueOnce(ok({ ...active, id: 'card-2', serialNumber: 'SER-2' }) as never);
+      .mockResolvedValueOnce(
+        ok({ ...active, id: 'card-2', serialNumber: 'SER-2' }) as never,
+      );
     render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Replace card' }));
-    fireEvent.change(screen.getByLabelText('New replacement serial'), { target: { value: 'SER-2' } });
-    fireEvent.change(screen.getByLabelText('Type REPLACE to confirm'), { target: { value: 'REPLACE' } });
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Replace card' }),
+    );
+    fireEvent.change(screen.getByLabelText('New replacement serial'), {
+      target: { value: 'SER-2' },
+    });
+    fireEvent.change(screen.getByLabelText('Type REPLACE to confirm'), {
+      target: { value: 'REPLACE' },
+    });
     const submit = screen.getByRole('button', { name: 'Confirm replacement' });
     fireEvent.click(submit);
     fireEvent.click(submit);
     expect(cardsControllerReplaceCardV1).toHaveBeenCalledTimes(1);
     expect(submit).toBeDisabled();
-    expect(await screen.findByText('The request was not confirmed (503). Review current details before retrying.')).toBeInTheDocument();
-    expect(screen.queryByText('Replacement verified for the same customer.')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('New replacement serial')).toHaveValue('SER-2');
-    const firstKey = new Headers(jest.mocked(cardsControllerReplaceCardV1).mock.calls[0][2]?.headers).get('Idempotency-Key');
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm replacement' }));
-    await waitFor(() => expect(cardsControllerReplaceCardV1).toHaveBeenCalledTimes(2));
-    const retryKey = new Headers(jest.mocked(cardsControllerReplaceCardV1).mock.calls[1][2]?.headers).get('Idempotency-Key');
+    expect(
+      await screen.findByText(
+        'The request was not confirmed (503). Review current details before retrying.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Replacement verified for the same customer.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('New replacement serial')).toHaveValue(
+      'SER-2',
+    );
+    const firstKey = new Headers(
+      jest.mocked(cardsControllerReplaceCardV1).mock.calls[0][2]?.headers,
+    ).get('Idempotency-Key');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm replacement' }),
+    );
+    await waitFor(() =>
+      expect(cardsControllerReplaceCardV1).toHaveBeenCalledTimes(2),
+    );
+    const retryKey = new Headers(
+      jest.mocked(cardsControllerReplaceCardV1).mock.calls[1][2]?.headers,
+    ).get('Idempotency-Key');
     expect(retryKey).toBe(firstKey);
-    expect(await screen.findByText('Replacement verified for the same customer.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Replacement verified for the same customer.'),
+    ).toBeInTheDocument();
   });
 
   it('offers only reactivation for blocked cards and no writes for inactive customers', async () => {
-    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue(ok({ ...active, status: 'BLOCKED' }) as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
+      .mockResolvedValue(ok({ ...active, status: 'BLOCKED' }) as never);
     const { rerender } = render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    expect(await screen.findByRole('button', { name: 'Reactivate card' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Replace card' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Block card' })).not.toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Reactivate card' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Replace card' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Block card' }),
+    ).not.toBeInTheDocument();
 
-    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue(ok({ ...active, customer: { ...active.customer, status: 'INACTIVE' } }) as never);
+    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue(
+      ok({
+        ...active,
+        customer: { ...active.customer, status: 'INACTIVE' },
+      }) as never,
+    );
     rerender(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    expect(await screen.findByText(/customer is not active/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Block card' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Replace card' })).not.toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    expect(
+      await screen.findByText(/customer is not active/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Block card' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Replace card' }),
+    ).not.toBeInTheDocument();
   });
 
   it('fails closed on changed identity and replaced cards', async () => {
-    jest.mocked(cardsControllerLookupManagementCardV1)
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
       .mockResolvedValueOnce(ok(active) as never)
       .mockResolvedValueOnce(ok({ ...active, id: 'different-id' }) as never);
     const { rerender } = render(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
-    expect(await screen.findByText(/changed or are unavailable/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Block card' })).not.toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
+    expect(
+      await screen.findByText(/changed or are unavailable/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Block card' }),
+    ).not.toBeInTheDocument();
 
-    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue(ok({ ...active, status: 'REPLACED' }) as never);
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
+      .mockResolvedValue(ok({ ...active, status: 'REPLACED' }) as never);
     rerender(<SupervisorCardManagement />);
-    fireEvent.change(screen.getByLabelText('Card serial'), { target: { value: 'SER-1' } });
+    fireEvent.change(screen.getByLabelText('Card serial'), {
+      target: { value: 'SER-1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Select and verify card' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Select and verify card' }),
+    );
     expect(await screen.findByText(/read-only/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Block card' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Block card' }),
+    ).not.toBeInTheDocument();
   });
 });
