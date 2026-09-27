@@ -6202,6 +6202,263 @@ export type CustomersControllerUpdateStatusV1503 = {
   meta: CustomersControllerUpdateStatusV1503Meta;
 };
 
+export type CardsControllerLookupManagementCardV1200DataStatus =
+  (typeof CardsControllerLookupManagementCardV1200DataStatus)[keyof typeof CardsControllerLookupManagementCardV1200DataStatus];
+
+export const CardsControllerLookupManagementCardV1200DataStatus = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+  REPLACED: 'REPLACED',
+} as const;
+
+export type CardsControllerLookupManagementCardV1200DataCustomer = {
+  id?: string;
+  fullName?: string;
+  status?: string;
+};
+
+export type CardsControllerLookupManagementCardV1200Data = {
+  id?: string;
+  serialNumber?: string;
+  status?: CardsControllerLookupManagementCardV1200DataStatus;
+  issuedAt?: string;
+  /** @nullable */
+  blockedAt?: string | null;
+  /** @nullable */
+  replacedAt?: string | null;
+  /** @nullable */
+  replacedByCardId?: string | null;
+  customer?: CardsControllerLookupManagementCardV1200DataCustomer;
+};
+
+export type CardsControllerLookupManagementCardV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1200 = {
+  success: boolean;
+  data: CardsControllerLookupManagementCardV1200Data;
+  meta: CardsControllerLookupManagementCardV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1400ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1400 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1400Error;
+  meta: CardsControllerLookupManagementCardV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1401ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1401 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1401Error;
+  meta: CardsControllerLookupManagementCardV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1403ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1403 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1403Error;
+  meta: CardsControllerLookupManagementCardV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1404ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1404 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1404Error;
+  meta: CardsControllerLookupManagementCardV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1409ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1409 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1409Error;
+  meta: CardsControllerLookupManagementCardV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1422ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1422 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1422Error;
+  meta: CardsControllerLookupManagementCardV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1429ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1429 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1429Error;
+  meta: CardsControllerLookupManagementCardV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerLookupManagementCardV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerLookupManagementCardV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerLookupManagementCardV1503ErrorDetails;
+};
+
+export type CardsControllerLookupManagementCardV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerLookupManagementCardV1503 = {
+  success: boolean;
+  error: CardsControllerLookupManagementCardV1503Error;
+  meta: CardsControllerLookupManagementCardV1503Meta;
+};
+
 export type CardsControllerLookupCardV1200Data = { [key: string]: unknown };
 
 export type CardsControllerLookupCardV1200Meta = {
@@ -16091,8 +16348,21 @@ export const authControllerLoginV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getAuthControllerLoginV1Url(), {
     ...options,
@@ -16199,8 +16469,21 @@ export const authControllerSmokeSessionV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getAuthControllerSmokeSessionV1Url(), {
     ...options,
@@ -16785,8 +17068,21 @@ export const usersControllerCreateUserV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getUsersControllerCreateUserV1Url(), {
     ...options,
@@ -17001,8 +17297,21 @@ export const usersControllerUpdateRoleV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getUsersControllerUpdateRoleV1Url(id), {
     ...options,
@@ -17109,8 +17418,21 @@ export const usersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getUsersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -17310,8 +17632,21 @@ export const branchesControllerCreateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerCreateBranchV1Url(), {
     ...options,
@@ -17418,8 +17753,21 @@ export const branchesControllerUpdateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerUpdateBranchV1Url(id), {
     ...options,
@@ -17618,8 +17966,21 @@ export const branchesControllerCreateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerCreateDeviceV1Url(), {
     ...options,
@@ -17726,8 +18087,21 @@ export const branchesControllerUpdateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerUpdateDeviceV1Url(id), {
     ...options,
@@ -17942,8 +18316,21 @@ export const customersControllerCreateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCustomersControllerCreateCustomerV1Url(), {
     ...options,
@@ -18144,8 +18531,21 @@ export const customersControllerUpdateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCustomersControllerUpdateCustomerV1Url(id), {
     ...options,
@@ -18252,8 +18652,21 @@ export const customersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCustomersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -18275,6 +18688,105 @@ export const customersControllerUpdateStatusV1 = async (
     status: res.status,
     headers: res.headers,
   } as customersControllerUpdateStatusV1Response;
+};
+
+export type cardsControllerLookupManagementCardV1Response200 = {
+  data: CardsControllerLookupManagementCardV1200;
+  status: 200;
+};
+
+export type cardsControllerLookupManagementCardV1Response400 = {
+  data: CardsControllerLookupManagementCardV1400;
+  status: 400;
+};
+
+export type cardsControllerLookupManagementCardV1Response401 = {
+  data: CardsControllerLookupManagementCardV1401;
+  status: 401;
+};
+
+export type cardsControllerLookupManagementCardV1Response403 = {
+  data: CardsControllerLookupManagementCardV1403;
+  status: 403;
+};
+
+export type cardsControllerLookupManagementCardV1Response404 = {
+  data: CardsControllerLookupManagementCardV1404;
+  status: 404;
+};
+
+export type cardsControllerLookupManagementCardV1Response409 = {
+  data: CardsControllerLookupManagementCardV1409;
+  status: 409;
+};
+
+export type cardsControllerLookupManagementCardV1Response422 = {
+  data: CardsControllerLookupManagementCardV1422;
+  status: 422;
+};
+
+export type cardsControllerLookupManagementCardV1Response429 = {
+  data: CardsControllerLookupManagementCardV1429;
+  status: 429;
+};
+
+export type cardsControllerLookupManagementCardV1Response503 = {
+  data: CardsControllerLookupManagementCardV1503;
+  status: 503;
+};
+
+export type cardsControllerLookupManagementCardV1ResponseSuccess =
+  cardsControllerLookupManagementCardV1Response200 & {
+    headers: Headers;
+  };
+export type cardsControllerLookupManagementCardV1ResponseError = (
+  | cardsControllerLookupManagementCardV1Response400
+  | cardsControllerLookupManagementCardV1Response401
+  | cardsControllerLookupManagementCardV1Response403
+  | cardsControllerLookupManagementCardV1Response404
+  | cardsControllerLookupManagementCardV1Response409
+  | cardsControllerLookupManagementCardV1Response422
+  | cardsControllerLookupManagementCardV1Response429
+  | cardsControllerLookupManagementCardV1Response503
+) & {
+  headers: Headers;
+};
+
+export type cardsControllerLookupManagementCardV1Response =
+  | cardsControllerLookupManagementCardV1ResponseSuccess
+  | cardsControllerLookupManagementCardV1ResponseError;
+
+export const getCardsControllerLookupManagementCardV1Url = (
+  serialNumber: string,
+) => {
+  return `/api/v1/cards/management/lookup/${serialNumber}`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const cardsControllerLookupManagementCardV1 = async (
+  serialNumber: string,
+  options?: RequestInit,
+): Promise<cardsControllerLookupManagementCardV1Response> => {
+  const res = await fetch(
+    getCardsControllerLookupManagementCardV1Url(serialNumber),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cardsControllerLookupManagementCardV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cardsControllerLookupManagementCardV1Response;
 };
 
 export type cardsControllerLookupCardV1Response200 = {
@@ -18454,8 +18966,21 @@ export const cardsControllerCreateCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCardsControllerCreateCardV1Url(), {
     ...options,
@@ -18562,8 +19087,21 @@ export const cardsControllerReplaceCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCardsControllerReplaceCardV1Url(id), {
     ...options,
@@ -18670,8 +19208,21 @@ export const cardsControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCardsControllerUpdateStatusV1Url(id), {
     ...options,
@@ -18786,8 +19337,21 @@ export const receiptsControllerCaptureReceiptV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getReceiptsControllerCaptureReceiptV1Url(), {
     ...options,
@@ -19196,8 +19760,21 @@ export const approvalsControllerDecideApprovalV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getApprovalsControllerDecideApprovalV1Url(id), {
     ...options,
@@ -19309,8 +19886,21 @@ export const loyaltyControllerEarnV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getLoyaltyControllerEarnV1Url(), {
     ...options,
@@ -19633,8 +20223,21 @@ export const redemptionsControllerRedeemV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getRedemptionsControllerRedeemV1Url(), {
     ...options,
@@ -19742,8 +20345,21 @@ export const reversalsControllerReverseV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getReversalsControllerReverseV1Url(transactionId), {
     ...options,
@@ -19850,8 +20466,21 @@ export const adjustmentsControllerCreateV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getAdjustmentsControllerCreateV1Url(), {
     ...options,
@@ -19958,8 +20587,21 @@ export const offlineSyncControllerEarnBatchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getOfflineSyncControllerEarnBatchV1Url(), {
     ...options,
@@ -20287,8 +20929,21 @@ export const fraudControllerDecideFraudFlagV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getFraudControllerDecideFraudFlagV1Url(id), {
     ...options,
@@ -22215,8 +22870,21 @@ export const configurationControllerUpdatePolicyConfigurationV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(
     getConfigurationControllerUpdatePolicyConfigurationV1Url(),

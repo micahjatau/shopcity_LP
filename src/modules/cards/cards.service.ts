@@ -30,6 +30,44 @@ export class CardsService {
     ),
   ) {}
 
+  async lookupManagementCard(tenantId: string, serialNumber: string) {
+    const canonicalSerialNumber = normalizeCardSerial(serialNumber);
+    const cards = await this.prismaService.card.findMany({
+      where: {
+        tenantId,
+        barcodeValue: { equals: canonicalSerialNumber, mode: 'insensitive' },
+      },
+      select: {
+        id: true,
+        barcodeValue: true,
+        status: true,
+        issuedAt: true,
+        blockedAt: true,
+        replacedAt: true,
+        replacedByCardId: true,
+        customer: {
+          select: { id: true, fullName: true, status: true },
+        },
+      },
+    });
+
+    if (cards.length !== 1) {
+      throw new NotFoundException('Card not found');
+    }
+
+    const [card] = cards;
+    return {
+      id: card.id,
+      serialNumber: card.barcodeValue,
+      status: card.status,
+      issuedAt: card.issuedAt,
+      blockedAt: card.blockedAt,
+      replacedAt: card.replacedAt,
+      replacedByCardId: card.replacedByCardId,
+      customer: card.customer,
+    };
+  }
+
   async lookupCard(tenantId: string, serialNumber: string) {
     const canonicalSerialNumber = normalizeCardSerial(serialNumber);
     const card = await this.prismaService.card.findFirst({

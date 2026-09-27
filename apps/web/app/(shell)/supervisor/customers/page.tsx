@@ -1,5 +1,5 @@
-import { CustomerWorkspace } from '../../../../components/workflows/customer-workspace';
+import { SupervisorCustomerWorkflows } from '../../../../components/workflows/supervisor-customer-workflows';
 
 export default function SupervisorCustomersPage() {
-  return <CustomerWorkspace canManage presentation="supervisor" />;
+  return <SupervisorCustomerWorkflows />;
 }

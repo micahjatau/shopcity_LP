@@ -2121,6 +2121,307 @@ test.describe('workflow route coverage', () => {
       }
     }
   });
+
+  test('keeps Supervisor Help & Training visually contained and accessible at tablet width', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await mockShell(page, 'SUPERVISOR');
+    await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(page.locator('.sc-page')).toBeVisible();
+
+    const helpLink = page.getByRole('link', { name: 'Help & Training' });
+    await expect(helpLink).toBeVisible();
+    const supervisorTreatment = await helpLink.evaluate((link) => {
+      const label = link.querySelector('span');
+      const sidebar = link.closest('.shell-sidebar');
+      if (!label || !sidebar) return null;
+      const labelStyle = getComputedStyle(label);
+      const linkRect = link.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
+      return {
+        text: label.textContent?.trim(),
+        position: labelStyle.position,
+        width: labelStyle.width,
+        clip: labelStyle.clip,
+        linkContained: linkRect.left >= sidebarRect.left && linkRect.right <= sidebarRect.right,
+      };
+    });
+    expect(supervisorTreatment).toEqual({
+      text: 'Help & Training',
+      position: 'absolute',
+      width: '1px',
+      clip: 'rect(0px, 0px, 0px, 0px)',
+      linkContained: true,
+    });
+    await expect(helpLink).toHaveAccessibleName('Help & Training');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(768);
+
+    for (const route of [
+      { path: '/admin/customers', role: 'ADMIN' as const },
+      { path: '/cashier', role: 'CASHIER' as const },
+    ]) {
+      await mockShell(page, route.role);
+      await page.goto(`${baseUrl}${route.path}`);
+      const helpLink = page.getByRole('link', { name: 'Help & Training' });
+      await expect(helpLink).toBeVisible();
+      await expect(
+        helpLink.locator('span').evaluate((label) => {
+          const style = getComputedStyle(label);
+          return style.position === 'absolute' && style.clip !== 'auto';
+        }),
+      ).resolves.toBe(false);
+      await expect(helpLink).toHaveAccessibleName('Help & Training');
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(768);
+    }
+  });
+
+  test('reviews responsive Supervisor customer and card task workspaces', async ({
+    page,
+  }, testInfo) => {
+    const workspaces = [
+      {
+        route: '/supervisor/customers?tab=register',
+        role: 'SUPERVISOR' as const,
+        task: 'register-customer',
+        heading: 'Register a new customer',
+        activeTab: 'Register customer',
+        inactiveTab: 'Manage customers',
+      },
+      {
+        route: '/supervisor/customers?tab=manage',
+        role: 'SUPERVISOR' as const,
+        task: 'manage-customers',
+        heading: 'Find a customer',
+        activeTab: 'Manage customers',
+        inactiveTab: 'Register customer',
+      },
+      {
+        route: '/supervisor/cards?tab=assign',
+        role: 'SUPERVISOR' as const,
+        task: 'assign-card',
+        heading: 'Find an existing customer',
+        activeTab: 'Assign card',
+        inactiveTab: 'Manage cards',
+      },
+      {
+        route: '/supervisor/cards?tab=manage',
+        role: 'SUPERVISOR' as const,
+        task: 'manage-cards',
+        heading: 'Manage cards',
+        activeTab: 'Manage cards',
+        inactiveTab: 'Assign card',
+      },
+    ];
+    const widths = [1440, 1024, 768, 390, 375];
+
+    for (const workspace of workspaces) {
+      await mockShell(page, workspace.role);
+      await page.setViewportSize({ width: widths[0], height: 900 });
+      await page.goto(`${baseUrl}${workspace.route}`);
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      for (const width of widths) {
+        await page.setViewportSize({ width, height: 900 });
+        const tablist = page.getByRole('tablist');
+        const activeTab = tablist.getByRole('tab', {
+          name: workspace.activeTab,
+        });
+        const inactiveTab = tablist.getByRole('tab', {
+          name: workspace.inactiveTab,
+        });
+        await expect(activeTab).toHaveAttribute('aria-selected', 'true');
+        await expect(inactiveTab).toHaveAttribute('aria-selected', 'false');
+        const panels = page.getByRole('tabpanel');
+        await expect(panels).toHaveCount(1);
+        const panel = panels.first();
+        await expect(panel).toBeVisible();
+        await expect(panel.getByRole('heading', { name: workspace.heading })).toBeVisible();
+
+        const measurements = await page.evaluate(() => ({
+          documentWidth: document.documentElement.scrollWidth,
+          bodyWidth: document.body.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }));
+        expect(measurements.documentWidth, `${workspace.task} at ${width}px`).toBeLessThanOrEqual(width);
+        expect(measurements.bodyWidth, `${workspace.task} at ${width}px`).toBeLessThanOrEqual(width);
+        expect(measurements.viewportWidth).toBe(width);
+
+        const controls = panel.locator('input, button, textarea, select, a');
+        const visibleControlRects = await controls.evaluateAll((elements) =>
+          elements
+            .filter((element) => {
+              const style = getComputedStyle(element);
+              return style.display !== 'none' && style.visibility !== 'hidden';
+            })
+            .map((element) => {
+              const rect = element.getBoundingClientRect();
+              return {
+                tag: element.tagName,
+                x: rect.x,
+                right: rect.right,
+                width: rect.width,
+                height: rect.height,
+                disabled: (element as HTMLButtonElement).disabled,
+              };
+            }),
+        );
+        expect(visibleControlRects.length, workspace.task).toBeGreaterThan(0);
+        if (workspace.task === 'register-customer') {
+          const registrationButton = panel.getByRole('button', {
+            name: 'Register customer and first card',
+          });
+          const buttonBox = await registrationButton.boundingBox();
+          const cardBox = await registrationButton
+            .locator('xpath=ancestor::div[contains(@class, "sc-card")][1]')
+            .boundingBox();
+          expect(buttonBox).not.toBeNull();
+          expect(cardBox).not.toBeNull();
+          expect(buttonBox!.x).toBeGreaterThanOrEqual(cardBox!.x + 16);
+          expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(
+            cardBox!.x + cardBox!.width - 16,
+          );
+        }
+        for (const rect of visibleControlRects) {
+          expect(rect.x, `${workspace.task} control left edge at ${width}px`).toBeGreaterThanOrEqual(0);
+          expect(rect.right, `${workspace.task} control right edge at ${width}px`).toBeLessThanOrEqual(width);
+          expect(rect.width).toBeGreaterThan(0);
+          if (rect.tag === 'BUTTON') expect(rect.height).toBeGreaterThanOrEqual(40);
+        }
+        const tabRects = await tablist.getByRole('tab').evaluateAll((tabs) =>
+          tabs.map((tab) => {
+            const rect = tab.getBoundingClientRect();
+            return { x: rect.x, right: rect.right, width: rect.width };
+          }),
+        );
+        for (const rect of tabRects) {
+          expect(rect.x, `${workspace.task} tab at ${width}px`).toBeGreaterThanOrEqual(0);
+          expect(rect.right, `${workspace.task} tab at ${width}px`).toBeLessThanOrEqual(width);
+          expect(rect.width).toBeGreaterThan(0);
+        }
+        const statusRects = await panel.getByRole('status').evaluateAll((statuses) =>
+          statuses.map((status) => {
+            const rect = status.getBoundingClientRect();
+            return { x: rect.x, right: rect.right, width: rect.width };
+          }),
+        );
+        for (const rect of statusRects) {
+          expect(rect.x, `${workspace.task} status at ${width}px`).toBeGreaterThanOrEqual(0);
+          expect(rect.right, `${workspace.task} status at ${width}px`).toBeLessThanOrEqual(width);
+          expect(rect.width).toBeGreaterThan(0);
+        }
+        const firstInput = panel.locator('input:visible').first();
+        if (await firstInput.count()) {
+          await firstInput.focus();
+          await expect(firstInput).toBeFocused();
+        }
+
+        if (width === widths[0]) {
+          await activeTab.focus();
+          await expect(activeTab).toBeFocused();
+          await page.keyboard.press('ArrowRight');
+          await expect(inactiveTab).toHaveAttribute('aria-selected', 'true');
+          await expect(inactiveTab).toBeFocused();
+          await page.keyboard.press('ArrowLeft');
+          await expect(activeTab).toHaveAttribute('aria-selected', 'true');
+          await expect(activeTab).toBeFocused();
+        }
+
+        const screenshotPath = testInfo.outputPath(
+          `supervisor-${workspace.task}-${width}px.png`,
+        );
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        testInfo.attach(`${workspace.task}-${width}px`, {
+          path: screenshotPath,
+          contentType: 'image/png',
+        });
+      }
+    }
+  });
+
+  test('restores Supervisor customer tabs after direct load, reload, back, and forward', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(page.getByRole('tab', { name: 'Register customer' })).toHaveAttribute('aria-selected', 'true');
+
+    await page.getByRole('tab', { name: 'Manage customers' }).click();
+    await expect(page).toHaveURL(`${baseUrl}/supervisor/customers?tab=manage`);
+    await expect(page.getByRole('tab', { name: 'Manage customers' })).toHaveAttribute('aria-selected', 'true');
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: 'Manage customers' })).toHaveAttribute('aria-selected', 'true');
+    await page.goBack({ waitUntil: 'commit', timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: 'Register customer' })).toHaveAttribute('aria-selected', 'true');
+    await page.goForward({ waitUntil: 'commit', timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: 'Manage customers' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel')).toHaveCount(1);
+  });
+
+  test('restores Supervisor card tabs after direct load and reload, defaulting invalid tabs', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+    await page.goto(`${baseUrl}/supervisor/cards?tab=manage`);
+    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await page.goto(`${baseUrl}/supervisor/cards?tab=invalid`);
+    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('restores Supervisor card task tabs with browser back and forward', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+
+    await page.getByRole('tab', { name: 'Manage cards' }).click();
+    await expect(page).toHaveURL(`${baseUrl}/supervisor/cards?tab=manage`);
+    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await page.goBack({ waitUntil: 'commit', timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: 'Assign card' })).toHaveAttribute('aria-selected', 'true');
+    await page.goForward({ waitUntil: 'commit', timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel')).toHaveCount(1);
+  });
+
+  test('denies Cashier and Admin direct navigation to Supervisor customer and card workflows', async ({
+    page,
+  }) => {
+    const supervisorRoutes = [
+      '/supervisor/customers?tab=manage',
+      '/supervisor/cards?tab=assign',
+    ];
+    for (const role of ['CASHIER', 'ADMIN'] as const) {
+      const permittedRoute = role === 'CASHIER' ? '/cashier' : '/admin';
+      for (const path of supervisorRoutes) {
+        await mockShell(page, role);
+        await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        await expect(page).toHaveURL(`${baseUrl}${permittedRoute}`);
+        await expect(
+          page.getByRole('heading', { name: 'Supervisor workspace' }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole('heading', { name: 'Find a customer' }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole('heading', { name: 'Find an existing customer' }),
+        ).toHaveCount(0);
+      }
+    }
+  });
 });
 
 async function expectRoutesAvailable(

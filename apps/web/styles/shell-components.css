@@ -927,6 +927,18 @@
   .shell-sidebar-footer-link {
     justify-content: center;
   }
+
+  .shell-body:has(.sc-page) .shell-sidebar-footer-link[href='/help'] span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 @media (max-width: 620px) {

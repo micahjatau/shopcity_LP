@@ -11,6 +11,24 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-27 — Review 80 approved Supervisor/Admin card-management lookup
+
+The operator authorized a narrowly bounded tenant-scoped read-only management lookup API. The proposal impact command was invoked:
+
+```text
+npm run proposal:impact -- --file src/modules/cards/cards.service.ts CardsService.lookupCard
+```
+
+The index FTS refresh was previously broken; exact queries worked. Proposal-time direct `gitnexus impact` evidence:
+
+| Symbol                    | Risk | Impacted symbols |        Direct callers/dependants | Processes | Exact finding                                                                   |
+| ------------------------- | ---- | ---------------: | -------------------------------: | --------: | ------------------------------------------------------------------------------- |
+| `CardsService.lookupCard` | LOW  |                1 | 1 (`CardsController.lookupCard`) |         — | Direct exact-symbol impact; sole direct caller is `CardsController.lookupCard`. |
+| `CardsService`            | LOW  |                5 |                                3 |         0 | Exact class impact; no processes.                                               |
+| `CardsController`         | LOW  |                3 |                                1 |         — | Exact controller impact.                                                        |
+
+These are proposal-time bounds, not implementation proof. The implementation must still be reviewed and validated against the approved narrow endpoint contract and its role, tenant, privacy, throttle, and cashier-regression tests.
+
 ### 2026-09-26 — Supervisor copy and typography standardization proposal
 
 Proposal-time upstream impact was checked against the refreshed `shopcity_LP` index before drafting the Supervisor change. The repository command was invoked for `SupervisorPage`, and direct exact file-qualified GitNexus impacts were run for the planned route/workspace components.

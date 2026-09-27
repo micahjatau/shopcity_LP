@@ -4,6 +4,11 @@ import {
   CardStatus,
   CustomerStatus,
   SessionStatus,
+  LedgerEntryType,
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  ReceiptCaptureStatus,
+  ReceiptReviewStatus,
 } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { AuthService } from '../src/modules/auth/auth.service';
@@ -63,7 +68,7 @@ describe('phase 1 service flows', () => {
         seed.actor,
         {
           fullName: 'Ada Lovelace',
-          phone: '08012345678',
+          phone: '+2348012345678',
           cardSerialNumber: 'SC-PHASE1-0002',
         },
         'phase-1-customer-duplicate',
@@ -106,6 +111,77 @@ describe('phase 1 service flows', () => {
       },
     });
 
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      const receipt = await tx.receipt.create({
+        data: {
+          tenantId: seed.tenant.id,
+          branchId: seed.branch.id,
+          customerId: customer.id,
+          cardId: card.id,
+          posReceiptNumber: 'SC-REPLACE-BALANCE-1',
+          normalizedPosReceiptNumber: 'sc-replace-balance-1',
+          receiptWeekStart: new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+          ),
+          purchaseAmountKobo: 2500,
+          occurredAt: now,
+          capturedByTenantId: seed.tenant.id,
+          capturedBy: seed.user.id,
+          captureStatus: ReceiptCaptureStatus.CAPTURED,
+          reviewStatus: ReceiptReviewStatus.APPROVED,
+          reviewedAt: now,
+          reviewedByTenantId: seed.tenant.id,
+          reviewedBy: seed.user.id,
+          approvedByTenantId: seed.tenant.id,
+          approvedBy: seed.user.id,
+          approvedAt: now,
+        },
+      });
+      const earn = await tx.loyaltyLedgerEntry.create({
+        data: {
+          tenantId: seed.tenant.id,
+          customerId: customer.id,
+          receiptId: receipt.id,
+          type: LedgerEntryType.EARN,
+          direction: LedgerEntryDirection.CREDIT,
+          amountKobo: 2500n,
+          status: LedgerEntryStatus.CONFIRMED,
+          correlationId: 'phase-1-replacement-preexisting-balance',
+          createdByTenantId: seed.tenant.id,
+          createdBy: seed.user.id,
+          effectiveAt: now,
+        },
+      });
+      await tx.creditLot.create({
+        data: {
+          tenantId: seed.tenant.id,
+          customerId: customer.id,
+          earnLedgerEntryId: earn.id,
+          originalAmountKobo: 2500n,
+          remainingAmountKobo: 2500n,
+          earnedAt: now,
+          expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
+        },
+      });
+    });
+    const readAvailableBalanceKobo = async () => {
+      const balance = await prisma.creditLot.aggregate({
+        where: {
+          tenantId: seed.tenant.id,
+          customerId: customer.id,
+          remainingAmountKobo: { gt: 0 },
+          expiresAt: { gt: new Date() },
+        },
+        _sum: { remainingAmountKobo: true },
+      });
+      return balance._sum.remainingAmountKobo ?? 0n;
+    };
+    const balanceBefore = await readAvailableBalanceKobo();
+    expect(balanceBefore).toBe(2500n);
+    const ledgerEntriesBefore = await prisma.loyaltyLedgerEntry.count({
+      where: { tenantId: seed.tenant.id, customerId: customer.id },
+    });
     const replacement = await service.replaceCard(
       seed.tenant.id,
       seed.actor,
@@ -121,6 +197,12 @@ describe('phase 1 service flows', () => {
     const replaced = await prisma.card.findUnique({ where: { id: card.id } });
     expect(replaced?.status).toBe(CardStatus.REPLACED);
     expect(replaced?.replacedByCardId).toBe(replacement.id);
+    expect(
+      await prisma.loyaltyLedgerEntry.count({
+        where: { tenantId: seed.tenant.id, customerId: customer.id },
+      }),
+    ).toBe(ledgerEntriesBefore);
+    expect(await readAvailableBalanceKobo()).toBe(balanceBefore);
   });
 
   it('issues and refreshes backend sessions', async () => {

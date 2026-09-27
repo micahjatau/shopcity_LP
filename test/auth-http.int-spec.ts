@@ -19,6 +19,7 @@ import {
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
+import type { CardsControllerLookupManagementCardV1200Data } from '../client/shopcity-client';
 import {
   createRedisTestEnvironment,
   type RedisTestEnvironment,
@@ -54,6 +55,7 @@ describe('auth and readiness flows (int)', () => {
   let httpServer: Parameters<typeof request>[0];
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
   let cashierUser: Awaited<ReturnType<typeof createStaffUser>>;
+  let supervisorUser: Awaited<ReturnType<typeof createStaffUser>>;
 
   beforeAll(async () => {
     pgContainer = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -104,6 +106,14 @@ describe('auth and readiness flows (int)', () => {
       'cashier.read-model@shopcity.local',
       'cashier-read-model-supabase-user',
     );
+    supervisorUser = await createStaffUser(
+      prisma,
+      seedData.tenant.id,
+      seedData.branch.id,
+      UserRole.SUPERVISOR,
+      'supervisor.cards@shopcity.local',
+      'supervisor-cards-supabase-user',
+    );
 
     app = await createAppFn({ enableDocs: false });
     await (
@@ -125,7 +135,9 @@ describe('auth and readiness flows (int)', () => {
               id:
                 email === cashierUser.username
                   ? cashierUser.supabaseAuthId
-                  : seedData.user.supabaseAuthId,
+                  : email === supervisorUser.username
+                    ? supervisorUser.supabaseAuthId
+                    : seedData.user.supabaseAuthId,
             },
             session: null,
           },
@@ -666,6 +678,174 @@ describe('auth and readiness flows (int)', () => {
     expect(body.data.customer).not.toHaveProperty('creditLots');
   }, 120000);
 
+  it('exposes the tenant-scoped management card lookup only to supervisors and admins', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'management-card-http',
+    );
+    const adminCookie = await loginSessionCookie(seedData.user.username);
+    const supervisorCookie = await loginSessionCookie(supervisorUser.username);
+    const cashierCookie = await loginSessionCookie(cashierUser.username);
+    const original = await prisma.card.findUniqueOrThrow({
+      where: { id: fixture.card.id },
+    });
+    const oldLookup = await request(httpServer)
+      .get(`/api/v1/cards/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', cashierCookie)
+      .expect(200);
+    const oldLookupBody = oldLookup.body as CardLookupResponseBody;
+    expect(oldLookupBody.data.customer.availableBalanceKobo).toBe(1_500);
+
+    for (const status of [
+      CardStatus.ACTIVE,
+      CardStatus.BLOCKED,
+      CardStatus.REPLACED,
+    ]) {
+      await prisma.card.update({
+        where: { id: fixture.card.id },
+        data: { status },
+      });
+      const response = await request(httpServer)
+        .get(
+          `/api/v1/cards/management/lookup/${fixture.card.barcodeValue.toLowerCase()}`,
+        )
+        .set('Cookie', supervisorCookie)
+        .expect(200);
+
+      const data = (response.body as ManagementCardLookupResponseBody).data;
+      expect(data).toEqual({
+        id: fixture.card.id,
+        serialNumber: fixture.card.barcodeValue,
+        status,
+        issuedAt: original.issuedAt.toISOString(),
+        blockedAt: null,
+        replacedAt: null,
+        replacedByCardId: null,
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+          status: fixture.customer.status,
+        },
+      });
+      expect(Object.keys(data).sort()).toEqual(
+        [
+          'id',
+          'serialNumber',
+          'status',
+          'issuedAt',
+          'blockedAt',
+          'replacedAt',
+          'replacedByCardId',
+          'customer',
+        ].sort(),
+      );
+      expect(Object.keys(data.customer).sort()).toEqual(
+        ['id', 'fullName', 'status'].sort(),
+      );
+      expect(JSON.stringify(data)).not.toMatch(
+        /phone|email|balance|audit|tenant|actor/i,
+      );
+    }
+
+    await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', adminCookie)
+      .expect(200);
+    await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', cashierCookie)
+      .expect(403);
+
+    await request(httpServer)
+      .get('/api/v1/cards/management/lookup/does-not-exist')
+      .set('Cookie', adminCookie)
+      .expect(404);
+
+    const tenantB = await prisma.tenant.create({
+      data: { name: 'Management Lookup Tenant B', status: TenantStatus.ACTIVE },
+    });
+    const branchB = await prisma.branch.create({
+      data: {
+        tenantId: tenantB.id,
+        name: 'Management Lookup Branch B',
+        timezone: 'Africa/Lagos',
+        receiptWeekStartDay: 1,
+        status: BranchStatus.ACTIVE,
+      },
+    });
+    const customerB = await prisma.customer.create({
+      data: {
+        tenantId: tenantB.id,
+        branchId: branchB.id,
+        fullName: 'Tenant B Management Customer',
+        phoneE164: '+2348012345099',
+        isStaff: false,
+        status: CustomerStatus.ACTIVE,
+      },
+    });
+    const cardB = await prisma.card.create({
+      data: {
+        tenantId: tenantB.id,
+        customerId: customerB.id,
+        barcodeValue: 'CARD-TENANT-B-MANAGEMENT',
+        status: CardStatus.ACTIVE,
+      },
+    });
+
+    const crossTenantResponse = await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${cardB.barcodeValue}`)
+      .set('Cookie', supervisorCookie)
+      .expect(404);
+    expect(JSON.stringify(crossTenantResponse.body)).not.toContain(
+      customerB.fullName,
+    );
+    expect(crossTenantResponse.body).not.toHaveProperty('data');
+    await expect(
+      prisma.card.findUniqueOrThrow({ where: { id: cardB.id } }),
+    ).resolves.toMatchObject({
+      id: cardB.id,
+      tenantId: tenantB.id,
+      customerId: customerB.id,
+      barcodeValue: cardB.barcodeValue,
+      status: CardStatus.ACTIVE,
+    });
+
+    const unchanged = await prisma.card.findUniqueOrThrow({
+      where: { id: fixture.card.id },
+    });
+    expect(unchanged).toMatchObject({
+      status: CardStatus.REPLACED,
+      issuedAt: original.issuedAt,
+      blockedAt: null,
+      replacedAt: null,
+    });
+  }, 120000);
+
+  it('limits management card lookup with the cards.lookup policy', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'management-card-throttle',
+    );
+    const adminCookie = await loginSessionCookie(seedData.user.username);
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await request(httpServer)
+        .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+        .set('Cookie', adminCookie)
+        .expect(200);
+    }
+    const limited = await request(httpServer)
+      .get(`/api/v1/cards/management/lookup/${fixture.card.barcodeValue}`)
+      .set('Cookie', adminCookie)
+      .expect(429);
+    const limitedBody = limited.body as {
+      error: { code: string };
+    };
+    expect(limitedBody.error.code).toBe('RATE_LIMITED');
+  }, 120000);
+
   it('returns 201 for confirmed redemption and 202 for pending approval redemption', async () => {
     const fixture = await createCustomerReadFixture(
       prisma,
@@ -948,6 +1128,23 @@ type CustomerListResponseBody = {
 
 type CustomerDetailResponseBody = {
   data: Record<string, unknown> & { availableBalanceKobo?: number };
+};
+
+type ManagementCardLookupResponseBody = {
+  data: CardsControllerLookupManagementCardV1200Data & {
+    id: string;
+    serialNumber: string;
+    status: CardStatus;
+    issuedAt: string;
+    blockedAt: string | null;
+    replacedAt: string | null;
+    replacedByCardId: string | null;
+    customer: {
+      id: string;
+      fullName: string;
+      status: CustomerStatus;
+    };
+  };
 };
 
 type CardLookupResponseBody = {

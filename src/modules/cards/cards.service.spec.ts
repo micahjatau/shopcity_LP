@@ -97,6 +97,97 @@ describe('CardsService', () => {
     ).rejects.toHaveProperty('response.code', 'IDEMPOTENCY_CONFLICT');
   });
 
+  it('returns a minimized management card for any lifecycle status using tenant-scoped canonical matching', async () => {
+    const statuses = [
+      CardStatus.ACTIVE,
+      CardStatus.BLOCKED,
+      CardStatus.REPLACED,
+    ];
+    for (const status of statuses) {
+      const prisma = {
+        card: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'card-id',
+              barcodeValue: 'CARD-1',
+              status,
+              issuedAt: new Date('2025-01-01T00:00:00Z'),
+              blockedAt: null,
+              replacedAt: null,
+              replacedByCardId: null,
+              customer: {
+                id: 'customer-id',
+                fullName: 'Ada Customer',
+                status: CustomerStatus.ACTIVE,
+              },
+            },
+          ]),
+        },
+      };
+      const service = new CardsService(prisma as never, auditStub() as never);
+
+      await expect(
+        service.lookupManagementCard('tenant-id', ' card-1 '),
+      ).resolves.toEqual({
+        id: 'card-id',
+        serialNumber: 'CARD-1',
+        status,
+        issuedAt: new Date('2025-01-01T00:00:00Z'),
+        blockedAt: null,
+        replacedAt: null,
+        replacedByCardId: null,
+        customer: {
+          id: 'customer-id',
+          fullName: 'Ada Customer',
+          status: CustomerStatus.ACTIVE,
+        },
+      });
+      expect(prisma.card.findMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: 'tenant-id',
+          barcodeValue: { equals: 'CARD-1', mode: 'insensitive' },
+        },
+        select: {
+          id: true,
+          barcodeValue: true,
+          status: true,
+          issuedAt: true,
+          blockedAt: true,
+          replacedAt: true,
+          replacedByCardId: true,
+          customer: {
+            select: { id: true, fullName: true, status: true },
+          },
+        },
+      });
+      expect(
+        JSON.stringify(
+          await service.lookupManagementCard('tenant-id', 'CARD-1'),
+        ),
+      ).not.toMatch(/phone|email|balance|tenant|actor/i);
+    }
+  });
+
+  it('fails closed for missing or ambiguous management card matches', async () => {
+    const prisma = {
+      card: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ id: 'one' }, { id: 'two' }]),
+      },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await expect(
+      service.lookupManagementCard('tenant-id', 'CARD-1'),
+    ).rejects.toThrow('Card not found');
+    await expect(
+      service.lookupManagementCard('tenant-id', 'CARD-1'),
+    ).rejects.toThrow('Card not found');
+    expect(prisma.card.findMany).toHaveBeenCalledTimes(2);
+  });
+
   it('returns card lookup without nested customer PII', async () => {
     const prisma = {
       card: {

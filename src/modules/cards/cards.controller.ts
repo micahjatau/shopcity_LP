@@ -38,6 +38,47 @@ import {
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
 
+  @Get('management/lookup/:serialNumber')
+  @Throttle({
+    bucket: 'cards.lookup',
+    limit: 30,
+    windowMs: 60 * 1000,
+    keyFactory: buildCardLookupThrottleKey,
+  })
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @apiSuccessEnvelopeResponse({
+    dataSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        serialNumber: { type: 'string' },
+        status: { type: 'string', enum: ['ACTIVE', 'BLOCKED', 'REPLACED'] },
+        issuedAt: { type: 'string', format: 'date-time' },
+        blockedAt: { type: 'string', format: 'date-time', nullable: true },
+        replacedAt: { type: 'string', format: 'date-time', nullable: true },
+        replacedByCardId: { type: 'string', nullable: true },
+        customer: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            fullName: { type: 'string' },
+            status: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  lookupManagementCard(
+    @Req() request: AuthenticatedRequest,
+    @Param('serialNumber') serialNumber: string,
+  ) {
+    return this.cardsService.lookupManagementCard(
+      request.authContext!.user.tenantId,
+      serialNumber,
+    );
+  }
+
   @Get('lookup/:serialNumber')
   @Throttle({
     bucket: 'cards.lookup',
