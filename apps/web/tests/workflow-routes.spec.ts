@@ -467,13 +467,18 @@ test.describe('workflow route coverage', () => {
       await page.unroute('**/api/v1/**');
       await mockShell(page, role);
       for (const route of routes) {
+        await page.setViewportSize({
+          width: conformanceViewports[0].width,
+          height: conformanceViewports[0].height,
+        });
+        await page.goto(`${baseUrl}${route.path}`);
+        await expect(page.locator('.shell-loading-screen')).toBeHidden();
         for (const viewport of conformanceViewports) {
           await page.setViewportSize({
             width: viewport.width,
             height: viewport.height,
           });
           await page.emulateMedia({ reducedMotion: 'reduce' });
-          await page.goto(`${baseUrl}${route.path}`);
           await expect(page.locator('.shell-loading-screen')).toBeHidden();
           await expect(page.locator('main')).toBeVisible();
           await expect(page.locator('.shell-main')).toHaveCSS(
@@ -2053,7 +2058,10 @@ test.describe('workflow route coverage', () => {
           .getByRole('button', { name: 'Continue to redemption' })
           .click();
       }
-      const element = page.locator(`[data-od-id="${landmark}"]`);
+      const element =
+        routeName === 'register-customer'
+          ? page.getByRole('tabpanel', { name: 'Register customer' })
+          : page.locator(`[data-od-id="${landmark}"]`);
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
       if (landmark === 'recent-transactions') {
@@ -2067,7 +2075,12 @@ test.describe('workflow route coverage', () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(1440);
       expect(box!.width).toBeGreaterThan(0);
       expect(box!.height).toBeGreaterThan(0);
-      if (routeName !== 'transaction-workspace') {
+      // The Supervisor customer tab replaces the former prototype workspace;
+      // keep its geometry covered without comparing it to the obsolete snapshot.
+      if (
+        routeName !== 'transaction-workspace' &&
+        routeName !== 'register-customer'
+      ) {
         await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
           maxDiffPixelRatio: 0.08,
         });

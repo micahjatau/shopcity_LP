@@ -12,6 +12,7 @@ import {
   type UpdateCustomerStatusDtoStatus,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
+import { CashierPageHeader } from '../shopcity';
 import { Button, Input } from '../ui';
 
 type Customer = Record<string, unknown> & {
@@ -73,12 +74,12 @@ export function SupervisorCustomerWorkflows() {
     });
   }
   return (
-    <main className="sc-page" aria-labelledby="supervisor-customers-title">
-      <header className="mb-6">
-        <h1 id="supervisor-customers-title" className="text-2xl font-semibold">
-          Customers
-        </h1>
-      </header>
+    <section className="supervisor-page sc-page">
+      <CashierPageHeader
+        className="cashier-route-header supervisor-page__header"
+        title="Manage customers"
+        description="Find customer profiles, review account details, and manage linked cards."
+      />
       <nav aria-label="Customer tasks" className="sc-tabs mb-6">
         <div
           role="tablist"
@@ -143,7 +144,7 @@ export function SupervisorCustomerWorkflows() {
           />
         )}
       </section>
-    </main>
+    </section>
   );
 }
 
@@ -252,7 +253,7 @@ function RegisterCustomer({ onManage }: { onManage: (phone: string) => void }) {
     }
   }
   return (
-    <div className="sc-card sc-card--standard max-w-3xl p-5">
+    <div className="sc-card sc-card--standard supervisor-registration-card max-w-3xl">
       <h2 className="mb-4 text-lg font-semibold">Register a new customer</h2>
       <form
         className="grid gap-4 sm:grid-cols-2"

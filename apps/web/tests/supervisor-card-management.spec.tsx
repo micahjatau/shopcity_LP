@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { SupervisorCardManagement } from '../components/workflows/supervisor-card-management';
 import { SupervisorCardWorkflows } from '../components/workflows/supervisor-card-workflows';
 import {
@@ -68,7 +74,10 @@ describe('Supervisor card management tabs', () => {
     );
     expect(screen.getByText('Assignment workspace')).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Manage cards' }),
+      within(screen.getByRole('tabpanel', { name: 'Assign card' })).queryByRole(
+        'heading',
+        { name: 'Manage cards' },
+      ),
     ).not.toBeInTheDocument();
     fireEvent.keyDown(assign, { key: 'ArrowRight' });
     expect(manage).toHaveFocus();
@@ -93,7 +102,10 @@ describe('Supervisor card management tabs', () => {
       'card-tab-manage',
     );
     expect(
-      screen.getByRole('heading', { name: 'Manage cards' }),
+      within(screen.getByRole('tabpanel', { name: 'Manage cards' })).getByRole(
+        'heading',
+        { name: 'Manage cards' },
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText('Assignment workspace')).not.toBeInTheDocument();
     const selectedManage = screen.getByRole('tab', { name: 'Manage cards' });

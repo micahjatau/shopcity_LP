@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useRef } from 'react';
 import { SupervisorCardAssignment } from './supervisor-card-assignment';
 import { SupervisorCardManagement } from './supervisor-card-management';
+import { CashierPageHeader } from '../shopcity';
 
 type Tab = { value: string; label: string };
 const tabs: Tab[] = [
@@ -31,12 +32,12 @@ export function SupervisorCardWorkflows() {
   }
 
   return (
-    <main className="sc-page" aria-labelledby="supervisor-cards-title">
-      <header className="mb-6">
-        <h1 id="supervisor-cards-title" className="text-2xl font-semibold">
-          Cards
-        </h1>
-      </header>
+    <section className="supervisor-page sc-page">
+      <CashierPageHeader
+        className="cashier-route-header supervisor-page__header"
+        title="Manage cards"
+        description="Find a customer to assign, replace, or update card status."
+      />
       <div
         role="tablist"
         aria-label="Card tasks"
@@ -107,6 +108,6 @@ export function SupervisorCardWorkflows() {
           </section>
         );
       })}
-    </main>
+    </section>
   );
 }
