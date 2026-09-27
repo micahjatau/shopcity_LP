@@ -16348,21 +16348,8 @@ export const authControllerLoginV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getAuthControllerLoginV1Url(), {
     ...options,
@@ -16469,21 +16456,8 @@ export const authControllerSmokeSessionV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getAuthControllerSmokeSessionV1Url(), {
     ...options,
@@ -17068,21 +17042,8 @@ export const usersControllerCreateUserV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getUsersControllerCreateUserV1Url(), {
     ...options,
@@ -17297,21 +17258,8 @@ export const usersControllerUpdateRoleV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getUsersControllerUpdateRoleV1Url(id), {
     ...options,
@@ -17418,21 +17366,8 @@ export const usersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getUsersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -17632,21 +17567,8 @@ export const branchesControllerCreateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerCreateBranchV1Url(), {
     ...options,
@@ -17753,21 +17675,8 @@ export const branchesControllerUpdateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerUpdateBranchV1Url(id), {
     ...options,
@@ -17966,21 +17875,8 @@ export const branchesControllerCreateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerCreateDeviceV1Url(), {
     ...options,
@@ -18087,21 +17983,8 @@ export const branchesControllerUpdateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerUpdateDeviceV1Url(id), {
     ...options,
@@ -18316,21 +18199,8 @@ export const customersControllerCreateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCustomersControllerCreateCustomerV1Url(), {
     ...options,
@@ -18531,21 +18401,8 @@ export const customersControllerUpdateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCustomersControllerUpdateCustomerV1Url(id), {
     ...options,
@@ -18652,21 +18509,8 @@ export const customersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCustomersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -18966,21 +18810,8 @@ export const cardsControllerCreateCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCardsControllerCreateCardV1Url(), {
     ...options,
@@ -19087,21 +18918,8 @@ export const cardsControllerReplaceCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCardsControllerReplaceCardV1Url(id), {
     ...options,
@@ -19208,21 +19026,8 @@ export const cardsControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCardsControllerUpdateStatusV1Url(id), {
     ...options,
@@ -19337,21 +19142,8 @@ export const receiptsControllerCaptureReceiptV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getReceiptsControllerCaptureReceiptV1Url(), {
     ...options,
@@ -19760,21 +19552,8 @@ export const approvalsControllerDecideApprovalV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getApprovalsControllerDecideApprovalV1Url(id), {
     ...options,
@@ -19886,21 +19665,8 @@ export const loyaltyControllerEarnV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getLoyaltyControllerEarnV1Url(), {
     ...options,
@@ -20223,21 +19989,8 @@ export const redemptionsControllerRedeemV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getRedemptionsControllerRedeemV1Url(), {
     ...options,
@@ -20345,21 +20098,8 @@ export const reversalsControllerReverseV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getReversalsControllerReverseV1Url(transactionId), {
     ...options,
@@ -20466,21 +20206,8 @@ export const adjustmentsControllerCreateV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getAdjustmentsControllerCreateV1Url(), {
     ...options,
@@ -20587,21 +20314,8 @@ export const offlineSyncControllerEarnBatchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getOfflineSyncControllerEarnBatchV1Url(), {
     ...options,
@@ -20929,21 +20643,8 @@ export const fraudControllerDecideFraudFlagV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getFraudControllerDecideFraudFlagV1Url(id), {
     ...options,
@@ -22870,21 +22571,8 @@ export const configurationControllerUpdatePolicyConfigurationV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(
     getConfigurationControllerUpdatePolicyConfigurationV1Url(),
