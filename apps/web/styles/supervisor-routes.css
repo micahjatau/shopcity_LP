@@ -19,3 +19,96 @@
   font-weight: var(--sc-font-weight-semibold);
   line-height: 1.3;
 }
+
+.sc-page .sc-dialog {
+  position: fixed;
+  z-index: var(--sc-z-index-modal, 60);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.75rem, 4vw, 2rem);
+}
+
+.sc-page .sc-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(17 24 39 / 72%);
+  cursor: default;
+}
+
+.sc-page .sc-dialog__panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--sc-spacing-4);
+  width: min(100%, 38rem);
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  padding: var(--sc-spacing-8);
+  border: 1px solid var(--sc-color-semantic-border);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-color-neutral-0);
+  box-shadow: var(--sc-shadow-level3);
+}
+
+.sc-page .sc-dialog__panel > header {
+  margin: 0;
+  padding-right: var(--sc-spacing-8);
+}
+
+.sc-page .sc-dialog__panel > header strong {
+  color: var(--sc-color-brand-500);
+  font-size: var(--sc-font-size-h3);
+  font-weight: var(--sc-font-weight-semibold);
+}
+
+.sc-page .sc-customer-preview__subtitle {
+  margin: calc(-1 * var(--sc-spacing-2)) 0 0;
+  color: var(--sc-color-brand-600);
+  font-size: var(--sc-font-size-caption);
+  line-height: var(--sc-line-height-caption);
+}
+
+.sc-page .sc-customer-preview__close {
+  position: absolute;
+  top: var(--sc-spacing-4);
+  right: var(--sc-spacing-4);
+  display: grid;
+  width: var(--sc-size-controlCompact);
+  height: var(--sc-size-controlCompact);
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: transparent;
+  color: var(--sc-color-neutral-700);
+  font-family: inherit;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sc-page .sc-customer-preview__close:hover {
+  background: var(--sc-color-neutral-100);
+}
+
+.sc-page .sc-customer-preview__close:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 620px) {
+  .sc-page .sc-dialog__panel {
+    padding: var(--sc-spacing-5);
+  }
+
+  .sc-page .sc-customer-preview__close {
+    top: var(--sc-spacing-3);
+    right: var(--sc-spacing-3);
+  }
+}

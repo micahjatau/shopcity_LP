@@ -301,38 +301,91 @@ export function SupervisorCardManagement() {
           >
             Verified card {card.serialNumber}
           </h3>
-          <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <dt className="text-sm font-medium">Card serial</dt>
-              <dd className="break-all">{card.serialNumber}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium">Card status</dt>
-              <dd>{card.status}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium">Customer</dt>
-              <dd className="break-words">
-                {card.customer?.fullName ?? 'Unavailable'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium">Customer status</dt>
-              <dd>{card.customer?.status ?? 'Unavailable'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium">Issued</dt>
-              <dd>{fmtDate(card.issuedAt)}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium">Blocked</dt>
-              <dd>{fmtDate(card.blockedAt)}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium">Replaced</dt>
-              <dd>{fmtDate(card.replacedAt)}</dd>
-            </div>
-          </dl>
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <figure
+              role="img"
+              aria-label={`ShopCity card preview for ${card.customer?.fullName ?? 'customer unavailable'}; serial ${card.serialNumber}; status ${card.status}`}
+              className="relative isolate mx-auto flex aspect-[1.586] min-h-[13rem] w-full max-w-md flex-col justify-between overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-br from-white via-neutral-50 to-rose-50 p-4 shadow-sm sm:p-5"
+            >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-10 -top-12 size-48 rounded-full border-[18px] border-red-100/70"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-16 -left-12 size-44 rounded-full border-[18px] border-orange-100/70"
+              />
+              <div className="relative z-10 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-red-700 text-sm font-bold text-white">
+                    S
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-bold tracking-[0.12em] text-red-800">
+                      SHOPCITY
+                    </span>
+                    <span className="block text-[0.55rem] tracking-[0.16em] text-neutral-500">
+                      SUPERMARKET
+                    </span>
+                  </span>
+                </div>
+                <span className="shrink-0 rounded-full border border-neutral-200 bg-white/90 px-2.5 py-1 text-[0.65rem] font-semibold tracking-wide text-neutral-700">
+                  {card.status}
+                </span>
+              </div>
+              <div className="relative z-10 max-w-[82%]">
+                <p className="break-words text-sm font-semibold text-neutral-800 sm:text-base">
+                  {card.customer?.fullName ?? 'Unavailable'}
+                </p>
+                <p className="mt-2 text-[0.6rem] font-medium tracking-[0.14em] text-neutral-500">
+                  CARD SERIAL
+                </p>
+                <p className="break-all font-mono text-xs font-semibold tracking-wide text-red-800 sm:text-sm">
+                  {card.serialNumber}
+                </p>
+              </div>
+              <div
+                aria-hidden="true"
+                className="absolute bottom-5 right-5 grid h-8 w-11 grid-cols-2 gap-px overflow-hidden rounded-md border border-amber-600/40 bg-amber-200/70 p-1"
+              >
+                <span className="rounded-l-sm border-r border-amber-700/30" />
+                <span className="rounded-r-sm" />
+                <span className="col-span-2 rounded-sm border-t border-amber-700/30" />
+              </div>
+            </figure>
+            <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <dt className="text-sm font-medium">Card serial</dt>
+                <dd className="break-all">{card.serialNumber}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium">Card status</dt>
+                <dd>{card.status}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium">Customer</dt>
+                <dd className="break-words">
+                  {card.customer?.fullName ?? 'Unavailable'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium">Customer status</dt>
+                <dd>{card.customer?.status ?? 'Unavailable'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium">Issued</dt>
+                <dd>{fmtDate(card.issuedAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium">Blocked</dt>
+                <dd>{fmtDate(card.blockedAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium">Replaced</dt>
+                <dd>{fmtDate(card.replacedAt)}</dd>
+              </div>
+            </dl>
+          </div>
           {card.status === 'ACTIVE' && canManage && (
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => choose('block')}>

@@ -172,6 +172,36 @@ describe('Supervisor card management tabs', () => {
     expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(2);
   });
 
+  it.each(['ACTIVE', 'BLOCKED', 'REPLACED'] as const)(
+    'renders a live ShopCity card preview for %s status after explicit verification',
+    async (status) => {
+      const record = { ...active, status };
+      jest
+        .mocked(cardsControllerLookupManagementCardV1)
+        .mockResolvedValue(ok(record) as never);
+      render(<SupervisorCardManagement />);
+      expect(
+        screen.queryByRole('img', { name: /ShopCity card preview/ }),
+      ).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Card serial'), {
+        target: { value: 'SER-1' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Search card' }));
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Select and verify card' }),
+      );
+
+      const preview = await screen.findByRole('img', {
+        name: `ShopCity card preview for Ada Example; serial SER-1; status ${status}`,
+      });
+      expect(preview).toHaveTextContent('SER-1');
+      expect(preview).toHaveTextContent('Ada Example');
+      expect(preview).toHaveTextContent(status);
+      expect(preview).not.toHaveTextContent('SC-2670-7376');
+    },
+  );
+
   it('blocks only after explicit confirmation, sends CSRF/idempotency request and refreshes authority', async () => {
     jest
       .mocked(cardsControllerUpdateStatusV1)
@@ -204,7 +234,11 @@ describe('Supervisor card management tabs', () => {
     expect(new Headers(options?.headers).get('x-csrf-token')).toBeTruthy();
     expect(new Headers(options?.headers).get('Idempotency-Key')).toBeTruthy();
     expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(3);
-    expect(await screen.findByText('BLOCKED')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('img', {
+        name: /ShopCity card preview for Ada Example; serial SER-1; status BLOCKED/,
+      }),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText(
         'Card status updated and current details refreshed.',
@@ -331,7 +365,11 @@ describe('Supervisor card management tabs', () => {
       { serialNumber: 'SER-2' },
       expect.objectContaining({ headers: expect.any(Object) }),
     );
-    expect(await screen.findByText('SER-2')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('img', {
+        name: /ShopCity card preview for Ada Example; serial SER-2; status ACTIVE/,
+      }),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText('Replacement verified for the same customer.'),
     ).toBeInTheDocument();

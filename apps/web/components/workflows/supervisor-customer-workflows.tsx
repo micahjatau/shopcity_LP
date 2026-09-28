@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,6 +20,7 @@ import {
 import { createApiRequest } from '../../lib/api/request';
 import { CashierPageHeader } from '../shopcity';
 import { Button, Input } from '../ui';
+import { SupervisorCustomerPreviewDialog } from './supervisor-customer-preview-dialog';
 
 type Customer = Record<string, unknown> & {
   id?: string;
@@ -348,10 +355,14 @@ function ManageCustomers({
   const [form, setForm] = useState({ fullName: '', phone: '', email: '' });
   const [status, setStatus] = useState<UpdateCustomerStatusDtoStatus>('ACTIVE');
   const [confirmation, setConfirmation] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const previewRequestedId = useRef<string | null>(null);
+  const detailSequence = useRef(0);
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
   async function reload(id: string) {
+    const request = ++detailSequence.current;
     setCustomer(null);
     setDetailMessage('Loading customer details…');
     try {
@@ -359,9 +370,12 @@ function ManageCustomers({
         id,
         createApiRequest({ csrf: true }),
       );
+      if (request !== detailSequence.current) return;
       const record =
         response.status === 200 ? dataOf<Customer>(response) : undefined;
       if (!record || record.id !== id) {
+        if (previewRequestedId.current === id)
+          previewRequestedId.current = null;
         setDetailMessage(
           `Customer details could not be verified (${response.status}).`,
         );
@@ -376,15 +390,26 @@ function ManageCustomers({
       setStatus(record.status === 'BLOCKED' ? 'BLOCKED' : 'ACTIVE');
       setConfirmation('');
       setDetailMessage('Customer details loaded.');
+      if (previewRequestedId.current === id) {
+        previewRequestedId.current = null;
+        setPreviewOpen(true);
+      }
     } catch {
+      if (request !== detailSequence.current) return;
+      if (previewRequestedId.current === id) previewRequestedId.current = null;
       setDetailMessage(
         'Customer details could not be loaded. Try selecting the customer again.',
       );
     }
   }
   useEffect(() => {
-    if (customerId) void reload(customerId);
-    else {
+    if (customerId) {
+      if (previewRequestedId.current !== customerId) setPreviewOpen(false);
+      void reload(customerId);
+    } else {
+      detailSequence.current += 1;
+      previewRequestedId.current = null;
+      setPreviewOpen(false);
       setCustomer(null);
       setDetailMessage('Select a customer to view or manage their profile.');
     }
@@ -514,7 +539,18 @@ function ManageCustomers({
                 <button
                   type="button"
                   className="w-full rounded border p-3 text-left focus-visible:outline focus-visible:outline-2"
-                  onClick={() => onCustomerId(record.id ?? null)}
+                  disabled={!record.id}
+                  onClick={() => {
+                    const id = record.id;
+                    if (!id) return;
+                    if (customer?.id === id) {
+                      setPreviewOpen(true);
+                      return;
+                    }
+                    setPreviewOpen(false);
+                    previewRequestedId.current = id;
+                    onCustomerId(id);
+                  }}
                 >
                   <span className="block font-medium">
                     {String(record.fullName ?? 'Customer')}
@@ -637,6 +673,17 @@ function ManageCustomers({
           </>
         ) : null}
       </section>
+      <SupervisorCustomerPreviewDialog
+        open={previewOpen}
+        customer={customer}
+        onClose={() => setPreviewOpen(false)}
+        continueLabel="Continue to customer profile"
+        cardTaskHref={
+          customer?.id
+            ? `/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`
+            : undefined
+        }
+      />
     </div>
   );
 }

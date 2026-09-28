@@ -11,6 +11,32 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-28 — Supervisor customer-selection preview modal
+
+The required proposal-time impact commands were run after a successful full GitNexus index rebuild:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-customer-workflows.tsx ManageCustomers
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-assignment.tsx SupervisorCardAssignment
+```
+
+| Symbol                     | Risk       | Impacted symbols | Direct dependants | Affected process          |
+| -------------------------- | ---------- | ---------------: | ----------------: | ------------------------- |
+| `ManageCustomers`          | LOW, exact |                3 |                 1 | `SupervisorCustomersPage` |
+| `SupervisorCardAssignment` | LOW, exact |                4 |                 1 | `SupervisorCardsPage`     |
+
+Both targets are contained in the Supervisor `Workflows` module; no HIGH/CRITICAL findings. The incremental index refresh first failed because the local FTS index was inconsistent; the repo-local GitNexus CLI's forced full rebuild succeeded before these impacts were recorded. The proposal remains Supervisor-specific and reuses the existing dialog primitive and authoritative customer detail requests; no shared components, API, role policy, or persistence behavior are in scope.
+
+### 2026-09-27 — Supervisor card artwork identification
+
+Before drafting the focused visual proposal, the required proposal-time impact command was run:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-management.tsx SupervisorCardManagement
+```
+
+`SupervisorCardManagement`: **LOW**, exact, 4 impacted symbols, 2 direct dependants, 1 affected process (`SupervisorCardsPage`), and 1 affected module (`Workflows`). A detailed context check localized consumers to the route's management tests and Supervisor card-management flows. No HIGH/CRITICAL result. Scope remains a Supervisor-only visual preview using the already-authorized live card serial, status, and customer name; no API, shared workspace, lifecycle, role, or data changes.
+
 ### 2026-09-27 — Review 80 approved Supervisor/Admin card-management lookup
 
 The operator authorized a narrowly bounded tenant-scoped read-only management lookup API. The proposal impact command was invoked:

@@ -7,6 +7,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
+import Link from 'next/link';
 import {
   cardsControllerCreateCardV1,
   customersControllerGetCustomerV1,
@@ -14,14 +15,12 @@ import {
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Button, Input } from '../ui';
+import {
+  SupervisorCustomerPreviewDialog,
+  type SupervisorCustomerPreviewRecord,
+} from './supervisor-customer-preview-dialog';
 
-type Customer = Record<string, unknown> & {
-  id?: string;
-  fullName?: string;
-  phoneE164?: string;
-  status?: string;
-  activeCardStatus?: string;
-};
+type Customer = Record<string, unknown> & SupervisorCustomerPreviewRecord;
 
 function responseData<T>(response: unknown): T | undefined {
   return (response as { data?: { data?: T } }).data?.data;
@@ -56,6 +55,8 @@ export function SupervisorCardAssignment({
     key: string;
   } | null>(null);
   const sequence = useRef(0);
+  const previewRequestedId = useRef<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const reloadCustomer = useCallback(async (id: string) => {
     const request = ++sequence.current;
@@ -71,6 +72,8 @@ export function SupervisorCardAssignment({
       const data =
         response.status === 200 ? responseData<Customer>(response) : undefined;
       if (!data || data.id !== id) {
+        if (previewRequestedId.current === id)
+          previewRequestedId.current = null;
         setDetailMessage(
           `Customer details could not be verified (${response.status}). Assignment is unavailable.`,
         );
@@ -78,9 +81,15 @@ export function SupervisorCardAssignment({
       }
       setCustomer(data);
       setDetailMessage('Customer details loaded.');
+      if (previewRequestedId.current === id) {
+        previewRequestedId.current = null;
+        setPreviewOpen(true);
+      }
       return data;
     } catch {
       if (request === sequence.current) {
+        if (previewRequestedId.current === id)
+          previewRequestedId.current = null;
         setDetailMessage(
           'Customer details could not be loaded. Try selecting the customer again.',
         );
@@ -96,9 +105,12 @@ export function SupervisorCardAssignment({
     setReviewing(false);
     setAssignmentMessage('');
     if (customerId) {
+      if (previewRequestedId.current !== customerId) setPreviewOpen(false);
       void reloadCustomer(customerId);
     } else {
       sequence.current += 1;
+      previewRequestedId.current = null;
+      setPreviewOpen(false);
       setCustomer(null);
       setReviewing(false);
       setDetailMessage('Select a customer before assigning a card.');
@@ -235,6 +247,12 @@ export function SupervisorCardAssignment({
                     type="button"
                     disabled={!id || loading || busy}
                     onClick={() => {
+                      if (customer?.id === id) {
+                        setPreviewOpen(true);
+                        return;
+                      }
+                      setPreviewOpen(false);
+                      previewRequestedId.current = id;
                       setCustomer(null);
                       setDetailMessage('Loading customer details…');
                       setSerial('');
@@ -297,12 +315,12 @@ export function SupervisorCardAssignment({
             {hasActiveCard ? (
               <p className="mb-4" role="status">
                 This customer already has an active card.{' '}
-                <a
-                  className="underline"
+                <Link
+                  className="underline underline-offset-4 focus-visible:outline focus-visible:outline-2"
                   href={`/supervisor/cards?tab=manage&id=${encodeURIComponent(customer.id!)}`}
                 >
                   Manage cards
-                </a>
+                </Link>
               </p>
             ) : null}
             {customer.status !== 'ACTIVE' ? (
@@ -397,6 +415,12 @@ export function SupervisorCardAssignment({
           </>
         ) : null}
       </div>
+      <SupervisorCustomerPreviewDialog
+        open={previewOpen}
+        customer={customer}
+        onClose={() => setPreviewOpen(false)}
+        continueLabel="Continue to assignment"
+      />
     </section>
   );
 }
