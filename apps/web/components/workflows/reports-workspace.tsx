@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   getReportsControllerExportReportV1Url,
@@ -125,6 +125,7 @@ export function ReportsWorkspace({
     'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value'
   >('spend');
   const [smsTransactionId, setSmsTransactionId] = useState('');
+  const reportLoadGeneration = useRef(0);
 
   const availableReportOptions = useMemo(
     () =>
@@ -209,6 +210,9 @@ export function ReportsWorkspace({
   }, [availableReportOptions, report]);
 
   async function refresh() {
+    const generation = ++reportLoadGeneration.current;
+    setSummary(null);
+    setMessage('Loading report summary…');
     setActionMessage('');
     setActionResult(null);
     try {
@@ -216,6 +220,7 @@ export function ReportsWorkspace({
         const response = await reportsControllerGetPilotOperationsSummaryV1(
           createApiRequest({ csrf: true }),
         );
+        if (generation !== reportLoadGeneration.current) return;
         if (response.status === 200) {
           setSummary(response.data.data);
           setSelectedItemIndex(0);
@@ -267,6 +272,7 @@ export function ReportsWorkspace({
                           createApiRequest({ csrf: true }),
                         );
 
+      if (generation !== reportLoadGeneration.current) return;
       if (response.status === 200) {
         setSummary(response.data.data);
         setSelectedItemIndex(0);
@@ -275,7 +281,9 @@ export function ReportsWorkspace({
         setMessage(`Reports unavailable (${response.status}).`);
       }
     } catch {
-      setMessage('Reports unavailable.');
+      if (generation === reportLoadGeneration.current) {
+        setMessage('Reports unavailable.');
+      }
     }
   }
 
