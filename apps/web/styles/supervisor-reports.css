@@ -138,10 +138,10 @@
   letter-spacing: -0.035em;
 }
 
-.supervisor-reports-eyebrow {
+.supervisor-reports-page .supervisor-reports-eyebrow {
   margin: 0;
-  color: var(--sc-color-brand-700) !important;
-  font-size: 10px !important;
+  color: var(--sc-color-brand-700);
+  font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.105em;
 }
