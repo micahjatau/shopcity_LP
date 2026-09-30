@@ -19,7 +19,6 @@ import {
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import {
-  formatReportCount,
   formatReportMoney,
   lastReportRow,
   lastReportNumber,
@@ -329,7 +328,7 @@ export function SupervisorOperationalReports() {
         <span className="supervisor-reports-period-tag">{period.label}</span>
       </div>
 
-      <div className="supervisor-reports-metrics" aria-label="Operational key performance indicators" aria-busy={loading}>
+      <div className="supervisor-reports-metrics" role="region" aria-label="Operational key performance indicators" aria-busy={loading}>
         {stats.map(({ title, amount, note, icon: Icon }) => (
           <ShopCityCard key={title} as="article" variant="metric" className="supervisor-reports-metric">
             <div className="supervisor-reports-metric__top">
