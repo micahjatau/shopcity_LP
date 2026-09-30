@@ -84,7 +84,9 @@ function shortDate(value: string): string {
 
 export function SupervisorOperationalReports() {
   const [mode, setMode] = useState<PeriodOption>('week');
-  const [period, setPeriod] = useState<ReportPeriod>(() => recentReportPeriod(7));
+  const [period, setPeriod] = useState<ReportPeriod>(() =>
+    recentReportPeriod(7),
+  );
   const [draftFrom, setDraftFrom] = useState(period.from);
   const [draftTo, setDraftTo] = useState(period.to);
   const [validation, setValidation] = useState('');
@@ -185,9 +187,7 @@ export function SupervisorOperationalReports() {
   const trendRows = useMemo(() => {
     return [...(sources.financial ?? [])]
       .filter((row) => typeof row.reportDate === 'string')
-      .sort((a, b) =>
-        String(a.reportDate).localeCompare(String(b.reportDate)),
-      )
+      .sort((a, b) => String(a.reportDate).localeCompare(String(b.reportDate)))
       .map((row) => ({
         date: String(row.reportDate).slice(0, 10),
         amount:
@@ -204,9 +204,8 @@ export function SupervisorOperationalReports() {
     () => reportInsights(focus, sources),
     [focus, sources],
   );
-  const focusUnavailable = sources[
-    focus === 'overview' ? 'financial' : focus
-  ] === null;
+  const focusUnavailable =
+    sources[focus === 'overview' ? 'financial' : focus] === null;
 
   function selectPeriod(value: PeriodOption) {
     setMode(value);
@@ -233,7 +232,10 @@ export function SupervisorOperationalReports() {
   }
 
   return (
-    <section className="supervisor-reports-page" aria-label="Operational reports">
+    <section
+      className="supervisor-reports-page"
+      aria-label="Operational reports"
+    >
       <CashierPageHeader
         className="supervisor-page__header supervisor-reports-header"
         eyebrow="SUPERVISOR · REPORTING"
@@ -254,7 +256,9 @@ export function SupervisorOperationalReports() {
           <CalendarDays size={20} aria-hidden="true" />
           <div>
             <strong>Reporting period</strong>
-            <span>All overview figures and insights use the same date range.</span>
+            <span>
+              All overview figures and insights use the same date range.
+            </span>
           </div>
         </div>
         <div className="supervisor-reports-period__controls">
@@ -308,14 +312,23 @@ export function SupervisorOperationalReports() {
           <span>
             {period.label}: {period.from} to {period.to} · Assigned branch only
           </span>
-          <span>{freshLabel ? `Materialized ${freshLabel}` : 'Awaiting report freshness'}</span>
+          <span>
+            {freshLabel
+              ? `Materialized ${freshLabel}`
+              : 'Awaiting report freshness'}
+          </span>
         </div>
-        {validation ? <p role="alert" className="supervisor-reports-error">{validation}</p> : null}
+        {validation ? (
+          <p role="alert" className="supervisor-reports-error">
+            {validation}
+          </p>
+        ) : null}
       </ShopCityCard>
 
       {failures.length > 0 && !loading ? (
         <Alert tone="warning" title="Some reporting data is unavailable">
-          {failures.join(', ')} could not be loaded. Affected metrics remain unavailable rather than showing zero.
+          {failures.join(', ')} could not be loaded. Affected metrics remain
+          unavailable rather than showing zero.
         </Alert>
       ) : null}
 
@@ -323,14 +336,26 @@ export function SupervisorOperationalReports() {
         <div>
           <p className="supervisor-reports-eyebrow">PERFORMANCE SNAPSHOT</p>
           <h2>Branch at a glance</h2>
-          <p>Period financial flows and the latest available closing balance.</p>
+          <p>
+            Period financial flows and the latest available closing balance.
+          </p>
         </div>
         <span className="supervisor-reports-period-tag">{period.label}</span>
       </div>
 
-      <div className="supervisor-reports-metrics" role="region" aria-label="Operational key performance indicators" aria-busy={loading}>
+      <div
+        className="supervisor-reports-metrics"
+        role="region"
+        aria-label="Operational key performance indicators"
+        aria-busy={loading}
+      >
         {stats.map(({ title, amount, note, icon: Icon }) => (
-          <ShopCityCard key={title} as="article" variant="metric" className="supervisor-reports-metric">
+          <ShopCityCard
+            key={title}
+            as="article"
+            variant="metric"
+            className="supervisor-reports-metric"
+          >
             <div className="supervisor-reports-metric__top">
               <span>{title}</span>
               <span className="supervisor-reports-metric__icon">
@@ -346,7 +371,10 @@ export function SupervisorOperationalReports() {
       </div>
 
       <div className="supervisor-reports-analysis">
-        <ShopCityCard className="supervisor-reports-trend" aria-label="Daily trend chart">
+        <ShopCityCard
+          className="supervisor-reports-trend"
+          aria-label="Daily trend chart"
+        >
           <div className="supervisor-reports-card-heading">
             <div>
               <p className="supervisor-reports-eyebrow">OVER TIME</p>
@@ -363,10 +391,16 @@ export function SupervisorOperationalReports() {
             />
           </div>
           {loading ? (
-            <p role="status" className="supervisor-reports-empty">Loading daily activity…</p>
+            <p role="status" className="supervisor-reports-empty">
+              Loading daily activity…
+            </p>
           ) : trendRows.length ? (
             <div className="supervisor-reports-chart-scroll">
-              <div className="supervisor-reports-chart" role="list" aria-label="Daily report values">
+              <div
+                className="supervisor-reports-chart"
+                role="list"
+                aria-label="Daily report values"
+              >
                 {trendRows.map((row) => (
                   <div
                     key={row.date}
@@ -384,7 +418,10 @@ export function SupervisorOperationalReports() {
                         aria-hidden="true"
                       />
                     </div>
-                    <span className="supervisor-reports-chart__label" aria-hidden="true">
+                    <span
+                      className="supervisor-reports-chart__label"
+                      aria-hidden="true"
+                    >
                       {shortDate(row.date)}
                     </span>
                   </div>
@@ -392,19 +429,27 @@ export function SupervisorOperationalReports() {
               </div>
             </div>
           ) : (
-            <p className="supervisor-reports-empty">No materialized daily financial rows for this period.</p>
+            <p className="supervisor-reports-empty">
+              No materialized daily financial rows for this period.
+            </p>
           )}
           <p className="supervisor-reports-footnote">
             This is a report of ShopCity loyalty activity, not total POS sales.
           </p>
         </ShopCityCard>
 
-        <ShopCityCard className="supervisor-reports-insights" aria-label="Filtered operational summaries">
+        <ShopCityCard
+          className="supervisor-reports-insights"
+          aria-label="Filtered operational summaries"
+        >
           <div className="supervisor-reports-card-heading">
             <div>
               <p className="supervisor-reports-eyebrow">DATA-BASED INSIGHTS</p>
               <h2>Operational summary</h2>
-              <p>Summaries calculated from the selected report category and period.</p>
+              <p>
+                Summaries calculated from the selected report category and
+                period.
+              </p>
             </div>
             <Select
               aria-label="Summary category"
@@ -414,11 +459,17 @@ export function SupervisorOperationalReports() {
             />
           </div>
           {loading ? (
-            <p role="status" className="supervisor-reports-empty">Calculating summaries…</p>
+            <p role="status" className="supervisor-reports-empty">
+              Calculating summaries…
+            </p>
           ) : focusUnavailable ? (
-            <p className="supervisor-reports-empty">This report category is unavailable. Try Refresh.</p>
+            <p className="supervisor-reports-empty">
+              This report category is unavailable. Try Refresh.
+            </p>
           ) : insights.every((insight) => insight.value === '—') ? (
-            <p className="supervisor-reports-empty">No report data is available for this category and period.</p>
+            <p className="supervisor-reports-empty">
+              No report data is available for this category and period.
+            </p>
           ) : (
             <dl className="supervisor-reports-insight-list">
               {insights.map((insight) => (
@@ -431,17 +482,24 @@ export function SupervisorOperationalReports() {
             </dl>
           )}
           <p className="supervisor-reports-footnote">
-            Summaries are deterministic calculations from branch-scoped reporting rows; they are not AI-generated commentary.
+            Summaries are deterministic calculations from branch-scoped
+            reporting rows; they are not AI-generated commentary.
           </p>
         </ShopCityCard>
       </div>
 
-      <section className="supervisor-reports-builder" aria-labelledby="supervisor-reports-builder-title">
+      <section
+        className="supervisor-reports-builder"
+        aria-labelledby="supervisor-reports-builder-title"
+      >
         <div className="supervisor-reports-section-heading">
           <div>
             <p className="supervisor-reports-eyebrow">DETAILED REPORTING</p>
             <h2 id="supervisor-reports-builder-title">Generate reports</h2>
-            <p>Select a report, inspect rows and export the authorized data using the same date range.</p>
+            <p>
+              Select a report, inspect rows and export the authorized data using
+              the same date range.
+            </p>
           </div>
           <BarChart3 size={23} aria-hidden="true" />
         </div>
@@ -455,7 +513,8 @@ export function SupervisorOperationalReports() {
         />
       </section>
       <p className="supervisor-reports-footnote supervisor-reports-footer">
-        All data is limited to the authenticated supervisor’s branch. Reports may lag behind recent transactions until materialization completes.
+        All data is limited to the authenticated supervisor’s branch. Reports
+        may lag behind recent transactions until materialization completes.
       </p>
     </section>
   );

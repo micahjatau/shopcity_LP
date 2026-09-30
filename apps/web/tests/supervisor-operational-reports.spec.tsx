@@ -77,9 +77,11 @@ describe('SupervisorOperationalReports', () => {
         },
       ]),
     );
-    jest.mocked(reportsControllerListSmsOperationsV1).mockResolvedValue(
-      response([{ queuedCount: 10, sentCount: 8, failedCount: 2 }]),
-    );
+    jest
+      .mocked(reportsControllerListSmsOperationsV1)
+      .mockResolvedValue(
+        response([{ queuedCount: 10, sentCount: 8, failedCount: 2 }]),
+      );
   });
 
   it('shows four financial KPIs and loads only branch-authorized report APIs', async () => {
@@ -155,16 +157,20 @@ describe('SupervisorOperationalReports', () => {
   });
 
   it('does not fabricate financial values on a failed report response', async () => {
-    jest.mocked(reportsControllerListExecutiveSummaryV1).mockRejectedValue(
-      new Error('Service unavailable'),
-    );
+    jest
+      .mocked(reportsControllerListExecutiveSummaryV1)
+      .mockRejectedValue(new Error('Service unavailable'));
     render(<SupervisorOperationalReports />);
     await waitFor(() =>
       expect(
         screen.getByText(/financial could not be loaded/),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByText('No materialized daily financial rows for this period.')).toBeInTheDocument();
-    expect(screen.getByText('This report category is unavailable. Try Refresh.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No materialized daily financial rows for this period.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('This report category is unavailable. Try Refresh.'),
+    ).toBeInTheDocument();
   });
 });

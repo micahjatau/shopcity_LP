@@ -6,16 +6,12 @@
 export type ReportRow = Record<string, unknown>;
 export type ReportFocus = 'overview' | 'cashiers' | 'redemptions' | 'sms';
 export type TrendMetric =
-  | 'loyaltyPurchaseValueKobo'
-  | 'creditIssuedKobo'
-  | 'creditRedeemedKobo';
+  'loyaltyPurchaseValueKobo' | 'creditIssuedKobo' | 'creditRedeemedKobo';
 
 export type ReportPeriod = { from: string; to: string; label: string };
 
 function safeInteger(value: unknown): number | null {
-  return typeof value === 'number' &&
-    Number.isSafeInteger(value) &&
-    value >= 0
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
     ? value
     : null;
 }
@@ -134,7 +130,8 @@ export function reportInsights(
       {
         title: 'Fraud flags',
         value: number(cashiers, 'fraudFlagCount'),
-        detail: 'Sum of reported cashier-related flags, not necessarily open cases.',
+        detail:
+          'Sum of reported cashier-related flags, not necessarily open cases.',
       },
     ];
   }
@@ -153,7 +150,8 @@ export function reportInsights(
       {
         title: 'Approval requests reported',
         value: number(redemptions, 'pendingApprovalCount'),
-        detail: 'Sum of daily pending-approval counts; not a live open-case total.',
+        detail:
+          'Sum of daily pending-approval counts; not a live open-case total.',
       },
     ];
   }
@@ -172,7 +170,8 @@ export function reportInsights(
       {
         title: 'Failed messages',
         value: number(sms, 'failedCount'),
-        detail: 'Sum of failed delivery statuses; see SMS operations for details.',
+        detail:
+          'Sum of failed delivery statuses; see SMS operations for details.',
       },
     ];
   }
@@ -187,7 +186,8 @@ export function reportInsights(
     {
       title: 'Active customers',
       value: formatReportCount(lastReportNumber(financial, 'activeCustomers')),
-      detail: 'Latest available snapshot within the selected period, not a sum.',
+      detail:
+        'Latest available snapshot within the selected period, not a sum.',
     },
     {
       title: 'Issued less redeemed',
@@ -195,7 +195,8 @@ export function reportInsights(
         issued === null || redeemed === null
           ? '—'
           : formatReportMoney(issued - redeemed),
-      detail: 'Period issuance minus redemption; excludes expiry and reversals and is not the wallet liability.',
+      detail:
+        'Period issuance minus redemption; excludes expiry and reversals and is not the wallet liability.',
     },
   ];
 }
