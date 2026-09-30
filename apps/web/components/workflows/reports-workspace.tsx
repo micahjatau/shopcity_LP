@@ -40,6 +40,10 @@ type ReportsWorkspaceProps = {
   canUsePilotOperationsSummary?: boolean;
   canUseAuditReport?: boolean;
   canUseMaterializationState?: boolean;
+  /** Parent-selected period, shared with the supervisor KPI dashboard. */
+  period?: { from: string; to: string };
+  /** Supervisor branch and period are enforced outside this low-level report UI. */
+  hideScopeInputs?: boolean;
 };
 
 type ReportItem = Record<string, unknown>;
@@ -103,6 +107,8 @@ export function ReportsWorkspace({
   canUsePilotOperationsSummary = true,
   canUseAuditReport = true,
   canUseMaterializationState = true,
+  period,
+  hideScopeInputs = false,
 }: ReportsWorkspaceProps = {}) {
   const [report, setReport] = useState<ReportKey>('executive-summary');
   const [branchId, setBranchId] = useState('');
@@ -146,10 +152,10 @@ export function ReportsWorkspace({
     () => ({
       branchId: branchId || undefined,
       timezone: timezone || undefined,
-      from: from || undefined,
-      to: to || undefined,
+      from: (period?.from ?? from) || undefined,
+      to: (period?.to ?? to) || undefined,
     }),
-    [branchId, from, timezone, to],
+    [branchId, from, timezone, to, period?.from, period?.to],
   );
   const refreshParams = useMemo<ReportsControllerRefreshReportV1Params>(
     () => ({
@@ -276,7 +282,7 @@ export function ReportsWorkspace({
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report]);
+  }, [report, period?.from, period?.to]);
 
   async function inspectSelectedSms() {
     const transactionId =
@@ -374,8 +380,8 @@ export function ReportsWorkspace({
           report,
           branchId,
           timezone,
-          from,
-          to,
+          params.from ?? '',
+          params.to ?? '',
         )
       : 'No report loaded yet.';
 
@@ -445,32 +451,40 @@ export function ReportsWorkspace({
             ]}
           />
         ) : null}
-        <div style={filterGrid}>
-          <Input
-            aria-label="Branch filter"
-            placeholder="Branch ID"
-            value={branchId}
-            onChange={(event) => setBranchId(event.target.value)}
-          />
-          <Input
-            aria-label="Timezone filter"
-            placeholder="Timezone"
-            value={timezone}
-            onChange={(event) => setTimezone(event.target.value)}
-          />
-          <Input
-            aria-label="From date"
-            type="date"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-          />
-          <Input
-            aria-label="To date"
-            type="date"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-          />
-        </div>
+        {hideScopeInputs ? (
+          <p style={mutedText}>
+            Branch access is determined by your supervisor session. Report dates
+            are shared with the dashboard: {params.from ?? 'start'} to{' '}
+            {params.to ?? 'now'}.
+          </p>
+        ) : (
+          <div style={filterGrid}>
+            <Input
+              aria-label="Branch filter"
+              placeholder="Branch ID"
+              value={branchId}
+              onChange={(event) => setBranchId(event.target.value)}
+            />
+            <Input
+              aria-label="Timezone filter"
+              placeholder="Timezone"
+              value={timezone}
+              onChange={(event) => setTimezone(event.target.value)}
+            />
+            <Input
+              aria-label="From date"
+              type="date"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+            />
+            <Input
+              aria-label="To date"
+              type="date"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </div>
+        )}
         <div style={toolbarRow}>
           <Button onClick={() => void refresh()}>
             {report === 'pilot-operations-summary'
