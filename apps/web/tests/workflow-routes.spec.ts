@@ -597,7 +597,7 @@ test.describe('workflow route coverage', () => {
       [
         '/supervisor/reports',
         'Operational reports',
-        'Choose a report, apply available filters, and inspect its rows and freshness details.',
+        'Review branch performance over time, investigate patterns, and generate detailed reports.',
       ],
       [
         '/supervisor/transactions',
