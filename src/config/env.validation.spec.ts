@@ -1,6 +1,68 @@
 import { envValidationSchema } from './env.validation';
 
 describe('envValidationSchema', () => {
+  it('defaults WebAuthn device qualification to disabled', () => {
+    const result = envValidationSchema.validate({});
+    expect(result.error).toBeUndefined();
+    expect(
+      (result.value as Record<string, unknown>)
+        .WEBAUTHN_DEVICE_QUALIFICATION_APPROVED,
+    ).toBe(false);
+  });
+
+  it('rejects malformed or non-HTTPS WebAuthn origins', () => {
+    const result = envValidationSchema.validate({
+      WEBAUTHN_ALLOWED_ORIGINS:
+        'https://pos.example.com/path,http://pos.example.com',
+      WEBAUTHN_RP_ID: 'pos.example.com',
+    });
+    expect(result.error).toBeDefined();
+  });
+
+  it('accepts exact HTTPS production origins and local HTTP development origins', () => {
+    const result = envValidationSchema.validate({
+      WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: true,
+      WEBAUTHN_RP_ID: 'pos.example.com',
+      WEBAUTHN_ALLOWED_ORIGINS: 'https://pos.example.com',
+    });
+    expect(result.error).toBeUndefined();
+
+    const localResult = envValidationSchema.validate({
+      WEBAUTHN_RP_ID: 'localhost',
+      WEBAUTHN_ALLOWED_ORIGINS: 'http://localhost:3000',
+    });
+    expect(localResult.error).toBeUndefined();
+
+    const productionResult = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      WEBAUTHN_RP_ID: 'localhost',
+      WEBAUTHN_ALLOWED_ORIGINS: 'http://localhost:3000',
+    });
+    expect(productionResult.error).toBeDefined();
+  });
+
+  it('rejects origins outside the configured RP ID domain', () => {
+    const result = envValidationSchema.validate({
+      WEBAUTHN_RP_ID: 'example.com',
+      WEBAUTHN_ALLOWED_ORIGINS: 'https://pos.other-example.com',
+    });
+    expect(result.error).toBeDefined();
+  });
+
+  it('accepts configured RP hosts and their true subdomains', () => {
+    const result = envValidationSchema.validate({
+      WEBAUTHN_RP_ID: 'example.com',
+      WEBAUTHN_ALLOWED_ORIGINS: 'https://example.com,https://pos.example.com',
+    });
+    expect(result.error).toBeUndefined();
+  });
+
+  it('requires RP ID and origins when device qualification is approved', () => {
+    const result = envValidationSchema.validate({
+      WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: true,
+    });
+    expect(result.error).toBeDefined();
+  });
   it('rejects redemption policy values that are nonsensical', () => {
     const result = envValidationSchema.validate({
       DATABASE_URL: 'postgresql://example',

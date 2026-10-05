@@ -7,10 +7,23 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  BranchStatus,
+  DeviceAuthBindingMode,
+  DeviceEnrollmentPurpose,
   DeviceStatus,
+  DeviceWebAuthnCredentialStatus,
+  DeviceAttestationTrustResult,
   IdempotencyRecordStatus,
+  TenantStatus,
   UserRole,
+  UserStatus,
 } from '@prisma/client';
+import {
+  generateRegistrationOptions,
+  MetadataService,
+  verifyRegistrationResponse,
+} from '@simplewebauthn/server';
+import { randomBytes, createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -19,20 +32,19 @@ import {
   generateDeviceAttestationSecret,
 } from '../../common/auth/device-attestation-secret';
 import { DomainHttpException } from '../../common/errors/domain.exception';
-import { createHash } from 'node:crypto';
-
 type DeviceManagementScope =
   | { tenantWide: true; branchId: null }
   | { tenantWide: false; branchId: string };
 
 type DeviceProvisioningResponse = {
   id: string;
-  attestationSecret: string;
   [key: string]: unknown;
 };
 
 @Injectable()
 export class BranchesService {
+  private metadataInitialization: Promise<void> | null = null;
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly auditService: AuditService,
@@ -126,7 +138,7 @@ export class BranchesService {
   async createDevice(
     tenantId: string,
     actor: AuthContext,
-    data: { branchId: string; name: string; fingerprintHash: string },
+    data: { branchId: string; name: string; fingerprintHash?: string },
     idempotencyKey: string | undefined,
   ): Promise<DeviceProvisioningResponse> {
     const normalizedKey = normalizeDeviceIdempotencyKey(idempotencyKey);
@@ -136,7 +148,6 @@ export class BranchesService {
       actorId: actor.user.id,
       branchId: data.branchId,
       name: data.name,
-      fingerprintHash: data.fingerprintHash,
     });
     const existing = await findDeviceIdempotency(
       this.prismaService,
@@ -179,19 +190,16 @@ export class BranchesService {
         });
       }
 
-      const attestationSecret = generateDeviceAttestationSecret();
       const device = await prisma.device.create({
         data: {
           tenantId,
           branchId: data.branchId,
           name: data.name,
-          fingerprintHash: data.fingerprintHash,
-          attestationSecretCiphertext: encryptDeviceAttestationSecret(
-            attestationSecret,
-            this.attestationSecretKey(),
-          ),
-          attestationSecretVersion: 1,
-          attestationSecretRotatedAt: new Date(),
+          fingerprintHash: null,
+          authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          attestationSecretCiphertext: null,
+          attestationSecretVersion: 0,
+          attestationSecretRotatedAt: null,
         },
       });
 
@@ -214,7 +222,7 @@ export class BranchesService {
         device;
       void attestationSecretCiphertext;
       void fingerprintHash;
-      const response = { ...safeDevice, attestationSecret };
+      const response = safeDevice;
       if (prisma.idempotencyRecord?.update) {
         await prisma.idempotencyRecord.update({
           where: {
@@ -232,6 +240,362 @@ export class BranchesService {
         });
       }
       return response;
+    });
+  }
+
+  async createDeviceEnrollment(
+    tenantId: string,
+    actor: AuthContext,
+    deviceId: string,
+  ) {
+    this.assertWebAuthnEnabled();
+    const scope = resolveDeviceManagementScope(actor);
+    const device = await this.prismaService.device.findFirst({
+      where: scope.tenantWide
+        ? { id: deviceId, tenantId }
+        : { id: deviceId, tenantId, branchId: scope.branchId },
+      include: {
+        branch: { include: { tenant: true } },
+        webAuthnCredentials: {
+          where: { status: DeviceWebAuthnCredentialStatus.ACTIVE },
+        },
+      },
+    });
+    if (
+      !device ||
+      device.status !== DeviceStatus.ACTIVE ||
+      device.branch.status !== BranchStatus.ACTIVE ||
+      device.branch.tenant.status !== TenantStatus.ACTIVE
+    ) {
+      throw deviceNotAvailable();
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const options = await generateRegistrationOptions({
+      rpName: 'ShopCity POS',
+      rpID: this.requiredWebAuthnConfig().rpId,
+      userID: Buffer.from(device.id),
+      userName: `device-${device.id}`,
+      userDisplayName: device.name,
+      timeout: 5 * 60 * 1000,
+      attestationType: 'direct',
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        userVerification: 'required',
+        residentKey: 'discouraged',
+      },
+      excludeCredentials: device.webAuthnCredentials.map((credential) => ({
+        id: credential.credentialId,
+        transports: credential.transports,
+      })),
+    });
+    const challenge = options.challenge;
+    const purpose =
+      device.authBindingMode === DeviceAuthBindingMode.WEBAUTHN
+        ? DeviceEnrollmentPurpose.REPAIR
+        : DeviceEnrollmentPurpose.PAIRING;
+    await this.prismaService.$transaction(async (prisma) => {
+      await prisma.deviceEnrollmentChallenge.create({
+        data: {
+          tenantId,
+          branchId: device.branchId,
+          deviceId: device.id,
+          actorUserId: actor.user.id,
+          authorizationTokenHash: hashSecret(token),
+          challengeHash: hashSecret(challenge),
+          purpose,
+          expiresAt,
+        },
+      });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'device.enrollment.authorize',
+        entityType: 'device',
+        entityId: device.id,
+        metadata: { purpose, expiresAt },
+      });
+    });
+    return { authorizationToken: token, expiresAt, options };
+  }
+
+  async completeDeviceEnrollment(
+    deviceId: string,
+    authorizationToken: unknown,
+    response: unknown,
+  ) {
+    try {
+      this.assertWebAuthnEnabled();
+      if (
+        typeof authorizationToken !== 'string' ||
+        authorizationToken.length < 40
+      ) {
+        throw deviceEnrollmentInvalid();
+      }
+      const challenge =
+        await this.prismaService.deviceEnrollmentChallenge.findFirst({
+          where: {
+            deviceId,
+            authorizationTokenHash: hashSecret(authorizationToken),
+            consumedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          include: { device: true },
+        });
+      if (!challenge) throw deviceEnrollmentInvalid();
+      const registrationResponse = response as Parameters<
+        typeof verifyRegistrationResponse
+      >[0]['response'];
+      const verified = await verifyRegistrationResponse({
+        response: registrationResponse,
+        expectedChallenge: (candidate) =>
+          hashSecret(candidate) === challenge.challengeHash,
+        expectedOrigin: this.requiredWebAuthnConfig().origins,
+        expectedRPID: this.requiredWebAuthnConfig().rpId,
+        requireUserVerification: true,
+      });
+      if (!verified.verified) throw deviceEnrollmentInvalid();
+      const info = verified.registrationInfo;
+      if (
+        !info ||
+        registrationResponse.authenticatorAttachment !== 'platform' ||
+        info.fmt === 'none' ||
+        !info.userVerified ||
+        info.credentialDeviceType !== 'singleDevice' ||
+        info.credentialBackedUp
+      )
+        throw deviceEnrollmentInvalid();
+
+      await this.initializeMetadataService();
+      const statement = await MetadataService.getStatement(info.aaguid);
+      const protections = statement?.keyProtection ?? [];
+      const protectionApproved = protections.some((protection) =>
+        ['hardware', 'tee', 'secure_element'].includes(protection),
+      );
+      if (!statement || !protectionApproved) throw deviceEnrollmentInvalid();
+
+      const now = new Date();
+      await this.prismaService.$transaction(async (prisma) => {
+        const consumed = await prisma.deviceEnrollmentChallenge.updateMany({
+          where: { id: challenge.id, consumedAt: null, expiresAt: { gt: now } },
+          data: { consumedAt: now },
+        });
+        if (consumed.count !== 1) throw deviceEnrollmentInvalid();
+        const [device, actor] = await Promise.all([
+          prisma.device.findFirst({
+            where: {
+              id: deviceId,
+              tenantId: challenge.tenantId,
+              branchId: challenge.branchId,
+            },
+            include: { branch: { include: { tenant: true } } },
+          }),
+          prisma.user.findFirst({
+            where: {
+              id: challenge.actorUserId,
+              tenantId: challenge.tenantId,
+              status: UserStatus.ACTIVE,
+            },
+          }),
+        ]);
+        if (
+          !device ||
+          device.status !== DeviceStatus.ACTIVE ||
+          device.branch.status !== BranchStatus.ACTIVE ||
+          device.branch.tenant.status !== TenantStatus.ACTIVE ||
+          !actor ||
+          !actorMayManageDevice(actor, device.branchId) ||
+          (challenge.purpose === DeviceEnrollmentPurpose.PAIRING &&
+            device.authBindingMode === DeviceAuthBindingMode.WEBAUTHN) ||
+          (challenge.purpose === DeviceEnrollmentPurpose.REPAIR &&
+            device.authBindingMode !== DeviceAuthBindingMode.WEBAUTHN)
+        ) {
+          throw deviceEnrollmentInvalid();
+        }
+        const pairedAtBeforeTransition = device.pairedAt;
+        const transitioned = await prisma.device.updateMany({
+          where: {
+            id: device.id,
+            tenantId: device.tenantId,
+            branchId: device.branchId,
+            status: DeviceStatus.ACTIVE,
+            authBindingMode: device.authBindingMode,
+            pairedAt: pairedAtBeforeTransition,
+          },
+          data: {
+            authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
+            pairedAt: now,
+            attestationSecretCiphertext: null,
+            attestationSecretVersion: 0,
+            attestationSecretRotatedAt: null,
+          },
+        });
+        if (transitioned.count !== 1) throw deviceEnrollmentInvalid();
+
+        const credential = await prisma.deviceWebAuthnCredential.create({
+          data: {
+            tenantId: device.tenantId,
+            deviceId: device.id,
+            credentialId: info.credential.id,
+            publicKey: Buffer.from(info.credential.publicKey),
+            aaguid: info.aaguid,
+            signCount: info.credential.counter,
+            authenticatorAttachment:
+              registrationResponse.authenticatorAttachment,
+            transports: registrationResponse.response.transports ?? [],
+            backupEligible: false,
+            backedUp: false,
+            attestationFormat: info.fmt,
+            attestationTrustResult: DeviceAttestationTrustResult.TRUSTED,
+            rpId: this.requiredWebAuthnConfig().rpId,
+            status: DeviceWebAuthnCredentialStatus.ACTIVE,
+            pairedAt: now,
+          },
+        });
+        await prisma.deviceWebAuthnCredential.updateMany({
+          where: {
+            deviceId: device.id,
+            status: DeviceWebAuthnCredentialStatus.ACTIVE,
+            id: { not: credential.id },
+          },
+          data: { status: DeviceWebAuthnCredentialStatus.SUPERSEDED },
+        });
+        const revoked = await prisma.session.updateMany({
+          where: { deviceId: device.id, status: 'ACTIVE' },
+          data: { status: 'REVOKED', revokedAt: now },
+        });
+        if (revoked.count > 0) {
+          await this.auditService.recordWithClient(prisma, {
+            tenantId: device.tenantId,
+            actorId: actor.id,
+            action: 'device.sessions.revoke',
+            entityType: 'device',
+            entityId: device.id,
+            metadata: {
+              reason: 'device_webauthn_credential_replaced',
+              revokedSessionCount: revoked.count,
+            },
+          });
+        }
+        await this.auditService.recordWithClient(prisma, {
+          tenantId: device.tenantId,
+          actorId: actor.id,
+          action: 'device.credential.activate',
+          entityType: 'device',
+          entityId: device.id,
+          metadata: {
+            credentialId: credential.id,
+            replaced: true,
+            revokedSessionCount: revoked.count,
+          },
+        });
+      });
+      return { status: 'ACTIVE' };
+    } catch {
+      throw deviceEnrollmentInvalid();
+    }
+  }
+
+  async listDeviceCredentials(
+    tenantId: string,
+    actor: AuthContext,
+    deviceId: string,
+  ) {
+    const scope = resolveDeviceManagementScope(actor);
+    const device = await this.prismaService.device.findFirst({
+      where: scope.tenantWide
+        ? { id: deviceId, tenantId }
+        : { id: deviceId, tenantId, branchId: scope.branchId },
+    });
+    if (!device) throw deviceNotAvailable();
+    return this.prismaService.deviceWebAuthnCredential.findMany({
+      where: { tenantId, deviceId },
+      select: {
+        id: true,
+        aaguid: true,
+        authenticatorAttachment: true,
+        transports: true,
+        backupEligible: true,
+        backedUp: true,
+        attestationFormat: true,
+        attestationTrustResult: true,
+        rpId: true,
+        status: true,
+        pairedAt: true,
+        revokedAt: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async revokeDeviceCredential(
+    tenantId: string,
+    actor: AuthContext,
+    deviceId: string,
+    credentialId: string,
+  ) {
+    const scope = resolveDeviceManagementScope(actor);
+    const device = await this.prismaService.device.findFirst({
+      where: scope.tenantWide
+        ? { id: deviceId, tenantId }
+        : { id: deviceId, tenantId, branchId: scope.branchId },
+    });
+    if (!device) throw deviceNotAvailable();
+    return this.prismaService.$transaction(async (prisma) => {
+      const currentDevice = await prisma.device.findFirst({
+        where: scope.tenantWide
+          ? { id: deviceId, tenantId }
+          : { id: deviceId, tenantId, branchId: scope.branchId },
+        select: { id: true },
+      });
+      if (!currentDevice) throw deviceNotAvailable();
+      const now = new Date();
+      const credentialRevoked =
+        await prisma.deviceWebAuthnCredential.updateMany({
+          where: {
+            id: credentialId,
+            deviceId,
+            tenantId,
+            status: DeviceWebAuthnCredentialStatus.ACTIVE,
+          },
+          data: {
+            status: DeviceWebAuthnCredentialStatus.REVOKED,
+            revokedAt: now,
+          },
+        });
+      if (credentialRevoked.count !== 1) throw deviceNotAvailable();
+      const revoked = await prisma.session.updateMany({
+        where: {
+          deviceId,
+          deviceCredentialId: credentialId,
+          status: 'ACTIVE',
+        },
+        data: { status: 'REVOKED', revokedAt: now },
+      });
+      if (revoked.count > 0) {
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'device.sessions.revoke',
+          entityType: 'device',
+          entityId: deviceId,
+          metadata: {
+            reason: 'device_credential_revoked',
+            credentialId,
+            revokedSessionCount: revoked.count,
+          },
+        });
+      }
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'device.credential.revoke',
+        entityType: 'device',
+        entityId: deviceId,
+        metadata: { credentialId, revokedSessionCount: revoked.count },
+      });
+      return { status: DeviceWebAuthnCredentialStatus.REVOKED };
     });
   }
 
@@ -273,10 +637,19 @@ export class BranchesService {
     if (!device) {
       throw new NotFoundException('Device not found');
     }
+    if (
+      data.rotateAttestationSecret &&
+      device.authBindingMode !== DeviceAuthBindingMode.HMAC_LEGACY
+    ) {
+      throw new BadRequestException(
+        'Legacy attestation rotation is only available for HMAC devices',
+      );
+    }
 
     if (
       data.status === DeviceStatus.ACTIVE &&
       !data.rotateAttestationSecret &&
+      device.authBindingMode === DeviceAuthBindingMode.HMAC_LEGACY &&
       !hasActiveAttestationSecret(device)
     ) {
       throw new DomainHttpException(
@@ -301,6 +674,29 @@ export class BranchesService {
         });
       }
 
+      if (
+        data.status === DeviceStatus.ACTIVE &&
+        !data.rotateAttestationSecret &&
+        device.authBindingMode === DeviceAuthBindingMode.WEBAUTHN
+      ) {
+        const activeCredential =
+          await prisma.deviceWebAuthnCredential.updateMany({
+            where: {
+              tenantId,
+              deviceId,
+              status: DeviceWebAuthnCredentialStatus.ACTIVE,
+            },
+            data: { status: DeviceWebAuthnCredentialStatus.ACTIVE },
+          });
+        if (activeCredential.count < 1) {
+          throw new DomainHttpException(
+            400,
+            'VALIDATION_ERROR',
+            'An active WebAuthn credential is required before activation',
+          );
+        }
+      }
+
       let attestationSecret: string | null = null;
       let attestationSecretVersion: number | undefined;
       const updateData = {
@@ -321,10 +717,30 @@ export class BranchesService {
         });
       }
 
-      const updated = await prisma.device.update({
-        where: { id: deviceId },
-        data: updateData,
-      });
+      let updated: Awaited<ReturnType<typeof prisma.device.update>>;
+      if (data.rotateAttestationSecret || data.status === DeviceStatus.ACTIVE) {
+        const stateTransition = await prisma.device.updateMany({
+          where: {
+            id: deviceId,
+            tenantId,
+            status: device.status,
+            authBindingMode: device.authBindingMode,
+            pairedAt: device.pairedAt,
+          },
+          data: updateData,
+        });
+        if (stateTransition.count !== 1) throw deviceNotAvailable();
+        const currentDevice = await prisma.device.findFirst({
+          where: { id: deviceId, tenantId, branchId: device.branchId },
+        });
+        if (!currentDevice) throw deviceNotAvailable();
+        updated = currentDevice;
+      } else {
+        updated = await prisma.device.update({
+          where: { id: deviceId },
+          data: updateData,
+        });
+      }
 
       const shouldRevokeSessions =
         data.rotateAttestationSecret ||
@@ -407,6 +823,46 @@ export class BranchesService {
     return response;
   }
 
+  private initializeMetadataService(): Promise<void> {
+    this.metadataInitialization ??= MetadataService.initialize({
+      verificationMode: 'strict',
+    });
+    return this.metadataInitialization;
+  }
+
+  private assertWebAuthnEnabled() {
+    if (
+      this.configService.get<boolean>(
+        'WEBAUTHN_DEVICE_QUALIFICATION_APPROVED',
+      ) !== true
+    ) {
+      throw deviceEnrollmentInvalid();
+    }
+    this.requiredWebAuthnConfig();
+  }
+
+  private requiredWebAuthnConfig() {
+    const rpId = this.configService
+      .get<string>('WEBAUTHN_RP_ID')
+      ?.trim()
+      .toLowerCase();
+    const rawOrigins = this.configService.get<string>(
+      'WEBAUTHN_ALLOWED_ORIGINS',
+    );
+    const origins = rawOrigins
+      ?.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    if (
+      !rpId ||
+      !origins?.length ||
+      origins.some((origin) => !isAllowedWebAuthnOrigin(origin, rpId))
+    ) {
+      throw deviceEnrollmentInvalid();
+    }
+    return { rpId, origins };
+  }
+
   private attestationSecretKey(): string {
     return this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '';
   }
@@ -483,6 +939,57 @@ function resolveDeviceManagementScope(
   }
 
   return { tenantWide: false, branchId: actor.user.branchId };
+}
+
+function hashSecret(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function deviceEnrollmentInvalid() {
+  return new DomainHttpException(
+    400,
+    'DEVICE_ENROLLMENT_INVALID',
+    'Device enrollment could not be completed',
+  );
+}
+
+function deviceNotAvailable() {
+  return new DomainHttpException(
+    404,
+    'DEVICE_NOT_AVAILABLE',
+    'Device not available',
+  );
+}
+
+function isAllowedWebAuthnOrigin(origin: string, rpId: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    const local =
+      parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    const rpHostMatch =
+      parsed.hostname === rpId || parsed.hostname.endsWith(`.${rpId}`);
+    return (
+      parsed.origin === origin &&
+      (parsed.protocol === 'https:' ||
+        (local && parsed.protocol === 'http:' && rpId === parsed.hostname)) &&
+      rpHostMatch &&
+      !parsed.username &&
+      !parsed.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+function actorMayManageDevice(
+  actor: { role: UserRole; branchId: string | null; status: UserStatus },
+  deviceBranchId: string,
+): boolean {
+  return (
+    actor.status === UserStatus.ACTIVE &&
+    (actor.role === UserRole.ADMIN ||
+      (actor.role === UserRole.SUPERVISOR && actor.branchId === deviceBranchId))
+  );
 }
 
 function hasActiveAttestationSecret(device: {

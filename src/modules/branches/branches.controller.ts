@@ -12,18 +12,21 @@ import {
 import {
   ApiBearerAuth,
   ApiHeader,
+  ApiBody,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
+import { PublicRoute } from '../../common/auth/public-route.decorator';
 import { BranchesService } from './branches.service';
 import {
   CreateBranchDto,
   CreateDeviceDto,
   UpdateBranchDto,
   UpdateDeviceDto,
+  CompleteDeviceEnrollmentDto,
 } from './branches.dto';
 import {
   apiErrorEnvelopeResponses,
@@ -111,6 +114,83 @@ export class BranchesController {
       request.authContext!,
       dto,
       idempotencyKey,
+    );
+  }
+
+  @Post('devices/:id/enrollment')
+  @Version('1')
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @apiSuccessEnvelopeResponse({
+    description: 'Short-lived device enrollment options',
+    status: 201,
+  })
+  @ApiOperation({
+    summary:
+      'Create one-time device pairing authorization and registration options',
+  })
+  createDeviceEnrollment(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.branchesService.createDeviceEnrollment(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      id,
+    );
+  }
+
+  @Post('devices/:id/enrollment/complete')
+  @Version('1')
+  @PublicRoute()
+  @apiSuccessEnvelopeResponse({ description: 'Device credential activated' })
+  @ApiOperation({
+    summary: 'Complete target-device WebAuthn enrollment',
+    security: [],
+  })
+  @ApiBody({ type: CompleteDeviceEnrollmentDto })
+  completeDeviceEnrollment(@Param('id') id: string, @Body() body: unknown) {
+    const payload =
+      typeof body === 'object' && body !== null
+        ? (body as Record<string, unknown>)
+        : {};
+    return this.branchesService.completeDeviceEnrollment(
+      id,
+      payload.authorizationToken,
+      payload.response,
+    );
+  }
+
+  @Get('devices/:id/credentials')
+  @Version('1')
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @apiSuccessEnvelopeResponse({
+    dataSchema: { type: 'array', items: { type: 'object' } },
+  })
+  listDeviceCredentials(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.branchesService.listDeviceCredentials(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      id,
+    );
+  }
+
+  @Post('devices/:id/credentials/:credentialId/revoke')
+  @Version('1')
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @apiSuccessEnvelopeResponse({ description: 'Credential revoked' })
+  revokeDeviceCredential(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Param('credentialId') credentialId: string,
+  ) {
+    return this.branchesService.revokeDeviceCredential(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      id,
+      credentialId,
     );
   }
 

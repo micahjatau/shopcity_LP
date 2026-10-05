@@ -48,6 +48,54 @@ export const envValidationSchema = Joi.object({
     'test-device-attestation-kek-test-device-attestation-kek',
   ),
   DEVICE_ATTESTATION_KEK_VERSION: Joi.number().integer().min(1).default(1),
+  WEBAUTHN_RP_ID: Joi.string()
+    .trim()
+    .hostname()
+    .pattern(
+      /^(localhost|127\.0\.0\.1|(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)$/,
+    )
+    .when('WEBAUTHN_DEVICE_QUALIFICATION_APPROVED', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+  WEBAUTHN_ALLOWED_ORIGINS: Joi.string()
+    .trim()
+    .min(1)
+    .custom((value: unknown, helpers) => {
+      if (typeof value !== 'string') return helpers.error('any.invalid');
+      const origins = value.split(',').map((origin) => origin.trim());
+      if (
+        origins.some((origin) => {
+          try {
+            const url = new URL(origin);
+            const local =
+              url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+            return (
+              url.origin !== origin ||
+              url.username !== '' ||
+              url.password !== '' ||
+              (url.protocol !== 'https:' &&
+                !(local && url.protocol === 'http:'))
+            );
+          } catch {
+            return true;
+          }
+        })
+      ) {
+        return helpers.error('any.invalid');
+      }
+      return value;
+    })
+    .when('WEBAUTHN_DEVICE_QUALIFICATION_APPROVED', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+  WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
@@ -269,6 +317,35 @@ export const envValidationSchema = Joi.object({
     }
 
     if (secretValues.includes(attestationKek)) {
+      return helpers.error('any.invalid');
+    }
+
+    const nodeEnv = String(env.NODE_ENV ?? '');
+    const webAuthnOrigins = String(env.WEBAUTHN_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    const rpId = String(env.WEBAUTHN_RP_ID ?? '').toLowerCase();
+    if (
+      webAuthnOrigins.some((origin) => {
+        try {
+          const parsed = new URL(origin);
+          const localHttp =
+            parsed.protocol === 'http:' &&
+            (parsed.hostname === 'localhost' ||
+              parsed.hostname === '127.0.0.1');
+          const rpHostMatch =
+            parsed.hostname === rpId || parsed.hostname.endsWith(`.${rpId}`);
+          return (
+            !rpId ||
+            !rpHostMatch ||
+            (localHttp && nodeEnv !== 'development' && nodeEnv !== 'test')
+          );
+        } catch {
+          return true;
+        }
+      })
+    ) {
       return helpers.error('any.invalid');
     }
 
