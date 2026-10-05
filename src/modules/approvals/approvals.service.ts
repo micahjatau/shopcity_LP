@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ApprovalStatus } from '@prisma/client';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { CursorPageRequest } from '../../common/pagination/cursor-pagination';
@@ -12,8 +13,9 @@ export class ApprovalsService {
     tenantId: string,
     actor: AuthContext,
     page?: CursorPageRequest,
+    statuses?: ApprovalStatus[],
   ) {
-    return this.loyaltyService.listApprovals(tenantId, actor, page);
+    return this.loyaltyService.listApprovals(tenantId, actor, page, statuses);
   }
 
   async approveReceipt(

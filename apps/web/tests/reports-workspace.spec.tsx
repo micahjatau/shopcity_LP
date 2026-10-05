@@ -34,6 +34,45 @@ describe('ReportsWorkspace', () => {
     } as never);
   });
 
+  it('uses the shared supervisor period without exposing raw branch controls', async () => {
+    const { rerender } = render(
+      <ReportsWorkspace
+        period={{ from: '2026-09-01', to: '2026-09-07' }}
+        hideScopeInputs
+      />,
+    );
+
+    await waitFor(() => {
+      expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: '2026-09-01',
+          to: '2026-09-07',
+          branchId: undefined,
+        }),
+        expect.any(Object),
+      );
+    });
+    expect(screen.queryByLabelText('Branch filter')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('From date')).not.toBeInTheDocument();
+
+    rerender(
+      <ReportsWorkspace
+        period={{ from: '2026-09-08', to: '2026-09-30' }}
+        hideScopeInputs
+      />,
+    );
+    await waitFor(() => {
+      expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: '2026-09-08',
+          to: '2026-09-30',
+          branchId: undefined,
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
   it('renders an explicit empty state for reports without rows', async () => {
     render(<ReportsWorkspace />);
 

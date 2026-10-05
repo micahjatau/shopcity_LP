@@ -47,6 +47,8 @@ describe('customer email identity', () => {
         phone: '08012345678',
         email: 'Ada.Lovelace@ShopCity.Local',
         cardSerialNumber: 'SC-EMAIL-0001',
+        loyaltyConsent: true,
+        marketingOptIn: false,
       },
       'customer-email-create',
     )) as {

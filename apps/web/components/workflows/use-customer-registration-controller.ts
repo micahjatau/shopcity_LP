@@ -15,6 +15,8 @@ export type CustomerRegistrationFormState = {
   email: string;
   cardSerialNumber: string;
   isStaff: boolean;
+  loyaltyConsent: boolean;
+  marketingOptIn: boolean;
 };
 
 type RegistrationMode = 'create' | 'update';
@@ -58,6 +60,10 @@ export function useCustomerRegistrationController({
       setMessage('Initial card serial number is required.');
       return;
     }
+    if (mode === 'create' && form.loyaltyConsent !== true) {
+      setMessage('Loyalty-service consent is required.');
+      return;
+    }
     if (mode === 'update' && !selectedId) {
       setMessage('Select a customer before editing.');
       return;
@@ -74,6 +80,8 @@ export function useCustomerRegistrationController({
               {
                 ...basePayload,
                 cardSerialNumber: form.cardSerialNumber.trim(),
+                loyaltyConsent: form.loyaltyConsent === true,
+                marketingOptIn: form.marketingOptIn === true,
               } satisfies CreateCustomerDto,
               createApiRequest({
                 csrf: true,

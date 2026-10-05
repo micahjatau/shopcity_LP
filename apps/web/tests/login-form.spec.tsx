@@ -19,6 +19,17 @@ describe('LoginForm', () => {
     jest.mocked(loginWithCredentials).mockReset();
   });
 
+  it('shows device credentials for local development sign-in', () => {
+    render(<LoginForm />);
+
+    expect(screen.getByText('Local device credentials')).toBeVisible();
+    expect(screen.getByLabelText('Device ID')).toBeVisible();
+    expect(screen.getByLabelText('Device attestation secret')).toBeVisible();
+    expect(
+      screen.getByText(/active device ID and one-time attestation secret/i),
+    ).toBeVisible();
+  });
+
   it('does not persist the raw device secret in browser storage', () => {
     render(<LoginForm />);
 

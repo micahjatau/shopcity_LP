@@ -1,13 +1,5 @@
-import { TransactionWorkspace } from '../../../../components/workflows/transaction-workspace';
+import { SupervisorTransactionsDashboard } from '../../../../components/workflows/supervisor-transactions-dashboard';
 
 export default function SupervisorTransactionsPage() {
-  return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <TransactionWorkspace
-        backHref="/supervisor"
-        backLabel="Back to supervisor"
-        presentation="supervisor"
-      />
-    </section>
-  );
+  return <SupervisorTransactionsDashboard />;
 }

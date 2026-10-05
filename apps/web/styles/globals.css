@@ -5,6 +5,7 @@
 @import './cashier-design-system.css';
 @import './cashier-routes.css';
 @import './supervisor-routes.css';
+@import './supervisor-reports.css';
 @import './shell-components.css';
 
 /* Keep semantic labels available to assistive technology without consuming layout space. */
@@ -419,10 +420,32 @@ main {
 }
 
 .login-device-fields {
-  position: absolute;
-  left: -10000px;
-  width: 1px;
-  overflow: hidden;
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  color: #fff;
+}
+
+.login-device-fields legend {
+  padding-inline: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.login-device-fields p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.login-device-fields label {
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .login-page {

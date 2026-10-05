@@ -14,6 +14,7 @@ import {
   ApiBearerAuth,
   ApiHeader,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -260,6 +261,37 @@ const customerLedgerResponseSchema = {
   },
 } as const;
 
+const supervisorTransactionSearchSchema = {
+  type: 'object',
+  required: ['items', 'nextCursor', 'hasMore'],
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: [
+          'transactionId',
+          'receiptNumber',
+          'operation',
+          'amountKobo',
+          'status',
+          'occurredAt',
+        ],
+        properties: {
+          transactionId: { type: 'string', format: 'uuid' },
+          receiptNumber: { type: 'string' },
+          operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          amountKobo: { type: 'integer' },
+          status: { type: 'string' },
+          occurredAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+    nextCursor: { type: 'string', nullable: true },
+    hasMore: { type: 'boolean' },
+  },
+} as const;
+
 const earnConfirmedResponseSchema = {
   type: 'object',
   required: [
@@ -460,6 +492,32 @@ export class LoyaltyController {
 
         return response;
       });
+  }
+
+  @Get('transactions')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR)
+  @ApiQuery({ name: 'receiptNumber', required: true, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false, type: String })
+  @apiSuccessEnvelopeResponse({
+    description: 'Supervisor transactions matching a receipt number',
+    dataSchema: supervisorTransactionSearchSchema,
+  })
+  @ApiOperation({ summary: 'Search branch transactions by receipt number' })
+  searchTransactionsByReceipt(
+    @Req() request: AuthenticatedRequest,
+    @Query('receiptNumber') receiptNumber?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.loyaltyService.searchTransactionsByReceipt(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      receiptNumber,
+      limit,
+      cursor,
+    );
   }
 
   @Get('transactions/:id')

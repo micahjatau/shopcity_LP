@@ -3,6 +3,28 @@ import { CardStatus, UserRole } from '@prisma/client';
 import { CustomersService } from './customers.service';
 
 describe('CustomersService', () => {
+  it('rejects registration without affirmative loyalty consent', async () => {
+    const service = new CustomersService(
+      {} as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+    await expect(
+      service.createCustomer(
+        'tenant-id',
+        actorStub(UserRole.SUPERVISOR),
+        {
+          fullName: 'Ada Customer',
+          phone: '+2348012345678',
+          cardSerialNumber: 'CARD-001',
+          loyaltyConsent: false,
+          marketingOptIn: false,
+        },
+        'onboarding-consent-001',
+      ),
+    ).rejects.toThrow('Loyalty-service consent is required');
+  });
+
   it('creates the customer and initial card in one idempotent transaction', async () => {
     const customer = customerRecord({ id: 'created-customer' });
     const card = {
@@ -11,6 +33,7 @@ describe('CustomersService', () => {
       status: CardStatus.ACTIVE,
     };
     const cardCreate = jest.fn().mockResolvedValue(card);
+    const consentCreate = jest.fn().mockResolvedValue(undefined);
     const idempotencyUpdate = jest.fn().mockResolvedValue(undefined);
     const prisma: any = {
       idempotencyRecord: {
@@ -28,6 +51,7 @@ describe('CustomersService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
         create: cardCreate,
       },
+      customerConsent: { create: consentCreate },
       $transaction: jest.fn((callback: (client: unknown) => unknown): unknown =>
         callback(prisma),
       ),
@@ -47,6 +71,8 @@ describe('CustomersService', () => {
           fullName: 'Ada Customer',
           phone: '+2348012345678',
           cardSerialNumber: ' card-001 ',
+          loyaltyConsent: true,
+          marketingOptIn: false,
         },
         'onboarding-001',
       ),
@@ -62,13 +88,24 @@ describe('CustomersService', () => {
       }) as Record<string, unknown>,
       select: { id: true, barcodeValue: true, status: true },
     });
+    expect(consentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tenantId: 'tenant-id',
+        customerId: 'created-customer',
+        capturedBy: 'user-id',
+        loyaltyConsent: true,
+        marketingOptIn: false,
+        consentVersion: 'v1.2',
+        privacyNoticeVersion: 'v2.0',
+      }) as Record<string, unknown>,
+    });
     expect(idempotencyUpdate).toHaveBeenCalledTimes(1);
     expect(auditService.recordWithClient).toHaveBeenCalledTimes(2);
   });
 
   it('does not complete idempotency when initial card creation fails', async () => {
     const idempotencyUpdate = jest.fn().mockResolvedValue(undefined);
-    const prisma: any = {
+    const prisma = {
       idempotencyRecord: {
         deleteMany: jest.fn().mockResolvedValue(undefined),
         findUnique: jest.fn().mockResolvedValue(null),
@@ -80,6 +117,7 @@ describe('CustomersService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(customerRecord()),
       },
+      customerConsent: { create: jest.fn().mockResolvedValue(undefined) },
       card: {
         findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockRejectedValue(new Error('card write failed')),
@@ -102,6 +140,8 @@ describe('CustomersService', () => {
           fullName: 'Ada Customer',
           phone: '+2348012345678',
           cardSerialNumber: 'CARD-001',
+          loyaltyConsent: true,
+          marketingOptIn: false,
         },
         'onboarding-002',
       ),
@@ -126,6 +166,8 @@ describe('CustomersService', () => {
           fullName: 'Ada Customer',
           phone: '+2348012345678',
           cardSerialNumber: 'CARD-001',
+          loyaltyConsent: true,
+          marketingOptIn: false,
         }),
       )
       .digest('hex');
@@ -151,6 +193,8 @@ describe('CustomersService', () => {
           fullName: 'Ada Customer',
           phone: '+2348012345678',
           cardSerialNumber: 'CARD-001',
+          loyaltyConsent: true,
+          marketingOptIn: false,
         },
         'onboarding-001',
       ),

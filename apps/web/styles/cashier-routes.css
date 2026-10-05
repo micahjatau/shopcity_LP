@@ -1568,6 +1568,40 @@
   margin: 0;
   font-weight: 600;
 }
+.customer-registration-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--sc-color-semantic-surfaceSubtle);
+}
+.customer-registration-consent input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--sc-color-brand-primary);
+}
+.customer-registration-consent span {
+  display: grid;
+  gap: 4px;
+}
+.customer-registration-consent small {
+  color: var(--sc-color-textSecondary);
+  line-height: 1.5;
+}
+.customer-registration-consent-options {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--sc-color-borderSubtle);
+  border-radius: 12px;
+  padding: 12px;
+}
+.customer-registration-consent-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .customer-registration-actions {
   display: flex;
   flex-wrap: wrap;

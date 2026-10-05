@@ -36,20 +36,23 @@ describe('frontend accessibility gates', () => {
     expect(await runAxe(container)).toHaveLength(0);
   });
 
-  it('uses the featured grid span only for featured Admin and Supervisor routes', () => {
+  it('keeps the Supervisor overview minimal and Admin cards ranked', () => {
     const { container } = render(
       <main>
         <SupervisorPage />
         <AdminPage />
       </main>,
     );
+    const supervisorOverview = container.querySelector('.supervisor-page');
 
     expect(
-      container.querySelector('a[href="/supervisor/customers"]'),
-    ).toHaveStyle({ gridColumn: 'span 2' });
-    expect(
-      container.querySelector('a[href="/supervisor/transactions"]'),
-    ).not.toHaveStyle({ gridColumn: 'span 2' });
+      screen.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
+    ).toBeInTheDocument();
+    expect(supervisorOverview?.querySelectorAll('article')).toHaveLength(0);
+    expect(supervisorOverview?.querySelectorAll('a')).toHaveLength(0);
+    expect(supervisorOverview).not.toHaveTextContent(
+      /Approvals|Fraud|Reports|Transactions|Customers|Cards/,
+    );
     expect(container.querySelector('a[href="/admin/operations"]')).toHaveStyle({
       gridColumn: 'span 2',
     });
@@ -111,7 +114,7 @@ describe('frontend accessibility gates', () => {
       screen.getByRole('heading', { name: /cashier shell/i, level: 2 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /supervisor workspace/i, level: 1 }),
+      screen.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /admin shell/i, level: 1 }),

@@ -13,6 +13,8 @@ const emptyForm: CustomerRegistrationFormState = {
   email: '',
   cardSerialNumber: '',
   isStaff: false,
+  loyaltyConsent: false,
+  marketingOptIn: false,
 };
 
 export function CustomerRegistrationFlow({
@@ -20,7 +22,7 @@ export function CustomerRegistrationFlow({
 }: Readonly<{ backHref: string }>) {
   const [form, setForm] = useState<CustomerRegistrationFormState>(emptyForm);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const { busy, message, saveCustomer, setMessage } =
     useCustomerRegistrationController({
       form,
@@ -32,7 +34,7 @@ export function CustomerRegistrationFlow({
     });
 
   useEffect(() => {
-    if (message === 'Customer registered.') setStep(3);
+    if (message === 'Customer registered.') setStep(4);
   }, [message]);
 
   function updateForm(
@@ -42,7 +44,7 @@ export function CustomerRegistrationFlow({
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function proceedToReview(event: FormEvent<HTMLFormElement>) {
+  function proceedToConsent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.fullName.trim() || !form.phone.trim()) {
       setMessage('Full name and phone are required.');
@@ -52,8 +54,17 @@ export function CustomerRegistrationFlow({
       setMessage('Initial card serial number is required.');
       return;
     }
-    setMessage('Review the supported customer and initial-card details.');
+    setMessage('Capture the customer consent choices.');
     setStep(2);
+  }
+
+  function proceedToReview() {
+    if (!form.loyaltyConsent) {
+      setMessage('Loyalty-service consent is required.');
+      return;
+    }
+    setMessage('Review the customer details and consent choices.');
+    setStep(3);
   }
 
   function resetFlow() {
@@ -74,10 +85,7 @@ export function CustomerRegistrationFlow({
           Customers · Onboarding
         </p>
         <h1 id="customer-registration-title">Register new customer</h1>
-        <p>
-          Create a customer account with the supported profile and initial-card
-          details.
-        </p>
+        <p>Enrol the customer, capture consent, and issue an initial card.</p>
       </header>
 
       <section
@@ -91,8 +99,9 @@ export function CustomerRegistrationFlow({
         >
           {[
             ['1', 'Customer information'],
-            ['2', 'Review'],
-            ['3', 'Result'],
+            ['2', 'Consent'],
+            ['3', 'Review'],
+            ['4', 'Success'],
           ].map(([value, label]) => (
             <li
               key={value}
@@ -115,13 +124,14 @@ export function CustomerRegistrationFlow({
           <form
             className="customer-registration-form"
             data-od-id="register-information"
-            onSubmit={proceedToReview}
+            onSubmit={proceedToConsent}
           >
             <div className="customer-registration-stage-heading">
               <p>Step 1</p>
               <h2>Customer information</h2>
               <span>
-                Full name, phone number, and an initial card are required.
+                Name and phone number are required. Phone number is the
+                customer&apos;s unique identifier.
               </span>
             </div>
             <label htmlFor="customer-registration-full-name">
@@ -181,21 +191,82 @@ export function CustomerRegistrationFlow({
               >
                 Cancel
               </a>
-              <Button type="submit">Review details</Button>
+              <Button type="submit">Proceed</Button>
             </div>
           </form>
         ) : null}
 
         {step === 2 ? (
           <section
-            data-od-id="register-review"
+            data-od-id="register-consent"
             className="customer-registration-review"
           >
             <div className="customer-registration-stage-heading">
               <p>Step 2</p>
-              <h2>Review details</h2>
+              <h2>Consent</h2>
+              <span>Consent version v1.2 · Privacy notice v2.0</span>
+            </div>
+            <label className="customer-registration-consent">
+              <input
+                type="checkbox"
+                checked={form.loyaltyConsent}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    loyaltyConsent: event.target.checked,
+                  }))
+                }
+                aria-label="Loyalty service consent (required)"
+              />
               <span>
-                Confirm the supported registration details before submitting.
+                <strong>Loyalty service consent (required)</strong>
+                <small>
+                  The customer agrees to ShopCity holding purchase and wallet
+                  records to operate ShopCity Credit.
+                </small>
+              </span>
+            </label>
+            <label className="customer-registration-consent">
+              <input
+                type="checkbox"
+                checked={form.marketingOptIn}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    marketingOptIn: event.target.checked,
+                  }))
+                }
+                aria-label="Marketing opt-in (optional)"
+              />
+              <span>
+                <strong>Marketing opt-in (optional)</strong>
+                <small>Offers and campaign messages by WhatsApp or SMS.</small>
+              </span>
+            </label>
+            <Alert tone="info" title="Privacy notice v2.0">
+              Wallet data is retained for the life of the account. The customer
+              may request export or deletion at any ShopCity branch.
+            </Alert>
+            <div className="customer-registration-actions">
+              <Button variant="secondary" onClick={() => setStep(1)}>
+                Back
+              </Button>
+              <Button onClick={proceedToReview}>Proceed</Button>
+            </div>
+          </section>
+        ) : null}
+
+        {step === 3 ? (
+          <section
+            data-od-id="register-review"
+            className="customer-registration-review"
+          >
+            <div className="customer-registration-stage-heading">
+              <p>Step 3</p>
+              <h2>Review</h2>
+              <span>
+                Read the details and consent choices back to the customer before
+                creating the account.
               </span>
             </div>
             <dl>
@@ -204,16 +275,24 @@ export function CustomerRegistrationFlow({
                 <dd>{form.fullName}</dd>
               </div>
               <div>
-                <dt>Phone number</dt>
-                <dd>{form.phone}</dd>
-              </div>
-              <div>
                 <dt>Email</dt>
                 <dd>{form.email || 'Not provided'}</dd>
               </div>
               <div>
+                <dt>Phone number</dt>
+                <dd>{form.phone}</dd>
+              </div>
+              <div>
                 <dt>Initial card</dt>
                 <dd>{form.cardSerialNumber}</dd>
+              </div>
+              <div>
+                <dt>Loyalty consent · v1.2</dt>
+                <dd>{form.loyaltyConsent ? 'Granted' : 'Not granted'}</dd>
+              </div>
+              <div>
+                <dt>Marketing opt-in</dt>
+                <dd>{form.marketingOptIn ? 'Granted' : 'Declined'}</dd>
               </div>
             </dl>
             {message.includes('required') ? (
@@ -222,7 +301,7 @@ export function CustomerRegistrationFlow({
               </Alert>
             ) : null}
             <div className="customer-registration-actions">
-              <Button variant="secondary" onClick={() => setStep(1)}>
+              <Button variant="secondary" onClick={() => setStep(2)}>
                 Back
               </Button>
               <Button
@@ -235,7 +314,7 @@ export function CustomerRegistrationFlow({
           </section>
         ) : null}
 
-        {step === 3 ? (
+        {step === 4 ? (
           <section
             data-od-id="register-result"
             className="customer-registration-result"
@@ -248,7 +327,10 @@ export function CustomerRegistrationFlow({
               ✓
             </div>
             <h2>Registration successful</h2>
-            <p>The customer account and initial card are now registered.</p>
+            <p>
+              The customer account, initial card, and consent record are now
+              registered.
+            </p>
             <div className="customer-registration-actions">
               <a
                 className="sc-button sc-button--secondary sc-button--standard"

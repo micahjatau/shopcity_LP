@@ -44,10 +44,23 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
     await expect(
       page.getByRole('region', { name: /fraud flag list/i }),
     ).toBeVisible();
-    await expect(page.getByLabel('Fraud decision reason')).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /submit decision/i }),
-    ).toBeVisible();
+    const fraudReviewActions = page
+      .getByRole('region', { name: /fraud flag list/i })
+      .getByRole('button', { name: /^Review /i });
+    if ((await fraudReviewActions.count()) > 0) {
+      await fraudReviewActions.first().click();
+      const reviewDialog = page.getByRole('dialog', {
+        name: 'Review fraud case',
+      });
+      await expect(
+        reviewDialog.getByLabel('Fraud decision reason'),
+      ).toBeVisible();
+      await expect(
+        reviewDialog.getByRole('button', { name: 'Submit decision' }),
+      ).toBeVisible();
+    } else {
+      await expect(page.getByText(/No fraud flags match/i)).toBeVisible();
+    }
     for (const route of [
       '/admin/users',
       '/admin/devices',

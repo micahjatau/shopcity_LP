@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +31,7 @@ import {
   decodeCursor,
   encodeCursor,
   pageMeta,
+  parseCursorPageRequest,
 } from '../../common/pagination/cursor-pagination';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 import { LotAllocationService } from '../../common/balance/lot-allocation.service';
@@ -137,6 +139,21 @@ export interface TransactionAllocationItem {
     amountKobo: number;
     reversalLedgerEntryId: string;
   }>;
+}
+
+export interface SupervisorTransactionSearchItem {
+  transactionId: string;
+  receiptNumber: string;
+  operation: 'EARN' | 'REDEEM';
+  amountKobo: number;
+  status: LedgerEntryStatus;
+  occurredAt: string;
+}
+
+export interface SupervisorTransactionSearchResponse {
+  items: SupervisorTransactionSearchItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 export interface TransactionResponse {
@@ -248,11 +265,16 @@ function buildApprovalScopeWhere(
   };
 }
 
-function buildApprovalListWhere(tenantId: string, actor: AuthContext) {
+function buildApprovalListWhere(
+  tenantId: string,
+  actor: AuthContext,
+  statuses?: ApprovalStatus[],
+) {
   const branchId = requireBranchScope(actor);
 
   return {
     tenantId,
+    ...(statuses ? { status: { in: statuses } } : {}),
     ...(branchId
       ? {
           OR: [
@@ -997,6 +1019,91 @@ export class LoyaltyService {
     );
   }
 
+  async searchTransactionsByReceipt(
+    tenantId: string,
+    actor: AuthContext,
+    receiptNumber: string | undefined,
+    limitValue?: string,
+    cursor?: string,
+  ): Promise<SupervisorTransactionSearchResponse> {
+    if (actor.user.role !== UserRole.SUPERVISOR) {
+      throw new ForbiddenException(
+        'Supervisor transaction search is restricted',
+      );
+    }
+
+    const branchId = actor.user.branchId;
+    if (!branchId) {
+      throw new ForbiddenException(
+        'Supervisor transaction search requires a branch scope',
+      );
+    }
+
+    const normalizedReceiptNumber = normalizeReceiptIdentity(
+      normalizeReceiptNumber(receiptNumber ?? ''),
+    );
+    const { limit } = parseCursorPageRequest(limitValue, cursor, 10, 50);
+    const cursorPosition = cursor ? decodeCursor(cursor) : null;
+    const cursorTimestamp = cursorPosition
+      ? parseDate(cursorPosition.timestamp, 'cursor timestamp')
+      : null;
+    const where: Prisma.LoyaltyLedgerEntryWhereInput = {
+      tenantId,
+      type: { in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM] },
+      receipt: {
+        is: {
+          tenantId,
+          branchId,
+          normalizedPosReceiptNumber: normalizedReceiptNumber,
+        },
+      },
+      ...(cursorPosition && cursorTimestamp
+        ? {
+            OR: [
+              { effectiveAt: { lt: cursorTimestamp } },
+              {
+                effectiveAt: cursorTimestamp,
+                id: { lt: cursorPosition.id },
+              },
+            ],
+          }
+        : {}),
+    };
+    const entries = await this.prismaService.loyaltyLedgerEntry.findMany({
+      where,
+      orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: {
+        id: true,
+        type: true,
+        amountKobo: true,
+        status: true,
+        effectiveAt: true,
+        receipt: { select: { posReceiptNumber: true } },
+      },
+    });
+    const hasMore = entries.length > limit;
+    const pageItems = entries.slice(0, limit);
+    const lastItem = pageItems.at(-1);
+
+    return {
+      items: pageItems.map((entry) => ({
+        transactionId: entry.id,
+        receiptNumber:
+          entry.receipt?.posReceiptNumber ?? normalizedReceiptNumber,
+        operation: entry.type === LedgerEntryType.EARN ? 'EARN' : 'REDEEM',
+        amountKobo: Number(entry.amountKobo),
+        status: entry.status,
+        occurredAt: entry.effectiveAt.toISOString(),
+      })),
+      nextCursor:
+        hasMore && lastItem
+          ? encodeCursor(lastItem.id, lastItem.effectiveAt)
+          : null,
+      hasMore,
+    };
+  }
+
   async getTransaction(
     tenantId: string,
     actor: AuthContext,
@@ -1327,10 +1434,11 @@ export class LoyaltyService {
     tenantId: string,
     actor: AuthContext,
     page?: CursorPageRequest,
+    statuses?: ApprovalStatus[],
   ) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
     const approvals = await this.prismaService.approval.findMany({
-      where: buildApprovalListWhere(tenantId, actor),
+      where: buildApprovalListWhere(tenantId, actor, statuses),
       orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
       include: {
         receipt: {

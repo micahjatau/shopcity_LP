@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,9 +14,10 @@ import {
   ApiBearerAuth,
   ApiHeader,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { ApprovalStatus, UserRole } from '@prisma/client';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
 import type { AuthContext } from '../../common/auth/session.types';
@@ -26,6 +28,27 @@ import {
 import { parseCursorPageRequest } from '../../common/pagination/cursor-pagination';
 import { ApprovalDecisionDto } from '../loyalty/loyalty.dto';
 import { ApprovalsService } from './approvals.service';
+
+type ApprovalStatusFilter =
+  'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+
+function parseApprovalStatusFilter(
+  status?: string,
+): ApprovalStatus[] | undefined {
+  if (!status || status === 'ALL') return undefined;
+  switch (status as ApprovalStatusFilter) {
+    case 'PENDING':
+      return [ApprovalStatus.PENDING];
+    case 'APPROVED':
+      return [ApprovalStatus.APPROVED, ApprovalStatus.EXECUTED];
+    case 'REJECTED':
+      return [ApprovalStatus.REJECTED];
+    case 'EXPIRED':
+      return [ApprovalStatus.EXPIRED];
+    default:
+      throw new BadRequestException('Invalid approval status filter');
+  }
+}
 
 const approvalListResponseSchema = {
   type: 'object',
@@ -110,19 +133,28 @@ export class ApprovalsController {
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
-    description: 'Pending approvals',
+    description: 'Cursor-paginated approvals in the caller’s authorized scope',
     dataSchema: approvalListResponseSchema,
   })
   @ApiOperation({ summary: 'List approvals' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'],
+    description:
+      'Filter before cursor pagination; APPROVED includes executed approvals.',
+  })
   listApprovals(
     @CurrentSession() context: AuthContext,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
+    @Query('status') status?: string,
   ) {
     return this.approvalsService.listApprovals(
       context.user.tenantId,
       context,
       parseCursorPageRequest(limit, cursor),
+      parseApprovalStatusFilter(status),
     );
   }
 

@@ -62,7 +62,7 @@ Registration MUST open with an empty create form, require the fields supported b
 
 ### Requirement: Customer management requires explicit selection
 
-Manage customers MUST require deliberate selection from customer search/results before profile editing, status change, or card handoff. It MUST show customer identity/contact/status and only compact relevant linked-card context; customer and card statuses MUST remain distinct.
+Manage customers MUST require deliberate selection from customer search/results before profile editing, status change, or card handoff. It MUST show customer identity/contact/status and only compact relevant linked-card context; customer and card statuses MUST remain distinct. At desktop widths, the selected workspace MUST use a compact search column at approximately 40% and a customer-detail column at approximately 60%, within a centered maximum width of about 1120 px; narrow screens MUST stack the columns. Search actions MUST be compact and inline with the query field when space permits, and results MUST be distinct selectable rows with an obvious selected state. Profile editing and account-status management MUST be visually separated; status confirmation controls MUST remain hidden until the operator chooses to change status. Customer/card states MUST use clearly labeled semantic status badges, not color alone.
 
 #### Scenario: Search and inspect a customer
 
@@ -76,6 +76,14 @@ Manage customers MUST require deliberate selection from customer search/results 
 - **WHEN** the user edits supported profile fields or requests a supported customer status transition
 - **THEN** the existing customer endpoint is used and its response/error remains authoritative
 - **AND** customer status is labeled as customer status, not card status.
+
+#### Scenario: Status controls are progressive
+
+- **GIVEN** a customer is explicitly selected and loaded
+- **WHEN** the profile is displayed
+- **THEN** profile save is the primary action and account status is shown as a labeled semantic badge
+- **AND** status selection and typed confirmation are hidden until the operator chooses to change account status
+- **AND** opening status management does not submit a write.
 
 #### Scenario: Open linked card task
 

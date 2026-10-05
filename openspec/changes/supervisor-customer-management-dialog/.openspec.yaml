@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-29
+goal: Let supervisors search customer rows, edit verified customer accounts in a
+  focused dialog, and return safely after saving or discarding.

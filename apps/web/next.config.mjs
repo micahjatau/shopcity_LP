@@ -13,7 +13,7 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'self' https://opendesign.micahn8n.name.ng",
+  ...(isProduction ? ["frame-ancestors 'none'"] : []),
   ...(isProduction ? ['upgrade-insecure-requests'] : []),
 ].join('; ');
 

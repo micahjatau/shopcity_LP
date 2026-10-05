@@ -75,6 +75,20 @@ describe('OpenAPI contract (int)', () => {
     ).toBeDefined();
   });
 
+  it('documents required registration consent choices', () => {
+    const document = buildOpenApiDocument(app);
+    const createSchema = resolveRequestBodySchema(
+      document,
+      document.paths['/api/v1/customers']?.post?.requestBody,
+    );
+
+    expect(createSchema?.required).toEqual(
+      expect.arrayContaining(['loyaltyConsent', 'marketingOptIn']),
+    );
+    expect(createSchema?.properties?.loyaltyConsent?.type).toBe('boolean');
+    expect(createSchema?.properties?.marketingOptIn?.type).toBe('boolean');
+  });
+
   it('documents the receipt capture contract', () => {
     const document = buildOpenApiDocument(app);
     const createSchema = resolveRequestBodySchema(
@@ -162,6 +176,36 @@ describe('OpenAPI contract (int)', () => {
     expect(
       responseExampleCodes(approvalDecisionOperation?.responses?.['422']),
     ).toEqual(['APPROVAL_POLICY_CHANGED']);
+  });
+
+  it('documents the branch-scoped Supervisor receipt search contract', () => {
+    const document = buildOpenApiDocument(app);
+    const operation = document.paths['/api/v1/transactions']?.get;
+    const dataSchema = resolveResponseDataSchema(
+      document,
+      operation?.responses?.['200'],
+    );
+    const itemsSchema = dataSchema?.properties?.items as
+      { items?: { properties?: Record<string, unknown> } } | undefined;
+    const itemProperties = itemsSchema?.items?.properties;
+    const parameterNames = JSON.stringify(operation?.parameters ?? []);
+
+    expect(operation).toBeDefined();
+    expect(parameterNames).toContain('receiptNumber');
+    expect(parameterNames).toContain('limit');
+    expect(parameterNames).toContain('cursor');
+    expect(parameterNames).toContain('"required":true');
+    expect(dataSchema?.required).toEqual(
+      expect.arrayContaining(['items', 'nextCursor', 'hasMore']),
+    );
+    expect(itemProperties?.transactionId).toBeDefined();
+    expect(itemProperties?.receiptNumber).toBeDefined();
+    expect(itemProperties?.operation).toBeDefined();
+    expect(itemProperties?.amountKobo).toBeDefined();
+    expect(itemProperties?.status).toBeDefined();
+    expect(itemProperties?.occurredAt).toBeDefined();
+    expect(itemProperties).not.toHaveProperty('customerPhone');
+    expect(itemProperties).not.toHaveProperty('customerEmail');
   });
 
   it('documents the public reversal review contract', () => {

@@ -56,11 +56,37 @@ describe('phase 1 service flows', () => {
         fullName: 'Ada Lovelace',
         phone: '08012345678',
         cardSerialNumber: 'SC-PHASE1-0001',
+        loyaltyConsent: true,
+        marketingOptIn: false,
       },
       'phase-1-customer-create',
     );
 
     expect(created.phoneE164).toBe('+2348012345678');
+    const consent = await prisma.customerConsent.findUniqueOrThrow({
+      where: {
+        tenantId_customerId: {
+          tenantId: seed.tenant.id,
+          customerId: created.id,
+        },
+      },
+    });
+    expect(consent).toMatchObject({
+      loyaltyConsent: true,
+      marketingOptIn: false,
+      consentVersion: 'v1.2',
+      privacyNoticeVersion: 'v2.0',
+      capturedBy: seed.user.id,
+    });
+    await expect(
+      prisma.customerConsent.update({
+        where: { id: consent.id },
+        data: { marketingOptIn: true },
+      }),
+    ).rejects.toThrow('CustomerConsent records are append-only');
+    await expect(
+      prisma.customerConsent.delete({ where: { id: consent.id } }),
+    ).rejects.toThrow('CustomerConsent records are append-only');
 
     await expect(
       service.createCustomer(
@@ -70,6 +96,8 @@ describe('phase 1 service flows', () => {
           fullName: 'Ada Lovelace',
           phone: '+2348012345678',
           cardSerialNumber: 'SC-PHASE1-0002',
+          loyaltyConsent: true,
+          marketingOptIn: false,
         },
         'phase-1-customer-duplicate',
       ),

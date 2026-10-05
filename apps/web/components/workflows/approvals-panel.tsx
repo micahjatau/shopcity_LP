@@ -1,159 +1,194 @@
 'use client';
 
-import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   approvalsControllerDecideApprovalV1,
   approvalsControllerListApprovalsV1,
   type ApprovalDecisionDtoDecision,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Alert, Button, Input, RadioGroup, Table } from '../ui';
-import { StatusBadge } from '../shopcity';
+import { Alert, Button, Dialog, Input, RadioGroup, Select, Table } from '../ui';
 
 type ApprovalRecord = {
   [key: string]: unknown;
   id?: string;
   status?: string;
-  customer?: { fullName?: string };
+  targetType?: string;
+  customer?: { id?: string; fullName?: string; branchId?: string | null };
   customerId?: string;
   reasonCode?: string;
   ruleCode?: string;
   branchId?: string;
-  receipt?: unknown;
+  receipt?: {
+    posReceiptNumber?: string;
+    purchaseAmountKobo?: number;
+    [key: string]: unknown;
+  } | null;
   referenceNumber?: string;
   receiptNumber?: string;
   posReceiptNumber?: string;
+  requestedAmountKobo?: number;
   amountKobo?: number;
+  requestedAt?: string;
+  decidedAt?: string | null;
+  executedAt?: string | null;
+};
+
+type StatusFilter = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+
+const reasonOptions: Record<
+  ApprovalDecisionDtoDecision,
+  { value: string; label: string }[]
+> = {
+  APPROVED: [
+    { value: 'Reviewed and validated', label: 'Reviewed and validated' },
+    {
+      value: 'Customer and transaction details confirmed',
+      label: 'Customer and transaction details confirmed',
+    },
+    { value: 'Meets approval policy', label: 'Meets approval policy' },
+  ],
+  REJECTED: [
+    {
+      value: 'Insufficient supporting information',
+      label: 'Insufficient supporting information',
+    },
+    {
+      value: 'Does not meet approval policy',
+      label: 'Does not meet approval policy',
+    },
+    {
+      value: 'Duplicate or invalid transaction evidence',
+      label: 'Duplicate or invalid transaction evidence',
+    },
+    { value: 'Suspected fraud or misuse', label: 'Suspected fraud or misuse' },
+  ],
 };
 
 export function ApprovalsPanel() {
   const [items, setItems] = useState<ApprovalRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('Loading approvals…');
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [decision, setDecision] =
     useState<ApprovalDecisionDtoDecision>('APPROVED');
   const [reason, setReason] = useState('');
-  const [responseData, setResponseData] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
-  const [responseKind, setResponseKind] = useState<'success' | 'error' | null>(
-    null,
-  );
-  const [limit, setLimit] = useState(3);
+  const [note, setNote] = useState('');
+  const [limit, setLimit] = useState(10);
   const [cursorHistory, setCursorHistory] = useState<string[]>(['']);
   const cursorHistoryRef = useRef(cursorHistory);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING');
   const [searchTerm, setSearchTerm] = useState('');
 
   cursorHistoryRef.current = cursorHistory;
 
-  const filteredItems = useMemo(
-    () =>
-      items.filter((item) => {
-        const matchesStatus =
-          statusFilter === 'ALL' || item.status === statusFilter;
-        const haystack = [
-          item.id,
-          item.customer?.fullName,
-          item.customerId,
-          item.reasonCode,
-          item.ruleCode,
-          item.branchId,
-          item.referenceNumber,
-          item.receiptNumber,
-          item.posReceiptNumber,
-          item.receipt ? JSON.stringify(item.receipt) : null,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        const matchesSearch =
-          !searchTerm.trim() ||
-          haystack.includes(searchTerm.trim().toLowerCase());
-        return matchesStatus && matchesSearch;
-      }),
-    [items, searchTerm, statusFilter],
-  );
+  const filteredItems = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return items;
+    return items.filter((item) =>
+      [
+        item.id,
+        item.customer?.fullName,
+        item.customer?.id,
+        item.customerId,
+        item.reasonCode,
+        item.ruleCode,
+        item.branchId,
+        item.receipt?.posReceiptNumber,
+        item.posReceiptNumber,
+        item.receiptNumber,
+        item.referenceNumber,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [items, searchTerm]);
 
   const selectedItem = useMemo(
-    () => filteredItems.find((item) => item.id === selectedId) ?? null,
-    [filteredItems, selectedId],
+    () => items.find((item) => item.id === selectedId) ?? null,
+    [items, selectedId],
   );
-
-  const pendingCount = filteredItems.filter(
-    (item) => item.status === 'PENDING',
-  ).length;
-  const selectedPreview: Array<[string, unknown]> = selectedItem
-    ? [
-        [
-          'Customer',
-          selectedItem.customer?.fullName ?? selectedItem.customerId ?? '—',
-        ],
-        ['Status', selectedItem.status ?? '—'],
-        [
-          'Reason code',
-          selectedItem.reasonCode ?? selectedItem.ruleCode ?? '—',
-        ],
-        ['Branch', selectedItem.branchId ?? '—'],
-        ['Receipt', selectedItem.receipt ?? '—'],
-        ['Amount', selectedItem.amountKobo],
-        ['Decision', decision],
-        ['Decision reason', reason || 'Enter a decision reason'],
-      ]
-    : [];
+  const isPending = selectedItem?.status === 'PENDING';
+  const decisionReason = [reason, note.trim()].filter(Boolean).join(' — ');
+  const resultsTitle = {
+    ALL: 'All approvals',
+    PENDING: 'Transactions awaiting approval',
+    APPROVED: 'Approved transactions',
+    REJECTED: 'Rejected transactions',
+    EXPIRED: 'Expired approvals',
+  }[statusFilter];
 
   const refresh = useCallback(
-    async (cursorOverride?: string) => {
+    async (cursorOverride = '') => {
       setLoading(true);
       try {
-        const activeCursor =
-          cursorOverride ??
-          cursorHistoryRef.current[cursorHistoryRef.current.length - 1] ??
-          '';
         const response = await approvalsControllerListApprovalsV1(
-          { limit: String(limit), cursor: activeCursor },
+          {
+            limit: String(limit),
+            cursor: cursorOverride,
+            status: statusFilter,
+          },
           createApiRequest({ csrf: true }),
         );
         if (response.status === 200) {
           const nextItems = response.data.data.items as ApprovalRecord[];
           setItems(nextItems);
           setNextCursor(response.data.data.nextCursor ?? null);
-          setSelectedId(nextItems[0]?.id ?? null);
-          setMessage(`Loaded ${nextItems.length} approvals.`);
+          setSelectedId((current) =>
+            nextItems.some((item) => item.id === current) ? current : null,
+          );
+          setMessage('');
         } else {
           setMessage(`Approvals unavailable (${response.status}).`);
         }
       } catch {
-        setMessage('Approvals unavailable.');
+        setMessage('Approvals unavailable. Try refreshing the queue.');
       } finally {
         setLoading(false);
       }
     },
-    [limit],
+    [limit, statusFilter],
   );
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    setCursorHistory(['']);
+    setSelectedId(null);
+    void refresh('');
+  }, [limit, statusFilter, refresh]);
+
+  function refreshFromFirstPage() {
+    setCursorHistory(['']);
+    setSelectedId(null);
+    void refresh('');
+  }
+
+  async function goToNextPage() {
+    if (!nextCursor || loading) return;
+    const cursor = nextCursor;
+    setCursorHistory((current) => [...current, cursor]);
+    await refresh(cursor);
+  }
+
+  async function goToPreviousPage() {
+    if (cursorHistory.length <= 1 || loading) return;
+    const history = cursorHistory.slice(0, -1);
+    setCursorHistory(history);
+    await refresh(history[history.length - 1] ?? '');
+  }
 
   async function handleDecision() {
-    if (!selectedId || !reason.trim()) {
-      setMessage('Enter an explicit decision reason before submitting.');
-      return;
-    }
-    setResponseData(null);
-    setResponseKind(null);
+    if (!selectedId || !isPending || !reason || submitting) return;
+    const approvalId = selectedId;
+    setSubmitting(true);
     try {
       const response = await approvalsControllerDecideApprovalV1(
-        selectedId,
-        {
-          decision,
-          reason: reason.trim(),
-        },
+        approvalId,
+        { decision, reason: decisionReason },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       const payload =
@@ -165,350 +200,349 @@ export function ApprovalsPanel() {
           payload?.error && typeof payload.error === 'object'
             ? (payload.error as Record<string, unknown>)
             : payload;
-        const code = typeof error?.code === 'string' ? error.code : 'UNKNOWN';
-        const detail =
-          typeof error?.message === 'string'
-            ? error.message
-            : 'Approval decision unavailable.';
-        setResponseData(payload);
-        setResponseKind('error');
-        setMessage(`${code}: ${detail}`);
+        setMessage(
+          `${typeof error?.code === 'string' ? error.code : 'DECISION_FAILED'}: ${typeof error?.message === 'string' ? error.message : 'The decision was not recorded.'}`,
+        );
         return;
       }
-
-      setResponseData(payload);
-      setResponseKind('success');
-      await refresh();
-      setMessage(`Decision sent for ${selectedId}.`);
+      setSelectedId(null);
+      setReason('');
+      setNote('');
+      setMessage(`Decision submitted for approval ${approvalId}.`);
+      setCursorHistory(['']);
+      await refresh('');
+      setMessage(`Decision submitted for approval ${approvalId}.`);
     } catch {
-      setResponseData(null);
-      setResponseKind('error');
-      setMessage('Approval decision unavailable.');
+      setMessage(
+        'Decision could not be confirmed. Refresh the queue before retrying.',
+      );
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function goToNextPage() {
-    if (!nextCursor) return;
-    setCursorHistory((current) => [...current, nextCursor]);
-    await refresh(nextCursor);
-  }
-
-  async function goToPreviousPage() {
-    if (cursorHistory.length <= 1) return;
-    const nextHistory = cursorHistory.slice(0, -1);
-    setCursorHistory(nextHistory);
-    await refresh(nextHistory[nextHistory.length - 1] ?? '');
-  }
-
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-4)' }}>
-      <h2 style={{ margin: 0 }}>Approvals panel</h2>
-      <div style={statusRow}>
-        <StatusBadge label={`Loaded ${filteredItems.length}`} tone="info" />
-        <StatusBadge label={`Pending ${pendingCount}`} tone="warning" />
-        <StatusBadge
-          label={selectedItem ? 'Selected' : 'No selection'}
-          tone="neutral"
+    <section className="approval-queue" aria-label="Approval queue">
+      <div className="approval-queue__toolbar">
+        <Select
+          aria-label="Approval status filter"
+          value={statusFilter}
+          options={[
+            { value: 'PENDING', label: 'Needs review' },
+            { value: 'APPROVED', label: 'Approved' },
+            { value: 'REJECTED', label: 'Rejected' },
+            { value: 'EXPIRED', label: 'Expired' },
+            { value: 'ALL', label: 'All approvals' },
+          ]}
+          onChange={(event) =>
+            setStatusFilter(event.target.value as StatusFilter)
+          }
         />
-        {selectedItem ? (
-          <StatusBadge
-            label={selectedItem.status ?? 'Unknown'}
-            tone={selectedItem.status === 'PENDING' ? 'warning' : 'neutral'}
-          />
-        ) : null}
-      </div>
-
-      <div style={toolbarRow}>
         <Input
           aria-label="Approval search"
-          placeholder="Search current page"
+          placeholder="Search results"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
         />
-        <Input
+        <Select
           aria-label="Approval page size"
-          type="number"
-          min={1}
-          max={20}
-          value={limit}
-          onChange={(event) => setLimit(Number(event.target.value) || 3)}
-        />
-        <Input
-          aria-label="Approval status filter"
-          placeholder="ALL or PENDING"
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value.toUpperCase())
-          }
+          value={String(limit)}
+          options={[
+            { value: '10', label: '10 per page' },
+            { value: '20', label: '20 per page' },
+            { value: '50', label: '50 per page' },
+          ]}
+          onChange={(event) => setLimit(Number(event.target.value))}
         />
         <Button
           variant="secondary"
-          onClick={() => void refresh()}
+          onClick={refreshFromFirstPage}
           loading={loading}
         >
           Refresh approvals
         </Button>
-        <Button
-          variant="secondary"
-          onClick={() => void goToPreviousPage()}
-          disabled={cursorHistory.length <= 1 || loading}
-        >
-          Previous page
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => void goToNextPage()}
-          disabled={!nextCursor || loading}
-        >
-          Next page
-        </Button>
-        <Button
-          onClick={() => void handleDecision()}
-          disabled={!selectedId || !reason.trim()}
-        >
-          Submit decision
-        </Button>
       </div>
 
-      <p style={{ margin: 0, color: 'var(--sc-color-semantic-textSecondary)' }}>
-        {message}
-      </p>
-
-      {selectedItem ? (
-        <div style={workspaceGrid}>
-          <section style={cardStyle}>
-            <Alert tone="info" title="Selected approval">
-              {describeApproval(selectedItem)}
-            </Alert>
-            <Table>
-              <tbody>
-                {Object.entries(selectedItem)
-                  .filter(([key]) =>
-                    [
-                      'id',
-                      'status',
-                      'customer',
-                      'customerId',
-                      'reasonCode',
-                      'branchId',
-                      'receipt',
-                      'amountKobo',
-                    ].includes(key),
-                  )
-                  .slice(0, 8)
-                  .map(([key, value]) => (
-                    <tr key={key}>
-                      <th scope="row">{key}</th>
-                      <td>{describeValue(value)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </Table>
-          </section>
-          <section style={cardStyle}>
-            <Alert tone="warning" title="Decision preview">
-              The selected approval is reviewed before the backend records the
-              final decision.
-            </Alert>
-            <Table>
-              <tbody>
-                {selectedPreview.map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{describeValue(value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </section>
-        </div>
+      {message ? (
+        <p
+          className="approval-queue__feedback"
+          role="status"
+          aria-live="polite"
+        >
+          {message}
+        </p>
       ) : null}
 
-      {filteredItems.length === 0 ? (
-        <Alert tone="warning" title="No approvals">
-          No approval records matched the current filters.
-        </Alert>
-      ) : (
-        <div style={{ display: 'grid', gap: 'var(--sc-spacing-3)' }}>
-          {filteredItems.slice(0, 3).map((item) => (
-            <button
-              key={approvalKey(item)}
-              type="button"
-              onClick={() => setSelectedId(item.id ?? null)}
-              style={{
-                textAlign: 'left',
-                padding: 'var(--sc-spacing-4)',
-                borderRadius: 'var(--sc-radius-lg)',
-                border: `1px solid ${
-                  selectedId === item.id
-                    ? 'var(--sc-color-brand-600)'
-                    : 'var(--sc-color-semantic-border)'
-                }`,
-                background: 'var(--sc-color-neutral-0)',
-              }}
-            >
-              <div style={listHeaderRow}>
-                <strong>{approvalLabel(item)}</strong>
-                <StatusBadge
-                  label={item.status ?? 'UNKNOWN'}
-                  tone={item.status === 'PENDING' ? 'warning' : 'neutral'}
-                />
-              </div>
-              <p style={listBodyText}>{item.reasonCode ?? 'No reason code'}</p>
-              <div style={listMetaRow}>
-                <span>
-                  {describeValue(item.receipt ?? item.referenceNumber ?? '—')}
-                </span>
-                <span>{describeValue(item.amountKobo)}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <section style={cardStyle}>
-        <RadioGroup
-          name="approval-decision"
-          legend="Decision"
-          options={[
-            { value: 'APPROVED', label: 'Approve' },
-            { value: 'REJECTED', label: 'Reject' },
-          ]}
-          value={decision}
-          onValueChange={(value) =>
-            setDecision(value as ApprovalDecisionDtoDecision)
-          }
-        />
-        <Input
-          aria-label="Approval reason"
-          placeholder="Decision reason"
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-        />
-        <div style={statusRow}>
-          <StatusBadge
-            label={decision === 'APPROVED' ? 'Approve' : 'Reject'}
-            tone={decision === 'APPROVED' ? 'success' : 'danger'}
-          />
-          <StatusBadge
-            label={reason.trim() ? 'Reason ready' : 'Reason required'}
-            tone={reason.trim() ? 'info' : 'warning'}
-          />
-        </div>
-        <Alert tone="info" title="Decision context">
-          The selected approval is shown above before any decision is submitted.
-        </Alert>
-      </section>
-
-      {responseData ? (
-        <section style={cardStyle}>
-          <Alert
-            tone={responseKind === 'error' ? 'danger' : 'success'}
-            title={
-              responseKind === 'error' ? 'Backend error' : 'Backend response'
-            }
-          >
-            {responseKind === 'error'
-              ? 'The backend rejected the decision.'
-              : 'The backend returned a decision result.'}
-          </Alert>
-          <Table>
+      <section
+        className="approval-queue__results"
+        aria-label="Approval results"
+      >
+        <header className="approval-queue__results-header">
+          <h2>{resultsTitle}</h2>
+          <p>
+            {filteredItems.length} result{filteredItems.length === 1 ? '' : 's'}
+          </p>
+        </header>
+        <div className="approval-queue__table-wrap">
+          <Table className="approval-queue__table">
+            <thead>
+              <tr>
+                <th scope="col">Transaction</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Type</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Status</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
             <tbody>
-              {Object.entries(responseData)
-                .slice(0, 6)
-                .map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{describeValue(value)}</td>
-                  </tr>
-                ))}
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="approval-queue__empty">
+                    {loading
+                      ? 'Loading approvals…'
+                      : 'No approvals found. Try another status or refresh the list.'}
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((item) => {
+                  const customerName = customerLabel(item);
+                  return (
+                    <tr
+                      key={item.id ?? `${item.reasonCode}-${item.requestedAt}`}
+                    >
+                      <th scope="row">
+                        {item.receipt?.posReceiptNumber ??
+                          item.posReceiptNumber ??
+                          item.referenceNumber ??
+                          item.id ??
+                          '—'}
+                      </th>
+                      <td>{customerName}</td>
+                      <td>
+                        {item.targetType === 'REDEEM'
+                          ? 'Redemption'
+                          : 'Purchase'}
+                      </td>
+                      <td>
+                        {formatKobo(
+                          item.requestedAmountKobo ??
+                            item.receipt?.purchaseAmountKobo ??
+                            item.amountKobo,
+                        )}
+                      </td>
+                      <td>{statusLabel(item.status)}</td>
+                      <td>
+                        <Button
+                          variant="secondary"
+                          className="approval-queue__review"
+                          aria-label={`Review approval for ${customerName}`}
+                          onClick={() => {
+                            setSelectedId(item.id ?? null);
+                            setDecision('APPROVED');
+                            setReason('');
+                            setNote('');
+                          }}
+                        >
+                          Review
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </Table>
-        </section>
-      ) : null}
+        </div>
+        <nav className="approval-queue__pagination" aria-label="Approval pages">
+          <Button
+            variant="secondary"
+            aria-label="Previous"
+            title="Previous"
+            onClick={() => void goToPreviousPage()}
+            disabled={cursorHistory.length <= 1 || loading}
+          >
+            <ChevronLeft aria-hidden="true" size={18} strokeWidth={2} />
+          </Button>
+          <span>Page {cursorHistory.length}</span>
+          <Button
+            variant="secondary"
+            aria-label="Next"
+            title="Next"
+            onClick={() => void goToNextPage()}
+            disabled={!nextCursor || loading}
+          >
+            <ChevronRight aria-hidden="true" size={18} strokeWidth={2} />
+          </Button>
+        </nav>
+      </section>
+
+      <Dialog
+        open={Boolean(selectedItem)}
+        title={isPending ? 'Review approval' : 'Approval details'}
+        onClose={() => {
+          if (!submitting) setSelectedId(null);
+        }}
+      >
+        {selectedItem ? (
+          <div className="approval-queue__dialog-content">
+            <p>Review the transaction details before recording a decision.</p>
+            <Table>
+              <tbody>
+                <tr>
+                  <th scope="row">Customer</th>
+                  <td>
+                    {selectedItem.customer?.fullName ??
+                      selectedItem.customer?.id ??
+                      selectedItem.customerId ??
+                      '—'}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Type</th>
+                  <td>
+                    {selectedItem.targetType === 'REDEEM'
+                      ? 'Redemption'
+                      : 'Purchase'}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Reference</th>
+                  <td>
+                    {selectedItem.receipt?.posReceiptNumber ??
+                      selectedItem.posReceiptNumber ??
+                      selectedItem.referenceNumber ??
+                      selectedItem.id ??
+                      '—'}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Amount</th>
+                  <td>
+                    {formatKobo(
+                      selectedItem.requestedAmountKobo ??
+                        selectedItem.receipt?.purchaseAmountKobo ??
+                        selectedItem.amountKobo,
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Requested</th>
+                  <td>{formatDate(selectedItem.requestedAt)}</td>
+                </tr>
+                <tr>
+                  <th scope="row">Status</th>
+                  <td>{statusLabel(selectedItem.status)}</td>
+                </tr>
+                <tr>
+                  <th scope="row">Approval reason</th>
+                  <td>
+                    {selectedItem.reasonCode ?? selectedItem.ruleCode ?? '—'}
+                  </td>
+                </tr>
+                {selectedItem.decidedAt ? (
+                  <tr>
+                    <th scope="row">Decided</th>
+                    <td>{formatDate(selectedItem.decidedAt)}</td>
+                  </tr>
+                ) : null}
+                {selectedItem.executedAt ? (
+                  <tr>
+                    <th scope="row">Completed</th>
+                    <td>{formatDate(selectedItem.executedAt)}</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </Table>
+            {isPending ? (
+              <>
+                <RadioGroup
+                  name="approval-decision"
+                  legend="Decision"
+                  options={[
+                    { value: 'APPROVED', label: 'Approve' },
+                    { value: 'REJECTED', label: 'Reject' },
+                  ]}
+                  value={decision}
+                  onValueChange={(value) => {
+                    setDecision(value as ApprovalDecisionDtoDecision);
+                    setReason('');
+                  }}
+                />
+                <Select
+                  aria-label="Decision reason"
+                  value={reason}
+                  placeholder="Select a reason"
+                  options={reasonOptions[decision]}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+                <Input
+                  aria-label="Additional decision note"
+                  placeholder="Additional detail (optional)"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                />
+                <div className="approval-queue__dialog-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setSelectedId(null)}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => void handleDecision()}
+                    loading={submitting}
+                    disabled={!reason || submitting}
+                  >
+                    Submit {decision === 'APPROVED' ? 'approval' : 'rejection'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Alert tone="info" title="Decision already recorded">
+                This approval is read-only because its status is{' '}
+                {selectedItem.status ?? 'no longer pending'}.
+              </Alert>
+            )}
+          </div>
+        ) : null}
+      </Dialog>
     </section>
   );
 }
 
-function describeApproval(item: ApprovalRecord) {
-  const customer = describeValue(item.customer ?? item.customerId);
-  const status = describeValue(item.status);
-  const reasonCode = describeValue(
-    item.reasonCode ?? item.ruleCode ?? item.reason,
+function customerLabel(item: ApprovalRecord) {
+  return (
+    item.customer?.fullName ??
+    (item.customer?.id ? `Customer ${item.customer.id.slice(0, 8)}` : null) ??
+    (item.customerId ? `Customer ${item.customerId.slice(0, 8)}` : 'Customer')
   );
-  return `${customer} · ${status} · ${reasonCode}`;
 }
 
-function approvalKey(item: ApprovalRecord) {
-  return String(item.id ?? item.reasonCode ?? item.ruleCode ?? 'approval');
-}
-
-function approvalLabel(item: ApprovalRecord) {
-  return item.customer?.fullName ?? item.id ?? 'Approval';
-}
-
-function describeValue(value: unknown) {
-  if (value === null || value === undefined) return '—';
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return String(value);
+function statusLabel(status?: string) {
+  switch (status) {
+    case 'PENDING':
+      return 'Pending';
+    case 'APPROVED':
+    case 'EXECUTED':
+      return 'Approved';
+    case 'REJECTED':
+      return 'Rejected';
+    case 'EXPIRED':
+      return 'Expired';
+    default:
+      return 'Unknown';
   }
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (record.fullName || record.id) {
-      return String(record.fullName ?? record.id);
-    }
-    return JSON.stringify(record);
-  }
-  return JSON.stringify(value) ?? '';
 }
 
-const cardStyle: CSSProperties = {
-  background: 'var(--sc-color-neutral-0)',
-  border: '1px solid var(--sc-color-semantic-border)',
-  borderRadius: 'var(--sc-radius-lg)',
-  padding: 'var(--sc-spacing-5)',
-  boxShadow: 'var(--sc-shadow-level1)',
-  display: 'grid',
-  gap: 'var(--sc-spacing-4)',
-};
+function formatKobo(value?: number | null) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return `₦${(value / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
-const workspaceGrid: CSSProperties = {
-  display: 'grid',
-  gap: 'var(--sc-spacing-4)',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-};
-
-const toolbarRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
-};
-
-const statusRow: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--sc-spacing-3)',
-  flexWrap: 'wrap',
-};
-
-const listHeaderRow: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 'var(--sc-spacing-3)',
-};
-
-const listBodyText: CSSProperties = {
-  margin: 0,
-  color: 'var(--sc-color-semantic-textSecondary)',
-};
-
-const listMetaRow: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 'var(--sc-spacing-3)',
-  marginTop: 'var(--sc-spacing-2)',
-  color: 'var(--sc-color-semantic-textSecondary)',
-};
+function formatDate(value?: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}

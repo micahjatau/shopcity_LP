@@ -2,7 +2,7 @@
 
 ### Requirement: Supervisor customer selection opens a verified preview
 
-When a Supervisor explicitly selects a customer search result in Manage customers or Assign card, the workflow MUST show a read-only preview only after the existing authoritative detail request returns a matching customer ID. The preview MUST clearly separate customer status from linked-card status and MUST NOT bypass existing profile or assignment eligibility controls. Its popup MUST follow the ShopCity Landing-17 treatment: a dim backdrop, centered white rounded panel, brand-red title/subtitle, and a visible top-right close control. A direct ID deep link MUST continue to load the existing workspace without automatically opening this preview.
+When a Supervisor explicitly selects a customer search result in Manage customers or Assign card, the workflow MUST show a read-only preview only after the existing authoritative detail request returns a matching customer ID. The preview MUST clearly separate customer status from linked-card status and MUST NOT bypass existing profile or assignment eligibility controls. Group customer identity/contact/status separately from linked-card status/serial. Render available states as labeled semantic status badges. If card status is available but the customer projection omits the serial, show the linked-card status and clearly state that the serial is not included; do not pair an active status with an unexplained “Unavailable” value or fabricate an identifier. The continue-to-profile/assignment action MUST be the primary button and card-task navigation MUST be a secondary action. Its popup MUST follow the ShopCity Landing-17 treatment: a dim backdrop, centered white rounded panel, brand-red title/subtitle, and a visible top-right close control. A direct ID deep link MUST continue to load the existing workspace without automatically opening this preview.
 
 #### Scenario: Explicit selection shows a verified preview
 
@@ -10,6 +10,21 @@ When a Supervisor explicitly selects a customer search result in Manage customer
 - **WHEN** the authoritative detail response matches the selected customer ID
 - **THEN** an accessible preview shows available customer name, contact details, customer status, and linked-card status/serial
 - **AND** the existing profile or assignment controls remain available after the preview is dismissed.
+
+#### Scenario: Linked card serial is omitted truthfully
+
+- **GIVEN** authoritative customer detail contains a linked-card status but no card serial
+- **WHEN** the preview is displayed
+- **THEN** the linked-card status remains visible as a labeled badge
+- **AND** the preview explains that the serial is not included in the customer detail response
+- **AND** it does not display “ACTIVE / Unavailable” as if both values were card state.
+
+#### Scenario: Preview action hierarchy is clear
+
+- **GIVEN** the verified customer preview is displayed
+- **WHEN** the user chooses a next step
+- **THEN** continue to the existing customer profile/assignment workspace is the primary action
+- **AND** card-task navigation is secondary and remains a real internal link.
 
 #### Scenario: Preview links are actionable links
 

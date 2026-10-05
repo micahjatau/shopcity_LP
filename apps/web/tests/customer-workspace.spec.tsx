@@ -89,6 +89,9 @@ describe('CustomerWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Initial card serial number'), {
       target: { value: 'CARD-NEW-001' },
     });
+    fireEvent.click(
+      screen.getByLabelText('Loyalty service consent (required)'),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
 
     await waitFor(() => {
@@ -97,6 +100,8 @@ describe('CustomerWorkspace', () => {
           fullName: 'New Customer',
           phone: '+2348000000000',
           cardSerialNumber: 'CARD-NEW-001',
+          loyaltyConsent: true,
+          marketingOptIn: false,
         },
         expect.objectContaining({ headers: expect.any(Object) }),
       );

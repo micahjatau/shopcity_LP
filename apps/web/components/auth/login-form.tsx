@@ -191,26 +191,33 @@ export function LoginForm() {
       >
         {message ?? 'Use your ShopCity staff credentials.'}
       </p>
-      <div className="login-device-fields">
-        <label htmlFor="device-id">Device ID</label>
-        <Input
-          id="device-id"
-          aria-label="Device ID"
-          value={deviceId}
-          onChange={(event) => setDeviceId(event.target.value)}
-          autoComplete="off"
-        />
-        <label htmlFor="device-attestation-secret">
-          Device attestation secret
-        </label>
-        <Input
-          id="device-attestation-secret"
-          aria-label="Device attestation secret"
-          value={deviceAttestationSecret}
-          onChange={(event) => setDeviceAttestationSecret(event.target.value)}
-          autoComplete="off"
-        />
-      </div>
+      {process.env.NODE_ENV !== 'production' ? (
+        <fieldset className="login-device-fields">
+          <legend>Local device credentials</legend>
+          <p>
+            Development only. Use the active device ID and one-time attestation
+            secret from Admin → Devices. The secret is cleared after sign-in.
+          </p>
+          <label htmlFor="device-id">Device ID</label>
+          <Input
+            id="device-id"
+            aria-label="Device ID"
+            value={deviceId}
+            onChange={(event) => setDeviceId(event.target.value)}
+            autoComplete="off"
+          />
+          <label htmlFor="device-attestation-secret">
+            Device attestation secret
+          </label>
+          <Input
+            id="device-attestation-secret"
+            aria-label="Device attestation secret"
+            value={deviceAttestationSecret}
+            onChange={(event) => setDeviceAttestationSecret(event.target.value)}
+            autoComplete="off"
+          />
+        </fieldset>
+      ) : null}
     </form>
   );
 }

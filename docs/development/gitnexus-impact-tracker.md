@@ -11,6 +11,150 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-09-30 — Fraud review results presentation
+
+Proposal-time upstream impact was run for the shared fraud panel and both route components:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/fraud-flags-panel.tsx FraudFlagsPanel
+node scripts/gitnexus.cjs impact SupervisorFraudPage -r shopcity_LP --file apps/web/app/(shell)/supervisor/fraud/page.tsx --include-tests --summary-only
+node scripts/gitnexus.cjs impact AdminFraudPage -r shopcity_LP --file apps/web/app/(shell)/admin/fraud/page.tsx --include-tests --summary-only
+```
+
+| Symbol                | Risk       | Impacted symbols | Direct dependants | Affected processes                      |
+| --------------------- | ---------- | ---------------: | ----------------: | --------------------------------------- |
+| `FraudFlagsPanel`     | LOW, exact |                2 |                 2 | `SupervisorFraudPage`, `AdminFraudPage` |
+| `SupervisorFraudPage` | LOW, exact |                0 |                 0 | 0                                       |
+| `AdminFraudPage`      | LOW, exact |                0 |                 0 | 0                                       |
+
+No HIGH/CRITICAL result. The shared panel presentation change applies to both role routes; existing fraud list scope, filters, CSRF/idempotency protections, selected-case evidence, and decision endpoint behavior remain preserved. A follow-up refinement adds valid status/severity selects and moves per-case decisions into an accessible dialog; a repeat impact check confirmed the same LOW-risk, two-route blast radius.
+
+### 2026-09-30 — Approval review queue and decision dialog proposal
+
+Proposal-time upstream impacts were run with tests included for the shared approval panel and paginated approval-list path:
+
+```text
+node scripts/gitnexus.cjs impact ApprovalsPanel -r shopcity_LP --file apps/web/components/workflows/approvals-panel.tsx --include-tests --summary-only
+node scripts/gitnexus.cjs impact listApprovals -r shopcity_LP --file src/modules/approvals/approvals.controller.ts --include-tests --summary-only
+node scripts/gitnexus.cjs impact listApprovals -r shopcity_LP --file src/modules/approvals/approvals.service.ts --include-tests --summary-only
+node scripts/gitnexus.cjs impact listApprovals -r shopcity_LP --file src/modules/loyalty/loyalty.service.ts --include-tests --summary-only
+```
+
+| Symbol                              | Risk       | Impacted symbols | Direct dependants | Affected processes                              |
+| ----------------------------------- | ---------- | ---------------: | ----------------: | ----------------------------------------------- |
+| `ApprovalsPanel`                    | LOW, exact |                2 |                 2 | `SupervisorApprovalsPage`, `AdminApprovalsPage` |
+| `ApprovalsController.listApprovals` | LOW, exact |                0 |                 0 | 0                                               |
+| `ApprovalsService.listApprovals`    | LOW, exact |                3 |                 3 | 1 (`ApprovalsController.listApprovals`)         |
+| `LoyaltyService.listApprovals`      | LOW, exact |                5 |          2 direct | 1 (`listApprovals`)                             |
+| `SupervisorApprovalsPage`           | LOW, exact |                0 |                 0 | 0                                               |
+| `AdminApprovalsPage`                | LOW, exact |                0 |                 0 | 0                                               |
+
+No HIGH/CRITICAL result. Because `ApprovalsPanel` is shared, changes affect both Supervisor and Admin approval routes. Existing approval authorization, tenant/branch scope, cursor ordering, decision/idempotency semantics, and backend financial authority must remain intact. The current UI filters only the fetched cursor page and truncates rendered rows, while the API list does not accept status filters; an accurate historical filter must therefore be applied server-side before cursor pagination. No code changes had been made when this impact was recorded.
+
+### 2026-09-29 — Supervisor receipt search and reversal dialog proposal
+
+Proposal-time upstream impacts with tests included were run before drafting the Supervisor receipt-search UI and read-only API:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/transaction-workspace.tsx TransactionWorkspace
+npm run proposal:impact -- --file apps/web/components/workflows/transaction-dashboard.tsx TransactionDashboard
+npm run proposal:impact -- --file apps/web/app/(shell)/supervisor/transactions/page.tsx SupervisorTransactionsPage
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.controller.ts LoyaltyController
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts LoyaltyService
+```
+
+| Symbol                       | Risk          | Impacted symbols | Direct dependants | Affected processes                                        |
+| ---------------------------- | ------------- | ---------------: | ----------------: | --------------------------------------------------------- |
+| `TransactionWorkspace`       | LOW, exact    |                3 |                 3 | 2 (`AdminTransactionsPage`, `SupervisorTransactionsPage`) |
+| `TransactionDashboard`       | LOW, exact    |                2 |                 2 | 1 (`CashierTransactionsPage`)                             |
+| `SupervisorTransactionsPage` | LOW, exact    |                0 |                 0 | 0                                                         |
+| `LoyaltyController`          | LOW, exact    |                6 |                 1 | 0                                                         |
+| `LoyaltyService`             | MEDIUM, exact |               21 |                12 | 0                                                         |
+
+The cashier list is not a safe Supervisor data source: it is CASHIER-only and limited to the logged-in cashier's current-day receipts; the Supervisor cashier-activity report is aggregate data. Keep both contracts unchanged. Implement only a new bounded receipt-number read query under authenticated Supervisor branch scope, return stable ledger-entry IDs, and retain authoritative detail/reversal checks. Add tests for branch isolation and bounded results; no HIGH/CRITICAL proposal-time impact was found. No code changes had been made when this impact was recorded.
+
+### 2026-09-29 — Supervisor overview greeting and card cleanup proposal
+
+Proposal-time upstream impact with tests included was run before drafting this Supervisor landing-page change:
+
+```text
+npm run proposal:impact -- --file apps/web/app/(shell)/supervisor/page.tsx SupervisorPage
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ---------------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `SupervisorPage` | LOW, exact |                0 |                 0 |                  0 |
+
+GitNexus indexed no upstream dependants/processes for the route component. Scope is limited to the Supervisor overview composition and tests that currently assume review panels live on `/supervisor`; the dedicated approvals, fraud, reports, customer, card, and transaction routes remain intact. Preserve the overview's scanner lookup context, shared shell navigation, authorization, and operational route behavior. No backend/API or data changes are planned.
+
+### 2026-09-29 — Supervisor card-assignment eligibility dialog proposal
+
+Proposal-time upstream impact was run for the assignment workspace before drafting this focused UI change:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-assignment.tsx SupervisorCardAssignment
+```
+
+| Symbol                     | Risk       | Impacted symbols | Direct dependants | Affected process      |
+| -------------------------- | ---------- | ---------------: | ----------------: | --------------------- |
+| `SupervisorCardAssignment` | LOW, exact |                4 |                 1 | `SupervisorCardsPage` |
+
+The impact is contained in the Supervisor `Workflows` module. The page route is the sole direct process caller; the change is limited to the Assign card tab's layout and selection/eligibility presentation. Existing authoritative detail loading, assignment contract, idempotency, and card serial review remain in scope as invariants; no backend, RBAC, or persistence change is planned.
+
+### 2026-09-29 — Branch-owned card serial inventory and automatic assignment proposal
+
+Proposal-time upstream impacts were run with tests included for the affected issuance and identity surfaces:
+
+```text
+npm run proposal:impact -- --file src/modules/customers/customers.service.ts createCustomer
+npm run proposal:impact -- --file src/modules/cards/cards.service.ts createCard
+npm run proposal:impact -- --file src/modules/cards/cards.service.ts replaceCard
+npm run proposal:impact -- --file src/common/card-identity.ts normalizeCardSerial
+```
+
+| Symbol                | Risk                | Impacted symbols | Direct dependants | Affected processes  |
+| --------------------- | ------------------- | ---------------: | ----------------: | ------------------- |
+| `createCustomer`      | LOW, exact          |                4 |                 4 | 0                   |
+| `createCard`          | LOW, exact          |                3 |                 3 | 0                   |
+| `replaceCard`         | LOW, exact          |                3 |                 3 | 0                   |
+| `normalizeCardSerial` | **CRITICAL, exact** |               31 |                 9 | 1 (`processRecord`) |
+
+`normalizeCardSerial` reaches Cards, Loyalty, Offline-sync, Customers, and Redemptions. Any format-policy change requires explicit cross-role/process regression coverage; avoid changing this shared function as part of a branch-only pilot without first warning and scoping the migration. The initial pilot should keep allocation branch-local and serial history immutable. No code changes were made during this impact review.
+
+### 2026-09-29 — Supervisor customer management dialog proposal
+
+Ran proposal-time upstream impact with tests included for the Manage Customers surface:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-customer-workflows.tsx ManageCustomers
+```
+
+| Symbol            | Risk       | Impacted symbols | Direct dependants | Affected process          |
+| ----------------- | ---------- | ---------------: | ----------------: | ------------------------- |
+| `ManageCustomers` | LOW, exact |                3 |                 1 | `SupervisorCustomersPage` |
+
+The indexed blast radius is limited to the Supervisor customer route and `Workflows` module. The implementation keeps the change in this route-local workspace/dialog and verifies selected-ID detail loading, profile/status refreshes, and responsive behavior with focused Jest and Playwright coverage.
+
+### 2026-09-29 — Customer registration consent capture proposal
+
+Ran proposal-time upstream impact with tests included before drafting the consent contract change:
+
+```text
+npm run proposal:impact -- --file src/modules/customers/customers.service.ts createCustomer
+npm run proposal:impact -- --file src/modules/customers/customers.controller.ts createCustomer
+npm run proposal:impact -- --file src/modules/customers/customers.dto.ts CreateCustomerDto
+npm run proposal:impact -- --file apps/web/components/workflows/customer-registration-flow.tsx CustomerRegistrationFlow
+```
+
+| Symbol                               | Risk       |      Impacted symbols | Direct dependants | Affected processes |
+| ------------------------------------ | ---------- | --------------------: | ----------------: | -----------------: |
+| `CustomersService.createCustomer`    | LOW, exact |                     4 |                 4 |                  0 |
+| `CustomersController.createCustomer` | LOW, exact | 0 (unresolved target) |                 0 |                  0 |
+| `CreateCustomerDto`                  | LOW, exact |                     3 |                 1 |                  0 |
+| `CustomerRegistrationFlow`           | LOW, exact |                     3 |                 3 |                  2 |
+
+No HIGH/CRITICAL proposal-time finding for the service/DTO/flow; `CustomerWorkspace` was separately found HIGH at 4 impacted symbols, 4 direct dependants, and 3 processes, and `RegisterCustomer` LOW at 3 impacted symbols, 1 direct dependant, and 1 process. Post-implementation `detect-changes --repo shopcity_LP` reports 26 changed files, 44 symbols, 29 processes, CRITICAL aggregate risk; affected flows include SupervisorCustomersPage, AdminCardsPage, AdminCustomersPage, and CashierCustomersPage via the shared workspace. This broad graph blast radius is expected from consent-enabling all customer-creation call sites but requires role regression checks. The controller symbol is unresolved in the proposal index and must be treated as unknown until direct call-site and route tests are checked. Scope includes tenant-scoped append-only consent written atomically with customer/card creation, required loyalty consent, optional marketing opt-in, versioned copy, generated API contract, and registration UI. Migration remains additive; no historical consent is backfilled or inferred. Preserve unrelated dirty changes.
+
 ### 2026-09-28 — Supervisor customer-selection preview modal
 
 The required proposal-time impact commands were run after a successful full GitNexus index rebuild:
@@ -345,6 +489,22 @@ node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests -
 ```
 
 The HIGH findings were reported and bounded presentation/accessibility edits were subsequently approved. Any edit widening beyond those boundaries must stop for fresh impact review and approval.
+
+### 2026-09-30 — Supervisor Operational Reports dashboard
+
+Proposal-time upstream impact with tests included was run before bringing the dashboard change from PR #47 onto `workflow-states-implementation`:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/reports-workspace.tsx ReportsWorkspace
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/reports/page.tsx' SupervisorReportsPage
+```
+
+| Symbol                  | Risk            | Impacted symbols | Direct dependants | Affected processes / callers                                                                  |
+| ----------------------- | --------------- | ---------------: | ----------------: | --------------------------------------------------------------------------------------------- |
+| `ReportsWorkspace`      | **HIGH**, exact |                4 |                 4 | 3 flows: `AdminOperationsPage`, `SupervisorReportsPage`, `AdminReportsPage`, and report tests |
+| `SupervisorReportsPage` | LOW, exact      |                0 |                 0 | 0                                                                                             |
+
+The shared report builder reaches Admin and Supervisor workflows, so preserve default Admin behavior and verify period propagation, branch scoping, report generation, and existing export controls. The HIGH result was reported before proceeding; no backend/API or authorization changes are in the ported patch.
 
 ### 2026-09-27 — Cashier Sync Queue presentation/copy follow-up
 

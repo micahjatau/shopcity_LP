@@ -271,7 +271,9 @@ describe('LoyaltyService redemption approvals', () => {
         updateMany: jest.fn(),
       },
     };
-    type ApprovalFindManyArgs = { where: { tenantId: string } };
+    type ApprovalFindManyArgs = {
+      where: { tenantId: string; status?: { in: ApprovalStatus[] } };
+    };
     const approvalFindMany = jest
       .fn<Promise<unknown>, [ApprovalFindManyArgs]>()
       .mockResolvedValue([
@@ -316,7 +318,10 @@ describe('LoyaltyService redemption approvals', () => {
     );
 
     await expect(
-      service.listApprovals('tenant-1', supervisorAuthContext()),
+      service.listApprovals('tenant-1', supervisorAuthContext(), undefined, [
+        ApprovalStatus.APPROVED,
+        ApprovalStatus.EXECUTED,
+      ]),
     ).resolves.toMatchObject({
       items: [
         {
@@ -331,9 +336,19 @@ describe('LoyaltyService redemption approvals', () => {
     });
 
     const approvalFindManyArgs = approvalFindMany.mock.calls[0]?.[0] as
-      { where?: { tenantId?: string } } | undefined;
+      | {
+          where?: {
+            tenantId?: string;
+            status?: { in?: ApprovalStatus[] };
+          };
+        }
+      | undefined;
 
     expect(approvalFindManyArgs?.where?.tenantId).toBe('tenant-1');
+    expect(approvalFindManyArgs?.where?.status?.in).toEqual([
+      ApprovalStatus.APPROVED,
+      ApprovalStatus.EXECUTED,
+    ]);
     expect(tx.$queryRaw).not.toHaveBeenCalled();
     expect(tx.approval.updateMany).not.toHaveBeenCalled();
     expect(tx.redemption.updateMany).not.toHaveBeenCalled();

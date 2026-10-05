@@ -169,6 +169,7 @@ model Tenant {
   devices                Device[]
   users                  User[]
   customers              Customer[]
+  customerConsents       CustomerConsent[]
   cards                  Card[]
   receipts               Receipt[]
   ledgerEntries          LoyaltyLedgerEntry[]
@@ -251,6 +252,7 @@ model User {
   branch               Branch?              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   sessions             Session[]
   registeredCustomers  Customer[]           @relation("CustomerRegisteredBy")
+  customerConsents     CustomerConsent[]    @relation("CustomerConsentCapturedBy")
   cardsIssued          Card[]               @relation("CardIssuedBy")
   receiptsCaptured     Receipt[]            @relation("ReceiptCapturedBy")
   receiptsReviewed     Receipt[]            @relation("ReceiptReviewedBy")
@@ -333,12 +335,32 @@ model Customer {
   creditExpiryReminders CreditExpiryReminder[]
   redemptions           Redemption[]
   adjustments           Adjustment[]
+  consents              CustomerConsent[]
 
   @@unique([tenantId, phoneE164])
   @@unique([tenantId, email])
   @@unique([tenantId, id])
   @@index([tenantId, status])
   @@index([registeredByTenantId, registeredBy])
+}
+
+model CustomerConsent {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  customerId           String
+  capturedBy           String
+  loyaltyConsent       Boolean
+  marketingOptIn       Boolean
+  consentVersion       String
+  privacyNoticeVersion String
+  capturedAt           DateTime @default(now())
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer             Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  capturedByUser       User     @relation("CustomerConsentCapturedBy", fields: [tenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, customerId])
+  @@index([tenantId, capturedAt])
+  @@index([tenantId, capturedBy])
 }
 
 model Card {

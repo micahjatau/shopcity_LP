@@ -42,18 +42,18 @@ Card replacement, blocking, and reactivation MUST use their own authorized, audi
 - **THEN** the action uses its dedicated backend contract and idempotency rules
 - **AND** the UI renders the authoritative resulting card status and any SMS/audit outcome
 
-### Requirement: MVP registration fields match the TRD contract
+### Requirement: MVP registration fields match the approved TRD and API contract
 
-The MVP registration frontend MUST submit the TRD-defined full name, normalized phone, and initial card barcode contract; birthday, consent, marketing, and consent-version fields MUST NOT be collected as if they are persisted MVP data.
+The MVP registration frontend MUST submit full name, normalized phone, initial card barcode, required loyalty-service consent, and an independent optional marketing choice. Consent and privacy-notice versions, actor, and timestamp MUST be server-owned and persisted. Birthday remains excluded. Consent copy/version changes require a reviewed contract and migration where data semantics change.
 
 #### Scenario: Registration form renders
 
 - **WHEN** an authorized Supervisor or Admin opens registration
-- **THEN** the form contains only approved MVP fields and required card barcode input
-- **AND** it does not imply that omitted consent or profile fields were captured
+- **THEN** the form contains approved identity/card fields and a separate required loyalty-consent choice plus optional marketing choice
+- **AND** the server persists consent evidence atomically with the customer and initial card
 
 #### Scenario: A future field is requested
 
-- **WHEN** a birthday, consent, or marketing field is proposed
+- **WHEN** a birthday or further consent field is proposed
 - **THEN** implementation waits for an approved TRD/API/schema change
 - **AND** no browser-only field is added to the production form

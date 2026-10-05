@@ -127,6 +127,8 @@ export function CustomerWorkspace({
       email: '',
       cardSerialNumber: '',
       isStaff: false,
+      loyaltyConsent: false,
+      marketingOptIn: false,
     });
 
   const linkedCards = useMemo(() => extractCustomerCards(customer), [customer]);
@@ -190,6 +192,8 @@ export function CustomerWorkspace({
             email: String(nextCustomer.email ?? ''),
             cardSerialNumber: '',
             isStaff: nextCustomer.isStaff === true,
+            loyaltyConsent: false,
+            marketingOptIn: false,
           });
           setCustomerStatus(
             (nextCustomer.status as UpdateCustomerStatusDtoStatus) ?? 'ACTIVE',
@@ -676,6 +680,40 @@ export function CustomerWorkspace({
               </label>
             ) : null}
             {!selectedCustomer ? (
+              <fieldset className="customer-registration-consent-options">
+                <legend>Customer consent · v1.2 · privacy v2.0</legend>
+                <label htmlFor="workspace-loyalty-consent">
+                  <Checkbox
+                    id="workspace-loyalty-consent"
+                    aria-label="Loyalty service consent (required)"
+                    checked={customerForm.loyaltyConsent}
+                    onChange={(event) =>
+                      setCustomerForm((current) => ({
+                        ...current,
+                        loyaltyConsent: event.target.checked,
+                      }))
+                    }
+                  />
+                  I confirm the customer agrees to ShopCity holding purchase and
+                  wallet records to operate ShopCity Credit.
+                </label>
+                <label htmlFor="workspace-marketing-opt-in">
+                  <Checkbox
+                    id="workspace-marketing-opt-in"
+                    aria-label="Marketing opt-in (optional)"
+                    checked={customerForm.marketingOptIn}
+                    onChange={(event) =>
+                      setCustomerForm((current) => ({
+                        ...current,
+                        marketingOptIn: event.target.checked,
+                      }))
+                    }
+                  />
+                  Optional: offers and campaign messages by WhatsApp or SMS
+                </label>
+              </fieldset>
+            ) : null}
+            {!selectedCustomer ? (
               <div data-od-id="registration-card">
                 <Input
                   aria-label="Initial card serial number"
@@ -737,6 +775,8 @@ export function CustomerWorkspace({
                     email: '',
                     cardSerialNumber: '',
                     isStaff: false,
+                    loyaltyConsent: false,
+                    marketingOptIn: false,
                   });
                   setCustomerFormMessage(
                     'Register a customer or select one to edit their profile.',

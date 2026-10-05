@@ -8,7 +8,7 @@ The existing `/users` endpoint is Admin-only and returns broad user data. It mus
 
 ## Decisions
 
-1. **One search component, role-derived categories.** `GlobalShellSearch` receives the authoritative session role and selected-record callbacks. It only renders categories permitted by role; it does not infer authorization from client input.
+1. **One search component, role-derived categories.** `GlobalShellSearch` receives the authoritative session role and selected-record callbacks. It only renders categories permitted by role; it does not infer authorization from client input. To keep the shell quiet, role-approved category controls are visually revealed when the search control has focus; they remain keyboard reachable after focusing the input and do not change category authorization or query behavior.
 2. **Directory queries are debounced; card lookup is explicit.** Customer and cashier directory requests run after a short settled-query delay and cancel/ignore stale responses. Card search runs only from an explicit Search Cards action or Enter, never on every keystroke.
 3. **Safe result view models.** Customer results render only backend-provided safe fields; Cashier results use a dedicated minimal DTO and branch-scoped authorization. No frontend filtering can expand access.
 4. **Shared `VerifiedCardLookupStep`.** The component owns heading, card input, submit, status, verified context, loading/error/found states, and stable classes. It accepts route-specific form width as a wrapper concern while keeping inner geometry/tokens identical. The existing `useCashierLookupController` remains the authority and is passed through as controlled state/actions.

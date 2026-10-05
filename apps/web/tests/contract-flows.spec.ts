@@ -282,24 +282,133 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/supervisor');
     await expect(
-      page.getByRole('heading', { name: /supervisor workspace/i }),
+      page.getByRole('heading', { name: 'Hi, Supervisor!' }),
     ).toBeVisible();
-    await expect(page.getByText(/approvals panel/i)).toBeVisible();
-    await expect(page.getByText(/loaded 1 approvals/i)).toBeVisible();
     await expect(
-      page.getByRole('article', { name: /fraud review/i }),
-    ).toContainText(/loaded 1 fraud flags/i);
+      page.getByRole('heading', { name: 'Transactions awaiting approval' }),
+    ).toHaveCount(0);
+
+    await page.goto('/supervisor/approvals');
+    await expect(
+      page.getByRole('heading', { name: 'Transactions awaiting approval' }),
+    ).toBeVisible();
+    await expect(page.getByText('1 result')).toBeVisible();
+    const approvalHeaderTypography = await page
+      .locator('.approval-queue__table thead th')
+      .first()
+      .evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          color: style.color,
+          textAlign: style.textAlign,
+          padding: style.padding,
+        };
+      });
+    const approvalCellTypography = await page
+      .locator('.approval-queue__table tbody td')
+      .first()
+      .evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          color: style.color,
+          textAlign: style.textAlign,
+          padding: style.padding,
+        };
+      });
+
+    await page.goto('/supervisor/fraud');
+    await expect(
+      page.getByRole('region', { name: /fraud workspace/i }),
+    ).toContainText(/1 result/i);
+    await expect(
+      page.getByRole('region', { name: /fraud flag list/i }).getByRole('table'),
+    ).toBeVisible();
+    const fraudHeaderTypography = await page
+      .locator('.fraud-flags__table thead th')
+      .first()
+      .evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          color: style.color,
+          textAlign: style.textAlign,
+          padding: style.padding,
+        };
+      });
+    expect(fraudHeaderTypography).toEqual(approvalHeaderTypography);
+    const fraudCellTypography = await page
+      .locator('.fraud-flags__table tbody td')
+      .first()
+      .evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          color: style.color,
+          textAlign: style.textAlign,
+          padding: style.padding,
+        };
+      });
+    expect(fraudCellTypography).toEqual(approvalCellTypography);
+    expect(
+      await page
+        .locator('.fraud-flags__table tbody tr:last-child > *')
+        .first()
+        .evaluate(
+          (element) => window.getComputedStyle(element).borderBottomWidth,
+        ),
+    ).toBe('0px');
+    for (const width of [1440, 768, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      const filterTops = await page
+        .locator('.fraud-flags__filter')
+        .evaluateAll((filters) =>
+          filters.map((filter) =>
+            Math.round(filter.getBoundingClientRect().top),
+          ),
+        );
+      expect(new Set(filterTops).size).toBe(1);
+      const controlRow = await page
+        .locator('.fraud-flags__control-row')
+        .evaluate((row) => {
+          const filters = row.querySelector('.fraud-flags__filters')!;
+          const refresh = row.querySelector('.fraud-flags__refresh')!;
+          const filtersBounds = filters.getBoundingClientRect();
+          const refreshBounds = refresh.getBoundingClientRect();
+          return {
+            bottomDifference: Math.abs(
+              filtersBounds.bottom - refreshBounds.bottom,
+            ),
+            refreshIsRightOfFilters: refreshBounds.left >= filtersBounds.right,
+          };
+        });
+      expect(controlRow.bottomDifference).toBeLessThanOrEqual(1);
+      expect(controlRow.refreshIsRightOfFilters).toBe(true);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page
-      .getByRole('button', { name: /HIGH_VALUE OPEN Amina Bello/i })
+      .getByRole('button', { name: /Review HIGH_VALUE for Amina Bello/i })
       .click();
-    await page
-      .getByRole('article', { name: /fraud review/i })
+    const fraudDialog = page.getByRole('dialog', {
+      name: 'Review fraud case',
+    });
+    await expect(fraudDialog).toBeVisible();
+    await fraudDialog
       .getByLabel('Fraud decision reason')
       .fill('supervisor shell review');
-    await page
-      .getByRole('article', { name: /fraud review/i })
-      .getByRole('button', { name: /submit decision/i })
-      .click();
+    await fraudDialog.getByRole('button', { name: 'Submit decision' }).click();
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -495,16 +604,18 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.goto('/supervisor');
+    await page.goto('/supervisor/approvals');
     await expect(page.getByText(/No approvals/i)).toBeVisible();
-    await expect(page.getByText(/No fraud flags/i)).toBeVisible();
-    await expect(page.getByText(/No report rows/i)).toBeVisible();
-
     approvalsFailure = true;
     await page.getByRole('button', { name: /refresh approvals/i }).click();
     await expect(
       page.getByText(/approvals unavailable \(503\)/i),
     ).toBeVisible();
+
+    await page.goto('/supervisor/fraud');
+    await expect(page.getByText(/No fraud flags/i)).toBeVisible();
+    await page.goto('/supervisor/reports');
+    await expect(page.getByText(/No report rows/i)).toBeVisible();
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -564,5 +675,20 @@ test.describe('contract-faithful frontend flows', () => {
     userFailure = true;
     await page.getByRole('button', { name: /refresh users/i }).click();
     await expect(page.getByText(/users unavailable \(403\)/i)).toBeVisible();
+
+    await page.goto('/admin/fraud');
+    await expect(
+      page.getByRole('heading', { name: 'Fraud', exact: true }),
+    ).toBeVisible();
+    const adminFraudResults = page.getByRole('region', {
+      name: /fraud flag list/i,
+    });
+    await expect(adminFraudResults.getByRole('table')).toBeVisible();
+    await expect(
+      adminFraudResults.getByRole('columnheader', { name: 'Severity' }),
+    ).toBeVisible();
+    await expect(
+      adminFraudResults.getByText(/No fraud flags match/i),
+    ).toBeVisible();
   });
 });

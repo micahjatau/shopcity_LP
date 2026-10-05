@@ -71,7 +71,7 @@ Keep Capture Purchase's four-stage flow and Redeem's distinct basket/redemption 
 
 ### 4. Registration, Transactions, and Sync Queue
 
-Compose focused registration at `/supervisor/customers/new` and `/admin/customers/new` around `useCustomerRegistrationController`, retaining the broader customer workspace for search, detail, editing, and card management. Do not copy unsupported birthday/marketing-consent fields. Preserve the logical registration idempotency key across uncertain retries rather than generating a new request automatically. Preserve truthful transaction scope and pagination language. Derive Sync Queue from shared production primitives with explicit mobile reading order; do not reorder the DOM to satisfy a conflicting stale screenshot.
+Compose focused registration at `/supervisor/customers/new` and `/admin/customers/new` around `useCustomerRegistrationController`, retaining the broader customer workspace for search, detail, editing, and card management. Birthday remains unsupported. Loyalty and optional marketing consent are now governed by `openspec/changes/customer-registration-consent-capture`; collect them only after the versioned API and persistence contract lands. Preserve the logical registration idempotency key across uncertain retries rather than generating a new request automatically. Preserve truthful transaction scope and pagination language. Derive Sync Queue from shared production primitives with explicit mobile reading order; do not reorder the DOM to satisfy a conflicting stale screenshot.
 
 ### 5. Certification
 

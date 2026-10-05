@@ -268,25 +268,40 @@ test.describe('backend-connected frontend flows', () => {
     );
     await page.goto('/supervisor');
     await expect(
-      page.getByRole('heading', { name: /supervisor workspace/i }),
+      page.getByRole('heading', { name: 'Hi, Supervisor!' }),
+    ).toBeVisible();
+
+    await page.goto('/supervisor/approvals');
+    await expect(
+      page.getByRole('heading', { name: 'Transactions awaiting approval' }),
+    ).toBeVisible();
+    await expect(page.locator('.approval-queue__results')).toBeVisible();
+
+    await page.goto('/supervisor/fraud');
+    const fraudReview = page.getByRole('region', {
+      name: /fraud workspace/i,
+    });
+    await expect(
+      fraudReview.getByRole('heading', { name: 'Fraud review results' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('article', { name: /approvals panel/i }),
-    ).toContainText(/loaded/i);
-    await expect(
-      page.getByRole('article', { name: /fraud review/i }),
-    ).toContainText(/loaded/i);
-
-    const fraudReview = page.getByRole('article', { name: /fraud review/i });
-    const fraudDecision = fraudReview.getByRole('button', {
-      name: /submit decision/i,
-    });
-    if (await fraudDecision.isEnabled()) {
-      await fraudDecision.click();
-      await expect(fraudReview).toContainText(/decision sent/i);
+      page.getByRole('region', { name: /fraud flag list/i }).getByRole('table'),
+    ).toBeVisible();
+    const fraudReviewActions = page
+      .getByRole('region', { name: /fraud flag list/i })
+      .getByRole('button', { name: /^Review /i });
+    if ((await fraudReviewActions.count()) > 0) {
+      await fraudReviewActions.first().click();
+      const reviewDialog = page.getByRole('dialog', {
+        name: 'Review fraud case',
+      });
+      await expect(reviewDialog).toBeVisible();
+      await expect(
+        reviewDialog.getByRole('button', { name: 'Submit decision' }),
+      ).toBeDisabled();
     } else {
       await expect(fraudReview).toContainText(
-        /no fraud flags|loaded 0 fraud flags|fraud flags unavailable/i,
+        /no fraud flags|fraud flags unavailable/i,
       );
     }
 

@@ -118,6 +118,10 @@ export interface CreateCustomerDto {
   phone: string;
   /** Unused barcode for the initial customer card */
   cardSerialNumber: string;
+  /** Affirmative acceptance of required loyalty-service terms */
+  loyaltyConsent: boolean;
+  /** Optional consent to marketing messages */
+  marketingOptIn: boolean;
   isStaff?: boolean;
   email?: string;
   branchId?: string;
@@ -8120,7 +8124,22 @@ export type ReceiptsControllerRejectReceiptV1503 = {
 export type ApprovalsControllerListApprovalsV1Params = {
   limit: string;
   cursor: string;
+  /**
+   * Filter before cursor pagination; APPROVED includes executed approvals.
+   */
+  status?: ApprovalsControllerListApprovalsV1Status;
 };
+
+export type ApprovalsControllerListApprovalsV1Status =
+  (typeof ApprovalsControllerListApprovalsV1Status)[keyof typeof ApprovalsControllerListApprovalsV1Status];
+
+export const ApprovalsControllerListApprovalsV1Status = {
+  ALL: 'ALL',
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+} as const;
 
 export type ApprovalsControllerListApprovalsV1200DataItemsItemTargetType =
   (typeof ApprovalsControllerListApprovalsV1200DataItemsItemTargetType)[keyof typeof ApprovalsControllerListApprovalsV1200DataItemsItemTargetType];
@@ -8949,6 +8968,265 @@ export type LoyaltyControllerEarnV1503 = {
   success: boolean;
   error: LoyaltyControllerEarnV1503Error;
   meta: LoyaltyControllerEarnV1503Meta;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1Params = {
+  receiptNumber: string;
+  limit?: number;
+  cursor?: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation =
+  (typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation];
+
+export const LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem = {
+  transactionId: string;
+  receiptNumber: string;
+  operation: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation;
+  amountKobo: number;
+  status: string;
+  occurredAt: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200Data = {
+  items: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1200 = {
+  success: boolean;
+  data: LoyaltyControllerSearchTransactionsByReceiptV1200Data;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1400ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1400 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1400Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1401ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1401 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1401Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1403ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1403 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1403Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1404ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1404 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1404Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1409ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1409 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1409Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1422ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1422 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1422Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1429ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1429 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1429Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type LoyaltyControllerSearchTransactionsByReceiptV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: LoyaltyControllerSearchTransactionsByReceiptV1503ErrorDetails;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1503 = {
+  success: boolean;
+  error: LoyaltyControllerSearchTransactionsByReceiptV1503Error;
+  meta: LoyaltyControllerSearchTransactionsByReceiptV1503Meta;
 };
 
 export type LoyaltyControllerGetTransactionV1200DataType =
@@ -16348,8 +16626,21 @@ export const authControllerLoginV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getAuthControllerLoginV1Url(), {
     ...options,
@@ -16456,8 +16747,21 @@ export const authControllerSmokeSessionV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getAuthControllerSmokeSessionV1Url(), {
     ...options,
@@ -17042,8 +17346,21 @@ export const usersControllerCreateUserV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getUsersControllerCreateUserV1Url(), {
     ...options,
@@ -17258,8 +17575,21 @@ export const usersControllerUpdateRoleV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getUsersControllerUpdateRoleV1Url(id), {
     ...options,
@@ -17366,8 +17696,21 @@ export const usersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getUsersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -17567,8 +17910,21 @@ export const branchesControllerCreateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerCreateBranchV1Url(), {
     ...options,
@@ -17675,8 +18031,21 @@ export const branchesControllerUpdateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerUpdateBranchV1Url(id), {
     ...options,
@@ -17875,8 +18244,21 @@ export const branchesControllerCreateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerCreateDeviceV1Url(), {
     ...options,
@@ -17983,8 +18365,21 @@ export const branchesControllerUpdateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getBranchesControllerUpdateDeviceV1Url(id), {
     ...options,
@@ -18199,8 +18594,21 @@ export const customersControllerCreateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCustomersControllerCreateCustomerV1Url(), {
     ...options,
@@ -18401,8 +18809,21 @@ export const customersControllerUpdateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCustomersControllerUpdateCustomerV1Url(id), {
     ...options,
@@ -18509,8 +18930,21 @@ export const customersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCustomersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -18810,8 +19244,21 @@ export const cardsControllerCreateCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCardsControllerCreateCardV1Url(), {
     ...options,
@@ -18918,8 +19365,21 @@ export const cardsControllerReplaceCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCardsControllerReplaceCardV1Url(id), {
     ...options,
@@ -19026,8 +19486,21 @@ export const cardsControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getCardsControllerUpdateStatusV1Url(id), {
     ...options,
@@ -19142,8 +19615,21 @@ export const receiptsControllerCaptureReceiptV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getReceiptsControllerCaptureReceiptV1Url(), {
     ...options,
@@ -19552,8 +20038,21 @@ export const approvalsControllerDecideApprovalV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getApprovalsControllerDecideApprovalV1Url(id), {
     ...options,
@@ -19665,8 +20164,21 @@ export const loyaltyControllerEarnV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getLoyaltyControllerEarnV1Url(), {
     ...options,
@@ -19688,6 +20200,117 @@ export const loyaltyControllerEarnV1 = async (
     status: res.status,
     headers: res.headers,
   } as loyaltyControllerEarnV1Response;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response200 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1200;
+  status: 200;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response400 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1400;
+  status: 400;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response401 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1401;
+  status: 401;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response403 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1403;
+  status: 403;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response404 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1404;
+  status: 404;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response409 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1409;
+  status: 409;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response422 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1422;
+  status: 422;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response429 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1429;
+  status: 429;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response503 = {
+  data: LoyaltyControllerSearchTransactionsByReceiptV1503;
+  status: 503;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1ResponseSuccess =
+  loyaltyControllerSearchTransactionsByReceiptV1Response200 & {
+    headers: Headers;
+  };
+export type loyaltyControllerSearchTransactionsByReceiptV1ResponseError = (
+  | loyaltyControllerSearchTransactionsByReceiptV1Response400
+  | loyaltyControllerSearchTransactionsByReceiptV1Response401
+  | loyaltyControllerSearchTransactionsByReceiptV1Response403
+  | loyaltyControllerSearchTransactionsByReceiptV1Response404
+  | loyaltyControllerSearchTransactionsByReceiptV1Response409
+  | loyaltyControllerSearchTransactionsByReceiptV1Response422
+  | loyaltyControllerSearchTransactionsByReceiptV1Response429
+  | loyaltyControllerSearchTransactionsByReceiptV1Response503
+) & {
+  headers: Headers;
+};
+
+export type loyaltyControllerSearchTransactionsByReceiptV1Response =
+  | loyaltyControllerSearchTransactionsByReceiptV1ResponseSuccess
+  | loyaltyControllerSearchTransactionsByReceiptV1ResponseError;
+
+export const getLoyaltyControllerSearchTransactionsByReceiptV1Url = (
+  params: LoyaltyControllerSearchTransactionsByReceiptV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/transactions?${stringifiedParams}`
+    : `/api/v1/transactions`;
+};
+
+/**
+ * Search branch transactions by receipt number
+ * @summary Search branch transactions by receipt number
+ */
+export const loyaltyControllerSearchTransactionsByReceiptV1 = async (
+  params: LoyaltyControllerSearchTransactionsByReceiptV1Params,
+  options?: RequestInit,
+): Promise<loyaltyControllerSearchTransactionsByReceiptV1Response> => {
+  const res = await fetch(
+    getLoyaltyControllerSearchTransactionsByReceiptV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: loyaltyControllerSearchTransactionsByReceiptV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as loyaltyControllerSearchTransactionsByReceiptV1Response;
 };
 
 export type loyaltyControllerGetTransactionV1Response200 = {
@@ -19989,8 +20612,21 @@ export const redemptionsControllerRedeemV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getRedemptionsControllerRedeemV1Url(), {
     ...options,
@@ -20098,8 +20734,21 @@ export const reversalsControllerReverseV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getReversalsControllerReverseV1Url(transactionId), {
     ...options,
@@ -20206,8 +20855,21 @@ export const adjustmentsControllerCreateV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getAdjustmentsControllerCreateV1Url(), {
     ...options,
@@ -20314,8 +20976,21 @@ export const offlineSyncControllerEarnBatchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getOfflineSyncControllerEarnBatchV1Url(), {
     ...options,
@@ -20643,8 +21318,21 @@ export const fraudControllerDecideFraudFlagV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(getFraudControllerDecideFraudFlagV1Url(id), {
     ...options,
@@ -22571,8 +23259,21 @@ export const configurationControllerUpdatePolicyConfigurationV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Array.isArray(h)) return Object.fromEntries(h);
-    return h;
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<
+      string | readonly string[] | undefined
+    >(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
   };
   const res = await fetch(
     getConfigurationControllerUpdatePolicyConfigurationV1Url(),

@@ -189,7 +189,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 - User authentication, roles, device attribution and session management.
 
-- Customer registration, phone normalization, card assignment, replacement and blocking.
+- Customer registration, phone normalization, card assignment, replacement and blocking, with versioned required loyalty-service consent and optional marketing opt-in captured as append-only evidence during registration.
 
 - Card lookup, earn, redeem, reversal, manual adjustment, approvals and expiry.
 
@@ -713,9 +713,11 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 8. Supervisor scans or enters unused card barcode.
 
-9. Backend creates customer and card atomically, writes audit event and queues registration SMS if adopted.
+9. Backend creates customer, card, and an append-only versioned consent snapshot atomically, writes audit events, and queues registration SMS if adopted.
+10. Loyalty-service consent is mandatory; marketing opt-in is separate and optional. The server records the authenticated registering actor, server timestamp, consent-copy version, and privacy-notice version; the client cannot supply those values.
+11. Existing customer records are not presumed to have consent. Consent copy versions and retention/deletion behavior require product/legal review before production release.
 
-10. Response returns masked phone, card status and zero balance.
+12. Response returns masked phone, card status and zero balance.
 
 ### **13.2 Lost Card Replacement**
 

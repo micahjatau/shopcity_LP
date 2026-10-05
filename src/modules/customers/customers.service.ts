@@ -27,6 +27,9 @@ import {
   pageMeta,
 } from '../../common/pagination/cursor-pagination';
 
+export const CUSTOMER_CONSENT_VERSION = 'v1.2';
+export const CUSTOMER_PRIVACY_NOTICE_VERSION = 'v2.0';
+
 @Injectable()
 export class CustomersService {
   constructor(
@@ -174,9 +177,14 @@ export class CustomersService {
       email?: string;
       isStaff?: boolean;
       branchId?: string;
+      loyaltyConsent: boolean;
+      marketingOptIn: boolean;
     },
     idempotencyKey: string | undefined,
   ) {
+    if (data.loyaltyConsent !== true) {
+      throw new BadRequestException('Loyalty-service consent is required');
+    }
     const normalizedKey = normalizeCustomerIdempotencyKey(idempotencyKey);
     const endpoint = 'customers.create';
     const requestHash = hashCustomerRequest({
@@ -262,6 +270,17 @@ export class CustomersService {
           isStaff: data.isStaff ?? false,
           registeredByTenantId: actor.user.tenantId,
           registeredBy: actor.user.id,
+        },
+      });
+      await prisma.customerConsent.create({
+        data: {
+          tenantId,
+          customerId: customer.id,
+          capturedBy: actor.user.id,
+          loyaltyConsent: true,
+          marketingOptIn: data.marketingOptIn,
+          consentVersion: CUSTOMER_CONSENT_VERSION,
+          privacyNoticeVersion: CUSTOMER_PRIVACY_NOTICE_VERSION,
         },
       });
       const card = await prisma.card.create({

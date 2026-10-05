@@ -52,6 +52,123 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('shows full-width card search and a verified assignment eligibility dialog', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    let createCardRequests = 0;
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname === '/api/v1/cards'
+      ) {
+        createCardRequests += 1;
+      }
+    });
+    await page.route('**/api/v1/customers**', async (route) => {
+      const { pathname } = new URL(route.request().url());
+      if (pathname === '/api/v1/customers') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              items: [
+                {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  phoneE164: '+2348000000001',
+                },
+              ],
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers/customer-1') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+              phoneE164: '+2348000000001',
+              status: 'ACTIVE',
+              activeCardStatus: 'BLOCKED',
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      return route.fallback();
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    const searchInput = page.getByLabel('Name, phone number, or customer ID');
+    await searchInput.fill('Ada');
+    const searchPanel = page.locator('.sc-assignment-search');
+    const panelWidth = await searchPanel.evaluate(
+      (panel) => panel.getBoundingClientRect().width,
+    );
+    const searchWidth = await searchInput.evaluate(
+      (input) => input.getBoundingClientRect().width,
+    );
+    expect(searchWidth).toBeGreaterThan(panelWidth - 64);
+    await page.getByRole('button', { name: 'Search customers' }).click();
+
+    const result = page.getByRole('button', { name: /Ada Shopper/ });
+    await expect(result).toBeVisible();
+    const resultWidth = await result.evaluate(
+      (row) => row.getBoundingClientRect().width,
+    );
+    expect(resultWidth).toBeGreaterThan(panelWidth - 64);
+    await result.click();
+    await expect(page).toHaveURL(
+      /\/supervisor\/cards\?tab=assign&id=customer-1/,
+    );
+    const dialog = page.getByRole('dialog', {
+      name: 'Assignment eligibility',
+    });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('heading', { name: 'Ada Shopper' }),
+    ).toBeVisible();
+    await expect(dialog.getByText('Customer status')).toBeVisible();
+    await expect(dialog.getByText('Current card status')).toBeVisible();
+    await expect(dialog.getByLabel('New card serial')).toHaveValue('');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    const statusColumns = await dialog
+      .locator('.sc-assignment-dialog__fields')
+      .evaluate(
+        (fields) =>
+          getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      );
+    expect(statusColumns).toBe(1);
+
+    await dialog.getByLabel('New card serial').fill('TEST-CARD-UI-001');
+    await dialog.getByRole('button', { name: 'Review assignment' }).click();
+    await expect(
+      dialog.getByRole('heading', { name: 'Review card assignment' }),
+    ).toBeVisible();
+    await expect(dialog.getByText('TEST-CARD-UI-001')).toBeVisible();
+    expect(createCardRequests).toBe(0);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(searchInput).toHaveValue('Ada');
+    const returnedResult = page.getByRole('button', { name: /Ada Shopper/ });
+    await expect(returnedResult).toBeVisible();
+    await expect(returnedResult).toBeFocused();
+    await expect(page).toHaveURL(/\/supervisor\/cards\?tab=assign$/);
+    expect(createCardRequests).toBe(0);
+  });
+
   test('repairs sidebar geometry, collapse state, and mobile drawer access', async ({
     page,
   }) => {
@@ -569,15 +686,11 @@ test.describe('workflow route coverage', () => {
     page,
   }) => {
     const routes = [
-      [
-        '/supervisor',
-        'Supervisor workspace',
-        'Review operational work across approvals, fraud, transactions, and reports.',
-      ],
+      ['/supervisor', 'Hi, Supervisor!', 'Welcome back to your dashboard'],
       [
         '/supervisor/approvals',
-        'Review approvals',
-        'Inspect approval details and submit an available decision.',
+        'Approvals',
+        'Review pending transactions and recent decisions.',
       ],
       [
         '/supervisor/cards',
@@ -587,22 +700,22 @@ test.describe('workflow route coverage', () => {
       [
         '/supervisor/customers',
         'Manage customers',
-        'Find customer profiles, review account details, and manage linked cards.',
+        'Register customers or find and manage customer accounts.',
       ],
       [
         '/supervisor/fraud',
-        'Review fraud flags',
-        'Examine available evidence and use the existing review actions.',
+        'Fraud',
+        'Review flagged activity and record an acknowledgment or resolution.',
       ],
       [
         '/supervisor/reports',
         'Operational reports',
-        'Choose a report, apply available filters, and inspect its rows and freshness details.',
+        'Review branch performance over time, investigate patterns, and generate detailed reports.',
       ],
       [
         '/supervisor/transactions',
-        'Review transactions',
-        'Find and inspect a transaction, then submit a compensating reversal where allowed. The original transaction remains unchanged.',
+        'Transactions',
+        'Search by receipt number to review transaction details.',
       ],
     ] as const;
     const headerTypography = async (header: ReturnType<typeof page.locator>) =>
@@ -650,25 +763,46 @@ test.describe('workflow route coverage', () => {
         `${path} header typography`,
       ).toEqual(cashierTypography);
 
-      const sectionHeading = root.locator('h2').first();
-      const bodyCopy = root.locator('p').filter({ visible: true }).nth(1);
-      await expect(sectionHeading).toBeVisible();
-      await expect(bodyCopy).toBeVisible();
-      const hierarchy = await root.evaluate((element) => {
-        const heading = element.querySelector('h1')!;
-        const section = element.querySelector('h2')!;
-        const body = Array.from(element.querySelectorAll('p')).find(
-          (paragraph) => !paragraph.closest('.cashier-route-header'),
-        )!;
-        return [heading, section, body].map((node) =>
-          Number.parseFloat(getComputedStyle(node).fontSize),
+      if (path === '/supervisor') {
+        await expect(root.locator('h2, article, a')).toHaveCount(0);
+      } else if (path === '/supervisor/transactions') {
+        await expect(
+          root.getByRole('textbox', { name: 'Receipt number' }),
+        ).toBeVisible();
+        await expect(
+          root.getByRole('button', { name: 'Search' }),
+        ).toBeVisible();
+        await expect(root.getByRole('table')).toBeVisible();
+        await expect(
+          root.getByRole('columnheader', { name: 'Receipt no.' }),
+        ).toBeVisible();
+        await expect(root.getByText('Search for a receipt')).toBeVisible();
+        await expect(
+          root.locator('.supervisor-transaction-reversal'),
+        ).toHaveCount(0);
+      } else {
+        const sectionHeading = root.locator('h2').first();
+        const bodyCopy = root.locator('p').filter({ visible: true }).nth(1);
+        await expect(sectionHeading).toBeVisible();
+        await expect(bodyCopy).toBeVisible();
+        const hierarchy = await root.evaluate((element) => {
+          const heading = element.querySelector('h1')!;
+          const section = element.querySelector('h2')!;
+          const body = Array.from(element.querySelectorAll('p')).find(
+            (paragraph) => !paragraph.closest('.cashier-route-header'),
+          )!;
+          return [heading, section, body].map((node) =>
+            Number.parseFloat(getComputedStyle(node).fontSize),
+          );
+        });
+        expect(hierarchy, `${path} title/section/body scale`).toHaveLength(3);
+        expect(hierarchy[0], `${path} title scale`).toBeGreaterThan(
+          hierarchy[1],
         );
-      });
-      expect(hierarchy, `${path} title/section/body scale`).toHaveLength(3);
-      expect(hierarchy[0], `${path} title scale`).toBeGreaterThan(hierarchy[1]);
-      expect(hierarchy[1], `${path} section scale`).toBeGreaterThanOrEqual(
-        hierarchy[2],
-      );
+        expect(hierarchy[1], `${path} section scale`).toBeGreaterThanOrEqual(
+          hierarchy[2],
+        );
+      }
 
       for (const width of [1440, 768, 375]) {
         await page.setViewportSize({ width, height: 900 });
@@ -718,6 +852,120 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Hi, Cashier!' }),
     ).toBeVisible();
+  });
+
+  test('searches a receipt and confirms a Supervisor reversal in the transaction dialog', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.context().addCookies([
+      {
+        name: 'shopcity_csrf',
+        value: 'csrf-browser-token',
+        url: baseUrl,
+      },
+    ]);
+
+    await page.route('**/api/v1/transactions?*', async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get('receiptNumber')).toBe('r-001');
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                transactionId: 'ledger-1',
+                receiptNumber: 'R-001',
+                operation: 'EARN',
+                amountKobo: 500,
+                status: 'CONFIRMED',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/transactions'),
+        }),
+      );
+    });
+    await page.route('**/api/v1/transactions/ledger-1', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            transactionId: 'ledger-1',
+            posReceiptNumber: 'R-001',
+            type: 'EARN',
+            state: 'CONFIRMED',
+            creditKobo: 500,
+            redeemedAmountKobo: null,
+            purchaseAmountKobo: 10_000,
+            availableBalanceKobo: 2_500,
+            occurredAt: '2030-01-01T10:00:00.000Z',
+          },
+          meta: meta('/api/v1/transactions/ledger-1'),
+        }),
+      ),
+    );
+
+    let reversalRequest: {
+      body: unknown;
+      csrfToken: string | undefined;
+      idempotencyKey: string | undefined;
+    } | null = null;
+    await page.route(
+      '**/api/v1/transactions/ledger-1/reverse',
+      async (route) => {
+        const request = route.request();
+        const headers = request.headers();
+        reversalRequest = {
+          body: request.postDataJSON(),
+          csrfToken: headers['x-csrf-token'],
+          idempotencyKey: headers['idempotency-key'],
+        };
+        return route.fulfill({
+          ...json({
+            success: true,
+            data: { transactionId: 'ledger-reversal-1' },
+            meta: meta('/api/v1/transactions/ledger-1/reverse'),
+          }),
+          status: 201,
+        });
+      },
+    );
+
+    await page.goto(`${baseUrl}/supervisor/transactions`);
+    await page.getByRole('textbox', { name: 'Receipt number' }).fill('r-001');
+    await page
+      .locator('.supervisor-transaction-search')
+      .getByRole('button', { name: 'Search' })
+      .click();
+    const resultRow = page.locator('tbody tr').filter({ hasText: 'R-001' });
+    await expect(resultRow).toBeVisible();
+    await resultRow.click();
+
+    const dialog = page.getByRole('dialog', { name: 'R-001' });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('heading', { name: 'Request reversal' }),
+    ).toBeVisible();
+    await dialog
+      .getByRole('textbox', { name: 'Reversal reason' })
+      .fill('Duplicate receipt entry');
+    await dialog
+      .getByRole('textbox', { name: 'Type REVERSE to confirm' })
+      .fill('REVERSE');
+    await dialog.getByRole('button', { name: 'Confirm reversal' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('Reversal confirmed');
+    await expect
+      .poll(() => reversalRequest)
+      .toEqual({
+        body: { reason: 'Duplicate receipt entry' },
+        csrfToken: 'csrf-browser-token',
+        idempotencyKey: expect.any(String),
+      });
   });
 
   test('keeps the cashier overview launcher and context compact', async ({
@@ -1434,6 +1682,7 @@ test.describe('workflow route coverage', () => {
     ] as const) {
       await mockShell(page, role);
       await page.goto(`${baseUrl}${route}`);
+      await page.getByRole('combobox', { name: 'Search ShopCity' }).focus();
       await expect(
         page.getByRole('button', { name: 'Customers' }),
       ).toBeVisible();
@@ -1444,18 +1693,16 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByRole('button', { name: 'Notifications' }),
       ).toBeDisabled();
-      if (role === 'SUPERVISOR' || role === 'ADMIN') {
-        const featuredHref =
-          role === 'SUPERVISOR' ? '/supervisor/customers' : '/admin/operations';
-        const ordinaryHref =
-          role === 'SUPERVISOR'
-            ? '/supervisor/transactions'
-            : '/admin/transactions';
+      if (role === 'ADMIN') {
         await expect(
-          page.locator(`.shell-main-column a[href="${featuredHref}"]`).first(),
+          page
+            .locator('.shell-main-column a[href="/admin/operations"]')
+            .first(),
         ).toHaveCSS('grid-column-start', 'span 2');
         await expect(
-          page.locator(`.shell-main-column a[href="${ordinaryHref}"]`).first(),
+          page
+            .locator('.shell-main-column a[href="/admin/transactions"]')
+            .first(),
         ).toHaveCSS('grid-column-start', 'auto');
       }
     }
@@ -1463,6 +1710,7 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier`);
     const search = page.getByRole('combobox', { name: 'Search ShopCity' });
+    await search.focus();
     await page.getByRole('button', { name: 'Cards' }).click();
     await search.fill('CARD-001');
     await search.press('Enter');
@@ -2196,6 +2444,248 @@ test.describe('workflow route coverage', () => {
     }
   });
 
+  test('confirms Supervisor registration and edits a selected customer in a dialog', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    const createPayloads: unknown[] = [];
+    const profileUpdatePayloads: unknown[] = [];
+    let customerName = 'Ada Shopper';
+    await page.route('**/api/v1/customers**', async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+      if (
+        pathname === '/api/v1/customers/customer-1' &&
+        request.method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              id: 'customer-1',
+              fullName: customerName,
+              phoneE164: '+2348000000001',
+              email: 'ada@example.com',
+              status: 'ACTIVE',
+              activeCardStatus: 'ACTIVE',
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (
+        pathname === '/api/v1/customers/customer-1' &&
+        request.method() === 'PATCH'
+      ) {
+        const payload = request.postDataJSON() as { fullName: string };
+        profileUpdatePayloads.push(payload);
+        customerName = payload.fullName;
+        return route.fulfill(
+          json({
+            success: true,
+            data: { id: 'customer-1' },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (request.method() !== 'POST') return route.fallback();
+      createPayloads.push(request.postDataJSON());
+      return route.fulfill({
+        ...json({
+          success: true,
+          data: { id: 'registered-customer-1' },
+          meta: meta('/api/v1/customers'),
+        }),
+        status: 201,
+      });
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await page.getByLabel('Full name').fill('Test Customer');
+    await page.getByLabel('Phone number').fill('0000000000');
+    await page.getByLabel('First card serial').fill('TEST-SERIAL-001');
+    await page.getByLabel('Loyalty service consent (required)').check();
+    await page.getByRole('button', { name: 'Review details' }).click();
+
+    const dialog = page.getByRole('dialog', {
+      name: 'Review customer details',
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Test Customer');
+    await expect(dialog).toContainText('0000000000');
+    await expect(dialog).toContainText('Not provided');
+    await expect(dialog).toContainText('TEST-SERIAL-001');
+    await expect(dialog).not.toContainText(
+      /customer status|card status|linked card|card tasks|active/i,
+    );
+    await expect(
+      dialog.getByRole('button', { name: 'Edit details' }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Register customer' }),
+    ).toBeVisible();
+    expect(createPayloads).toHaveLength(0);
+
+    const desktopMetrics = await page
+      .locator('.sc-dialog__panel')
+      .evaluate((panel) => {
+        const style = getComputedStyle(panel);
+        return {
+          width: panel.getBoundingClientRect().width,
+          padding: style.paddingTop,
+          radius: style.borderRadius,
+        };
+      });
+    expect(desktopMetrics.width).toBeGreaterThanOrEqual(540);
+    expect(desktopMetrics.width).toBeLessThanOrEqual(600);
+    expect(desktopMetrics.padding).toBe('32px');
+    expect(desktopMetrics.radius).toBe('16px');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const customerFields = dialog
+      .locator('.sc-registration-review__fields')
+      .first();
+    const mobileColumns = await customerFields.evaluate(
+      (fields) =>
+        getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/).length,
+    );
+    expect(mobileColumns).toBe(1);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+
+    await dialog.getByRole('button', { name: 'Register customer' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Customer registered' }),
+    ).toBeVisible();
+    await expect(dialog).not.toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'View customer' }),
+    ).toHaveAttribute(
+      'href',
+      '/supervisor/customers?tab=manage&id=registered-customer-1',
+    );
+    expect(createPayloads).toEqual([
+      {
+        fullName: 'Test Customer',
+        phone: '0000000000',
+        cardSerialNumber: 'TEST-SERIAL-001',
+        loyaltyConsent: true,
+        marketingOptIn: false,
+      },
+    ]);
+
+    await page.goto(`${baseUrl}/supervisor/customers?tab=manage`);
+    await page.getByLabel('Name, phone number, or customer ID').fill('Ada');
+    await page.getByRole('button', { name: 'Search customers' }).click();
+    const customerRow = page.getByRole('button', { name: /Ada Shopper/ });
+    const resultsPanel = page.getByRole('region', { name: 'Find a customer' });
+    const rowWidth = await customerRow.evaluate(
+      (row) => row.getBoundingClientRect().width,
+    );
+    const panelWidth = await resultsPanel.evaluate(
+      (panel) => panel.getBoundingClientRect().width,
+    );
+    expect(rowWidth).toBeGreaterThan(panelWidth - 50);
+    await customerRow.click();
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\?tab=manage&id=customer-1/,
+    );
+    const customerDialog = page.getByRole('dialog', {
+      name: 'Customer details',
+    });
+    await expect(customerDialog.getByLabel('Full name')).toHaveValue(
+      'Ada Shopper',
+    );
+    await expect(customerDialog.getByLabel('Phone number')).toHaveValue(
+      '+2348000000001',
+    );
+    await expect(customerDialog.getByText('Active card')).toBeVisible();
+    await expect(
+      customerDialog.getByText('Card serial not included in customer details.'),
+    ).toBeVisible();
+    await expect(
+      customerDialog.getByRole('link', { name: 'Manage linked card →' }),
+    ).toHaveAttribute('href', '/supervisor/cards?tab=assign&id=customer-1');
+
+    await customerDialog.getByRole('button', { name: 'Change status' }).click();
+    const accountStatusEditor = customerDialog.locator(
+      '.sc-customer-details__status-editor',
+    );
+    await expect(accountStatusEditor).toBeVisible();
+    const accountEditorStyles = await accountStatusEditor.evaluate((editor) => {
+      const style = getComputedStyle(editor);
+      return {
+        background: style.backgroundColor,
+        borderColor: style.borderTopColor,
+        borderStyle: style.borderTopStyle,
+        borderWidth: style.borderTopWidth,
+        fields: Array.from(editor.querySelectorAll('.sc-control')).map(
+          (field) => {
+            const fieldStyle = getComputedStyle(field);
+            return {
+              background: fieldStyle.backgroundColor,
+              borderColor: fieldStyle.borderTopColor,
+              borderStyle: fieldStyle.borderTopStyle,
+              borderWidth: fieldStyle.borderTopWidth,
+            };
+          },
+        ),
+      };
+    });
+    expect(accountEditorStyles).toEqual({
+      background: 'rgb(255, 255, 255)',
+      borderColor: 'rgb(205, 210, 216)',
+      borderStyle: 'solid',
+      borderWidth: '1px',
+      fields: [
+        {
+          background: 'rgb(255, 255, 255)',
+          borderColor: 'rgb(205, 210, 216)',
+          borderStyle: 'solid',
+          borderWidth: '1px',
+        },
+        {
+          background: 'rgb(255, 255, 255)',
+          borderColor: 'rgb(205, 210, 216)',
+          borderStyle: 'solid',
+          borderWidth: '1px',
+        },
+      ],
+    });
+    await accountStatusEditor.getByRole('button', { name: 'Cancel' }).click();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const customerMobileColumns = await customerDialog
+      .locator('.sc-customer-details__fields')
+      .evaluate(
+        (fields) =>
+          getComputedStyle(fields).gridTemplateColumns.trim().split(/\s+/)
+            .length,
+      );
+    expect(customerMobileColumns).toBe(1);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+
+    await customerDialog.getByLabel('Full name').fill('Ada Shopper Updated');
+    await customerDialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByText('Customer changes saved')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Ada Shopper Updated/ }),
+    ).toBeVisible();
+    expect(profileUpdatePayloads).toEqual([
+      {
+        fullName: 'Ada Shopper Updated',
+        phone: '+2348000000001',
+        email: 'ada@example.com',
+      },
+    ]);
+  });
+
   test('reviews responsive Supervisor customer and card task workspaces', async ({
     page,
   }, testInfo) => {
@@ -2296,7 +2786,7 @@ test.describe('workflow route coverage', () => {
         expect(visibleControlRects.length, workspace.task).toBeGreaterThan(0);
         if (workspace.task === 'register-customer') {
           const registrationButton = panel.getByRole('button', {
-            name: 'Register customer and first card',
+            name: 'Review details',
           });
           const buttonBox = await registrationButton.boundingBox();
           const cardBox = await registrationButton
@@ -2481,7 +2971,7 @@ test.describe('workflow route coverage', () => {
         await expect(page.locator('.shell-loading-screen')).toBeHidden();
         await expect(page).toHaveURL(`${baseUrl}${permittedRoute}`);
         await expect(
-          page.getByRole('heading', { name: 'Supervisor workspace' }),
+          page.getByRole('heading', { name: 'Hi, Supervisor!' }),
         ).toHaveCount(0);
         await expect(
           page.getByRole('heading', { name: 'Find a customer' }),
