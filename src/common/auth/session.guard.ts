@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { BranchStatus, TenantStatus, UserStatus } from '@prisma/client';
+import {
+  BranchStatus,
+  SessionPurpose,
+  TenantStatus,
+  UserStatus,
+} from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SESSION_COOKIE_NAME } from '../../config/app.constants';
@@ -79,6 +84,19 @@ export async function loadAuthContext(
     include: {
       user: { include: { tenant: true, branch: true } },
       device: { include: { branch: true } },
+      deviceCredential: {
+        select: {
+          id: true,
+          tenantId: true,
+          deviceId: true,
+          status: true,
+          authenticatorAttachment: true,
+          backupEligible: true,
+          backedUp: true,
+          attestationTrustResult: true,
+          rpId: true,
+        },
+      },
     },
   });
 
@@ -95,7 +113,11 @@ export async function loadAuthContext(
     return null;
   }
 
-  if (!isSessionDeviceEligible(session)) {
+  const expectedRpId = configService
+    .get<string>('WEBAUTHN_RP_ID')
+    ?.trim()
+    .toLowerCase();
+  if (!isSessionDeviceEligible(session, expectedRpId)) {
     return null;
   }
 
@@ -165,18 +187,41 @@ export function isAuthUserEligible(user: AuthUser): boolean {
   return true;
 }
 
-export function isSessionDeviceEligible(session: {
-  deviceId: string | null;
-  user: AuthUser;
-  device?: {
-    tenantId: string;
-    status: string;
-    branchId: string;
-    branch?: { status: string };
-  } | null;
-}): boolean {
+export function isSessionDeviceEligible(
+  session: {
+    deviceId: string | null;
+    deviceCredentialId?: string | null;
+    purpose: SessionPurpose;
+    user: AuthUser;
+    device?: {
+      tenantId: string;
+      status: string;
+      branchId: string;
+      authBindingMode?: string;
+      branch?: { status: string };
+    } | null;
+    deviceCredential?: {
+      id: string;
+      tenantId: string;
+      deviceId: string;
+      status: string;
+      authenticatorAttachment: string | null;
+      backupEligible: boolean;
+      backedUp: boolean;
+      attestationTrustResult: string;
+      rpId: string;
+    } | null;
+  },
+  expectedRpId?: string,
+): boolean {
+  const isCashier = session.user.role === 'CASHIER';
+  const isSmokeSession = session.purpose === SessionPurpose.SMOKE;
   if (!session.deviceId) {
-    return true;
+    return !isCashier && session.deviceCredentialId == null;
+  }
+
+  if (isCashier && session.purpose !== SessionPurpose.USER && !isSmokeSession) {
+    return false;
   }
 
   if (
@@ -195,5 +240,31 @@ export function isSessionDeviceEligible(session: {
     return false;
   }
 
+  if (session.device.authBindingMode === 'WEBAUTHN') {
+    const credential = session.deviceCredential;
+    return Boolean(
+      session.user.role === 'CASHIER' &&
+      session.deviceCredentialId &&
+      credential &&
+      credential.id === session.deviceCredentialId &&
+      credential.tenantId === session.user.tenantId &&
+      credential.deviceId === session.deviceId &&
+      credential.status === 'ACTIVE' &&
+      credential.attestationTrustResult === 'TRUSTED' &&
+      credential.authenticatorAttachment === 'platform' &&
+      !credential.backupEligible &&
+      !credential.backedUp &&
+      expectedRpId &&
+      credential.rpId === expectedRpId,
+    );
+  }
+
+  if (session.deviceCredentialId != null) return false;
+  if (isCashier) {
+    return (
+      (session.purpose === SessionPurpose.USER || isSmokeSession) &&
+      session.device.authBindingMode === 'HMAC_LEGACY'
+    );
+  }
   return true;
 }
