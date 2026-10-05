@@ -127,6 +127,12 @@ export const shellNavigationByRole: Record<
           href: '/supervisor/reports',
           icon: 'chart',
         },
+        {
+          id: 'supervisor-devices',
+          label: 'Devices',
+          href: '/supervisor/devices',
+          icon: 'device',
+        },
       ],
     },
   ],

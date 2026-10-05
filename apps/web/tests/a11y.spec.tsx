@@ -94,10 +94,10 @@ describe('frontend accessibility gates', () => {
     ).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('button', { name: /sign in/i })).toHaveFocus();
-    await user.tab();
-    expect(screen.getByLabelText(/device id/i)).toHaveFocus();
-    await user.tab();
-    expect(screen.getByLabelText(/device attestation secret/i)).toHaveFocus();
+    expect(screen.queryByLabelText(/device id/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/device attestation secret/i),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps cashier, supervisor and admin shells accessible', async () => {

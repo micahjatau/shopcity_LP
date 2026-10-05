@@ -44,6 +44,37 @@ describe('BranchesService', () => {
         keyProtection: ['hardware'],
       } as unknown as MetadataStatement);
   });
+  it('lists safe device binding metadata without widening Supervisor branch scope', async () => {
+    const findMany = jest.fn(
+      (args: {
+        where: Record<string, string>;
+        select: Record<string, unknown>;
+      }) => {
+        void args;
+        return Promise.resolve([]);
+      },
+    );
+    const service = new BranchesService(
+      { device: { findMany } } as never,
+      { recordWithClient: jest.fn() } as never,
+      { get: () => false } as never,
+    );
+    const supervisor = actorStub();
+    supervisor.user.role = UserRole.SUPERVISOR;
+
+    await service.listDevices('tenant-id', supervisor as never);
+
+    const callArgs = findMany.mock.calls[0]?.[0];
+    expect(callArgs?.where).toEqual({
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+    });
+    expect(callArgs?.select.authBindingMode).toBe(true);
+    expect(callArgs?.select.pairedAt).toBe(true);
+    expect(callArgs?.select.branch).toEqual({ select: { name: true } });
+    expect(callArgs?.select.webAuthnCredentials).toBeDefined();
+  });
+
   it('fails pairing closed until fleet qualification is approved', async () => {
     const prisma = { device: { findFirst: jest.fn() } };
     const service = new BranchesService(
@@ -832,8 +863,34 @@ describe('BranchesService', () => {
     expect(tx.device.updateMany).toHaveBeenCalled();
   });
 
-  it('rotates the attestation secret when requested', async () => {
+  it('returns the rotated secret once and never persists it for idempotent replay', async () => {
+    type IdempotencyRecordRow = {
+      requestHash: string;
+      responseJson: unknown;
+    } | null;
+    const idempotencyCreate = jest.fn(
+      (args: { data: { requestHash: string } }) => {
+        void args;
+        return Promise.resolve({});
+      },
+    );
+    const idempotencyFindUnique = jest.fn(
+      (args: unknown): Promise<IdempotencyRecordRow> => {
+        void args;
+        return Promise.resolve(null);
+      },
+    );
+    const idempotencyUpdate = jest.fn(
+      (args: {
+        data: { responseJson: unknown };
+        where: Record<string, unknown>;
+      }) => {
+        void args;
+        return Promise.resolve({});
+      },
+    );
     const tx = {
+      idempotencyRecord: { create: idempotencyCreate },
       device: {
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),
         findFirst: jest.fn().mockResolvedValue({
@@ -863,6 +920,11 @@ describe('BranchesService', () => {
           status: DeviceStatus.ACTIVE,
           authBindingMode: 'HMAC_LEGACY',
         }),
+      },
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUnique: idempotencyFindUnique,
+        update: idempotencyUpdate,
       },
       $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
         callback(tx),
@@ -895,9 +957,31 @@ describe('BranchesService', () => {
         id: 'device-id',
       }),
     );
-    expect(
-      typeof (updated as { attestationSecret?: unknown }).attestationSecret,
-    ).toBe('string');
+    const secret = (updated as { attestationSecret: string }).attestationSecret;
+    expect(secret).toEqual(expect.any(String));
+    const requestHash = idempotencyCreate.mock.calls[0]?.[0]?.data.requestHash;
+    if (!requestHash) throw new Error('Expected idempotency request hash');
+    const persistedResponse = idempotencyUpdate.mock.calls[0]?.[0]?.data
+      .responseJson as Record<string, unknown>;
+    expect(persistedResponse).toMatchObject({ id: 'device-id' });
+    expect(persistedResponse).not.toHaveProperty('attestationSecret');
+    expect(JSON.stringify(persistedResponse)).not.toContain(secret);
+
+    idempotencyFindUnique.mockResolvedValue({
+      requestHash,
+      responseJson: persistedResponse,
+    });
+    const replay = await service.updateDevice(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+      { rotateAttestationSecret: true },
+      'device-update-key-3',
+    );
+    expect(replay).toEqual(persistedResponse);
+    expect(replay).not.toHaveProperty('attestationSecret');
+    expect(prisma.device.findFirst).toHaveBeenCalledTimes(1);
+
     expect(auditService.recordWithClient).toHaveBeenCalledWith(
       tx,
       expect.objectContaining({

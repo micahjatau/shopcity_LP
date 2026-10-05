@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   BranchStatus,
+  Prisma,
   DeviceAuthBindingMode,
   DeviceEnrollmentPurpose,
   DeviceStatus,
@@ -128,6 +129,21 @@ export class BranchesService {
         branchId: true,
         name: true,
         status: true,
+        authBindingMode: true,
+        pairedAt: true,
+        branch: { select: { name: true } },
+        webAuthnCredentials: {
+          select: {
+            id: true,
+            status: true,
+            pairedAt: true,
+            revokedAt: true,
+            aaguid: true,
+            authenticatorAttachment: true,
+            transports: true,
+            backupEligible: true,
+          },
+        },
         lastSeenAt: true,
         createdAt: true,
         updatedAt: true,
@@ -804,6 +820,13 @@ export class BranchesService {
     });
 
     if (this.prismaService.idempotencyRecord?.update) {
+      // HMAC credentials are one-time response data, never replayable from the
+      // persistent idempotency record.
+      const idempotencyResponse = JSON.parse(
+        JSON.stringify(response, (key, value: unknown) =>
+          key === 'attestationSecret' ? undefined : value,
+        ) ?? '{}',
+      ) as Prisma.InputJsonValue;
       await this.prismaService.idempotencyRecord.update({
         where: {
           tenantId_actorId_endpoint_idempotencyKey: {
@@ -815,7 +838,7 @@ export class BranchesService {
         },
         data: {
           status: IdempotencyRecordStatus.COMPLETED,
-          responseJson: response,
+          responseJson: idempotencyResponse,
         },
       });
     }

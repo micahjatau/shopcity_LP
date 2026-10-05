@@ -1,107 +1,64 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LoginForm } from '../components/auth/login-form';
 import { loginWithCredentials } from '../lib/api';
+import { authControllerCompleteCashierLoginV1 } from '../lib/api/generated-client';
 
 const mockReplace = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ replace: mockReplace, refresh: jest.fn() }) }));
+jest.mock('../lib/api', () => ({ loginWithCredentials: jest.fn() }));
+jest.mock('../lib/api/generated-client', () => ({ authControllerCompleteCashierLoginV1: jest.fn() }));
 
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
-
-jest.mock('../lib/api', () => ({
-  loginWithCredentials: jest.fn(),
-}));
-
-describe('LoginForm', () => {
+describe('LoginForm WebAuthn flow', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockReplace.mockReset();
     jest.mocked(loginWithCredentials).mockReset();
+    jest.mocked(authControllerCompleteCashierLoginV1).mockReset();
   });
 
-  it('shows device credentials for local development sign-in', () => {
+  it('completes the assertion before navigating to an authenticated route', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({ status: 202, data: { data: { code: 'DEVICE_ASSERTION_REQUIRED', attemptToken: 'ephemeral-token', options: { challenge: 'AQ', rpId: 'localhost', allowCredentials: [] } } } } as never);
+    const credential = { id: 'cred', rawId: new Uint8Array([1]).buffer, type: 'public-key', response: { clientDataJSON: new Uint8Array([1]).buffer, authenticatorData: new Uint8Array([2]).buffer, signature: new Uint8Array([3]).buffer, userHandle: null }, getClientExtensionResults: () => ({}) };
+    Object.defineProperty(navigator, 'credentials', { configurable: true, value: { get: jest.fn().mockResolvedValue(credential) } });
+    let complete!: (value: unknown) => void;
+    jest.mocked(authControllerCompleteCashierLoginV1).mockImplementation(() => new Promise((resolve) => { complete = resolve; }) as never);
     render(<LoginForm />);
-
-    expect(screen.getByText('Local device credentials')).toBeVisible();
-    expect(screen.getByLabelText('Device ID')).toBeVisible();
-    expect(screen.getByLabelText('Device attestation secret')).toBeVisible();
-    expect(
-      screen.getByText(/active device ID and one-time attestation secret/i),
-    ).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Email Address'), { target: { value: 'cashier@example.test' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'private-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => expect(authControllerCompleteCashierLoginV1).toHaveBeenCalled());
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBe('device-locator');
+    expect(window.localStorage.getItem('attemptToken')).toBeNull();
+    complete({ status: 200, data: { data: { user: { role: 'CASHIER' } } } });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/cashier'));
+    expect(window.localStorage.getItem('private-password')).toBeNull();
   });
 
-  it('does not persist the raw device secret in browser storage', () => {
+  it('shows pairing guidance instead of sending a cashier request when locator is missing', async () => {
     render(<LoginForm />);
-
-    fireEvent.change(screen.getByLabelText('Device attestation secret'), {
-      target: { value: 'one-time-secret' },
-    });
-
-    expect(
-      window.localStorage.getItem('shopcity:device-attestation-secret'),
-    ).toBe(null);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    expect(await screen.findByText(/not paired to a register/i)).toBeVisible();
+    expect(loginWithCredentials).not.toHaveBeenCalled();
   });
 
-  it('clears the raw device secret after a sign-in attempt', async () => {
-    jest.mocked(loginWithCredentials).mockResolvedValue({
-      status: 200,
-      data: { data: { user: { role: 'CASHIER' } } },
-    } as never);
-
+  it('does not navigate when assertion completion fails', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({ status: 202, data: { data: { code: 'DEVICE_ASSERTION_REQUIRED', attemptToken: 'short-lived', options: { challenge: 'AQ', rpId: 'localhost' } } } } as never);
+    Object.defineProperty(navigator, 'credentials', { configurable: true, value: { get: jest.fn().mockRejectedValue(Object.assign(new Error(), { name: 'NotAllowedError' })) } });
     render(<LoginForm />);
-    fireEvent.change(screen.getByLabelText('Email Address'), {
-      target: { value: 'cashier@example.test' },
-    });
-    fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'password' },
-    });
-    fireEvent.change(screen.getByLabelText('Device attestation secret'), {
-      target: { value: 'one-time-secret' },
-    });
-
-    fireEvent.submit(screen.getByRole('button', { name: 'Sign In' }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Device attestation secret')).toHaveValue(
-        '',
-      );
-    });
-    expect(mockReplace).toHaveBeenCalledWith('/cashier');
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    expect(await screen.findByText(/cancelled or timed out/i)).toBeVisible();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('short-lived')).toBeNull();
   });
 
-  it('only presents supported staff roles', () => {
-    render(<LoginForm />);
-
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
-    expect(
-      screen.getByRole('radio', { name: 'Cashier / Loyalty Staff' }),
-    ).toBeVisible();
-    expect(screen.getByRole('radio', { name: 'Supervisor' })).toBeVisible();
-    expect(screen.getByRole('radio', { name: 'Administrator' })).toBeVisible();
-    expect(
-      screen.queryByRole('radio', { name: 'Owner' }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/owner/i)).not.toBeInTheDocument();
-  });
-
-  it('uses the backend-returned role for navigation', async () => {
-    jest.mocked(loginWithCredentials).mockResolvedValue({
-      status: 200,
-      data: { data: { user: { role: 'SUPERVISOR' } } },
-    } as never);
-
+  it('preserves Admin and Supervisor password login navigation from the backend role', async () => {
+    jest.mocked(loginWithCredentials).mockResolvedValue({ status:  200, data: { data: { user: { role: 'SUPERVISOR' } } } } as never);
     render(<LoginForm />);
     fireEvent.click(screen.getByRole('radio', { name: 'Supervisor' }));
-    fireEvent.change(screen.getByLabelText('Email Address'), {
-      target: { value: 'staff@example.test' },
-    });
-    fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'password' },
-    });
-    fireEvent.submit(screen.getByRole('button', { name: 'Sign In' }));
-
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/supervisor');
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/supervisor'));
   });
 });

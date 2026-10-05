@@ -2,6 +2,6 @@
 
 import { DeviceManagement } from '../../../../components/devices/device-management';
 
-export default function AdminDevicesPage() {
-  return <DeviceManagement />;
+export default function SupervisorDevicesPage() {
+  return <DeviceManagement supervisor />;
 }

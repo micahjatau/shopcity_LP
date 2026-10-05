@@ -5,6 +5,12 @@ import type { FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useId, useState } from 'react';
 import { loginWithCredentials } from '../../lib/api';
+import { authControllerCompleteCashierLoginV1 } from '../../lib/api/generated-client';
+import { createApiRequest } from '../../lib/api/request';
+import {
+  serializeCredential,
+  toCredentialRequestOptions,
+} from '../../lib/webauthn-json';
 import { Button, Input } from '../ui';
 
 const routeByRole = {
@@ -12,7 +18,6 @@ const routeByRole = {
   SUPERVISOR: '/supervisor',
   ADMIN: '/admin',
 } as const;
-
 const loginRoles = [
   [
     'CASHIER',
@@ -30,6 +35,7 @@ const loginRoles = [
     'Programme configuration, wallet, campaigns and audit.',
   ],
 ] as const;
+const pairedDeviceKey = 'shopcity:paired-device-id';
 
 export function LoginForm() {
   const router = useRouter();
@@ -37,60 +43,105 @@ export function LoginForm() {
   const passwordId = useId();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState('CASHIER');
   const [status, setStatus] = useState<
     'idle' | 'submitting' | 'success' | 'error'
   >('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [deviceId, setDeviceId] = useState('');
-  const [deviceAttestationSecret, setDeviceAttestationSecret] = useState('');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus('submitting');
     setMessage(null);
-
-    const headers = await buildDeviceHeaders(deviceId, deviceAttestationSecret);
-
     try {
+      const deviceId =
+        selectedRole === 'CASHIER'
+          ? window.localStorage.getItem(pairedDeviceKey)
+          : null;
+      if (selectedRole === 'CASHIER' && !deviceId) {
+        setStatus('error');
+        setMessage(
+          'This browser is not paired to a register. Ask a Supervisor or Admin to pair this POS, then try again.',
+        );
+        return;
+      }
       const response = await loginWithCredentials(
         { username, password },
-        { headers },
+        { headers: deviceId ? { 'x-device-id': deviceId } : {} },
       );
-      if (response.status !== 200) {
-        setStatus('error');
-        setMessage('Sign in failed. Check your credentials and try again.');
-        return;
+      let authenticated = response.status === 200 ? response.data : null;
+      if (response.status === 202) {
+        const data = (response.data as { data?: Record<string, unknown> }).data;
+        if (
+          data?.code !== 'DEVICE_ASSERTION_REQUIRED' ||
+          typeof data.attemptToken !== 'string' ||
+          !data.options
+        ) {
+          throw new Error('Invalid assertion response');
+        }
+        if (!navigator.credentials?.get) {
+          setStatus('error');
+          setMessage(
+            'This browser does not support register security keys. Use a supported POS browser or contact your Supervisor.',
+          );
+          return;
+        }
+        const assertion = await navigator.credentials.get({
+          publicKey: toCredentialRequestOptions(
+            data.options as Record<string, unknown>,
+          ),
+        });
+        if (!assertion) {
+          setStatus('error');
+          setMessage(
+            'Security-key sign-in was cancelled. Try again or ask your Supervisor to re-pair this POS.',
+          );
+          return;
+        }
+        const completion = await authControllerCompleteCashierLoginV1(
+          {
+            attemptToken: data.attemptToken,
+            assertion: serializeCredential(assertion as PublicKeyCredential),
+          },
+          createApiRequest(),
+        );
+        if (completion.status !== 200) {
+          setStatus('error');
+          setMessage(
+            'Register sign-in expired or is no longer valid. Ask your Supervisor to check the pairing and try again.',
+          );
+          return;
+        }
+        authenticated = completion.data;
       }
-
-      const role = response.data?.data?.user?.role;
-      if (!role) {
+      if (response.status !== 200 && response.status !== 202) {
         setStatus('error');
         setMessage(
-          'Sign in succeeded, but the session response was incomplete. Please try again.',
+          'Sign in failed. Check your credentials and register pairing, then try again.',
         );
         return;
       }
-
-      if (role === 'SYSTEM') {
+      const role = authenticated?.data?.user?.role;
+      if (!role || role === 'SYSTEM') {
         setStatus('error');
         setMessage(
-          'SYSTEM sessions are not available in the interactive UI. Use a machine-attested session instead.',
+          'Sign in could not be completed. Contact your administrator.',
         );
         return;
       }
-
       setStatus('success');
       router.replace(routeByRole[role] ?? '/cashier');
-      // Re-run the protected shell's session bootstrap after the login cookie
-      // has been written by the API proxy.
       router.refresh();
-    } catch {
+    } catch (error) {
       setStatus('error');
-      setMessage('Sign in failed. The session service is unavailable.');
+      setMessage(
+        error instanceof Error && error.name === 'NotAllowedError'
+          ? 'Security-key sign-in was cancelled or timed out. Try again, or ask your Supervisor to re-pair this POS.'
+          : 'Sign in failed. The session service is unavailable or the register pairing expired.',
+      );
     } finally {
-      // Raw attestation material must never survive the sign-in attempt in browser state.
-      setDeviceAttestationSecret('');
+      setPassword('');
     }
   }
 
@@ -104,7 +155,6 @@ export function LoginForm() {
         <legend className="sr-only">Choose a staff account</legend>
         {loginRoles.map(([value, label, detail], index) => {
           const detailId = `role-${value.toLowerCase()}-detail`;
-
           return (
             <label
               key={value}
@@ -119,6 +169,7 @@ export function LoginForm() {
                 aria-label={label}
                 aria-describedby={detailId}
                 defaultChecked={index === 0}
+                onChange={() => setSelectedRole(value)}
               />
               <span>
                 <strong>{label}</strong>
@@ -189,80 +240,9 @@ export function LoginForm() {
         className={`login-notice${status === 'error' ? ' is-error' : ''}`}
         aria-live="polite"
       >
-        {message ?? 'Use your ShopCity staff credentials.'}
+        {message ??
+          'Cashiers sign in with a paired POS security key. Use your ShopCity staff credentials.'}
       </p>
-      {process.env.NODE_ENV !== 'production' ? (
-        <fieldset className="login-device-fields">
-          <legend>Local device credentials</legend>
-          <p>
-            Development only. Use the active device ID and one-time attestation
-            secret from Admin → Devices. The secret is cleared after sign-in.
-          </p>
-          <label htmlFor="device-id">Device ID</label>
-          <Input
-            id="device-id"
-            aria-label="Device ID"
-            value={deviceId}
-            onChange={(event) => setDeviceId(event.target.value)}
-            autoComplete="off"
-          />
-          <label htmlFor="device-attestation-secret">
-            Device attestation secret
-          </label>
-          <Input
-            id="device-attestation-secret"
-            aria-label="Device attestation secret"
-            value={deviceAttestationSecret}
-            onChange={(event) => setDeviceAttestationSecret(event.target.value)}
-            autoComplete="off"
-          />
-        </fieldset>
-      ) : null}
     </form>
   );
-}
-
-async function buildDeviceHeaders(
-  deviceId: string,
-  attestationSecret: string,
-): Promise<Record<string, string>> {
-  const trimmedDeviceId = deviceId.trim();
-  const trimmedSecret = attestationSecret.trim();
-
-  if (!trimmedDeviceId || !trimmedSecret) {
-    return {};
-  }
-
-  const timestamp = Date.now();
-  const nonce = globalThis.crypto.randomUUID();
-  const key = await globalThis.crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(trimmedSecret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = await globalThis.crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(`${trimmedDeviceId}.${timestamp}.${nonce}`),
-  );
-  const signatureBase64Url = arrayBufferToBase64Url(signature);
-
-  return {
-    'x-device-id': trimmedDeviceId,
-    'x-device-attestation': `${timestamp}.${nonce}.${signatureBase64Url}`,
-  };
-}
-
-function arrayBufferToBase64Url(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary)
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replaceAll('=', '');
 }
