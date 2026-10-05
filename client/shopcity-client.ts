@@ -11,6 +11,17 @@ export interface LoginDto {
   password: string;
 }
 
+export type CashierLoginCompleteDtoAssertion = { [key: string]: unknown };
+
+export interface CashierLoginCompleteDto {
+  /**
+   * @minLength 43
+   * @maxLength 43
+   */
+  attemptToken: string;
+  assertion: CashierLoginCompleteDtoAssertion;
+}
+
 export type SmokeSessionBootstrapDtoRole =
   (typeof SmokeSessionBootstrapDtoRole)[keyof typeof SmokeSessionBootstrapDtoRole];
 
@@ -95,7 +106,15 @@ export interface UpdateBranchDto {
 export interface CreateDeviceDto {
   branchId: string;
   name: string;
-  fingerprintHash: string;
+  /** Ignored legacy compatibility field */
+  fingerprintHash?: string;
+}
+
+export type CompleteDeviceEnrollmentDtoResponse = { [key: string]: unknown };
+
+export interface CompleteDeviceEnrollmentDto {
+  authorizationToken: string;
+  response: CompleteDeviceEnrollmentDtoResponse;
 }
 
 export type UpdateDeviceDtoStatus =
@@ -1034,6 +1053,37 @@ export type AuthControllerLoginV1200 = {
   meta: AuthControllerLoginV1200Meta;
 };
 
+export type AuthControllerLoginV1202DataCode =
+  (typeof AuthControllerLoginV1202DataCode)[keyof typeof AuthControllerLoginV1202DataCode];
+
+export const AuthControllerLoginV1202DataCode = {
+  DEVICE_ASSERTION_REQUIRED: 'DEVICE_ASSERTION_REQUIRED',
+} as const;
+
+export type AuthControllerLoginV1202DataOptions = { [key: string]: unknown };
+
+export type AuthControllerLoginV1202Data = {
+  code: AuthControllerLoginV1202DataCode;
+  /**
+   * @minLength 43
+   * @maxLength 43
+   */
+  attemptToken: string;
+  options: AuthControllerLoginV1202DataOptions;
+};
+
+export type AuthControllerLoginV1202Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerLoginV1202 = {
+  success: boolean;
+  data: AuthControllerLoginV1202Data;
+  meta: AuthControllerLoginV1202Meta;
+};
+
 /**
  * @nullable
  */
@@ -1248,6 +1298,263 @@ export type AuthControllerLoginV1503 = {
   success: boolean;
   error: AuthControllerLoginV1503Error;
   meta: AuthControllerLoginV1503Meta;
+};
+
+export type AuthControllerCompleteCashierLoginV1200DataUserRole =
+  (typeof AuthControllerCompleteCashierLoginV1200DataUserRole)[keyof typeof AuthControllerCompleteCashierLoginV1200DataUserRole];
+
+export const AuthControllerCompleteCashierLoginV1200DataUserRole = {
+  CASHIER: 'CASHIER',
+  SUPERVISOR: 'SUPERVISOR',
+  ADMIN: 'ADMIN',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export type AuthControllerCompleteCashierLoginV1200DataUser = {
+  id: string;
+  username: string;
+  role: AuthControllerCompleteCashierLoginV1200DataUserRole;
+  /** @nullable */
+  branchId: string | null;
+};
+
+export type AuthControllerCompleteCashierLoginV1200DataSession = {
+  expiresAt: string;
+  /** @nullable */
+  deviceId: string | null;
+};
+
+export type AuthControllerCompleteCashierLoginV1200Data = {
+  user: AuthControllerCompleteCashierLoginV1200DataUser;
+  session: AuthControllerCompleteCashierLoginV1200DataSession;
+};
+
+export type AuthControllerCompleteCashierLoginV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1200 = {
+  success: boolean;
+  data: AuthControllerCompleteCashierLoginV1200Data;
+  meta: AuthControllerCompleteCashierLoginV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1400ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1400 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1400Error;
+  meta: AuthControllerCompleteCashierLoginV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1401ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1401 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1401Error;
+  meta: AuthControllerCompleteCashierLoginV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1403ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1403 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1403Error;
+  meta: AuthControllerCompleteCashierLoginV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1404ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1404 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1404Error;
+  meta: AuthControllerCompleteCashierLoginV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1409ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1409 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1409Error;
+  meta: AuthControllerCompleteCashierLoginV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1422ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1422 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1422Error;
+  meta: AuthControllerCompleteCashierLoginV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1429ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1429 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1429Error;
+  meta: AuthControllerCompleteCashierLoginV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type AuthControllerCompleteCashierLoginV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type AuthControllerCompleteCashierLoginV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: AuthControllerCompleteCashierLoginV1503ErrorDetails;
+};
+
+export type AuthControllerCompleteCashierLoginV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type AuthControllerCompleteCashierLoginV1503 = {
+  success: boolean;
+  error: AuthControllerCompleteCashierLoginV1503Error;
+  meta: AuthControllerCompleteCashierLoginV1503Meta;
 };
 
 export type AuthControllerSmokeSessionV1200DataUserRole =
@@ -4799,6 +5106,934 @@ export type BranchesControllerCreateDeviceV1503 = {
   success: boolean;
   error: BranchesControllerCreateDeviceV1503Error;
   meta: BranchesControllerCreateDeviceV1503Meta;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1201Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1201 = {
+  success: boolean;
+  data: BranchesControllerCreateDeviceEnrollmentV1201Data;
+  meta: BranchesControllerCreateDeviceEnrollmentV1201Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1400ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1400 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1400Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1401ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1401 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1401Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1403ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1403 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1403Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1404ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1404 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1404Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1409ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1409 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1409Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1422ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1422 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1422Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1429ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1429 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1429Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCreateDeviceEnrollmentV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCreateDeviceEnrollmentV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCreateDeviceEnrollmentV1503ErrorDetails;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCreateDeviceEnrollmentV1503 = {
+  success: boolean;
+  error: BranchesControllerCreateDeviceEnrollmentV1503Error;
+  meta: BranchesControllerCreateDeviceEnrollmentV1503Meta;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1200 = {
+  success: boolean;
+  data: BranchesControllerCompleteDeviceEnrollmentV1200Data;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1400ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1400 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1400Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1401ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1401 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1401Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1403ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1403 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1403Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1404ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1404 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1404Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1409ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1409 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1409Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1422ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1422 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1422Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1429ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1429 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1429Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerCompleteDeviceEnrollmentV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerCompleteDeviceEnrollmentV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerCompleteDeviceEnrollmentV1503ErrorDetails;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerCompleteDeviceEnrollmentV1503 = {
+  success: boolean;
+  error: BranchesControllerCompleteDeviceEnrollmentV1503Error;
+  meta: BranchesControllerCompleteDeviceEnrollmentV1503Meta;
+};
+
+export type BranchesControllerListDeviceCredentialsV1200DataItem = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerListDeviceCredentialsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1200 = {
+  success: boolean;
+  data: BranchesControllerListDeviceCredentialsV1200DataItem[];
+  meta: BranchesControllerListDeviceCredentialsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1400ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1400 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1400Error;
+  meta: BranchesControllerListDeviceCredentialsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1401ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1401 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1401Error;
+  meta: BranchesControllerListDeviceCredentialsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1403ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1403 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1403Error;
+  meta: BranchesControllerListDeviceCredentialsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1404ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1404 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1404Error;
+  meta: BranchesControllerListDeviceCredentialsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1409ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1409 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1409Error;
+  meta: BranchesControllerListDeviceCredentialsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1422ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1422 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1422Error;
+  meta: BranchesControllerListDeviceCredentialsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1429ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1429 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1429Error;
+  meta: BranchesControllerListDeviceCredentialsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerListDeviceCredentialsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerListDeviceCredentialsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerListDeviceCredentialsV1503ErrorDetails;
+};
+
+export type BranchesControllerListDeviceCredentialsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerListDeviceCredentialsV1503 = {
+  success: boolean;
+  error: BranchesControllerListDeviceCredentialsV1503Error;
+  meta: BranchesControllerListDeviceCredentialsV1503Meta;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1200 = {
+  success: boolean;
+  data: BranchesControllerRevokeDeviceCredentialV1200Data;
+  meta: BranchesControllerRevokeDeviceCredentialV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1400ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1400 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1400Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1401ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1401 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1401Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1403ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1403 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1403Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1404ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1404 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1404Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1409ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1409 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1409Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1422ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1422 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1422Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1429ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1429 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1429Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerRevokeDeviceCredentialV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerRevokeDeviceCredentialV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerRevokeDeviceCredentialV1503ErrorDetails;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerRevokeDeviceCredentialV1503 = {
+  success: boolean;
+  error: BranchesControllerRevokeDeviceCredentialV1503Error;
+  meta: BranchesControllerRevokeDeviceCredentialV1503Meta;
 };
 
 export type BranchesControllerUpdateDeviceV1200Data = {
@@ -16549,6 +17784,11 @@ export type authControllerLoginV1Response200 = {
   status: 200;
 };
 
+export type authControllerLoginV1Response202 = {
+  data: AuthControllerLoginV1202;
+  status: 202;
+};
+
 export type authControllerLoginV1Response400 = {
   data: AuthControllerLoginV1400;
   status: 400;
@@ -16589,10 +17829,11 @@ export type authControllerLoginV1Response503 = {
   status: 503;
 };
 
-export type authControllerLoginV1ResponseSuccess =
-  authControllerLoginV1Response200 & {
-    headers: Headers;
-  };
+export type authControllerLoginV1ResponseSuccess = (
+  authControllerLoginV1Response200 | authControllerLoginV1Response202
+) & {
+  headers: Headers;
+};
 export type authControllerLoginV1ResponseError = (
   | authControllerLoginV1Response400
   | authControllerLoginV1Response401
@@ -16626,21 +17867,8 @@ export const authControllerLoginV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getAuthControllerLoginV1Url(), {
     ...options,
@@ -16662,6 +17890,114 @@ export const authControllerLoginV1 = async (
     status: res.status,
     headers: res.headers,
   } as authControllerLoginV1Response;
+};
+
+export type authControllerCompleteCashierLoginV1Response200 = {
+  data: AuthControllerCompleteCashierLoginV1200;
+  status: 200;
+};
+
+export type authControllerCompleteCashierLoginV1Response400 = {
+  data: AuthControllerCompleteCashierLoginV1400;
+  status: 400;
+};
+
+export type authControllerCompleteCashierLoginV1Response401 = {
+  data: AuthControllerCompleteCashierLoginV1401;
+  status: 401;
+};
+
+export type authControllerCompleteCashierLoginV1Response403 = {
+  data: AuthControllerCompleteCashierLoginV1403;
+  status: 403;
+};
+
+export type authControllerCompleteCashierLoginV1Response404 = {
+  data: AuthControllerCompleteCashierLoginV1404;
+  status: 404;
+};
+
+export type authControllerCompleteCashierLoginV1Response409 = {
+  data: AuthControllerCompleteCashierLoginV1409;
+  status: 409;
+};
+
+export type authControllerCompleteCashierLoginV1Response422 = {
+  data: AuthControllerCompleteCashierLoginV1422;
+  status: 422;
+};
+
+export type authControllerCompleteCashierLoginV1Response429 = {
+  data: AuthControllerCompleteCashierLoginV1429;
+  status: 429;
+};
+
+export type authControllerCompleteCashierLoginV1Response503 = {
+  data: AuthControllerCompleteCashierLoginV1503;
+  status: 503;
+};
+
+export type authControllerCompleteCashierLoginV1ResponseSuccess =
+  authControllerCompleteCashierLoginV1Response200 & {
+    headers: Headers;
+  };
+export type authControllerCompleteCashierLoginV1ResponseError = (
+  | authControllerCompleteCashierLoginV1Response400
+  | authControllerCompleteCashierLoginV1Response401
+  | authControllerCompleteCashierLoginV1Response403
+  | authControllerCompleteCashierLoginV1Response404
+  | authControllerCompleteCashierLoginV1Response409
+  | authControllerCompleteCashierLoginV1Response422
+  | authControllerCompleteCashierLoginV1Response429
+  | authControllerCompleteCashierLoginV1Response503
+) & {
+  headers: Headers;
+};
+
+export type authControllerCompleteCashierLoginV1Response =
+  | authControllerCompleteCashierLoginV1ResponseSuccess
+  | authControllerCompleteCashierLoginV1ResponseError;
+
+export const getAuthControllerCompleteCashierLoginV1Url = () => {
+  return `/api/v1/auth/cashier-login/complete`;
+};
+
+/**
+ * Complete cashier WebAuthn login
+ * @summary Complete cashier WebAuthn login
+ */
+export const authControllerCompleteCashierLoginV1 = async (
+  cashierLoginCompleteDto: CashierLoginCompleteDto,
+  options?: RequestInit,
+): Promise<authControllerCompleteCashierLoginV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(getAuthControllerCompleteCashierLoginV1Url(), {
+    ...options,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getHeaders(options?.headers),
+    },
+    body: JSON.stringify(cashierLoginCompleteDto),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: authControllerCompleteCashierLoginV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as authControllerCompleteCashierLoginV1Response;
 };
 
 export type authControllerSmokeSessionV1Response200 = {
@@ -16747,21 +18083,8 @@ export const authControllerSmokeSessionV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getAuthControllerSmokeSessionV1Url(), {
     ...options,
@@ -17346,21 +18669,8 @@ export const usersControllerCreateUserV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getUsersControllerCreateUserV1Url(), {
     ...options,
@@ -17575,21 +18885,8 @@ export const usersControllerUpdateRoleV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getUsersControllerUpdateRoleV1Url(id), {
     ...options,
@@ -17696,21 +18993,8 @@ export const usersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getUsersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -17910,21 +19194,8 @@ export const branchesControllerCreateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerCreateBranchV1Url(), {
     ...options,
@@ -18031,21 +19302,8 @@ export const branchesControllerUpdateBranchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerUpdateBranchV1Url(id), {
     ...options,
@@ -18244,21 +19502,8 @@ export const branchesControllerCreateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerCreateDeviceV1Url(), {
     ...options,
@@ -18280,6 +19525,414 @@ export const branchesControllerCreateDeviceV1 = async (
     status: res.status,
     headers: res.headers,
   } as branchesControllerCreateDeviceV1Response;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response201 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1201;
+  status: 201;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response400 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1400;
+  status: 400;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response401 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1401;
+  status: 401;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response403 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1403;
+  status: 403;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response404 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1404;
+  status: 404;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response409 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1409;
+  status: 409;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response422 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1422;
+  status: 422;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response429 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1429;
+  status: 429;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response503 = {
+  data: BranchesControllerCreateDeviceEnrollmentV1503;
+  status: 503;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1ResponseSuccess =
+  branchesControllerCreateDeviceEnrollmentV1Response201 & {
+    headers: Headers;
+  };
+export type branchesControllerCreateDeviceEnrollmentV1ResponseError = (
+  | branchesControllerCreateDeviceEnrollmentV1Response400
+  | branchesControllerCreateDeviceEnrollmentV1Response401
+  | branchesControllerCreateDeviceEnrollmentV1Response403
+  | branchesControllerCreateDeviceEnrollmentV1Response404
+  | branchesControllerCreateDeviceEnrollmentV1Response409
+  | branchesControllerCreateDeviceEnrollmentV1Response422
+  | branchesControllerCreateDeviceEnrollmentV1Response429
+  | branchesControllerCreateDeviceEnrollmentV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerCreateDeviceEnrollmentV1Response =
+  | branchesControllerCreateDeviceEnrollmentV1ResponseSuccess
+  | branchesControllerCreateDeviceEnrollmentV1ResponseError;
+
+export const getBranchesControllerCreateDeviceEnrollmentV1Url = (
+  id: string,
+) => {
+  return `/api/v1/devices/${id}/enrollment`;
+};
+
+/**
+ * Create one-time device pairing authorization and registration options
+ * @summary Create one-time device pairing authorization and registration options
+ */
+export const branchesControllerCreateDeviceEnrollmentV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerCreateDeviceEnrollmentV1Response> => {
+  const res = await fetch(
+    getBranchesControllerCreateDeviceEnrollmentV1Url(id),
+    {
+      ...options,
+      method: 'POST',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerCreateDeviceEnrollmentV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerCreateDeviceEnrollmentV1Response;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response200 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1200;
+  status: 200;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response400 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1400;
+  status: 400;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response401 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1401;
+  status: 401;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response403 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1403;
+  status: 403;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response404 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1404;
+  status: 404;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response409 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1409;
+  status: 409;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response422 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1422;
+  status: 422;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response429 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1429;
+  status: 429;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response503 = {
+  data: BranchesControllerCompleteDeviceEnrollmentV1503;
+  status: 503;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1ResponseSuccess =
+  branchesControllerCompleteDeviceEnrollmentV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerCompleteDeviceEnrollmentV1ResponseError = (
+  | branchesControllerCompleteDeviceEnrollmentV1Response400
+  | branchesControllerCompleteDeviceEnrollmentV1Response401
+  | branchesControllerCompleteDeviceEnrollmentV1Response403
+  | branchesControllerCompleteDeviceEnrollmentV1Response404
+  | branchesControllerCompleteDeviceEnrollmentV1Response409
+  | branchesControllerCompleteDeviceEnrollmentV1Response422
+  | branchesControllerCompleteDeviceEnrollmentV1Response429
+  | branchesControllerCompleteDeviceEnrollmentV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerCompleteDeviceEnrollmentV1Response =
+  | branchesControllerCompleteDeviceEnrollmentV1ResponseSuccess
+  | branchesControllerCompleteDeviceEnrollmentV1ResponseError;
+
+export const getBranchesControllerCompleteDeviceEnrollmentV1Url = (
+  id: string,
+) => {
+  return `/api/v1/devices/${id}/enrollment/complete`;
+};
+
+/**
+ * Complete target-device WebAuthn enrollment
+ * @summary Complete target-device WebAuthn enrollment
+ */
+export const branchesControllerCompleteDeviceEnrollmentV1 = async (
+  id: string,
+  completeDeviceEnrollmentDto: CompleteDeviceEnrollmentDto,
+  options?: RequestInit,
+): Promise<branchesControllerCompleteDeviceEnrollmentV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(
+    getBranchesControllerCompleteDeviceEnrollmentV1Url(id),
+    {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(completeDeviceEnrollmentDto),
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerCompleteDeviceEnrollmentV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerCompleteDeviceEnrollmentV1Response;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response200 = {
+  data: BranchesControllerListDeviceCredentialsV1200;
+  status: 200;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response400 = {
+  data: BranchesControllerListDeviceCredentialsV1400;
+  status: 400;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response401 = {
+  data: BranchesControllerListDeviceCredentialsV1401;
+  status: 401;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response403 = {
+  data: BranchesControllerListDeviceCredentialsV1403;
+  status: 403;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response404 = {
+  data: BranchesControllerListDeviceCredentialsV1404;
+  status: 404;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response409 = {
+  data: BranchesControllerListDeviceCredentialsV1409;
+  status: 409;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response422 = {
+  data: BranchesControllerListDeviceCredentialsV1422;
+  status: 422;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response429 = {
+  data: BranchesControllerListDeviceCredentialsV1429;
+  status: 429;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response503 = {
+  data: BranchesControllerListDeviceCredentialsV1503;
+  status: 503;
+};
+
+export type branchesControllerListDeviceCredentialsV1ResponseSuccess =
+  branchesControllerListDeviceCredentialsV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerListDeviceCredentialsV1ResponseError = (
+  | branchesControllerListDeviceCredentialsV1Response400
+  | branchesControllerListDeviceCredentialsV1Response401
+  | branchesControllerListDeviceCredentialsV1Response403
+  | branchesControllerListDeviceCredentialsV1Response404
+  | branchesControllerListDeviceCredentialsV1Response409
+  | branchesControllerListDeviceCredentialsV1Response422
+  | branchesControllerListDeviceCredentialsV1Response429
+  | branchesControllerListDeviceCredentialsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerListDeviceCredentialsV1Response =
+  | branchesControllerListDeviceCredentialsV1ResponseSuccess
+  | branchesControllerListDeviceCredentialsV1ResponseError;
+
+export const getBranchesControllerListDeviceCredentialsV1Url = (id: string) => {
+  return `/api/v1/devices/${id}/credentials`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const branchesControllerListDeviceCredentialsV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerListDeviceCredentialsV1Response> => {
+  const res = await fetch(getBranchesControllerListDeviceCredentialsV1Url(id), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerListDeviceCredentialsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerListDeviceCredentialsV1Response;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response200 = {
+  data: BranchesControllerRevokeDeviceCredentialV1200;
+  status: 200;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response400 = {
+  data: BranchesControllerRevokeDeviceCredentialV1400;
+  status: 400;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response401 = {
+  data: BranchesControllerRevokeDeviceCredentialV1401;
+  status: 401;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response403 = {
+  data: BranchesControllerRevokeDeviceCredentialV1403;
+  status: 403;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response404 = {
+  data: BranchesControllerRevokeDeviceCredentialV1404;
+  status: 404;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response409 = {
+  data: BranchesControllerRevokeDeviceCredentialV1409;
+  status: 409;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response422 = {
+  data: BranchesControllerRevokeDeviceCredentialV1422;
+  status: 422;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response429 = {
+  data: BranchesControllerRevokeDeviceCredentialV1429;
+  status: 429;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response503 = {
+  data: BranchesControllerRevokeDeviceCredentialV1503;
+  status: 503;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1ResponseSuccess =
+  branchesControllerRevokeDeviceCredentialV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerRevokeDeviceCredentialV1ResponseError = (
+  | branchesControllerRevokeDeviceCredentialV1Response400
+  | branchesControllerRevokeDeviceCredentialV1Response401
+  | branchesControllerRevokeDeviceCredentialV1Response403
+  | branchesControllerRevokeDeviceCredentialV1Response404
+  | branchesControllerRevokeDeviceCredentialV1Response409
+  | branchesControllerRevokeDeviceCredentialV1Response422
+  | branchesControllerRevokeDeviceCredentialV1Response429
+  | branchesControllerRevokeDeviceCredentialV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerRevokeDeviceCredentialV1Response =
+  | branchesControllerRevokeDeviceCredentialV1ResponseSuccess
+  | branchesControllerRevokeDeviceCredentialV1ResponseError;
+
+export const getBranchesControllerRevokeDeviceCredentialV1Url = (
+  id: string,
+  credentialId: string,
+) => {
+  return `/api/v1/devices/${id}/credentials/${credentialId}/revoke`;
+};
+
+/**
+ * ShopCity API operation
+ */
+export const branchesControllerRevokeDeviceCredentialV1 = async (
+  id: string,
+  credentialId: string,
+  options?: RequestInit,
+): Promise<branchesControllerRevokeDeviceCredentialV1Response> => {
+  const res = await fetch(
+    getBranchesControllerRevokeDeviceCredentialV1Url(id, credentialId),
+    {
+      ...options,
+      method: 'POST',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerRevokeDeviceCredentialV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerRevokeDeviceCredentialV1Response;
 };
 
 export type branchesControllerUpdateDeviceV1Response200 = {
@@ -18365,21 +20018,8 @@ export const branchesControllerUpdateDeviceV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getBranchesControllerUpdateDeviceV1Url(id), {
     ...options,
@@ -18594,21 +20234,8 @@ export const customersControllerCreateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCustomersControllerCreateCustomerV1Url(), {
     ...options,
@@ -18809,21 +20436,8 @@ export const customersControllerUpdateCustomerV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCustomersControllerUpdateCustomerV1Url(id), {
     ...options,
@@ -18930,21 +20544,8 @@ export const customersControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCustomersControllerUpdateStatusV1Url(id), {
     ...options,
@@ -19244,21 +20845,8 @@ export const cardsControllerCreateCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCardsControllerCreateCardV1Url(), {
     ...options,
@@ -19365,21 +20953,8 @@ export const cardsControllerReplaceCardV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCardsControllerReplaceCardV1Url(id), {
     ...options,
@@ -19486,21 +21061,8 @@ export const cardsControllerUpdateStatusV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getCardsControllerUpdateStatusV1Url(id), {
     ...options,
@@ -19615,21 +21177,8 @@ export const receiptsControllerCaptureReceiptV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getReceiptsControllerCaptureReceiptV1Url(), {
     ...options,
@@ -20038,21 +21587,8 @@ export const approvalsControllerDecideApprovalV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getApprovalsControllerDecideApprovalV1Url(id), {
     ...options,
@@ -20164,21 +21700,8 @@ export const loyaltyControllerEarnV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getLoyaltyControllerEarnV1Url(), {
     ...options,
@@ -20612,21 +22135,8 @@ export const redemptionsControllerRedeemV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getRedemptionsControllerRedeemV1Url(), {
     ...options,
@@ -20734,21 +22244,8 @@ export const reversalsControllerReverseV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getReversalsControllerReverseV1Url(transactionId), {
     ...options,
@@ -20855,21 +22352,8 @@ export const adjustmentsControllerCreateV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getAdjustmentsControllerCreateV1Url(), {
     ...options,
@@ -20976,21 +22460,8 @@ export const offlineSyncControllerEarnBatchV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getOfflineSyncControllerEarnBatchV1Url(), {
     ...options,
@@ -21318,21 +22789,8 @@ export const fraudControllerDecideFraudFlagV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(getFraudControllerDecideFraudFlagV1Url(id), {
     ...options,
@@ -23259,21 +24717,8 @@ export const configurationControllerUpdatePolicyConfigurationV1 = async (
   ): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
   };
   const res = await fetch(
     getConfigurationControllerUpdatePolicyConfigurationV1Url(),

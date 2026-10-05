@@ -10,8 +10,10 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
+import { createHash } from 'node:crypto';
 import { AuthService } from './auth.service';
 import {
+  CashierLoginCompleteDto,
   LoginDto,
   SmokeSessionBootstrapDto,
   authResponseSchema,
@@ -25,6 +27,7 @@ import {
 } from '../../config/app.constants';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
 import type { AuthContext } from '../../common/auth/session.types';
+import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import {
   clearCookie,
   buildCookie,
@@ -34,6 +37,23 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+
+export function buildCashierLoginCompletionThrottleKey(
+  request: AuthenticatedRequest,
+): string {
+  const body = request.body;
+  const attemptToken =
+    body && typeof body === 'object' && !Array.isArray(body)
+      ? (body as { attemptToken?: unknown }).attemptToken
+      : undefined;
+  const validToken =
+    typeof attemptToken === 'string' &&
+    /^[A-Za-z0-9_-]{43}$/.test(attemptToken);
+  const tokenHash = validToken
+    ? createHash('sha256').update(attemptToken).digest('hex')
+    : 'invalid-attempt';
+  return `cashier-login-complete:${request.ip || 'unknown'}:${tokenHash}`;
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -77,6 +97,20 @@ export class AuthController {
     description: 'Authenticated session created',
     dataSchema: authResponseSchema(),
   })
+  @apiSuccessEnvelopeResponse({
+    description: 'Cashier password accepted; WebAuthn assertion required',
+    status: 202,
+    dataSchema: {
+      type: 'object',
+      required: ['code', 'attemptToken', 'options'],
+      properties: {
+        code: { type: 'string', enum: ['DEVICE_ASSERTION_REQUIRED'] },
+        attemptToken: { type: 'string', minLength: 43, maxLength: 43 },
+        options: { type: 'object', additionalProperties: true },
+      },
+      additionalProperties: false,
+    },
+  })
   @ApiOperation({ summary: 'Create authenticated session' })
   async login(
     @Body() dto: LoginDto,
@@ -84,12 +118,21 @@ export class AuthController {
     @Headers('x-device-attestation') deviceAttestation: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    const issued = await this.authService.login(
+    const result = await this.authService.login(
       dto.username,
       dto.password,
       deviceId,
       deviceAttestation,
     );
+    if (!('sessionToken' in result)) {
+      reply.code(202);
+      return {
+        code: result.code,
+        attemptToken: result.attemptToken,
+        options: result.options,
+      };
+    }
+    const issued = result;
     const maxAge = Math.max(
       0,
       Math.floor(
@@ -104,6 +147,45 @@ export class AuthController {
       maxAge,
     );
 
+    return this.authService.toResponse(issued.context);
+  }
+
+  @Post('cashier-login/complete')
+  @PublicRoute()
+  @Throttle({
+    bucket: 'auth.cashier_login.complete',
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    keyFactory: buildCashierLoginCompletionThrottleKey,
+  })
+  @Version('1')
+  @HttpCode(200)
+  @apiSuccessEnvelopeResponse({
+    description:
+      'Authenticated cashier session created after WebAuthn assertion',
+    dataSchema: authResponseSchema(),
+  })
+  @ApiOperation({ summary: 'Complete cashier WebAuthn login' })
+  async completeCashierLogin(
+    @Body() dto: CashierLoginCompleteDto,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const issued = await this.authService.completeCashierLogin(
+      dto.attemptToken,
+      dto.assertion,
+    );
+    const maxAge = Math.max(
+      0,
+      Math.floor(
+        (issued.context.session.expiresAt.getTime() - Date.now()) / 1000,
+      ),
+    );
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+    );
     return this.authService.toResponse(issued.context);
   }
 
