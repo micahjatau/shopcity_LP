@@ -1,6 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
+const webServerCommand =
+  process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === 'true'
+    ? 'npm run start -- --port 3100'
+    : 'npm run dev -- --port 3100';
 
 export default defineConfig({
   testDir: './tests',
@@ -33,7 +37,7 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: 'npm run dev -- --port 3100',
+          command: webServerCommand,
           url: baseURL,
           reuseExistingServer:
             process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === 'true',

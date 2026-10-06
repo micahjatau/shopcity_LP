@@ -239,7 +239,7 @@ export function SupervisorOperationalReports() {
       aria-label="Operational reports"
     >
       <CashierPageHeader
-        className="supervisor-page__header supervisor-reports-header"
+        className="cashier-route-header supervisor-page__header supervisor-reports-header"
         eyebrow="SUPERVISOR · REPORTING"
         title="Operational reports"
         description="Review branch performance over time, investigate patterns, and generate detailed reports."

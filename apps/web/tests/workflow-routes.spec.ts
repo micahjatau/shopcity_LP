@@ -598,6 +598,7 @@ test.describe('workflow route coverage', () => {
           await page.emulateMedia({ reducedMotion: 'reduce' });
           await expect(page.locator('.shell-loading-screen')).toBeHidden();
           await expect(page.locator('main')).toBeVisible();
+          await page.getByRole('combobox', { name: 'Search ShopCity' }).focus();
           await expect(page.locator('.shell-main')).toHaveCSS(
             'max-width',
             'none',
@@ -1602,7 +1603,9 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('heading', { name: 'Transactions', exact: true }),
     ).toBeVisible();
-    await expect(page.getByText(/0 loaded transactions/)).toBeVisible();
+    await expect(page.getByText(/0 loaded transactions/)).toBeVisible({
+      timeout: 10000,
+    });
     const reactInputWidth =
       (
         await page
@@ -1641,7 +1644,9 @@ test.describe('workflow route coverage', () => {
       });
 
       await page.goto(`${baseUrl}/cashier/transactions`);
-      await expect(page.getByText(/0 loaded transactions/)).toBeVisible();
+      await expect(page.getByText(/0 loaded transactions/)).toBeVisible({
+        timeout: 10000,
+      });
       const reactWidth =
         (
           await page

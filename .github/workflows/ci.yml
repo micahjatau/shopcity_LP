@@ -79,6 +79,8 @@ jobs:
       - run: npm --prefix apps/web run critical:test
       - run: npm --prefix apps/web run build
       - run: npm --prefix apps/web run visual:test
+        env:
+          PLAYWRIGHT_USE_PRODUCTION_SERVER: 'true'
       - name: Upload frontend visual evidence
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
