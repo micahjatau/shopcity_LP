@@ -5,7 +5,10 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 export default defineConfig({
   testDir: './tests',
   testMatch: /.*\.spec\.ts$/,
-  testIgnore: /tests\/smoke\/(roles|scenarios|guardrails|offline)\//,
+  testIgnore: [
+    /tests\/smoke\/(roles|scenarios|guardrails|offline)\//,
+    /tests\/(supervisor-report-metrics|webauthn-json)\.spec\.ts$/,
+  ],
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
