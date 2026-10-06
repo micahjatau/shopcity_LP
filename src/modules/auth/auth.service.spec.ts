@@ -1787,15 +1787,21 @@ describe('AuthService', () => {
     ).rejects.toThrow('Device attestation is required');
   });
 
-  it('keeps Admin and Supervisor password logins on the existing session path', async () => {
+  it('ignores incidental cashier device locators for Admin and Supervisor logins', async () => {
     for (const role of [UserRole.ADMIN, UserRole.SUPERVISOR]) {
       const service = buildLoginService({
         device: buildDevice('device-secret'),
         userRole: role,
       });
       await expect(
-        service.login(`${role.toLowerCase()}@shopcity.local`, 'password'),
-      ).resolves.toMatchObject({ context: { session: { purpose: 'USER' } } });
+        service.login(
+          `${role.toLowerCase()}@shopcity.local`,
+          'password',
+          'device-id',
+        ),
+      ).resolves.toMatchObject({
+        context: { session: { purpose: 'USER', deviceId: null } },
+      });
     }
   });
 

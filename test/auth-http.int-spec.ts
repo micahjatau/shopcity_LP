@@ -489,7 +489,7 @@ describe('auth and readiness flows (int)', () => {
     expect(session).toBeTruthy();
   }, 120000);
 
-  it('rejects login when the device attestation is missing or invalid', async () => {
+  it('ignores an incidental device locator for Admin login but rejects invalid explicit proof', async () => {
     const device = await prisma.device.create({
       data: createAttestedDeviceData({
         tenantId: seedData.tenant.id,
@@ -507,7 +507,7 @@ describe('auth and readiness flows (int)', () => {
         username: seedData.user.username,
         password: seedData.adminPassword,
       })
-      .expect(400);
+      .expect(200);
 
     await request(httpServer)
       .post('/api/v1/auth/login')

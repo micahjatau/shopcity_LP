@@ -116,6 +116,21 @@ describe('LoginForm WebAuthn flow', () => {
     expect(window.localStorage.getItem('short-lived')).toBeNull();
   });
 
+  it('sends only the incidental cashier locator when the authenticated role is Admin', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'ADMIN' } } },
+    } as never);
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
+    expect(loginWithCredentials).toHaveBeenCalledWith(
+      { username: '', password: '' },
+      { headers: { 'x-device-id': 'device-locator' } },
+    );
+  });
+
   it('preserves Admin and Supervisor password login navigation from the backend role', async () => {
     jest.mocked(loginWithCredentials).mockResolvedValue({
       status: 200,

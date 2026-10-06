@@ -124,7 +124,10 @@ export class AuthService {
       throw new UnauthorizedException('User is not active');
     }
 
-    const sessionDevice = deviceId
+    const usesDeviceProof = Boolean(
+      deviceId && (user.role === UserRole.CASHIER || deviceAttestation),
+    );
+    const sessionDevice = usesDeviceProof
       ? await this.prismaService.device.findFirst({
           where: { id: deviceId, tenantId: user.tenantId },
           include: {
@@ -137,7 +140,7 @@ export class AuthService {
       : null;
 
     if (
-      deviceId &&
+      usesDeviceProof &&
       (!sessionDevice ||
         sessionDevice.status !== 'ACTIVE' ||
         sessionDevice.branch.status !== 'ACTIVE' ||
@@ -162,16 +165,16 @@ export class AuthService {
       }
     }
 
-    if (deviceId && !deviceAttestation) {
+    if (sessionDevice && !deviceAttestation) {
       throw new BadRequestException('Device attestation is required');
     }
 
-    const attestation = deviceId
+    const attestation = sessionDevice
       ? assertDeviceAttestationValid(
-          deviceId,
+          sessionDevice.id,
           deviceAttestation!,
           resolveDeviceAttestationSecret(
-            sessionDevice!,
+            sessionDevice,
             this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '',
           ),
         )
