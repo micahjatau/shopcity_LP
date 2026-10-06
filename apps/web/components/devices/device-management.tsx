@@ -147,7 +147,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
       );
       await refresh();
     } catch {
-      setMessage('Device creation failed. Check the selected branch and retry.');
+      setMessage(
+        'Device creation failed. Check the selected branch and retry.',
+      );
     } finally {
       setBusy(false);
     }
@@ -188,8 +190,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
       }
       const payload = responseData(authorization.data);
       const token = payload.authorizationToken;
-      const options = (payload.options ??
-        payload.registrationOptions) as Record<string, unknown> | undefined;
+      const options = (payload.options ?? payload.registrationOptions) as
+        Record<string, unknown> | undefined;
       if (typeof token !== 'string' || !options) {
         throw new Error('Invalid pairing response');
       }
@@ -209,7 +211,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
         },
         createApiRequest(),
       );
-      if (completion.status !== 200) throw new Error('Pairing completion failed');
+      if (completion.status !== 200)
+        throw new Error('Pairing completion failed');
 
       try {
         // This is a non-secret device locator only; WebAuthn remains the proof.
@@ -229,7 +232,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
       cancelPairing();
       await refresh();
     } catch (error) {
-      const cancelled = error instanceof Error && error.name === 'NotAllowedError';
+      const cancelled =
+        error instanceof Error && error.name === 'NotAllowedError';
       setMessage(
         cancelled
           ? 'Registration was cancelled or timed out. Retry on the target POS browser.'
@@ -258,7 +262,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
         createApiRequest({ csrf: true }),
       );
       if (response.status !== 200) throw new Error('Credential unavailable');
-      setMessage('Credential revoked and its bound cashier sessions invalidated.');
+      setMessage(
+        'Credential revoked and its bound cashier sessions invalidated.',
+      );
       await refresh();
     } catch {
       setMessage(
@@ -290,8 +296,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
         {
           name: selected.name ?? '',
           status: (status ?? selected.status ?? 'ACTIVE') as
-            | 'ACTIVE'
-            | 'INACTIVE',
+            'ACTIVE' | 'INACTIVE',
           rotateAttestationSecret,
         },
         createApiRequest({
@@ -406,7 +411,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
                   <tbody>
                     <tr>
                       <th scope="row">Branch</th>
-                      <td>{selected.branch?.name ?? selected.branchId ?? '—'}</td>
+                      <td>
+                        {selected.branch?.name ?? selected.branchId ?? '—'}
+                      </td>
                     </tr>
                     <tr>
                       <th scope="row">Status</th>
@@ -506,9 +513,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                 >
                   <Button
                     onClick={requestPairingConfirmation}
-                    disabled={
-                      busy || loading || selected.status !== 'ACTIVE'
-                    }
+                    disabled={busy || loading || selected.status !== 'ACTIVE'}
                   >
                     {selected.pairedAt
                       ? 'Replace credential / re-pair'
@@ -548,7 +553,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
                     style={{
                       display: 'grid',
                       gap: 'var(--sc-spacing-3)',
-                      border: '1px solid var(--sc-color-semantic-borderDefault)',
+                      border:
+                        '1px solid var(--sc-color-semantic-borderDefault)',
                       borderRadius: 'var(--sc-radius-md)',
                       padding: 'var(--sc-spacing-3)',
                     }}

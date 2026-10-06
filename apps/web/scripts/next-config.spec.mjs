@@ -27,7 +27,9 @@ for (const mode of ['development', 'production']) {
       assert.ok(directives.includes('upgrade-insecure-requests'));
       assert.ok(!policy.includes("'unsafe-eval'"));
     } else {
-      assert.ok(!directives.some((value) => value.startsWith('frame-ancestors')));
+      assert.ok(
+        !directives.some((value) => value.startsWith('frame-ancestors')),
+      );
       assert.ok(!directives.includes('upgrade-insecure-requests'));
       assert.ok(policy.includes("'unsafe-eval'"));
     }

@@ -2,17 +2,25 @@ type JsonRecord = Record<string, unknown>;
 
 function base64UrlToBytes(value: string): Uint8Array {
   const normalized = value.replaceAll('-', '+').replaceAll('_', '/');
-  const binary = atob(normalized + '='.repeat((4 - (normalized.length % 4)) % 4));
+  const binary = atob(
+    normalized + '='.repeat((4 - (normalized.length % 4)) % 4),
+  );
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 function bytesToBase64Url(value: ArrayBuffer | ArrayBufferView): string {
-  const bytes = value instanceof ArrayBuffer
-    ? new Uint8Array(value)
-    : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  const bytes =
+    value instanceof ArrayBuffer
+      ? new Uint8Array(value)
+      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
   let binary = '';
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 }
 
 function copyWithBytes(value: unknown, keys: string[]): JsonRecord {
@@ -24,24 +32,37 @@ function copyWithBytes(value: unknown, keys: string[]): JsonRecord {
   return result;
 }
 
-export function toCredentialCreationOptions(options: JsonRecord): PublicKeyCredentialCreationOptions {
+export function toCredentialCreationOptions(
+  options: JsonRecord,
+): PublicKeyCredentialCreationOptions {
   const publicKey = copyWithBytes(options, ['challenge', 'user']);
   const user = copyWithBytes(publicKey.user, ['id']);
   const excludeCredentials = Array.isArray(publicKey.excludeCredentials)
     ? publicKey.excludeCredentials.map((item) => copyWithBytes(item, ['id']))
     : undefined;
-  return { ...publicKey, user, excludeCredentials } as unknown as PublicKeyCredentialCreationOptions;
+  return {
+    ...publicKey,
+    user,
+    excludeCredentials,
+  } as unknown as PublicKeyCredentialCreationOptions;
 }
 
-export function toCredentialRequestOptions(options: JsonRecord): PublicKeyCredentialRequestOptions {
+export function toCredentialRequestOptions(
+  options: JsonRecord,
+): PublicKeyCredentialRequestOptions {
   const publicKey = copyWithBytes(options, ['challenge']);
   const allowCredentials = Array.isArray(publicKey.allowCredentials)
     ? publicKey.allowCredentials.map((item) => copyWithBytes(item, ['id']))
     : undefined;
-  return { ...publicKey, allowCredentials } as unknown as PublicKeyCredentialRequestOptions;
+  return {
+    ...publicKey,
+    allowCredentials,
+  } as unknown as PublicKeyCredentialRequestOptions;
 }
 
-export function serializeCredential(credential: PublicKeyCredential): JsonRecord {
+export function serializeCredential(
+  credential: PublicKeyCredential,
+): JsonRecord {
   const response = credential.response;
   const serialized: JsonRecord = {
     id: credential.id,
@@ -56,17 +77,19 @@ export function serializeCredential(credential: PublicKeyCredential): JsonRecord
   if ('attestationObject' in response) {
     const attestation = response as AuthenticatorAttestationResponse;
     serialized.response = {
-      ...serialized.response as JsonRecord,
+      ...(serialized.response as JsonRecord),
       attestationObject: bytesToBase64Url(attestation.attestationObject),
       transports: attestation.getTransports?.() ?? [],
     };
   } else if ('authenticatorData' in response && 'signature' in response) {
     const assertion = response as AuthenticatorAssertionResponse;
     serialized.response = {
-      ...serialized.response as JsonRecord,
+      ...(serialized.response as JsonRecord),
       authenticatorData: bytesToBase64Url(assertion.authenticatorData),
       signature: bytesToBase64Url(assertion.signature),
-      userHandle: assertion.userHandle ? bytesToBase64Url(assertion.userHandle) : null,
+      userHandle: assertion.userHandle
+        ? bytesToBase64Url(assertion.userHandle)
+        : null,
     };
   }
   return serialized;

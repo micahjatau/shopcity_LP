@@ -125,10 +125,14 @@ describe('DeviceManagement', () => {
 
     render(<DeviceManagement />);
     await screen.findByRole('button', { name: 'Pair on target POS browser' });
-    fireEvent.click(screen.getByRole('button', { name: 'Pair on target POS browser' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Pair on target POS browser' }),
+    );
     expect(createEnrollment).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/software cannot independently prove physical register identity/i),
+      screen.getByText(
+        /software cannot independently prove physical register identity/i,
+      ),
     ).toBeVisible();
 
     fireEvent.click(
@@ -141,9 +145,7 @@ describe('DeviceManagement', () => {
     );
 
     await waitFor(() => {
-      expect(
-        branchesControllerCompleteDeviceEnrollmentV1,
-      ).toHaveBeenCalledWith(
+      expect(branchesControllerCompleteDeviceEnrollmentV1).toHaveBeenCalledWith(
         'device-1',
         expect.objectContaining({
           authorizationToken: 'one-time-pairing-token',
@@ -171,9 +173,10 @@ describe('DeviceManagement', () => {
         branch: { name: 'Supervisor branch' },
       }) as never,
     );
-    jest
-      .mocked(branchesControllerCreateDeviceV1)
-      .mockResolvedValue({ status: 201, data: { success: true, data: {} } } as never);
+    jest.mocked(branchesControllerCreateDeviceV1).mockResolvedValue({
+      status: 201,
+      data: { success: true, data: {} },
+    } as never);
 
     render(<DeviceManagement supervisor />);
     await screen.findByText(/branch is locked to your assigned branch/i);
@@ -215,7 +218,10 @@ describe('DeviceManagement', () => {
       .mockResolvedValue(deviceListResponse(credentialDevice) as never);
     const revoke = jest
       .mocked(branchesControllerRevokeDeviceCredentialV1)
-      .mockResolvedValue({ status: 200, data: { success: true, data: {} } } as never);
+      .mockResolvedValue({
+        status: 200,
+        data: { success: true, data: {} },
+      } as never);
     jest.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(<DeviceManagement />);
@@ -231,7 +237,9 @@ describe('DeviceManagement', () => {
       );
     });
     expect(window.confirm).toHaveBeenCalledWith(
-      expect.stringContaining('Cashier sessions bound to it will be invalidated'),
+      expect.stringContaining(
+        'Cashier sessions bound to it will be invalidated',
+      ),
     );
   });
 
@@ -258,8 +266,14 @@ describe('DeviceManagement', () => {
 
     expect(await screen.findByText('transient-legacy-secret')).toBeVisible();
     expect(window.localStorage.getItem('transient-legacy-secret')).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Action response' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear one-time secret' }));
-    expect(screen.queryByText('transient-legacy-secret')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Action response' }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear one-time secret' }),
+    );
+    expect(
+      screen.queryByText('transient-legacy-secret'),
+    ).not.toBeInTheDocument();
   });
 });
