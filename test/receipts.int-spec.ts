@@ -493,7 +493,7 @@ describe('receipt capture flows (int)', () => {
     }
   }, 120000);
 
-  it('binds the device to the session and rejects spoofed receipt device fields', async () => {
+  it('keeps cashier device binding separate from Admin login locators and rejects spoofed receipt device fields', async () => {
     const { authHeaders, body } = await prepareReceiptFixture({
       customerSuffix: '06',
       cardSerialNumber: 'SC-1006',
@@ -528,7 +528,7 @@ describe('receipt capture flows (int)', () => {
         username: seedData.user.username,
         password: seedData.adminPassword,
       })
-      .expect(400);
+      .expect(200);
 
     await postReceipt(
       {
@@ -557,7 +557,7 @@ describe('receipt capture flows (int)', () => {
         username: seedData.user.username,
         password: seedData.adminPassword,
       })
-      .expect(400);
+      .expect(200);
   }, 120000);
 
   it('derives the receipt branch from the transaction snapshot when a device is reassigned after login', async () => {
