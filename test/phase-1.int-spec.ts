@@ -260,7 +260,9 @@ describe('phase 1 service flows', () => {
     );
 
     const issued = await authService.login(seed.username, seed.adminPassword);
-    expect(issued.context.user.id).toBe(seed.user.id);
+    expect(issued).toMatchObject({
+      context: { user: { id: seed.user.id } },
+    });
 
     const firstSession = await prisma.session.findMany({
       where: { userId: seed.user.id },
@@ -328,7 +330,9 @@ describe('phase 1 service flows', () => {
     expect(
       sessions.filter((session) => session.status === SessionStatus.ACTIVE),
     ).toHaveLength(1);
-    expect(issued.context.user.id).toBe(seed.user.id);
+    expect(issued).toMatchObject({
+      context: { user: { id: seed.user.id } },
+    });
   });
 
   it('blocks duplicate active card creation and replacement races', async () => {
