@@ -11,6 +11,7 @@ import {
   LedgerEntryType,
   ReceiptCaptureStatus,
   ReceiptReviewStatus,
+  DeviceAuthBindingMode,
   DeviceStatus,
   TenantStatus,
   SessionStatus,
@@ -55,6 +56,7 @@ describe('auth and readiness flows (int)', () => {
   let httpServer: Parameters<typeof request>[0];
   let seedData: Awaited<ReturnType<typeof seedFoundation>>;
   let cashierUser: Awaited<ReturnType<typeof createStaffUser>>;
+  let cashierLoginDevice: { id: string; fingerprintHash: string };
   let supervisorUser: Awaited<ReturnType<typeof createStaffUser>>;
 
   beforeAll(async () => {
@@ -106,6 +108,23 @@ describe('auth and readiness flows (int)', () => {
       'cashier.read-model@shopcity.local',
       'cashier-read-model-supabase-user',
     );
+    const cashierDevice = await prisma.device.create({
+      data: createAttestedDeviceData({
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-cashier-read-model',
+        fingerprintHash: 'cashier-read-model-device-secret',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
+        status: DeviceStatus.ACTIVE,
+      }),
+    });
+    if (!cashierDevice.fingerprintHash) {
+      throw new Error('Cashier login fixture requires an HMAC device secret');
+    }
+    cashierLoginDevice = {
+      id: cashierDevice.id,
+      fingerprintHash: cashierDevice.fingerprintHash,
+    };
     supervisorUser = await createStaffUser(
       prisma,
       seedData.tenant.id,
@@ -866,6 +885,7 @@ describe('auth and readiness flows (int)', () => {
         tenantId: seedData.tenant.id,
         branchId: seedData.branch.id,
         name: 'POS-redeem-http',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
         fingerprintHash: 'device-fingerprint-redeem-http',
         status: DeviceStatus.ACTIVE,
       }),
@@ -1041,8 +1061,19 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 
   async function loginSessionCookie(username: string): Promise<string> {
-    const response = await request(httpServer)
-      .post('/api/v1/auth/login')
+    const loginRequest = request(httpServer).post('/api/v1/auth/login');
+    if (username === cashierUser.username) {
+      loginRequest
+        .set('x-device-id', cashierLoginDevice.id)
+        .set(
+          'x-device-attestation',
+          buildDeviceAttestation(
+            cashierLoginDevice.id,
+            cashierLoginDevice.fingerprintHash,
+          ),
+        );
+    }
+    const response = await loginRequest
       .send({ username, password: seedData.adminPassword })
       .expect(200);
 

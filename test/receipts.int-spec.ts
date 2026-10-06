@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from 'node:crypto';
 import {
   CardStatus,
   CustomerStatus,
+  DeviceAuthBindingMode,
   DeviceStatus,
   PrismaClient,
   UserRole,
@@ -228,6 +229,7 @@ describe('receipt capture flows (int)', () => {
         branchId: seedData.branch.id,
         name: 'POS-cashier-two',
         fingerprintHash: 'device-fingerprint-cashier-two',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
         status: DeviceStatus.ACTIVE,
       }),
     });
@@ -616,6 +618,7 @@ describe('receipt capture flows (int)', () => {
         branchId: seedData.branch.id,
         name: 'POS-cashier-two-timecheck',
         fingerprintHash: 'device-fingerprint-cashier-two-timecheck',
+        authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
         status: DeviceStatus.ACTIVE,
       }),
     });
@@ -976,6 +979,7 @@ async function prepareReceiptFixture(options: {
       branchId: seedData.branch.id,
       name: options.deviceName,
       fingerprintHash: options.fingerprintHash,
+      authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
       status: DeviceStatus.ACTIVE,
     }),
   });

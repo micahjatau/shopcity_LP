@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { createHmac, randomUUID } from 'node:crypto';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { DeviceAuthBindingMode, PrismaClient, UserRole } from '@prisma/client';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
@@ -222,6 +222,7 @@ async function createHttpFixture(
       branchId,
       name: `Device-${receiptNumber}`,
       fingerprintHash: `fingerprint-${receiptNumber}`,
+      authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
       status: 'ACTIVE',
     }),
   });

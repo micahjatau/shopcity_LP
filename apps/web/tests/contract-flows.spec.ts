@@ -27,25 +27,101 @@ function sessionPayload(
 }
 
 test.describe('contract-faithful frontend flows', () => {
-  test('logs in with backend contract and reaches the cashier shell', async ({
+  test('completes a paired-device WebAuthn login and reaches the cashier shell', async ({
     page,
   }) => {
-    await page.route('**/api/v1/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(sessionPayload('CASHIER', 'cashier-device-1')),
+    let authenticated = false;
+    await page.addInitScript(() => {
+      const bytes = (value: number) => new Uint8Array([value]).buffer;
+      Object.defineProperty(navigator, 'credentials', {
+        configurable: true,
+        value: {
+          get: async () => ({
+            id: 'test-credential',
+            rawId: bytes(1),
+            type: 'public-key',
+            authenticatorAttachment: 'platform',
+            response: {
+              clientDataJSON: bytes(1),
+              authenticatorData: bytes(2),
+              signature: bytes(3),
+              userHandle: null,
+            },
+            getClientExtensionResults: () => ({}),
+          }),
+        },
       });
+    });
+
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill(
+        authenticated
+          ? {
+              status: 200,
+              contentType: 'application/json',
+              body: JSON.stringify(
+                sessionPayload('CASHIER', 'cashier-device-1'),
+              ),
+            }
+          : {
+              status: 401,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                success: false,
+                error: {
+                  statusCode: 401,
+                  code: 'UNAUTHORIZED',
+                  message: 'Unauthorized',
+                },
+                meta: {
+                  timestamp: '2026-08-14T00:00:00.000Z',
+                  path: '/api/v1/auth/me',
+                  requestId: 'req-unauthenticated',
+                },
+              }),
+            },
+      );
     });
 
     await page.route('**/api/v1/auth/login', async (route) => {
       const body = route.request().postDataJSON() as { username: string };
       const headers = route.request().headers();
-      expect(body.username).toContain('@');
+      expect(body.username).toBe('cashier@shopcity.local');
       expect(headers['x-device-id']).toBe('cashier-device-1');
-      expect(headers['x-device-attestation']).toMatch(
-        /^\d+\.[^.]+\.[A-Za-z0-9_-]+$/,
-      );
+      expect(headers['x-device-attestation']).toBeUndefined();
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            code: 'DEVICE_ASSERTION_REQUIRED',
+            attemptToken: 'attempt-token',
+            options: {
+              challenge: 'AQ',
+              rpId: 'localhost',
+              allowCredentials: [],
+              userVerification: 'required',
+            },
+          },
+          meta: {
+            timestamp: '2026-08-14T00:00:00.000Z',
+            path: '/api/v1/auth/login',
+            requestId: 'req-login',
+          },
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/auth/cashier-login/complete', async (route) => {
+      const body = route.request().postDataJSON() as {
+        attemptToken: string;
+        assertion: { id: string; response: { signature: string } };
+      };
+      expect(body.attemptToken).toBe('attempt-token');
+      expect(body.assertion.id).toBe('test-credential');
+      expect(body.assertion.response.signature).toBe('Aw');
+      authenticated = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -53,13 +129,48 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
+    await page.route('**/api/v1/config/operational', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: {
+            timestamp: '2026-08-14T00:00:00.000Z',
+            path: '/api/v1/config/operational',
+            requestId: 'req-config',
+          },
+        }),
+      });
+    });
+
     await page.goto('/login');
+    await page.evaluate(() =>
+      window.localStorage.setItem(
+        'shopcity:paired-device-id',
+        'cashier-device-1',
+      ),
+    );
     await page.getByLabel('Email Address').fill('cashier@shopcity.local');
     await page.getByRole('textbox', { name: /^Password$/i }).fill('secret');
-    await page.getByLabel('Device ID').fill('cashier-device-1');
-    await page
-      .getByLabel('Device attestation secret')
-      .fill('dev-secret-12345678901234567890');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/cashier$/);

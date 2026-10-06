@@ -718,48 +718,46 @@ test.describe('workflow route coverage', () => {
         'Search by receipt number to review transaction details.',
       ],
     ] as const;
-    const headerTypography = async (header: ReturnType<typeof page.locator>) =>
-      header.evaluate((element) => {
-        const title = getComputedStyle(element.querySelector('h1')!);
-        const description = getComputedStyle(element.querySelector('p')!);
-        return {
-          title: [
-            title.fontFamily,
-            title.fontSize,
-            title.fontWeight,
-            title.lineHeight,
-            title.color,
-          ],
-          description: [
-            description.fontFamily,
-            description.fontSize,
-            description.fontWeight,
-            description.lineHeight,
-            description.color,
-          ],
-        };
-      });
+    const headerTypography = async (title: string, description: string) => {
+      const titleElement = page.getByRole('heading', { level: 1, name: title });
+      const descriptionElement = page.getByText(description, { exact: true });
+      const readTypography = (element: Element) => {
+        const style = getComputedStyle(element);
+        return [
+          style.fontFamily,
+          style.fontSize,
+          style.fontWeight,
+          style.lineHeight,
+          style.color,
+        ];
+      };
+      const [titleStyle, descriptionStyle] = await Promise.all([
+        titleElement.evaluate(readTypography),
+        descriptionElement.evaluate(readTypography),
+      ]);
+      return { title: titleStyle, description: descriptionStyle };
+    };
 
     await mockShell(page, 'CASHIER');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${baseUrl}/cashier/lookup`);
     const cashierTypography = await headerTypography(
-      page.locator('.cashier-route-header'),
+      'Find customer',
+      'Search by phone number, card serial or name to continue a loyalty transaction.',
     );
 
     await mockShell(page, 'SUPERVISOR');
     for (const [path, title, description] of routes) {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(`${baseUrl}${path}`);
-      const root = page.locator('.supervisor-page');
-      const header = root.locator(':scope > .cashier-route-header');
+      const root = page.locator('main');
       await expect(root.getByRole('heading', { level: 1 })).toHaveCount(1);
       await expect(
-        header.getByRole('heading', { level: 1, name: title }),
+        root.getByRole('heading', { level: 1, name: title }),
       ).toBeVisible();
-      await expect(header.locator('p')).toHaveText(description);
+      await expect(root.getByText(description, { exact: true })).toBeVisible();
       expect(
-        await headerTypography(header),
+        await headerTypography(title, description),
         `${path} header typography`,
       ).toEqual(cashierTypography);
 
@@ -781,20 +779,23 @@ test.describe('workflow route coverage', () => {
           root.locator('.supervisor-transaction-reversal'),
         ).toHaveCount(0);
       } else {
-        const sectionHeading = root.locator('h2').first();
-        const bodyCopy = root.locator('p').filter({ visible: true }).nth(1);
+        const sectionHeading = root.getByRole('heading', { level: 2 }).first();
+        const bodyCopy = root.getByText(description, { exact: true });
         await expect(sectionHeading).toBeVisible();
         await expect(bodyCopy).toBeVisible();
-        const hierarchy = await root.evaluate((element) => {
-          const heading = element.querySelector('h1')!;
-          const section = element.querySelector('h2')!;
-          const body = Array.from(element.querySelectorAll('p')).find(
-            (paragraph) => !paragraph.closest('.cashier-route-header'),
-          )!;
-          return [heading, section, body].map((node) =>
+        const hierarchy = await Promise.all([
+          root
+            .getByRole('heading', { level: 1 })
+            .evaluate((node) =>
+              Number.parseFloat(getComputedStyle(node).fontSize),
+            ),
+          sectionHeading.evaluate((node) =>
             Number.parseFloat(getComputedStyle(node).fontSize),
-          );
-        });
+          ),
+          bodyCopy.evaluate((node) =>
+            Number.parseFloat(getComputedStyle(node).fontSize),
+          ),
+        ]);
         expect(hierarchy, `${path} title/section/body scale`).toHaveLength(3);
         expect(hierarchy[0], `${path} title scale`).toBeGreaterThan(
           hierarchy[1],
@@ -1550,6 +1551,7 @@ test.describe('workflow route coverage', () => {
     });
     await expect(mobileSearch).toBeVisible();
     await expect(mobileSearch).toBeEditable();
+    await mobileSearch.focus();
     const mobileCategoryBox = await page
       .locator('.global-shell-search__categories')
       .boundingBox();
@@ -1736,6 +1738,7 @@ test.describe('workflow route coverage', () => {
       pageScrollWidth: number;
     }> = [];
 
+    await search.click();
     for (const { width } of conformanceViewports) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(50);
@@ -2164,8 +2167,14 @@ test.describe('workflow route coverage', () => {
     await page.getByRole('button', { name: 'Sign in again' }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(
-      page.getByRole('textbox', { name: 'Device ID' }),
+      page.getByRole('heading', { name: 'Staff sign in' }),
     ).toBeVisible();
+    await expect(
+      page.getByText(/Cashiers sign in with a paired POS security key/),
+    ).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
+      0,
+    );
   });
 
   test('saves failed Earn locally and reconciles it through sync', async ({
