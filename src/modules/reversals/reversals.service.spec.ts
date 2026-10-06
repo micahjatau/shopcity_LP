@@ -8,6 +8,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import type { AuthContext } from '../../common/auth/session.types';
 import { ReversalsService } from './reversals.service';
 
 describe('ReversalsService', () => {
@@ -354,7 +355,7 @@ describe('ReversalsService', () => {
   });
 });
 
-function actor() {
+function actor(): AuthContext {
   return {
     user: {
       id: 'user-1',
@@ -372,6 +373,7 @@ function actor() {
       id: 'session-1',
       userId: 'user-1',
       deviceId: null,
+      deviceCredentialId: null,
       sessionTokenHash: 'session-token-hash',
       csrfTokenHash: 'csrf-token-hash',
       status: SessionStatus.ACTIVE,

@@ -124,7 +124,7 @@ function makeCashierCompletionFixture(
       .digest('hex'),
     purpose: 'CASHIER_LOGIN',
     expiresAt: new Date(Date.now() + 60_000),
-    consumedAt: null,
+    consumedAt: null as Date | null,
     ...attemptOverrides,
     user: { ...user, ...attemptUserOverrides },
     device: {
@@ -491,6 +491,7 @@ describe('AuthService', () => {
         id: 'session-id',
         userId: 'user-id',
         deviceId: null,
+        deviceCredentialId: null,
         sessionTokenHash: 'session-hash',
         csrfTokenHash: 'csrf-hash',
         status: 'ACTIVE',

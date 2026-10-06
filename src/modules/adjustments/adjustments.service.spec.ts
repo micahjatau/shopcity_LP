@@ -271,6 +271,7 @@ function actor(role: UserRole): AuthContext {
       id: 'session-1',
       userId: 'user-1',
       deviceId: 'device-1',
+      deviceCredentialId: null,
       sessionTokenHash: 'session-token-hash',
       csrfTokenHash: 'csrf-token-hash',
       status: SessionStatus.ACTIVE,

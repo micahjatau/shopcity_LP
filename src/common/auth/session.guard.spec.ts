@@ -297,15 +297,23 @@ describe('isSessionDeviceEligible', () => {
   });
 });
 
+type SessionEligibilityInput = Parameters<typeof isSessionDeviceEligible>[0];
+type WebAuthnSessionFixture = SessionEligibilityInput & {
+  device: NonNullable<SessionEligibilityInput['device']>;
+};
+
 function webauthnSession(
   overrides: {
     deviceId?: string | null;
     deviceCredentialId?: string | null;
-    user?: Record<string, unknown>;
-    device?: Record<string, unknown>;
-    deviceCredential?: Record<string, unknown> | null;
+    purpose?: SessionEligibilityInput['purpose'];
+    user?: Partial<SessionEligibilityInput['user']>;
+    device?: Partial<NonNullable<SessionEligibilityInput['device']>>;
+    deviceCredential?: Partial<
+      NonNullable<SessionEligibilityInput['deviceCredential']>
+    > | null;
   } = {},
-) {
+): WebAuthnSessionFixture {
   const credential = {
     id: 'credential-id',
     tenantId: 'tenant-id',
@@ -318,9 +326,13 @@ function webauthnSession(
     rpId: 'pos.example.test',
   };
   return {
-    deviceId: 'device-id',
-    deviceCredentialId: 'credential-id',
-    purpose: SessionPurpose.USER,
+    deviceId:
+      overrides.deviceId === undefined ? 'device-id' : overrides.deviceId,
+    deviceCredentialId:
+      overrides.deviceCredentialId === undefined
+        ? 'credential-id'
+        : overrides.deviceCredentialId,
+    purpose: overrides.purpose ?? SessionPurpose.USER,
     user: { ...activeUser(), ...overrides.user },
     device: {
       tenantId: 'tenant-id',
@@ -333,8 +345,9 @@ function webauthnSession(
     deviceCredential:
       overrides.deviceCredential === undefined
         ? credential
-        : { ...credential, ...overrides.deviceCredential },
-    ...overrides,
+        : overrides.deviceCredential === null
+          ? null
+          : { ...credential, ...overrides.deviceCredential },
   };
 }
 

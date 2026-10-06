@@ -17,6 +17,7 @@ import {
   type MetadataStatement,
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
+import type { AuthContext } from '../../common/auth/session.types';
 import { BranchesService } from './branches.service';
 
 jest.mock('@simplewebauthn/server', () => {
@@ -62,7 +63,7 @@ describe('BranchesService', () => {
     const supervisor = actorStub();
     supervisor.user.role = UserRole.SUPERVISOR;
 
-    await service.listDevices('tenant-id', supervisor as never);
+    await service.listDevices('tenant-id', supervisor);
 
     const callArgs = findMany.mock.calls[0]?.[0];
     expect(callArgs?.where).toEqual({
@@ -354,19 +355,25 @@ describe('BranchesService', () => {
     ['none attestation', { fmt: 'none' }],
     ['multi-device credential', { credentialDeviceType: 'multiDevice' }],
     ['backed-up credential', { credentialBackedUp: true }],
-  ])('rejects %s without enrollment writes', async (_name, options) => {
-    const fixture = enrollmentFixture(DeviceAuthBindingMode.UNPAIRED, options);
-    await expect(
-      fixture.service.completeDeviceEnrollment(
-        'device-id',
-        'authorization-bearer-token-12345678901234567890',
-        fixture.response,
-      ),
-    ).rejects.toMatchObject({
-      response: { code: 'DEVICE_ENROLLMENT_INVALID' },
-    });
-    expectEnrollmentWritesAbsent(fixture);
-  });
+  ] as const)(
+    'rejects %s without enrollment writes',
+    async (_name, options) => {
+      const fixture = enrollmentFixture(
+        DeviceAuthBindingMode.UNPAIRED,
+        options,
+      );
+      await expect(
+        fixture.service.completeDeviceEnrollment(
+          'device-id',
+          'authorization-bearer-token-12345678901234567890',
+          fixture.response,
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'DEVICE_ENROLLMENT_INVALID' },
+      });
+      expectEnrollmentWritesAbsent(fixture);
+    },
+  );
 
   it.each([
     ['unknown authenticator', undefined],
@@ -651,21 +658,24 @@ describe('BranchesService', () => {
   it('creates new devices unpaired without fingerprint or HMAC secret', async () => {
     const tx = {
       device: {
-        create: jest.fn(() => ({
-          id: 'device-id',
-          tenantId: 'tenant-id',
-          branchId: 'branch-id',
-          name: 'Front desk tablet',
-          fingerprintHash: null,
-          authBindingMode: 'UNPAIRED',
-          attestationSecretCiphertext: null,
-          attestationSecretVersion: 0,
-          attestationSecretRotatedAt: null,
-          status: DeviceStatus.ACTIVE,
-          lastSeenAt: null,
-          createdAt: new Date('2026-08-03T00:00:00.000Z'),
-          updatedAt: new Date('2026-08-03T00:00:00.000Z'),
-        })),
+        create: jest.fn((args: { data: Record<string, unknown> }) => {
+          void args;
+          return {
+            id: 'device-id',
+            tenantId: 'tenant-id',
+            branchId: 'branch-id',
+            name: 'Front desk tablet',
+            fingerprintHash: null,
+            authBindingMode: 'UNPAIRED',
+            attestationSecretCiphertext: null,
+            attestationSecretVersion: 0,
+            attestationSecretRotatedAt: null,
+            status: DeviceStatus.ACTIVE,
+            lastSeenAt: null,
+            createdAt: new Date('2026-08-03T00:00:00.000Z'),
+            updatedAt: new Date('2026-08-03T00:00:00.000Z'),
+          };
+        }),
       },
       auditLog: {
         create: jest.fn().mockResolvedValue({ id: 'audit-id' }),
@@ -868,9 +878,10 @@ describe('BranchesService', () => {
       requestHash: string;
       responseJson: unknown;
     } | null;
+    let persistedRequestHash: string | undefined;
     const idempotencyCreate = jest.fn(
       (args: { data: { requestHash: string } }) => {
-        void args;
+        persistedRequestHash = args.data.requestHash;
         return Promise.resolve({});
       },
     );
@@ -880,12 +891,13 @@ describe('BranchesService', () => {
         return Promise.resolve(null);
       },
     );
+    let persistedResponse: unknown;
     const idempotencyUpdate = jest.fn(
       (args: {
         data: { responseJson: unknown };
         where: Record<string, unknown>;
       }) => {
-        void args;
+        persistedResponse = args.data.responseJson;
         return Promise.resolve({});
       },
     );
@@ -957,19 +969,33 @@ describe('BranchesService', () => {
         id: 'device-id',
       }),
     );
-    const secret = (updated as { attestationSecret: string }).attestationSecret;
+    const secret =
+      'attestationSecret' in updated &&
+      typeof updated.attestationSecret === 'string'
+        ? updated.attestationSecret
+        : undefined;
     expect(secret).toEqual(expect.any(String));
-    const requestHash = idempotencyCreate.mock.calls[0]?.[0]?.data.requestHash;
+    if (!secret) throw new Error('Expected rotated attestation secret');
+    const requestHash = persistedRequestHash;
     if (!requestHash) throw new Error('Expected idempotency request hash');
-    const persistedResponse = idempotencyUpdate.mock.calls[0]?.[0]?.data
-      .responseJson as Record<string, unknown>;
-    expect(persistedResponse).toMatchObject({ id: 'device-id' });
-    expect(persistedResponse).not.toHaveProperty('attestationSecret');
-    expect(JSON.stringify(persistedResponse)).not.toContain(secret);
+    if (
+      !persistedResponse ||
+      typeof persistedResponse !== 'object' ||
+      Array.isArray(persistedResponse)
+    ) {
+      throw new Error('Expected persisted idempotency response');
+    }
+    const persistedResponseRecord = persistedResponse as Record<
+      string,
+      unknown
+    >;
+    expect(persistedResponseRecord).toMatchObject({ id: 'device-id' });
+    expect(persistedResponseRecord).not.toHaveProperty('attestationSecret');
+    expect(JSON.stringify(persistedResponseRecord)).not.toContain(secret);
 
     idempotencyFindUnique.mockResolvedValue({
       requestHash,
-      responseJson: persistedResponse,
+      responseJson: persistedResponseRecord,
     });
     const replay = await service.updateDevice(
       'tenant-id',
@@ -978,7 +1004,7 @@ describe('BranchesService', () => {
       { rotateAttestationSecret: true },
       'device-update-key-3',
     );
-    expect(replay).toEqual(persistedResponse);
+    expect(replay).toEqual(persistedResponseRecord);
     expect(replay).not.toHaveProperty('attestationSecret');
     expect(prisma.device.findFirst).toHaveBeenCalledTimes(1);
 
@@ -1220,7 +1246,7 @@ describe('BranchesService', () => {
 });
 
 type EnrollmentFixtureOptions = {
-  attachment?: string;
+  attachment?: 'platform' | 'cross-platform';
   fmt?: 'packed' | 'none';
   credentialDeviceType?: 'singleDevice' | 'multiDevice';
   credentialBackedUp?: boolean;
@@ -1399,12 +1425,13 @@ function expectEnrollmentWritesAbsent(
   expect(fixture.auditEvents).toEqual([]);
 }
 
-function actorStub() {
+function actorStub(): AuthContext {
   return {
     session: {
       id: 'session-id',
       userId: 'user-id',
       deviceId: null,
+      deviceCredentialId: null,
       sessionTokenHash: 'session-hash',
       csrfTokenHash: 'csrf-hash',
       status: SessionStatus.ACTIVE,
