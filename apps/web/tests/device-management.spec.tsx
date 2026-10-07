@@ -165,6 +165,55 @@ describe('DeviceManagement', () => {
     expect(window.localStorage.length).toBe(1);
   });
 
+  it('restores the device locator only after target-POS confirmation for an active credential', async () => {
+    const pairedDevice = {
+      ...activeUnpairedDevice,
+      authBindingMode: 'WEBAUTHN',
+      pairedAt: '2026-10-07T16:45:25.000Z',
+      webAuthnCredentials: [
+        {
+          id: 'credential-1',
+          status: 'ACTIVE',
+          authenticatorAttachment: 'platform',
+        },
+      ],
+    };
+    jest
+      .mocked(branchesControllerListDevicesV1)
+      .mockResolvedValue(deviceListResponse(pairedDevice) as never);
+
+    render(<DeviceManagement />);
+    const linkButton = await screen.findByRole('button', {
+      name: 'Use existing paired device on this browser',
+    });
+    fireEvent.click(linkButton);
+
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBeNull();
+    const saveLocatorButton = screen.getByRole('button', {
+      name: 'Save device locator',
+    });
+    expect(saveLocatorButton).toBeDisabled();
+    fireEvent.click(saveLocatorButton);
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBeNull();
+    expect(branchesControllerCreateDeviceEnrollmentV1).not.toHaveBeenCalled();
+    expect(branchesControllerCompleteDeviceEnrollmentV1).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /qualified target POS for this device/i,
+      }),
+    );
+    expect(saveLocatorButton).toBeEnabled();
+    fireEvent.click(saveLocatorButton);
+
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBe(
+      'device-1',
+    );
+    expect(
+      screen.getByText(/cashier sign-in still requires its active WebAuthn/i),
+    ).toBeVisible();
+  });
+
   it('limits Supervisor device creation to the session branch without listing all branches', async () => {
     jest.mocked(getCurrentSession).mockResolvedValue({
       user: {

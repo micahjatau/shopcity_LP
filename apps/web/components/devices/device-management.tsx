@@ -69,6 +69,10 @@ export function DeviceManagement({ supervisor = false }: Props) {
   const [message, setMessage] = useState('Loading device management…');
   const [pairingConfirmationFor, setPairingConfirmationFor] = useState('');
   const [targetBrowserConfirmed, setTargetBrowserConfirmed] = useState(false);
+  const [deviceLocatorConfirmationFor, setDeviceLocatorConfirmationFor] =
+    useState('');
+  const [deviceLocatorBrowserConfirmed, setDeviceLocatorBrowserConfirmed] =
+    useState(false);
   const [oneTimeHmacSecret, setOneTimeHmacSecret] = useState<string | null>(
     null,
   );
@@ -125,6 +129,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
 
   useEffect(() => {
     setOneTimeHmacSecret(null);
+    setDeviceLocatorConfirmationFor('');
+    setDeviceLocatorBrowserConfirmed(false);
   }, [selectedId]);
 
   async function createDevice() {
@@ -176,6 +182,51 @@ export function DeviceManagement({ supervisor = false }: Props) {
   function cancelPairing() {
     setPairingConfirmationFor('');
     setTargetBrowserConfirmed(false);
+  }
+
+  function requestDeviceLocatorConfirmation() {
+    if (
+      !selected?.id ||
+      selected.status !== 'ACTIVE' ||
+      selected.authBindingMode !== 'WEBAUTHN' ||
+      !credentials.some((credential) => credential.status === 'ACTIVE')
+    ) {
+      return;
+    }
+    setDeviceLocatorBrowserConfirmed(false);
+    setDeviceLocatorConfirmationFor(selected.id);
+  }
+
+  function cancelDeviceLocatorConfirmation() {
+    setDeviceLocatorConfirmationFor('');
+    setDeviceLocatorBrowserConfirmed(false);
+  }
+
+  function useExistingCredentialOnThisBrowser() {
+    if (
+      !selected?.id ||
+      selected.status !== 'ACTIVE' ||
+      deviceLocatorConfirmationFor !== selected.id ||
+      !credentials.some((credential) => credential.status === 'ACTIVE')
+    ) {
+      return;
+    }
+    if (!deviceLocatorBrowserConfirmed) {
+      setMessage('Confirm that this is the qualified target POS browser.');
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(PAIRED_DEVICE_LOCATOR_KEY, selected.id);
+      setMessage(
+        'This browser is linked to the selected POS. Cashier sign-in still requires its active WebAuthn credential.',
+      );
+      cancelDeviceLocatorConfirmation();
+    } catch {
+      setMessage(
+        'This browser could not save the device locator. Ask an administrator to configure this POS browser.',
+      );
+    }
   }
 
   async function pairDevice() {
@@ -417,6 +468,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
                 setSelectedId(event.target.value);
                 setPairingConfirmationFor('');
                 setTargetBrowserConfirmed(false);
+                setDeviceLocatorConfirmationFor('');
+                setDeviceLocatorBrowserConfirmed(false);
               }}
               options={devices.map((device) => ({
                 value: device.id,
@@ -455,6 +508,62 @@ export function DeviceManagement({ supervisor = false }: Props) {
                 {selected.authBindingMode === 'WEBAUTHN' ? (
                   <section aria-label="WebAuthn credentials">
                     <h3>WebAuthn credentials</h3>
+                    {selected.status === 'ACTIVE' &&
+                    credentials.some(
+                      (credential) => credential.status === 'ACTIVE',
+                    ) ? (
+                      <section aria-label="Link this browser to the existing device">
+                        <p>
+                          Select this only on the qualified target POS that
+                          holds the active credential. This saves a non-secret
+                          device locator; cashier sign-in still requires a valid
+                          WebAuthn assertion.
+                        </p>
+                        <Button
+                          variant="secondary"
+                          disabled={busy || loading}
+                          onClick={requestDeviceLocatorConfirmation}
+                        >
+                          Use existing paired device on this browser
+                        </Button>
+                        {deviceLocatorConfirmationFor === selected.id ? (
+                          <fieldset>
+                            <legend>Confirm target POS browser</legend>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={deviceLocatorBrowserConfirmed}
+                                onChange={(event) =>
+                                  setDeviceLocatorBrowserConfirmed(
+                                    event.target.checked,
+                                  )
+                                }
+                              />{' '}
+                              I confirm this is the qualified target POS for
+                              this device and may replace this browser&apos;s
+                              current device locator.
+                            </label>
+                            <Button
+                              disabled={
+                                busy ||
+                                loading ||
+                                !deviceLocatorBrowserConfirmed
+                              }
+                              onClick={useExistingCredentialOnThisBrowser}
+                            >
+                              Save device locator
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={cancelDeviceLocatorConfirmation}
+                            >
+                              Cancel
+                            </Button>
+                          </fieldset>
+                        ) : null}
+                      </section>
+                    ) : null}
                     {credentials.length === 0 ? (
                       <p>
                         No credential is currently listed. Re-pair this POS
