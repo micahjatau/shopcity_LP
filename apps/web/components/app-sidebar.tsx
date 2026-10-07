@@ -12,6 +12,7 @@ import { ShellNavigationIcon } from './shell-navigation-icon';
 import { matchShellRoute } from './shell-navigation';
 
 export type AppSidebarProps = Readonly<{
+  role?: 'CASHIER' | 'SUPERVISOR' | 'ADMIN' | null;
   sections: ShellNavigationSection[];
   pathname: string | null;
   workspaceLabel: string;
@@ -23,6 +24,7 @@ export type AppSidebarProps = Readonly<{
 }>;
 
 export function AppSidebar({
+  role = null,
   sections,
   pathname,
   workspaceLabel,
@@ -34,22 +36,19 @@ export function AppSidebar({
 }: AppSidebarProps) {
   return (
     <aside
-      className={`shell-sidebar${isCollapsed ? ' shell-sidebar--collapsed' : ''}`}
+      className={`shell-sidebar shell-sidebar--${role?.toLowerCase() ?? 'default'}${isCollapsed ? ' shell-sidebar--collapsed' : ''}`}
       data-collapsed={isCollapsed ? 'true' : 'false'}
       aria-label="Primary navigation"
     >
       <div className="shell-sidebar-brand-row">
         <div className="shell-sidebar-brand">
           <Image
-            src="/brand/shopcity-mark-white.svg"
-            alt="ShopCity"
-            width={29}
-            height={29}
+            className="shell-sidebar-brand-logo"
+            src="/brand/Frame%202147224881.svg"
+            alt="ShopCity Supermarket"
+            width={124}
+            height={33}
           />
-          <div>
-            <div className="shell-sidebar-brand-title">SHOPCITY</div>
-            <div className="shell-sidebar-brand-subtitle">SUPERMARKET</div>
-          </div>
         </div>
         <button
           type="button"

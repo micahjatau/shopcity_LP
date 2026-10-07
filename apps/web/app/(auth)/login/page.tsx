@@ -23,16 +23,13 @@ export default function LoginPage() {
             data-od-id="brand-link"
           >
             <Image
-              className="login-page__brand-mark"
-              src="/brand/shopcity-mark-white.svg"
-              alt=""
-              width={30}
-              height={30}
+              className="login-page__brand-logo"
+              src="/brand/Frame%202147224881.svg"
+              alt="ShopCity Supermarket"
+              width={132}
+              height={35}
+              priority
             />
-            <span className="login-page__brand-copy">
-              <strong>SHOPCITY</strong>
-              <small>SUPERMARKET</small>
-            </span>
           </Link>
           <span className="login-page__rule" aria-hidden="true" />
         </header>

@@ -42,16 +42,13 @@ function ShellLoadingScreen() {
     <main className="shell-loading-screen" aria-busy="true" aria-live="polite">
       <div className="shell-loading-card">
         <Image
-          src="/brand/shopcity-mark-white.svg"
-          alt="ShopCity"
-          width={44}
-          height={44}
+          className="shell-loading-logo"
+          src="/brand/Frame%202147224881.svg"
+          alt="ShopCity Supermarket"
+          width={142}
+          height={37}
           priority
         />
-        <div className="shell-loading-brand">
-          <strong>SHOPCITY</strong>
-          <small>SUPERMARKET</small>
-        </div>
         <p>Preparing your workspace…</p>
         <div className="shell-loading-lines" aria-hidden="true">
           <span />
@@ -344,6 +341,11 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
           className={`shell-body${sidebarCollapsed ? ' shell-body--collapsed' : ''}`}
         >
           <AppSidebar
+            role={
+              role === 'CASHIER' || role === 'SUPERVISOR' || role === 'ADMIN'
+                ? role
+                : null
+            }
             sections={navigationSections}
             pathname={pathname}
             workspaceLabel={workspaceLabel}
@@ -427,15 +429,12 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             <div className="shell-mobile-drawer-header">
               <div className="shell-mobile-drawer-brand">
                 <Image
-                  src="/brand/shopcity-mark-white.svg"
-                  alt=""
-                  width={32}
+                  src="/brand/Frame%202147224881.svg"
+                  alt="ShopCity Supermarket"
+                  width={120}
                   height={32}
                 />
-                <div>
-                  <strong>ShopCity</strong>
-                  <span>{workspaceLabel}</span>
-                </div>
+                <span>{workspaceLabel}</span>
               </div>
               <button
                 type="button"

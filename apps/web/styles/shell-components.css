@@ -36,21 +36,9 @@
   text-align: center;
 }
 
-.shell-loading-brand {
-  display: grid;
-  gap: 2px;
-  line-height: 1;
-}
-
-.shell-loading-brand strong {
-  font-size: 16px;
-  letter-spacing: -0.035em;
-}
-
-.shell-loading-brand small {
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+.shell-loading-logo {
+  width: min(142px, 100%);
+  height: auto;
 }
 
 .shell-loading-card p {
@@ -628,6 +616,20 @@
   box-shadow: none;
 }
 
+.shell-sidebar--admin {
+  background-image: url('/brand/admin-Sidebar-background.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.shell-sidebar--cashier {
+  background-image: url('/brand/cashier-Sidebar-background.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
 .shell-sidebar--collapsed {
   gap: var(--sc-spacing-3);
   padding-inline: var(--sc-spacing-3);
@@ -644,8 +646,13 @@
 .shell-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: var(--sc-spacing-3);
   min-width: 0;
+}
+
+.shell-sidebar-brand-logo {
+  display: block;
+  width: min(124px, 100%);
+  height: auto;
 }
 
 .shell-sidebar-toggle {
@@ -687,6 +694,10 @@
 
 .shell-sidebar--collapsed .shell-sidebar-brand {
   justify-content: center;
+}
+
+.shell-sidebar--collapsed .shell-sidebar-brand-logo {
+  width: 52px;
 }
 
 .shell-sidebar--collapsed .shell-sidebar-brand-title {
