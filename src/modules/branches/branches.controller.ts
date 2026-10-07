@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -141,6 +142,7 @@ export class BranchesController {
 
   @Post('devices/:id/enrollment/complete')
   @Version('1')
+  @HttpCode(200)
   @PublicRoute()
   @apiSuccessEnvelopeResponse({ description: 'Device credential activated' })
   @ApiOperation({
