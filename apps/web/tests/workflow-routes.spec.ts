@@ -356,6 +356,9 @@ test.describe('workflow route coverage', () => {
 
       mode = 'loading';
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
+      const lookupResponse = page.waitForResponse(
+        '**/api/v1/cards/lookup/CARD-PAIR',
+      );
       await page.getByRole('button', { name: 'Search customer' }).click();
       await expect(
         page.getByRole('button', { name: 'Looking up…' }),
@@ -366,7 +369,7 @@ test.describe('workflow route coverage', () => {
           maxDiffPixelRatio: 0.08,
         },
       );
-      await page.waitForResponse('**/api/v1/cards/lookup/CARD-PAIR');
+      await lookupResponse;
 
       mode = 'error';
       await page.reload();
@@ -2363,6 +2366,7 @@ test.describe('workflow route coverage', () => {
       const topbar = await page.locator('.shell-topbar').boundingBox();
       expect(Math.round(sidebar?.width ?? 0)).toBe(244);
       expect(Math.round(topbar?.height ?? 0)).toBe(64);
+      // The current sidebar uses the full ShopCity wordmark, not the compact mark.
       expect(
         await page.locator('.shell-sidebar-brand img').evaluate((node) => {
           const box = node.getBoundingClientRect();
@@ -2371,7 +2375,7 @@ test.describe('workflow route coverage', () => {
             height: Math.round(box.height),
           };
         }),
-      ).toEqual({ width: 29, height: 29 });
+      ).toEqual({ width: 124, height: 32 });
 
       const buttonRhythm = await page
         .locator('button:visible')
