@@ -60,11 +60,15 @@ export class ConfigurationService {
     const tenantId = isStagingBranch
       ? STAGING_TENANT_ID
       : (this.configService.get<string>('DEFAULT_PUBLIC_TENANT_ID') ??
-        '00000000-0000-0000-0000-000000000001');
+        '00000000-0000-4000-8000-000000000001');
+    const configuredBranchId = this.configService.get<string>(
+      'DEFAULT_PUBLIC_BRANCH_ID',
+    );
     const branchId = isStagingBranch
       ? STAGING_BRANCH_ID
-      : (this.configService.get<string>('DEFAULT_PUBLIC_BRANCH_ID') ??
-        '00000000-0000-0000-0000-000000000002');
+      : configuredBranchId === '00000000-0000-0000-0000-000000000002'
+        ? '00000000-0000-4000-8000-000000000002'
+        : (configuredBranchId ?? '00000000-0000-4000-8000-000000000002');
 
     this.publicConfigRefresh = this.loadConfig(tenantId, branchId);
     try {

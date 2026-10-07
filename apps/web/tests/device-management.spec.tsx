@@ -41,7 +41,10 @@ function deviceListResponse(device = activeUnpairedDevice) {
 function branchListResponse() {
   return {
     status: 200,
-    data: { success: true, data: [{ id: 'branch-1', name: 'Central' }] },
+    data: {
+      success: true,
+      data: [{ id: '11111111-1111-4111-8111-111111111111', name: 'Central' }],
+    },
   };
 }
 
@@ -164,12 +167,15 @@ describe('DeviceManagement', () => {
 
   it('limits Supervisor device creation to the session branch without listing all branches', async () => {
     jest.mocked(getCurrentSession).mockResolvedValue({
-      user: { role: 'SUPERVISOR', branchId: 'supervisor-branch' },
+      user: {
+        role: 'SUPERVISOR',
+        branchId: '22222222-2222-4222-8222-222222222222',
+      },
     } as never);
     jest.mocked(branchesControllerListDevicesV1).mockResolvedValue(
       deviceListResponse({
         ...activeUnpairedDevice,
-        branchId: 'supervisor-branch',
+        branchId: '22222222-2222-4222-8222-222222222222',
         branch: { name: 'Supervisor branch' },
       }) as never,
     );
@@ -192,10 +198,90 @@ describe('DeviceManagement', () => {
 
     await waitFor(() => {
       expect(branchesControllerCreateDeviceV1).toHaveBeenCalledWith(
-        { branchId: 'supervisor-branch', name: 'Supervisor POS' },
+        {
+          branchId: '22222222-2222-4222-8222-222222222222',
+          name: 'Supervisor POS',
+        },
         expect.any(Object),
       );
     });
+  });
+
+  it('explains an invalid legacy branch ID before submitting device creation', async () => {
+    jest.mocked(getCurrentSession).mockResolvedValue({
+      user: {
+        role: 'SUPERVISOR',
+        branchId: '00000000-0000-0000-0000-000000000002',
+      },
+    } as never);
+    jest.mocked(branchesControllerListDevicesV1).mockResolvedValue(
+      deviceListResponse({
+        ...activeUnpairedDevice,
+        branchId: '00000000-0000-0000-0000-000000000002',
+      }) as never,
+    );
+
+    render(<DeviceManagement supervisor />);
+    fireEvent.change(
+      await screen.findByRole('textbox', { name: 'Device name' }),
+      {
+        target: { value: 'Supervisor POS' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Create device' }));
+
+    expect(
+      await screen.findByText(
+        'Device creation could not be completed: the assigned branch identifier is invalid.',
+      ),
+    ).toBeVisible();
+    expect(branchesControllerCreateDeviceV1).not.toHaveBeenCalled();
+  });
+
+  it('explains server-side schema failures when creating or reactivating devices', async () => {
+    jest.mocked(branchesControllerCreateDeviceV1).mockResolvedValue({
+      status: 500,
+      data: { success: false, error: { code: 'INTERNAL_ERROR' } },
+    } as never);
+    render(<DeviceManagement />);
+    fireEvent.change(
+      await screen.findByRole('textbox', { name: 'Device name' }),
+      {
+        target: { value: 'New register' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Create device' }));
+
+    expect(
+      await screen.findByText(
+        /server's device security schema may not support unpaired devices/i,
+      ),
+    ).toBeVisible();
+    expect(branchesControllerCreateDeviceV1).toHaveBeenCalled();
+  });
+
+  it('shows a schema-specific explanation when reactivation fails on the server', async () => {
+    jest.mocked(branchesControllerListDevicesV1).mockResolvedValue(
+      deviceListResponse({
+        ...activeUnpairedDevice,
+        status: 'INACTIVE',
+      }) as never,
+    );
+    jest.mocked(branchesControllerUpdateDeviceV1).mockResolvedValue({
+      status: 500,
+      data: { success: false, error: { code: 'INTERNAL_ERROR' } },
+    } as never);
+
+    render(<DeviceManagement />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Reactivate device' }),
+    );
+
+    expect(
+      await screen.findByText(
+        /device security schema may be incompatible with this device state/i,
+      ),
+    ).toBeVisible();
   });
 
   it('revokes an individual active credential only after confirmation', async () => {

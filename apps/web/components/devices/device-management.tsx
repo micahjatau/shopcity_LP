@@ -44,6 +44,8 @@ type Branch = { id: string; name?: string };
 type Props = { supervisor?: boolean };
 
 const PAIRED_DEVICE_LOCATOR_KEY = 'shopcity:paired-device-id';
+const RFC_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
@@ -130,7 +132,14 @@ export function DeviceManagement({ supervisor = false }: Props) {
       setMessage('Choose a branch and enter a device name.');
       return;
     }
+    if (!RFC_UUID_PATTERN.test(branchId)) {
+      setMessage(
+        'Device creation could not be completed: the assigned branch identifier is invalid.',
+      );
+      return;
+    }
 
+    let responseStatus: number | undefined;
     setBusy(true);
     try {
       const response = await branchesControllerCreateDeviceV1(
@@ -140,6 +149,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
           idempotencyKey: crypto.randomUUID(),
         }),
       );
+      responseStatus = response.status;
       if (response.status !== 201) throw new Error('Create unavailable');
       setName('');
       setMessage(
@@ -148,7 +158,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
       await refresh();
     } catch {
       setMessage(
-        'Device creation failed. Check the selected branch and retry.',
+        responseStatus !== undefined && responseStatus >= 500
+          ? "Device creation could not be completed because the server's device security schema may not support unpaired devices yet. Contact an administrator."
+          : 'Device creation could not be completed. Check the assigned branch and your permissions, then retry.',
       );
     } finally {
       setBusy(false);
@@ -289,6 +301,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
       return;
     }
 
+    let responseStatus: number | undefined;
     setBusy(true);
     try {
       const response = await branchesControllerUpdateDeviceV1(
@@ -304,6 +317,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
           idempotencyKey: crypto.randomUUID(),
         }),
       );
+      responseStatus = response.status;
       if (response.status !== 200) throw new Error('Update unavailable');
       const data = responseData(response.data);
       const secret = data.attestationSecret;
@@ -321,7 +335,11 @@ export function DeviceManagement({ supervisor = false }: Props) {
       );
       await refresh();
     } catch {
-      setMessage('Device update failed. Check permissions and retry.');
+      setMessage(
+        responseStatus !== undefined && responseStatus >= 500
+          ? "Device state could not be changed. The server's device security schema may be incompatible with this device state. Contact an administrator."
+          : 'Device update failed. Check permissions and retry.',
+      );
     } finally {
       setBusy(false);
     }

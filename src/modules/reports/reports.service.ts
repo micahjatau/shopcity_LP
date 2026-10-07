@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { resolveReleaseSha } from '../../config/release';
 import { OutboxEventStatus, SmsMessageStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
@@ -631,7 +632,13 @@ export class ReportsService {
       release: {
         version:
           this.configService.get<string>('RELEASE_VERSION') ?? '0.0.0-dev',
-        sha: this.configService.get<string>('RELEASE_SHA') ?? 'dev',
+        sha: resolveReleaseSha({
+          VERCEL_GIT_COMMIT_SHA: this.configService.get<string>(
+            'VERCEL_GIT_COMMIT_SHA',
+          ),
+          GITHUB_SHA: this.configService.get<string>('GITHUB_SHA'),
+          RELEASE_SHA: this.configService.get<string>('RELEASE_SHA'),
+        }),
         sentryConfigured: Boolean(this.configService.get<string>('SENTRY_DSN')),
       },
       generatedAt: now.toISOString(),

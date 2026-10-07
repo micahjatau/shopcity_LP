@@ -515,3 +515,49 @@ npm run proposal:impact -- --file openspec/changes/cashier-sync-queue-presentati
 ```
 
 The local CLI reported `Target 'CashierSyncPage' not found` (`UNKNOWN`, 0 impacted) despite the supplied file/symbol. The parent-provided refreshed-index upstream analysis for this exact planned page surface is authoritative: **LOW**, 0 direct callers, 0 affected flows. No app source was edited before this proposal and impact record. Scope remains presentation/copy only.
+
+### 2026-10-02 — Browser-bound POS WebAuthn device attestation proposal
+
+Proposal-time upstream impacts with tests included were run before drafting this change:
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts login
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts login
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginForm
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx buildDeviceHeaders
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/devices/page.tsx' AdminDevicesPage
+npm run proposal:impact -- --file src/modules/branches/branches.service.ts createDevice
+```
+
+| Symbol                         | Risk       | Impacted symbols | Direct dependants | Affected processes / modules                |
+| ------------------------------ | ---------- | ---------------: | ----------------: | ------------------------------------------- |
+| `AuthService.login`            | LOW, exact |                3 |                 3 | 1 process (`login`); Auth                   |
+| `AuthController.login`         | LOW, exact |                0 |                 0 | 0                                           |
+| `LoginForm`                    | LOW, exact |                2 |                 2 | 1 process (`LoginPage`); Workflows          |
+| `buildDeviceHeaders`           | LOW, exact |                4 |                 1 | 1 process (`LoginPage`); Auth and Workflows |
+| `AdminDevicesPage`             | LOW, exact |                0 |                 0 | 0                                           |
+| `BranchesService.createDevice` | LOW, exact |                2 |                 2 | Branches; 0 processes                       |
+
+No HIGH/CRITICAL result. The proposal crosses the login/device-enrollment boundary but preserves device records, branch binding, session device identity, and the fail-closed Earn/Redeem checks. Re-run impact if implementation expands into refresh, offline reconciliation, or financial services; those are not proposed to change.
+
+### 2026-10-05 — WebAuthn credential-bound session design refinement
+
+The proposal review added two-phase cashier login and `Session.deviceCredentialId` validation/revocation. Exact upstream impacts with tests included were run before revising the design and TRD:
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts login
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts refresh
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts resolveCurrentSession
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts issueSession
+npm run proposal:impact -- --file src/common/auth/session.guard.ts isSessionDeviceEligible
+```
+
+| Symbol                              | Risk            | Impacted symbols | Direct dependants | Affected processes / modules                           |
+| ----------------------------------- | --------------- | ---------------: | ----------------: | ------------------------------------------------------ |
+| `AuthService.login`                 | LOW, exact      |                3 |                 3 | 1 process (`login`); Auth                              |
+| `AuthService.refresh`               | LOW, exact      |                3 |                 3 | 1 process (`refresh`); Auth                            |
+| `AuthService.resolveCurrentSession` | LOW, exact      |                1 |                 1 | 0 processes/modules                                    |
+| `AuthService.issueSession`          | **HIGH**, exact |                8 |                 3 | 3 processes (`login`, `refresh`, `smokeSession`); Auth |
+| `isSessionDeviceEligible`           | LOW, exact      |               10 |                 4 | 1 process (`refresh`); Auth                            |
+
+The HIGH finding was reported before proceeding. `issueSession` is shared by login, refresh, and smoke-session issuance; implementation must explicitly preserve non-cashier and smoke-session behavior and add focused regression coverage. No application symbols were edited during this proposal/TRD refinement.

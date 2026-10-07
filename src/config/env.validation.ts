@@ -273,6 +273,8 @@ export const envValidationSchema = Joi.object({
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),
   RELEASE_SHA: Joi.string().default('dev'),
+  VERCEL_GIT_COMMIT_SHA: Joi.string().optional(),
+  GITHUB_SHA: Joi.string().optional(),
   RELEASE_VERSION: Joi.string().default('0.0.0-dev'),
   SENTRY_DSN: Joi.string().uri().optional(),
   REPORT_STALENESS_THRESHOLD_MINUTES: Joi.number()
@@ -287,10 +289,10 @@ export const envValidationSchema = Joi.object({
     .default(30),
   SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   DEFAULT_PUBLIC_TENANT_ID: requiredString(
-    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-4000-8000-000000000001',
   ),
   DEFAULT_PUBLIC_BRANCH_ID: requiredString(
-    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-4000-8000-000000000002',
   ),
   CORS_ORIGIN_ALLOWLIST: requiredString(
     'http://localhost:3000,http://127.0.0.1:3000',

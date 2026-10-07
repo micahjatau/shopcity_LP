@@ -27,6 +27,58 @@ function sessionPayload(
 }
 
 test.describe('contract-faithful frontend flows', () => {
+  test('explains and blocks device creation with a historical invalid branch UUID', async ({
+    page,
+  }) => {
+    let createRequests = 0;
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            user: {
+              id: 'supervisor-1',
+              username: 'supervisor',
+              role: 'SUPERVISOR',
+              branchId: '00000000-0000-0000-0000-000000000002',
+            },
+            session: { expiresAt: '2030-01-01T00:00:00.000Z', deviceId: null },
+          },
+          meta: {},
+        }),
+      });
+    });
+    await page.route('**/api/v1/devices', async (route) => {
+      if (route.request().method() === 'POST') {
+        createRequests += 1;
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: {}, meta: {} }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [], meta: {} }),
+      });
+    });
+
+    await page.goto('/supervisor/devices');
+    await page.getByLabel('Device name').fill('Preview register');
+    await page.getByRole('button', { name: 'Create device' }).click();
+
+    await expect(
+      page.getByText(
+        'Device creation could not be completed: the assigned branch identifier is invalid.',
+      ),
+    ).toBeVisible();
+    expect(createRequests).toBe(0);
+  });
+
   test('completes a paired-device WebAuthn login and reaches the cashier shell', async ({
     page,
   }) => {
