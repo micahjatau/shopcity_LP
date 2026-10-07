@@ -286,14 +286,14 @@ test.describe('workflow route coverage', () => {
         const railWidth = element.getBoundingClientRect().width;
         const imageWidth = style.backgroundSize.split(' ')[0];
         return {
-          positionX: style.backgroundPositionX,
+          positionX: Number.parseFloat(style.backgroundPositionX),
           imageWidth: imageWidth.endsWith('%')
             ? (railWidth * Number.parseFloat(imageWidth)) / 100
             : Number.parseFloat(imageWidth),
           railWidth,
         };
       });
-      expect(backgroundCoverage.positionX).toBe('0%');
+      expect(backgroundCoverage.positionX).toBe(0);
       expect(backgroundCoverage.imageWidth).toBeGreaterThan(
         backgroundCoverage.railWidth,
       );
