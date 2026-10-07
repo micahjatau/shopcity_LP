@@ -618,16 +618,19 @@
 
 .shell-sidebar--admin {
   background-image: url('/brand/admin-Sidebar-background.png');
-  background-position: center;
   background-repeat: no-repeat;
-  background-size: 100% 100%;
 }
 
 .shell-sidebar--cashier {
   background-image: url('/brand/cashier-Sidebar-background.png');
-  background-position: center;
   background-repeat: no-repeat;
-  background-size: 100% 100%;
+}
+
+/* Crop the 20px transparent right gutter in the 264px role artboards. */
+.shell-sidebar--admin,
+.shell-sidebar--cashier {
+  background-position: left center;
+  background-size: calc(100% + 8.2%) 100%;
 }
 
 .shell-sidebar--collapsed {

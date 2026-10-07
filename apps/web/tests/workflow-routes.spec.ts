@@ -266,6 +266,44 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(375);
   });
 
+  test('fills Cashier and Admin sidebar artwork to the rail edge', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    for (const { role, route } of [
+      { role: 'CASHIER', route: '/cashier' },
+      { role: 'ADMIN', route: '/admin/customers' },
+    ] as const) {
+      await mockShell(page, role);
+      await page.goto(`${baseUrl}${route}`);
+
+      const sidebar = page.locator('.shell-sidebar');
+      await expect(page.locator('.shell-loading-screen')).toBeHidden();
+      await expect(sidebar).toBeVisible();
+      const backgroundCoverage = await sidebar.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const railWidth = element.getBoundingClientRect().width;
+        const imageWidth = style.backgroundSize.split(' ')[0];
+        return {
+          positionX: style.backgroundPositionX,
+          imageWidth: imageWidth.endsWith('%')
+            ? (railWidth * Number.parseFloat(imageWidth)) / 100
+            : Number.parseFloat(imageWidth),
+          railWidth,
+        };
+      });
+      expect(backgroundCoverage.positionX).toBe('0%');
+      expect(backgroundCoverage.imageWidth).toBeGreaterThan(
+        backgroundCoverage.railWidth,
+      );
+      await expect(sidebar).toHaveScreenshot(
+        `sidebar-${role.toLowerCase()}-artwork-edge.png`,
+        { maxDiffPixelRatio: 0.02 },
+      );
+    }
+  });
+
   test('keeps Capture Purchase and Redeem lookup states visually paired', async ({
     page,
   }) => {
