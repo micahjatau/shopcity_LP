@@ -12,6 +12,9 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production', 'staging')
     .default('development'),
+  VERCEL_ENV: Joi.string()
+    .valid('development', 'preview', 'production')
+    .optional(),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: requiredString(
     'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
@@ -97,6 +100,10 @@ export const envValidationSchema = Joi.object({
     .falsy('false')
     .default(false),
   WEBAUTHN_DEV_ENROLLMENT_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: Joi.boolean()
     .truthy('true')
     .falsy('false')
     .default(false),
@@ -335,11 +342,28 @@ export const envValidationSchema = Joi.object({
     const rpId = String(env.WEBAUTHN_RP_ID ?? '').toLowerCase();
     const developmentEnrollmentEnabled =
       envFlags.WEBAUTHN_DEV_ENROLLMENT_ENABLED === true;
+    const previewEnrollmentEnabled =
+      envFlags.WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED === true;
     const qualificationApproved =
       envFlags.WEBAUTHN_DEVICE_QUALIFICATION_APPROVED === true;
+    const previewOriginInvalid =
+      previewEnrollmentEnabled &&
+      webAuthnOrigins.some((origin) => {
+        try {
+          const parsed = new URL(origin);
+          return parsed.protocol !== 'https:' || parsed.hostname !== rpId;
+        } catch {
+          return true;
+        }
+      });
     if (
       (developmentEnrollmentEnabled && nodeEnv !== 'development') ||
-      ((developmentEnrollmentEnabled || qualificationApproved) &&
+      (previewEnrollmentEnabled &&
+        String(env.VERCEL_ENV ?? '') !== 'preview') ||
+      previewOriginInvalid ||
+      ((developmentEnrollmentEnabled ||
+        previewEnrollmentEnabled ||
+        qualificationApproved) &&
         (!rpId || webAuthnOrigins.length === 0))
     ) {
       return helpers.error('any.invalid');

@@ -113,6 +113,41 @@ describe('BranchesService', () => {
     expect(findFirst).not.toHaveBeenCalled();
   });
 
+  it('allows enrollment only when the explicit Vercel Preview opt-in is in Preview', async () => {
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const prisma = { device: { findFirst } };
+    const config: Record<string, string | boolean> = {
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'preview',
+      WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: false,
+      WEBAUTHN_DEV_ENROLLMENT_ENABLED: false,
+      WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
+      WEBAUTHN_RP_ID: 'pos-preview.example.com',
+      WEBAUTHN_ALLOWED_ORIGINS: 'https://pos-preview.example.com',
+    };
+    const service = new BranchesService(
+      prisma as never,
+      { recordWithClient: jest.fn() } as never,
+      { get: (key: string) => config[key] } as never,
+    );
+
+    await expect(
+      service.createDeviceEnrollment('tenant-id', actorStub(), 'device-id'),
+    ).rejects.toMatchObject({
+      response: { code: 'DEVICE_NOT_AVAILABLE' },
+    });
+    expect(findFirst).toHaveBeenCalledTimes(1);
+
+    config.VERCEL_ENV = 'production';
+    findFirst.mockClear();
+    await expect(
+      service.createDeviceEnrollment('tenant-id', actorStub(), 'device-id'),
+    ).rejects.toMatchObject({
+      response: { code: 'DEVICE_ENROLLMENT_INVALID' },
+    });
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
   it('returns one-time pairing token but persists only its SHA-256 hash', async () => {
     let persistedChallenge: Record<string, unknown> | undefined;
     const tx = {
@@ -1290,6 +1325,7 @@ describe('BranchesService', () => {
   });
 
   it('allows WEBAUTHN reactivation only when an active credential exists', async () => {
+    const pairedAt = new Date();
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([]),
       device: {
@@ -1300,7 +1336,7 @@ describe('BranchesService', () => {
           branchId: 'branch-id',
           status: DeviceStatus.INACTIVE,
           authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
-          pairedAt: new Date(),
+          pairedAt,
         }),
       },
       deviceWebAuthnCredential: {
@@ -1316,7 +1352,7 @@ describe('BranchesService', () => {
           branchId: 'branch-id',
           status: DeviceStatus.INACTIVE,
           authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
-          pairedAt: new Date(),
+          pairedAt,
         }),
       },
       $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>

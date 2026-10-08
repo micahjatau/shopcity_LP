@@ -928,7 +928,15 @@ export class BranchesService {
       this.configService.get<string>('NODE_ENV') === 'development' &&
       this.configService.get<boolean>('WEBAUTHN_DEV_ENROLLMENT_ENABLED') ===
         true;
-    if (!qualificationApproved && !localDevelopmentEnabled) {
+    const previewEnrollmentEnabled =
+      this.configService.get<string>('VERCEL_ENV') === 'preview' &&
+      this.configService.get<boolean>('WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED') ===
+        true;
+    if (
+      !qualificationApproved &&
+      !localDevelopmentEnabled &&
+      !previewEnrollmentEnabled
+    ) {
       throw deviceEnrollmentInvalid();
     }
     this.requiredWebAuthnConfig();

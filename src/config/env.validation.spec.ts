@@ -11,6 +11,10 @@ describe('envValidationSchema', () => {
     expect(
       (result.value as Record<string, unknown>).WEBAUTHN_DEV_ENROLLMENT_ENABLED,
     ).toBe(false);
+    expect(
+      (result.value as Record<string, unknown>)
+        .WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED,
+    ).toBe(false);
   });
 
   it('allows the explicit dev enrollment flag only in development with RP config', () => {
@@ -34,6 +38,52 @@ describe('envValidationSchema', () => {
         WEBAUTHN_DEV_ENROLLMENT_ENABLED: true,
         WEBAUTHN_RP_ID: 'localhost',
         WEBAUTHN_ALLOWED_ORIGINS: 'http://localhost:3000',
+      });
+      expect(disallowed.error).toBeDefined();
+    }
+  });
+
+  it('allows Preview enrollment only with VERCEL_ENV=preview and HTTPS RP config', () => {
+    const missingConfig = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'preview',
+      WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
+    });
+    expect(missingConfig.error).toBeDefined();
+
+    const preview = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'preview',
+      WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
+      WEBAUTHN_RP_ID: 'pos-preview.example.com',
+      WEBAUTHN_ALLOWED_ORIGINS: 'https://pos-preview.example.com',
+    });
+    expect(preview.error).toBeUndefined();
+
+    for (const vercelEnv of [undefined, 'development', 'production']) {
+      const disallowed = envValidationSchema.validate({
+        NODE_ENV: 'production',
+        ...(vercelEnv ? { VERCEL_ENV: vercelEnv } : {}),
+        WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
+        WEBAUTHN_RP_ID: 'pos-preview.example.com',
+        WEBAUTHN_ALLOWED_ORIGINS: 'https://pos-preview.example.com',
+      });
+      expect(disallowed.error).toBeDefined();
+    }
+
+    for (const invalidPair of [
+      {
+        rpId: 'example.com',
+        origin: 'https://pos-preview.example.com',
+      },
+      { rpId: 'localhost', origin: 'http://localhost:3000' },
+    ]) {
+      const disallowed = envValidationSchema.validate({
+        NODE_ENV: 'production',
+        VERCEL_ENV: 'preview',
+        WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
+        WEBAUTHN_RP_ID: invalidPair.rpId,
+        WEBAUTHN_ALLOWED_ORIGINS: invalidPair.origin,
       });
       expect(disallowed.error).toBeDefined();
     }

@@ -67,3 +67,5 @@
 - [ ] 8.6 Regenerate OpenAPI/web client, run focused tests/typecheck/lint/build/Semgrep/migration validation, and run approved pilot flows.
 - [ ] 8.7 Run GitNexus `detect_changes()`, inspect the final diff, and record final rollout/rollback evidence before closure.
 - [x] 8.8 Add a development-only opt-in for repeatable local enrollment tests; reject it outside `NODE_ENV=development` and retain all verification/state checks.
+- [x] 8.9 Add a separate, default-off Vercel Preview enrollment opt-in that requires `VERCEL_ENV=preview`, HTTPS RP/origin configuration, and retains all verification/state checks.
+- [ ] 8.10 Configure the API Preview with an isolated non-production database and exact WebAuthn RP/origin values, then verify Preview-only enrollment without changing Production settings.

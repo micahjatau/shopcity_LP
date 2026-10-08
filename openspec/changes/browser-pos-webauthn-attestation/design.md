@@ -134,6 +134,10 @@ The intended ShopCity profile is AAL3-inspired: password/account proof plus phis
 - RBAC tests: Admin tenant-wide and Supervisor same-branch only, with non-enumerating cross-branch behavior.
 - Rollout: schema/policy → pairing → two-phase cashier login → credential-bound session/revocation → Admin/Supervisor UX → legacy migration → actual POS hardware qualification → production HMAC cutover.
 
+## Vercel Preview Enrollment
+
+Vercel Preview enrollment uses a separate `WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED` flag, disabled by default, and is available only when the API runtime reports `VERCEL_ENV=preview`. Do not reuse `WEBAUTHN_DEV_ENROLLMENT_ENABLED` or `WEBAUTHN_DEVICE_QUALIFICATION_APPROVED`. Configure the API Preview with the exact HTTPS browser-app origin and an RP ID equal to that Preview hostname; use a non-production database. Vercel environment configuration and the Preview deployment remain operator-owned. Preview enrollment is behavior testing only and does not qualify authenticators or change the production NO-GO gate.
+
 ## Rollback
 
 Before per-device mode transition, a failed registration leaves the existing HMAC_LEGACY device unchanged. After successful transition, HMAC material is retired for that device and is not a fallback. Restore service by fixing WebAuthn verification, using a newly approved managed-device alternative, or controlled re-pairing; never by issuing a device-less cashier session or silently re-enabling HMAC for WEBAUTHN devices. Schema remains additive until migration evidence and the documented rollback window permit contract removal.

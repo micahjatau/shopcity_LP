@@ -150,3 +150,22 @@ Local development MAY enable WebAuthn enrollment through the explicit `WEBAUTHN_
 - **WHEN** `WEBAUTHN_DEV_ENROLLMENT_ENABLED` is configured as true
 - **THEN** environment validation rejects the configuration
 - **AND** production enrollment remains controlled only by the separate qualification approval gate
+
+### Requirement: Vercel Preview enrollment is explicitly isolated
+
+Vercel Preview MAY enable WebAuthn enrollment only when the separate `WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED` opt-in is true and the runtime reports `VERCEL_ENV=preview`. The setting SHALL default to false and SHALL be rejected for Vercel Development, Production, and non-Vercel environments. Preview enrollment SHALL require an exact HTTPS browser origin and an RP ID equal to that Preview hostname, use a non-production backend/database, and SHALL NOT imply production qualification or change the production gate. Preview opt-in SHALL NOT bypass cryptographic verification, metadata trust checks, branch authorization, database constraints, atomic state transitions, or session revocation.
+
+#### Scenario: Explicit Preview enrollment is enabled
+
+- **GIVEN** `VERCEL_ENV=preview`, `WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED=true`, and an exact HTTPS browser origin and matching RP ID are configured
+- **AND** the Preview API uses a non-production database
+- **WHEN** an authorized actor enrolls a device
+- **THEN** the normal WebAuthn verification, trust, authorization, and state checks still apply
+- **AND** the successful Preview test is not recorded or described as hardware qualification or production approval
+
+#### Scenario: Preview opt-in is attempted outside Preview
+
+- **GIVEN** `VERCEL_ENV` is absent or is not `preview`
+- **WHEN** `WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED` is configured as true
+- **THEN** environment validation rejects the configuration
+- **AND** enrollment remains disabled unless the separate local-development or production-qualification gate applies
