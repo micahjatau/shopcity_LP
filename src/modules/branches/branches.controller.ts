@@ -21,6 +21,7 @@ import { UserRole } from '@prisma/client';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
+import { Throttle } from '../../common/throttle/throttle.decorator';
 import { BranchesService } from './branches.service';
 import {
   CreateBranchDto,
@@ -33,6 +34,24 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+
+function buildDeviceEnrollmentCompletionThrottleKey(
+  request: AuthenticatedRequest,
+): string[] {
+  const params = request.params;
+  const deviceId =
+    typeof params === 'object' &&
+    params !== null &&
+    'id' in params &&
+    typeof params.id === 'string'
+      ? params.id
+      : 'unknown-device';
+  const ip = request.ip || 'unknown';
+  return [
+    `device-enrollment-complete:ip:${ip}`,
+    `device-enrollment-complete:device:${deviceId}`,
+  ];
+}
 
 @ApiTags('branches')
 @ApiBearerAuth()
@@ -144,7 +163,29 @@ export class BranchesController {
   @Version('1')
   @HttpCode(200)
   @PublicRoute()
+  @Throttle({
+    bucket: 'device.enrollment.complete',
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    keyFactory: buildDeviceEnrollmentCompletionThrottleKey,
+  })
   @apiSuccessEnvelopeResponse({ description: 'Device credential activated' })
+  @apiErrorEnvelopeResponses({
+    badRequest: {
+      deviceEnrollmentInvalid: {
+        statusCode: 400,
+        code: 'DEVICE_ENROLLMENT_INVALID',
+        message: 'Device enrollment is invalid',
+      },
+    },
+    tooManyRequests: {
+      rateLimited: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+      },
+    },
+  })
   @ApiOperation({
     summary: 'Complete target-device WebAuthn enrollment',
     security: [],

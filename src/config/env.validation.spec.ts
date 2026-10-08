@@ -1,13 +1,42 @@
 import { envValidationSchema } from './env.validation';
 
 describe('envValidationSchema', () => {
-  it('defaults WebAuthn device qualification to disabled', () => {
+  it('defaults WebAuthn qualification and development enrollment to disabled', () => {
     const result = envValidationSchema.validate({});
     expect(result.error).toBeUndefined();
     expect(
       (result.value as Record<string, unknown>)
         .WEBAUTHN_DEVICE_QUALIFICATION_APPROVED,
     ).toBe(false);
+    expect(
+      (result.value as Record<string, unknown>).WEBAUTHN_DEV_ENROLLMENT_ENABLED,
+    ).toBe(false);
+  });
+
+  it('allows the explicit dev enrollment flag only in development with RP config', () => {
+    const missingConfig = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      WEBAUTHN_DEV_ENROLLMENT_ENABLED: true,
+    });
+    expect(missingConfig.error).toBeDefined();
+
+    const development = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      WEBAUTHN_DEV_ENROLLMENT_ENABLED: true,
+      WEBAUTHN_RP_ID: 'localhost',
+      WEBAUTHN_ALLOWED_ORIGINS: 'http://localhost:3000',
+    });
+    expect(development.error).toBeUndefined();
+
+    for (const nodeEnv of ['test', 'staging', 'production']) {
+      const disallowed = envValidationSchema.validate({
+        NODE_ENV: nodeEnv,
+        WEBAUTHN_DEV_ENROLLMENT_ENABLED: true,
+        WEBAUTHN_RP_ID: 'localhost',
+        WEBAUTHN_ALLOWED_ORIGINS: 'http://localhost:3000',
+      });
+      expect(disallowed.error).toBeDefined();
+    }
   });
 
   it('rejects malformed or non-HTTPS WebAuthn origins', () => {

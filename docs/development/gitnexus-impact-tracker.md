@@ -561,3 +561,19 @@ npm run proposal:impact -- --file src/common/auth/session.guard.ts isSessionDevi
 | `isSessionDeviceEligible`           | LOW, exact      |               10 |                 4 | 1 process (`refresh`); Auth                            |
 
 The HIGH finding was reported before proceeding. `issueSession` is shared by login, refresh, and smoke-session issuance; implementation must explicitly preserve non-cashier and smoke-session behavior and add focused regression coverage. No application symbols were edited during this proposal/TRD refinement.
+
+### 2026-10-08 — Shared POS credential across eligible cashier users
+
+The existing `browser-pos-webauthn-attestation` proposal was refined to make explicit that WebAuthn credentials identify the paired POS device, while each cashier authenticates with their own account credentials. Proposal-time upstream impacts with tests included:
+
+```text
+npm run proposal:impact -- --file src/modules/branches/branches.service.ts completeDeviceEnrollment
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts completeCashierLogin
+```
+
+| Symbol                                     | Risk       | Impacted symbols | Direct dependants | Affected processes / modules |
+| ------------------------------------------ | ---------- | ---------------: | ----------------: | ---------------------------- |
+| `BranchesService.completeDeviceEnrollment` | LOW, exact |                1 |                 1 | 0 processes; Branches        |
+| `AuthService.completeCashierLogin`         | LOW, exact |                2 |                 1 | 0 processes; Auth            |
+
+No HIGH/CRITICAL result. The proposal preserves Admin tenant-wide device management and Supervisor own-branch scope. The added requirement is that multiple branch-eligible CASHIER accounts may independently use the same device-scoped POS credential, with separate account authorization and sessions bound to that POS/credential; it does not permit syncing a POS credential across physical devices or weaken user/device/branch checks.

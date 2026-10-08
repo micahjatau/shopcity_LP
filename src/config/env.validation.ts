@@ -96,6 +96,10 @@ export const envValidationSchema = Joi.object({
     .truthy('true')
     .falsy('false')
     .default(false),
+  WEBAUTHN_DEV_ENROLLMENT_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
@@ -303,6 +307,7 @@ export const envValidationSchema = Joi.object({
 })
   .custom((value: unknown, helpers) => {
     const env = value as Record<string, number>;
+    const envFlags = value as Record<string, unknown>;
     const attestationKek = String(env.DEVICE_ATTESTATION_KEK ?? '');
     const secretValues = [
       env.SESSION_SECRET,
@@ -328,6 +333,18 @@ export const envValidationSchema = Joi.object({
       .map((origin) => origin.trim())
       .filter(Boolean);
     const rpId = String(env.WEBAUTHN_RP_ID ?? '').toLowerCase();
+    const developmentEnrollmentEnabled =
+      envFlags.WEBAUTHN_DEV_ENROLLMENT_ENABLED === true;
+    const qualificationApproved =
+      envFlags.WEBAUTHN_DEVICE_QUALIFICATION_APPROVED === true;
+    if (
+      (developmentEnrollmentEnabled && nodeEnv !== 'development') ||
+      ((developmentEnrollmentEnabled || qualificationApproved) &&
+        (!rpId || webAuthnOrigins.length === 0))
+    ) {
+      return helpers.error('any.invalid');
+    }
+
     if (
       webAuthnOrigins.some((origin) => {
         try {

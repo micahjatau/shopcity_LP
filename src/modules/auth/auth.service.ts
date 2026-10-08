@@ -166,19 +166,27 @@ export class AuthService {
     }
 
     if (sessionDevice && !deviceAttestation) {
+      if (user.role === UserRole.CASHIER) throw deviceAuthFailed();
       throw new BadRequestException('Device attestation is required');
     }
 
-    const attestation = sessionDevice
-      ? assertDeviceAttestationValid(
+    let attestation: { timestamp: number; nonce: string } | null = null;
+    if (sessionDevice) {
+      const deviceSecret = resolveDeviceAttestationSecret(
+        sessionDevice,
+        this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '',
+      );
+      try {
+        attestation = assertDeviceAttestationValid(
           sessionDevice.id,
           deviceAttestation!,
-          resolveDeviceAttestationSecret(
-            sessionDevice,
-            this.configService.get<string>('DEVICE_ATTESTATION_KEK') ?? '',
-          ),
-        )
-      : null;
+          deviceSecret,
+        );
+      } catch (error) {
+        if (user.role === UserRole.CASHIER) throw deviceAuthFailed();
+        throw error;
+      }
+    }
 
     return this.prismaService.$transaction(async (prisma) => {
       let attestationId: string | null = null;

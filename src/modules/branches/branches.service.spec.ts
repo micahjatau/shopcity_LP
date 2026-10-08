@@ -76,7 +76,7 @@ describe('BranchesService', () => {
     expect(callArgs?.select.webAuthnCredentials).toBeDefined();
   });
 
-  it('fails pairing closed until fleet qualification is approved', async () => {
+  it('fails pairing closed until qualification or local development is explicitly enabled', async () => {
     const prisma = { device: { findFirst: jest.fn() } };
     const service = new BranchesService(
       prisma as never,
@@ -89,6 +89,28 @@ describe('BranchesService', () => {
       response: { code: 'DEVICE_ENROLLMENT_INVALID' },
     });
     expect(prisma.device.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects the development opt-in outside NODE_ENV=development', async () => {
+    const findFirst = jest.fn();
+    const prisma = { device: { findFirst } };
+    const config = {
+      NODE_ENV: 'production',
+      WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: false,
+      WEBAUTHN_DEV_ENROLLMENT_ENABLED: true,
+    };
+    const service = new BranchesService(
+      prisma as never,
+      { recordWithClient: jest.fn() } as never,
+      { get: (key: string) => config[key as keyof typeof config] } as never,
+    );
+
+    await expect(
+      service.createDeviceEnrollment('tenant-id', actorStub(), 'device-id'),
+    ).rejects.toMatchObject({
+      response: { code: 'DEVICE_ENROLLMENT_INVALID' },
+    });
+    expect(findFirst).not.toHaveBeenCalled();
   });
 
   it('returns one-time pairing token but persists only its SHA-256 hash', async () => {
@@ -136,7 +158,9 @@ describe('BranchesService', () => {
       {
         get: (key: string) => {
           const values: Record<string, string | boolean> = {
-            WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: true,
+            NODE_ENV: 'development',
+            WEBAUTHN_DEVICE_QUALIFICATION_APPROVED: false,
+            WEBAUTHN_DEV_ENROLLMENT_ENABLED: true,
             WEBAUTHN_RP_ID: 'localhost',
             WEBAUTHN_ALLOWED_ORIGINS: 'http://localhost:3000',
           };
@@ -554,8 +578,10 @@ describe('BranchesService', () => {
 
   it('revokes only sessions bound to the selected active credential', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       device: { findFirst: jest.fn().mockResolvedValue({ id: 'device-id' }) },
       deviceWebAuthnCredential: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'credential-id' }),
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),
       },
       session: { updateMany: jest.fn(() => Promise.resolve({ count: 1 })) },
@@ -613,6 +639,55 @@ describe('BranchesService', () => {
         'device.credential.revoke',
       ]),
     );
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.$queryRaw.mock.invocationCallOrder[1],
+    );
+    expect(tx.$queryRaw.mock.invocationCallOrder[1]).toBeLessThan(
+      tx.deviceWebAuthnCredential.findFirst.mock.invocationCallOrder[0],
+    );
+    expect(
+      tx.deviceWebAuthnCredential.findFirst.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      tx.deviceWebAuthnCredential.updateMany.mock.invocationCallOrder[0],
+    );
+    expect(
+      tx.deviceWebAuthnCredential.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(tx.session.updateMany.mock.invocationCallOrder[0]);
+  });
+
+  it('does not revoke sessions when the locked credential is no longer active', async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      device: { findFirst: jest.fn().mockResolvedValue({ id: 'device-id' }) },
+      deviceWebAuthnCredential: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn(),
+      },
+      session: { updateMany: jest.fn() },
+    };
+    const prisma = {
+      device: { findFirst: jest.fn().mockResolvedValue({ id: 'device-id' }) },
+      $transaction: jest.fn(
+        (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+      ),
+    };
+    const service = new BranchesService(
+      prisma as never,
+      { recordWithClient: jest.fn() } as never,
+      { get: () => undefined } as never,
+    );
+
+    await expect(
+      service.revokeDeviceCredential(
+        'tenant-id',
+        actorStub(),
+        'device-id',
+        'credential-id',
+      ),
+    ).rejects.toMatchObject({ response: { code: 'DEVICE_NOT_AVAILABLE' } });
+    expect(tx.deviceWebAuthnCredential.updateMany).not.toHaveBeenCalled();
+    expect(tx.session.updateMany).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -729,7 +804,14 @@ describe('BranchesService', () => {
 
   it('revokes active sessions when a device becomes inactive', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       device: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: DeviceStatus.ACTIVE,
+        }),
         update: jest.fn().mockResolvedValue({
           id: 'device-id',
           tenantId: 'tenant-id',
@@ -793,6 +875,13 @@ describe('BranchesService', () => {
       data: { status: 'REVOKED' },
     });
     expect(sessionUpdateArgs.data.revokedAt).toBeInstanceOf(Date);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.device.update.mock.invocationCallOrder[0],
+    );
+    expect(tx.device.update.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.session.updateMany.mock.invocationCallOrder[0],
+    );
     expect(auditService.recordWithClient).toHaveBeenCalledWith(
       tx,
       expect.objectContaining({
@@ -812,17 +901,31 @@ describe('BranchesService', () => {
 
   it('does not restore revoked sessions when a device is reactivated', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       device: {
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'device-id',
-          tenantId: 'tenant-id',
-          status: DeviceStatus.ACTIVE,
-          authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
-          attestationSecretVersion: 2,
-          attestationSecretRotatedAt: new Date(),
-          attestationSecretCiphertext: 'ciphertext-rotated',
-        }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'device-id',
+            tenantId: 'tenant-id',
+            branchId: 'branch-id',
+            status: DeviceStatus.INACTIVE,
+            authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
+            pairedAt: null,
+            attestationSecretVersion: 1,
+            attestationSecretRotatedAt: new Date('2026-08-03T00:00:00.000Z'),
+            attestationSecretCiphertext: 'ciphertext',
+          })
+          .mockResolvedValue({
+            id: 'device-id',
+            tenantId: 'tenant-id',
+            status: DeviceStatus.ACTIVE,
+            authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
+            attestationSecretVersion: 2,
+            attestationSecretRotatedAt: new Date(),
+            attestationSecretCiphertext: 'ciphertext-rotated',
+          }),
       },
       session: {
         updateMany: jest.fn(),
@@ -902,6 +1005,7 @@ describe('BranchesService', () => {
       },
     );
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       idempotencyRecord: { create: idempotencyCreate },
       device: {
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),
@@ -1022,9 +1126,20 @@ describe('BranchesService', () => {
 
   it('does not rotate an HMAC secret if WebAuthn pairing won the race', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       device: {
         updateMany: jest.fn(() => Promise.resolve({ count: 0 })),
-        findFirst: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: DeviceStatus.ACTIVE,
+          authBindingMode: DeviceAuthBindingMode.HMAC_LEGACY,
+          pairedAt: null,
+          attestationSecretCiphertext: 'legacy-ciphertext',
+          attestationSecretVersion: 1,
+          attestationSecretRotatedAt: new Date(),
+        }),
       },
       session: { updateMany: jest.fn() },
     };
@@ -1064,15 +1179,25 @@ describe('BranchesService', () => {
       ),
     ).rejects.toMatchObject({ response: { code: 'DEVICE_NOT_AVAILABLE' } });
     expect(tx.device.updateMany).toHaveBeenCalled();
-    expect(tx.device.findFirst).not.toHaveBeenCalled();
     expect(tx.session.updateMany).not.toHaveBeenCalled();
   });
 
   it('allows UNPAIRED devices to reactivate without HMAC metadata', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       device: {
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),
-        findFirst: jest.fn().mockResolvedValue({ id: 'device-id' }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: DeviceStatus.INACTIVE,
+          authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          pairedAt: null,
+          attestationSecretCiphertext: null,
+          attestationSecretVersion: 0,
+          attestationSecretRotatedAt: null,
+        }),
       },
       session: { updateMany: jest.fn() },
     };
@@ -1112,8 +1237,20 @@ describe('BranchesService', () => {
   });
 
   it('requires an active WebAuthn credential to reactivate a WEBAUTHN device', async () => {
+    const pairedAt = new Date();
     const tx = {
-      device: { update: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      device: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: DeviceStatus.INACTIVE,
+          authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
+          pairedAt,
+        }),
+        update: jest.fn(),
+      },
       deviceWebAuthnCredential: {
         updateMany: jest.fn(() => Promise.resolve({ count: 0 })),
       },
@@ -1127,7 +1264,7 @@ describe('BranchesService', () => {
           branchId: 'branch-id',
           status: DeviceStatus.INACTIVE,
           authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
-          pairedAt: new Date(),
+          pairedAt,
         }),
       },
       $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
@@ -1154,9 +1291,17 @@ describe('BranchesService', () => {
 
   it('allows WEBAUTHN reactivation only when an active credential exists', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       device: {
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),
-        findFirst: jest.fn().mockResolvedValue({ id: 'device-id' }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'device-id',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+          status: DeviceStatus.INACTIVE,
+          authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
+          pairedAt: new Date(),
+        }),
       },
       deviceWebAuthnCredential: {
         updateMany: jest.fn(() => Promise.resolve({ count: 1 })),

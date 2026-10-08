@@ -18,6 +18,10 @@ jest.mock('@simplewebauthn/server', () => ({
   verifyAuthenticationResponse: jest.fn(),
 }));
 
+afterEach(() => {
+  (verifyAuthenticationResponse as jest.Mock).mockClear();
+});
+
 const TEST_ATTEMPT_TOKEN = randomBytes(32).toString('base64url');
 const TEST_CHALLENGE = Buffer.alloc(32, 7).toString('base64url');
 
@@ -55,6 +59,8 @@ function fixtureCredentialDefaults(): Record<string, unknown> {
 function makeCashierCompletionFixture(
   options: {
     attempt?: Record<string, unknown>;
+    attemptToken?: string;
+    user?: Record<string, unknown>;
     verification?: unknown;
     consumeCount?: number;
     counterUpdateCount?: number;
@@ -72,6 +78,7 @@ function makeCashierCompletionFixture(
     role: UserRole.CASHIER,
     tenant: { status: 'ACTIVE' },
     branch: { status: 'ACTIVE' },
+    ...options.user,
   };
   const credential = {
     id: 'credential-row-id',
@@ -117,7 +124,7 @@ function makeCashierCompletionFixture(
     branchId: 'branch-id',
     deviceId: 'device-id',
     bearerTokenHash: createHash('sha256')
-      .update(TEST_ATTEMPT_TOKEN)
+      .update(options.attemptToken ?? TEST_ATTEMPT_TOKEN)
       .digest('hex'),
     assertionChallengeHash: createHash('sha256')
       .update(TEST_CHALLENGE)
@@ -135,7 +142,7 @@ function makeCashierCompletionFixture(
   };
   const sessionCreate = jest.fn().mockImplementation(({ data }) =>
     Promise.resolve({
-      id: 'session-id',
+      id: `session-${user.id}`,
       userId: user.id,
       deviceId: device.id,
       status: 'ACTIVE',
@@ -711,6 +718,181 @@ describe('AuthService', () => {
     }
   });
 
+  it('lets distinct eligible cashiers use their own passwords and one paired POS credential', async () => {
+    const device = {
+      id: 'device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      authBindingMode: 'WEBAUTHN',
+      status: 'ACTIVE',
+      branch: { status: 'ACTIVE' },
+      webAuthnCredentials: [
+        {
+          credentialId: 'credential-assertion-id',
+          transports: ['internal'],
+          authenticatorAttachment: 'platform',
+          backupEligible: false,
+          backedUp: false,
+          rpId: 'pos.example.test',
+          attestationTrustResult: 'TRUSTED',
+        },
+      ],
+    };
+    const passwordSignIn = jest.fn().mockResolvedValue({
+      data: { user: { id: 'supabase-user' } },
+      error: null,
+    });
+    const accounts = [
+      {
+        id: 'cashier-one',
+        username: 'one@shopcity.local',
+        password: 'one-password',
+      },
+      {
+        id: 'cashier-two',
+        username: 'two@shopcity.local',
+        password: 'two-password',
+      },
+    ];
+    const loginAttempts: Array<{
+      account: (typeof accounts)[number];
+      token: string;
+      attempt: Record<string, unknown>;
+    }> = [];
+
+    for (const account of accounts) {
+      const user = {
+        id: account.id,
+        tenantId: 'tenant-id',
+        branchId: 'branch-id',
+        username: account.username,
+        role: UserRole.CASHIER,
+        status: UserStatus.ACTIVE,
+        tenant: { status: 'ACTIVE' },
+        branch: { status: 'ACTIVE' },
+      };
+      const createAttempt = jest.fn().mockResolvedValue({ id: 'attempt-id' });
+      const service = new AuthService(
+        {
+          user: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            findUnique: jest.fn().mockResolvedValue(user),
+          },
+          device: { findFirst: jest.fn().mockResolvedValue(device) },
+          cashierLoginAttempt: { create: createAttempt },
+          session: { create: jest.fn() },
+        } as never,
+        {
+          publicClient: { auth: { signInWithPassword: passwordSignIn } },
+        } as never,
+        {
+          get: (key: string) =>
+            key === 'WEBAUTHN_RP_ID'
+              ? 'pos.example.test'
+              : key === 'WEBAUTHN_ALLOWED_ORIGINS'
+                ? 'https://pos.example.test'
+                : 'secret',
+        } as never,
+        {} as never,
+      );
+
+      const login = await service.login(
+        account.username,
+        account.password,
+        'device-id',
+      );
+      expect(login).toMatchObject({
+        statusCode: 202,
+        code: 'DEVICE_ASSERTION_REQUIRED',
+      });
+      const loginResult = login as { attemptToken: string };
+      const createCalls = createAttempt.mock.calls as unknown as Array<
+        [{ data: Record<string, unknown> }]
+      >;
+      loginAttempts.push({
+        account,
+        token: loginResult.attemptToken,
+        attempt: createCalls[0][0].data,
+      });
+    }
+
+    expect(passwordSignIn.mock.calls).toEqual(
+      accounts.map((account) => [
+        { email: account.username, password: account.password },
+      ]),
+    );
+    expect(loginAttempts[0].token).not.toBe(loginAttempts[1].token);
+    const completions = loginAttempts.map(({ account, token, attempt }) => {
+      const fixture = makeCashierCompletionFixture({
+        attemptToken: token,
+        user: {
+          id: account.id,
+          username: account.username,
+        },
+        attempt: {
+          userId: attempt.userId,
+          branchId: attempt.branchId,
+          deviceId: attempt.deviceId,
+          tenantId: attempt.tenantId,
+        },
+      });
+      return { account, token, fixture };
+    });
+    const sessions: Array<
+      Awaited<ReturnType<AuthService['completeCashierLogin']>>
+    > = [];
+    for (const { account, token, fixture } of completions) {
+      sessions.push(
+        await fixture.service.completeCashierLogin(token, {
+          id: 'credential-assertion-id',
+          response: { freshAssertionFor: account.id },
+        }),
+      );
+    }
+
+    expect(sessions).toHaveLength(2);
+    expect(verifyAuthenticationResponse).toHaveBeenCalledTimes(2);
+    expect(sessions.map((session) => session.context.session.id)).toEqual([
+      'session-cashier-one',
+      'session-cashier-two',
+    ]);
+    expect(sessions.map((session) => session.context.session.userId)).toEqual([
+      'cashier-one',
+      'cashier-two',
+    ]);
+    for (const { fixture } of completions) {
+      expect(fixture.sessionCreate).toHaveBeenCalledTimes(1);
+      const calls = fixture.sessionCreate.mock.calls as unknown as Array<
+        [{ data: Record<string, unknown> }]
+      >;
+      expect(calls[0][0].data).toMatchObject({
+        deviceId: 'device-id',
+        deviceCredentialId: 'credential-row-id',
+      });
+    }
+    const sessionCalls = completions.map(
+      ({ fixture }) =>
+        (
+          fixture.sessionCreate.mock.calls as unknown as Array<
+            [{ data: Record<string, unknown> }]
+          >
+        )[0][0].data,
+    );
+    expect(sessionCalls.map((session) => session.userId)).toEqual([
+      'cashier-one',
+      'cashier-two',
+    ]);
+    expect(new Set(sessionCalls.map((session) => session.userId)).size).toBe(2);
+    expect(sessionCalls.map((session) => session.deviceId)).toEqual([
+      'device-id',
+      'device-id',
+    ]);
+    expect(sessionCalls.map((session) => session.deviceCredentialId)).toEqual([
+      'credential-row-id',
+      'credential-row-id',
+    ]);
+  });
+
   it('rejects device deactivation observed after taking the device lock', async () => {
     const fixture = makeCashierCompletionFixture({
       lockedDevice: {
@@ -1091,7 +1273,51 @@ describe('AuthService', () => {
       properties?: Record<string, unknown>;
     };
     expect(pendingData.properties).toHaveProperty('attemptToken');
+    expect(loginResponses['401']).toMatchObject({
+      content: {
+        'application/json': {
+          examples: {
+            deviceAuthFailed: {
+              value: { error: { statusCode: 401, code: 'DEVICE_AUTH_FAILED' } },
+            },
+          },
+        },
+      },
+    });
+    expect(loginResponses['429']).toMatchObject({
+      content: {
+        'application/json': {
+          examples: {
+            rateLimited: {
+              value: { error: { statusCode: 429, code: 'RATE_LIMITED' } },
+            },
+          },
+        },
+      },
+    });
     expect(completionResponses).toHaveProperty('200');
+    expect(completionResponses['401']).toMatchObject({
+      content: {
+        'application/json': {
+          examples: {
+            deviceAuthFailed: {
+              value: { error: { statusCode: 401, code: 'DEVICE_AUTH_FAILED' } },
+            },
+          },
+        },
+      },
+    });
+    expect(completionResponses['429']).toMatchObject({
+      content: {
+        'application/json': {
+          examples: {
+            rateLimited: {
+              value: { error: { statusCode: 429, code: 'RATE_LIMITED' } },
+            },
+          },
+        },
+      },
+    });
   });
 
   it('creates a controller 202 without cookies and adds cookies only after completion succeeds', async () => {
@@ -1803,6 +2029,128 @@ describe('AuthService', () => {
         context: { session: { purpose: 'USER', deviceId: null } },
       });
     }
+  });
+
+  it('keeps cashier proof acceptance exclusive to each device binding mode', async () => {
+    const timestamp = Date.now();
+    const secret = 'mode-specific-device-secret';
+    const nonce = 'mode-specific-nonce';
+    const signature = createHmac('sha256', secret) // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- deterministic test-only device secret
+      .update(`device-id.${timestamp}.${nonce}`)
+      .digest('base64url');
+    const hmacProof = `${timestamp}.${nonce}.${signature}`;
+
+    for (const proof of [undefined, hmacProof]) {
+      const unpairedService = buildLoginService({
+        device: buildDevice(secret, 'device-id', 'UNPAIRED'),
+        userRole: UserRole.CASHIER,
+      });
+      await expect(
+        unpairedService.login(
+          'cashier@shopcity.local',
+          'password',
+          'device-id',
+          proof,
+        ),
+      ).rejects.toMatchObject({
+        status: 401,
+        response: { code: 'DEVICE_AUTH_FAILED' },
+      });
+    }
+
+    const hmacWithoutProof = buildLoginService({
+      device: buildDevice(secret, 'device-id', 'HMAC_LEGACY'),
+      userRole: UserRole.CASHIER,
+    });
+    await expect(
+      hmacWithoutProof.login('cashier@shopcity.local', 'password', 'device-id'),
+    ).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'DEVICE_AUTH_FAILED' },
+    });
+    const invalidHmacProof = buildLoginService({
+      device: buildDevice(secret, 'device-id', 'HMAC_LEGACY'),
+      userRole: UserRole.CASHIER,
+    });
+    await expect(
+      invalidHmacProof.login(
+        'cashier@shopcity.local',
+        'password',
+        'device-id',
+        `${timestamp}.${nonce}.invalid-signature`,
+      ),
+    ).rejects.toMatchObject({
+      status: 401,
+      response: { code: 'DEVICE_AUTH_FAILED' },
+    });
+
+    const device = {
+      ...buildDevice(secret, 'device-id', 'WEBAUTHN'),
+      webAuthnCredentials: [
+        {
+          credentialId: 'credential-id',
+          transports: ['internal'],
+          authenticatorAttachment: 'platform',
+          backupEligible: false,
+          backedUp: false,
+          rpId: 'pos.example.test',
+          attestationTrustResult: 'TRUSTED',
+        },
+      ],
+    };
+    const createAttempt = jest.fn().mockResolvedValue({ id: 'attempt-id' });
+    const sessionCreate = jest.fn();
+    const user = {
+      id: 'cashier-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: UserStatus.ACTIVE,
+      role: UserRole.CASHIER,
+      tenant: { status: 'ACTIVE' },
+      branch: { status: 'ACTIVE' },
+    };
+    const webAuthnService = new AuthService(
+      {
+        user: {
+          findFirst: jest.fn().mockResolvedValue(user),
+          findUnique: jest.fn().mockResolvedValue(user),
+        },
+        device: { findFirst: jest.fn().mockResolvedValue(device) },
+        cashierLoginAttempt: { create: createAttempt },
+        session: { create: sessionCreate },
+      } as never,
+      {
+        publicClient: {
+          auth: {
+            signInWithPassword: jest.fn().mockResolvedValue({
+              data: { user: { id: 'supabase-id' } },
+              error: null,
+            }),
+          },
+        },
+      } as never,
+      {
+        get: (key: string) =>
+          key === 'WEBAUTHN_RP_ID'
+            ? 'pos.example.test'
+            : key === 'WEBAUTHN_ALLOWED_ORIGINS'
+              ? 'https://pos.example.test'
+              : 'secret',
+      } as never,
+      {} as never,
+    );
+    const webAuthnResult = await webAuthnService.login(
+      'cashier@shopcity.local',
+      'password',
+      'device-id',
+      hmacProof,
+    );
+    expect(webAuthnResult).toMatchObject({
+      statusCode: 202,
+      code: 'DEVICE_ASSERTION_REQUIRED',
+    });
+    expect(createAttempt).toHaveBeenCalledTimes(1);
+    expect(sessionCreate).not.toHaveBeenCalled();
   });
 
   it('preserves the cashier HMAC_LEGACY proof path during the bounded migration', async () => {

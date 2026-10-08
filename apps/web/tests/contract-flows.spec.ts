@@ -232,6 +232,192 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByText(/device cashier-device-1/i)).toHaveCount(0);
   });
 
+  test('uses a virtual authenticator and waits for assertion completion before session issuance', async ({
+    page,
+  }) => {
+    let authenticated = false;
+    let sessionIssued = false;
+    let credentialId = '';
+    let releaseCompletion!: () => void;
+    let signalCompletionRequest!: () => void;
+    const completionGate = new Promise<void>((resolve) => {
+      releaseCompletion = resolve;
+    });
+    const completionRequested = new Promise<void>((resolve) => {
+      signalCompletionRequest = resolve;
+    });
+
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill(
+        authenticated
+          ? {
+              status: 200,
+              contentType: 'application/json',
+              body: JSON.stringify(
+                sessionPayload('CASHIER', 'virtual-pos-device'),
+              ),
+            }
+          : {
+              status: 401,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                success: false,
+                error: { statusCode: 401, code: 'UNAUTHORIZED' },
+                meta: {},
+              }),
+            },
+      );
+    });
+    await page.route('**/api/v1/auth/login', async (route) => {
+      const body = route.request().postDataJSON() as { username: string };
+      const headers = route.request().headers();
+      expect(body.username).toBe('cashier@shopcity.local');
+      expect(headers['x-device-id']).toBe('virtual-pos-device');
+      expect(headers['x-device-attestation']).toBeUndefined();
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            code: 'DEVICE_ASSERTION_REQUIRED',
+            attemptToken: 'virtual-attempt-token',
+            options: {
+              challenge: 'AQIDBA',
+              rpId: 'localhost',
+              allowCredentials: [
+                {
+                  type: 'public-key',
+                  id: credentialId,
+                  transports: ['internal'],
+                },
+              ],
+              userVerification: 'required',
+            },
+          },
+          meta: {},
+        }),
+      });
+    });
+    await page.route('**/api/v1/auth/cashier-login/complete', async (route) => {
+      const body = route.request().postDataJSON() as {
+        attemptToken: string;
+        assertion: { id: string; response: { signature: string } };
+      };
+      expect(body.attemptToken).toBe('virtual-attempt-token');
+      expect(body.assertion.id).toBe(credentialId);
+      expect(body.assertion.response.signature).not.toBe('');
+      signalCompletionRequest();
+      await completionGate;
+      authenticated = true;
+      sessionIssued = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(sessionPayload('CASHIER', 'virtual-pos-device')),
+      });
+    });
+    await page.route('**/api/v1/config/operational', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: {},
+        }),
+      });
+    });
+
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    const { authenticatorId } = await cdp.send(
+      'WebAuthn.addVirtualAuthenticator',
+      {
+        options: {
+          protocol: 'ctap2',
+          transport: 'internal',
+          hasResidentKey: false,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      },
+    );
+
+    try {
+      await page.goto('http://localhost:3100/login');
+      credentialId = await page.evaluate(async () => {
+        const credential = await navigator.credentials.create({
+          publicKey: {
+            challenge: new Uint8Array([1, 2, 3, 4]),
+            rp: { id: 'localhost', name: 'ShopCity POS' },
+            user: {
+              id: new Uint8Array([5, 6, 7, 8]),
+              name: 'cashier@shopcity.local',
+              displayName: 'ShopCity Cashier',
+            },
+            pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+            authenticatorSelection: {
+              authenticatorAttachment: 'platform',
+              residentKey: 'discouraged',
+              userVerification: 'required',
+            },
+          },
+        });
+        if (!(credential instanceof PublicKeyCredential)) {
+          throw new Error('Virtual authenticator did not create a credential');
+        }
+        return credential.id;
+      });
+      await page.evaluate(() =>
+        window.localStorage.setItem(
+          'shopcity:paired-device-id',
+          'virtual-pos-device',
+        ),
+      );
+      await page.getByLabel('Email Address').fill('cashier@shopcity.local');
+      await page.getByRole('textbox', { name: /^Password$/i }).fill('secret');
+      await page.getByRole('button', { name: /sign in/i }).click();
+      await completionRequested;
+
+      expect(sessionIssued).toBe(false);
+      await expect(page).toHaveURL(/\/login$/);
+      expect(await page.context().cookies()).toEqual([]);
+
+      releaseCompletion();
+      await expect(page).toHaveURL(/\/cashier$/);
+      await expect(
+        page.getByRole('heading', { name: /hi, cashier/i }),
+      ).toBeVisible();
+      expect(sessionIssued).toBe(true);
+    } finally {
+      releaseCompletion();
+      await cdp.send('WebAuthn.removeVirtualAuthenticator', {
+        authenticatorId,
+      });
+      await cdp.send('WebAuthn.disable');
+      await cdp.detach();
+    }
+  });
+
   test('submits earn and redeem through generated client contracts', async ({
     page,
   }) => {

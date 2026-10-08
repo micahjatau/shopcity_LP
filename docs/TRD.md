@@ -4,7 +4,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 Prepared by Radar Solutions for ShopCity
 
-Version 1.0 | July 19, 2026 | Confidential
+Version 1.1 (proposed) | October 5, 2026 | Confidential
 
 | **Document Field**  | **Value**                                                                 |
 | ------------------- | ------------------------------------------------------------------------- |
@@ -21,7 +21,7 @@ Version 1.0 | July 19, 2026 | Confidential
 
 #### **Confidentiality Notice**
 
-This document defines the implementation baseline for the ShopCity loyalty MVP. It is an internal engineering and client-alignment artifact. It does not constitute a commercial quotation or contractual warranty.
+This document defines the implementation baseline for the ShopCity loyalty MVP. Version 1.1 is a proposed security amendment: cashier device binding is mandatory in the current application, and production WebAuthn deployment remains gated on formal approval and target POS hardware qualification. It is an internal engineering and client-alignment artifact. It does not constitute a commercial quotation or contractual warranty.
 
 Radar Solutions | Confidential | Page 1
 
@@ -29,10 +29,11 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ## **Document Control**
 
-| **Version** | **Date**      | **Author**      | **Change Summary**                                                                                                                                                                                 |
-| ----------- | ------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.1         | July 6, 2026  | Radar Solutions | Initial technical requirements<br>based on discovery.                                                                                                                                              |
-| 1.0         | July 19, 2026 | Radar Solutions | Backend-first revision: clean<br>architecture, complete<br>toolchain, API conventions<br>and catalogue, data model,<br>expiry-aware ledger, testing,<br>documentation, CI/CD and<br>delivery plan. |
+| **Version**    | **Date**        | **Author**         | **Change Summary**                                                                                                                                                                                                                    |
+| -------------- | --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.1            | July 6, 2026    | Radar Solutions    | Initial technical requirements<br>based on discovery.                                                                                                                                                                                 |
+| 1.0            | July 19, 2026   | Radar Solutions    | Backend-first revision: clean<br>architecture, complete<br>toolchain, API conventions<br>and catalogue, data model,<br>expiry-aware ledger, testing,<br>documentation, CI/CD and<br>delivery plan.                                    |
+| 1.1 (proposed) | October 5, 2026 | Engineering review | Clarifies mandatory cashier device binding; proposes WebAuthn credential lifecycle, two-phase cashier login, credential-bound sessions, and POS hardware assurance gate. Pending formal TRD approval and target-device qualification. |
 
 ### **Review and Approval**
 
@@ -172,22 +173,22 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ### **3.1 Confirmed Operational Context**
 
-| **Fact**          | **Confirmed Requirement / Implication**                                                                                                        |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| POS integration   | No API, webhook, database access or daily export. Loyalty<br>platform maintains a separate ledger.                                             |
-| Receipt data      | Receipt number, date/time and total are available; no item list,<br>cashier ID, payment method or clear discount line.                         |
-| Receipt sequence  | Receipt number resets weekly and is unique across tills within<br>the week.                                                                    |
-| Checkout devices  | Existing browser-enabled POS computers with USB barcode<br>scanners.                                                                           |
-| Staffing          | Two cashiers and two supervisors per shift; supervisors register<br>customers at customer service desk.                                        |
-| Volume assumption | About 100 daily transactions; approximately 30% loyalty<br>adoption; average basket about NGN 10,000; normal high<br>basket up to NGN 200,000. |
-| Rewards           | 2% of final paid amount; store-funded; staff purchases<br>excluded; wholesale purchases eligible.                                              |
-| Expiry            | Unused earned credit expires 12 months after earning.                                                                                          |
-| Messaging         | SMS for MVP; store pays provider costs.                                                                                                        |
-| Offline           | Offline earning can be queued as pending; offline redemption is<br>prohibited.                                                                 |
+| **Fact**          | **Confirmed Requirement / Implication**                                                                                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POS integration   | No API, webhook, database access or daily export. Loyalty<br>platform maintains a separate ledger.                                                                                                  |
+| Receipt data      | Receipt number, date/time and total are available; no item list,<br>cashier ID, payment method or clear discount line.                                                                              |
+| Receipt sequence  | Receipt number resets weekly and is unique across tills within<br>the week.                                                                                                                         |
+| Checkout devices  | Existing browser-enabled POS computers with USB barcode<br>scanners; exact browser/OS/authenticator support for hardware-backed,<br>non-exportable, non-syncable WebAuthn is a pre-production gate. |
+| Staffing          | Two cashiers and two supervisors per shift; supervisors register<br>customers at customer service desk.                                                                                             |
+| Volume assumption | About 100 daily transactions; approximately 30% loyalty<br>adoption; average basket about NGN 10,000; normal high<br>basket up to NGN 200,000.                                                      |
+| Rewards           | 2% of final paid amount; store-funded; staff purchases<br>excluded; wholesale purchases eligible.                                                                                                   |
+| Expiry            | Unused earned credit expires 12 months after earning.                                                                                                                                               |
+| Messaging         | SMS for MVP; store pays provider costs.                                                                                                                                                             |
+| Offline           | Offline earning can be queued as pending; offline redemption is<br>prohibited.                                                                                                                      |
 
 ### **3.2 In Scope**
 
-- User authentication, roles, device attribution and session management.
+- User authentication, roles, mandatory device-bound cashier sessions, WebAuthn credential lifecycle and session management.
 
 - Customer registration, phone normalization, card assignment, replacement and blocking, with versioned required loyalty-service consent and optional marketing opt-in captured as append-only evidence during registration.
 
@@ -213,13 +214,14 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ## **4. Business Rules and Non-Negotiable Invariants**
 
-| **ID** | **Rule**                                                    | **Backend Enforcement**                                                                 |
-| ------ | ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| BR-001 | Earn 2% of final paid amount.                               | credit_kobo = ceil(purchase_amount_kobo<br>x 2 / 100). Ignore client-calculated credit. |
-| BR-002 | Money is stored as integer kobo.                            | Use BIGINT/decimal-safe arithmetic; never<br>IEEE floating point.                       |
-| BR-003 | One active customer account per<br>normalized phone number. | Partial unique index on tenant + phone<br>where status is active.                       |
-| BR-004 | Staff purchases do not earn.                                | Customer is_staff is checked inside the<br>earn transaction.                            |
-| BR-005 | Receipt number is unique per branch and<br>receipt week.    | Database unique constraint; application pre-<br>check is advisory.                      |
+| **ID** | **Rule**                                                                                                               | **Backend Enforcement**                                                                                                                                 |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BR-001 | Earn 2% of final paid amount.                                                                                          | credit_kobo = ceil(purchase_amount_kobo<br>x 2 / 100). Ignore client-calculated credit.                                                                 |
+| BR-002 | Money is stored as integer kobo.                                                                                       | Use BIGINT/decimal-safe arithmetic; never<br>IEEE floating point.                                                                                       |
+| BR-003 | One active customer account per<br>normalized phone number.                                                            | Partial unique index on tenant + phone<br>where status is active.                                                                                       |
+| BR-004 | Staff purchases do not earn.                                                                                           | Customer is_staff is checked inside the<br>earn transaction.                                                                                            |
+| BR-005 | Receipt number is unique per branch and<br>receipt week.                                                               | Database unique constraint; application pre-<br>check is advisory.                                                                                      |
+| BR-006 | CASHIER sessions used for operational and<br>financial workflows require an active,<br>branch-compatible bound device. | Enforce device proof at cashier session<br>issuance and recheck device/credential<br>eligibility during session resolution<br>and refresh; fail closed. |
 
 Radar Solutions | Confidential | Page 4
 
@@ -350,24 +352,28 @@ _Figure 2. Core financial and customer data model._
 
 ### **8.2 Core Entities**
 
-| **Entity**             | **Core Fields**                                                                                            | **Purpose**                                                     |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| tenants                | id, name, status, created_at                                                                               | Future-ready ownership boundary; one<br>ShopCity tenant in MVP. |
-| branches               | id, tenant_id, name, timezone,<br>receipt_week_start_day, status                                           | One branch in MVP; required for uniqueness<br>and future scale. |
-| devices                | id, branch_id, name, fingerprint_hash, status,<br>last_seen_at                                             | Optional but recommended attribution of<br>browser/POS device.  |
-| users                  | id, tenant_id, branch_id, username,<br>password_hash, role, status, last_login_at                          | Individual accounts; no shared cashier login.                   |
-| customers              | id, tenant_id, full_name, phone_e164, is_staff,<br>status, registered_by                                   | One active customer per normalized phone.                       |
-| cards                  | id, tenant_id, customer_id, barcode_value,<br>status, issued_at, blocked_at,<br>replaced_by_card_id        | Card lifecycle independent from customer<br>wallet.             |
-| receipts               | id, branch_id, receipt_number,<br>receipt_week_start, purchase_amount_kobo,<br>cashier_id                  | Unique purchase evidence key.                                   |
-| loyalty_ledger         | id, customer_id, type, direction, amount_kobo,<br>status, receipt_id, reverses_entry_id,<br>correlation_id | Append-only financial record.                                   |
-| credit_lots            | id, earn_ledger_id, original_amount_kobo,<br>remaining_amount_kobo, expires_at                             | Supports exact 12-month expiry per earn.                        |
-| redemption_allocations | id, redeem_ledger_id, credit_lot_id,<br>amount_kobo                                                        | Records FIFO consumption and preserves<br>expiry correctness.   |
-| approvals              | id, action_type, target_type, target_id, status,<br>requested_by, decided_by, reason                       | Supervisor decision trail.                                      |
-| idempotency_records    | key, actor_id, endpoint, request_hash,<br>response_json, status, expires_at                                | Replay-safe write APIs.                                         |
-| outbox_events          | id, event_type, aggregate_id, payload_json,<br>status, attempts, next_attempt_at                           | Reliable asynchronous publication after DB<br>commit.           |
-| sms_messages           | id, outbox_event_id, customer_id,<br>phone_e164, template, status, provider_id,<br>attempts                | Provider delivery audit.                                        |
-| fraud_flags            | id, rule_code, severity, transaction_id,<br>cashier_id, status, resolution                                 | Operational review queue.                                       |
-| audit_logs             | id, actor_id, action, entity_type, entity_id,<br>request_id, metadata_json, created_at                     | Non-financial trace of sensitive actions.                       |
+| **Entity**                   | **Core Fields**                                                                                                                                                                                      | **Purpose**                                                                                                                                                                                                                                                     |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| tenants                      | id, name, status, created_at                                                                                                                                                                         | Future-ready ownership boundary; one<br>ShopCity tenant in MVP.                                                                                                                                                                                                 |
+| branches                     | id, tenant_id, name, timezone,<br>receipt_week_start_day, status                                                                                                                                     | One branch in MVP; required for uniqueness<br>and future scale.                                                                                                                                                                                                 |
+| devices                      | id, tenant_id, branch_id, name, status,<br>auth_binding_mode, paired_at, last_seen_at,<br>fingerprint_hash (nullable legacy only),<br>attestation_secret_ciphertext/version/rotated_at (legacy only) | Required cashier-session security identity; binding mode is<br>UNPAIRED, HMAC_LEGACY, or WEBAUTHN. New WebAuthn devices have<br>no fingerprint hash or HMAC secret. Clear legacy proof when a device<br>migrates; drop legacy fields after the rollback window. |
+| device_webauthn_credentials  | tenant_id, device_id, credential_id, public_key,<br>AAGUID, sign_count, attachment, transports,<br>backup_eligible/state, attestation metadata,<br>RP ID, status, paired_at, revoked_at              | Separately managed public credentials; supports audited<br>rotation/revocation and credential-bound sessions. Never store<br>the private key.                                                                                                                   |
+| device_enrollment_challenges | tenant_id, device_id, branch_id, actor_id,<br>authorization/challenge hashes, purpose,<br>expires_at, consumed_at                                                                                    | Short-lived, single-use, auditable pairing authorization and<br>registration challenge, consumed atomically.                                                                                                                                                    |
+| cashier_login_attempts       | tenant_id, user_id, device_id, challenge hash,<br>attempt-token hash, expires_at, consumed_at                                                                                                        | Password-verified short-lived transaction for two-phase<br>cashier login; not a ShopCity session and grants no API access.                                                                                                                                      |
+| sessions                     | id, user_id, device_id, device_credential_id,<br>status, expires_at, revoked_at, last_used_at                                                                                                        | Cashier WebAuthn sessions bind both device and exact credential;<br>other roles and bounded legacy sessions may have no credential ID.                                                                                                                          |
+| users                        | id, tenant_id, branch_id, username,<br>password_hash, role, status, last_login_at                                                                                                                    | Individual accounts; no shared cashier login.                                                                                                                                                                                                                   |
+| customers                    | id, tenant_id, full_name, phone_e164, is_staff,<br>status, registered_by                                                                                                                             | One active customer per normalized phone.                                                                                                                                                                                                                       |
+| cards                        | id, tenant_id, customer_id, barcode_value,<br>status, issued_at, blocked_at,<br>replaced_by_card_id                                                                                                  | Card lifecycle independent from customer<br>wallet.                                                                                                                                                                                                             |
+| receipts                     | id, branch_id, receipt_number,<br>receipt_week_start, purchase_amount_kobo,<br>cashier_id                                                                                                            | Unique purchase evidence key.                                                                                                                                                                                                                                   |
+| loyalty_ledger               | id, customer_id, type, direction, amount_kobo,<br>status, receipt_id, reverses_entry_id,<br>correlation_id                                                                                           | Append-only financial record.                                                                                                                                                                                                                                   |
+| credit_lots                  | id, earn_ledger_id, original_amount_kobo,<br>remaining_amount_kobo, expires_at                                                                                                                       | Supports exact 12-month expiry per earn.                                                                                                                                                                                                                        |
+| redemption_allocations       | id, redeem_ledger_id, credit_lot_id,<br>amount_kobo                                                                                                                                                  | Records FIFO consumption and preserves<br>expiry correctness.                                                                                                                                                                                                   |
+| approvals                    | id, action_type, target_type, target_id, status,<br>requested_by, decided_by, reason                                                                                                                 | Supervisor decision trail.                                                                                                                                                                                                                                      |
+| idempotency_records          | key, actor_id, endpoint, request_hash,<br>response_json, status, expires_at                                                                                                                          | Replay-safe write APIs.                                                                                                                                                                                                                                         |
+| outbox_events                | id, event_type, aggregate_id, payload_json,<br>status, attempts, next_attempt_at                                                                                                                     | Reliable asynchronous publication after DB<br>commit.                                                                                                                                                                                                           |
+| sms_messages                 | id, outbox_event_id, customer_id,<br>phone_e164, template, status, provider_id,<br>attempts                                                                                                          | Provider delivery audit.                                                                                                                                                                                                                                        |
+| fraud_flags                  | id, rule_code, severity, transaction_id,<br>cashier_id, status, resolution                                                                                                                           | Operational review queue.                                                                                                                                                                                                                                       |
+| audit_logs                   | id, actor_id, action, entity_type, entity_id,<br>request_id, metadata_json, created_at                                                                                                               | Non-financial trace of sensitive actions.                                                                                                                                                                                                                       |
 
 ### **8.3 Database Constraints and Indexes**
 
@@ -405,23 +411,23 @@ A simple SUM(credits) - SUM(debits) ledger is insufficient when each earn expire
 
 ## **9. Backend Modules and Responsibilities**
 
-| **Module**         | **Responsibility**                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Auth               | Supabase-backed identity, login/logout, refresh/session rotation,<br>password reset, MFA-ready admin flow, CSRF/session guards. |
-| Users              | Create/disable users, roles, branch assignment, last-login and<br>audit.                                                        |
-| Branches & Devices | Branch policy configuration, receipt week rules, device registration<br>and status.                                             |
-| Customers          | Registration, search, staff exclusion, status changes and<br>normalized phone uniqueness.                                       |
-| Cards              | Assignment, lookup, block, lost/replaced lifecycle and one-active-<br>card policy if adopted.                                   |
-| Receipts           | Receipt week derivation, uniqueness reservation and purchase<br>evidence record.                                                |
-| Loyalty            | Earn, redeem, balance, lots, allocations, reversals, expiry and<br>manual adjustments.                                          |
-| Approvals          | Pending action state, supervisor decision and expiry of stale<br>approvals.                                                     |
-| Fraud              | Rule evaluation, flags, review, resolution and cashier risk<br>summaries.                                                       |
-| Notifications      | Outbox, SMS templates, retries, provider abstraction and delivery<br>status.                                                    |
-| Reports            | Liability, issuance, redemption, customers, cashier metrics and<br>exports.                                                     |
-| Audit              | Sensitive action logging, security events and immutable query<br>access.                                                        |
-| Offline Sync       | Batch validation, per-item result, idempotency and conflict reasons.                                                            |
-| Configuration      | Typed tenant/branch policies and audit of policy changes.                                                                       |
-| Health/Operations  | Readiness, liveness, build version and dependency status.                                                                       |
+| **Module**         | **Responsibility**                                                                                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth               | Supabase-backed identity, two-phase cashier login with WebAuthn,<br>credential-bound session issuance/refresh/revocation, non-cashier<br>login, password reset, MFA-ready admin flow, CSRF/session guards. |
+| Users              | Create/disable users, roles, branch assignment, last-login and<br>audit.                                                                                                                                   |
+| Branches & Devices | Branch policy configuration, receipt week rules, tenant/branch-scoped<br>device registration, pairing, binding modes, and credential lifecycle.                                                            |
+| Customers          | Registration, search, staff exclusion, status changes and<br>normalized phone uniqueness.                                                                                                                  |
+| Cards              | Assignment, lookup, block, lost/replaced lifecycle and one-active-<br>card policy if adopted.                                                                                                              |
+| Receipts           | Receipt week derivation, uniqueness reservation and purchase<br>evidence record.                                                                                                                           |
+| Loyalty            | Earn, redeem, balance, lots, allocations, reversals, expiry and<br>manual adjustments.                                                                                                                     |
+| Approvals          | Pending action state, supervisor decision and expiry of stale<br>approvals.                                                                                                                                |
+| Fraud              | Rule evaluation, flags, review, resolution and cashier risk<br>summaries.                                                                                                                                  |
+| Notifications      | Outbox, SMS templates, retries, provider abstraction and delivery<br>status.                                                                                                                               |
+| Reports            | Liability, issuance, redemption, customers, cashier metrics and<br>exports.                                                                                                                                |
+| Audit              | Sensitive action logging, security events and immutable query<br>access.                                                                                                                                   |
+| Offline Sync       | Batch validation, per-item result, idempotency and conflict reasons.                                                                                                                                       |
+| Configuration      | Typed tenant/branch policies and audit of policy changes.                                                                                                                                                  |
+| Health/Operations  | Readiness, liveness, build version and dependency status.                                                                                                                                                  |
 
 Radar Solutions | Confidential | Page 11
 
@@ -500,38 +506,43 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ## **11. API Endpoint Catalogue**
 
-| **Method** | **Endpoint**               | **Role**         | **Purpose**                               |
-| ---------- | -------------------------- | ---------------- | ----------------------------------------- |
-| POST       | /auth/login                | Public           | Create authenticated session.             |
-| POST       | /auth/logout               | Authenticated    | End session and revoke refresh<br>token.  |
-| POST       | /auth/refresh              | Authenticated    | Rotate session/refresh token.             |
-| GET        | /auth/me                   | Authenticated    | Return current user and<br>permissions.   |
-| POST       | /users                     | Admin            | Create cashier/supervisor/admin<br>user.  |
-| GET        | /users                     | Admin            | List users with filters.                  |
-| PATCH      | /users/{id}/status         | Admin            | Activate/disable user.                    |
-| PATCH      | /users/{id}/role           | Admin            | Change role with audit.                   |
-| POST       | /customers                 | Supervisor/Admin | Register customer.                        |
-| GET        | /customers                 | Cashier+         | Search by permitted fields.               |
-| GET        | /customers/{id}            | Cashier+         | Read customer summary based<br>on role.   |
-| PATCH      | /customers/{id}            | Supervisor/Admin | Update allowed profile fields.            |
-| PATCH      | /customers/{id}/status     | Supervisor/Admin | Block/activate customer.                  |
-| POST       | /cards                     | Supervisor/Admin | Assign a new barcode card.                |
-| GET        | /cards/lookup/{barcode}    | Cashier+         | Lookup active card and customer.          |
-| POST       | /cards/{id}/replace        | Supervisor/Admin | Block old card and assign<br>replacement. |
-| PATCH      | /cards/{id}/status         | Supervisor/Admin | Mark lost/blocked/active.                 |
-| POST       | /transactions/earn         | Cashier+         | Record purchase and earn credit.          |
-| POST       | /transactions/redeem       | Cashier+         | Redeem confirmed credit.                  |
-| GET        | /transactions/{id}         | Cashier+         | Read transaction within role<br>scope.    |
-| GET        | /customers/{id}/ledger     | Supervisor/Admin | Paginated customer ledger.                |
-| POST       | /transactions/{id}/reverse | Supervisor/Admin | Create compensating reversal.             |
-| POST       | /adjustments               | Admin            | Manual credit/debit with reason.          |
-| GET        | /approvals                 | Supervisor/Admin | List pending/recent approvals.            |
-| POST       | /approvals/{id}/decision   | Supervisor/Admin | Approve or reject.                        |
-| POST       | /offline-sync/earn-batch   | Cashier+         | Synchronize offline earning<br>records.   |
-| GET        | /fraud-flags               | Supervisor/Admin | Review suspicious activity.               |
-| POST       | /fraud-flags/{id}/resolve  | Supervisor/Admin | Resolve/comment on flag.                  |
-| GET        | /reports/summary           | Admin/Owner      | Dashboard KPIs.                           |
-| GET        | /reports/liability         | Admin/Owner      | Outstanding liability and ageing.         |
+| **Method** | **Endpoint**                                                       | **Role**                           | **Purpose**                                                                                                                              |
+| ---------- | ------------------------------------------------------------------ | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| POST       | /auth/login                                                        | Public                             | Verify account; CASHIER receives a short-lived device-assertion<br>attempt without a ShopCity session; other roles retain existing flow. |
+| POST       | /auth/cashier-login/complete                                       | Public with one-time attempt       | Verify WebAuthn assertion and recheck state before issuing<br>a deviceId + deviceCredentialId-bound cashier session.                     |
+| POST       | /auth/logout                                                       | Authenticated                      | End session and revoke refresh<br>token.                                                                                                 |
+| POST       | /auth/refresh                                                      | Authenticated                      | Rotate session/refresh token.                                                                                                            |
+| GET        | /auth/me                                                           | Authenticated                      | Return current user and<br>permissions.                                                                                                  |
+| POST       | /users                                                             | Admin                              | Create cashier/supervisor/admin<br>user.                                                                                                 |
+| GET        | /users                                                             | Admin                              | List users with filters.                                                                                                                 |
+| PATCH      | /users/{id}/status                                                 | Admin                              | Activate/disable user.                                                                                                                   |
+| PATCH      | /users/{id}/role                                                   | Admin                              | Change role with audit.                                                                                                                  |
+| POST       | /customers                                                         | Supervisor/Admin                   | Register customer.                                                                                                                       |
+| GET        | /customers                                                         | Cashier+                           | Search by permitted fields.                                                                                                              |
+| GET        | /customers/{id}                                                    | Cashier+                           | Read customer summary based<br>on role.                                                                                                  |
+| PATCH      | /customers/{id}                                                    | Supervisor/Admin                   | Update allowed profile fields.                                                                                                           |
+| PATCH      | /customers/{id}/status                                             | Supervisor/Admin                   | Block/activate customer.                                                                                                                 |
+| POST       | /cards                                                             | Supervisor/Admin                   | Assign a new barcode card.                                                                                                               |
+| GET        | /cards/lookup/{barcode}                                            | Cashier+                           | Lookup active card and customer.                                                                                                         |
+| POST       | /cards/{id}/replace                                                | Supervisor/Admin                   | Block old card and assign<br>replacement.                                                                                                |
+| PATCH      | /cards/{id}/status                                                 | Supervisor/Admin                   | Mark lost/blocked/active.                                                                                                                |
+| POST       | /branches/{branchId}/devices                                       | Admin/branch Supervisor            | Create a branch-bound device; starts UNPAIRED.                                                                                           |
+| POST       | /branches/{branchId}/devices/{deviceId}/enrollment-challenges      | Admin/branch Supervisor            | Issue single-use pairing authorization; tenant/branch-scoped and audited.                                                                |
+| POST       | /device-enrollments/complete                                       | Public with one-time authorization | Verify WebAuthn registration, consume challenge, activate credential/device.                                                             |
+| DELETE     | /branches/{branchId}/devices/{deviceId}/credentials/{credentialId} | Admin/branch Supervisor            | Revoke credential and bound sessions; enforce existing scope.                                                                            |
+| POST       | /transactions/earn                                                 | Cashier+                           | Record purchase and earn credit.                                                                                                         |
+| POST       | /transactions/redeem                                               | Cashier+                           | Redeem confirmed credit.                                                                                                                 |
+| GET        | /transactions/{id}                                                 | Cashier+                           | Read transaction within role<br>scope.                                                                                                   |
+| GET        | /customers/{id}/ledger                                             | Supervisor/Admin                   | Paginated customer ledger.                                                                                                               |
+| POST       | /transactions/{id}/reverse                                         | Supervisor/Admin                   | Create compensating reversal.                                                                                                            |
+| POST       | /adjustments                                                       | Admin                              | Manual credit/debit with reason.                                                                                                         |
+| GET        | /approvals                                                         | Supervisor/Admin                   | List pending/recent approvals.                                                                                                           |
+| POST       | /approvals/{id}/decision                                           | Supervisor/Admin                   | Approve or reject.                                                                                                                       |
+| POST       | /offline-sync/earn-batch                                           | Cashier+                           | Synchronize offline earning<br>records.                                                                                                  |
+| GET        | /fraud-flags                                                       | Supervisor/Admin                   | Review suspicious activity.                                                                                                              |
+| POST       | /fraud-flags/{id}/resolve                                          | Supervisor/Admin                   | Resolve/comment on flag.                                                                                                                 |
+| GET        | /reports/summary                                                   | Admin/Owner                        | Dashboard KPIs.                                                                                                                          |
+| GET        | /reports/liability                                                 | Admin/Owner                        | Outstanding liability and ageing.                                                                                                        |
 
 Radar Solutions | Confidential | Page 13
 
@@ -731,13 +742,26 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 15. Audit event and SMS are created. Repeated replacement may create a fraud flag.
 
+### **13.3 Cashier Login and Device Pairing**
+
+1. An Admin may provision a device anywhere in the tenant; a Supervisor may provision or pair only a device in their authorized branch. Cross-branch failures retain non-enumerating behavior.
+2. A new device starts UNPAIRED. Pairing is initiated by an authorized actor and uses a high-entropy, tenant/device/branch-bound, short-lived, single-use authorization. The bearer value is exchanged in a POST body, never a URL, log, analytics event, or persistent browser store.
+3. The WebAuthn registration ceremony runs in the target POS browser. The verifier checks the fresh challenge, exact origin and RP ID, user verification, credential properties, and approved attestation/backup policy before storing public credential metadata.
+4. For CASHIER, `/auth/login` verifies the account but creates no ShopCity session. It returns `DEVICE_ASSERTION_REQUIRED`, a short-lived login attempt and WebAuthn request options. Only `/auth/cashier-login/complete` may consume the attempt, recheck account/device/credential/branch state, and issue a session bound to both `deviceId` and `deviceCredentialId`.
+5. Supervisor/Admin login remains on the current account-authentication path unless a separate MFA change is approved. Earn/Redeem continue to require the bound cashier session.
+6. Credential loss, suspected authenticator compromise, and POS-device loss require a scoped, audited recovery path; the proposed procedure is `docs/runbooks/pos-device-credential-recovery.md` and remains draft pending Security/Operations approval and qualification. It does not authorize pilot or production pairing.
+
 ## **14. Authentication, Authorization and Session Security**
 
 ### **14.1 Authentication Implementation**
 
 - Individual user accounts only. Shared cashier credentials are prohibited.
 
-- Staff identity and password verification are handled by Supabase Auth; the backend never stores raw passwords.
+- Staff identity and password verification are handled by Supabase Auth; the backend never stores raw passwords or returns Supabase tokens to the browser.
+
+- CASHIER login is two-phase: valid password verification creates only a short-lived, single-use server-side login attempt and WebAuthn options. No ShopCity session cookie, CSRF token, refresh authority, or authenticated API access is issued until the assertion is verified and account/device/credential/branch state is rechecked. Supervisor/Admin login remains unchanged unless separately approved.
+
+- Each WebAuthn cashier Session stores both `deviceId` and `deviceCredentialId`. Session resolution and refresh require that exact credential to remain active and bound to the active device. Credential revocation revokes its sessions; device/branch revocation invalidates all associated sessions.
 
 - Short-lived access/session token stored in Secure, HttpOnly, SameSite cookie; refresh token rotation and revocation stored server-side.
 
@@ -753,19 +777,20 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ### **14.2 RBAC Matrix**
 
-| **Capability**                       | **Cashier** | **Supervisor** | **Admin/Owner** | **System** |
-| ------------------------------------ | ----------- | -------------- | --------------- | ---------- |
-| Scan card / view<br>checkout summary | Yes         | Yes            | Yes             | No         |
-| Register customer                    | No          | Yes            | Yes             | No         |
-| Assign/replace card                  | No          | Yes            | Yes             | No         |
-| Record earn                          | Yes         | Yes            | Yes             | No         |
-| Redeem within policy                 | Yes         | Yes            | Yes             | No         |
-| Approve high-value<br>action         | No          | Yes            | Yes             | No         |
-| Reverse transaction                  | No          | Yes            | Yes             | No         |
-| Manual adjustment                    | No          | No             | Yes             | No         |
-| View liability reports               | No          | Limited        | Yes             | No         |
-| Manage users/policies                | No          | No             | Yes             | No         |
-| Run expiry/SMS jobs                  | No          | No             | No              | Yes        |
+| **Capability**                         | **Cashier** | **Supervisor**  | **Admin/Owner** | **System** |
+| -------------------------------------- | ----------- | --------------- | --------------- | ---------- |
+| Scan card / view<br>checkout summary   | Yes         | Yes             | Yes             | No         |
+| Register customer                      | No          | Yes             | Yes             | No         |
+| Assign/replace card                    | No          | Yes             | Yes             | No         |
+| Record earn                            | Yes         | Yes             | Yes             | No         |
+| Redeem within policy                   | Yes         | Yes             | Yes             | No         |
+| Approve high-value<br>action           | No          | Yes             | Yes             | No         |
+| Reverse transaction                    | No          | Yes             | Yes             | No         |
+| Manual adjustment                      | No          | No              | Yes             | No         |
+| View liability reports                 | No          | Limited         | Yes             | No         |
+| Manage users/policies                  | No          | No              | Yes             | No         |
+| Manage POS devices / authorize pairing | No          | Own branch only | Tenant-wide     | No         |
+| Run expiry/SMS jobs                    | No          | No              | No              | Yes        |
 
 - `System` is reserved for backend automation and is not assignable to human staff.
 
@@ -781,25 +806,34 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 - Suspension and login denial events are audit logged with actor, target and reason.
 
+- Device administration preserves existing scope: Admin may manage tenant devices; Supervisor may manage only devices in their own branch. Out-of-scope device operations must remain non-enumerating.
+
+- Binding modes are exclusive: UNPAIRED accepts no cashier proof; HMAC_LEGACY accepts only the inventoried legacy HMAC proof during the approved migration window; WEBAUTHN accepts only active WebAuthn credentials. A WEBAUTHN device never falls back to HMAC.
+
+- On per-device HMAC migration, verify WebAuthn registration first, then atomically activate the credential, change binding mode, revoke existing device sessions, retire the HMAC secret, and audit the change. New production devices are never HMAC_LEGACY.
+
 Radar Solutions | Confidential | Page 20
 
 ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | Confidential
 
 ## **15. Application Security and Data Protection**
 
-| **Control**       | **Requirement**                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Transport         | HTTPS/TLS only in production and staging.                                                                             |
-| Headers           | Helmet, strict Content Security Policy for frontend, HSTS and<br>secure cookie flags.                                 |
-| CORS              | Explicit frontend origin allowlist; no wildcard credentials.                                                          |
-| Input validation  | Global ValidationPipe; whitelist fields; reject unknown payload<br>properties; enforce size limits.                   |
-| SQL safety        | Prisma parameterization; raw SQL isolated, reviewed and<br>parameterized.                                             |
-| Secrets           | Environment secret manager; Gitleaks; no secrets in repository or<br>logs.                                            |
-| PII               | Collect minimum fields; mask phone for cashier; restrict exports;<br>audit sensitive reads.                           |
-| Encryption        | Provider-managed encryption at rest; encrypted backups; TLS in<br>transit.                                            |
-| Retention         | Audit and financial records retained according to agreed business<br>policy; session/idempotency data expires safely. |
-| Dependencies      | Renovate, CodeQL and Trivy with severity-based remediation SLA.                                                       |
-| Incident response | Runbook for credential compromise, duplicate credit, data exposure<br>and SMS abuse.                                  |
+| **Control**               | **Requirement**                                                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transport                 | HTTPS/TLS only in production and staging.                                                                                                                                                                                                                                                                                                 |
+| WebAuthn                  | Target WebAuthn Level 3/FIDO2; request platform authenticator, require user verification, discourage resident keys,<br>validate exact RP ID/origin, and use a maintained verifier. Evaluate direct attestation; enterprise attestation only under<br>managed-browser policy and privacy review. Do not claim formal NIST AAL3 compliance. |
+| POS device assurance      | Production cashier register binding requires evidence that the approved browser/OS/authenticator provides hardware-backed,<br>non-exportable, non-syncable credentials under ShopCity policy. This is a hard pre-production gate; otherwise use an approved<br>managed-device certificate/agent for device identity.                      |
+| Challenge/session binding | Enrollment/login challenges are high entropy, scoped, short-lived, single-use, atomically consumed, and excluded from URLs,<br>logs, analytics, and persistent browser storage. WebAuthn cashier sessions bind both device and credential IDs.                                                                                            |
+| Headers                   | Helmet, strict Content Security Policy for frontend, HSTS and<br>secure cookie flags.                                                                                                                                                                                                                                                     |
+| CORS                      | Explicit frontend origin allowlist; no wildcard credentials.                                                                                                                                                                                                                                                                              |
+| Input validation          | Global ValidationPipe; whitelist fields; reject unknown payload<br>properties; enforce size limits.                                                                                                                                                                                                                                       |
+| SQL safety                | Prisma parameterization; raw SQL isolated, reviewed and<br>parameterized.                                                                                                                                                                                                                                                                 |
+| Secrets                   | Environment secret manager; Gitleaks; no secrets in repository or<br>logs.                                                                                                                                                                                                                                                                |
+| PII                       | Collect minimum fields; mask phone for cashier; restrict exports;<br>audit sensitive reads.                                                                                                                                                                                                                                               |
+| Encryption                | Provider-managed encryption at rest; encrypted backups; TLS in<br>transit.                                                                                                                                                                                                                                                                |
+| Retention                 | Audit and financial records retained according to agreed business<br>policy; session/idempotency data expires safely.                                                                                                                                                                                                                     |
+| Dependencies              | Renovate, CodeQL and Trivy with severity-based remediation SLA.                                                                                                                                                                                                                                                                           |
+| Incident response         | Runbook for credential compromise, duplicate credit, data exposure<br>and SMS abuse.                                                                                                                                                                                                                                                      |
 
 ### **15.1 Rate Limiting Baseline**
 
@@ -1294,6 +1328,9 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 | **Code**                                 | **HTTP** | **Meaning**                                                       |
 | ---------------------------------------- | -------- | ----------------------------------------------------------------- |
 | AUTH_REQUIRED                            | 401      | Valid session required.                                           |
+| DEVICE_ASSERTION_INVALID                 | 401      | WebAuthn assertion, challenge, origin, or credential is invalid.  |
+| DEVICE_CREDENTIAL_REVOKED                | 401      | Credential bound to the session is no longer active.              |
+| DEVICE_ENROLLMENT_EXPIRED                | 410      | Pairing authorization or registration challenge expired.          |
 | SESSION_EXPIRED                          | 401      | Session expired; login again.                                     |
 | FORBIDDEN                                | 403      | Role lacks permission.                                            |
 | CUSTOMER_NOT_FOUND                       | 404      | Customer does not exist or is outside scope.                      |
@@ -1339,17 +1376,19 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ## **Appendix D - Glossary**
 
-| **Term**              | **Definition**                                                                                      |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| Store credit          | Monetary ShopCity discount value earned from eligible purchases;<br>not cash or transferable money. |
-| Ledger entry          | Immutable record of a credit or debit event.                                                        |
-| Credit lot            | Remaining amount from a specific earn transaction with its own<br>expiry date.                      |
-| Redemption allocation | Record showing which credit lots funded a redemption.                                               |
-| Idempotency key       | Client-generated unique key that makes retries safe.                                                |
-| Receipt week          | Configured seven-day period used with receipt number and branch<br>for uniqueness.                  |
-| Outbox                | Database record of an asynchronous event that must be published<br>after commit.                    |
-| Approval              | Supervisor/admin decision required before a controlled action<br>executes.                          |
-| Problem Details       | Standard structured API error response with stable domain code.                                     |
-| Modular monolith      | Single deployable application separated into enforced domain<br>modules.                            |
+| **Term**              | **Definition**                                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Store credit          | Monetary ShopCity discount value earned from eligible purchases;<br>not cash or transferable money.                                |
+| Ledger entry          | Immutable record of a credit or debit event.                                                                                       |
+| Credit lot            | Remaining amount from a specific earn transaction with its own<br>expiry date.                                                     |
+| Redemption allocation | Record showing which credit lots funded a redemption.                                                                              |
+| Idempotency key       | Client-generated unique key that makes retries safe.                                                                               |
+| Receipt week          | Configured seven-day period used with receipt number and branch<br>for uniqueness.                                                 |
+| Outbox                | Database record of an asynchronous event that must be published<br>after commit.                                                   |
+| Approval              | Supervisor/admin decision required before a controlled action<br>executes.                                                         |
+| WebAuthn              | W3C/FIDO public-key authentication bound to a relying-party ID and<br>origin; protocol for browser-based authenticator ceremonies. |
+| Device credential     | Public WebAuthn credential associated with one ShopCity device;<br>private key remains in the authenticator.                       |
+| Problem Details       | Standard structured API error response with stable domain code.                                                                    |
+| Modular monolith      | Single deployable application separated into enforced domain<br>modules.                                                           |
 
 Radar Solutions | Confidential | Page 30

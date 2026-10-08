@@ -27,7 +27,7 @@ The system SHALL allow an authorized Admin to manage tenant devices and an autho
 
 ### Requirement: Device-attested sessions remain fail-closed
 
-For CASHIER, valid account authentication SHALL NOT create a ShopCity session until the backend also verifies fresh device proof for an active, branch-compatible device. WebAuthn login SHALL use two phases: password success creates only a short-lived, single-use login attempt and returns `DEVICE_ASSERTION_REQUIRED` with WebAuthn options; it SHALL issue no ShopCity session, session cookie, CSRF token, or refresh authority. Only successful login completion after rechecking account, tenant, device, credential, branch, and challenge state MAY issue a session. Every WebAuthn cashier session SHALL bind both `deviceId` and `deviceCredentialId`. Supervisor/Admin login SHALL remain on the existing path unless separately approved.
+For CASHIER, valid account authentication SHALL NOT create a ShopCity session until the backend also verifies fresh device proof for an active, branch-compatible device. WebAuthn login SHALL use two phases: password success creates only a short-lived, single-use login attempt and returns `DEVICE_ASSERTION_REQUIRED` with WebAuthn options; it SHALL issue no ShopCity session, session cookie, CSRF token, or refresh authority. Only successful login completion after rechecking account, tenant, device, credential, branch, and challenge state MAY issue a session. Every WebAuthn cashier session SHALL bind both `deviceId` and `deviceCredentialId`. A WebAuthn credential SHALL be scoped to the POS device, not to a single cashier; each eligible cashier SHALL authenticate with their own account credentials and a fresh assertion using that paired device credential. Supervisor/Admin login SHALL remain on the existing path unless separately approved.
 
 #### Scenario: Cashier completes WebAuthn login
 
@@ -36,6 +36,14 @@ For CASHIER, valid account authentication SHALL NOT create a ShopCity session un
 - **THEN** the backend verifies the assertion and rechecks all user/device/credential/branch state before session creation
 - **AND** issues a session bound to both the device and the credential used
 - **AND** Earn, Redeem, and offline reconciliation continue to use backend-owned session device identity
+
+#### Scenario: Multiple eligible cashiers share one paired POS
+
+- **GIVEN** an active WEBAUTHN device with an active device-scoped credential and multiple active CASHIER accounts eligible for its branch
+- **WHEN** each cashier independently supplies their own valid account credentials and completes a fresh assertion using that POS device credential
+- **THEN** each cashier receives a separate session only after their account, tenant, branch, device, credential, and challenge are rechecked
+- **AND** each session is bound to the same POS `deviceId` and device-scoped `deviceCredentialId`
+- **AND** no separate device pairing or credential registration is required for each cashier
 
 #### Scenario: Password succeeds but device assertion is pending
 
@@ -124,3 +132,21 @@ The system SHALL allow an authorized Admin to revoke/re-pair any tenant device a
 - **THEN** the old credential can no longer authenticate or refresh its sessions
 - **AND** the replacement credential is associated with the device only after successful policy-compliant pairing
 - **AND** revocation and re-pair actions are audited
+
+### Requirement: Development enrollment is explicitly isolated
+
+Local development MAY enable WebAuthn enrollment through the explicit `WEBAUTHN_DEV_ENROLLMENT_ENABLED` setting only when `NODE_ENV=development`. This setting SHALL default to false and SHALL be rejected in test, staging, and production environments. It SHALL NOT imply security approval or production qualification. The development opt-in SHALL NOT bypass WebAuthn cryptographic verification, exact origin/RP ID checks, metadata trust policy, database constraints, atomic state transitions, branch authorization, or session revocation. `WEBAUTHN_DEVICE_QUALIFICATION_APPROVED` remains the distinct production qualification gate.
+
+#### Scenario: Developer explicitly enables local enrollment
+
+- **GIVEN** `NODE_ENV=development`, the development opt-in is explicitly true, and the RP ID and allowed origins are configured for that development origin
+- **WHEN** an authorized actor starts or completes enrollment in the local development environment
+- **THEN** all normal cryptographic, metadata, origin/RP, authorization, database, challenge-consumption, and state checks still apply
+- **AND** a successful development test is not recorded or described as hardware qualification
+
+#### Scenario: Development opt-in is attempted outside development
+
+- **GIVEN** `NODE_ENV` is `test`, `staging`, or `production`
+- **WHEN** `WEBAUTHN_DEV_ENROLLMENT_ENABLED` is configured as true
+- **THEN** environment validation rejects the configuration
+- **AND** production enrollment remains controlled only by the separate qualification approval gate

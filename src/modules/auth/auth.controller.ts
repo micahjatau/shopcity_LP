@@ -111,6 +111,22 @@ export class AuthController {
       additionalProperties: false,
     },
   })
+  @apiErrorEnvelopeResponses({
+    unauthorized: {
+      deviceAuthFailed: {
+        statusCode: 401,
+        code: 'DEVICE_AUTH_FAILED',
+        message: 'Device authentication failed',
+      },
+    },
+    tooManyRequests: {
+      rateLimited: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+      },
+    },
+  })
   @ApiOperation({ summary: 'Create authenticated session' })
   async login(
     @Body() dto: LoginDto,
@@ -164,6 +180,22 @@ export class AuthController {
     description:
       'Authenticated cashier session created after WebAuthn assertion',
     dataSchema: authResponseSchema(),
+  })
+  @apiErrorEnvelopeResponses({
+    unauthorized: {
+      deviceAuthFailed: {
+        statusCode: 401,
+        code: 'DEVICE_AUTH_FAILED',
+        message: 'Device authentication failed',
+      },
+    },
+    tooManyRequests: {
+      rateLimited: {
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: 'Too many requests',
+      },
+    },
   })
   @ApiOperation({ summary: 'Complete cashier WebAuthn login' })
   async completeCashierLogin(

@@ -32,7 +32,7 @@ Retain the logical tenant/branch-bound record and status; add `authBindingMode` 
 
 Keep credential records separate from `Device` so credentials can be revoked, replaced, and audited without conflating device identity. Store tenant/device IDs, globally unique credential ID, COSE public key, AAGUID, signature counter, authenticator attachment, transports, backup eligibility/state, attestation format and verified trust/policy result, RP ID, status, `pairedAt`, and `revokedAt`. Store public material only, never private key material. Retain only attestation data required by the approved verification/privacy policy.
 
-A Device may have multiple credentials to support controlled rotation. Login options list only active credentials belonging to that device. The implementation must not infer hardware backing solely from `authenticatorAttachment: "platform"`, AAGUID, or backup flags without validating what the target environment actually guarantees.
+A Device may have multiple credentials to support controlled rotation. Each credential is scoped to the POS device, not to an individual cashier. Any active CASHIER account eligible for that device's tenant and branch may use the same paired device credential in a separate login ceremony with that cashier's own account credentials; per-cashier device enrollment is not required. Credentials are not synced across POS devices. Login options list only active credentials belonging to that device. The implementation must not infer hardware backing solely from `authenticatorAttachment: "platform"`, AAGUID, or backup flags without validating what the target environment actually guarantees.
 
 ### `DeviceEnrollmentChallenge`
 

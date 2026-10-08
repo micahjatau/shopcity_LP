@@ -1825,28 +1825,13 @@
                   }
                 },
                 "examples": {
-                  "authRequired": {
+                  "deviceAuthFailed": {
                     "value": {
                       "success": false,
                       "error": {
                         "statusCode": 401,
-                        "code": "AUTH_REQUIRED",
-                        "message": "Authentication required"
-                      },
-                      "meta": {
-                        "timestamp": "2026-07-19T00:00:00.000Z",
-                        "path": "/api/v1/transactions/earn",
-                        "requestId": "req_example"
-                      }
-                    }
-                  },
-                  "deviceRevoked": {
-                    "value": {
-                      "success": false,
-                      "error": {
-                        "statusCode": 401,
-                        "code": "DEVICE_REVOKED",
-                        "message": "Device session is no longer valid"
+                        "code": "DEVICE_AUTH_FAILED",
+                        "message": "Device authentication failed"
                       },
                       "meta": {
                         "timestamp": "2026-07-19T00:00:00.000Z",
@@ -1977,6 +1962,7 @@
             }
           },
           "409": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2029,27 +2015,9 @@
                       }
                     }
                   }
-                },
-                "examples": {
-                  "deviceAttestationReplayed": {
-                    "value": {
-                      "success": false,
-                      "error": {
-                        "statusCode": 409,
-                        "code": "DEVICE_ATTESTATION_REPLAYED",
-                        "message": "Device attestation has already been used"
-                      },
-                      "meta": {
-                        "timestamp": "2026-07-19T00:00:00.000Z",
-                        "path": "/api/v1/transactions/earn",
-                        "requestId": "req_example"
-                      }
-                    }
-                  }
                 }
               }
-            },
-            "description": ""
+            }
           },
           "422": {
             "description": "",
@@ -2110,7 +2078,6 @@
             }
           },
           "429": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2163,9 +2130,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "rateLimited": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 429,
+                        "code": "RATE_LIMITED",
+                        "message": "Too many requests"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "503": {
             "description": "",
@@ -2443,28 +2428,13 @@
                   }
                 },
                 "examples": {
-                  "authRequired": {
+                  "deviceAuthFailed": {
                     "value": {
                       "success": false,
                       "error": {
                         "statusCode": 401,
-                        "code": "AUTH_REQUIRED",
-                        "message": "Authentication required"
-                      },
-                      "meta": {
-                        "timestamp": "2026-07-19T00:00:00.000Z",
-                        "path": "/api/v1/transactions/earn",
-                        "requestId": "req_example"
-                      }
-                    }
-                  },
-                  "deviceRevoked": {
-                    "value": {
-                      "success": false,
-                      "error": {
-                        "statusCode": 401,
-                        "code": "DEVICE_REVOKED",
-                        "message": "Device session is no longer valid"
+                        "code": "DEVICE_AUTH_FAILED",
+                        "message": "Device authentication failed"
                       },
                       "meta": {
                         "timestamp": "2026-07-19T00:00:00.000Z",
@@ -2595,6 +2565,7 @@
             }
           },
           "409": {
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2647,27 +2618,9 @@
                       }
                     }
                   }
-                },
-                "examples": {
-                  "deviceAttestationReplayed": {
-                    "value": {
-                      "success": false,
-                      "error": {
-                        "statusCode": 409,
-                        "code": "DEVICE_ATTESTATION_REPLAYED",
-                        "message": "Device attestation has already been used"
-                      },
-                      "meta": {
-                        "timestamp": "2026-07-19T00:00:00.000Z",
-                        "path": "/api/v1/transactions/earn",
-                        "requestId": "req_example"
-                      }
-                    }
-                  }
                 }
               }
-            },
-            "description": ""
+            }
           },
           "422": {
             "description": "",
@@ -2728,7 +2681,6 @@
             }
           },
           "429": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -2781,9 +2733,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "rateLimited": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 429,
+                        "code": "RATE_LIMITED",
+                        "message": "Too many requests"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "503": {
             "description": "",
@@ -11689,7 +11659,6 @@
             }
           },
           "400": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -11742,9 +11711,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "deviceEnrollmentInvalid": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 400,
+                        "code": "DEVICE_ENROLLMENT_INVALID",
+                        "message": "Device enrollment is invalid"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "401": {
             "description": "",
@@ -12037,7 +12024,6 @@
             }
           },
           "429": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -12090,9 +12076,27 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "rateLimited": {
+                    "value": {
+                      "success": false,
+                      "error": {
+                        "statusCode": 429,
+                        "code": "RATE_LIMITED",
+                        "message": "Too many requests"
+                      },
+                      "meta": {
+                        "timestamp": "2026-07-19T00:00:00.000Z",
+                        "path": "/api/v1/transactions/earn",
+                        "requestId": "req_example"
+                      }
+                    }
+                  }
                 }
               }
-            }
+            },
+            "description": ""
           },
           "503": {
             "description": "",

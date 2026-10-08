@@ -559,6 +559,12 @@ export class BranchesService {
     });
     if (!device) throw deviceNotAvailable();
     return this.prismaService.$transaction(async (prisma) => {
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "Device"
+        WHERE "id" = ${deviceId} AND "tenantId" = ${tenantId}
+        FOR UPDATE
+      `);
       const currentDevice = await prisma.device.findFirst({
         where: scope.tenantWide
           ? { id: deviceId, tenantId }
@@ -566,6 +572,24 @@ export class BranchesService {
         select: { id: true },
       });
       if (!currentDevice) throw deviceNotAvailable();
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "DeviceWebAuthnCredential"
+        WHERE "id" = ${credentialId} AND "deviceId" = ${deviceId}
+          AND "tenantId" = ${tenantId}
+        FOR UPDATE
+      `);
+      const currentCredential = await prisma.deviceWebAuthnCredential.findFirst(
+        {
+          where: {
+            id: credentialId,
+            deviceId,
+            tenantId,
+            status: DeviceWebAuthnCredentialStatus.ACTIVE,
+          },
+        },
+      );
+      if (!currentCredential) throw deviceNotAvailable();
       const now = new Date();
       const credentialRevoked =
         await prisma.deviceWebAuthnCredential.updateMany({
@@ -676,6 +700,47 @@ export class BranchesService {
     }
 
     const response = await this.prismaService.$transaction(async (prisma) => {
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "Device"
+        WHERE "id" = ${deviceId} AND "tenantId" = ${tenantId}
+        FOR UPDATE
+      `);
+      const currentDevice = await prisma.device.findFirst({
+        where: scope.tenantWide
+          ? { id: deviceId, tenantId }
+          : { id: deviceId, tenantId, branchId: scope.branchId },
+      });
+      if (!currentDevice) throw new NotFoundException('Device not found');
+      if (
+        (data.rotateAttestationSecret || data.status !== undefined) &&
+        (currentDevice.status !== device.status ||
+          currentDevice.authBindingMode !== device.authBindingMode ||
+          currentDevice.pairedAt?.getTime() !== device.pairedAt?.getTime())
+      ) {
+        throw deviceNotAvailable();
+      }
+      if (
+        data.rotateAttestationSecret &&
+        currentDevice.authBindingMode !== DeviceAuthBindingMode.HMAC_LEGACY
+      ) {
+        throw new BadRequestException(
+          'Legacy attestation rotation is only available for HMAC devices',
+        );
+      }
+      if (
+        data.status === DeviceStatus.ACTIVE &&
+        !data.rotateAttestationSecret &&
+        currentDevice.authBindingMode === DeviceAuthBindingMode.HMAC_LEGACY &&
+        !hasActiveAttestationSecret(currentDevice)
+      ) {
+        throw new DomainHttpException(
+          400,
+          'VALIDATION_ERROR',
+          'Device attestation secret metadata is required before activation',
+        );
+      }
+
       if (prisma.idempotencyRecord?.create) {
         await prisma.idempotencyRecord.create({
           data: {
@@ -693,7 +758,7 @@ export class BranchesService {
       if (
         data.status === DeviceStatus.ACTIVE &&
         !data.rotateAttestationSecret &&
-        device.authBindingMode === DeviceAuthBindingMode.WEBAUTHN
+        currentDevice.authBindingMode === DeviceAuthBindingMode.WEBAUTHN
       ) {
         const activeCredential =
           await prisma.deviceWebAuthnCredential.updateMany({
@@ -722,7 +787,8 @@ export class BranchesService {
 
       if (data.rotateAttestationSecret) {
         attestationSecret = generateDeviceAttestationSecret();
-        attestationSecretVersion = (device.attestationSecretVersion ?? 0) + 1;
+        attestationSecretVersion =
+          (currentDevice.attestationSecretVersion ?? 0) + 1;
         Object.assign(updateData, {
           attestationSecretCiphertext: encryptDeviceAttestationSecret(
             attestationSecret,
@@ -739,18 +805,18 @@ export class BranchesService {
           where: {
             id: deviceId,
             tenantId,
-            status: device.status,
-            authBindingMode: device.authBindingMode,
-            pairedAt: device.pairedAt,
+            status: currentDevice.status,
+            authBindingMode: currentDevice.authBindingMode,
+            pairedAt: currentDevice.pairedAt,
           },
           data: updateData,
         });
         if (stateTransition.count !== 1) throw deviceNotAvailable();
-        const currentDevice = await prisma.device.findFirst({
+        const updatedDevice = await prisma.device.findFirst({
           where: { id: deviceId, tenantId, branchId: device.branchId },
         });
-        if (!currentDevice) throw deviceNotAvailable();
-        updated = currentDevice;
+        if (!updatedDevice) throw deviceNotAvailable();
+        updated = updatedDevice;
       } else {
         updated = await prisma.device.update({
           where: { id: deviceId },
@@ -854,11 +920,15 @@ export class BranchesService {
   }
 
   private assertWebAuthnEnabled() {
-    if (
+    const qualificationApproved =
       this.configService.get<boolean>(
         'WEBAUTHN_DEVICE_QUALIFICATION_APPROVED',
-      ) !== true
-    ) {
+      ) === true;
+    const localDevelopmentEnabled =
+      this.configService.get<string>('NODE_ENV') === 'development' &&
+      this.configService.get<boolean>('WEBAUTHN_DEV_ENROLLMENT_ENABLED') ===
+        true;
+    if (!qualificationApproved && !localDevelopmentEnabled) {
       throw deviceEnrollmentInvalid();
     }
     this.requiredWebAuthnConfig();
