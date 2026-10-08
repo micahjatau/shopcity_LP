@@ -11,6 +11,102 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-08 — Supervisor overview reference presentation proposal
+
+Proposal-time upstream impact for the Supervisor overview route:
+
+```text
+node .gitnexus/run.cjs impact SupervisorPage -r shopcity_LP -f 'apps/web/app/(shell)/supervisor/page.tsx' --include-tests
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ---------------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `SupervisorPage` | LOW, exact |                0 |                 0 |                  0 |
+
+GitNexus found no upstream dependants or affected processes. Scope is the page presentation and its focused frontend tests; shared shell navigation, scanner lookup context, and dedicated Supervisor routes remain unchanged. The initial implementation incorrectly embedded the supplied SVGs; this follow-up corrects the spec to require semantic HTML/CSS modeled on the SVGs, with their sample metrics/rows clearly illustrative and never presented as live operational data.
+
+### 2026-10-08 — Supervisor overview live reporting
+
+Proposal-time upstream impact was run for the overview route and each existing approval-list method that may gain an additive count/projection:
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' SupervisorPage
+npm run proposal:impact -- --file src/modules/approvals/approvals.controller.ts listApprovals
+npm run proposal:impact -- --file src/modules/approvals/approvals.service.ts listApprovals
+npm run proposal:impact -- --uid 'Method:src/modules/loyalty/loyalty.service.ts:LoyaltyService.listApprovals#4'
+```
+
+| Symbol                              | Risk       | Impacted symbols | Direct dependants | Affected processes / modules   |
+| ----------------------------------- | ---------- | ---------------: | ----------------: | ------------------------------ |
+| `SupervisorPage`                    | LOW, exact |                0 |                 0 | 0                              |
+| `ApprovalsController.listApprovals` | LOW, exact |                1 |                 1 | 0                              |
+| `ApprovalsService.listApprovals`    | LOW, exact |                4 |                 3 | 0 processes; Pagination module |
+| `LoyaltyService.listApprovals`      | LOW, exact |                6 |                 2 | 0 processes; Pagination module |
+
+No HIGH/CRITICAL result. Existing reporting and approvals endpoints enforce caller scope. Planned changes are limited to using the branch-scoped executive snapshot, optionally counting filtered approvals for the overview, and adding scoped customer/requester display fields. No execution flows are indexed.
+
+### 2026-10-08 — Supervisor overview approvals pagination
+
+Proposal-time upstream impact for the Supervisor overview route:
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' SupervisorPage
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ---------------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `SupervisorPage` | LOW, exact |                0 |                 0 |                  0 |
+
+Pagination is limited to the existing cursor-based, branch-authorized approvals API. No upstream dependants or execution flows are indexed; no API authorization or reporting logic is in scope.
+
+### 2026-10-08 — Supervisor overview full-queue approvals search
+
+Proposal-time upstream impact for server-side search across the pending approval queue:
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' SupervisorPage
+npm run proposal:impact -- --file src/modules/approvals/approvals.controller.ts listApprovals
+npm run proposal:impact -- --file src/modules/approvals/approvals.service.ts listApprovals
+npm run proposal:impact -- --uid 'Method:src/modules/loyalty/loyalty.service.ts:LoyaltyService.listApprovals#4'
+```
+
+| Symbol                              | Risk       | Impacted symbols | Direct dependants | Affected processes / modules   |
+| ----------------------------------- | ---------- | ---------------: | ----------------: | ------------------------------ |
+| `SupervisorPage`                    | LOW, exact |                0 |                 0 | 0                              |
+| `ApprovalsController.listApprovals` | LOW, exact |                1 |                 1 | 0                              |
+| `ApprovalsService.listApprovals`    | LOW, exact |                4 |                 3 | 0 processes; Pagination module |
+| `LoyaltyService.listApprovals`      | LOW, exact |                6 |                 2 | 0 processes; Pagination module |
+
+No HIGH/CRITICAL risk or execution flows are indexed. The planned API filter must be applied within the existing caller-authorized tenant/branch scope before cursor pagination, without changing decision behavior.
+
+### 2026-10-08 — Supervisor overview pagination alignment
+
+Proposal-time upstream impact for the Supervisor overview presentation adjustment:
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' SupervisorPage
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ---------------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `SupervisorPage` | LOW, exact |                0 |                 0 |                  0 |
+
+The pagination CSS is style-only and has no indexed symbol impact. The change is limited to right-aligning the navigation group and using accessible icon-only Previous/Next controls.
+
+### 2026-09-29 — Supervisor overview greeting and card cleanup proposal
+
+Proposal-time upstream impact with tests included was run before drafting this Supervisor landing-page change:
+
+```text
+npm run proposal:impact -- --file apps/web/app/(shell)/supervisor/page.tsx SupervisorPage
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ---------------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `SupervisorPage` | LOW, exact |                0 |                 0 |                  0 |
+
+GitNexus indexed no upstream dependants/processes for the route component. Scope is limited to the Supervisor overview composition and tests that currently assume review panels live on `/supervisor`; the dedicated approvals, fraud, reports, customer, card, and transaction routes remain intact. Preserve the overview's scanner lookup context, shared shell navigation, authorization, and operational route behavior. No backend/API or data changes are planned.
+
 ### 2026-09-30 — Fraud review results presentation
 
 Proposal-time upstream impact was run for the shared fraud panel and both route components:

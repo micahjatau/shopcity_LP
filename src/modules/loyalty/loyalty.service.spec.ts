@@ -776,6 +776,185 @@ describe('LoyaltyService redemption approvals', () => {
     expect(approvalFindMany).toHaveBeenCalledTimes(1);
   });
 
+  it('returns branch-scoped customer/requester details and an exact pending count when requested', async () => {
+    const approvalFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'approval-1',
+        receiptId: 'receipt-1',
+        redemptionId: null,
+        targetType: ApprovalTargetType.EARN,
+        status: ApprovalStatus.PENDING,
+        reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+        requestedAt: new Date('2026-07-26T12:00:00.000Z'),
+        expiresAt: new Date('2026-07-27T12:00:00.000Z'),
+        decidedAt: null,
+        executedAt: null,
+        requestedByUser: { username: 'cashier-1', role: UserRole.CASHIER },
+        receipt: {
+          id: 'receipt-1',
+          customerId: 'customer-1',
+          posReceiptNumber: 'POS-LIVE-1',
+          purchaseAmountKobo: 30_000n,
+          captureStatus: 'PENDING_APPROVAL',
+          reviewStatus: ReceiptReviewStatus.PENDING,
+          branchId: 'branch-1',
+          customer: { fullName: 'Ada Customer' },
+        },
+        redemption: null,
+      },
+    ]);
+    const approvalCount = jest.fn().mockResolvedValue(9);
+    const service = new LoyaltyService(
+      {
+        approval: { findMany: approvalFindMany, count: approvalCount },
+      } as never,
+      auditService(),
+      configService(),
+    );
+
+    await expect(
+      service.listApprovals(
+        'tenant-1',
+        supervisorAuthContext(),
+        { limit: 5 },
+        [ApprovalStatus.PENDING],
+        true,
+      ),
+    ).resolves.toMatchObject({
+      totalCount: 9,
+      scopeTotalCount: 9,
+      items: [
+        {
+          customer: { fullName: 'Ada Customer' },
+          requester: { username: 'cashier-1', role: UserRole.CASHIER },
+        },
+      ],
+    });
+
+    const expectedScope = {
+      tenantId: 'tenant-1',
+      status: { in: [ApprovalStatus.PENDING] },
+      OR: [
+        { receipt: { is: { branchId: 'branch-1' } } },
+        { redemption: { is: { receipt: { is: { branchId: 'branch-1' } } } } },
+      ],
+    };
+    expect(approvalCount).toHaveBeenCalledWith({ where: expectedScope });
+    expect(approvalFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedScope, take: 6 }),
+    );
+  });
+
+  it('searches the full authorized pending scope before cursor pagination', async () => {
+    const approvalFindMany = jest.fn().mockResolvedValue([]);
+    const approvalCount = jest
+      .fn()
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(9);
+    const service = new LoyaltyService(
+      {
+        approval: { findMany: approvalFindMany, count: approvalCount },
+      } as never,
+      auditService(),
+      configService(),
+    );
+
+    await expect(
+      service.listApprovals(
+        'tenant-1',
+        supervisorAuthContext(),
+        { limit: 5 },
+        [ApprovalStatus.PENDING],
+        true,
+        'Ada',
+      ),
+    ).resolves.toMatchObject({ totalCount: 2, scopeTotalCount: 9, items: [] });
+
+    const branchScope = {
+      OR: [
+        { receipt: { is: { branchId: 'branch-1' } } },
+        { redemption: { is: { receipt: { is: { branchId: 'branch-1' } } } } },
+      ],
+    };
+    const unfilteredWhere = {
+      tenantId: 'tenant-1',
+      status: { in: [ApprovalStatus.PENDING] },
+      ...branchScope,
+    };
+
+    const searchConditionsMatcher: unknown = expect.arrayContaining([
+      {
+        receipt: {
+          is: {
+            customer: {
+              is: { fullName: { contains: 'Ada', mode: 'insensitive' } },
+            },
+          },
+        },
+      },
+      {
+        requestedByUser: {
+          is: { username: { contains: 'Ada', mode: 'insensitive' } },
+        },
+      },
+    ]);
+    const searchScopeMatcher: unknown = expect.objectContaining({
+      OR: searchConditionsMatcher,
+    });
+    const andScopeMatcher: unknown = expect.arrayContaining([
+      branchScope,
+      searchScopeMatcher,
+    ]);
+    const filteredScopeMatcher: unknown = expect.objectContaining({
+      tenantId: 'tenant-1',
+      status: { in: [ApprovalStatus.PENDING] },
+      AND: andScopeMatcher,
+    });
+    expect(approvalFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: filteredScopeMatcher, take: 6 }),
+    );
+    expect(approvalCount).toHaveBeenNthCalledWith(1, {
+      where: filteredScopeMatcher,
+    });
+    expect(approvalCount).toHaveBeenNthCalledWith(2, {
+      where: unfilteredWhere,
+    });
+  });
+
+  it('searches displayed amounts in naira as exact kobo values', async () => {
+    const approvalFindMany = jest.fn().mockResolvedValue([]);
+    const approvalCount = jest.fn().mockResolvedValue(1);
+    const service = new LoyaltyService(
+      {
+        approval: { findMany: approvalFindMany, count: approvalCount },
+      } as never,
+      auditService(),
+      configService(),
+    );
+
+    await service.listApprovals(
+      'tenant-1',
+      supervisorAuthContext(),
+      { limit: 5 },
+      [ApprovalStatus.PENDING],
+      true,
+      'NGN 300.00',
+    );
+
+    const amountConditionsMatcher: unknown = expect.arrayContaining([
+      { receipt: { is: { purchaseAmountKobo: 30_000n } } },
+      { redemption: { is: { requestedAmountKobo: 30_000n } } },
+    ]);
+    const amountSearchMatcher: unknown = expect.objectContaining({
+      OR: amountConditionsMatcher,
+    });
+    const andMatcher: unknown = expect.arrayContaining([amountSearchMatcher]);
+    const whereMatcher: unknown = expect.objectContaining({ AND: andMatcher });
+    expect(approvalFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: whereMatcher }),
+    );
+  });
+
   it('returns redemption transaction details with allocation summary', async () => {
     const service = new LoyaltyService(
       {

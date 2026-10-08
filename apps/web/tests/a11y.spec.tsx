@@ -8,6 +8,92 @@ import SupervisorPage from '../app/(shell)/supervisor/page';
 import AdminPage from '../app/(shell)/admin/page';
 import { MoneyInput } from '../components/shopcity';
 import { Button, Input } from '../components/ui';
+import {
+  approvalsControllerListApprovalsV1,
+  auditControllerListV1,
+  branchesControllerListDevicesV1,
+  reportsControllerGetExecutiveSnapshotV1,
+  reportsControllerListCashierTodayV1,
+  usersControllerListUsersV1,
+} from '../lib/api/generated-client';
+import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data';
+
+jest.mock('../lib/api/generated-client', () => ({
+  ...jest.requireActual('../lib/api/generated-client'),
+  approvalsControllerListApprovalsV1: jest.fn(),
+  auditControllerListV1: jest.fn(),
+  branchesControllerListDevicesV1: jest.fn(),
+  reportsControllerGetExecutiveSnapshotV1: jest.fn(),
+  reportsControllerListCashierTodayV1: jest.fn(),
+  usersControllerListUsersV1: jest.fn(),
+}));
+
+function mockSupervisorOverviewData() {
+  const reportDate = businessDateInTimezone('Africa/Lagos')!;
+  jest.mocked(reportsControllerGetExecutiveSnapshotV1).mockResolvedValue({
+    status: 200,
+    data: {
+      data: {
+        scope: 'BRANCH',
+        scopeKey: 'branch-1',
+        branchId: 'branch-1',
+        timezone: 'Africa/Lagos',
+        items: [
+          {
+            reportDate: `${reportDate}T00:00:00.000Z`,
+            materializedAt: new Date().toISOString(),
+            transactionCount: 89,
+            creditIssuedKobo: 59_445_200,
+            creditRedeemedKobo: 0,
+          },
+        ],
+      },
+    },
+  } as never);
+  jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
+    status: 200,
+    data: {
+      data: { branchId: 'branch-1', timezone: 'Africa/Lagos', items: [] },
+    },
+  } as never);
+  jest.mocked(usersControllerListUsersV1).mockResolvedValue({
+    status: 200,
+    data: { data: [] },
+  } as never);
+  jest.mocked(branchesControllerListDevicesV1).mockResolvedValue({
+    status: 200,
+    data: { data: [] },
+  } as never);
+  jest.mocked(auditControllerListV1).mockResolvedValue({
+    status: 200,
+    data: { data: [] },
+  } as never);
+  jest.mocked(approvalsControllerListApprovalsV1).mockResolvedValue({
+    status: 200,
+    data: {
+      data: {
+        items: Array.from({ length: 5 }, (_, index) => ({
+          id: `approval-${index + 1}`,
+          status: 'PENDING',
+          targetType: 'EARN',
+          requestedAmountKobo: 5_000 + index * 100,
+          requestedAt: new Date().toISOString(),
+          reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+          customer: {
+            id: `customer-${index + 1}`,
+            fullName: `Customer ${index + 1}`,
+          },
+          requester: { username: `cashier-${index + 1}`, role: 'CASHIER' },
+          receipt: { posReceiptNumber: `POS-${index + 1}` },
+        })),
+        totalCount: 80,
+        scopeTotalCount: 80,
+        nextCursor: 'a11y-next',
+        hasMore: true,
+      },
+    },
+  } as never);
+}
 
 async function runAxe(container: HTMLElement) {
   const { documentElement } = container.ownerDocument;
@@ -24,6 +110,11 @@ async function runAxe(container: HTMLElement) {
 }
 
 describe('frontend accessibility gates', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSupervisorOverviewData();
+  });
+
   it('keeps shared controls accessible', async () => {
     const { container } = render(
       <main>
@@ -36,7 +127,7 @@ describe('frontend accessibility gates', () => {
     expect(await runAxe(container)).toHaveLength(0);
   });
 
-  it('keeps the Supervisor overview minimal and Admin cards ranked', () => {
+  it('renders the Supervisor overview as accessible cards and a live approvals table', async () => {
     const { container } = render(
       <main>
         <SupervisorPage />
@@ -44,21 +135,64 @@ describe('frontend accessibility gates', () => {
       </main>,
     );
     const supervisorOverview = container.querySelector('.supervisor-page');
+    expect(
+      await screen.findByRole('row', { name: /Customer 1/ }),
+    ).toBeInTheDocument();
 
     expect(
       screen.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
     ).toBeInTheDocument();
-    expect(supervisorOverview?.querySelectorAll('article')).toHaveLength(0);
-    expect(supervisorOverview?.querySelectorAll('a')).toHaveLength(0);
-    expect(supervisorOverview).not.toHaveTextContent(
-      /Approvals|Fraud|Reports|Transactions|Customers|Cards/,
-    );
+    expect(
+      supervisorOverview?.querySelectorAll('[data-metric-card]'),
+    ).toHaveLength(4);
+    expect(supervisorOverview?.querySelectorAll('img')).toHaveLength(0);
+    expect(
+      screen.getByRole('link', { name: /open approvals/i }),
+    ).toHaveAttribute('href', '/supervisor/approvals');
+    expect(
+      screen.getByRole('heading', { name: "Today's Activity", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Approvals requiring attention',
+        level: 2,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Daily report materialized/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', {
+        name: 'Search all open approvals',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Previous approvals page' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Next approvals page' }),
+    ).toBeEnabled();
+    const supervisorTable = supervisorOverview?.querySelector('table');
+    expect(supervisorTable).toBeInTheDocument();
+    expect(supervisorTable?.querySelectorAll('tbody tr')).toHaveLength(5);
+    expect(supervisorTable?.querySelectorAll('thead th')).toHaveLength(4);
+    expect(supervisorTable?.textContent).toContain('Customer 1');
     expect(container.querySelector('a[href="/admin/operations"]')).toHaveStyle({
       gridColumn: 'span 2',
     });
     expect(
       container.querySelector('a[href="/admin/transactions"]'),
     ).not.toHaveStyle({ gridColumn: 'span 2' });
+  });
+
+  it('discloses that Supervisor search covers all authorized open approvals', async () => {
+    render(<SupervisorPage />);
+    await screen.findByRole('row', { name: /Customer 1/ });
+
+    expect(
+      screen.getByRole('searchbox', { name: 'Search all open approvals' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Search covers all authorized open approvals/),
+    ).toBeInTheDocument();
   });
 
   it('keeps the login route accessible and keyboard navigable', async () => {
@@ -119,6 +253,12 @@ describe('frontend accessibility gates', () => {
     expect(
       screen.getByRole('heading', { name: /admin shell/i, level: 1 }),
     ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('row', { name: /Customer 1/ }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Daily report materialized/),
+    ).toBeInTheDocument();
     expect(await runAxe(document.body)).toHaveLength(0);
-  });
+  }, 30000);
 });

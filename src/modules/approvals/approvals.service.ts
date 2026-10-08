@@ -14,8 +14,17 @@ export class ApprovalsService {
     actor: AuthContext,
     page?: CursorPageRequest,
     statuses?: ApprovalStatus[],
+    includeTotalCount = false,
+    search?: string,
   ) {
-    return this.loyaltyService.listApprovals(tenantId, actor, page, statuses);
+    return this.loyaltyService.listApprovals(
+      tenantId,
+      actor,
+      page,
+      statuses,
+      includeTotalCount,
+      search,
+    );
   }
 
   async approveReceipt(

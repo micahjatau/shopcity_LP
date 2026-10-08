@@ -16,6 +16,8 @@ describe('ApprovalsController.listApprovals', () => {
       context,
       expect.objectContaining({ limit: 10 }),
       [ApprovalStatus.APPROVED, ApprovalStatus.EXECUTED],
+      false,
+      undefined,
     );
   });
 
@@ -26,7 +28,49 @@ describe('ApprovalsController.listApprovals', () => {
       context,
       expect.objectContaining({ limit: 10 }),
       undefined,
+      false,
+      undefined,
     );
+  });
+
+  it('requests an exact count only when explicitly requested', () => {
+    void controller.listApprovals(
+      context,
+      '5',
+      undefined,
+      'PENDING',
+      'true',
+      '  Ada  ',
+    );
+    expect(approvalsService.listApprovals).toHaveBeenCalledWith(
+      'tenant-1',
+      context,
+      expect.objectContaining({ limit: 5 }),
+      [ApprovalStatus.PENDING],
+      true,
+      'Ada',
+    );
+  });
+
+  it('rejects invalid count flags', () => {
+    expect(() =>
+      controller.listApprovals(context, '5', undefined, 'PENDING', 'yes'),
+    ).toThrow(BadRequestException);
+    expect(approvalsService.listApprovals).not.toHaveBeenCalled();
+  });
+
+  it('rejects search terms longer than the supported maximum', () => {
+    expect(() =>
+      controller.listApprovals(
+        context,
+        '5',
+        undefined,
+        'PENDING',
+        'true',
+        'x'.repeat(101),
+      ),
+    ).toThrow(BadRequestException);
+    expect(approvalsService.listApprovals).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported status filters', () => {

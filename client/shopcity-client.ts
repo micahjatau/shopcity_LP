@@ -9363,6 +9363,15 @@ export type ApprovalsControllerListApprovalsV1Params = {
    * Filter before cursor pagination; APPROVED includes executed approvals.
    */
   status?: ApprovalsControllerListApprovalsV1Status;
+  /**
+   * When true, include exact matching and unfiltered scope counts, independent of cursor pagination.
+   */
+  includeTotalCount?: boolean;
+  /**
+   * Search pending approval fields within the caller’s authorized scope before cursor pagination.
+   * @maxLength 100
+   */
+  search?: string;
 };
 
 export type ApprovalsControllerListApprovalsV1Status =
@@ -9388,7 +9397,17 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItemCustomer = {
   id: string;
   /** @nullable */
   branchId: string | null;
+  /** @nullable */
+  fullName?: string | null;
 };
+
+/**
+ * @nullable
+ */
+export type ApprovalsControllerListApprovalsV1200DataItemsItemRequester = {
+  username?: string;
+  role?: string;
+} | null;
 
 /**
  * @nullable
@@ -9425,6 +9444,8 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItem = {
   executedAt: string | null;
   customer: ApprovalsControllerListApprovalsV1200DataItemsItemCustomer;
   /** @nullable */
+  requester?: ApprovalsControllerListApprovalsV1200DataItemsItemRequester;
+  /** @nullable */
   receipt: ApprovalsControllerListApprovalsV1200DataItemsItemReceipt;
 };
 
@@ -9433,6 +9454,16 @@ export type ApprovalsControllerListApprovalsV1200Data = {
   /** @nullable */
   nextCursor: string | null;
   hasMore: boolean;
+  /**
+   * Exact count after applying the search and status filters.
+   * @minimum 0
+   */
+  totalCount?: number;
+  /**
+   * Exact count within the caller scope and status filter, before text search.
+   * @minimum 0
+   */
+  scopeTotalCount?: number;
 };
 
 export type ApprovalsControllerListApprovalsV1200Meta = {

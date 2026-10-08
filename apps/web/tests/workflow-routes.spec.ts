@@ -16,6 +16,7 @@ import {
   shellConformanceRoutes,
 } from './fixtures/route-conformance-matrix';
 import { shellNavigationByRole } from '../components/shell-navigation';
+import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data';
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 
@@ -52,6 +53,98 @@ const sessionByRole = {
 test.describe.configure({ timeout: 120000 });
 
 test.describe('workflow route coverage', () => {
+  test('renders the native Supervisor overview cards and table responsively', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    const approvalCursors: string[] = [];
+    const approvalSearches: string[] = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/v1/approvals') {
+        approvalCursors.push(url.searchParams.get('cursor') ?? '');
+        approvalSearches.push(url.searchParams.get('search') ?? '');
+      }
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`${baseUrl}/supervisor`);
+
+    const overview = page.locator('.supervisor-overview');
+    await expect(
+      overview.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
+    ).toBeVisible();
+    await expect(
+      overview.getByRole('link', { name: 'Open Approvals' }),
+    ).toHaveCSS('background-color', 'rgb(142, 1, 1)');
+    await expect(overview.locator('[data-metric-card]')).toHaveCount(4);
+    await expect(overview.getByText('89', { exact: true })).toBeVisible();
+    await expect(
+      overview.getByText('Customer 1', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      overview.getByText('Page 1 · 80 pending overall'),
+    ).toBeVisible();
+    await expect(overview.getByText(/Daily report materialized/)).toBeVisible();
+    await expect(overview.getByRole('table')).toBeVisible();
+    await expect(overview.locator('tbody tr')).toHaveCount(5);
+    await expect(
+      overview.getByRole('button', { name: 'Previous approvals page' }),
+    ).toBeDisabled();
+    await expect(
+      overview.getByRole('button', { name: 'Next approvals page' }),
+    ).toBeEnabled();
+    const pagination = overview.getByRole('navigation', {
+      name: 'Pending approvals pagination',
+    });
+    await expect(pagination).toHaveCSS('justify-content', 'flex-end');
+    await expect(
+      overview.getByRole('button', { name: 'Previous approvals page' }),
+    ).toHaveText('');
+    await expect(
+      overview.getByRole('button', { name: 'Next approvals page' }),
+    ).toHaveText('');
+    const pageSearch = overview.getByRole('searchbox', {
+      name: 'Search all open approvals',
+    });
+    await overview
+      .getByRole('button', { name: 'Next approvals page' })
+      .click();
+    await expect(overview.getByText('Page 2 · 80 pending overall')).toBeVisible();
+    await expect.poll(() => approvalCursors).toContain('overview-more');
+    await overview
+      .getByRole('button', { name: 'Previous approvals page' })
+      .click();
+    await expect(overview.getByText('Page 1 · 80 pending overall')).toBeVisible();
+    await pageSearch.fill('Zara');
+    await expect(
+      overview.getByText('Zara Customer', { exact: true }),
+    ).toBeVisible();
+    await expect(overview.locator('tbody tr')).toHaveCount(1);
+    await expect(overview.getByText('Page 1 · 1 match')).toBeVisible();
+    await expect.poll(() => approvalSearches).toContain('Zara');
+    await expect(pageSearch).toHaveValue('Zara');
+    await expect(overview.locator('img')).toHaveCount(0);
+    await page.screenshot({
+      path: '/tmp/shopcity-supervisor-overview-desktop.png',
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 375, height: 844 });
+    await expect(pagination).toHaveCSS('justify-content', 'flex-end');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    expect(
+      await overview
+        .locator('.supervisor-overview__table-scroll')
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: '/tmp/shopcity-supervisor-overview-mobile.png',
+      fullPage: true,
+    });
+  });
+
   test('shows full-width card search and a verified assignment eligibility dialog', async ({
     page,
   }) => {
@@ -804,7 +897,15 @@ test.describe('workflow route coverage', () => {
       ).toEqual(cashierTypography);
 
       if (path === '/supervisor') {
-        await expect(root.locator('h2, article, a')).toHaveCount(0);
+        const overview = root.locator('.supervisor-overview');
+        await expect(
+          overview.getByRole('link', { name: 'Open Approvals' }),
+        ).toHaveAttribute('href', '/supervisor/approvals');
+        await expect(overview.locator('[data-metric-card]')).toHaveCount(4);
+        await expect(overview.getByRole('table')).toBeVisible();
+        await expect(overview.locator('tbody tr')).toHaveCount(5);
+        await expect(overview.getByRole('columnheader')).toHaveCount(4);
+        await expect(overview.locator('img')).toHaveCount(0);
       } else if (path === '/supervisor/transactions') {
         await expect(
           root.getByRole('textbox', { name: 'Receipt number' }),
@@ -859,6 +960,16 @@ test.describe('workflow route coverage', () => {
           documentWidth,
           `${path} document width at ${width}px`,
         ).toBeLessThanOrEqual(width);
+        if (path === '/supervisor' && width === 375) {
+          const tableScroller = page.locator(
+            '.supervisor-overview__table-scroll',
+          );
+          expect(
+            await tableScroller.evaluate(
+              (element) => element.scrollWidth > element.clientWidth,
+            ),
+          ).toBe(true);
+        }
       }
     }
 
@@ -3231,6 +3342,99 @@ async function mockShell(
                 amountKobo: 2500,
               },
             ],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/reports/executive-snapshot') {
+      const businessDate =
+        businessDateInTimezone('Africa/Lagos') ??
+        new Date().toISOString().slice(0, 10);
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            scope: 'BRANCH',
+            scopeKey: 'branch-1',
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                reportDate: `${businessDate}T00:00:00.000Z`,
+                materializedAt: new Date().toISOString(),
+                transactionCount: 89,
+                creditIssuedKobo: 59_445_200,
+                creditRedeemedKobo: 0,
+              },
+            ],
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
+    if (pathname === '/api/v1/approvals') {
+      const searchQuery = new URL(route.request().url()).searchParams.get('search');
+      const pageItems = Array.from({ length: 5 }, (_, index) => ({
+        id: `approval-${index + 1}`,
+        receiptId: `receipt-${index + 1}`,
+        redemptionId: null,
+        targetType: index % 2 === 0 ? 'EARN' : 'REDEEM',
+        status: 'PENDING',
+        reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+        requestedAmountKobo: 250_000 + index * 1_000,
+        requestedAt: new Date(Date.now() - index * 60_000).toISOString(),
+        expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        decidedAt: null,
+        executedAt: null,
+        customer: {
+          id: `customer-${index + 1}`,
+          branchId: 'branch-1',
+          fullName: `Customer ${index + 1}`,
+        },
+        requester: { username: `cashier-${index + 1}`, role: 'CASHIER' },
+        receipt: {
+          id: `receipt-${index + 1}`,
+          customerId: `customer-${index + 1}`,
+          posReceiptNumber: `POS-${index + 1}`,
+          purchaseAmountKobo: 250_000 + index * 1_000,
+          captureStatus: 'PENDING_APPROVAL',
+          reviewStatus: 'PENDING',
+          branchId: 'branch-1',
+        },
+      }));
+      const items = searchQuery
+        ? [
+            {
+              ...pageItems[0],
+              id: 'approval-search-zara',
+              receiptId: 'receipt-search-zara',
+              customer: {
+                id: 'customer-search-zara',
+                branchId: 'branch-1',
+                fullName: 'Zara Customer',
+              },
+              requester: { username: 'cashier-zara', role: 'CASHIER' },
+              receipt: {
+                ...pageItems[0].receipt,
+                id: 'receipt-search-zara',
+                customerId: 'customer-search-zara',
+                posReceiptNumber: 'POS-ZARA',
+              },
+            },
+          ]
+        : pageItems;
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items,
+            totalCount: searchQuery ? 1 : 80,
+            scopeTotalCount: 80,
+            nextCursor: searchQuery ? null : 'overview-more',
+            hasMore: !searchQuery,
           },
           meta: meta(pathname),
         }),

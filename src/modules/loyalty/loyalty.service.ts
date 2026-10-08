@@ -265,24 +265,112 @@ function buildApprovalScopeWhere(
   };
 }
 
+function parseApprovalAmountSearch(value: string): bigint | null {
+  const normalized = value
+    .trim()
+    .replace(/^(?:NGN|₦)\s*/i, '')
+    .replace(/\s*(?:NGN|₦)$/i, '')
+    .replaceAll(',', '')
+    .trim();
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
+
+  const [naira, fraction = ''] = normalized.split('.');
+  const amountKobo =
+    BigInt(naira) * 100n + BigInt((fraction + '00').slice(0, 2));
+  return amountKobo <= 9_223_372_036_854_775_807n ? amountKobo : null;
+}
+
+function buildApprovalSearchWhere(search: string): Prisma.ApprovalWhereInput {
+  const contains = { contains: search, mode: 'insensitive' as const };
+  const or: Prisma.ApprovalWhereInput[] = [
+    { reasonCode: contains },
+    ...(search.includes(' ')
+      ? [
+          {
+            reasonCode: {
+              contains: search.replaceAll(' ', '_'),
+              mode: 'insensitive' as const,
+            },
+          },
+        ]
+      : []),
+    { requestedByUser: { is: { username: contains } } },
+    { receipt: { is: { posReceiptNumber: contains } } },
+    { receipt: { is: { customer: { is: { fullName: contains } } } } },
+    {
+      redemption: {
+        is: { receipt: { is: { posReceiptNumber: contains } } },
+      },
+    },
+    { redemption: { is: { customer: { is: { fullName: contains } } } } },
+  ];
+
+  const normalizedTypeQuery = search.toLocaleUpperCase();
+  const matchingTypes = Object.values(ApprovalTargetType).filter(
+    (targetType) => {
+      const displayType =
+        targetType === ApprovalTargetType.EARN ? 'PURCHASE' : 'REDEMPTION';
+      return (
+        targetType.includes(normalizedTypeQuery) ||
+        displayType.includes(normalizedTypeQuery)
+      );
+    },
+  );
+  if (matchingTypes.length > 0) {
+    or.push({ targetType: { in: matchingTypes } });
+  }
+
+  const amountKobo = parseApprovalAmountSearch(search);
+  if (amountKobo !== null) {
+    or.push(
+      { receipt: { is: { purchaseAmountKobo: amountKobo } } },
+      { redemption: { is: { requestedAmountKobo: amountKobo } } },
+    );
+  }
+
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      search,
+    )
+  ) {
+    or.push({ id: search }, { receiptId: search }, { redemptionId: search });
+  }
+
+  return { OR: or };
+}
+
 function buildApprovalListWhere(
   tenantId: string,
   actor: AuthContext,
   statuses?: ApprovalStatus[],
-) {
+  search?: string,
+): Prisma.ApprovalWhereInput {
   const branchId = requireBranchScope(actor);
-
-  return {
+  const branchScope = branchId
+    ? {
+        OR: [
+          { receipt: { is: { branchId } } },
+          { redemption: { is: { receipt: { is: { branchId } } } } },
+        ],
+      }
+    : undefined;
+  const baseWhere = {
     tenantId,
     ...(statuses ? { status: { in: statuses } } : {}),
-    ...(branchId
-      ? {
-          OR: [
-            { receipt: { is: { branchId } } },
-            { redemption: { is: { receipt: { is: { branchId } } } } },
-          ],
-        }
-      : {}),
+  };
+  const searchWhere = search?.trim()
+    ? buildApprovalSearchWhere(search.trim())
+    : undefined;
+
+  if (!searchWhere) {
+    return { ...baseWhere, ...(branchScope ?? {}) };
+  }
+  if (!branchScope) {
+    return { ...baseWhere, ...searchWhere };
+  }
+  return {
+    ...baseWhere,
+    AND: [branchScope, searchWhere],
   };
 }
 
@@ -1435,10 +1523,22 @@ export class LoyaltyService {
     actor: AuthContext,
     page?: CursorPageRequest,
     statuses?: ApprovalStatus[],
+    includeTotalCount = false,
+    search?: string,
   ) {
     const decodedCursor = page?.cursor ? decodeCursor(page.cursor) : undefined;
-    const approvals = await this.prismaService.approval.findMany({
-      where: buildApprovalListWhere(tenantId, actor, statuses),
+    const normalizedSearch = search?.trim() || undefined;
+    const where = buildApprovalListWhere(
+      tenantId,
+      actor,
+      statuses,
+      normalizedSearch,
+    );
+    const scopeWhere = normalizedSearch
+      ? buildApprovalListWhere(tenantId, actor, statuses)
+      : where;
+    const approvalsQuery = this.prismaService.approval.findMany({
+      where,
       orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
       include: {
         receipt: {
@@ -1450,6 +1550,7 @@ export class LoyaltyService {
             captureStatus: true,
             reviewStatus: true,
             branchId: true,
+            customer: { select: { fullName: true } },
           },
         },
         redemption: {
@@ -1458,6 +1559,7 @@ export class LoyaltyService {
             receiptId: true,
             requestedAmountKobo: true,
             customerId: true,
+            customer: { select: { fullName: true } },
             receipt: {
               select: {
                 id: true,
@@ -1471,6 +1573,7 @@ export class LoyaltyService {
             },
           },
         },
+        requestedByUser: { select: { username: true, role: true } },
       },
       ...(page
         ? {
@@ -1481,6 +1584,18 @@ export class LoyaltyService {
           }
         : {}),
     });
+    const totalCountQuery = includeTotalCount
+      ? this.prismaService.approval.count({ where })
+      : Promise.resolve(undefined);
+    const scopeTotalCountQuery =
+      includeTotalCount && normalizedSearch
+        ? this.prismaService.approval.count({ where: scopeWhere })
+        : totalCountQuery;
+    const [approvals, totalCount, scopeTotalCount] = await Promise.all([
+      approvalsQuery,
+      totalCountQuery,
+      scopeTotalCountQuery,
+    ]);
     const { pageItems, hasMore } = pageMeta(
       approvals,
       page?.limit ?? approvals.length,
@@ -1533,7 +1648,17 @@ export class LoyaltyService {
                 approval.receipt?.branchId ??
                 receipt?.branchId ??
                 null,
+              fullName:
+                approval.redemption?.customer?.fullName ??
+                approval.receipt?.customer?.fullName ??
+                null,
             },
+            requester: approval.requestedByUser
+              ? {
+                  username: approval.requestedByUser.username,
+                  role: approval.requestedByUser.role,
+                }
+              : null,
             receipt: serializedReceipt,
           },
         ];
@@ -1542,6 +1667,12 @@ export class LoyaltyService {
         ? encodeCursor(pageItems.at(-1)!.id, pageItems.at(-1)!.requestedAt)
         : null,
       hasMore,
+      ...(includeTotalCount
+        ? {
+            totalCount: totalCount ?? 0,
+            scopeTotalCount: scopeTotalCount ?? 0,
+          }
+        : {}),
     };
   }
 

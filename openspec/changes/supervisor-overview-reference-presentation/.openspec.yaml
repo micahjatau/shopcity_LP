@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-08
+goal: Match the supplied overview composition exactly while preserving the
+  shared shell

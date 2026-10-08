@@ -50,6 +50,24 @@ function parseApprovalStatusFilter(
   }
 }
 
+function parseIncludeTotalCount(value?: string): boolean {
+  if (value === undefined || value === 'false') return false;
+  if (value === 'true') return true;
+  throw new BadRequestException('includeTotalCount must be true or false');
+}
+
+function parseApprovalSearch(value: unknown): string | undefined {
+  if (value !== undefined && typeof value !== 'string') {
+    throw new BadRequestException('search must be a string');
+  }
+  const search = value?.trim();
+  if (!search) return undefined;
+  if (search.length > 100) {
+    throw new BadRequestException('search must not exceed 100 characters');
+  }
+  return search;
+}
+
 const approvalListResponseSchema = {
   type: 'object',
   required: ['items', 'nextCursor', 'hasMore'],
@@ -90,6 +108,15 @@ const approvalListResponseSchema = {
             properties: {
               id: { type: 'string', format: 'uuid' },
               branchId: { type: 'string', format: 'uuid', nullable: true },
+              fullName: { type: 'string', nullable: true },
+            },
+          },
+          requester: {
+            type: 'object',
+            nullable: true,
+            properties: {
+              username: { type: 'string' },
+              role: { type: 'string' },
             },
           },
           receipt: {
@@ -119,6 +146,17 @@ const approvalListResponseSchema = {
     },
     nextCursor: { type: 'string', nullable: true },
     hasMore: { type: 'boolean' },
+    totalCount: {
+      type: 'integer',
+      minimum: 0,
+      description: 'Exact count after applying the search and status filters.',
+    },
+    scopeTotalCount: {
+      type: 'integer',
+      minimum: 0,
+      description:
+        'Exact count within the caller scope and status filter, before text search.',
+    },
   },
 } as const;
 
@@ -144,17 +182,35 @@ export class ApprovalsController {
     description:
       'Filter before cursor pagination; APPROVED includes executed approvals.',
   })
+  @ApiQuery({
+    name: 'includeTotalCount',
+    required: false,
+    type: Boolean,
+    description:
+      'When true, include exact matching and unfiltered scope counts, independent of cursor pagination.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    schema: { type: 'string', maxLength: 100 },
+    description:
+      'Search approval fields within the caller’s authorized scope before cursor pagination; any status filter is applied as well.',
+  })
   listApprovals(
     @CurrentSession() context: AuthContext,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
     @Query('status') status?: string,
+    @Query('includeTotalCount') includeTotalCount?: string,
+    @Query('search') search?: string,
   ) {
     return this.approvalsService.listApprovals(
       context.user.tenantId,
       context,
       parseCursorPageRequest(limit, cursor),
       parseApprovalStatusFilter(status),
+      parseIncludeTotalCount(includeTotalCount),
+      parseApprovalSearch(search),
     );
   }
 

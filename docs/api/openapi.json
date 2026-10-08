@@ -21023,6 +21023,25 @@
               "enum": ["ALL", "PENDING", "APPROVED", "REJECTED", "EXPIRED"],
               "type": "string"
             }
+          },
+          {
+            "name": "includeTotalCount",
+            "required": false,
+            "in": "query",
+            "description": "When true, include exact matching and unfiltered scope counts, independent of cursor pagination.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Search pending approval fields within the caller’s authorized scope before cursor pagination."
           }
         ],
         "responses": {
@@ -21121,6 +21140,22 @@
                                     "type": "string",
                                     "format": "uuid",
                                     "nullable": true
+                                  },
+                                  "fullName": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                }
+                              },
+                              "requester": {
+                                "type": "object",
+                                "nullable": true,
+                                "properties": {
+                                  "username": {
+                                    "type": "string"
+                                  },
+                                  "role": {
+                                    "type": "string"
                                   }
                                 }
                               },
@@ -21174,6 +21209,16 @@
                         },
                         "hasMore": {
                           "type": "boolean"
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Exact count after applying the search and status filters."
+                        },
+                        "scopeTotalCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Exact count within the caller scope and status filter, before text search."
                         }
                       }
                     },
