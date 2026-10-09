@@ -55,4 +55,4 @@
 
 - [x] Add unit and browser coverage for scope, search, selection, dialog lifecycle, and reversal behavior.
 - [x] Run focused backend/frontend tests, changed-file and web lint, typechecks, OpenAPI validation, and OpenSpec validation.
-- [ ] Clear repository-wide lint; it is currently blocked by the unrelated existing unsafe assignment at `src/modules/customers/customers.service.spec.ts:92`.
+- [x] Clear repository-wide lint; `npm run lint` passes.
