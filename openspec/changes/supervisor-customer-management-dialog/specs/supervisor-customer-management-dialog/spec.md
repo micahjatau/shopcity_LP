@@ -2,6 +2,12 @@
 
 Give Supervisor customer management a focused search-and-edit workflow: full-width customer rows lead to an authoritative, editable customer-details dialog that protects unsaved changes and keeps card lifecycle operations on the Cards page.
 
+This interaction is superseded by `supervisor-customer-table-profile-workflow`:
+the verified details surface is now a dedicated stable-ID profile page. The
+verification, write, confirmation, linked-card, and unsaved-change safeguards
+below continue to apply to that page; requirements that specifically mandate a
+selection dialog are no longer active.
+
 ## ADDED Requirements
 
 ### Requirement: Manage customers presents selectable full-width result rows

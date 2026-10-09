@@ -7,7 +7,10 @@ import {
   within,
 } from '@testing-library/react';
 import { SupervisorCardWorkflows } from '../components/workflows/supervisor-card-workflows';
-import { SupervisorCustomerWorkflows } from '../components/workflows/supervisor-customer-workflows';
+import {
+  SupervisorCustomerProfile,
+  SupervisorCustomerWorkflows,
+} from '../components/workflows/supervisor-customer-workflows';
 import {
   cardsControllerCreateCardV1,
   customersControllerGetCustomerV1,
@@ -15,6 +18,7 @@ import {
   customersControllerCreateCustomerV1,
   customersControllerUpdateCustomerV1,
   customersControllerUpdateStatusV1,
+  customersControllerGetCustomerProfileProjectionV1,
 } from '../lib/api/generated-client';
 
 let query = new URLSearchParams();
@@ -29,6 +33,11 @@ function expectNoImplementationFacingWorkflowUi() {
   expect(content).not.toMatch(/ledger history|earn ledger/i);
   expect(content).not.toMatch(/\{\s*"(?:status|data|id)"\s*:/i);
   expect(document.querySelector('[role="alert"]')).not.toBeInTheDocument();
+}
+
+async function openRegistrationDialog() {
+  fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
+  await screen.findByRole('dialog', { name: 'Register customer' });
 }
 
 async function confirmRegistrationInReview() {
@@ -54,6 +63,34 @@ jest.mock('../lib/api/generated-client', () => ({
   customersControllerCreateCustomerV1: jest.fn(),
   customersControllerUpdateCustomerV1: jest.fn(),
   customersControllerUpdateStatusV1: jest.fn(),
+  loyaltyControllerGetCustomerLedgerV1: jest.fn().mockResolvedValue({
+    status: 200,
+    data: { data: { items: [] } },
+  }),
+  customersControllerGetCustomerProfileProjectionV1: jest
+    .fn()
+    .mockImplementation(async (id: string) => ({
+      status: 200,
+      data: {
+        data: {
+          customerId: id,
+          sourceErrors: [],
+          memberSince: '2025-01-01T00:00:00.000Z',
+          pendingApprovalsCount: 0,
+          lifetimeEarnedKobo: 0,
+          expirySchedule: [],
+          expiryScheduleIsUpcomingWindow: true,
+          expiryScheduleLimit: 12,
+          recentActivity: [],
+          transactions: [],
+          redemptions: [],
+          walletLedger: [],
+          approvals: [],
+          consent: null,
+          card: null,
+        },
+      },
+    })),
 }));
 
 describe('SupervisorCardWorkflows', () => {
@@ -728,18 +765,23 @@ describe('SupervisorCustomerWorkflows', () => {
     query = new URLSearchParams();
   });
 
-  it('keeps registration blank when URL context contains a previously selected customer', () => {
+  it('keeps legacy tab and customer query parameters from opening registration or a profile', () => {
     query = new URLSearchParams('tab=register&id=previous-customer');
     render(<SupervisorCustomerWorkflows />);
-    expect(screen.getByLabelText('Full name')).toHaveValue('');
-    expect(screen.getByLabelText('Phone number')).toHaveValue('');
-    expect(screen.getByLabelText('First card serial')).toHaveValue('');
+    expect(
+      screen.getByRole('heading', { name: 'Customers' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Register customer' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('First card serial'),
+    ).not.toBeInTheDocument();
     expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
     expect(customersControllerUpdateCustomerV1).not.toHaveBeenCalled();
   });
 
-  it('opens the selected customer in a dialog while keeping registration separate', async () => {
-    query = new URLSearchParams('tab=manage');
+  it('uses directory results to link to a stable-ID customer profile', async () => {
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
       data: {
@@ -754,307 +796,125 @@ describe('SupervisorCustomerWorkflows', () => {
         },
       },
     } as never);
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          id: 'selected-customer',
-          fullName: 'Selected Customer',
-          phoneE164: '+234800000091',
-          email: 'selected@example.com',
-          status: 'ACTIVE',
-          activeCardStatus: 'ACTIVE',
-          activeCardSerialNumber: 'CARD-SELECTED-91',
-        },
-      },
-    } as never);
-
-    const view = render(<SupervisorCustomerWorkflows />);
+    render(<SupervisorCustomerWorkflows />);
     fireEvent.change(
-      screen.getByLabelText('Name, phone number, or customer ID'),
+      screen.getByLabelText(
+        'Search by customer name, phone number, or card number',
+      ),
       { target: { value: 'Selected Customer' } },
     );
     fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
-    const resultButton = await screen.findByRole('button', {
+    const profileLink = await screen.findByRole('link', {
       name: /Selected Customer/,
     });
-    resultButton.focus();
-    fireEvent.click(resultButton);
-    expect(replace).toHaveBeenCalledWith(
-      '/supervisor/customers?tab=manage&id=selected-customer',
-      { scroll: false },
-    );
-
-    query = new URLSearchParams('tab=manage&id=selected-customer');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    const detailsDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
-    });
-    expect(
-      await within(detailsDialog).findByLabelText('Full name'),
-    ).toHaveValue('Selected Customer');
-    expect(
-      await within(detailsDialog).findByLabelText('Phone number'),
-    ).toHaveValue('+234800000091');
-    expect(await within(detailsDialog).findByLabelText('Email')).toHaveValue(
-      'selected@example.com',
-    );
-    expect(
-      within(detailsDialog).getByText('Card ending ED91'),
-    ).toBeInTheDocument();
-    expect(
-      within(detailsDialog).queryByText('CARD-SELECTED-91'),
-    ).not.toBeInTheDocument();
-    expect(
-      within(detailsDialog).getByRole('link', { name: 'Manage linked card →' }),
-    ).toHaveAttribute(
+    expect(profileLink).toHaveAttribute(
       'href',
-      '/supervisor/cards?tab=assign&id=selected-customer',
+      '/supervisor/customers/selected-customer',
     );
-    expect(resultButton).toHaveAttribute('aria-pressed', 'true');
-
-    fireEvent.click(
-      within(detailsDialog).getByRole('button', { name: 'Cancel' }),
-    );
-    query = new URLSearchParams('tab=manage');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-    );
-    await waitFor(() => expect(resultButton).toHaveFocus());
-
-    const registerTab = screen.getByRole('tab', { name: 'Register customer' });
-    expect(registerTab).toHaveAttribute(
-      'href',
-      '/supervisor/customers?tab=register',
-    );
-    registerTab.addEventListener('click', (event) => event.preventDefault());
-    fireEvent.click(registerTab);
-    query = new URLSearchParams('tab=register');
-    view.rerender(<SupervisorCustomerWorkflows />);
-
-    expect(
-      screen.getByRole('tab', { name: 'Register customer' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByLabelText('Full name')).toHaveValue('');
-    expect(screen.getByLabelText('Phone number')).toHaveValue('');
-    expect(screen.getByLabelText('First card serial')).toHaveValue('');
-    expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(1);
+    expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
   });
 
-  it('shows linked-card context without inventing a missing serial in the details dialog', async () => {
-    query = new URLSearchParams('tab=manage');
+  it('shows only the card summary supplied by the directory and links by stable ID', async () => {
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
       data: {
         data: {
           items: [
             {
-              id: 'active-customer',
-              fullName: 'Active Customer',
+              id: 'card-customer',
+              fullName: 'Card Customer',
               phoneE164: '+234800000092',
               status: 'ACTIVE',
+              activeCardStatus: 'ACTIVE',
+              cardNumber: 'CARD-SECRET-92',
             },
           ],
         },
       },
     } as never);
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          id: 'active-customer',
-          fullName: 'Active Customer',
-          phoneE164: '+234800000092',
-          status: 'ACTIVE',
-          activeCardStatus: 'ACTIVE',
-        },
-      },
-    } as never);
-
-    const view = render(<SupervisorCustomerWorkflows />);
-    fireEvent.change(
-      screen.getByLabelText('Name, phone number, or customer ID'),
-      { target: { value: 'Active Customer' } },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: /Active Customer/ }),
-    );
-    query = new URLSearchParams('tab=manage&id=active-customer');
-    view.rerender(<SupervisorCustomerWorkflows />);
-
-    const detailsDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
-    });
-    expect(
-      await within(detailsDialog).findByLabelText('Full name'),
-    ).toHaveValue('Active Customer');
-    expect(within(detailsDialog).getAllByText('Linked card')).toHaveLength(2);
-    expect(within(detailsDialog).getByText('Active card')).toBeInTheDocument();
-    expect(
-      within(detailsDialog).getByText(
-        'Card serial not included in customer details.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(detailsDialog).queryByText('Unavailable'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Active Customer/ }),
-    ).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('keeps Manage customers unavailable for mismatched customer details', async () => {
-    query = new URLSearchParams('tab=manage');
-    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
-      status: 200,
-      data: { data: { items: [{ id: 'selected', fullName: 'Ada Customer' }] } },
-    } as never);
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
-      status: 200,
-      data: { data: { id: 'different', fullName: 'Other Customer' } },
-    } as never);
-    const view = render(<SupervisorCustomerWorkflows />);
-    fireEvent.change(
-      screen.getByLabelText('Name, phone number, or customer ID'),
-      { target: { value: 'Ada' } },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: /Ada Customer/ }),
-    );
-    query = new URLSearchParams('tab=manage&id=selected');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    const detailsDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
-    });
-    expect(
-      await within(detailsDialog).findByText(
-        'Customer details could not be verified (200).',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(detailsDialog).getByRole('button', {
-        name: 'Retry customer details',
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(detailsDialog).queryByRole('button', { name: 'Save changes' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('fails closed for an inaccessible Manage customers ID', async () => {
-    query = new URLSearchParams('tab=manage&id=stale-customer');
-    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
-      status: 404,
-      data: {},
-    } as never);
     render(<SupervisorCustomerWorkflows />);
-    const detailsDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
+    fireEvent.change(
+      screen.getByLabelText(
+        'Search by customer name, phone number, or card number',
+      ),
+      { target: { value: 'Card Customer' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
+    const profileLink = await screen.findByRole('link', {
+      name: 'View profile for Card Customer',
     });
-    expect(detailsDialog).toHaveTextContent(
-      'Customer details could not be verified (404).',
+    expect(profileLink).toHaveAttribute(
+      'href',
+      '/supervisor/customers/card-customer',
     );
     expect(
-      within(detailsDialog).queryByRole('button', { name: 'Save changes' }),
+      within(screen.getByRole('row', { name: /Card Customer/ })).getByText(
+        'Active',
+        { exact: true },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('CARD-SECRET-92')).toBeInTheDocument();
+    expect(screen.getAllByText('—')).toHaveLength(3);
+  });
+
+  it('fails closed for an inaccessible stable-ID profile', async () => {
+    jest
+      .mocked(customersControllerGetCustomerV1)
+      .mockResolvedValue({ status: 404, data: {} } as never);
+    render(<SupervisorCustomerProfile customerId="stale-customer" />);
+    expect(
+      await screen.findByText('Customer details could not be verified (404).'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save changes' }),
     ).not.toBeInTheDocument();
     expect(
-      within(detailsDialog).getByRole('button', {
-        name: 'Retry customer details',
-      }),
+      screen.getByRole('button', { name: 'Retry customer details' }),
     ).toBeInTheDocument();
     expect(customersControllerUpdateCustomerV1).not.toHaveBeenCalled();
     expect(customersControllerUpdateStatusV1).not.toHaveBeenCalled();
   });
 
-  it('renders directly linkable customer tabs and only the selected task', () => {
+  it('renders the table-first directory regardless of removed register/manage tab URLs', () => {
     query = new URLSearchParams('tab=register');
-    const view = render(<SupervisorCustomerWorkflows />);
+    render(<SupervisorCustomerWorkflows />);
     expect(
-      screen.getByRole('tab', { name: 'Manage customers' }),
-    ).toHaveAttribute('href', '/supervisor/customers?tab=manage');
-    const registerTab = screen.getByRole('tab', { name: 'Register customer' });
-    const manageTab = screen.getByRole('tab', { name: 'Manage customers' });
-    expect(
-      screen.getByRole('tablist', { name: 'Customer tasks' }),
+      screen.getByRole('heading', { name: 'Customers' }),
     ).toBeInTheDocument();
-    expect(registerTab).toHaveAttribute('aria-selected', 'true');
-    expect(registerTab).toHaveAttribute('tabindex', '0');
-    expect(manageTab).toHaveAttribute('aria-selected', 'false');
-    expect(manageTab).toHaveAttribute('tabindex', '-1');
-    expect(registerTab).toHaveAttribute(
-      'aria-controls',
-      'customer-panel-register',
-    );
-    expect(screen.getByRole('tabpanel')).toHaveAttribute(
-      'id',
-      'customer-panel-register',
-    );
-    expect(screen.getByRole('tabpanel')).toHaveAttribute(
-      'aria-labelledby',
-      'customer-tab-register',
-    );
     expect(
-      screen.queryByRole('region', { name: 'Find a customer' }),
+      screen.getByRole('button', { name: 'Register customer' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('search')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tablist', { name: 'Customer tasks' }),
     ).not.toBeInTheDocument();
-    query = new URLSearchParams('tab=manage');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    expect(screen.getByRole('tabpanel')).toHaveAttribute(
-      'id',
-      'customer-panel-manage',
-    );
-    expect(
-      screen.getByRole('tab', { name: 'Manage customers' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(
-      screen.getByRole('region', { name: 'Find a customer' }),
-    ).toBeInTheDocument();
     expect(
       screen.queryByLabelText('First card serial'),
     ).not.toBeInTheDocument();
   });
 
-  it('supports arrow, Home, and End keyboard tab navigation with URL updates', () => {
+  it('opens registration from the directory control rather than a register tab', async () => {
     render(<SupervisorCustomerWorkflows />);
-    const register = screen.getByRole('tab', { name: 'Register customer' });
-    const manage = screen.getByRole('tab', { name: 'Manage customers' });
-    fireEvent.keyDown(register, { key: 'ArrowRight' });
-    expect(manage).toHaveFocus();
-    expect(manage).toHaveAttribute('aria-selected', 'true');
-    expect(replace).toHaveBeenLastCalledWith(
-      '/supervisor/customers?tab=manage',
-      { scroll: false },
-    );
-    fireEvent.keyDown(manage, { key: 'Home' });
-    expect(register).toHaveFocus();
-    expect(register).toHaveAttribute('aria-selected', 'true');
-    fireEvent.keyDown(register, { key: 'End' });
-    expect(manage).toHaveFocus();
-    expect(manage).toHaveAttribute('aria-selected', 'true');
-    fireEvent.keyDown(manage, { key: 'ArrowRight' });
-    expect(register).toHaveFocus();
-    expect(register).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tabpanel')).toHaveAttribute(
-      'id',
-      'customer-panel-register',
-    );
+    await openRegistrationDialog();
+    expect(screen.getByLabelText('First card serial')).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: 'Register customer' }),
+    ).toBeInTheDocument();
   });
 
-  it('rejects blank required fields before creating a customer or first card', () => {
+  it('rejects blank required fields before creating a customer or first card', async () => {
     render(<SupervisorCustomerWorkflows />);
-    const form = document.querySelector('form');
-    expect(form).not.toBeNull();
-    fireEvent.submit(form!);
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Full name, phone number, first card serial, and loyalty consent are required.',
-    );
+    await openRegistrationDialog();
+    fireEvent.click(screen.getByRole('button', { name: 'Review details' }));
+    expect(screen.getByLabelText('Full name')).toBeInvalid();
+    expect(screen.getByLabelText('Phone number')).toBeInvalid();
+    expect(screen.getByLabelText('First card serial')).toBeInvalid();
     expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
   });
 
   it('reviews registration details locally and lets the supervisor edit or dismiss without creating', async () => {
     render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Test Customer' },
     });
@@ -1086,7 +946,12 @@ describe('SupervisorCustomerWorkflows', () => {
     fireEvent.click(
       within(reviewDialog).getByRole('button', { name: 'Edit details' }),
     );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: 'Review customer details' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: 'Register customer' }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Full name')).toHaveValue('Test Customer');
     expect(screen.getByLabelText('Phone number')).toHaveValue('0000000000');
     expect(screen.getByLabelText('First card serial')).toHaveValue(
@@ -1101,12 +966,18 @@ describe('SupervisorCustomerWorkflows', () => {
     expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Review details' }));
-    await screen.findByRole('dialog', { name: 'Review customer details' });
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByLabelText('Full name')).toHaveFocus(),
+    fireEvent.keyDown(
+      screen.getByRole('dialog', { name: 'Review customer details' }),
+      { key: 'Escape' },
     );
+    expect(
+      await screen.findByRole('heading', { name: 'Discard registration?' }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Register customer' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Full name')).toHaveValue('Test Customer');
     expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
   });
 
@@ -1125,6 +996,7 @@ describe('SupervisorCustomerWorkflows', () => {
         data: { data: { id: 'retry-customer' } },
       } as never);
     render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Ada Customer' },
     });
@@ -1165,7 +1037,7 @@ describe('SupervisorCustomerWorkflows', () => {
       .calls[0][1].headers as Record<string, string>;
     await confirmRegistrationInReview();
     expect(
-      await screen.findByRole('heading', { name: 'Customer registered' }),
+      await screen.findByText('Customer registered successfully.'),
     ).toBeInTheDocument();
     expect(customersControllerCreateCustomerV1).toHaveBeenCalledTimes(2);
     const retryHeaders = jest.mocked(customersControllerCreateCustomerV1).mock
@@ -1175,7 +1047,7 @@ describe('SupervisorCustomerWorkflows', () => {
     );
     expect(screen.getByRole('link', { name: 'View customer' })).toHaveAttribute(
       'href',
-      '/supervisor/customers?tab=manage&id=retry-customer',
+      '/supervisor/customers/retry-customer',
     );
   });
 
@@ -1186,9 +1058,16 @@ describe('SupervisorCustomerWorkflows', () => {
     } as never);
     render(<SupervisorCustomerWorkflows />);
     expectNoImplementationFacingWorkflowUi();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Enter customer details and the serial number for their first card.',
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
+    expect(
+      screen
+        .getAllByRole('status')
+        .some((status) =>
+          status.textContent?.includes(
+            'Enter customer details and the serial number for their first card.',
+          ),
+        ),
+    ).toBe(true);
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Ada Customer' },
     });
@@ -1234,15 +1113,17 @@ describe('SupervisorCustomerWorkflows', () => {
       }),
     );
     expect(
-      await screen.findByRole('heading', { name: 'Customer registered' }),
+      await screen.findByText('Customer registered successfully.'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Ada Customer and their first loyalty card have been registered successfully. Required consent was recorded.',
-    );
+    expect(
+      screen.getByRole('dialog', { name: 'Register customer' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Customer registered successfully.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View customer' })).toHaveAttribute(
       'href',
-      '/supervisor/customers?tab=manage&id=new-1',
+      '/supervisor/customers/new-1',
     );
     fireEvent.click(
       screen.getByRole('button', { name: 'Register another customer' }),
@@ -1264,6 +1145,7 @@ describe('SupervisorCustomerWorkflows', () => {
       data: { data: {} },
     } as never);
     render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Ada Customer' },
     });
@@ -1299,6 +1181,7 @@ describe('SupervisorCustomerWorkflows', () => {
       data: { data: { id: 'untrusted' } },
     } as never);
     render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Ada Customer' },
     });
@@ -1352,6 +1235,7 @@ describe('SupervisorCustomerWorkflows', () => {
       },
     } as never);
     const view = render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Submitted Name' },
     });
@@ -1378,7 +1262,7 @@ describe('SupervisorCustomerWorkflows', () => {
     );
     expect(verifiedLink).toHaveAttribute(
       'href',
-      '/supervisor/customers?tab=manage&id=verified-customer',
+      '/supervisor/customers/verified-customer',
     );
     expect(screen.getByLabelText('Full name')).toHaveValue('Submitted Name');
     expect(screen.getByLabelText('First card serial')).toHaveValue('DUP-010');
@@ -1386,19 +1270,18 @@ describe('SupervisorCustomerWorkflows', () => {
       screen.queryByRole('link', { name: /untrusted-conflict-id/ }),
     ).not.toBeInTheDocument();
 
-    verifiedLink.addEventListener('click', (event) => event.preventDefault());
-    fireEvent.click(verifiedLink);
-    query = new URLSearchParams('tab=manage&id=verified-customer');
-    view.rerender(<SupervisorCustomerWorkflows />);
+    expect(verifiedLink).toHaveAttribute(
+      'href',
+      '/supervisor/customers/verified-customer',
+    );
+    view.unmount();
+    render(<SupervisorCustomerProfile customerId="verified-customer" />);
     await waitFor(() =>
       expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(2),
     );
-    const detailsDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
-    });
-    expect(
-      await within(detailsDialog).findByLabelText('Full name'),
-    ).toHaveValue('Verified Customer');
+    expect(await screen.findByLabelText('Full name')).toHaveValue(
+      'Verified Customer',
+    );
   });
 
   it('falls back to Manage customers with the submitted phone when no exact verified match exists', async () => {
@@ -1413,6 +1296,7 @@ describe('SupervisorCustomerWorkflows', () => {
       },
     } as never);
     render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Submitted Name' },
     });
@@ -1432,7 +1316,7 @@ describe('SupervisorCustomerWorkflows', () => {
       }),
     );
     expect(replace).toHaveBeenCalledWith(
-      '/supervisor/customers?tab=manage&q=%2B234800000020',
+      '/supervisor/customers?q=%2B234800000020',
       { scroll: false },
     );
     expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
@@ -1455,6 +1339,7 @@ describe('SupervisorCustomerWorkflows', () => {
       data: {},
     } as never);
     render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Submitted Name' },
     });
@@ -1479,29 +1364,13 @@ describe('SupervisorCustomerWorkflows', () => {
       }),
     );
     expect(replace).toHaveBeenCalledWith(
-      '/supervisor/customers?tab=manage&q=%2B234800000022',
+      '/supervisor/customers?q=%2B234800000022',
       { scroll: false },
     );
     expect(screen.getByLabelText('First card serial')).toHaveValue('DUP-022');
   });
 
-  it('requires explicit discard confirmation for dirty customer details on every close route', async () => {
-    query = new URLSearchParams('tab=manage');
-    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          items: [
-            {
-              id: 'dirty-customer',
-              fullName: 'Safe Customer',
-              phoneE164: '+234800000044',
-              status: 'ACTIVE',
-            },
-          ],
-        },
-      },
-    } as never);
+  it('requires explicit discard confirmation before leaving a dirty stable-ID profile', async () => {
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
       data: {
@@ -1513,77 +1382,28 @@ describe('SupervisorCustomerWorkflows', () => {
         },
       },
     } as never);
-    const view = render(<SupervisorCustomerWorkflows />);
-    fireEvent.change(
-      screen.getByLabelText('Name, phone number, or customer ID'),
-      { target: { value: 'Safe' } },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: /Safe Customer/ }),
-    );
-    query = new URLSearchParams('tab=manage&id=dirty-customer');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
+    render(<SupervisorCustomerProfile customerId="dirty-customer" />);
+    fireEvent.change(await screen.findByLabelText('Full name'), {
+      target: { value: 'Edited Customer' },
     });
-    const nameField = await within(dialog).findByLabelText('Full name');
-    fireEvent.change(nameField, { target: { value: 'Edited Customer' } });
-
-    const expectDiscardPrompt = () =>
-      expect(
-        screen.getByRole('heading', { name: 'Discard unsaved changes?' }),
-      ).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expectDiscardPrompt();
-    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
-    expect(await within(dialog).findByLabelText('Full name')).toHaveValue(
-      'Edited Customer',
-    );
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expectDiscardPrompt();
-    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Close customer details' }),
+      screen.getByRole('button', { name: '← Back to customers' }),
     );
-    expectDiscardPrompt();
+    expect(
+      await screen.findByRole('heading', { name: 'Discard unsaved changes?' }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText('Full name')).toHaveValue('Edited Customer');
+    expect(push).not.toHaveBeenCalled();
     fireEvent.click(
-      screen.getByRole('button', { name: 'Close dialog backdrop' }),
+      screen.getByRole('button', { name: '← Back to customers' }),
     );
-    expectDiscardPrompt();
-    expect(customersControllerUpdateCustomerV1).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    expect(replace).toHaveBeenLastCalledWith(
-      '/supervisor/customers?tab=manage',
-      { scroll: false },
-    );
-    query = new URLSearchParams('tab=manage');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+    expect(push).toHaveBeenCalledWith('/supervisor/customers');
     expect(customersControllerUpdateCustomerV1).not.toHaveBeenCalled();
   });
 
-  it('keeps profile edits in the dialog when the update succeeds but refresh verification fails', async () => {
-    query = new URLSearchParams('tab=manage');
-    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          items: [
-            {
-              id: 'refresh-error-customer',
-              fullName: 'Refresh Customer',
-              phoneE164: '+234800000045',
-              status: 'ACTIVE',
-            },
-          ],
-        },
-      },
-    } as never);
+  it('keeps profile edits when save succeeds but stable-ID refresh verification fails', async () => {
     jest
       .mocked(customersControllerGetCustomerV1)
       .mockResolvedValueOnce({
@@ -1601,192 +1421,85 @@ describe('SupervisorCustomerWorkflows', () => {
     jest
       .mocked(customersControllerUpdateCustomerV1)
       .mockResolvedValue({ status: 200, data: { data: {} } } as never);
-    const view = render(<SupervisorCustomerWorkflows />);
-    fireEvent.change(
-      screen.getByLabelText('Name, phone number, or customer ID'),
-      { target: { value: 'Refresh' } },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: /Refresh Customer/ }),
-    );
-    query = new URLSearchParams('tab=manage&id=refresh-error-customer');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
-    });
-    fireEvent.change(await within(dialog).findByLabelText('Full name'), {
+    render(<SupervisorCustomerProfile customerId="refresh-error-customer" />);
+    fireEvent.change(await screen.findByLabelText('Full name'), {
       target: { value: 'Refresh Edited' },
     });
-    fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Save changes' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(
-      await within(dialog).findByText(
-        'Customer details could not be verified (503).',
-      ),
+      await screen.findByText('Customer details could not be verified (503).'),
     ).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Full name')).toHaveValue(
-      'Refresh Edited',
-    );
+    expect(screen.getByLabelText('Full name')).toHaveValue('Refresh Edited');
     expect(
       screen.queryByText('Customer changes saved'),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Refresh Customer/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Refresh Edited/ }),
-    ).not.toBeInTheDocument();
     expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(2);
+    expect(customersControllerUpdateCustomerV1).toHaveBeenCalledWith(
+      'refresh-error-customer',
+      expect.objectContaining({ fullName: 'Refresh Edited' }),
+      expect.objectContaining({
+        credentials: 'include',
+        headers: expect.objectContaining({
+          'idempotency-key': expect.any(String),
+        }),
+      }),
+    );
   });
 
-  it('opens selected customers in a dialog, refreshes saved results, and manages status there', async () => {
-    query = new URLSearchParams('tab=manage');
-    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          items: [
-            {
-              id: 'cust-1',
-              fullName: 'Ada Customer',
-              phoneE164: '+234800000003',
-              status: 'ACTIVE',
-              activeCardStatus: 'BLOCKED',
-            },
-          ],
-        },
-      },
-    } as never);
-    const initialCustomer = {
+  it('saves verified profile changes and requires explicit status confirmation', async () => {
+    const initial = {
       id: 'cust-1',
       fullName: 'Ada Customer',
       phoneE164: '+234800000003',
       email: 'ada@example.com',
       status: 'ACTIVE',
       activeCardStatus: 'BLOCKED',
-      activeCardSerialNumber: 'CARD-003',
+      cardNumber: 'CARD-0003',
     };
-    const editedCustomer = {
-      ...initialCustomer,
-      fullName: 'Updated Customer',
-    };
-    const blockedCustomer = { ...editedCustomer, status: 'BLOCKED' };
+    const edited = { ...initial, fullName: 'Updated Customer' };
+    const blocked = { ...edited, status: 'BLOCKED' };
     jest
       .mocked(customersControllerGetCustomerV1)
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { data: initialCustomer },
-      } as never)
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { data: editedCustomer },
-      } as never)
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { data: editedCustomer },
-      } as never)
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { data: blockedCustomer },
-      } as never);
+      .mockResolvedValueOnce({ status: 200, data: { data: initial } } as never)
+      .mockResolvedValueOnce({ status: 200, data: { data: edited } } as never)
+      .mockResolvedValueOnce({ status: 200, data: { data: blocked } } as never);
     jest
       .mocked(customersControllerUpdateCustomerV1)
       .mockResolvedValue({ status: 200, data: { data: {} } } as never);
     jest
       .mocked(customersControllerUpdateStatusV1)
       .mockResolvedValue({ status: 200, data: { data: {} } } as never);
-    const view = render(<SupervisorCustomerWorkflows />);
-    fireEvent.change(
-      screen.getByLabelText('Name, phone number, or customer ID'),
-      { target: { value: 'Ada' } },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Search customers' }));
-    const initialRow = await screen.findByRole('button', {
-      name: /Ada Customer/,
-    });
-    expect(initialRow).toHaveAttribute('aria-pressed', 'false');
-    expect(within(initialRow).getByText('Active')).toBeInTheDocument();
-    expect(within(initialRow).getByText('Blocked card')).toBeInTheDocument();
-    expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
-
-    fireEvent.click(initialRow);
-    expect(replace).toHaveBeenCalledWith(
-      '/supervisor/customers?tab=manage&id=cust-1',
-      { scroll: false },
-    );
-    query = new URLSearchParams('tab=manage&id=cust-1');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    const detailsDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
-    });
-    expect(
-      await within(detailsDialog).findByLabelText('Full name'),
-    ).toHaveValue('Ada Customer');
-    expect(within(detailsDialog).getAllByText('Linked card')).toHaveLength(2);
-    expect(
-      within(detailsDialog).getByText('Card ending D003'),
-    ).toBeInTheDocument();
-    expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(1);
-    expectNoImplementationFacingWorkflowUi();
-
-    fireEvent.change(within(detailsDialog).getByLabelText('Full name'), {
+    render(<SupervisorCustomerProfile customerId="cust-1" />);
+    fireEvent.change(await screen.findByLabelText('Full name'), {
       target: { value: 'Updated Customer' },
     });
-    fireEvent.click(
-      within(detailsDialog).getByRole('button', { name: 'Save changes' }),
-    );
-    await waitFor(() =>
-      expect(customersControllerUpdateCustomerV1).toHaveBeenCalledWith(
-        'cust-1',
-        {
-          fullName: 'Updated Customer',
-          phone: '+234800000003',
-          email: 'ada@example.com',
-        },
-        expect.objectContaining({
-          credentials: 'include',
-          headers: expect.objectContaining({
-            'idempotency-key': expect.any(String),
-          }),
-        }),
-      ),
-    );
-    await waitFor(() =>
-      expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(2),
-    );
-    query = new URLSearchParams('tab=manage');
-    view.rerender(<SupervisorCustomerWorkflows />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Card ending 0003')).toBeInTheDocument();
     expect(
       await screen.findByText('Customer changes saved'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    const updatedRow = screen.getByRole('button', { name: /Updated Customer/ });
-    expect(updatedRow).toHaveAttribute('aria-pressed', 'false');
-
-    fireEvent.click(updatedRow);
-    query = new URLSearchParams('tab=manage&id=cust-1');
-    view.rerender(<SupervisorCustomerWorkflows />);
-    const reopenedDialog = await screen.findByRole('dialog', {
-      name: 'Customer details',
+    expect(customersControllerUpdateCustomerV1).toHaveBeenCalledWith(
+      'cust-1',
+      {
+        fullName: 'Updated Customer',
+        phone: '+234800000003',
+        email: 'ada@example.com',
+      },
+      expect.objectContaining({
+        credentials: 'include',
+        headers: expect.objectContaining({
+          'idempotency-key': expect.any(String),
+        }),
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Change status' }));
+    expect(screen.getByLabelText('Type BLOCK to confirm')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Block customer' }));
+    expect(customersControllerUpdateStatusV1).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Type BLOCK to confirm'), {
+      target: { value: 'BLOCK' },
     });
-    expect(
-      await within(reopenedDialog).findByLabelText('Full name'),
-    ).toHaveValue('Updated Customer');
-    fireEvent.click(
-      within(reopenedDialog).getByRole('button', { name: 'Change status' }),
-    );
-    expect(
-      within(reopenedDialog).getByLabelText('Type BLOCK to confirm'),
-    ).toBeInTheDocument();
-    fireEvent.change(
-      within(reopenedDialog).getByLabelText('Type BLOCK to confirm'),
-      { target: { value: 'BLOCK' } },
-    );
-    fireEvent.click(
-      within(reopenedDialog).getByRole('button', { name: 'Block customer' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Block customer' }));
     await waitFor(() =>
       expect(customersControllerUpdateStatusV1).toHaveBeenCalledWith(
         'cust-1',
@@ -1799,17 +1512,9 @@ describe('SupervisorCustomerWorkflows', () => {
         }),
       ),
     );
-    await waitFor(() =>
-      expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(4),
-    );
-    const accountStatusRegion = within(reopenedDialog).getByRole('region', {
-      name: 'Account status',
-    });
     expect(
-      within(accountStatusRegion).getByText('Blocked'),
+      await screen.findByText('Customer status updated.'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /Updated Customer/ }),
-    ).toHaveTextContent('Blocked');
+    expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(3);
   });
 });

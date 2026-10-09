@@ -13819,7 +13819,32 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object"
+                            "type": "object",
+                            "additionalProperties": true,
+                            "properties": {
+                              "cardNumber": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Assigned card number, serial, or barcode; these refer to the same value."
+                              },
+                              "activeCardSerialNumber": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Compatibility alias for cardNumber."
+                              },
+                              "availableBalanceKobo": {
+                                "type": "integer"
+                              },
+                              "lastPurchaseAmountKobo": {
+                                "type": "integer",
+                                "nullable": true,
+                                "description": "Full basket total in integer kobo from the latest captured and approved receipt."
+                              },
+                              "lifetimeEarnedKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              }
+                            }
                           }
                         },
                         "nextCursor": {
@@ -14861,6 +14886,844 @@
         "summary": "Register customer",
         "tags": ["customers"],
         "description": "Register customer"
+      }
+    },
+    "/api/v1/customers/{id}/profile-projection": {
+      "get": {
+        "operationId": "CustomersController_getCustomerProfileProjection_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "data", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "customerId",
+                        "sourceErrors",
+                        "memberSince",
+                        "pendingApprovalsCount",
+                        "lifetimeEarnedKobo",
+                        "expirySchedule",
+                        "recentActivity",
+                        "transactions",
+                        "redemptions",
+                        "walletLedger",
+                        "approvals",
+                        "consent",
+                        "card"
+                      ],
+                      "properties": {
+                        "customerId": {
+                          "type": "string"
+                        },
+                        "sourceErrors": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "card",
+                              "consent",
+                              "lifetimeEarned",
+                              "pendingApprovals",
+                              "expirySchedule",
+                              "walletLedger",
+                              "transactions",
+                              "redemptions",
+                              "approvals",
+                              "statusEvents"
+                            ]
+                          }
+                        },
+                        "memberSince": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "pendingApprovalsCount": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "lifetimeEarnedKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "expirySchedule": {
+                          "type": "array",
+                          "description": "At most the next 12 future credit lots with positive remaining integer-kobo balances.",
+                          "items": {
+                            "type": "object",
+                            "required": ["expiresAt", "remainingAmountKobo"],
+                            "properties": {
+                              "expiresAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "remainingAmountKobo": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "expiryScheduleIsUpcomingWindow": {
+                          "type": "boolean",
+                          "description": "True when expirySchedule is a bounded upcoming window, not a complete all-time list."
+                        },
+                        "expiryScheduleLimit": {
+                          "type": "integer"
+                        },
+                        "recentActivity": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "type",
+                              "status",
+                              "occurredAt",
+                              "amountKobo"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "EARNING",
+                                  "REDEMPTION",
+                                  "WALLET_ADJUSTMENT",
+                                  "APPROVAL_REQUEST",
+                                  "APPROVAL_OUTCOME",
+                                  "APPROVAL_EXPIRED",
+                                  "CUSTOMER_STATUS",
+                                  "CARD_STATUS",
+                                  "CARD_ISSUED"
+                                ]
+                              },
+                              "targetType": {
+                                "type": "string",
+                                "enum": ["EARN", "REDEEM"]
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "occurredAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "amountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "transactions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "occurredAt",
+                              "purchaseAmountKobo",
+                              "captureStatus",
+                              "reviewStatus"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "occurredAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "purchaseAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "captureStatus": {
+                                "type": "string"
+                              },
+                              "reviewStatus": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "redemptions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "occurredAt",
+                              "requestedAmountKobo",
+                              "confirmedAmountKobo",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "occurredAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "requestedAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "confirmedAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "walletLedger": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "type",
+                              "direction",
+                              "amountKobo",
+                              "status",
+                              "effectiveAt"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "direction": {
+                                "type": "string"
+                              },
+                              "amountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "effectiveAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "approvals": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "targetType",
+                              "status",
+                              "requestedAt",
+                              "decidedAt"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "targetType": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "requestedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "decidedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "consent": {
+                          "type": "object",
+                          "nullable": true,
+                          "required": [
+                            "loyaltyConsent",
+                            "marketingOptIn",
+                            "consentVersion",
+                            "privacyNoticeVersion",
+                            "capturedAt"
+                          ],
+                          "properties": {
+                            "loyaltyConsent": {
+                              "type": "boolean"
+                            },
+                            "marketingOptIn": {
+                              "type": "boolean"
+                            },
+                            "consentVersion": {
+                              "type": "string"
+                            },
+                            "privacyNoticeVersion": {
+                              "type": "string"
+                            },
+                            "capturedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        "card": {
+                          "type": "object",
+                          "nullable": true,
+                          "required": [
+                            "identifier",
+                            "status",
+                            "issuedAt",
+                            "blockedAt"
+                          ],
+                          "properties": {
+                            "identifier": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "issuedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "blockedAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "nullable": true
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 400
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Validation failed"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 401
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "AUTH_REQUIRED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Authentication required"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 403
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "FORBIDDEN"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Forbidden"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 404
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NOT_FOUND"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Not found"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 409
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "CONFLICT"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Conflict"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 422
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "POLICY_VIOLATION"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Policy violation"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 429
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMITED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "error", "meta"],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": ["statusCode", "code", "message"],
+                      "properties": {
+                        "statusCode": {
+                          "type": "integer",
+                          "example": 503
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "DEPENDENCY_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Required dependency is unavailable"
+                        },
+                        "details": {
+                          "type": "object",
+                          "nullable": true,
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": ["timestamp", "path", "requestId"],
+                      "properties": {
+                        "timestamp": {
+                          "type": "string",
+                          "example": "2026-07-19T00:00:00.000Z"
+                        },
+                        "path": {
+                          "type": "string",
+                          "example": "/api/v1"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req-123"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the authenticated customer profile projection",
+        "tags": ["customers"],
+        "description": "Read the authenticated customer profile projection"
       }
     },
     "/api/v1/customers/{id}": {

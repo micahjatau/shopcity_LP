@@ -932,4 +932,80 @@ npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginF
 | `AuthController`                    | LOW, exact |                4 |                 2 | 0                                |
 | `LoginForm`                         | LOW, exact |                1 |                 1 | 0                                |
 
-No HIGH/CRITICAL result. Implementation is limited to a separate local-only smoke-session path and the exact session eligibility exception; the existing Earn/Redeem services, device-proof login, Preview configuration, and production qualification gate remain unchanged. The refresh flow already rejects smoke-session refresh and must continue to do so.
+No HIGH/CRITICAL result. Implementation is limited to a separate local-only smoke-session path and the exact session eligibility exception; the existing Earn/Redeem services, device-proof login, Preview configuration, and production qualification gate remain unchanged.
+
+### 2026-10-09 — Supervisor customer directory table restyle
+
+Follow-up upstream impact lookup for the updated directory toolbar, table, status filter, and pagination scope:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-customer-workflows.tsx CustomerDirectory
+```
+
+| Symbol              | Risk    | Impacted symbols | Direct dependants | Affected processes |
+| ------------------- | ------- | ---------------: | ----------------: | -----------------: |
+| `CustomerDirectory` | UNKNOWN |                0 |           unknown |            unknown |
+
+GitNexus could not find `CustomerDirectory` in the then-current index, so the zero count was not a safe blast-radius estimate. A later index refresh found the symbol; see the follow-up entry below. Manual review also confirmed the refresh flow rejects smoke-session refresh and must continue to do so.
+
+### 2026-10-09 — Customer directory card, purchase, earned totals, and sorting
+
+The directory now needs authoritative list projections for card serial, latest approved purchase amount, and lifetime earned credits, plus numeric sorting. Upstream impacts were reviewed before implementation:
+
+```text
+node .gitnexus/run.cjs impact -r shopcity_LP -f apps/web/components/workflows/supervisor-customer-workflows.tsx CustomerDirectory
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/modules/customers/customers.service.ts toPrivilegedCustomerSummary
+node .gitnexus/run.cjs impact -r shopcity_LP -u Method:src/modules/customers/customers.service.ts:CustomersService.listCustomers#4
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/modules/customers/customers.controller.ts listCustomers
+```
+
+| Symbol                              | Risk       | Impacted symbols | Direct dependants | Affected processes / modules         |
+| ----------------------------------- | ---------- | ---------------: | ----------------: | ------------------------------------ |
+| `CustomerDirectory`                 | LOW, exact |                3 |                 1 | 1 Supervisor page flow; Workflows    |
+| `toPrivilegedCustomerSummary`       | LOW, exact |                2 |                 2 | 1 `listCustomers` process; Customers |
+| `CustomersService.listCustomers#4`  | LOW, exact |                0 |                 0 | 0                                    |
+| `CustomersController.listCustomers` | LOW, exact |                0 |                 0 | 0                                    |
+
+The overloaded service symbol also has one integration-test caller on overload `#2` (LOW). No HIGH/CRITICAL result. The implementation adds tenant-scoped read-only projections to the existing list response; it does not change database schema, ledger writes, or card lifecycle.
+
+### 2026-10-09 — Unify customer card number and last-purchase meaning
+
+Upstream impacts were rerun before normalizing card aliases in the list/profile UI and adding a canonical `cardNumber` response field. The current customer projection reads `Card.barcodeValue`; the card API exposes the same value as `serialNumber`. The customer directory will display the canonical field, while accepting existing top-level and nested aliases for compatibility. Last purchase remains the latest captured-and-approved `Receipt.purchaseAmountKobo`, i.e. the full basket total.
+
+```text
+node .gitnexus/run.cjs impact -r shopcity_LP -f apps/web/components/workflows/supervisor-customer-workflows.tsx CustomerDirectory
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/modules/customers/customers.service.ts toPrivilegedCustomerSummary
+node .gitnexus/run.cjs impact -r shopcity_LP -f apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/modules/customers/customers.controller.ts listCustomers
+```
+
+| Symbol                              | Risk       | Impacted symbols | Direct dependants | Affected processes / modules         |
+| ----------------------------------- | ---------- | ---------------: | ----------------: | ------------------------------------ |
+| `CustomerDirectory`                 | LOW, exact |                1 |                 1 | 1 Supervisor page flow; Workflows    |
+| `toPrivilegedCustomerSummary`       | LOW, exact |                2 |                 2 | 1 `listCustomers` process; Customers |
+| `CustomerDetailsDialog`             | LOW, exact |                2 |                 1 | 1 Supervisor profile flow; Workflows |
+| `CustomersController.listCustomers` | LOW, exact |                0 |                 0 | 0                                    |
+
+No HIGH/CRITICAL result. No database schema, ledger writes, or card-lifecycle changes are in scope.
+
+### 2026-10-09 — Reference-led Supervisor customer profile and activity
+
+Proposal-time upstream impacts were run before extending the customer profile design with API-backed activity, card, and credit-expiry surfaces. The branch was `workflow-states-implementation`; the repository already contained the directory/profile work and unrelated dirty changes, all of which must be preserved.
+
+```text
+node .gitnexus/run.cjs impact SupervisorCustomerProfile -r shopcity_LP -f apps/web/components/workflows/supervisor-customer-workflows.tsx --include-tests
+node .gitnexus/run.cjs impact CustomerDetailsDialog -r shopcity_LP -f apps/web/components/workflows/customer-details-dialog.tsx --include-tests
+node .gitnexus/run.cjs impact CustomersService -r shopcity_LP -f src/modules/customers/customers.service.ts --include-tests
+node .gitnexus/run.cjs impact CustomersController -r shopcity_LP -f src/modules/customers/customers.controller.ts --include-tests
+node .gitnexus/run.cjs impact listCustomerLedger -r shopcity_LP -f src/modules/loyalty/loyalty.service.ts --include-tests
+```
+
+| Symbol                              | Risk          | Impacted symbols | Direct dependants | Affected processes / modules                              |
+| ----------------------------------- | ------------- | ---------------: | ----------------: | --------------------------------------------------------- |
+| `SupervisorCustomerProfile`         | LOW, exact    |                2 |                 2 | 0 processes; two profile component test files             |
+| `CustomerDetailsDialog`             | LOW, exact    |                4 |                 1 | `SupervisorCustomerProfilePage` process; Workflows module |
+| `CustomersService`                  | MEDIUM, exact |                7 |                 5 | 0 processes or modules                                    |
+| `CustomersController`               | LOW, exact    |                3 |                 1 | 0 processes or modules                                    |
+| `LoyaltyService.listCustomerLedger` | LOW, exact    |                4 |                 4 | 0 processes; Pagination module                            |
+
+No HIGH/CRITICAL risk. `CustomersService` is the broadest seam, so any addition remains a tenant/customer-scoped read projection. No schema, ledger, or card-lifecycle writes are authorized; purchase and redemption controls must hand off to existing protected workflows. SVG examples are visual references only.

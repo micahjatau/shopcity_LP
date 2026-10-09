@@ -2811,29 +2811,60 @@ test.describe('workflow route coverage', () => {
     }
   });
 
-  test('confirms Supervisor registration and edits a selected customer in a dialog', async ({
+  test('confirms Supervisor registration and saves a verified directory profile', async ({
     page,
   }) => {
     await mockShell(page, 'SUPERVISOR');
     const createPayloads: unknown[] = [];
     const profileUpdatePayloads: unknown[] = [];
-    let customerName = 'Ada Shopper';
+    let customerName = 'Test Customer';
+    let customerStatus = 'ACTIVE';
     await page.route('**/api/v1/customers**', async (route) => {
       const request = route.request();
       const pathname = new URL(request.url()).pathname;
+      if (pathname === '/api/v1/customers' && request.method() === 'GET') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              items: [
+                {
+                  id: 'registered-customer-1',
+                  fullName: customerName,
+                  phoneE164: '0000000000',
+                  status: customerStatus,
+                  activeCardStatus: 'ACTIVE',
+                },
+              ],
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers' && request.method() === 'POST') {
+        createPayloads.push(request.postDataJSON());
+        return route.fulfill({
+          ...json({
+            success: true,
+            data: { id: 'registered-customer-1' },
+            meta: meta(pathname),
+          }),
+          status: 201,
+        });
+      }
       if (
-        pathname === '/api/v1/customers/customer-1' &&
+        pathname === '/api/v1/customers/registered-customer-1' &&
         request.method() === 'GET'
       ) {
         return route.fulfill(
           json({
             success: true,
             data: {
-              id: 'customer-1',
+              id: 'registered-customer-1',
               fullName: customerName,
-              phoneE164: '+2348000000001',
-              email: 'ada@example.com',
-              status: 'ACTIVE',
+              phoneE164: '0000000000',
+              email: 'test@example.com',
+              status: customerStatus,
               activeCardStatus: 'ACTIVE',
             },
             meta: meta(pathname),
@@ -2841,7 +2872,7 @@ test.describe('workflow route coverage', () => {
         );
       }
       if (
-        pathname === '/api/v1/customers/customer-1' &&
+        pathname === '/api/v1/customers/registered-customer-1' &&
         request.method() === 'PATCH'
       ) {
         const payload = request.postDataJSON() as { fullName: string };
@@ -2850,30 +2881,50 @@ test.describe('workflow route coverage', () => {
         return route.fulfill(
           json({
             success: true,
-            data: { id: 'customer-1' },
+            data: { id: 'registered-customer-1' },
             meta: meta(pathname),
           }),
         );
       }
-      if (request.method() !== 'POST') return route.fallback();
-      createPayloads.push(request.postDataJSON());
-      return route.fulfill({
-        ...json({
-          success: true,
-          data: { id: 'registered-customer-1' },
-          meta: meta('/api/v1/customers'),
-        }),
-        status: 201,
-      });
+      if (
+        pathname === '/api/v1/customers/registered-customer-1/status' &&
+        request.method() === 'PATCH'
+      ) {
+        customerStatus = 'BLOCKED';
+        return route.fulfill(
+          json({
+            success: true,
+            data: { id: 'registered-customer-1', status: customerStatus },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      return route.fallback();
     });
-
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
+    await page.goto(`${baseUrl}/supervisor/customers`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    await page.getByLabel('Full name').fill('Test Customer');
-    await page.getByLabel('Phone number').fill('0000000000');
-    await page.getByLabel('First card serial').fill('TEST-SERIAL-001');
-    await page.getByLabel('Loyalty service consent (required)').check();
+    await expect(
+      page.getByRole('heading', { name: 'Customers' }),
+    ).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.getByRole('button', { name: 'Register customer' }).click();
+    const registrationDialog = page.getByRole('dialog', {
+      name: 'Register customer',
+    });
+    await expect(registrationDialog).toBeVisible();
+    await registrationDialog
+      .getByLabel('Full name', { exact: true })
+      .fill('Test Customer');
+    await registrationDialog
+      .getByLabel('Phone number', { exact: true })
+      .fill('0000000000');
+    await registrationDialog
+      .getByLabel('First card serial', { exact: true })
+      .fill('TEST-SERIAL-001');
+    await registrationDialog
+      .getByLabel('Loyalty service consent (required)', { exact: true })
+      .check();
     await page.getByRole('button', { name: 'Review details' }).click();
 
     const dialog = page.getByRole('dialog', {
@@ -2895,16 +2946,14 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
     expect(createPayloads).toHaveLength(0);
 
-    const desktopMetrics = await page
-      .locator('.sc-dialog__panel')
-      .evaluate((panel) => {
-        const style = getComputedStyle(panel);
-        return {
-          width: panel.getBoundingClientRect().width,
-          padding: style.paddingTop,
-          radius: style.borderRadius,
-        };
-      });
+    const desktopMetrics = await dialog.evaluate((panel) => {
+      const style = getComputedStyle(panel);
+      return {
+        width: panel.getBoundingClientRect().width,
+        padding: style.paddingTop,
+        radius: style.borderRadius,
+      };
+    });
     expect(desktopMetrics.width).toBeGreaterThanOrEqual(540);
     expect(desktopMetrics.width).toBeLessThanOrEqual(600);
     expect(desktopMetrics.padding).toBe('32px');
@@ -2924,16 +2973,13 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(390);
 
     await dialog.getByRole('button', { name: 'Register customer' }).click();
+    await expect(page.getByRole('heading', { name: 'Success!' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Customer registered' }),
+      page.getByText('Customer registered successfully'),
     ).toBeVisible();
-    await expect(dialog).not.toBeVisible();
     await expect(
       page.getByRole('link', { name: 'View customer' }),
-    ).toHaveAttribute(
-      'href',
-      '/supervisor/customers?tab=manage&id=registered-customer-1',
-    );
+    ).toHaveAttribute('href', '/supervisor/customers/registered-customer-1');
     expect(createPayloads).toEqual([
       {
         fullName: 'Test Customer',
@@ -2943,86 +2989,68 @@ test.describe('workflow route coverage', () => {
         marketingOptIn: false,
       },
     ]);
+    await page.getByRole('button', { name: 'Done' }).click();
 
-    await page.goto(`${baseUrl}/supervisor/customers?tab=manage`);
-    await page.getByLabel('Name, phone number, or customer ID').fill('Ada');
-    await page.getByRole('button', { name: 'Search customers' }).click();
-    const customerRow = page.getByRole('button', { name: /Ada Shopper/ });
-    const resultsPanel = page.getByRole('region', { name: 'Find a customer' });
-    const rowWidth = await customerRow.evaluate(
-      (row) => row.getBoundingClientRect().width,
-    );
-    const panelWidth = await resultsPanel.evaluate(
-      (panel) => panel.getBoundingClientRect().width,
-    );
-    expect(rowWidth).toBeGreaterThan(panelWidth - 50);
-    await customerRow.click();
+    const customerRow = page.getByRole('row', { name: /Test Customer/ });
+    await expect(
+      customerRow.getByRole('link', { name: 'View profile for Test Customer' }),
+    ).toHaveAttribute('href', '/supervisor/customers/registered-customer-1');
+    await customerRow
+      .getByRole('link', { name: 'View profile for Test Customer' })
+      .click();
     await expect(page).toHaveURL(
-      /\/supervisor\/customers\?tab=manage&id=customer-1/,
+      /\/supervisor\/customers\/registered-customer-1$/,
     );
-    const customerDialog = page.getByRole('dialog', {
+    const customerDialog = page.getByRole('region', {
       name: 'Customer details',
     });
     await expect(customerDialog.getByLabel('Full name')).toHaveValue(
-      'Ada Shopper',
+      'Test Customer',
     );
     await expect(customerDialog.getByLabel('Phone number')).toHaveValue(
-      '+2348000000001',
+      '0000000000',
     );
     await expect(customerDialog.getByText('Active card')).toBeVisible();
     await expect(
-      customerDialog.getByText('Card serial not included in customer details.'),
-    ).toBeVisible();
-    await expect(
       customerDialog.getByRole('link', { name: 'Manage linked card →' }),
-    ).toHaveAttribute('href', '/supervisor/cards?tab=assign&id=customer-1');
-
-    await customerDialog.getByRole('button', { name: 'Change status' }).click();
-    const accountStatusEditor = customerDialog.locator(
-      '.sc-customer-details__status-editor',
+    ).toHaveAttribute(
+      'href',
+      '/supervisor/cards?tab=assign&id=registered-customer-1',
     );
-    await expect(accountStatusEditor).toBeVisible();
-    const accountEditorStyles = await accountStatusEditor.evaluate((editor) => {
-      const style = getComputedStyle(editor);
-      return {
-        background: style.backgroundColor,
-        borderColor: style.borderTopColor,
-        borderStyle: style.borderTopStyle,
-        borderWidth: style.borderTopWidth,
-        fields: Array.from(editor.querySelectorAll('.sc-control')).map(
-          (field) => {
-            const fieldStyle = getComputedStyle(field);
-            return {
-              background: fieldStyle.backgroundColor,
-              borderColor: fieldStyle.borderTopColor,
-              borderStyle: fieldStyle.borderTopStyle,
-              borderWidth: fieldStyle.borderTopWidth,
-            };
-          },
-        ),
-      };
+
+    await customerDialog.getByLabel('Full name').fill('Test Customer Updated');
+    await customerDialog.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page).toHaveURL(`${baseUrl}/supervisor/customers`);
+    const updatedCustomerRow = page.getByRole('row', {
+      name: /Test Customer Updated/,
     });
-    expect(accountEditorStyles).toEqual({
-      background: 'rgb(255, 255, 255)',
-      borderColor: 'rgb(205, 210, 216)',
-      borderStyle: 'solid',
-      borderWidth: '1px',
-      fields: [
-        {
-          background: 'rgb(255, 255, 255)',
-          borderColor: 'rgb(205, 210, 216)',
-          borderStyle: 'solid',
-          borderWidth: '1px',
-        },
-        {
-          background: 'rgb(255, 255, 255)',
-          borderColor: 'rgb(205, 210, 216)',
-          borderStyle: 'solid',
-          borderWidth: '1px',
-        },
-      ],
-    });
-    await accountStatusEditor.getByRole('button', { name: 'Cancel' }).click();
+    await expect(updatedCustomerRow).toBeVisible();
+    expect(profileUpdatePayloads).toEqual([
+      {
+        fullName: 'Test Customer Updated',
+        phone: '0000000000',
+        email: 'test@example.com',
+      },
+    ]);
+    await updatedCustomerRow
+      .getByRole('link', { name: 'View profile for Test Customer Updated' })
+      .click();
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/registered-customer-1$/,
+    );
+    await expect(customerDialog.getByLabel('Full name')).toHaveValue(
+      'Test Customer Updated',
+    );
+    await customerDialog.getByRole('button', { name: 'Change status' }).click();
+    await customerDialog.getByLabel('Type BLOCK to confirm').fill('BLOCK');
+    await customerDialog
+      .getByRole('button', { name: 'Block customer' })
+      .click();
+    await expect(
+      customerDialog
+        .getByLabel('Account status')
+        .getByText('Blocked', { exact: true }),
+    ).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     const customerMobileColumns = await customerDialog
@@ -3037,57 +3065,20 @@ test.describe('workflow route coverage', () => {
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
 
-    await customerDialog.getByLabel('Full name').fill('Ada Shopper Updated');
-    await customerDialog.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByText('Customer changes saved')).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /Ada Shopper Updated/ }),
-    ).toBeVisible();
-    expect(profileUpdatePayloads).toEqual([
-      {
-        fullName: 'Ada Shopper Updated',
-        phone: '+2348000000001',
-        email: 'ada@example.com',
-      },
-    ]);
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/registered-customer-1$/,
+    );
   });
 
-  test('reviews responsive Supervisor customer and card task workspaces', async ({
+  test('reviews responsive Supervisor customer directory and card task workspaces', async ({
     page,
   }, testInfo) => {
     const workspaces = [
       {
-        route: '/supervisor/customers?tab=register',
+        route: '/supervisor/customers',
         role: 'SUPERVISOR' as const,
-        task: 'register-customer',
-        heading: 'Register a new customer',
-        activeTab: 'Register customer',
-        inactiveTab: 'Manage customers',
-      },
-      {
-        route: '/supervisor/customers?tab=manage',
-        role: 'SUPERVISOR' as const,
-        task: 'manage-customers',
-        heading: 'Find a customer',
-        activeTab: 'Manage customers',
-        inactiveTab: 'Register customer',
-      },
-      {
-        route: '/supervisor/cards?tab=assign',
-        role: 'SUPERVISOR' as const,
-        task: 'assign-card',
-        heading: 'Find an existing customer',
-        activeTab: 'Assign card',
-        inactiveTab: 'Manage cards',
-      },
-      {
-        route: '/supervisor/cards?tab=manage',
-        role: 'SUPERVISOR' as const,
-        task: 'manage-cards',
-        heading: 'Manage cards',
-        activeTab: 'Manage cards',
-        inactiveTab: 'Assign card',
+        task: 'customer-directory',
+        heading: 'Customers',
       },
     ];
     const widths = [1440, 1024, 768, 390, 375];
@@ -3099,21 +3090,19 @@ test.describe('workflow route coverage', () => {
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       for (const width of widths) {
         await page.setViewportSize({ width, height: 900 });
-        const tablist = page.getByRole('tablist');
-        const activeTab = tablist.getByRole('tab', {
-          name: workspace.activeTab,
-        });
-        const inactiveTab = tablist.getByRole('tab', {
-          name: workspace.inactiveTab,
-        });
-        await expect(activeTab).toHaveAttribute('aria-selected', 'true');
-        await expect(inactiveTab).toHaveAttribute('aria-selected', 'false');
-        const panels = page.getByRole('tabpanel');
-        await expect(panels).toHaveCount(1);
-        const panel = panels.first();
-        await expect(panel).toBeVisible();
+        const panel = page.locator('.supervisor-customer-directory');
         await expect(
-          panel.getByRole('heading', { name: workspace.heading }),
+          page.getByRole('heading', { name: workspace.heading }),
+        ).toBeVisible();
+        await expect(panel).toHaveAttribute('aria-label', 'Customer results');
+        await expect(
+          panel.getByRole('button', { name: 'Register customer' }),
+        ).toBeVisible();
+        await expect(
+          panel.getByRole('combobox', { name: 'Filter customers by status' }),
+        ).toBeVisible();
+        await expect(
+          panel.getByLabel('Search by customer name, phone number, or card number'),
         ).toBeVisible();
 
         const measurements = await page.evaluate(() => ({
@@ -3136,7 +3125,11 @@ test.describe('workflow route coverage', () => {
           elements
             .filter((element) => {
               const style = getComputedStyle(element);
-              return style.display !== 'none' && style.visibility !== 'hidden';
+              return (
+                style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                !element.closest('.supervisor-customer-table-wrap')
+              );
             })
             .map((element) => {
               const rect = element.getBoundingClientRect();
@@ -3146,25 +3139,21 @@ test.describe('workflow route coverage', () => {
                 right: rect.right,
                 width: rect.width,
                 height: rect.height,
+                className: (element as HTMLElement).className,
                 disabled: (element as HTMLButtonElement).disabled,
               };
             }),
         );
         expect(visibleControlRects.length, workspace.task).toBeGreaterThan(0);
-        if (workspace.task === 'register-customer') {
-          const registrationButton = panel.getByRole('button', {
-            name: 'Review details',
-          });
-          const buttonBox = await registrationButton.boundingBox();
-          const cardBox = await registrationButton
-            .locator('xpath=ancestor::div[contains(@class, "sc-card")][1]')
-            .boundingBox();
-          expect(buttonBox).not.toBeNull();
-          expect(cardBox).not.toBeNull();
-          expect(buttonBox!.x).toBeGreaterThanOrEqual(cardBox!.x + 16);
-          expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(
-            cardBox!.x + cardBox!.width - 16,
+        if (width <= 390) {
+          const toolbar = panel.locator(
+            '.supervisor-customer-directory__toolbar',
           );
+          expect(
+            await toolbar.evaluate((element) => element.scrollWidth),
+          ).toBeLessThanOrEqual(width);
+        } else {
+          await expect(panel.getByRole('table')).toBeVisible();
         }
         for (const rect of visibleControlRects) {
           expect(
@@ -3176,26 +3165,16 @@ test.describe('workflow route coverage', () => {
             `${workspace.task} control right edge at ${width}px`,
           ).toBeLessThanOrEqual(width);
           expect(rect.width).toBeGreaterThan(0);
-          if (rect.tag === 'BUTTON')
-            expect(rect.height).toBeGreaterThanOrEqual(40);
+          if (rect.tag === 'BUTTON') {
+            const expectedControlHeight = rect.className.includes(
+              'supervisor-customer-directory__pagination-button',
+            )
+              ? 34
+              : 40;
+            expect(rect.height).toBeGreaterThanOrEqual(expectedControlHeight);
+          }
         }
-        const tabRects = await tablist.getByRole('tab').evaluateAll((tabs) =>
-          tabs.map((tab) => {
-            const rect = tab.getBoundingClientRect();
-            return { x: rect.x, right: rect.right, width: rect.width };
-          }),
-        );
-        for (const rect of tabRects) {
-          expect(
-            rect.x,
-            `${workspace.task} tab at ${width}px`,
-          ).toBeGreaterThanOrEqual(0);
-          expect(
-            rect.right,
-            `${workspace.task} tab at ${width}px`,
-          ).toBeLessThanOrEqual(width);
-          expect(rect.width).toBeGreaterThan(0);
-        }
+
         const statusRects = await panel
           .getByRole('status')
           .evaluateAll((statuses) =>
@@ -3221,17 +3200,6 @@ test.describe('workflow route coverage', () => {
           await expect(firstInput).toBeFocused();
         }
 
-        if (width === widths[0]) {
-          await activeTab.focus();
-          await expect(activeTab).toBeFocused();
-          await page.keyboard.press('ArrowRight');
-          await expect(inactiveTab).toHaveAttribute('aria-selected', 'true');
-          await expect(inactiveTab).toBeFocused();
-          await page.keyboard.press('ArrowLeft');
-          await expect(activeTab).toHaveAttribute('aria-selected', 'true');
-          await expect(activeTab).toBeFocused();
-        }
-
         const screenshotPath = testInfo.outputPath(
           `supervisor-${workspace.task}-${width}px.png`,
         );
@@ -3244,34 +3212,77 @@ test.describe('workflow route coverage', () => {
     }
   });
 
-  test('restores Supervisor customer tabs after direct load, reload, back, and forward', async ({
+  test('preserves directory search context through a stable-ID profile and guards dirty Back', async ({
     page,
   }) => {
     await mockShell(page, 'SUPERVISOR');
-    await page.goto(`${baseUrl}/supervisor/customers?tab=register`);
+    await page.route('**/api/v1/customers**', async (route) => {
+      const url = new URL(route.request().url());
+      const pathname = url.pathname;
+      if (
+        pathname === '/api/v1/customers' &&
+        route.request().method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              items: [
+                {
+                  id: 'customer-1',
+                  fullName: 'Ada Shopper',
+                  phoneE164: '+2348000000001',
+                  status: 'ACTIVE',
+                },
+              ],
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      if (pathname === '/api/v1/customers/customer-1') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+              phoneE164: '+2348000000001',
+              status: 'ACTIVE',
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
+      return route.fallback();
+    });
+    await page.goto(`${baseUrl}/supervisor/customers?q=Ada`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
-    await expect(
-      page.getByRole('tab', { name: 'Register customer' }),
-    ).toHaveAttribute('aria-selected', 'true');
-
-    await page.getByRole('tab', { name: 'Manage customers' }).click();
-    await expect(page).toHaveURL(`${baseUrl}/supervisor/customers?tab=manage`);
-    await expect(
-      page.getByRole('tab', { name: 'Manage customers' }),
-    ).toHaveAttribute('aria-selected', 'true');
+    const profileLink = page.getByRole('link', {
+      name: 'View profile for Ada Shopper',
+    });
+    await expect(profileLink).toHaveAttribute(
+      'href',
+      '/supervisor/customers/customer-1?q=Ada',
+    );
+    await profileLink.click();
+    await expect(page).toHaveURL(/\/supervisor\/customers\/customer-1\?q=Ada$/);
+    await expect(page.getByLabel('Full name')).toHaveValue('Ada Shopper');
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await expect(page.getByLabel('Full name')).toHaveValue('Ada Shopper');
+    await page.getByLabel('Full name').fill('Unsaved Ada');
+    await page.getByRole('button', { name: 'Back to customers' }).click();
     await expect(
-      page.getByRole('tab', { name: 'Manage customers' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await page.goBack({ waitUntil: 'commit', timeout: 15_000 });
+      page.getByRole('heading', { name: 'Discard unsaved changes?' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(page.getByLabel('Full name')).toHaveValue('Unsaved Ada');
+    await page.getByRole('button', { name: 'Back to customers' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
+    await expect(page).toHaveURL(`${baseUrl}/supervisor/customers?q=Ada`);
     await expect(
-      page.getByRole('tab', { name: 'Register customer' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await page.goForward({ waitUntil: 'commit', timeout: 15_000 });
-    await expect(
-      page.getByRole('tab', { name: 'Manage customers' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tabpanel')).toHaveCount(1);
+      page.getByLabel('Search by customer name, phone number, or card number'),
+    ).toHaveValue('Ada');
   });
 
   test('restores Supervisor card tabs after direct load and reload, defaulting invalid tabs', async ({

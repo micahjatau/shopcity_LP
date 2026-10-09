@@ -46,7 +46,34 @@ export class CustomersController {
       type: 'object',
       required: ['items', 'nextCursor', 'hasMore'],
       properties: {
-        items: { type: 'array', items: { type: 'object' } },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {
+              cardNumber: {
+                type: 'string',
+                nullable: true,
+                description:
+                  'Assigned card number, serial, or barcode; these refer to the same value.',
+              },
+              activeCardSerialNumber: {
+                type: 'string',
+                nullable: true,
+                description: 'Compatibility alias for cardNumber.',
+              },
+              availableBalanceKobo: { type: 'integer' },
+              lastPurchaseAmountKobo: {
+                type: 'integer',
+                nullable: true,
+                description:
+                  'Full basket total in integer kobo from the latest captured and approved receipt.',
+              },
+              lifetimeEarnedKobo: { type: 'integer', nullable: true },
+            },
+          },
+        },
         nextCursor: { type: 'string', nullable: true },
         hasMore: { type: 'boolean' },
       },
@@ -82,6 +109,229 @@ export class CustomersController {
       request.authContext!,
       dto,
       idempotencyKey,
+    );
+  }
+
+  @Get(':id/profile-projection')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Read the authenticated customer profile projection',
+  })
+  @apiSuccessEnvelopeResponse({
+    dataSchema: {
+      type: 'object',
+      required: [
+        'customerId',
+        'sourceErrors',
+        'memberSince',
+        'pendingApprovalsCount',
+        'lifetimeEarnedKobo',
+        'expirySchedule',
+        'recentActivity',
+        'transactions',
+        'redemptions',
+        'walletLedger',
+        'approvals',
+        'consent',
+        'card',
+      ],
+      properties: {
+        customerId: { type: 'string' },
+        sourceErrors: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: [
+              'card',
+              'consent',
+              'lifetimeEarned',
+              'pendingApprovals',
+              'expirySchedule',
+              'walletLedger',
+              'transactions',
+              'redemptions',
+              'approvals',
+              'statusEvents',
+            ],
+          },
+        },
+        memberSince: { type: 'string', format: 'date-time' },
+        pendingApprovalsCount: { type: 'integer', nullable: true },
+        lifetimeEarnedKobo: { type: 'integer', nullable: true },
+        expirySchedule: {
+          type: 'array',
+          description:
+            'At most the next 12 future credit lots with positive remaining integer-kobo balances.',
+          items: {
+            type: 'object',
+            required: ['expiresAt', 'remainingAmountKobo'],
+            properties: {
+              expiresAt: { type: 'string', format: 'date-time' },
+              remainingAmountKobo: { type: 'integer' },
+            },
+          },
+        },
+        expiryScheduleIsUpcomingWindow: {
+          type: 'boolean',
+          description:
+            'True when expirySchedule is a bounded upcoming window, not a complete all-time list.',
+        },
+        expiryScheduleLimit: { type: 'integer' },
+        recentActivity: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['id', 'type', 'status', 'occurredAt', 'amountKobo'],
+            properties: {
+              id: { type: 'string' },
+              type: {
+                type: 'string',
+                enum: [
+                  'EARNING',
+                  'REDEMPTION',
+                  'WALLET_ADJUSTMENT',
+                  'APPROVAL_REQUEST',
+                  'APPROVAL_OUTCOME',
+                  'APPROVAL_EXPIRED',
+                  'CUSTOMER_STATUS',
+                  'CARD_STATUS',
+                  'CARD_ISSUED',
+                ],
+              },
+              targetType: { type: 'string', enum: ['EARN', 'REDEEM'] },
+              status: { type: 'string' },
+              occurredAt: { type: 'string', format: 'date-time' },
+              amountKobo: { type: 'integer', nullable: true },
+            },
+          },
+        },
+        transactions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: [
+              'id',
+              'occurredAt',
+              'purchaseAmountKobo',
+              'captureStatus',
+              'reviewStatus',
+            ],
+            properties: {
+              id: { type: 'string' },
+              occurredAt: { type: 'string', format: 'date-time' },
+              purchaseAmountKobo: { type: 'integer', nullable: true },
+              captureStatus: { type: 'string' },
+              reviewStatus: { type: 'string' },
+            },
+          },
+        },
+        redemptions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: [
+              'id',
+              'occurredAt',
+              'requestedAmountKobo',
+              'confirmedAmountKobo',
+              'status',
+            ],
+            properties: {
+              id: { type: 'string' },
+              occurredAt: { type: 'string', format: 'date-time' },
+              requestedAmountKobo: { type: 'integer', nullable: true },
+              confirmedAmountKobo: { type: 'integer', nullable: true },
+              status: { type: 'string' },
+            },
+          },
+        },
+        walletLedger: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: [
+              'id',
+              'type',
+              'direction',
+              'amountKobo',
+              'status',
+              'effectiveAt',
+            ],
+            properties: {
+              id: { type: 'string' },
+              type: { type: 'string' },
+              direction: { type: 'string' },
+              amountKobo: { type: 'integer', nullable: true },
+              status: { type: 'string' },
+              effectiveAt: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+        approvals: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: [
+              'id',
+              'targetType',
+              'status',
+              'requestedAt',
+              'decidedAt',
+            ],
+            properties: {
+              id: { type: 'string' },
+              targetType: { type: 'string' },
+              status: { type: 'string' },
+              requestedAt: { type: 'string', format: 'date-time' },
+              decidedAt: {
+                type: 'string',
+                format: 'date-time',
+                nullable: true,
+              },
+            },
+          },
+        },
+        consent: {
+          type: 'object',
+          nullable: true,
+          required: [
+            'loyaltyConsent',
+            'marketingOptIn',
+            'consentVersion',
+            'privacyNoticeVersion',
+            'capturedAt',
+          ],
+          properties: {
+            loyaltyConsent: { type: 'boolean' },
+            marketingOptIn: { type: 'boolean' },
+            consentVersion: { type: 'string' },
+            privacyNoticeVersion: { type: 'string' },
+            capturedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        card: {
+          type: 'object',
+          nullable: true,
+          required: ['identifier', 'status', 'issuedAt', 'blockedAt'],
+          properties: {
+            identifier: { type: 'string' },
+            status: { type: 'string' },
+            issuedAt: { type: 'string', format: 'date-time' },
+            blockedAt: { type: 'string', format: 'date-time', nullable: true },
+          },
+        },
+      },
+    },
+  })
+  getCustomerProfileProjection(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.customersService.getCustomerProfileProjection(
+      request.authContext!.user.tenantId,
+      id,
+      request.authContext!,
     );
   }
 

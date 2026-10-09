@@ -73,6 +73,21 @@ describe('customer email identity', () => {
     expect(bySerial).toHaveLength(1);
     expect(byEmail[0].id).toBe(customer.id);
     expect(bySerial[0].id).toBe(customer.id);
+
+    const supervisorDirectory = await customersService.listCustomers(
+      seed.tenant.id,
+      seed.actor,
+      'Ada Lovelace',
+    );
+    expect(supervisorDirectory.items).toMatchObject([
+      {
+        id: customer.id,
+        cardNumber: 'SC-EMAIL-0001',
+        activeCardSerialNumber: 'SC-EMAIL-0001',
+        lifetimeEarnedKobo: 0,
+        lastPurchaseAmountKobo: null,
+      },
+    ]);
   });
 });
 

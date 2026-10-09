@@ -1,3 +1,8 @@
+> Superseded for customer selection and profile presentation by
+> `supervisor-customer-table-profile-workflow`. Its verified-write,
+> confirmation, card-handoff, and dirty-state safeguards remain required, but
+> the selection dialog is replaced by the stable-ID profile page.
+
 ## Why
 
 The current Manage customers screen keeps search results and an editable customer record side by side, leaving the list cramped and the page visually unbalanced. A full-width result list followed by a focused, guarded edit dialog makes search and profile management distinct, easier-to-understand steps.

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,7 +10,12 @@ import {
   Customer,
   CustomerStatus,
   IdempotencyRecordStatus,
+  LedgerEntryDirection,
+  LedgerEntryStatus,
+  LedgerEntryType,
   Prisma,
+  ReceiptCaptureStatus,
+  ReceiptReviewStatus,
   UserRole,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -104,13 +110,80 @@ export class CustomersService {
         },
       });
 
+      const customerIds = pageItems.map((customer) => customer.id);
+      const [earnedCreditTotals, latestReceiptTimes] =
+        customerIds.length > 0
+          ? await Promise.all([
+              this.prismaService.loyaltyLedgerEntry.groupBy({
+                by: ['customerId'],
+                where: {
+                  tenantId,
+                  customerId: { in: customerIds },
+                  type: LedgerEntryType.EARN,
+                  direction: LedgerEntryDirection.CREDIT,
+                  status: LedgerEntryStatus.CONFIRMED,
+                },
+                _sum: { amountKobo: true },
+              }),
+              this.prismaService.receipt.groupBy({
+                by: ['customerId'],
+                where: {
+                  tenantId,
+                  customerId: { in: customerIds },
+                  captureStatus: ReceiptCaptureStatus.CAPTURED,
+                  reviewStatus: ReceiptReviewStatus.APPROVED,
+                },
+                _max: { occurredAt: true },
+              }),
+            ])
+          : [[], []];
+      // Receipt.purchaseAmountKobo is the full basket total for the most recent approved, captured purchase.
+      const latestReceiptCriteria = latestReceiptTimes.flatMap((receipt) =>
+        receipt._max.occurredAt
+          ? [
+              {
+                customerId: receipt.customerId,
+                occurredAt: receipt._max.occurredAt,
+              },
+            ]
+          : [],
+      );
+      const latestReceipts = latestReceiptCriteria.length
+        ? await this.prismaService.receipt.findMany({
+            where: { tenantId, OR: latestReceiptCriteria },
+            orderBy: [{ customerId: 'asc' }, { id: 'desc' }],
+            select: { customerId: true, purchaseAmountKobo: true },
+          })
+        : [];
+      const earnedByCustomer = new Map(
+        earnedCreditTotals.map((summary) => [
+          summary.customerId,
+          summary._sum.amountKobo ?? 0n,
+        ]),
+      );
+      const purchaseByCustomer = new Map<string, bigint>();
+      latestReceipts.forEach((receipt) => {
+        if (!purchaseByCustomer.has(receipt.customerId)) {
+          purchaseByCustomer.set(
+            receipt.customerId,
+            receipt.purchaseAmountKobo,
+          );
+        }
+      });
+
       return {
-        items: pageItems.map((customer) =>
-          toPrivilegedCustomerSummary(
+        items: pageItems.map((customer) => ({
+          ...toPrivilegedCustomerSummary(
             customer,
             balances.get(customer.id) ?? 0n,
           ),
-        ),
+          lifetimeEarnedKobo: safeKoboNumber(
+            earnedByCustomer.get(customer.id) ?? 0n,
+          ),
+          lastPurchaseAmountKobo: safeKoboNumber(
+            purchaseByCustomer.get(customer.id) ?? null,
+          ),
+        })),
         nextCursor: hasMore ? customerCursor(pageItems.at(-1)!) : null,
         hasMore,
       };
@@ -165,6 +238,349 @@ export class CustomersService {
     }
 
     return customer;
+  }
+
+  async getCustomerProfileProjection(
+    tenantId: string,
+    customerId: string,
+    actor: AuthContext,
+  ) {
+    if (!isPrivilegedCustomerRead(actor)) {
+      throw new ForbiddenException('Supervisor or admin access is required');
+    }
+    const customer = await this.prismaService.customer.findFirst({
+      where: { tenantId, id: customerId },
+      select: { id: true, createdAt: true },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const now = new Date();
+    const [cardsResult, consentResult] = await Promise.allSettled([
+      this.prismaService.card.findMany({
+        where: { tenantId, customerId },
+        orderBy: { issuedAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          barcodeValue: true,
+          status: true,
+          issuedAt: true,
+          blockedAt: true,
+        },
+      }),
+      this.prismaService.customerConsent.findFirst({
+        where: { tenantId, customerId },
+        select: {
+          loyaltyConsent: true,
+          marketingOptIn: true,
+          consentVersion: true,
+          privacyNoticeVersion: true,
+          capturedAt: true,
+        },
+      }),
+    ]);
+    const cards = cardsResult.status === 'fulfilled' ? cardsResult.value : [];
+    const consent =
+      consentResult.status === 'fulfilled' ? consentResult.value : null;
+    const cardIds = cards.map((card) => card.id);
+    const sourceErrors: string[] = [];
+    if (cardsResult.status === 'rejected') sourceErrors.push('card');
+    if (consentResult.status === 'rejected') sourceErrors.push('consent');
+
+    const [
+      earnedResult,
+      pendingApprovalsResult,
+      expiryLotsResult,
+      ledgerResult,
+      receiptsResult,
+      redemptionsResult,
+      approvalsResult,
+      statusAuditResult,
+    ] = await Promise.allSettled([
+      this.prismaService.loyaltyLedgerEntry.aggregate({
+        where: {
+          tenantId,
+          customerId,
+          type: LedgerEntryType.EARN,
+          direction: LedgerEntryDirection.CREDIT,
+          status: LedgerEntryStatus.CONFIRMED,
+        },
+        _sum: { amountKobo: true },
+      }),
+      this.prismaService.approval.count({
+        where: {
+          tenantId,
+          status: 'PENDING',
+          OR: [{ receipt: { customerId } }, { redemption: { customerId } }],
+        },
+      }),
+      this.prismaService.creditLot.findMany({
+        where: {
+          tenantId,
+          customerId,
+          remainingAmountKobo: { gt: 0n },
+          expiresAt: { gt: now },
+        },
+        orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }],
+        take: 12,
+        select: { id: true, expiresAt: true, remainingAmountKobo: true },
+      }),
+      this.prismaService.loyaltyLedgerEntry.findMany({
+        where: { tenantId, customerId },
+        orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          type: true,
+          direction: true,
+          amountKobo: true,
+          status: true,
+          effectiveAt: true,
+        },
+      }),
+      this.prismaService.receipt.findMany({
+        where: { tenantId, customerId },
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          purchaseAmountKobo: true,
+          occurredAt: true,
+          captureStatus: true,
+          reviewStatus: true,
+        },
+      }),
+      this.prismaService.redemption.findMany({
+        where: { tenantId, customerId },
+        orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          requestedAmountKobo: true,
+          confirmedAmountKobo: true,
+          status: true,
+          requestedAt: true,
+          confirmedAt: true,
+        },
+      }),
+      this.prismaService.approval.findMany({
+        where: {
+          tenantId,
+          OR: [{ receipt: { customerId } }, { redemption: { customerId } }],
+        },
+        orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          status: true,
+          targetType: true,
+          requestedAt: true,
+          decidedAt: true,
+          expiresAt: true,
+          receipt: { select: { purchaseAmountKobo: true } },
+          redemption: { select: { requestedAmountKobo: true } },
+        },
+      }),
+      this.prismaService.auditLog.findMany({
+        where: {
+          tenantId,
+          OR: [
+            {
+              action: 'customer.status',
+              entityType: 'customer',
+              entityId: customerId,
+            },
+            ...(cardIds.length
+              ? [
+                  {
+                    action: 'card.status',
+                    entityType: 'card',
+                    entityId: { in: cardIds },
+                  },
+                ]
+              : []),
+          ],
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 25,
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          entityId: true,
+          metadata: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const earned =
+      earnedResult.status === 'fulfilled' ? earnedResult.value : null;
+    const pendingApprovalsCount =
+      pendingApprovalsResult.status === 'fulfilled'
+        ? pendingApprovalsResult.value
+        : null;
+    const expiryLots =
+      expiryLotsResult.status === 'fulfilled' ? expiryLotsResult.value : [];
+    const ledger =
+      ledgerResult.status === 'fulfilled' ? ledgerResult.value : [];
+    const receipts =
+      receiptsResult.status === 'fulfilled' ? receiptsResult.value : [];
+    const redemptions =
+      redemptionsResult.status === 'fulfilled' ? redemptionsResult.value : [];
+    const approvals =
+      approvalsResult.status === 'fulfilled' ? approvalsResult.value : [];
+    const statusAudit =
+      statusAuditResult.status === 'fulfilled' ? statusAuditResult.value : [];
+    if (earnedResult.status === 'rejected') sourceErrors.push('lifetimeEarned');
+    if (pendingApprovalsResult.status === 'rejected')
+      sourceErrors.push('pendingApprovals');
+    if (expiryLotsResult.status === 'rejected')
+      sourceErrors.push('expirySchedule');
+    if (ledgerResult.status === 'rejected') sourceErrors.push('walletLedger');
+    if (receiptsResult.status === 'rejected') sourceErrors.push('transactions');
+    if (redemptionsResult.status === 'rejected')
+      sourceErrors.push('redemptions');
+    if (approvalsResult.status === 'rejected') sourceErrors.push('approvals');
+    if (statusAuditResult.status === 'rejected')
+      sourceErrors.push('statusEvents');
+
+    await this.auditService.record({
+      tenantId,
+      actorId: actor.user.id,
+      action: 'customer.pii.read',
+      entityType: 'customer',
+      entityId: customerId,
+    });
+
+    const activity = [
+      ...ledger.map((entry) => ({
+        id: `ledger:${entry.id}`,
+        type:
+          entry.type === LedgerEntryType.EARN
+            ? 'EARNING'
+            : entry.type === LedgerEntryType.REDEEM
+              ? 'REDEMPTION'
+              : 'WALLET_ADJUSTMENT',
+        status: entry.status,
+        occurredAt: entry.effectiveAt.toISOString(),
+        amountKobo: safeKoboNumber(entry.amountKobo),
+      })),
+      ...approvals.map((approval) => ({
+        id: `approval:${approval.id}`,
+        type:
+          approval.status === 'PENDING'
+            ? 'APPROVAL_REQUEST'
+            : approval.status === 'EXPIRED'
+              ? 'APPROVAL_EXPIRED'
+              : 'APPROVAL_OUTCOME',
+        targetType: approval.targetType,
+        status: approval.status,
+        occurredAt: (approval.status === 'PENDING'
+          ? approval.requestedAt
+          : approval.status === 'EXPIRED'
+            ? approval.expiresAt
+            : (approval.decidedAt ?? approval.requestedAt)
+        ).toISOString(),
+        amountKobo: null,
+      })),
+      ...statusAudit.flatMap((event) => {
+        const status = auditMetadataStatus(event.metadata);
+        if (!status) return [];
+        return [
+          {
+            id: `audit:${event.id}`,
+            type:
+              event.action === 'customer.status'
+                ? 'CUSTOMER_STATUS'
+                : 'CARD_STATUS',
+            status,
+            occurredAt: event.createdAt.toISOString(),
+            amountKobo: null,
+          },
+        ];
+      }),
+      ...cards.map((card) => ({
+        id: `card-issued:${card.id}`,
+        type: 'CARD_ISSUED',
+        status: 'ISSUED',
+        occurredAt: card.issuedAt.toISOString(),
+        amountKobo: null,
+      })),
+    ]
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, 50);
+
+    return {
+      customerId,
+      memberSince: customer.createdAt.toISOString(),
+      pendingApprovalsCount,
+      lifetimeEarnedKobo: earned
+        ? safeKoboNumber(earned._sum.amountKobo ?? 0n)
+        : null,
+      sourceErrors,
+      expirySchedule: expiryLots
+        .filter((lot) => lot.remainingAmountKobo > 0n && lot.expiresAt > now)
+        .map((lot) => ({
+          expiresAt: lot.expiresAt.toISOString(),
+          remainingAmountKobo: safeKoboNumber(lot.remainingAmountKobo),
+        }))
+        .filter(
+          (lot): lot is { expiresAt: string; remainingAmountKobo: number } =>
+            lot.remainingAmountKobo !== null,
+        ),
+      expiryScheduleIsUpcomingWindow: true,
+      expiryScheduleLimit: 12,
+      recentActivity: activity,
+      transactions: receipts.map((receipt) => ({
+        id: receipt.id,
+        occurredAt: receipt.occurredAt.toISOString(),
+        purchaseAmountKobo: safeKoboNumber(receipt.purchaseAmountKobo),
+        captureStatus: receipt.captureStatus,
+        reviewStatus: receipt.reviewStatus,
+      })),
+      redemptions: redemptions.map((redemption) => ({
+        id: redemption.id,
+        occurredAt: (
+          redemption.confirmedAt ?? redemption.requestedAt
+        ).toISOString(),
+        requestedAmountKobo: safeKoboNumber(redemption.requestedAmountKobo),
+        confirmedAmountKobo: safeKoboNumber(redemption.confirmedAmountKobo),
+        status: redemption.status,
+      })),
+      walletLedger: ledger.map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        direction: entry.direction,
+        amountKobo: safeKoboNumber(entry.amountKobo),
+        status: entry.status,
+        effectiveAt: entry.effectiveAt.toISOString(),
+      })),
+      approvals: approvals.map((approval) => ({
+        id: approval.id,
+        targetType: approval.targetType,
+        status: approval.status,
+        requestedAt: approval.requestedAt.toISOString(),
+        decidedAt: approval.decidedAt?.toISOString() ?? null,
+      })),
+      consent: consent
+        ? {
+            loyaltyConsent: consent.loyaltyConsent,
+            marketingOptIn: consent.marketingOptIn,
+            consentVersion: consent.consentVersion,
+            privacyNoticeVersion: consent.privacyNoticeVersion,
+            capturedAt: consent.capturedAt.toISOString(),
+          }
+        : null,
+      card: cards[0]
+        ? {
+            identifier: cards[0].barcodeValue,
+            status: cards[0].status,
+            issuedAt: cards[0].issuedAt.toISOString(),
+            blockedAt: cards[0].blockedAt?.toISOString() ?? null,
+          }
+        : null,
+    };
   }
 
   async createCustomer(
@@ -616,7 +1032,7 @@ async function findCustomerIdempotency(
 
 const customerReadInclude = {
   cards: {
-    select: { status: true },
+    select: { status: true, barcodeValue: true },
     orderBy: { issuedAt: 'desc' },
     take: 1,
   },
@@ -653,6 +1069,7 @@ function toPrivilegedCustomerSummary(
   customer: CustomerReadRecord,
   activeBalanceKobo: bigint,
 ) {
+  const cardNumber = customer.cards[0]?.barcodeValue ?? null;
   return {
     id: customer.id,
     tenantId: customer.tenantId,
@@ -663,6 +1080,8 @@ function toPrivilegedCustomerSummary(
     isStaff: customer.isStaff,
     status: customer.status,
     activeCardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
+    cardNumber,
+    activeCardSerialNumber: cardNumber,
     availableBalanceKobo: Number(activeBalanceKobo),
     registeredBy: customer.registeredBy,
     registeredByTenantId: customer.registeredByTenantId,
@@ -670,6 +1089,24 @@ function toPrivilegedCustomerSummary(
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
   };
+}
+
+function auditMetadataStatus(metadata: Prisma.JsonValue | null): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+  const status = metadata.status;
+  return typeof status === 'string' &&
+    ['ACTIVE', 'BLOCKED', 'REPLACED'].includes(status)
+    ? status
+    : null;
+}
+
+function safeKoboNumber(value: bigint | null): number | null {
+  if (value === null || value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return null;
+  }
+  return Number(value);
 }
 
 function customerCursor(customer: CustomerReadRecord): string {

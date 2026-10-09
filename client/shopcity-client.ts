@@ -6275,6 +6275,24 @@ export type CustomersControllerListCustomersV1Params = {
 };
 
 export type CustomersControllerListCustomersV1200DataItemsItem = {
+  /**
+   * Assigned card number, serial, or barcode; these refer to the same value.
+   * @nullable
+   */
+  cardNumber?: string | null;
+  /**
+   * Compatibility alias for cardNumber.
+   * @nullable
+   */
+  activeCardSerialNumber?: string | null;
+  availableBalanceKobo?: number;
+  /**
+   * Full basket total in integer kobo from the latest captured and approved receipt.
+   * @nullable
+   */
+  lastPurchaseAmountKobo?: number | null;
+  /** @nullable */
+  lifetimeEarnedKobo?: number | null;
   [key: string]: unknown;
 };
 
@@ -6743,6 +6761,381 @@ export type CustomersControllerCreateCustomerV1503 = {
   success: boolean;
   error: CustomersControllerCreateCustomerV1503Error;
   meta: CustomersControllerCreateCustomerV1503Meta;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem =
+  {
+    card: 'card',
+    consent: 'consent',
+    lifetimeEarned: 'lifetimeEarned',
+    pendingApprovals: 'pendingApprovals',
+    expirySchedule: 'expirySchedule',
+    walletLedger: 'walletLedger',
+    transactions: 'transactions',
+    redemptions: 'redemptions',
+    approvals: 'approvals',
+    statusEvents: 'statusEvents',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataExpiryScheduleItem =
+  {
+    expiresAt: string;
+    remainingAmountKobo: number;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType =
+  {
+    EARNING: 'EARNING',
+    REDEMPTION: 'REDEMPTION',
+    WALLET_ADJUSTMENT: 'WALLET_ADJUSTMENT',
+    APPROVAL_REQUEST: 'APPROVAL_REQUEST',
+    APPROVAL_OUTCOME: 'APPROVAL_OUTCOME',
+    APPROVAL_EXPIRED: 'APPROVAL_EXPIRED',
+    CUSTOMER_STATUS: 'CUSTOMER_STATUS',
+    CARD_STATUS: 'CARD_STATUS',
+    CARD_ISSUED: 'CARD_ISSUED',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItem =
+  {
+    id: string;
+    type: CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemType;
+    targetType?: CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItemTargetType;
+    status: string;
+    occurredAt: string;
+    /** @nullable */
+    amountKobo: number | null;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItem =
+  {
+    id: string;
+    occurredAt: string;
+    /** @nullable */
+    purchaseAmountKobo: number | null;
+    captureStatus: string;
+    reviewStatus: string;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataRedemptionsItem =
+  {
+    id: string;
+    occurredAt: string;
+    /** @nullable */
+    requestedAmountKobo: number | null;
+    /** @nullable */
+    confirmedAmountKobo: number | null;
+    status: string;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataWalletLedgerItem =
+  {
+    id: string;
+    type: string;
+    direction: string;
+    /** @nullable */
+    amountKobo: number | null;
+    status: string;
+    effectiveAt: string;
+  };
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataApprovalsItem =
+  {
+    id: string;
+    targetType: string;
+    status: string;
+    requestedAt: string;
+    /** @nullable */
+    decidedAt: string | null;
+  };
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1200DataConsent = {
+  loyaltyConsent: boolean;
+  marketingOptIn: boolean;
+  consentVersion: string;
+  privacyNoticeVersion: string;
+  capturedAt: string;
+} | null;
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1200DataCard = {
+  identifier: string;
+  status: string;
+  issuedAt: string;
+  /** @nullable */
+  blockedAt: string | null;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200Data = {
+  customerId: string;
+  sourceErrors: CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem[];
+  memberSince: string;
+  /** @nullable */
+  pendingApprovalsCount: number | null;
+  /** @nullable */
+  lifetimeEarnedKobo: number | null;
+  /** At most the next 12 future credit lots with positive remaining integer-kobo balances. */
+  expirySchedule: CustomersControllerGetCustomerProfileProjectionV1200DataExpiryScheduleItem[];
+  /** True when expirySchedule is a bounded upcoming window, not a complete all-time list. */
+  expiryScheduleIsUpcomingWindow?: boolean;
+  expiryScheduleLimit?: number;
+  recentActivity: CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivityItem[];
+  transactions: CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItem[];
+  redemptions: CustomersControllerGetCustomerProfileProjectionV1200DataRedemptionsItem[];
+  walletLedger: CustomersControllerGetCustomerProfileProjectionV1200DataWalletLedgerItem[];
+  approvals: CustomersControllerGetCustomerProfileProjectionV1200DataApprovalsItem[];
+  /** @nullable */
+  consent: CustomersControllerGetCustomerProfileProjectionV1200DataConsent;
+  /** @nullable */
+  card: CustomersControllerGetCustomerProfileProjectionV1200DataCard;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1200 = {
+  success: boolean;
+  data: CustomersControllerGetCustomerProfileProjectionV1200Data;
+  meta: CustomersControllerGetCustomerProfileProjectionV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1400ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1400 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1400Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1401ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1401 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1401Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1403ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1403 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1403Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1404ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1404 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1404Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1409ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1409 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1409Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1422ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1422 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1422Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1429ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1429 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1429Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetCustomerProfileProjectionV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetCustomerProfileProjectionV1503ErrorDetails;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetCustomerProfileProjectionV1503 = {
+  success: boolean;
+  error: CustomersControllerGetCustomerProfileProjectionV1503Error;
+  meta: CustomersControllerGetCustomerProfileProjectionV1503Meta;
 };
 
 export type CustomersControllerGetCustomerV1200Data = {
@@ -20328,6 +20721,105 @@ export const customersControllerCreateCustomerV1 = async (
     status: res.status,
     headers: res.headers,
   } as customersControllerCreateCustomerV1Response;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response200 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1200;
+  status: 200;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response400 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1400;
+  status: 400;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response401 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1401;
+  status: 401;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response403 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1403;
+  status: 403;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response404 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1404;
+  status: 404;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response409 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1409;
+  status: 409;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response422 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1422;
+  status: 422;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response429 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1429;
+  status: 429;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response503 = {
+  data: CustomersControllerGetCustomerProfileProjectionV1503;
+  status: 503;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1ResponseSuccess =
+  customersControllerGetCustomerProfileProjectionV1Response200 & {
+    headers: Headers;
+  };
+export type customersControllerGetCustomerProfileProjectionV1ResponseError = (
+  | customersControllerGetCustomerProfileProjectionV1Response400
+  | customersControllerGetCustomerProfileProjectionV1Response401
+  | customersControllerGetCustomerProfileProjectionV1Response403
+  | customersControllerGetCustomerProfileProjectionV1Response404
+  | customersControllerGetCustomerProfileProjectionV1Response409
+  | customersControllerGetCustomerProfileProjectionV1Response422
+  | customersControllerGetCustomerProfileProjectionV1Response429
+  | customersControllerGetCustomerProfileProjectionV1Response503
+) & {
+  headers: Headers;
+};
+
+export type customersControllerGetCustomerProfileProjectionV1Response =
+  | customersControllerGetCustomerProfileProjectionV1ResponseSuccess
+  | customersControllerGetCustomerProfileProjectionV1ResponseError;
+
+export const getCustomersControllerGetCustomerProfileProjectionV1Url = (
+  id: string,
+) => {
+  return `/api/v1/customers/${id}/profile-projection`;
+};
+
+/**
+ * Read the authenticated customer profile projection
+ * @summary Read the authenticated customer profile projection
+ */
+export const customersControllerGetCustomerProfileProjectionV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<customersControllerGetCustomerProfileProjectionV1Response> => {
+  const res = await fetch(
+    getCustomersControllerGetCustomerProfileProjectionV1Url(id),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: customersControllerGetCustomerProfileProjectionV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as customersControllerGetCustomerProfileProjectionV1Response;
 };
 
 export type customersControllerGetCustomerV1Response200 = {
