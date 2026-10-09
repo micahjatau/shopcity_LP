@@ -11,6 +11,68 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-08 — Supervisor sign-in stale cashier pairing message
+
+Upstream impact was checked before changing the shared login form:
+
+```text
+node .gitnexus/run.cjs impact LoginForm -r shopcity_LP -f apps/web/components/auth/login-form.tsx --include-tests
+```
+
+| Symbol      | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ----------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `LoginForm` | LOW, exact |                1 |                 1 |                  0 |
+
+The only direct dependant is `apps/web/tests/login-form.spec.tsx`; no processes or modules are affected. The guard is cashier-only; changing to Supervisor/Admin now clears stale cashier pairing guidance, while the backend remains authoritative for role and session permissions.
+
+### 2026-10-08 — Loopback bind for local cashier test session
+
+Upstream impact for the API entrypoint bind selection:
+
+```text
+node .gitnexus/run.cjs impact bootstrap --file src/main.ts --repo shopcity_LP --direction upstream
+```
+
+| Symbol      | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ----------- | ---------- | ---------------: | ----------------: | -----------------: |
+| `bootstrap` | LOW, exact |                1 |                 1 |                  0 |
+
+The indexed blast radius is the `main.ts` entrypoint only, with no execution flows or modules affected. When the explicit local cashier test-session flag is requested, the API listener will be constrained to loopback; the normal listener binding remains unchanged when the flag is off. The feature still requires the existing local database/SMS/environment gate.
+
+A separate local frontend build directory was also checked before launching alongside the existing dev server:
+
+```text
+node .gitnexus/run.cjs impact nextConfig --file apps/web/next.config.mjs --repo shopcity_LP --direction upstream
+```
+
+| Symbol       | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ------------ | ---------- | ---------------: | ----------------: | -----------------: |
+| `nextConfig` | LOW, exact |                0 |                 0 |                  0 |
+
+The environment-controlled build directory will be used only for this isolated local runtime; the default `.next` directory remains unchanged.
+
+### 2026-10-08 — Exact Tailscale origin for local cashier test sessions
+
+GitNexus was refreshed after its local FTS index reported corruption (repair succeeded and a full re-index completed). The following upstream impacts were then run before changing the cashier test-session origin check and HTTPS cookie behavior:
+
+```text
+node .gitnexus/run.cjs impact createLocalCashierTestSession --file src/modules/auth/auth.service.ts --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact isLocalCashierTestSessionEnabledFromConfig --file src/config/local-cashier-test-session.ts --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact localCashierTestSession --file src/modules/auth/auth.controller.ts --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact setSessionCookies --file src/modules/auth/auth.controller.ts --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact envValidationSchema --file src/config/env.validation.ts --repo shopcity_LP --direction upstream
+```
+
+| Symbol                                       | Risk       | Impacted symbols | Direct dependants | Affected processes                                 |
+| -------------------------------------------- | ---------- | ---------------: | ----------------: | -------------------------------------------------- |
+| `AuthService.createLocalCashierTestSession`  | LOW, exact |                1 |                 1 | 1 local cashier test-session flow                  |
+| `isLocalCashierTestSessionEnabledFromConfig` | LOW, exact |                9 |                 3 | local-session/refresh paths                        |
+| `AuthController.localCashierTestSession`     | LOW, exact |                0 |                 0 | 0                                                  |
+| `AuthController.setSessionCookies`           | LOW, exact |                4 |                 4 | login, WebAuthn completion, smoke session, refresh |
+| `envValidationSchema`                        | LOW, exact |                0 |                 0 | 0                                                  |
+
+The shared local-session config helper will retain its existing behavior; the exact Tailscale origin check is added only to the local cashier-session creation path. Existing cookie call sites keep their defaults; only the HTTPS Tailscale local-test response opts into Secure cookies.
+
 ### 2026-10-08 — Supervisor overview reference presentation proposal
 
 Proposal-time upstream impact for the Supervisor overview route:
@@ -93,19 +155,193 @@ npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/page.tsx' Sup
 
 The pagination CSS is style-only and has no indexed symbol impact. The change is limited to right-aligning the navigation group and using accessible icon-only Previous/Next controls.
 
-### 2026-09-29 — Supervisor overview greeting and card cleanup proposal
+### 2026-10-08 — Supervisor transaction table and dialog reference alignment
 
-Proposal-time upstream impact with tests included was run before drafting this Supervisor landing-page change:
+Upstream impact for matching the supplied transaction table and transaction-dialog references:
 
 ```text
-npm run proposal:impact -- --file apps/web/app/(shell)/supervisor/page.tsx SupervisorPage
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx statusTone
 ```
 
-| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes |
-| ---------------- | ---------- | ---------------: | ----------------: | -----------------: |
-| `SupervisorPage` | LOW, exact |                0 |                 0 |                  0 |
+| Symbol                            | Risk       | Impacted symbols | Direct dependants |               Affected processes |
+| --------------------------------- | ---------- | ---------------: | ----------------: | -------------------------------: |
+| `SupervisorTransactionsDashboard` | LOW, exact |                2 |                 2 | 1 (`SupervisorTransactionsPage`) |
+| `statusTone`                      | LOW, exact |                3 |                 1 | 1 (`SupervisorTransactionsPage`) |
 
-GitNexus indexed no upstream dependants/processes for the route component. Scope is limited to the Supervisor overview composition and tests that currently assume review panels live on `/supervisor`; the dedicated approvals, fraud, reports, customer, card, and transaction routes remain intact. Preserve the overview's scanner lookup context, shared shell navigation, authorization, and operational route behavior. No backend/API or data changes are planned.
+Scope is limited to the Supervisor transaction route's table and selected-transaction presentation. Existing branch authorization, authoritative detail verification, and reversal behavior remain unchanged; only fields returned by the current API will be displayed.
+
+### 2026-10-08 — Supervisor transaction filters and table columns
+
+Upstream impact before extending the receipt-search contract with status, staff, and minimum-receipt-amount filters and reference-aligned data columns:
+
+```text
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts searchTransactionsByReceipt
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.controller.ts searchTransactionsByReceipt
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts SupervisorTransactionSearchItem
+```
+
+| Symbol                                          | Risk          | Impacted symbols | Direct dependants | Affected processes               |
+| ----------------------------------------------- | ------------- | ---------------: | ----------------: | -------------------------------- |
+| `LoyaltyService.searchTransactionsByReceipt`    | LOW, exact    |                1 |                 1 | 0                                |
+| `LoyaltyController.searchTransactionsByReceipt` | LOW, exact    |                0 |                 0 | 0                                |
+| `SupervisorTransactionsDashboard`               | LOW, exact    |                2 |                 2 | 1 (`SupervisorTransactionsPage`) |
+| `SupervisorTransactionSearchItem`               | MEDIUM, exact |               23 |                13 | 0                                |
+
+No HIGH/CRITICAL risk or execution flows were reported. The MEDIUM contract blast radius is the service module's broader import graph; the focused endpoint is Supervisor-only and will continue to enforce session tenant/branch scope before applying filters and cursor pagination. The table will expose only the branch-authorized customer name (no customer contact details); unsupported eligibility was initially marked unavailable rather than inferred.
+
+### 2026-10-09 — Omit unsupported transaction eligibility column
+
+Upstream impact for removing the always-unavailable Eligible column from the Supervisor transaction table:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+```
+
+| Symbol                            | Risk       | Impacted symbols |                                Direct dependants | Affected processes |
+| --------------------------------- | ---------- | ---------------: | -----------------------------------------------: | ------------------ |
+| `SupervisorTransactionsDashboard` | LOW, exact |                1 | 1 (`supervisor-transactions-dashboard.spec.tsx`) | 0                  |
+
+No API, database, or execution-flow impact. The table will omit the column until the product defines an authoritative eligibility amount; it will not infer one from purchase amount or balance.
+
+### 2026-10-09 — Optimize login background delivery
+
+Upstream impact before adding a page-scoped preload for the optimized decorative login background:
+
+```text
+node scripts/gitnexus.cjs impact LoginPage -r shopcity_LP --file 'apps/web/app/(auth)/login/page.tsx' --include-tests
+```
+
+| Symbol      | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| ----------- | ---------- | ---------------: | ----------------: | ------------------ |
+| `LoginPage` | LOW, exact |                0 |                 0 | 0                  |
+
+The change is limited to the public login route and its decorative asset; authentication, role routing, and session behavior are unchanged.
+
+### 2026-10-09 — Transaction status column and badge colors
+
+Upstream impact for renaming the result heading and assigning distinct confirmed/reversed badge tones:
+
+```text
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+node scripts/gitnexus.cjs impact statusTone -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+```
+
+| Symbol                            | Risk       | Impacted symbols | Direct dependants | Affected processes               |
+| --------------------------------- | ---------- | ---------------: | ----------------: | -------------------------------- |
+| `SupervisorTransactionsDashboard` | LOW, exact |                1 |                 1 | 0                                |
+| `statusTone`                      | LOW, exact |                2 |                 1 | 1 (`SupervisorTransactionsPage`) |
+
+The change is presentation-only. It does not change supported outcomes, API status values, transaction data, or reversal policy.
+
+### 2026-10-09 — Transaction pagination and refresh
+
+Upstream impact before aligning the Supervisor transaction cursor pager and adding current-page refresh:
+
+```text
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+```
+
+| Symbol                            | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| --------------------------------- | ---------- | ---------------: | ----------------: | ------------------ |
+| `SupervisorTransactionsDashboard` | LOW, exact |                1 |                 1 | 0                  |
+
+Refresh reuses the existing authenticated, branch-scoped query with applied filters and the current cursor; no API, database, or reversal behavior changes. The customer workspace in this checkout has no pager, so the visual treatment follows the existing compact Supervisor overview pager without claiming a total page count.
+
+### 2026-10-09 — Right-align transaction refresh and pager
+
+Upstream impact before adjusting the Supervisor transaction header and pagination alignment:
+
+```text
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+```
+
+| Symbol                            | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| --------------------------------- | ---------- | ---------------: | ----------------: | ------------------ |
+| `SupervisorTransactionsDashboard` | LOW, exact |                1 |                 1 | 0                  |
+
+This is a route-scoped visual adjustment; query, cursor, and authorization behavior remain unchanged.
+
+### 2026-10-09 — Remove transaction hint and darken pagination
+
+Upstream impact before removing the initial status sentence and changing pagination text/icon contrast:
+
+```text
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+```
+
+| Symbol                            | Risk       | Impacted symbols | Direct dependants | Affected processes |
+| --------------------------------- | ---------- | ---------------: | ----------------: | ------------------ |
+| `SupervisorTransactionsDashboard` | LOW, exact |                1 |                 1 | 0                  |
+
+Only the Supervisor transactions presentation and its component test are affected; search and cursor behavior remain unchanged.
+
+### 2026-10-09 — Specify default transaction date ordering
+
+Upstream impacts before documenting and testing the existing newest-first receipt-search order:
+
+```text
+node scripts/gitnexus.cjs impact searchTransactionsByReceipt -r shopcity_LP --file src/modules/loyalty/loyalty.service.ts --include-tests
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+```
+
+| Symbol                                       | Risk       | Impacted symbols |                                   Direct dependants | Affected processes |
+| -------------------------------------------- | ---------- | ---------------: | --------------------------------------------------: | ------------------ |
+| `LoyaltyService.searchTransactionsByReceipt` | LOW, exact |                1 | 1 (`LoyaltyController.searchTransactionsByReceipt`) | 0                  |
+| `SupervisorTransactionsDashboard`            | LOW, exact |                1 |    1 (`supervisor-transactions-dashboard.spec.tsx`) | 0                  |
+
+The service already orders by `effectiveAt DESC, id DESC`, and the cursor predicate follows the same order. The UI preserves response order; this follow-up codifies those guarantees without changing production query behavior.
+
+### 2026-10-09 — Load all branch transactions by default
+
+Upstream impacts before making receipt-number filtering optional and adding an initial branch-scoped list request:
+
+```text
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+node scripts/gitnexus.cjs impact searchTransactionsByReceipt -r shopcity_LP --file src/modules/loyalty/loyalty.service.ts --include-tests
+node scripts/gitnexus.cjs impact searchTransactionsByReceipt -r shopcity_LP --file src/modules/loyalty/loyalty.controller.ts --include-tests
+```
+
+| Symbol                                          | Risk       | Impacted symbols |                                   Direct dependants | Affected processes |
+| ----------------------------------------------- | ---------- | ---------------: | --------------------------------------------------: | ------------------ |
+| `SupervisorTransactionsDashboard`               | LOW, exact |                1 |    1 (`supervisor-transactions-dashboard.spec.tsx`) | 0                  |
+| `LoyaltyService.searchTransactionsByReceipt`    | LOW, exact |                1 | 1 (`LoyaltyController.searchTransactionsByReceipt`) | 0                  |
+| `LoyaltyController.searchTransactionsByReceipt` | LOW, exact |                0 |                                                   0 | 0                  |
+
+The change remains within the Supervisor list API and route, preserving session-derived tenant/branch scope, bounded cursor pagination, and the existing reversal flow.
+
+### 2026-10-09 — Remove scope hint and brand shared-shell footers
+
+Upstream impacts before removing the duplicate transaction scope sentence and replacing the desktop/mobile shell branch-timezone footer:
+
+```text
+node scripts/gitnexus.cjs impact SupervisorTransactionsDashboard -r shopcity_LP --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx --include-tests
+node scripts/gitnexus.cjs impact AppSidebar -r shopcity_LP --file apps/web/components/app-sidebar.tsx --include-tests
+node scripts/gitnexus.cjs impact AppShellContent -r shopcity_LP --file apps/web/components/app-shell.tsx --include-tests
+```
+
+| Symbol                            | Risk       | Impacted symbols |                                Direct dependants | Affected processes                   |
+| --------------------------------- | ---------- | ---------------: | -----------------------------------------------: | ------------------------------------ |
+| `SupervisorTransactionsDashboard` | LOW, exact |                1 | 1 (`supervisor-transactions-dashboard.spec.tsx`) | 0                                    |
+| `AppSidebar`                      | LOW, exact |                3 |                            1 (`AppShellContent`) | 2 (`ShellLayout`, `AppShellContent`) |
+| `AppShellContent`                 | LOW, exact |                2 |                                   1 (`AppShell`) | 1 (`ShellLayout`)                    |
+
+The shell change is presentation-only; the navigation, session bootstrap, and branch/timezone configuration remain untouched outside the removed footer rendering.
+
+### 2026-10-09 — Align OpenAPI integration assertion with optional receipt filter
+
+Upstream impact before correcting the stale contract assertion in `test/openapi.int-spec.ts`:
+
+```text
+node scripts/gitnexus.cjs impact buildOpenApiDocument -r shopcity_LP --file src/bootstrap.ts --include-tests
+```
+
+| Symbol                 | Risk       | Impacted symbols |          Direct dependants | Affected processes |
+| ---------------------- | ---------- | ---------------: | -------------------------: | -----------------: |
+| `buildOpenApiDocument` | LOW, exact |                1 | `test/openapi.int-spec.ts` |                  0 |
+
+The integration assertion now verifies that `receiptNumber` is optional, matching the branch transaction list contract.
 
 ### 2026-09-30 — Fraud review results presentation
 
@@ -673,3 +909,27 @@ npm run proposal:impact -- --file src/modules/auth/auth.service.ts completeCashi
 | `AuthService.completeCashierLogin`         | LOW, exact |                2 |                 1 | 0 processes; Auth            |
 
 No HIGH/CRITICAL result. The proposal preserves Admin tenant-wide device management and Supervisor own-branch scope. The added requirement is that multiple branch-eligible CASHIER accounts may independently use the same device-scoped POS credential, with separate account authorization and sessions bound to that POS/credential; it does not permit syncing a POS credential across physical devices or weaken user/device/branch checks.
+
+### 2026-10-08 — Local-only unpaired cashier workflow session
+
+Proposal-time upstream impacts with tests included were run before adding the local-only development-session requirement:
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts bootstrapSmokeSession
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts refresh
+npm run proposal:impact -- --file src/common/auth/session.guard.ts loadAuthContext
+npm run proposal:impact -- --file src/common/auth/session.guard.ts isSessionDeviceEligible
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts AuthController
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginForm
+```
+
+| Symbol                              | Risk       | Impacted symbols | Direct dependants | Affected processes / modules     |
+| ----------------------------------- | ---------- | ---------------: | ----------------: | -------------------------------- |
+| `AuthService.bootstrapSmokeSession` | LOW, exact |                1 |                 1 | 1 process (`smokeSession`); Auth |
+| `AuthService.refresh`               | LOW, exact |                4 |                 4 | 1 process (`refresh`); Auth      |
+| `loadAuthContext`                   | LOW, exact |                4 |                 3 | Auth                             |
+| `isSessionDeviceEligible`           | LOW, exact |                7 |                 3 | 1 process (`refresh`); Auth      |
+| `AuthController`                    | LOW, exact |                4 |                 2 | 0                                |
+| `LoginForm`                         | LOW, exact |                1 |                 1 | 0                                |
+
+No HIGH/CRITICAL result. Implementation is limited to a separate local-only smoke-session path and the exact session eligibility exception; the existing Earn/Redeem services, device-proof login, Preview configuration, and production qualification gate remain unchanged. The refresh flow already rejects smoke-session refresh and must continue to do so.

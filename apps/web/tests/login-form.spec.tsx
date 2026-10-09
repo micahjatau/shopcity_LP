@@ -1,13 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LoginForm } from '../components/auth/login-form';
-import { loginWithCredentials } from '../lib/api';
+import {
+  createLocalCashierTestSession,
+  loginWithCredentials,
+} from '../lib/api';
 import { authControllerCompleteCashierLoginV1 } from '../lib/api/generated-client';
 
 const mockReplace = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace, refresh: jest.fn() }),
 }));
-jest.mock('../lib/api', () => ({ loginWithCredentials: jest.fn() }));
+jest.mock('../lib/api', () => ({
+  createLocalCashierTestSession: jest.fn(),
+  loginWithCredentials: jest.fn(),
+}));
 jest.mock('../lib/api/generated-client', () => ({
   authControllerCompleteCashierLoginV1: jest.fn(),
 }));
@@ -16,8 +22,70 @@ describe('LoginForm WebAuthn flow', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockReplace.mockReset();
+    jest.mocked(createLocalCashierTestSession).mockReset();
     jest.mocked(loginWithCredentials).mockReset();
     jest.mocked(authControllerCompleteCashierLoginV1).mockReset();
+  });
+
+  it('starts an explicitly enabled local cashier test session without pairing', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag =
+      process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+    process.env.NODE_ENV = 'development';
+    process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = 'true';
+    jest.mocked(createLocalCashierTestSession).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'CASHIER' } } },
+    });
+
+    try {
+      render(<LoginForm />);
+      fireEvent.change(screen.getByLabelText('Email Address'), {
+        target: { value: 'cashier@example.test' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Start local cashier test session',
+        }),
+      );
+      await waitFor(() =>
+        expect(createLocalCashierTestSession).toHaveBeenCalledWith(
+          'cashier@example.test',
+        ),
+      );
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/cashier'));
+      expect(loginWithCredentials).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) {
+        delete process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+      } else {
+        process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it('does not show the local cashier test path outside development', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag =
+      process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+    process.env.NODE_ENV = 'production';
+    process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = 'true';
+    try {
+      render(<LoginForm />);
+      expect(
+        screen.queryByRole('button', {
+          name: 'Start local cashier test session',
+        }),
+      ).not.toBeInTheDocument();
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) {
+        delete process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED;
+      } else {
+        process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED = previousFlag;
+      }
+    }
   });
 
   it('completes the assertion before navigating to an authenticated route', async () => {
@@ -84,6 +152,19 @@ describe('LoginForm WebAuthn flow', () => {
     render(<LoginForm />);
     fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
     expect(await screen.findByText(/not paired to a register/i)).toBeVisible();
+    expect(loginWithCredentials).not.toHaveBeenCalled();
+  });
+
+  it('clears the cashier pairing warning when staff selects Supervisor', async () => {
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    expect(await screen.findByText(/not paired to a register/i)).toBeVisible();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Supervisor' }));
+
+    expect(
+      screen.queryByText(/not paired to a register/i),
+    ).not.toBeInTheDocument();
     expect(loginWithCredentials).not.toHaveBeenCalled();
   });
 

@@ -1,4 +1,11 @@
-import { Prisma, SessionPurpose, UserRole, UserStatus } from '@prisma/client';
+import {
+  DeviceAuthBindingMode,
+  DeviceStatus,
+  Prisma,
+  SessionPurpose,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { AuthService } from './auth.service';
 import {
@@ -422,6 +429,139 @@ describe('AuthService', () => {
     await expect(service.refresh('smoke-session-id')).rejects.toThrow(
       'Smoke sessions cannot be refreshed',
     );
+  });
+
+  it('creates a short-lived cashier smoke session from the exact configured Tailscale origin', async () => {
+    const user = {
+      id: 'cashier-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      username: 'cashier@shopcity.local',
+      supabaseAuthId: null,
+      role: UserRole.CASHIER,
+      status: UserStatus.ACTIVE,
+      lastLoginAt: null,
+      createdAt: new Date('2026-08-03T00:00:00.000Z'),
+      updatedAt: new Date('2026-08-03T00:00:00.000Z'),
+      tenant: { status: 'ACTIVE' },
+      branch: { status: 'ACTIVE' },
+    };
+    const device = {
+      id: 'local-device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      name: 'LOCAL DEV TEST POS',
+      status: 'ACTIVE',
+      authBindingMode: 'UNPAIRED',
+      fingerprintHash: null,
+      pairedAt: null,
+    };
+    const createdSessions: Array<Record<string, unknown>> = [];
+    const tx = {
+      user: {
+        findMany: jest.fn().mockResolvedValue([user]),
+        findUnique: jest.fn().mockResolvedValue(user),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      device: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(device),
+      },
+      session: {
+        create: jest
+          .fn()
+          .mockImplementation((args: { data: Record<string, unknown> }) => {
+            const session = { id: 'smoke-session-id', ...args.data };
+            createdSessions.push(session);
+            return Promise.resolve(session);
+          }),
+      },
+    };
+    const prismaService = {
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        Promise.resolve(callback(tx)),
+      ),
+    };
+    const configValues: Record<string, unknown> = {
+      NODE_ENV: 'development',
+      DATABASE_URL:
+        'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity?schema=public',
+      SMS_PROVIDER_MODE: 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: true,
+      DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN:
+        'https://shopcity-dev.tailnet.ts.net:8445',
+      SESSION_SECRET: 'local-session-secret',
+      CSRF_SECRET: 'local-csrf-secret',
+    };
+    const auditService = {
+      recordWithClient: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AuthService(
+      prismaService as never,
+      {} as never,
+      { get: (key: string) => configValues[key] } as never,
+      auditService as never,
+    );
+
+    const issued = await service.createLocalCashierTestSession(
+      'cashier@shopcity.local',
+      'https://shopcity-dev.tailnet.ts.net:8445',
+    );
+
+    expect(tx.device.create).toHaveBeenCalledWith({
+      data: {
+        tenantId: 'tenant-id',
+        branchId: 'branch-id',
+        name: 'LOCAL DEV TEST POS',
+        status: DeviceStatus.ACTIVE,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+      },
+    });
+    expect(createdSessions[0]).toMatchObject({
+      deviceId: 'local-device-id',
+      deviceCredentialId: null,
+      purpose: SessionPurpose.SMOKE,
+    });
+    expect(issued.context.session.id).toBe('smoke-session-id');
+    expect(
+      issued.context.session.expiresAt.getTime() - Date.now(),
+    ).toBeLessThanOrEqual(15 * 60 * 1000);
+    expect(auditService.recordWithClient).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        action: 'auth.local_cashier_test_device.created',
+        entityId: 'local-device-id',
+      }),
+    );
+  });
+
+  it('rejects local cashier test-session creation for non-local origins and real SMS mode', async () => {
+    const transaction = jest.fn();
+    const service = new AuthService(
+      { $transaction: transaction } as never,
+      {} as never,
+      {
+        get: (key: string) =>
+          key === 'NODE_ENV'
+            ? 'development'
+            : key === 'DATABASE_URL'
+              ? 'postgresql://shopcity:shopcity@localhost:5432/shopcity'
+              : key === 'SMS_PROVIDER_MODE'
+                ? 'real'
+                : key === 'DEV_CASHIER_TEST_SESSION_ENABLED'
+                  ? true
+                  : undefined,
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.createLocalCashierTestSession(
+        'cashier@shopcity.local',
+        'https://preview.shopcity.test',
+      ),
+    ).rejects.toThrow('Local cashier test sessions are disabled');
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('rejects smoke session lifetimes above the 15 minute maximum', async () => {

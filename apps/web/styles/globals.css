@@ -455,6 +455,10 @@ main {
   min-height: 100vh;
   background-color: #530609;
   background-image: url('/brand/login-bgrd.jpg');
+  background-image: image-set(
+    url('/brand/login-bgrd.webp') type('image/webp'),
+    url('/brand/login-bgrd.jpg') type('image/jpeg')
+  );
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -525,6 +529,10 @@ main {
   .login-page {
     padding: 0 18px;
     background-image: url('/brand/login-bgrd.jpg');
+    background-image: image-set(
+      url('/brand/login-bgrd.webp') type('image/webp'),
+      url('/brand/login-bgrd.jpg') type('image/jpeg')
+    );
     background-position: center top;
     background-size: cover;
   }

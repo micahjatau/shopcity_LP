@@ -6,6 +6,64 @@ import {
 } from './session.guard';
 
 describe('loadAuthContext WebAuthn session binding', () => {
+  it('resolves a local unpaired cashier smoke session only with the local-only gate', async () => {
+    const session = {
+      id: 'session-id',
+      userId: 'user-id',
+      deviceId: 'local-device-id',
+      deviceCredentialId: null,
+      purpose: SessionPurpose.SMOKE,
+      status: 'ACTIVE',
+      expiresAt: new Date(Date.now() + 60_000),
+      lastUsedAt: null,
+      user: {
+        ...activeUser(),
+        tenant: { status: 'ACTIVE' },
+        branch: { status: 'ACTIVE' },
+      },
+      device: {
+        tenantId: 'tenant-id',
+        branchId: 'branch-id',
+        status: 'ACTIVE',
+        authBindingMode: 'UNPAIRED',
+        branch: { status: 'ACTIVE' },
+      },
+      deviceCredential: null,
+    };
+    const findUnique = jest.fn().mockResolvedValue(session);
+    const configValues: Record<string, unknown> = {
+      SESSION_SECRET: 'secret',
+      NODE_ENV: 'development',
+      DATABASE_URL:
+        'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity?schema=public',
+      SMS_PROVIDER_MODE: 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: true,
+      WEBAUTHN_RP_ID: 'localhost',
+    };
+    const config = { get: (key: string) => configValues[key] };
+    const request = { headers: { authorization: 'Bearer session-token' } };
+
+    await expect(
+      loadAuthContext(
+        request as never,
+        { session: { findUnique } } as never,
+        config as never,
+      ),
+    ).resolves.toMatchObject({
+      session: { id: 'session-id', purpose: SessionPurpose.SMOKE },
+      user: { id: 'user-id', role: UserRole.CASHIER },
+    });
+
+    configValues.VERCEL_ENV = 'preview';
+    await expect(
+      loadAuthContext(
+        request as never,
+        { session: { findUnique } } as never,
+        config as never,
+      ),
+    ).resolves.toBeNull();
+  });
+
   it('loads the direct credential relation and rejects a revoked credential', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'session-id',
@@ -123,6 +181,21 @@ describe('isSessionDeviceEligible', () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it('accepts an unpaired device only for an explicitly enabled local smoke cashier session', () => {
+    const localTest = webauthnSession({
+      purpose: SessionPurpose.SMOKE,
+      deviceCredentialId: null,
+      deviceCredential: null,
+      device: { authBindingMode: 'UNPAIRED' },
+    });
+
+    expect(isSessionDeviceEligible(localTest, undefined, true)).toBe(true);
+    expect(isSessionDeviceEligible(localTest)).toBe(false);
+
+    localTest.purpose = SessionPurpose.USER;
+    expect(isSessionDeviceEligible(localTest, undefined, true)).toBe(false);
   });
 
   it('rejects a linked device moved away from the user branch', () => {

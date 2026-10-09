@@ -35,6 +35,12 @@ export class CashierLoginCompleteDto {
   assertion!: Record<string, unknown>;
 }
 
+export class LocalCashierTestSessionDto {
+  @ApiProperty({ example: 'cashier@shopcity.local' })
+  @IsEmail()
+  username!: string;
+}
+
 export class SmokeSessionBootstrapDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()

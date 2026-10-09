@@ -44,4 +44,18 @@ Receipt capture now requires a physical POS receipt number, an active device, an
 - `npm run e2e:live`
 - `npm run e2e:live:full`
 
+### Playwright against the running local frontend
+
+When `shopcity-next.service` is already serving the app on port `6767`, reuse it for browser tests instead of starting a second Next.js dev server from the same checkout. Concurrent dev servers share `apps/web/.next` by default and can trigger Fast Refresh reloads or aborted route navigation.
+
+```bash
+cd apps/web
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:6767 \
+PLAYWRIGHT_REUSE_EXISTING_SERVER=true \
+npx playwright test --config ./playwright.config.ts tests/workflow-routes.spec.ts \
+  -g 'verifies copy hierarchy, Cashier header typography'
+```
+
+This command requires the local frontend on port `6767` to be running. Without it, leave the default Playwright server configuration in place; do not change production configuration to work around local test-server collisions.
+
 If Pi does not discover Graphiti automatically, see `docs/development/graphiti-workaround.md`.

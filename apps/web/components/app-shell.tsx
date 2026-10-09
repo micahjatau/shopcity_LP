@@ -68,7 +68,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
     role,
     sessionLabel,
     deviceId,
-    publicConfig,
     configMessage,
     reset: resetSessionContext,
   } = useSessionBootstrapState();
@@ -310,24 +309,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
   }
 
   const showProtectedContent = status === 'ready' && isAuthorizedRoute;
-  const context = publicConfig as {
-    tenant?: { id?: string; name?: string };
-    branch?: {
-      id?: string;
-      name?: string;
-      timezone?: string;
-      receiptWeekStartDay?: number;
-    };
-    policies?: {
-      defaultEarnRateBps?: number;
-      minRedemptionKobo?: number;
-      maxRedemptionBasketPercent?: number;
-      purchaseFlagThresholdKobo?: number;
-      purchaseApprovalThresholdKobo?: number;
-      redemptionApprovalThresholdKobo?: number;
-      offlineRedemptionDisabled?: boolean;
-    };
-  } | null;
 
   return (
     <div
@@ -349,10 +330,6 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
             sections={navigationSections}
             pathname={pathname}
             workspaceLabel={workspaceLabel}
-            branchLabel={
-              context?.branch?.name ?? context?.branch?.id ?? 'Branch pending'
-            }
-            branchTimezone={context?.branch?.timezone ?? 'Timezone pending'}
             isCollapsed={sidebarCollapsed}
             onToggleCollapse={toggleSidebar}
             onLogout={() => void handleLogout()}
@@ -464,12 +441,9 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
                 <span aria-hidden="true">↪</span>
                 Logout
               </button>
-              <span>
-                {context?.branch?.name ??
-                  context?.branch?.id ??
-                  'Branch pending'}
+              <span className="shell-mobile-drawer-footer-meta">
+                Powered by Radar Solutions
               </span>
-              <span>{context?.branch?.timezone ?? 'Timezone pending'}</span>
             </div>
           </div>
         </div>

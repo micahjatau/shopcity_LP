@@ -15,6 +15,7 @@ import {
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SESSION_COOKIE_NAME } from '../../config/app.constants';
+import { isLocalCashierTestSessionEnabledFromConfig } from '../../config/local-cashier-test-session';
 import { PUBLIC_ROUTE_KEY } from './auth.constants';
 import { parseCookies } from './cookie';
 import { AuthContext, AuthenticatedRequest, AuthUser } from './session.types';
@@ -117,7 +118,13 @@ export async function loadAuthContext(
     .get<string>('WEBAUTHN_RP_ID')
     ?.trim()
     .toLowerCase();
-  if (!isSessionDeviceEligible(session, expectedRpId)) {
+  if (
+    !isSessionDeviceEligible(
+      session,
+      expectedRpId,
+      isLocalCashierTestSessionEnabledFromConfig(configService),
+    )
+  ) {
     return null;
   }
 
@@ -213,6 +220,7 @@ export function isSessionDeviceEligible(
     } | null;
   },
   expectedRpId?: string,
+  allowLocalCashierTestSession = false,
 ): boolean {
   const isCashier = session.user.role === 'CASHIER';
   const isSmokeSession = session.purpose === SessionPurpose.SMOKE;
@@ -238,6 +246,16 @@ export function isSessionDeviceEligible(
     session.user.branchId !== session.device.branchId
   ) {
     return false;
+  }
+
+  if (
+    isCashier &&
+    isSmokeSession &&
+    allowLocalCashierTestSession &&
+    session.device.authBindingMode === 'UNPAIRED' &&
+    session.deviceCredentialId == null
+  ) {
+    return true;
   }
 
   if (session.device.authBindingMode === 'WEBAUTHN') {

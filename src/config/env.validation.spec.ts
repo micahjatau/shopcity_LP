@@ -15,6 +15,101 @@ describe('envValidationSchema', () => {
       (result.value as Record<string, unknown>)
         .WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED,
     ).toBe(false);
+    expect(
+      (result.value as Record<string, unknown>)
+        .DEV_CASHIER_TEST_SESSION_ENABLED,
+    ).toBe(false);
+  });
+
+  it('allows local cashier test sessions only with local DB and deterministic SMS', () => {
+    const local = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL:
+        'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity?schema=public',
+      SMS_PROVIDER_MODE: 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: true,
+    });
+    expect(local.error).toBeUndefined();
+
+    const unsafe = [
+      {
+        NODE_ENV: 'development',
+        VERCEL_ENV: 'preview',
+        DATABASE_URL: 'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity',
+        SMS_PROVIDER_MODE: 'deterministic',
+      },
+      {
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://shopcity:shopcity@db.example.com/shopcity',
+        SMS_PROVIDER_MODE: 'deterministic',
+      },
+      {
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity',
+        SMS_PROVIDER_MODE: 'real',
+      },
+      {
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity',
+        SMS_PROVIDER_MODE: 'deterministic',
+      },
+    ];
+
+    for (const environment of unsafe) {
+      expect(
+        envValidationSchema.validate({
+          ...environment,
+          DEV_CASHIER_TEST_SESSION_ENABLED: true,
+        }).error,
+      ).toBeDefined();
+    }
+  });
+
+  it('allows only an exact HTTPS Tailscale origin with the complete local cashier gate', () => {
+    const local = {
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity',
+      SMS_PROVIDER_MODE: 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: true,
+    };
+    const allowed = envValidationSchema.validate({
+      ...local,
+      DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN:
+        'https://shopcity-dev.tailnet.ts.net:8445',
+    });
+    expect(allowed.error).toBeUndefined();
+
+    const unsafe = [
+      {
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity',
+        SMS_PROVIDER_MODE: 'deterministic',
+        DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN:
+          'https://shopcity-dev.tailnet.ts.net:8445',
+      },
+      {
+        ...local,
+        VERCEL_ENV: 'preview',
+      },
+      {
+        ...local,
+        DATABASE_URL: 'postgresql://shopcity:shopcity@db.example.test/shopcity',
+      },
+      {
+        ...local,
+        DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN:
+          'https://preview.shopcity.test',
+      },
+      {
+        ...local,
+        DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN:
+          'https://shopcity-dev.tailnet.ts.net:8445/path',
+      },
+    ];
+
+    for (const environment of unsafe) {
+      expect(envValidationSchema.validate(environment).error).toBeDefined();
+    }
   });
 
   it('allows the explicit dev enrollment flag only in development with RP config', () => {

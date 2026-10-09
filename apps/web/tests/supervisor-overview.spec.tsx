@@ -183,9 +183,7 @@ describe('Supervisor overview live reporting', () => {
     render(<SupervisorPage />);
 
     expect(
-      await screen.findByText(
-        /No report for today's branch date/,
-      ),
+      await screen.findByText(/No report for today's branch date/),
     ).toBeInTheDocument();
     expect(screen.getByText(/Checked/)).toBeInTheDocument();
     expect(
@@ -245,7 +243,9 @@ describe('Supervisor overview live reporting', () => {
   it('searches approvals beyond the first page and keeps the global pending count', async () => {
     jest
       .mocked(approvalsControllerListApprovalsV1)
-      .mockResolvedValueOnce(approvalsResponse(approvals, 6, 'cursor-2', true, 6))
+      .mockResolvedValueOnce(
+        approvalsResponse(approvals, 6, 'cursor-2', true, 6),
+      )
       .mockResolvedValueOnce(
         approvalsResponse([approvalBeyondFirstPage], 1, null, false, 6),
       )
@@ -285,7 +285,9 @@ describe('Supervisor overview live reporting', () => {
     const pendingCard = screen
       .getByRole('heading', { name: 'Pending approvals' })
       .closest('[data-metric-card]');
-    expect(within(pendingCard as HTMLElement).getByText('6')).toBeInTheDocument();
+    expect(
+      within(pendingCard as HTMLElement).getByText('6'),
+    ).toBeInTheDocument();
 
     const refreshButton = screen.getByRole('button', {
       name: 'Refresh overview data',
@@ -299,23 +301,23 @@ describe('Supervisor overview live reporting', () => {
   });
 
   it('shows only the zero-approval summary when the unfiltered queue and count are unavailable', async () => {
-    jest.mocked(approvalsControllerListApprovalsV1).mockResolvedValueOnce(
-      {
-        status: 200,
+    jest.mocked(approvalsControllerListApprovalsV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
         data: {
-          data: {
-            items: [],
-            nextCursor: null,
-            hasMore: false,
-          },
+          items: [],
+          nextCursor: null,
+          hasMore: false,
         },
-      } as never,
-    );
+      },
+    } as never);
 
     render(<SupervisorPage />);
 
     expect(await screen.findByText('Showing 0 approvals')).toBeInTheDocument();
-    expect(screen.queryByText(/pending total unavailable/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/pending total unavailable/),
+    ).not.toBeInTheDocument();
   });
 
   it('shows no-match search results without changing the pending metric', async () => {
@@ -339,10 +341,10 @@ describe('Supervisor overview live reporting', () => {
     const pendingCard = screen
       .getByRole('heading', { name: 'Pending approvals' })
       .closest('[data-metric-card]');
-    expect(within(pendingCard as HTMLElement).getByText('6')).toBeInTheDocument();
     expect(
-      screen.getByText('Showing 0 approvals'),
+      within(pendingCard as HTMLElement).getByText('6'),
     ).toBeInTheDocument();
+    expect(screen.getByText('Showing 0 approvals')).toBeInTheDocument();
   });
 
   it('resets to the first result page when the search term changes', async () => {
@@ -351,7 +353,9 @@ describe('Supervisor overview live reporting', () => {
     );
     jest
       .mocked(approvalsControllerListApprovalsV1)
-      .mockResolvedValueOnce(approvalsResponse(approvals, 6, 'cursor-2', true, 6))
+      .mockResolvedValueOnce(
+        approvalsResponse(approvals, 6, 'cursor-2', true, 6),
+      )
       .mockResolvedValueOnce(
         approvalsResponse(firstBolaPage, 6, 'search-next', true, 6),
       )
@@ -406,7 +410,9 @@ describe('Supervisor overview live reporting', () => {
   it('keeps the search active while paging through matching approvals', async () => {
     jest
       .mocked(approvalsControllerListApprovalsV1)
-      .mockResolvedValueOnce(approvalsResponse(approvals, 6, 'cursor-2', true, 6))
+      .mockResolvedValueOnce(
+        approvalsResponse(approvals, 6, 'cursor-2', true, 6),
+      )
       .mockResolvedValueOnce(
         approvalsResponse([approvals[1]], 2, 'search-next', true, 6),
       )
@@ -446,7 +452,9 @@ describe('Supervisor overview live reporting', () => {
         expect.objectContaining({ credentials: 'include' }),
       ),
     );
-    expect(await screen.findByRole('row', { name: /Bola Shopper/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('row', { name: /Bola Shopper/ }),
+    ).toBeInTheDocument();
     expect(nextButton).toBeEnabled();
 
     fireEvent.click(nextButton);

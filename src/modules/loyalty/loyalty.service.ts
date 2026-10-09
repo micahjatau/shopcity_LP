@@ -141,17 +141,34 @@ export interface TransactionAllocationItem {
   }>;
 }
 
+export type SupervisorTransactionOutcome = 'CONFIRMED' | 'REVERSED';
+
+export interface SupervisorTransactionSearchFilters {
+  status?: string;
+  staffId?: string;
+  minReceiptAmountKobo?: string;
+}
+
+export interface SupervisorTransactionSearchStaffOption {
+  id: string;
+  label: string;
+}
+
 export interface SupervisorTransactionSearchItem {
   transactionId: string;
   receiptNumber: string;
   operation: 'EARN' | 'REDEEM';
   amountKobo: number;
-  status: LedgerEntryStatus;
+  creditKobo: number | null;
+  customerName: string | null;
+  purchaseAmountKobo: number | null;
+  status: SupervisorTransactionOutcome;
   occurredAt: string;
 }
 
 export interface SupervisorTransactionSearchResponse {
   items: SupervisorTransactionSearchItem[];
+  staffOptions: SupervisorTransactionSearchStaffOption[];
   nextCursor: string | null;
   hasMore: boolean;
 }
@@ -1113,6 +1130,7 @@ export class LoyaltyService {
     receiptNumber: string | undefined,
     limitValue?: string,
     cursor?: string,
+    filters: SupervisorTransactionSearchFilters = {},
   ): Promise<SupervisorTransactionSearchResponse> {
     if (actor.user.role !== UserRole.SUPERVISOR) {
       throw new ForbiddenException(
@@ -1127,14 +1145,36 @@ export class LoyaltyService {
       );
     }
 
-    const normalizedReceiptNumber = normalizeReceiptIdentity(
-      normalizeReceiptNumber(receiptNumber ?? ''),
-    );
+    const normalizedReceiptNumber = receiptNumber?.trim()
+      ? normalizeReceiptIdentity(normalizeReceiptNumber(receiptNumber))
+      : undefined;
     const { limit } = parseCursorPageRequest(limitValue, cursor, 10, 50);
     const cursorPosition = cursor ? decodeCursor(cursor) : null;
     const cursorTimestamp = cursorPosition
       ? parseDate(cursorPosition.timestamp, 'cursor timestamp')
       : null;
+    const normalizedStatus = filters.status?.trim().toUpperCase();
+    if (
+      normalizedStatus &&
+      normalizedStatus !== 'CONFIRMED' &&
+      normalizedStatus !== 'REVERSED'
+    ) {
+      throw new BadRequestException('Unsupported transaction status filter');
+    }
+    const staffId = filters.staffId?.trim() || undefined;
+    const rawMinimum = filters.minReceiptAmountKobo?.trim();
+    let minimumReceiptAmountKobo: bigint | undefined;
+    if (rawMinimum) {
+      if (!/^\d{1,19}$/.test(rawMinimum)) {
+        throw new BadRequestException(
+          'Minimum receipt amount must be integer kobo',
+        );
+      }
+      minimumReceiptAmountKobo = BigInt(rawMinimum);
+      if (minimumReceiptAmountKobo > 9223372036854775807n) {
+        throw new BadRequestException('Minimum receipt amount is out of range');
+      }
+    }
     const where: Prisma.LoyaltyLedgerEntryWhereInput = {
       tenantId,
       type: { in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM] },
@@ -1142,9 +1182,20 @@ export class LoyaltyService {
         is: {
           tenantId,
           branchId,
-          normalizedPosReceiptNumber: normalizedReceiptNumber,
+          ...(normalizedReceiptNumber
+            ? { normalizedPosReceiptNumber: normalizedReceiptNumber }
+            : {}),
+          ...(staffId ? { capturedBy: staffId } : {}),
+          ...(minimumReceiptAmountKobo !== undefined
+            ? { purchaseAmountKobo: { gte: minimumReceiptAmountKobo } }
+            : {}),
         },
       },
+      ...(normalizedStatus === 'REVERSED'
+        ? { reversedByEntries: { some: { tenantId } } }
+        : normalizedStatus === 'CONFIRMED'
+          ? { reversedByEntries: { none: { tenantId } } }
+          : {}),
       ...(cursorPosition && cursorTimestamp
         ? {
             OR: [
@@ -1157,19 +1208,45 @@ export class LoyaltyService {
           }
         : {}),
     };
-    const entries = await this.prismaService.loyaltyLedgerEntry.findMany({
-      where,
-      orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
-      take: limit + 1,
-      select: {
-        id: true,
-        type: true,
-        amountKobo: true,
-        status: true,
-        effectiveAt: true,
-        receipt: { select: { posReceiptNumber: true } },
-      },
-    });
+    const [entries, branchStaff] = await Promise.all([
+      this.prismaService.loyaltyLedgerEntry.findMany({
+        where,
+        orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+        select: {
+          id: true,
+          type: true,
+          amountKobo: true,
+          status: true,
+          effectiveAt: true,
+          reversedByEntries: { select: { id: true }, take: 1 },
+          receipt: {
+            select: {
+              posReceiptNumber: true,
+              purchaseAmountKobo: true,
+              customer: { select: { fullName: true } },
+            },
+          },
+        },
+      }),
+      this.prismaService.user.findMany({
+        where: {
+          tenantId,
+          receiptsCaptured: {
+            some: {
+              tenantId,
+              branchId,
+              ...(normalizedReceiptNumber
+                ? { normalizedPosReceiptNumber: normalizedReceiptNumber }
+                : {}),
+            },
+          },
+        },
+        select: { id: true, username: true },
+        orderBy: [{ username: 'asc' }, { id: 'asc' }],
+        take: 50,
+      }),
+    ]);
     const hasMore = entries.length > limit;
     const pageItems = entries.slice(0, limit);
     const lastItem = pageItems.at(-1);
@@ -1178,11 +1255,24 @@ export class LoyaltyService {
       items: pageItems.map((entry) => ({
         transactionId: entry.id,
         receiptNumber:
-          entry.receipt?.posReceiptNumber ?? normalizedReceiptNumber,
+          entry.receipt?.posReceiptNumber ??
+          normalizedReceiptNumber ??
+          'Not provided',
         operation: entry.type === LedgerEntryType.EARN ? 'EARN' : 'REDEEM',
         amountKobo: Number(entry.amountKobo),
-        status: entry.status,
+        creditKobo:
+          entry.type === LedgerEntryType.EARN ? Number(entry.amountKobo) : null,
+        customerName: entry.receipt?.customer?.fullName ?? null,
+        purchaseAmountKobo:
+          entry.receipt?.purchaseAmountKobo == null
+            ? null
+            : Number(entry.receipt.purchaseAmountKobo),
+        status: entry.reversedByEntries?.length ? 'REVERSED' : 'CONFIRMED',
         occurredAt: entry.effectiveAt.toISOString(),
+      })),
+      staffOptions: branchStaff.map((staff) => ({
+        id: staff.id,
+        label: staff.username,
       })),
       nextCursor:
         hasMore && lastItem

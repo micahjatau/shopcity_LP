@@ -15,6 +15,8 @@ yarn-error.log*
 .husky/_/
 .vercel
 
-# Generated build and Python cache artifacts
+# Generated build, lint, browser profile, and Python cache artifacts
 *.tsbuildinfo
+.eslintcache
 __pycache__/
+micah/BrowserMetrics/

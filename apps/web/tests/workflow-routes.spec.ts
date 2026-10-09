@@ -106,15 +106,17 @@ test.describe('workflow route coverage', () => {
     const pageSearch = overview.getByRole('searchbox', {
       name: 'Search all open approvals',
     });
-    await overview
-      .getByRole('button', { name: 'Next approvals page' })
-      .click();
-    await expect(overview.getByText('Page 2 · 80 pending overall')).toBeVisible();
+    await overview.getByRole('button', { name: 'Next approvals page' }).click();
+    await expect(
+      overview.getByText('Page 2 · 80 pending overall'),
+    ).toBeVisible();
     await expect.poll(() => approvalCursors).toContain('overview-more');
     await overview
       .getByRole('button', { name: 'Previous approvals page' })
       .click();
-    await expect(overview.getByText('Page 1 · 80 pending overall')).toBeVisible();
+    await expect(
+      overview.getByText('Page 1 · 80 pending overall'),
+    ).toBeVisible();
     await pageSearch.fill('Zara');
     await expect(
       overview.getByText('Zara Customer', { exact: true }),
@@ -686,6 +688,18 @@ test.describe('workflow route coverage', () => {
         });
         await page.goto(`${baseUrl}${route.path}`);
         await expect(page.locator('[data-od-id="login-page"]')).toBeVisible();
+        const loginBackgroundPreload = page.locator(
+          'link[rel="preload"][as="image"][href$="/brand/login-bgrd.webp"]',
+        );
+        await expect(loginBackgroundPreload).toHaveCount(1);
+        await expect(loginBackgroundPreload).toHaveAttribute(
+          'fetchpriority',
+          'high',
+        );
+        await expect(page.locator('[data-od-id="login-page"]')).toHaveCSS(
+          'background-image',
+          /login-bgrd\.webp/,
+        );
         await expect(
           page.locator('[data-od-id="role-selector"] input'),
         ).toHaveCount(3);
@@ -850,7 +864,7 @@ test.describe('workflow route coverage', () => {
       [
         '/supervisor/transactions',
         'Transactions',
-        'Search by receipt number to review transaction details.',
+        'Review branch transactions and filter by receipt number.',
       ],
     ] as const;
     const headerTypography = async (title: string, description: string) => {
@@ -917,7 +931,9 @@ test.describe('workflow route coverage', () => {
         await expect(
           root.getByRole('columnheader', { name: 'Receipt no.' }),
         ).toBeVisible();
-        await expect(root.getByText('Search for a receipt')).toBeVisible();
+        await expect(
+          root.getByText('No branch transactions found'),
+        ).toBeVisible();
         await expect(
           root.locator('.supervisor-transaction-reversal'),
         ).toHaveCount(0);
@@ -1020,9 +1036,23 @@ test.describe('workflow route coverage', () => {
       },
     ]);
 
+    let receiptSearchCallCount = 0;
     await page.route('**/api/v1/transactions?*', async (route) => {
+      receiptSearchCallCount += 1;
       const url = new URL(route.request().url());
-      expect(url.searchParams.get('receiptNumber')).toBe('r-001');
+      if (receiptSearchCallCount === 1) {
+        expect(url.searchParams.has('receiptNumber')).toBe(false);
+      } else {
+        expect(url.searchParams.get('receiptNumber')).toBe('r-001');
+      }
+      if (url.searchParams.has('status')) {
+        expect(url.searchParams.get('status')).toBe('CONFIRMED');
+        expect(url.searchParams.get('staffId')).toBe('cashier-1');
+        expect(url.searchParams.get('minReceiptAmountKobo')).toBe('10000');
+      }
+      if (receiptSearchCallCount === 1 || receiptSearchCallCount === 4) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
       return route.fulfill(
         json({
           success: true,
@@ -1033,10 +1063,17 @@ test.describe('workflow route coverage', () => {
                 receiptNumber: 'R-001',
                 operation: 'EARN',
                 amountKobo: 500,
+                creditKobo: 500,
+                customerName:
+                  receiptSearchCallCount === 4
+                    ? 'Refreshed Michael Adeyemi'
+                    : 'Michael Adeyemi',
+                purchaseAmountKobo: 10_000,
                 status: 'CONFIRMED',
                 occurredAt: '2030-01-01T10:00:00.000Z',
               },
             ],
+            staffOptions: [{ id: 'cashier-1', label: 'cashier@example.test' }],
             nextCursor: null,
             hasMore: false,
           },
@@ -1058,6 +1095,7 @@ test.describe('workflow route coverage', () => {
             purchaseAmountKobo: 10_000,
             availableBalanceKobo: 2_500,
             occurredAt: '2030-01-01T10:00:00.000Z',
+            capturedAt: '2030-01-01T10:01:00.000Z',
           },
           meta: meta('/api/v1/transactions/ledger-1'),
         }),
@@ -1091,17 +1129,152 @@ test.describe('workflow route coverage', () => {
     );
 
     await page.goto(`${baseUrl}/supervisor/transactions`);
+    await expect(
+      page.getByText(
+        'Review branch transactions and filter by receipt number.',
+        {
+          exact: true,
+        },
+      ),
+    ).toBeVisible();
+    const refreshButton = page.getByRole('button', {
+      name: 'Refresh transactions',
+    });
+    await expect(refreshButton).toBeDisabled();
+    await expect.poll(() => receiptSearchCallCount).toBe(1);
+    await expect(refreshButton).toBeEnabled();
+    const resultRow = page.locator('tbody tr').filter({ hasText: 'R-001' });
+    await expect(resultRow).toBeVisible();
     await page.getByRole('textbox', { name: 'Receipt number' }).fill('r-001');
     await page
       .locator('.supervisor-transaction-search')
       .getByRole('button', { name: 'Search' })
       .click();
-    const resultRow = page.locator('tbody tr').filter({ hasText: 'R-001' });
     await expect(resultRow).toBeVisible();
+    await page
+      .getByRole('combobox', { name: 'Status filter' })
+      .selectOption('CONFIRMED');
+    await page
+      .getByRole('combobox', { name: 'Staff filter' })
+      .selectOption('cashier-1');
+    await page
+      .getByRole('textbox', { name: 'Minimum receipt amount' })
+      .fill('100.00');
+    await page
+      .locator('.supervisor-transaction-search')
+      .getByRole('button', { name: 'Apply filters' })
+      .click();
+    await expect.poll(() => receiptSearchCallCount).toBe(3);
+    await expect(resultRow).toBeVisible();
+    await expect(refreshButton).toBeEnabled();
+    await expect(refreshButton).toHaveCSS('color', 'rgb(17, 24, 39)');
+    const refreshContent = refreshButton.locator(
+      '.supervisor-transaction-refresh-content',
+    );
+    await expect(refreshContent).toHaveCSS('display', 'inline-flex');
+    const refreshParts = await refreshContent.evaluate((content) => {
+      const icon = content.querySelector('svg')?.getBoundingClientRect();
+      const label = content.querySelector('span')?.getBoundingClientRect();
+      return icon && label
+        ? {
+            iconRight: icon.right,
+            labelLeft: label.left,
+            iconCenter: icon.top + icon.height / 2,
+            labelCenter: label.top + label.height / 2,
+          }
+        : null;
+    });
+    expect(refreshParts).not.toBeNull();
+    expect(refreshParts!.labelLeft).toBeGreaterThanOrEqual(
+      refreshParts!.iconRight,
+    );
+    expect(
+      Math.abs(refreshParts!.iconCenter - refreshParts!.labelCenter),
+    ).toBeLessThan(2);
+    const headerRightGap = await page
+      .locator('[data-od-id="transactions-heading"]')
+      .evaluate((header) => {
+        const refresh = header.querySelector('.supervisor-transaction-refresh');
+        return refresh
+          ? header.getBoundingClientRect().right -
+              refresh.getBoundingClientRect().right
+          : Number.POSITIVE_INFINITY;
+      });
+    expect(headerRightGap).toBeLessThan(2);
+    const transactionPagination = page.getByRole('navigation', {
+      name: 'Transaction pages',
+    });
+    await expect(transactionPagination).toHaveCSS('display', 'flex');
+    await expect(transactionPagination).toHaveCSS(
+      'justify-content',
+      'flex-end',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'width',
+      '34px',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'border-radius',
+      '8px',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'color',
+      'rgb(0, 0, 0)',
+    );
+    await expect(transactionPagination.locator('button').first()).toHaveCSS(
+      'opacity',
+      '0.45',
+    );
+    await expect(
+      transactionPagination.locator(
+        '.supervisor-transaction-pagination-status',
+      ),
+    ).toHaveCSS('color', 'rgb(0, 0, 0)');
+    await refreshButton.click();
+    await expect(refreshButton).toBeDisabled();
+    await expect(page.getByText('Michael Adeyemi')).toBeVisible();
+    await expect.poll(() => receiptSearchCallCount).toBe(4);
+    await expect(page.getByText('Refreshed Michael Adeyemi')).toBeVisible();
+    await expect(resultRow).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { name: 'Name' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.supervisor-transaction-filter > span').first(),
+    ).toHaveCSS('font-size', '12px');
+    await expect(
+      page.getByRole('combobox', { name: 'Status filter' }),
+    ).toHaveCSS('font-size', '16px');
+    await expect(page.getByRole('columnheader', { name: 'Status' })).toHaveCSS(
+      'font-size',
+      '12px',
+    );
+    await expect(resultRow.locator('td').first()).toHaveCSS(
+      'font-size',
+      '14px',
+    );
+    await expect(page.locator('.supervisor-transaction-table-card')).toHaveCSS(
+      'border-radius',
+      '16px',
+    );
     await resultRow.click();
 
-    const dialog = page.getByRole('dialog', { name: 'R-001' });
+    const dialog = page.getByRole('dialog', { name: /R-001/ });
     await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('width', '920px');
+    await expect(
+      dialog.getByRole('heading', { name: 'Transaction R-001' }),
+    ).toHaveCSS('font-size', '24px');
+    await expect(dialog.locator('dt').first()).toHaveCSS('font-size', '12px');
+    await expect(dialog.locator('dd').first()).toHaveCSS('font-size', '16px');
+    await expect(
+      dialog.getByRole('heading', { name: 'Transaction timeline' }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(
+        'Receipt image is not provided by the transaction service.',
+      ),
+    ).toBeVisible();
     await expect(
       dialog.getByRole('heading', { name: 'Request reversal' }),
     ).toBeVisible();
@@ -1120,6 +1293,33 @@ test.describe('workflow route coverage', () => {
         csrfToken: 'csrf-browser-token',
         idempotencyKey: expect.any(String),
       });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('width', '351px');
+    const mobileHeaderRightGap = await page
+      .locator('[data-od-id="transactions-heading"]')
+      .evaluate((header) => {
+        const refresh = header.querySelector('.supervisor-transaction-refresh');
+        return refresh
+          ? header.getBoundingClientRect().right -
+              refresh.getBoundingClientRect().right
+          : Number.POSITIVE_INFINITY;
+      });
+    expect(mobileHeaderRightGap).toBeLessThan(2);
+    await expect(page.locator('.supervisor-transaction-pagination')).toHaveCSS(
+      'justify-content',
+      'flex-end',
+    );
+    await expect(
+      page.locator('.supervisor-transaction-pagination-button').first(),
+    ).toHaveCSS('width', '34px');
+    await expect(
+      page.locator('.supervisor-transaction-table-scroll'),
+    ).toHaveCSS('overflow-x', 'auto');
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(375);
   });
 
   test('keeps the cashier overview launcher and context compact', async ({
@@ -3243,6 +3443,21 @@ async function mockShell(
       );
     }
 
+    if (pathname === '/api/v1/transactions') {
+      return route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta(pathname),
+        }),
+      );
+    }
+
     if (pathname === '/api/v1/transactions/earn') {
       return route.fulfill({
         ...json({
@@ -3376,7 +3591,9 @@ async function mockShell(
     }
 
     if (pathname === '/api/v1/approvals') {
-      const searchQuery = new URL(route.request().url()).searchParams.get('search');
+      const searchQuery = new URL(route.request().url()).searchParams.get(
+        'search',
+      );
       const pageItems = Array.from({ length: 5 }, (_, index) => ({
         id: `approval-${index + 1}`,
         receiptId: `receipt-${index + 1}`,

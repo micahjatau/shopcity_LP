@@ -189,12 +189,15 @@ describe('OpenAPI contract (int)', () => {
       { items?: { properties?: Record<string, unknown> } } | undefined;
     const itemProperties = itemsSchema?.items?.properties;
     const parameterNames = JSON.stringify(operation?.parameters ?? []);
+    const receiptNumberParameter = operation?.parameters?.find(
+      (parameter) => 'name' in parameter && parameter.name === 'receiptNumber',
+    );
 
     expect(operation).toBeDefined();
     expect(parameterNames).toContain('receiptNumber');
     expect(parameterNames).toContain('limit');
     expect(parameterNames).toContain('cursor');
-    expect(parameterNames).toContain('"required":true');
+    expect(receiptNumberParameter).toMatchObject({ required: false });
     expect(dataSchema?.required).toEqual(
       expect.arrayContaining(['items', 'nextCursor', 'hasMore']),
     );

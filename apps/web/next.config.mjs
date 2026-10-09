@@ -19,6 +19,7 @@ const contentSecurityPolicy = [
 
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.SHOPCITY_WEB_DIST_DIR ?? '.next',
   outputFileTracingRoot: path.join(process.cwd(), '../..'),
   async headers() {
     return [

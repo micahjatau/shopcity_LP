@@ -146,6 +146,10 @@ describe('AppShell', () => {
     expect(mockBootstrapSession).toHaveBeenCalledTimes(1);
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Protected content')).toBeInTheDocument();
+    expect(screen.getByText('Powered by Radar Solutions')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Lekki Flagship|Africa\/Lagos/),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('combobox', { name: 'Search ShopCity' }),
     ).toBeInTheDocument();
@@ -398,9 +402,16 @@ describe('AppShell', () => {
     });
 
     fireEvent.click(screen.getByText('Menu', { selector: 'button' }));
+    const drawer = screen.getByRole('dialog', {
+      name: /primary navigation/i,
+    });
+    expect(drawer).toBeInTheDocument();
     expect(
-      screen.getByRole('dialog', { name: /primary navigation/i }),
-    ).toBeInTheDocument();
+      within(drawer).getByText('Powered by Radar Solutions'),
+    ).toBeVisible();
+    expect(
+      within(drawer).queryByText(/Lekki Flagship|Africa\/Lagos/),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /close/i })).toHaveFocus();
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));

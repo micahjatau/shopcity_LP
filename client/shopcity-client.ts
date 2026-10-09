@@ -9368,7 +9368,7 @@ export type ApprovalsControllerListApprovalsV1Params = {
    */
   includeTotalCount?: boolean;
   /**
-   * Search pending approval fields within the caller’s authorized scope before cursor pagination.
+   * Search approval fields within the caller’s authorized scope before cursor pagination; any status filter is applied as well.
    * @maxLength 100
    */
   search?: string;
@@ -10237,10 +10237,28 @@ export type LoyaltyControllerEarnV1503 = {
 };
 
 export type LoyaltyControllerSearchTransactionsByReceiptV1Params = {
-  receiptNumber: string;
+  /**
+   * Optional exact receipt-number filter; omitted to list the branch
+   */
+  receiptNumber?: string;
   limit?: number;
   cursor?: string;
+  status?: LoyaltyControllerSearchTransactionsByReceiptV1Status;
+  staffId?: string;
+  /**
+   * Minimum receipt purchase amount in integer kobo
+   * @pattern ^[0-9]{1,19}$
+   */
+  minReceiptAmountKobo?: string;
 };
+
+export type LoyaltyControllerSearchTransactionsByReceiptV1Status =
+  (typeof LoyaltyControllerSearchTransactionsByReceiptV1Status)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1Status];
+
+export const LoyaltyControllerSearchTransactionsByReceiptV1Status = {
+  CONFIRMED: 'CONFIRMED',
+  REVERSED: 'REVERSED',
+} as const;
 
 export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation =
   (typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation];
@@ -10251,17 +10269,39 @@ export const LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOpera
     REDEEM: 'REDEEM',
   } as const;
 
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus =
+  (typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus)[keyof typeof LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus];
+
+export const LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus =
+  {
+    CONFIRMED: 'CONFIRMED',
+    REVERSED: 'REVERSED',
+  } as const;
+
 export type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem = {
   transactionId: string;
   receiptNumber: string;
   operation: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemOperation;
   amountKobo: number;
-  status: string;
+  /** @nullable */
+  creditKobo: number | null;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
+  status: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItemStatus;
   occurredAt: string;
 };
 
+export type LoyaltyControllerSearchTransactionsByReceiptV1200DataStaffOptionsItem =
+  {
+    id: string;
+    label: string;
+  };
+
 export type LoyaltyControllerSearchTransactionsByReceiptV1200Data = {
   items: LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem[];
+  staffOptions: LoyaltyControllerSearchTransactionsByReceiptV1200DataStaffOptionsItem[];
   /** @nullable */
   nextCursor: string | null;
   hasMore: boolean;
@@ -21823,7 +21863,7 @@ export type loyaltyControllerSearchTransactionsByReceiptV1Response =
   | loyaltyControllerSearchTransactionsByReceiptV1ResponseError;
 
 export const getLoyaltyControllerSearchTransactionsByReceiptV1Url = (
-  params: LoyaltyControllerSearchTransactionsByReceiptV1Params,
+  params?: LoyaltyControllerSearchTransactionsByReceiptV1Params,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -21841,11 +21881,11 @@ export const getLoyaltyControllerSearchTransactionsByReceiptV1Url = (
 };
 
 /**
- * Search branch transactions by receipt number
- * @summary Search branch transactions by receipt number
+ * List and filter branch transactions
+ * @summary List and filter branch transactions
  */
 export const loyaltyControllerSearchTransactionsByReceiptV1 = async (
-  params: LoyaltyControllerSearchTransactionsByReceiptV1Params,
+  params?: LoyaltyControllerSearchTransactionsByReceiptV1Params,
   options?: RequestInit,
 ): Promise<loyaltyControllerSearchTransactionsByReceiptV1Response> => {
   const res = await fetch(

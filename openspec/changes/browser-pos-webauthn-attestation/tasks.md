@@ -48,6 +48,7 @@
 - [x] 6.3 Replace cashier secret entry with the two-phase WebAuthn interaction and clear unsupported/expired/revoked/re-pair states.
 - [x] 6.4 Remove manual `fingerprintHash` entry; set it null for WebAuthn devices. Any optional random browser installation ID is non-secret locator metadata only.
 - [x] 6.5 Ensure pairing authorization, private credential material, HMAC secrets, and password/login-attempt secrets never appear in URLs, logs, analytics, or persistent browser storage.
+- [x] 6.6 Clear cashier-only missing-device guidance when switching to Supervisor/Admin and cover the selection flow with a frontend test.
 
 ## 7. Migrate legacy HMAC devices
 
@@ -69,3 +70,6 @@
 - [x] 8.8 Add a development-only opt-in for repeatable local enrollment tests; reject it outside `NODE_ENV=development` and retain all verification/state checks.
 - [x] 8.9 Add a separate, default-off Vercel Preview enrollment opt-in that requires `VERCEL_ENV=preview`, HTTPS RP/origin configuration, and retains all verification/state checks.
 - [ ] 8.10 Configure the API Preview with an isolated non-production database and exact WebAuthn RP/origin values, then verify Preview-only enrollment without changing Production settings.
+- [x] 8.11 Add a default-off, local-only cashier workflow test session for earn/redeem using a dedicated unpaired test device; enforce loopback database, deterministic SMS, no Vercel environment, short lifetime, and non-refreshability.
+- [x] 8.12 Bind the API listener to loopback when the local cashier test-session opt-in is requested; preserve the standard listener behavior otherwise.
+- [x] 8.13 Add an exact, default-unset HTTPS Tailscale origin for the local cashier test session, preserve all loopback/development/deterministic-SMS gates, set Secure cookies for HTTPS, and expose the web app only through tailnet-only Tailscale Serve (never Funnel).

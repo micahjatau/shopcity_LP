@@ -1,4 +1,8 @@
 import * as Joi from 'joi';
+import {
+  isLocalCashierTestSessionEnabled,
+  isValidTailscaleHttpsOrigin,
+} from './local-cashier-test-session';
 
 const isTest = process.env.NODE_ENV === 'test';
 
@@ -107,6 +111,11 @@ export const envValidationSchema = Joi.object({
     .truthy('true')
     .falsy('false')
     .default(false),
+  DEV_CASHIER_TEST_SESSION_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN: Joi.string().trim().optional(),
   SHOPCITY_TIMEZONE: Joi.string().default('Africa/Lagos'),
   RECEIPT_WEEK_START_DAY: Joi.number().integer().min(0).max(6).default(1),
   DEFAULT_EARN_RATE_BPS: Joi.number().integer().min(0).max(10000).default(200),
@@ -346,6 +355,26 @@ export const envValidationSchema = Joi.object({
       envFlags.WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED === true;
     const qualificationApproved =
       envFlags.WEBAUTHN_DEVICE_QUALIFICATION_APPROVED === true;
+    const localCashierTestSessionRequested =
+      envFlags.DEV_CASHIER_TEST_SESSION_ENABLED === true;
+    const localCashierTestSessionEnvironment = {
+      NODE_ENV: nodeEnv,
+      VERCEL_ENV: env.VERCEL_ENV,
+      DATABASE_URL: env.DATABASE_URL,
+      SMS_PROVIDER_MODE: env.SMS_PROVIDER_MODE ?? 'deterministic',
+      DEV_CASHIER_TEST_SESSION_ENABLED: localCashierTestSessionRequested,
+    };
+    const localCashierTestSessionEnabled = isLocalCashierTestSessionEnabled(
+      localCashierTestSessionEnvironment,
+    );
+    const localCashierTestSessionInvalid =
+      localCashierTestSessionRequested && !localCashierTestSessionEnabled;
+    const tailscaleCashierOrigin =
+      envFlags.DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN;
+    const tailscaleCashierOriginInvalid =
+      tailscaleCashierOrigin !== undefined &&
+      (!localCashierTestSessionEnabled ||
+        !isValidTailscaleHttpsOrigin(tailscaleCashierOrigin));
     const previewOriginInvalid =
       previewEnrollmentEnabled &&
       webAuthnOrigins.some((origin) => {
@@ -361,6 +390,8 @@ export const envValidationSchema = Joi.object({
       (previewEnrollmentEnabled &&
         String(env.VERCEL_ENV ?? '') !== 'preview') ||
       previewOriginInvalid ||
+      localCashierTestSessionInvalid ||
+      tailscaleCashierOriginInvalid ||
       ((developmentEnrollmentEnabled ||
         previewEnrollmentEnabled ||
         qualificationApproved) &&

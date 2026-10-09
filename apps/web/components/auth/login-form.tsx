@@ -4,7 +4,10 @@ import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useId, useState } from 'react';
-import { loginWithCredentials } from '../../lib/api';
+import {
+  createLocalCashierTestSession,
+  loginWithCredentials,
+} from '../../lib/api';
 import { authControllerCompleteCashierLoginV1 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import {
@@ -49,6 +52,36 @@ export function LoginForm() {
   >('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const localCashierTestSessionVisible =
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED === 'true';
+
+  async function handleLocalCashierTestSession() {
+    if (!username.trim()) {
+      setStatus('error');
+      setMessage('Enter the local cashier email to start a test session.');
+      return;
+    }
+
+    setStatus('submitting');
+    setMessage(null);
+    try {
+      const response = await createLocalCashierTestSession(username.trim());
+      const role = response.data?.data?.user?.role;
+      if (response.status !== 200 || role !== 'CASHIER') {
+        throw new Error('Local test session unavailable');
+      }
+      setStatus('success');
+      setPassword('');
+      router.replace('/cashier');
+      router.refresh();
+    } catch {
+      setStatus('error');
+      setMessage(
+        'Local test session unavailable. Confirm the local-only backend opt-in and an active cashier account.',
+      );
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -169,7 +202,10 @@ export function LoginForm() {
                 aria-label={label}
                 aria-describedby={detailId}
                 defaultChecked={index === 0}
-                onChange={() => setSelectedRole(value)}
+                onChange={() => {
+                  setSelectedRole(value);
+                  setMessage(null);
+                }}
               />
               <span>
                 <strong>{label}</strong>
@@ -236,6 +272,22 @@ export function LoginForm() {
       >
         {status === 'submitting' ? 'Signing in…' : 'Sign In'}
       </Button>
+      {localCashierTestSessionVisible && selectedRole === 'CASHIER' && (
+        <div className="login-dev-cashier-session">
+          <Button
+            type="button"
+            disabled={status === 'submitting'}
+            onClick={() => void handleLocalCashierTestSession()}
+            data-od-id="local-cashier-test-session"
+          >
+            Start local cashier test session
+          </Button>
+          <small>
+            Local test data only; uses an unpaired test POS and expires after 15
+            minutes.
+          </small>
+        </div>
+      )}
       <p
         className={`login-notice${status === 'error' ? ' is-error' : ''}`}
         aria-live="polite"

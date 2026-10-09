@@ -8,13 +8,19 @@ import {
   Res,
   Version,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExcludeEndpoint,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { createHash } from 'node:crypto';
 import { AuthService } from './auth.service';
 import {
   CashierLoginCompleteDto,
   LoginDto,
+  LocalCashierTestSessionDto,
   SmokeSessionBootstrapDto,
   authResponseSchema,
 } from './auth.dto';
@@ -273,6 +279,43 @@ export class AuthController {
     return this.authService.toResponse(issued.context);
   }
 
+  @Post('dev/cashier-test-session')
+  @PublicRoute()
+  @Throttle({
+    bucket: 'auth.dev_cashier_test_session',
+    limit: 3,
+    windowMs: 15 * 60 * 1000,
+  })
+  @Version('1')
+  @HttpCode(200)
+  @ApiExcludeEndpoint()
+  async localCashierTestSession(
+    @Body() dto: LocalCashierTestSessionDto,
+    @Headers('origin') origin: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const issued = await this.authService.createLocalCashierTestSession(
+      dto.username,
+      origin,
+    );
+    const maxAge = Math.max(
+      0,
+      Math.floor(
+        (issued.context.session.expiresAt.getTime() - Date.now()) / 1000,
+      ),
+    );
+
+    this.setSessionCookies(
+      reply,
+      issued.sessionToken,
+      issued.csrfToken,
+      maxAge,
+      origin?.startsWith('https://') === true,
+    );
+
+    return this.authService.toResponse(issued.context);
+  }
+
   @Post('refresh')
   @Version('1')
   @HttpCode(200)
@@ -336,20 +379,11 @@ export class AuthController {
     sessionToken: string,
     csrfToken: string,
     maxAge: number,
+    secure = process.env.NODE_ENV === 'production',
   ): void {
     reply.header('Set-Cookie', [
-      buildCookie(
-        SESSION_COOKIE_NAME,
-        sessionToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
-      buildCsrfCookie(
-        CSRF_COOKIE_NAME,
-        csrfToken,
-        maxAge,
-        process.env.NODE_ENV === 'production',
-      ),
+      buildCookie(SESSION_COOKIE_NAME, sessionToken, maxAge, secure),
+      buildCsrfCookie(CSRF_COOKIE_NAME, csrfToken, maxAge, secure),
     ]);
   }
 }

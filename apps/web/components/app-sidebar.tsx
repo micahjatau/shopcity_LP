@@ -16,8 +16,6 @@ export type AppSidebarProps = Readonly<{
   sections: ShellNavigationSection[];
   pathname: string | null;
   workspaceLabel: string;
-  branchLabel: string;
-  branchTimezone: string;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onLogout: () => void;
@@ -28,8 +26,6 @@ export function AppSidebar({
   sections,
   pathname,
   workspaceLabel,
-  branchLabel,
-  branchTimezone,
   isCollapsed,
   onToggleCollapse,
   onLogout,
@@ -124,8 +120,8 @@ export function AppSidebar({
           <LogOut aria-hidden="true" size={16} strokeWidth={1.8} />
           <span>Logout</span>
         </button>
-        <span className="shell-sidebar-footer-meta" aria-hidden="true">
-          {branchLabel} · {branchTimezone}
+        <span className="shell-sidebar-footer-meta">
+          Powered by Radar Solutions
         </span>
       </div>
     </aside>

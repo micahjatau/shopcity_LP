@@ -56,6 +56,24 @@ export async function loginWithCredentials(
   };
 }
 
+export async function createLocalCashierTestSession(username: string) {
+  const request = createApiRequest({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  const response = await fetch(
+    '/api/v1/auth/dev/cashier-test-session',
+    request,
+  );
+  const text = await response.text();
+
+  return {
+    status: response.status,
+    data: text ? JSON.parse(text) : {},
+  };
+}
+
 export async function logoutSession() {
   return authControllerLogoutV1(createApiRequest({ csrf: true }));
 }

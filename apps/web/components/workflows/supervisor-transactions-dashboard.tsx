@@ -1,13 +1,16 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   loyaltyControllerGetTransactionV1,
   loyaltyControllerSearchTransactionsByReceiptV1,
   reversalsControllerReverseV1,
   type LoyaltyControllerGetTransactionV1200Data,
+  type LoyaltyControllerSearchTransactionsByReceiptV1200Data,
   type LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem,
+  type LoyaltyControllerSearchTransactionsByReceiptV1Status,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import {
@@ -27,6 +30,8 @@ import {
 
 type SearchItem =
   LoyaltyControllerSearchTransactionsByReceiptV1200DataItemsItem;
+type StaffOption =
+  LoyaltyControllerSearchTransactionsByReceiptV1200Data['staffOptions'][number];
 type DetailRecord = LoyaltyControllerGetTransactionV1200Data;
 type ListState = 'idle' | 'loading' | 'loaded' | 'error';
 type DetailState =
@@ -50,14 +55,31 @@ function normalizeReceipt(value: string | null | undefined) {
     .toUpperCase();
 }
 
+function nairaToKobo(value: string): string | undefined | null {
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(normalized);
+  if (!match || match[1].length > 17) return null;
+
+  const amountKobo =
+    BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
+  if (amountKobo > 9223372036854775807n) return null;
+  return amountKobo.toString();
+}
+
 function statusTone(
   status: string,
-): 'success' | 'danger' | 'warning' | 'neutral' {
+): 'success' | 'danger' | 'warning' | 'info' | 'neutral' {
   switch (status.trim().toUpperCase()) {
     case 'CONFIRMED':
     case 'POSTED':
     case 'COMPLETED':
+    case 'APPROVED':
       return 'success';
+    case 'REVERSED':
+    case 'REVERSAL':
+      return 'danger';
     case 'FAILED':
     case 'REJECTED':
     case 'DECLINED':
@@ -82,10 +104,16 @@ export function SupervisorTransactionsDashboard() {
   const [query, setQuery] = useState('');
   const [searchedReceipt, setSearchedReceipt] = useState('');
   const [items, setItems] = useState<SearchItem[]>([]);
-  const [listState, setListState] = useState<ListState>('idle');
-  const [message, setMessage] = useState(
-    'Search by receipt number to review branch transactions.',
-  );
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+  const [statusFilter, setStatusFilter] = useState<
+    LoyaltyControllerSearchTransactionsByReceiptV1Status | ''
+  >('');
+  const [staffFilter, setStaffFilter] = useState('');
+  const [minimumAmount, setMinimumAmount] = useState('');
+  const [filterError, setFilterError] = useState('');
+  const [filtersDirty, setFiltersDirty] = useState(false);
+  const [listState, setListState] = useState<ListState>('loading');
+  const [message, setMessage] = useState('Loading branch transactions…');
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [cursorStack, setCursorStack] = useState<CursorStack>([undefined]);
@@ -102,6 +130,7 @@ export function SupervisorTransactionsDashboard() {
   const [reversalSubmitted, setReversalSubmitted] = useState(false);
   const [searching, setSearching] = useState(false);
   const searchGeneration = useRef(0);
+  const initialListRequestStarted = useRef(false);
   const detailGeneration = useRef(0);
   const triggerRef = useRef<HTMLTableRowElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -120,16 +149,17 @@ export function SupervisorTransactionsDashboard() {
   ) {
     const generation = searchGeneration.current + 1;
     searchGeneration.current = generation;
-    const normalizedReceiptNumber = receiptNumber.trim();
-    if (!normalizedReceiptNumber) {
+    const minimumReceiptAmountKobo = nairaToKobo(minimumAmount);
+    if (minimumReceiptAmountKobo === null) {
       setSearching(false);
-      setItems([]);
-      setListState('idle');
-      setHasMore(false);
-      setNextCursor(null);
-      setMessage('Enter a receipt number to search transactions.');
+      setFiltersDirty(true);
+      setFilterError(
+        'Enter a valid minimum amount with up to two decimal places.',
+      );
       return;
     }
+    setFilterError('');
+    const normalizedReceiptNumber = receiptNumber.trim();
 
     setSearching(true);
     setListState('loading');
@@ -138,11 +168,26 @@ export function SupervisorTransactionsDashboard() {
       setHasMore(false);
       setNextCursor(null);
     }
-    setMessage(`Searching for receipt ${normalizedReceiptNumber}…`);
+    setMessage(
+      normalizedReceiptNumber
+        ? `Searching for receipt ${normalizedReceiptNumber}…`
+        : 'Loading branch transactions…',
+    );
 
     try {
       const response = await loyaltyControllerSearchTransactionsByReceiptV1(
-        { receiptNumber: normalizedReceiptNumber, limit: 10, cursor },
+        {
+          ...(normalizedReceiptNumber
+            ? { receiptNumber: normalizedReceiptNumber }
+            : {}),
+          limit: 10,
+          cursor,
+          ...(statusFilter ? { status: statusFilter } : {}),
+          ...(staffFilter ? { staffId: staffFilter } : {}),
+          ...(minimumReceiptAmountKobo
+            ? { minReceiptAmountKobo: minimumReceiptAmountKobo }
+            : {}),
+        },
         createApiRequest({ csrf: true }),
       );
       if (searchGeneration.current !== generation) return;
@@ -151,11 +196,14 @@ export function SupervisorTransactionsDashboard() {
 
       const result = response.data.data;
       setItems(result.items);
+      setStaffOptions(result.staffOptions);
       setHasMore(result.hasMore);
       setNextCursor(result.nextCursor);
       setListState('loaded');
       setMessage(
-        `${result.items.length} transaction${result.items.length === 1 ? '' : 's'} found for receipt ${normalizedReceiptNumber}.`,
+        normalizedReceiptNumber
+          ? `${result.items.length} transaction${result.items.length === 1 ? '' : 's'} found for receipt ${normalizedReceiptNumber}.`
+          : `${result.items.length} branch transaction${result.items.length === 1 ? '' : 's'} loaded.`,
       );
     } catch {
       if (searchGeneration.current !== generation) return;
@@ -165,25 +213,34 @@ export function SupervisorTransactionsDashboard() {
         setNextCursor(null);
       }
       setListState('error');
-      setMessage(
-        'The branch-scoped receipt search is temporarily unavailable.',
-      );
+      setMessage('The branch transaction list is temporarily unavailable.');
     } finally {
       if (searchGeneration.current === generation) setSearching(false);
     }
   }
 
+  useEffect(() => {
+    if (initialListRequestStarted.current) return;
+    initialListRequestStarted.current = true;
+    void loadReceiptResults('');
+    // The first request intentionally uses the initial empty filter state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const receiptNumber = query.trim();
     setSearchedReceipt(receiptNumber);
+    setFiltersDirty(false);
     setCursorStack([undefined]);
     setPageIndex(0);
     void loadReceiptResults(receiptNumber);
   }
 
   function loadNextPage() {
-    if (!hasMore || !nextCursor || !searchedReceipt || searching) return;
+    if (!hasMore || !nextCursor || searching || filtersDirty) {
+      return;
+    }
     const cursor = nextCursor;
     setCursorStack((current) => [...current.slice(0, pageIndex + 1), cursor]);
     setPageIndex((current) => current + 1);
@@ -191,10 +248,21 @@ export function SupervisorTransactionsDashboard() {
   }
 
   function loadPreviousPage() {
-    if (pageIndex <= 0 || searching) return;
+    if (pageIndex <= 0 || searching || filtersDirty) return;
     const previousIndex = pageIndex - 1;
     setPageIndex(previousIndex);
     void loadReceiptResults(searchedReceipt, cursorStack[previousIndex]);
+  }
+
+  function refreshResults() {
+    if (
+      listState === 'idle' ||
+      listState === 'loading' ||
+      searching ||
+      filtersDirty
+    )
+      return;
+    void loadReceiptResults(searchedReceipt, cursorStack[pageIndex], true);
   }
 
   function closeDetail() {
@@ -346,7 +414,7 @@ export function SupervisorTransactionsDashboard() {
 
   return (
     <section
-      className="supervisor-page transaction-dashboard"
+      className="supervisor-page transaction-dashboard supervisor-transactions-dashboard"
       data-od-id="transactions-view"
       aria-labelledby="supervisor-transactions-title"
     >
@@ -354,149 +422,297 @@ export function SupervisorTransactionsDashboard() {
         className="cashier-route-header supervisor-page__header"
         dataOdId="transactions-heading"
         title={<span id="supervisor-transactions-title">Transactions</span>}
-        description="Search by receipt number to review transaction details."
+        description="Review branch transactions and filter by receipt number."
+        actions={
+          <Button
+            variant="secondary"
+            size="compact"
+            className="supervisor-transaction-refresh"
+            type="button"
+            aria-label="Refresh transactions"
+            title="Refresh transactions"
+            disabled={
+              listState === 'idle' ||
+              listState === 'loading' ||
+              searching ||
+              filtersDirty
+            }
+            onClick={refreshResults}
+          >
+            <span className="supervisor-transaction-refresh-content">
+              <RefreshCw aria-hidden="true" size={14} />
+              <span>Refresh</span>
+            </span>
+          </Button>
+        }
       />
-
-      <form
-        className="supervisor-transaction-search"
-        data-od-id="transaction-filters"
-        role="search"
-        onSubmit={search}
-      >
-        <Input
-          aria-label="Receipt number"
-          autoComplete="off"
-          required
-          placeholder="Enter receipt number"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <Button type="submit" loading={searching}>
-          Search
-        </Button>
-      </form>
-
-      <p className="cashier-workflow-notice" role="status" aria-live="polite">
-        {message}
-      </p>
 
       <ShopCityCard
         as="section"
         variant="table"
-        className="transaction-table-card"
+        className="transaction-table-card supervisor-transaction-table-card"
         data-od-id="transactions-table"
-        aria-label="Supervisor receipt search results"
+        aria-label="Supervisor transaction results"
       >
-        <Table>
-          <thead>
-            <tr>
-              <th>Receipt no.</th>
-              <th>Operation</th>
-              <th>Amount</th>
-              <th>Date &amp; time</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length ? (
-              items.map((item) => (
-                <tr
-                  key={item.transactionId}
-                  ref={(element) => {
-                    if (
-                      selected?.transactionId === item.transactionId &&
-                      element
-                    ) {
-                      triggerRef.current = element;
+        <form
+          className="supervisor-transaction-search"
+          data-od-id="transaction-filters"
+          role="search"
+          onSubmit={search}
+        >
+          <label
+            className="supervisor-transaction-filter supervisor-transaction-filter--receipt"
+            htmlFor="supervisor-transaction-receipt-number"
+          >
+            <span>Receipt number</span>
+            <Input
+              id="supervisor-transaction-receipt-number"
+              aria-label="Receipt number"
+              autoComplete="off"
+              placeholder="Filter by receipt number"
+              value={query}
+              onChange={(event) => {
+                const value = event.target.value;
+                setQuery(value);
+                setFiltersDirty(true);
+                if (value.trim() !== searchedReceipt) {
+                  setStaffOptions([]);
+                  setStaffFilter('');
+                }
+                setFilterError('');
+              }}
+            />
+          </label>
+          <label
+            className="supervisor-transaction-filter"
+            htmlFor="supervisor-transaction-status-filter"
+          >
+            <span>Status</span>
+            <select
+              id="supervisor-transaction-status-filter"
+              aria-label="Status filter"
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(
+                  event.target.value as
+                    LoyaltyControllerSearchTransactionsByReceiptV1Status | '',
+                );
+                setFiltersDirty(true);
+                setFilterError('');
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="REVERSED">Reversed</option>
+            </select>
+          </label>
+          <label
+            className="supervisor-transaction-filter"
+            htmlFor="supervisor-transaction-staff-filter"
+          >
+            <span>Staff</span>
+            <select
+              id="supervisor-transaction-staff-filter"
+              aria-label="Staff filter"
+              value={staffFilter}
+              disabled={searching}
+              onChange={(event) => {
+                setStaffFilter(event.target.value);
+                setFiltersDirty(true);
+                setFilterError('');
+              }}
+            >
+              <option value="">All Staff</option>
+              {staffOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            className="supervisor-transaction-filter"
+            htmlFor="supervisor-transaction-minimum-amount"
+          >
+            <span>Minimum receipt amount (naira)</span>
+            <Input
+              id="supervisor-transaction-minimum-amount"
+              aria-label="Minimum receipt amount"
+              autoComplete="off"
+              inputMode="decimal"
+              maxLength={20}
+              placeholder="Min. Amount"
+              value={minimumAmount}
+              onChange={(event) => {
+                setMinimumAmount(event.target.value);
+                setFiltersDirty(true);
+                setFilterError('');
+              }}
+            />
+          </label>
+          <Button type="submit" loading={searching}>
+            {searchedReceipt || statusFilter || staffFilter || minimumAmount
+              ? 'Apply filters'
+              : 'Search'}
+          </Button>
+        </form>
+
+        {filterError ? (
+          <p className="supervisor-transaction-filter-error" role="alert">
+            {filterError}
+          </p>
+        ) : null}
+
+        {message ? (
+          <p
+            className="cashier-workflow-notice supervisor-transaction-status"
+            role="status"
+            aria-live="polite"
+          >
+            {message}
+          </p>
+        ) : null}
+
+        <div className="supervisor-transaction-table-scroll">
+          <Table>
+            <caption className="sr-only">
+              Supervisor branch transactions
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Receipt No.</th>
+                <th scope="col">Name</th>
+                <th scope="col">Receipt amount</th>
+                <th scope="col">Credit</th>
+                <th scope="col">Date &amp; time</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length ? (
+                items.map((item) => (
+                  <tr
+                    key={item.transactionId}
+                    ref={(element) => {
+                      if (
+                        selected?.transactionId === item.transactionId &&
+                        element
+                      ) {
+                        triggerRef.current = element;
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`Open ${item.operation.toLowerCase()} transaction for receipt ${item.receiptNumber}`}
+                    onClick={(event) =>
+                      void openDetail(item, event.currentTarget)
                     }
-                  }}
-                  tabIndex={0}
-                  aria-label={`Open ${item.operation.toLowerCase()} transaction for receipt ${item.receiptNumber}`}
-                  onClick={(event) =>
-                    void openDetail(item, event.currentTarget)
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      void openDetail(item, event.currentTarget);
-                    }
-                  }}
-                >
-                  <td>{item.receiptNumber}</td>
-                  <td>{item.operation}</td>
-                  <td>
-                    <Money amountKobo={Math.abs(item.amountKobo)} />
-                  </td>
-                  <td>{formatDate(item.occurredAt)}</td>
-                  <td>
-                    <StatusBadge
-                      label={statusLabel(item.status)}
-                      tone={statusTone(item.status)}
-                    />
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void openDetail(item, event.currentTarget);
+                      }
+                    }}
+                  >
+                    <td>{item.receiptNumber}</td>
+                    <td>{item.customerName ?? 'Not provided'}</td>
+                    <td>
+                      {item.purchaseAmountKobo == null ? (
+                        'Not provided'
+                      ) : (
+                        <Money amountKobo={item.purchaseAmountKobo} />
+                      )}
+                    </td>
+                    <td>
+                      {item.creditKobo == null ? (
+                        <span aria-label="Not applicable">—</span>
+                      ) : (
+                        <Money amountKobo={item.creditKobo} />
+                      )}
+                    </td>
+                    <td>{formatDate(item.occurredAt)}</td>
+                    <td>
+                      <StatusBadge
+                        label={statusLabel(item.status)}
+                        tone={statusTone(item.status)}
+                      />
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6}>
+                    <div
+                      className="transaction-empty-state"
+                      role={listState === 'error' ? 'alert' : 'status'}
+                    >
+                      <strong>
+                        {listState === 'loading'
+                          ? 'Loading transactions'
+                          : listState === 'error'
+                            ? 'Transactions unavailable'
+                            : listState === 'loaded'
+                              ? searchedReceipt
+                                ? 'No transactions found'
+                                : 'No branch transactions found'
+                              : 'Loading branch transactions'}
+                      </strong>
+                      <p>
+                        {listState === 'loading'
+                          ? searchedReceipt
+                            ? `Loading transactions for receipt ${searchedReceipt}.`
+                            : 'Loading the first page of branch transactions.'
+                          : listState === 'error'
+                            ? 'The branch transaction list could not be completed.'
+                            : listState === 'loaded'
+                              ? searchedReceipt
+                                ? 'No matching transactions were found for this receipt number.'
+                                : 'No transactions were found in this branch.'
+                              : 'The branch transaction list loads automatically.'}
+                      </p>
+                    </div>
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5}>
-                  <div
-                    className="transaction-empty-state"
-                    role={listState === 'error' ? 'alert' : 'status'}
-                  >
-                    <strong>
-                      {listState === 'loading'
-                        ? 'Searching transactions'
-                        : listState === 'error'
-                          ? 'Transactions unavailable'
-                          : listState === 'loaded'
-                            ? 'No transactions found'
-                            : 'Search for a receipt'}
-                    </strong>
-                    <p>
-                      {listState === 'loading'
-                        ? 'Looking for transactions with this receipt number.'
-                        : listState === 'error'
-                          ? 'The branch-scoped receipt search could not be completed.'
-                          : listState === 'loaded'
-                            ? 'No matching transactions were found for this receipt number.'
-                            : 'Enter the receipt number to load matching branch transactions.'}
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
+        </div>
         <footer className="transaction-table-footer">
-          <p className="cashier-workflow-hint">
-            {searchedReceipt
-              ? `Receipt ${searchedReceipt} · page ${currentPage}`
-              : 'Results are limited to the authenticated branch.'}
-          </p>
-          <div
-            className="transaction-pagination"
+          {searchedReceipt ? (
+            <p className="cashier-workflow-hint">
+              Receipt {searchedReceipt} · page {currentPage}
+            </p>
+          ) : null}
+          <nav
+            className="supervisor-transaction-pagination"
             aria-label="Transaction pages"
           >
-            <Button
+            <button
+              className="supervisor-transaction-pagination-button"
               type="button"
-              variant="ghost"
-              size="compact"
-              disabled={pageIndex === 0 || searching}
+              aria-label="Previous transactions page"
+              title="Previous transactions page"
+              disabled={pageIndex === 0 || searching || filtersDirty}
               onClick={loadPreviousPage}
             >
-              Previous
-            </Button>
-            <span aria-live="polite">Page {currentPage}</span>
-            <Button
+              <ChevronLeft aria-hidden="true" size={16} />
+            </button>
+            <p
+              className="supervisor-transaction-pagination-status"
+              aria-live="polite"
+            >
+              Page {currentPage}
+            </p>
+            <button
+              className="supervisor-transaction-pagination-button"
               type="button"
-              variant="ghost"
-              size="compact"
-              disabled={!hasMore || searching}
+              aria-label="Next transactions page"
+              title="Next transactions page"
+              disabled={!hasMore || searching || filtersDirty}
               onClick={loadNextPage}
             >
-              Next
-            </Button>
-          </div>
+              <ChevronRight aria-hidden="true" size={16} />
+            </button>
+          </nav>
         </footer>
       </ShopCityCard>
 
@@ -510,30 +726,30 @@ export function SupervisorTransactionsDashboard() {
         >
           <div
             ref={modalRef}
-            className="transaction-detail-modal"
+            className="transaction-detail-modal supervisor-transaction-detail-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="supervisor-transaction-detail-title"
           >
             <div className="transaction-detail-modal__head">
               <div>
-                <p className="section-label">Transaction detail</p>
+                <p className="section-label">Transaction</p>
                 <h2 id="supervisor-transaction-detail-title">
-                  {selected.receiptNumber}
+                  Transaction {selected.receiptNumber}
                 </h2>
                 <p className="transaction-detail-modal__note">
-                  Detail and reversal eligibility are checked by the transaction
-                  service.
+                  Details for transaction {selected.receiptNumber}
                 </p>
               </div>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
+                size="compact"
                 aria-label="Close transaction detail"
                 disabled={submittingReversal}
                 onClick={closeDetail}
               >
-                Close
+                <X aria-hidden="true" size={16} />
               </Button>
             </div>
 
@@ -545,8 +761,8 @@ export function SupervisorTransactionsDashboard() {
                 not available.
               </Alert>
             ) : detailState.status === 'loaded' ? (
-              <div className="transaction-detail-columns">
-                <dl className="transaction-detail-list">
+              <div className="transaction-detail-columns supervisor-transaction-detail-columns">
+                <dl className="transaction-detail-list supervisor-transaction-detail-list">
                   <div>
                     <dt>Receipt number</dt>
                     <dd>
@@ -559,7 +775,12 @@ export function SupervisorTransactionsDashboard() {
                   </div>
                   <div>
                     <dt>Status</dt>
-                    <dd>{statusLabel(detailState.record.state)}</dd>
+                    <dd>
+                      <StatusBadge
+                        label={statusLabel(detailState.record.state)}
+                        tone={statusTone(detailState.record.state)}
+                      />
+                    </dd>
                   </div>
                   <div>
                     <dt>Transaction amount</dt>
@@ -595,12 +816,41 @@ export function SupervisorTransactionsDashboard() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Effective at</dt>
+                    <dt>Occurred at</dt>
                     <dd>{formatDate(detailState.record.occurredAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Captured at</dt>
+                    <dd>{formatDate(detailState.record.capturedAt)}</dd>
                   </div>
                 </dl>
 
-                <div className="transaction-detail-context">
+                <div className="transaction-detail-context supervisor-transaction-detail-context">
+                  <div className="transaction-receipt-preview supervisor-transaction-receipt-preview">
+                    Receipt image is not provided by the transaction service.
+                  </div>
+                  <section
+                    className="transaction-audit supervisor-transaction-audit"
+                    aria-labelledby="supervisor-transaction-timeline-title"
+                  >
+                    <h3 id="supervisor-transaction-timeline-title">
+                      Transaction timeline
+                    </h3>
+                    <div className="transaction-audit-list">
+                      <div>
+                        <strong>Occurred</strong>
+                        <span>{formatDate(detailState.record.occurredAt)}</span>
+                      </div>
+                      <div>
+                        <strong>Captured</strong>
+                        <span>{formatDate(detailState.record.capturedAt)}</span>
+                      </div>
+                      <div>
+                        <strong>Outcome</strong>
+                        <span>{statusLabel(detailState.record.state)}</span>
+                      </div>
+                    </div>
+                  </section>
                   {reversalSubmitted ? (
                     <Alert tone="success" title="Reversal confirmed">
                       The transaction service confirmed the reversal request.

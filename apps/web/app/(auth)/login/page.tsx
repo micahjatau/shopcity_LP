@@ -1,8 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { preload } from 'react-dom';
 import { LoginForm } from '../../../components/auth/login-form';
 
 export default function LoginPage() {
+  preload('/brand/login-bgrd.webp', {
+    as: 'image',
+    fetchPriority: 'high',
+  });
+
   return (
     <main className="login-page" data-od-id="login-page">
       <div className="login-page__deep-edge" aria-hidden="true" />

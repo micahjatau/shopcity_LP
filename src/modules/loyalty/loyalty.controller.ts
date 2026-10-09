@@ -263,7 +263,7 @@ const customerLedgerResponseSchema = {
 
 const supervisorTransactionSearchSchema = {
   type: 'object',
-  required: ['items', 'nextCursor', 'hasMore'],
+  required: ['items', 'staffOptions', 'nextCursor', 'hasMore'],
   properties: {
     items: {
       type: 'array',
@@ -274,6 +274,9 @@ const supervisorTransactionSearchSchema = {
           'receiptNumber',
           'operation',
           'amountKobo',
+          'creditKobo',
+          'customerName',
+          'purchaseAmountKobo',
           'status',
           'occurredAt',
         ],
@@ -282,8 +285,22 @@ const supervisorTransactionSearchSchema = {
           receiptNumber: { type: 'string' },
           operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
           amountKobo: { type: 'integer' },
-          status: { type: 'string' },
+          creditKobo: { type: 'integer', nullable: true },
+          customerName: { type: 'string', nullable: true },
+          purchaseAmountKobo: { type: 'integer', nullable: true },
+          status: { type: 'string', enum: ['CONFIRMED', 'REVERSED'] },
           occurredAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+    staffOptions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'label'],
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          label: { type: 'string' },
         },
       },
     },
@@ -497,19 +514,43 @@ export class LoyaltyController {
   @Get('transactions')
   @Version('1')
   @Roles(UserRole.SUPERVISOR)
-  @ApiQuery({ name: 'receiptNumber', required: true, type: String })
+  @ApiQuery({
+    name: 'receiptNumber',
+    required: false,
+    type: String,
+    description:
+      'Optional exact receipt-number filter; omitted to list the branch',
+  })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'cursor', required: false, type: String })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['CONFIRMED', 'REVERSED'],
+  })
+  @ApiQuery({ name: 'staffId', required: false, type: String })
+  @ApiQuery({
+    name: 'minReceiptAmountKobo',
+    required: false,
+    schema: { type: 'string', pattern: '^[0-9]{1,19}$' },
+    description: 'Minimum receipt purchase amount in integer kobo',
+  })
   @apiSuccessEnvelopeResponse({
-    description: 'Supervisor transactions matching a receipt number',
+    description:
+      'Branch-scoped Supervisor transactions, optionally filtered by receipt number',
     dataSchema: supervisorTransactionSearchSchema,
   })
-  @ApiOperation({ summary: 'Search branch transactions by receipt number' })
+  @ApiOperation({
+    summary: 'List and filter branch transactions',
+  })
   searchTransactionsByReceipt(
     @Req() request: AuthenticatedRequest,
     @Query('receiptNumber') receiptNumber?: string,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
+    @Query('status') status?: string,
+    @Query('staffId') staffId?: string,
+    @Query('minReceiptAmountKobo') minReceiptAmountKobo?: string,
   ) {
     return this.loyaltyService.searchTransactionsByReceipt(
       request.authContext!.user.tenantId,
@@ -517,6 +558,7 @@ export class LoyaltyController {
       receiptNumber,
       limit,
       cursor,
+      { status, staffId, minReceiptAmountKobo },
     );
   }
 

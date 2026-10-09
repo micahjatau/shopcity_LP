@@ -51,6 +51,14 @@ For CASHIER, valid account authentication SHALL NOT create a ShopCity session un
 - **THEN** the response indicates `DEVICE_ASSERTION_REQUIRED` and returns only a short-lived attempt plus public WebAuthn options
 - **AND** no ShopCity session or authentication cookie is created
 
+#### Scenario: Supervisor or Admin changes from the default Cashier selection
+
+- **GIVEN** the shared sign-in form displays a cashier-only pairing warning
+- **WHEN** staff selects Supervisor or Admin
+- **THEN** the cashier-only warning is cleared
+- **AND** the cashier pairing precheck does not block the selected role's credential submission
+- **AND** the backend remains authoritative for the authenticated role and session permissions
+
 #### Scenario: Cashier login proof is invalid or incomplete
 
 - **WHEN** login lacks a valid assertion, attempt, challenge, credential, signature, user-presence/user-verification signal, active device, or branch compatibility
@@ -169,3 +177,37 @@ Vercel Preview MAY enable WebAuthn enrollment only when the separate `WEBAUTHN_P
 - **WHEN** `WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED` is configured as true
 - **THEN** environment validation rejects the configuration
 - **AND** enrollment remains disabled unless the separate local-development or production-qualification gate applies
+
+### Requirement: Local and tailnet-scoped unpaired cashier test sessions are isolated
+
+A developer MAY create a short-lived CASHIER test session for local earn/redeem workflow development without pairing a physical device. The path SHALL be disabled by default and require `NODE_ENV=development`, no `VERCEL_ENV`, an explicit `DEV_CASHIER_TEST_SESSION_ENABLED=true` opt-in, a loopback-only `DATABASE_URL`, and deterministic non-delivering SMS mode. When this opt-in is requested, the API listener SHALL bind only to loopback; with the opt-in off, the existing listener behavior SHALL remain unchanged. By default, the endpoint SHALL accept only a loopback HTTP Origin. An operator MAY additionally configure one exact canonical HTTPS `*.ts.net` origin with `DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN`; environment validation SHALL reject this setting unless the entire local-only gate passes. The configured tailnet origin SHALL be exposed only through Tailscale Serve in tailnet-only mode under the operator's Tailscale ACL; Funnel and public exposure are prohibited. API/database access remains loopback/local, requests from any other non-loopback origin SHALL be rejected, and session cookies issued to the HTTPS tailnet origin SHALL be Secure. The path SHALL use an active CASHIER assigned to an active branch and a dedicated active `UNPAIRED` local test device in that branch. The resulting session SHALL be marked `SMOKE`, expire within 15 minutes, and SHALL NOT be refreshable. The exception SHALL be accepted by session resolution only under the same development, local-database, deterministic-SMS, and no-Vercel gate; it SHALL NOT change normal login, enrollment, credential verification, production qualification, or paired-device requirements. All resulting transactions are local test data and SHALL NOT be routed to a remote database or real SMS provider.
+
+#### Scenario: Local cashier workflow session
+
+- **GIVEN** the local-only opt-in and loopback database are configured, deterministic SMS mode is selected, no tailnet origin is required, and an active branch-bound CASHIER exists
+- **WHEN** a developer starts a local cashier test session from a loopback HTTP Origin
+- **THEN** the backend issues a short-lived smoke session bound to a dedicated `UNPAIRED` local test device without performing WebAuthn pairing
+- **AND** normal earn/redeem authorization, validation, audit, and local persistence continue to run
+- **AND** the session cannot be created or resolved in Vercel Development, Preview, Production, staging, or any non-loopback database environment
+
+#### Scenario: Exact tailnet origin is explicitly allowed
+
+- **GIVEN** the full local-only gate passes, an exact HTTPS `*.ts.net` origin is configured, an active branch-bound CASHIER exists, and Tailscale Serve exposes the local web server in tailnet-only mode
+- **WHEN** a request with that exact Origin starts a local cashier test session
+- **THEN** the backend issues the same non-refreshable 15-minute smoke session and both session cookies are Secure
+- **AND** requests from a different Tailscale hostname, port, scheme, or any other non-loopback origin are rejected
+- **AND** the API remains loopback-bound and the link is not exposed through Funnel or the public internet
+
+#### Scenario: Local cashier test session is disabled or misconfigured
+
+- **GIVEN** the opt-in is false, `NODE_ENV` is not `development`, `VERCEL_ENV` is present, the database is not loopback-only, SMS mode is not deterministic, or a tailnet origin is invalid or configured without the local opt-in
+- **WHEN** the local test-session endpoint is called or configuration is validated
+- **THEN** the endpoint is unavailable or rejects the request and environment validation rejects unsafe opt-in
+- **AND** no session or test device is created
+
+#### Scenario: Local cashier opt-in constrains the API listener
+
+- **GIVEN** `DEV_CASHIER_TEST_SESSION_ENABLED=true`
+- **WHEN** the API starts
+- **THEN** it listens only on the loopback interface
+- **AND** when the opt-in is false, the existing API listener binding remains unchanged

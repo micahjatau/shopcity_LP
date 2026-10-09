@@ -37,6 +37,10 @@ import {
   isSessionDeviceEligible,
 } from '../../common/auth/session.guard';
 import { decryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
+import {
+  isAllowedLocalCashierTestSessionOrigin,
+  isLocalCashierTestSessionEnabledFromConfig,
+} from '../../config/local-cashier-test-session';
 
 const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_SESSION_LIFETIME_MS = 1000 * 60 * 60 * 12;
@@ -542,6 +546,114 @@ export class AuthService {
     });
   }
 
+  async createLocalCashierTestSession(
+    username: string,
+    origin: string | undefined,
+  ): Promise<IssuedSession> {
+    const configuredTailscaleOrigin = this.configService.get<string>(
+      'DEV_CASHIER_TEST_SESSION_TAILSCALE_ORIGIN',
+    );
+    if (
+      !isLocalCashierTestSessionEnabledFromConfig(this.configService) ||
+      !isAllowedLocalCashierTestSessionOrigin(origin, configuredTailscaleOrigin)
+    ) {
+      throw new UnauthorizedException(
+        'Local cashier test sessions are disabled',
+      );
+    }
+
+    const normalizedUsername = normalizeUsername(username);
+    return this.prismaService.$transaction(async (prisma) => {
+      const matchingUsers = await prisma.user.findMany({
+        where: {
+          username: { equals: normalizedUsername, mode: 'insensitive' },
+          role: UserRole.CASHIER,
+          status: 'ACTIVE',
+        },
+        include: { tenant: true, branch: true },
+        take: 2,
+      });
+      if (matchingUsers.length !== 1) {
+        throw new UnauthorizedException('Active branch cashier is required');
+      }
+
+      const matchedUser = matchingUsers[0];
+      if (!matchedUser) {
+        throw new UnauthorizedException('Active branch cashier is required');
+      }
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "User"
+        WHERE "tenantId" = ${matchedUser.tenantId} AND "id" = ${matchedUser.id}
+        FOR UPDATE
+      `);
+      const user = await prisma.user.findUnique({
+        where: { id: matchedUser.id },
+        include: { tenant: true, branch: true },
+      });
+      if (
+        !user ||
+        user.role !== UserRole.CASHIER ||
+        user.status !== 'ACTIVE' ||
+        !user.branchId ||
+        !user.branch ||
+        !isAuthUserEligible(user)
+      ) {
+        throw new UnauthorizedException('Active branch cashier is required');
+      }
+
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "Branch"
+        WHERE "tenantId" = ${user.tenantId} AND "id" = ${user.branchId}
+        FOR UPDATE
+      `);
+
+      const localTestDeviceName = 'LOCAL DEV TEST POS';
+      let device = await prisma.device.findFirst({
+        where: {
+          tenantId: user.tenantId,
+          branchId: user.branchId,
+          name: localTestDeviceName,
+          status: DeviceStatus.ACTIVE,
+          authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          fingerprintHash: null,
+          pairedAt: null,
+        },
+      });
+
+      if (!device) {
+        device = await prisma.device.create({
+          data: {
+            tenantId: user.tenantId,
+            branchId: user.branchId,
+            name: localTestDeviceName,
+            status: DeviceStatus.ACTIVE,
+            authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          },
+        });
+        await this.auditService.recordWithClient(prisma, {
+          tenantId: user.tenantId,
+          actorId: user.id,
+          action: 'auth.local_cashier_test_device.created',
+          entityType: 'device',
+          entityId: device.id,
+          metadata: { branchId: user.branchId, authBindingMode: 'UNPAIRED' },
+        });
+      }
+
+      return this.issueSession(
+        prisma,
+        user.id,
+        user.tenantId,
+        'auth.local_cashier_test_session',
+        device.id,
+        SMOKE_SESSION_LIFETIME_MS,
+        SessionPurpose.SMOKE,
+      );
+    });
+  }
+
   async refresh(sessionId: string): Promise<IssuedSession> {
     const session = await this.prismaService.session.findUnique({
       where: { id: sessionId },
@@ -561,7 +673,13 @@ export class AuthService {
       throw new UnauthorizedException('Session expired or revoked');
     }
 
-    if (!isSessionDeviceEligible(session, this.configuredWebAuthnRpId())) {
+    if (
+      !isSessionDeviceEligible(
+        session,
+        this.configuredWebAuthnRpId(),
+        isLocalCashierTestSessionEnabledFromConfig(this.configService),
+      )
+    ) {
       throw new DomainHttpException(
         HttpStatus.UNAUTHORIZED,
         'DEVICE_REVOKED',

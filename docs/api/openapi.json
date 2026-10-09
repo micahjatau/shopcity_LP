@@ -21041,7 +21041,7 @@
               "type": "string",
               "maxLength": 100
             },
-            "description": "Search pending approval fields within the caller’s authorized scope before cursor pagination."
+            "description": "Search approval fields within the caller’s authorized scope before cursor pagination; any status filter is applied as well."
           }
         ],
         "responses": {
@@ -23265,8 +23265,9 @@
         "parameters": [
           {
             "name": "receiptNumber",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Optional exact receipt-number filter; omitted to list the branch",
             "schema": {
               "type": "string"
             }
@@ -23286,11 +23287,38 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": ["CONFIRMED", "REVERSED"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "staffId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minReceiptAmountKobo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{1,19}$"
+            },
+            "description": "Minimum receipt purchase amount in integer kobo"
           }
         ],
         "responses": {
           "200": {
-            "description": "Supervisor transactions matching a receipt number",
+            "description": "Branch-scoped Supervisor transactions, optionally filtered by receipt number",
             "content": {
               "application/json": {
                 "schema": {
@@ -23303,7 +23331,12 @@
                     },
                     "data": {
                       "type": "object",
-                      "required": ["items", "nextCursor", "hasMore"],
+                      "required": [
+                        "items",
+                        "staffOptions",
+                        "nextCursor",
+                        "hasMore"
+                      ],
                       "properties": {
                         "items": {
                           "type": "array",
@@ -23314,6 +23347,9 @@
                               "receiptNumber",
                               "operation",
                               "amountKobo",
+                              "creditKobo",
+                              "customerName",
+                              "purchaseAmountKobo",
                               "status",
                               "occurredAt"
                             ],
@@ -23332,12 +23368,41 @@
                               "amountKobo": {
                                 "type": "integer"
                               },
+                              "creditKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "customerName": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "purchaseAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
                               "status": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": ["CONFIRMED", "REVERSED"]
                               },
                               "occurredAt": {
                                 "type": "string",
                                 "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "staffOptions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["id", "label"],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "label": {
+                                "type": "string"
                               }
                             }
                           }
@@ -23844,9 +23909,9 @@
             "bearer": []
           }
         ],
-        "summary": "Search branch transactions by receipt number",
+        "summary": "List and filter branch transactions",
         "tags": ["transactions"],
-        "description": "Search branch transactions by receipt number"
+        "description": "List and filter branch transactions"
       }
     },
     "/api/v1/transactions/{id}": {
