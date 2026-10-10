@@ -2,7 +2,7 @@
 
 ### Requirement: Supervisor customer profile presents verified account information
 
-The Supervisor customer profile MUST use a stable customer ID and show the identity, account status, available credit, lifetime earned credit, pending approvals, the next credit expiry, recent profile activity, and the assigned virtual card from authenticated tenant-scoped API data. The profile MUST verify that fetched detail matches the requested customer ID before enabling existing profile edits or status controls. Profile summary metrics MUST use integer-kobo API values and MUST NOT use the sample values embedded in the supplied SVG references.
+The Supervisor customer profile MUST use a stable customer ID and show the identity, account status, available credit, lifetime earned credit, pending approvals, the credit-expiry schedule, recent profile activity, and the assigned virtual card from authenticated tenant-scoped API data. The profile MUST verify that fetched detail matches the requested customer ID before exposing or enabling existing profile edits or status controls. Profile summary metrics MUST use integer-kobo API values and MUST NOT use the sample values embedded in the supplied SVG references.
 
 #### Scenario: Supervisor opens a verified customer profile
 
@@ -17,6 +17,49 @@ The Supervisor customer profile MUST use a stable customer ID and show the ident
 - **WHEN** the profile is rendered
 - **THEN** it presents a truthful loading or retryable error state
 - **AND** no customer values, virtual card, or write controls from another ID are exposed.
+
+### Requirement: Annual purchases summary uses only an authoritative value
+
+The fourth profile summary card MUST be labelled **Annual Purchases** instead of **Next expiry**. It MUST display an annual-purchase value only when returned by an authenticated, tenant/customer-scoped profile API. Since the current profile API does not return an annual-purchase total, the card MUST display **Not provided** in a smaller muted text style and MUST NOT infer an amount from bounded activity or SVG samples. The credit-expiry schedule remains available as a separate profile section.
+
+#### Scenario: Annual purchases value is unavailable
+
+- **GIVEN** the current authenticated profile API has no annual-purchases total
+- **WHEN** the Supervisor opens the profile
+- **THEN** the fourth summary card is labelled **Annual Purchases** and shows **Not provided**
+- **AND** it does not reuse the former no-expiry message, infer a yearly total, or affect the separate credit-expiry schedule.
+
+### Requirement: Profile customer details are read-only until explicitly edited
+
+The Overview MUST present customer details as a read-only card matching the supplied customer-details reference, with an explicit Edit action that opens the existing verified customer editor in an accessible dialog. The card MUST show full name, phone, email, birthday month, registration date, transaction count, and redemption count using only verified customer/profile API values. Registration date MUST use the verified `memberSince` or customer `createdAt`; a missing or unsupported value MUST be labeled **Not provided**. The current profile API does not return birthday month or lifetime transaction/redemption counts, so the UI MUST NOT derive counts from bounded activity lists or copy sample values from the SVG. The edit dialog MUST preserve existing identity verification, CSRF/idempotency, save verification, status confirmation, and dirty-state safeguards. A verified profile save closes the editor but keeps the Supervisor on that profile.
+
+#### Scenario: Overview shows read-only customer details
+
+- **GIVEN** the Supervisor has opened a same-ID verified customer profile
+- **WHEN** the Overview is rendered
+- **THEN** the reference customer-details fields are displayed as read-only values with an Edit action
+- **AND** birthday month, transaction count, redemption count, or registration date are labeled **Not provided** when not returned by the API.
+
+#### Scenario: Edit opens the existing customer editor
+
+- **GIVEN** the Supervisor is viewing the verified customer details card
+- **WHEN** the Supervisor activates Edit
+- **THEN** the existing editable customer form opens in an accessible dialog with the verified customer's current values
+- **AND** closing a clean editor returns to the read-only profile without navigating away or submitting an update.
+
+#### Scenario: Dirty edits are kept or discarded explicitly
+
+- **GIVEN** the Supervisor has changed customer details in the edit dialog
+- **WHEN** the Supervisor cancels, presses Escape, or dismisses the dialog
+- **THEN** an explicit keep-editing/discard decision is presented
+- **AND** discard restores the verified baseline and leaves the profile open, while keep-editing retains the changed values.
+
+#### Scenario: Verified save returns to the read-only profile
+
+- **GIVEN** the Supervisor has changed valid details
+- **WHEN** the update and authoritative same-ID refresh verify all submitted values
+- **THEN** the dialog closes and the profile shows the refreshed read-only values
+- **AND** an update, refresh, or value-verification failure keeps the dialog open with edits preserved and an error shown.
 
 ### Requirement: Profile activity and customer tabs use authoritative APIs
 
@@ -42,6 +85,26 @@ The profile MUST provide Overview, Transactions, Wallet Ledger, Redemptions, Vir
 - **THEN** each tab remains scoped to the same verified customer ID
 - **AND** changing tabs does not alter the customer, status, balance, card, ledger, or approval data.
 
+#### Scenario: Transactions tab uses the Overview card presentation
+
+- **GIVEN** the Supervisor opens Transactions for the verified customer
+- **WHEN** the profile transaction projection is rendered
+- **THEN** transactions appear in a responsive, read-only table card styled consistently with the Overview profile cards and the supplied transactions-card reference
+- **AND** returned date/time, purchase amount, capture status, and review status are shown without exposing internal receipt IDs
+- **AND** receipt number and transaction-level credit display **Not provided** because the current projection does not return them
+- **AND** the column headers remain visible when there are no transactions, with the honest empty state shown in a full-width table row
+- **AND** the tab preserves its retryable error state
+
+#### Scenario: Wallet Ledger columns use the authenticated customer-ledger API
+
+- **GIVEN** the Supervisor opens Wallet Ledger for a verified customer
+- **WHEN** a ledger page is requested from `GET /api/v1/customers/{id}/ledger`
+- **THEN** the read is scoped to the authenticated tenant and verified customer ID, and response identity is checked before rendering
+- **AND** Source, Date & Time, Type, Amount, Expiry, and Staff map to the receipt number, effective timestamp, ledger type/direction, integer-kobo amount/direction, credit-lot expiry, and creator username returned by that endpoint
+- **AND** the table uses cursor pagination, does not expose raw receipt or ledger UUIDs, and does not issue one network request per cell
+- **AND** Balance After displays **Not provided** until the API supplies a reliable historical per-entry balance; current available balance is not substituted
+- **AND** loading, retryable error, empty, and older-entry states remain read-only and customer-scoped
+
 ### Requirement: Virtual card and credit expiry are calculated from current records
 
 The profile virtual card MUST use the current assigned card's authoritative identifier, status, and issue date. The credit-expiry schedule MUST use the remaining amount and expiry date of the customer's available credit lots returned by the API. Expiring amounts MUST be grouped or displayed by their actual expiry date, use integer kobo, and exclude fully used or already expired credit. No card number, barcode, expiry amount, date, or arbitrary "expiring soon" window may be invented. Supplied SVG files are design references only and MUST remain unchanged.
@@ -49,9 +112,12 @@ The profile virtual card MUST use the current assigned card's authoritative iden
 #### Scenario: Customer has an issued virtual card
 
 - **GIVEN** the verified customer has an assigned card returned by the API
-- **WHEN** the Supervisor opens Virtual Card or Overview
-- **THEN** the virtual card displays that card's real identifier and authoritative status/date
-- **AND** the profile does not display the sample SVG's name, card number, barcode, or status as customer data.
+- **WHEN** the Supervisor opens the Virtual Card tab
+- **THEN** the tab renders the ShopCity card preview using that card's real identifier, authoritative status, issue date, and verified customer name
+- **AND** the profile does not display the sample SVG's name, card number, barcode, or status as customer data
+- **AND** the card-branding image at `apps/web/public/brand/supervisor/cutomer-profile/card-branding.png` is displayed as the logo at 3.5rem high with its aspect ratio preserved, and the source asset remains unchanged
+- **AND** the preview does not appear on Overview or the global Manage cards tab
+- **AND** Manage cards retains its verified serial/customer details and existing protected card actions without rendering the graphic preview.
 
 #### Scenario: Customer has no issued virtual card
 
@@ -65,7 +131,6 @@ The profile virtual card MUST use the current assigned card's authoritative iden
 - **GIVEN** the API returns one or more credit lots with remaining balance and future expiry
 - **WHEN** the Supervisor views the expiry schedule
 - **THEN** the page shows only those remaining amounts grouped by their actual expiry date and ordered earliest first
-- **AND** the summary's next-expiry date and amount agree with the schedule.
 
 #### Scenario: Customer has no upcoming credit expiry
 
@@ -73,6 +138,17 @@ The profile virtual card MUST use the current assigned card's authoritative iden
 - **WHEN** the Supervisor views the expiry schedule
 - **THEN** the page states that no upcoming expiry was returned
 - **AND** it does not display a made-up date, amount, or countdown.
+
+### Requirement: Profile uses an accessible, consistent typography scale
+
+The customer profile and its shared top search/sidebar chrome MUST use the existing sans-serif family and a consistent rem-based CSS type scale. Profile body text MUST use a 1rem base and 1.5 line-height; headings and large metric values MUST use 1.2 line-height. Profile title, metric labels/values, details labels/values, section headings, event titles, timestamps, status pills, and tabs MUST follow the approved hierarchy: title 1.75rem/700; metric labels 0.8125rem/500 and numeric values 1.875rem/600 with tabular numerals; unavailable metric values 0.875rem/500 and muted; section headings 1.125rem/600; detail labels 0.8125rem/500 and values 0.9375rem/500; event titles 0.9375rem/600, timestamps 0.8125rem, and status pills 0.75rem/600; inactive tabs 0.875rem/500 and active tab 0.875rem/600. Primary text MUST use near-black and secondary/helper text neutral gray with WCAG AA contrast. Existing page layout and button/sidebar colors MUST remain unchanged.
+
+#### Scenario: Profile displays consistent typography at desktop widths
+
+- **GIVEN** the Supervisor views a customer profile
+- **WHEN** the viewport is 1280px, 1440px, or 1920px wide
+- **THEN** the defined type scale is applied consistently to metrics, details, activity, tabs, and shell text
+- **AND** email, long values, and labels remain readable without awkward wrapping or truncation.
 
 ### Requirement: Profile operations enter existing authenticated workflows
 

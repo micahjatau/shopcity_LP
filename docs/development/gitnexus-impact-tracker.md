@@ -11,6 +11,92 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-10 — Apply supplied branding to the Virtual Card preview
+
+`SupervisorVirtualCardPreview` is a new untracked symbol and was not present in the current GitNexus index. Upstream impact was checked on its existing caller, `CustomerDetailsDialog`:
+
+```text
+node scripts/gitnexus.cjs impact CustomerDetailsDialog --direction upstream --file apps/web/components/workflows/customer-details-dialog.tsx --repo shopcity_LP --include-tests
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Affected processes / modules                 |
+| ----------------------- | ---------- | ---------------: | ----------------: | -------------------------------------------- |
+| `CustomerDetailsDialog` | LOW, exact |                4 |                 1 | 1 `SupervisorCustomerProfilePage`; Workflows |
+
+No HIGH/CRITICAL risk was reported. The change is limited to the card preview's logo image and its focused verification; no card data, API, or lifecycle behavior changes.
+
+### 2026-10-10 — Move verified card preview to profile Virtual Card tab
+
+Upstream impact was checked before relocating the graphic preview; the move preserves Manage cards' search, same-record verification, customer/card details, and lifecycle actions.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-card-management.tsx SupervisorCardManagement
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-customer-workflows.tsx SupervisorCustomerProfile
+```
+
+| Symbol                      | Risk       | Impacted symbols | Direct dependants | Affected processes / modules                      |
+| --------------------------- | ---------- | ---------------: | ----------------: | ------------------------------------------------- |
+| `SupervisorCardManagement`  | LOW, exact |                4 |                 2 | 1 `SupervisorCardsPage` flow; Workflows           |
+| `CustomerDetailsDialog`     | LOW, exact |                5 |                 1 | 1 `SupervisorCustomerProfilePage` flow; Workflows |
+| `SupervisorCustomerProfile` | LOW, exact |                3 |                 3 | 1 `SupervisorCustomerProfilePage` flow; Workflows |
+
+No HIGH/CRITICAL risk was reported. The preview will render only from the profile's verified card projection; Manage cards continues to display the freshly verified serial/status/customer and its existing protected operations without the graphic.
+
+### 2026-10-10 — Profile Wallet Ledger table and API mapping
+
+Upstream impact was checked before updating the profile Wallet Ledger UI and its read-only API payload. Existing working-tree changes remain preserved.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts listCustomerLedger
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.controller.ts getCustomerLedger
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Affected processes / modules                      |
+| ----------------------- | ---------- | ---------------: | ----------------: | ------------------------------------------------- |
+| `CustomerDetailsDialog` | LOW, exact |                5 |                 1 | 1 `SupervisorCustomerProfilePage` flow; Workflows |
+| `listCustomerLedger`    | LOW, exact |                4 |                 4 | No process reported; Pagination                   |
+| `getCustomerLedger`     | LOW, exact |                0 |                 0 | No process or module reported                     |
+
+The local GitNexus index did not resolve the helper `ProfileRows` or `getCustomerProfileProjection` by exact name; no edits to the latter method are planned. No HIGH/CRITICAL risk was reported. The Wallet Ledger uses one authenticated, tenant/customer-scoped cursor API per page, not per-cell requests. The read response adds only receipt-number and creator-username metadata. No schema changes or ledger writes were made. Historical Balance After is not available as an authoritative snapshot and displays **Not provided** rather than using the live available balance.
+
+### 2026-10-09 — Customer profile typography and Annual Purchases summary
+
+Upstream impact for the profile summary/card typography and shared shell text sizing:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+npm run proposal:impact -- --file apps/web/components/app-topbar.tsx AppTopbar
+npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Affected processes                   |
+| ----------------------- | ---------- | ---------------: | ----------------: | ------------------------------------ |
+| `CustomerDetailsDialog` | LOW, exact |                5 |                 1 | 1 (`SupervisorCustomerProfilePage`)  |
+| `AppTopbar`             | LOW, exact |                4 |                 2 | 2 (`ShellLayout`, `AppShellContent`) |
+| `AppSidebar`            | LOW, exact |                4 |                 1 | 2 (`ShellLayout`, `AppShellContent`) |
+
+No HIGH/CRITICAL risk was reported. Scope is CSS/type hierarchy plus the Annual Purchases label; no API, schema, authorization, or workflow behavior changes are planned. The current API has no annual-purchases total, so the card remains **Not provided** rather than deriving a value from partial activity.
+
+### 2026-10-09 — Read-only customer details with profile edit dialog
+
+Upstream impact for separating the customer-details presentation from its existing editor and keeping verified profile saves on the profile route:
+
+```text
+node .gitnexus/run.cjs impact CustomerDetailsDialog --file apps/web/components/workflows/customer-details-dialog.tsx --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact ManageCustomers --file apps/web/components/workflows/supervisor-customer-workflows.tsx --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact saveProfile --file apps/web/components/workflows/supervisor-customer-workflows.tsx --repo shopcity_LP --direction upstream
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Affected processes                  |
+| ----------------------- | ---------- | ---------------: | ----------------: | ----------------------------------- |
+| `CustomerDetailsDialog` | LOW, exact |                2 |                 1 | 1 (`SupervisorCustomerProfilePage`) |
+| `ManageCustomers`       | LOW, exact |                1 |                 1 | 1 (`SupervisorCustomerProfilePage`) |
+| `saveProfile`           | LOW, exact |                2 |                 1 | 1 (`SupervisorCustomerProfilePage`) |
+
+The direct dependant for `CustomerDetailsDialog` is `ManageCustomers`; `SupervisorCustomerProfile` is indirect. `ManageCustomers` and `saveProfile` each affect the profile route process. No HIGH/CRITICAL risk was reported. The implementation is limited to the existing customer profile UI and its save/dirty-state flow; no schema or authorization changes are planned.
+
 ### 2026-10-08 — Supervisor sign-in stale cashier pairing message
 
 Upstream impact was checked before changing the shared login form:
@@ -1009,3 +1095,33 @@ node .gitnexus/run.cjs impact listCustomerLedger -r shopcity_LP -f src/modules/l
 | `LoyaltyService.listCustomerLedger` | LOW, exact    |                4 |                 4 | 0 processes; Pagination module                            |
 
 No HIGH/CRITICAL risk. `CustomersService` is the broadest seam, so any addition remains a tenant/customer-scoped read projection. No schema, ledger, or card-lifecycle writes are authorized; purchase and redemption controls must hand off to existing protected workflows. SVG examples are visual references only.
+
+### 2026-10-09 — Unify typography across Supervisor dashboard pages
+
+Proposal-time upstream impacts were run before the Supervisor-scoped typography extension. The branch is `workflow-states-implementation`, four commits ahead of origin, with pre-existing modified and untracked work that must be preserved.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-shell.tsx AppShellContent
+npm run proposal:impact -- --file apps/web/components/ui/button.tsx Button
+```
+
+| Symbol            | Risk                                  | Impacted symbols | Direct dependants | Affected processes / modules                                |
+| ----------------- | ------------------------------------- | ---------------: | ----------------: | ----------------------------------------------------------- |
+| `AppShellContent` | LOW, exact                            |                3 |                 1 | 1 `ShellLayout` process; Components                         |
+| `Button`          | AMBIGUOUS; maximum candidate CRITICAL |               80 |                35 | No unique authoritative candidate from the ambiguous lookup |
+
+The UI-only migration is scoped to Supervisor page roots and does not edit `AppShellContent` or `Button`; shared button/sidebar colors and Admin/Cashier defaults are preserved.
+
+### 2026-10-10 — Style the customer-profile Transactions tab
+
+Proposal-time upstream impact was run before updating the Transactions tab presentation. The branch is `workflow-states-implementation`; preserve all pre-existing dirty and untracked work, including the supplied reference SVG.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Affected processes / modules                      |
+| ----------------------- | ---------- | ---------------: | ----------------: | ------------------------------------------------- |
+| `CustomerDetailsDialog` | LOW, exact |                5 |                 1 | 1 `SupervisorCustomerProfilePage` flow; Workflows |
+
+The planned change is read-only UI rendering and scoped CSS. No API, tenant scope, ledger, receipt, or card-lifecycle writes are in scope. Keep column headings visible in an empty result by rendering the empty message in a full-width table row. The current projection does not provide a receipt number or transaction-level credit amount; the UI must show **Not provided** rather than reveal the internal receipt ID or infer credit.

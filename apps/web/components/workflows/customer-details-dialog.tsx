@@ -4,13 +4,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   customersControllerGetCustomerProfileProjectionV1,
+  loyaltyControllerGetCustomerLedgerV1,
   type CustomersControllerGetCustomerProfileProjectionV1200Data,
+  type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem,
+  type LoyaltyControllerGetCustomerLedgerV1Params,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Money } from '../shopcity';
 import { resolveCustomerCardNumber } from '../../lib/customer-card-number';
 import { Button, Dialog, Input } from '../ui';
 import { SupervisorCustomerStatusBadge } from './supervisor-customer-status-badge';
+import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
 
 function ProfileMetric({
   label,
@@ -22,7 +26,9 @@ function ProfileMetric({
   return (
     <article className="supervisor-profile-metric">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong className={typeof value === 'string' ? 'is-textual' : undefined}>
+        {value}
+      </strong>
     </article>
   );
 }
@@ -37,6 +43,37 @@ function profileDate(value: unknown): string {
     : 'Date not provided';
 }
 
+function profileDateOnly(value: unknown): string {
+  if (typeof value !== 'string') return 'Date not provided';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Date not provided'
+    : date.toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+}
+
+function profileDateTime(value: unknown): string {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    return 'Not provided';
+  }
+  return new Date(value).toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function profileValue(value: unknown): string {
+  return typeof value === 'string' && value.trim()
+    ? value.trim()
+    : 'Not provided';
+}
+
 function profileCalendarDate(value: unknown): string {
   if (
     typeof value !== 'string' ||
@@ -49,6 +86,24 @@ function profileCalendarDate(value: unknown): string {
     date.toISOString().slice(0, 10) !== value
     ? 'Date not provided'
     : date.toLocaleDateString(undefined, { timeZone: 'UTC' });
+}
+
+function walletLedgerExpiryDate(value: unknown): string {
+  if (typeof value !== 'string') return 'Not provided';
+  const calendarDate = value.slice(0, 10);
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(calendarDate)) {
+    return 'Not provided';
+  }
+  const date = new Date(`${calendarDate}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== calendarDate
+    ? 'Not provided'
+    : date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      });
 }
 
 function profileEventLabel(value: unknown, targetType?: unknown): string {
@@ -74,6 +129,43 @@ function profileEventLabel(value: unknown, targetType?: unknown): string {
     : 'Profile activity';
 }
 
+function profileStatusLabel(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    return 'Status not provided';
+  }
+  return value
+    .split(/[_\s]+/)
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function profileStatusTone(
+  value: unknown,
+): 'success' | 'pending' | 'danger' | 'neutral' {
+  const status = typeof value === 'string' ? value.toUpperCase() : '';
+  if (['CONFIRMED', 'APPROVED', 'ACTIVE', 'ISSUED'].includes(status)) {
+    return 'success';
+  }
+  if (status === 'PENDING') return 'pending';
+  if (['DENIED', 'REJECTED', 'FAILED', 'BLOCKED'].includes(status)) {
+    return 'danger';
+  }
+  return 'neutral';
+}
+
+function profileActivityDate(value: unknown): string {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    return 'Date not provided';
+  }
+  return new Date(value).toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function ProfileDataError({
   message,
   onRetry,
@@ -88,6 +180,26 @@ function ProfileDataError({
         Retry this section
       </Button>
     </div>
+  );
+}
+
+function CustomerProfileEditorLayer({
+  presentation,
+  open,
+  onClose,
+  children,
+}: Readonly<{
+  presentation: 'dialog' | 'page';
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}>) {
+  return presentation === 'page' ? (
+    <Dialog open={open} title="Edit customer details" onClose={onClose}>
+      {children}
+    </Dialog>
+  ) : (
+    <>{children}</>
   );
 }
 
@@ -156,6 +268,330 @@ function ProfileRows({
   );
 }
 
+function ProfileTransactions({
+  rows,
+  failed,
+  onRetry,
+}: {
+  rows: CustomersControllerGetCustomerProfileProjectionV1200Data['transactions'];
+  failed: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <section
+      className="supervisor-profile-activity supervisor-profile-transactions"
+      aria-labelledby="profile-transactions-title"
+    >
+      <header className="supervisor-profile-transactions__header">
+        <h3 id="profile-transactions-title">Transactions</h3>
+        <p id="profile-transactions-description">
+          Transaction history for this customer.
+        </p>
+      </header>
+      {failed ? (
+        <div className="supervisor-profile-transactions__message supervisor-profile-transactions__message--error">
+          <ProfileDataError
+            message="Transactions could not be loaded."
+            onRetry={onRetry}
+          />
+        </div>
+      ) : (
+        <div className="supervisor-profile-transactions__table-wrap">
+          <table
+            className="supervisor-profile-transactions__table"
+            aria-label="Customer transactions"
+            aria-describedby="profile-transactions-description"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Receipt No.</th>
+                <th scope="col">Date &amp; Time</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Credit</th>
+                <th scope="col">Outcome</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length ? (
+                rows.map((row) => {
+                  const captureStatus = profileStatusLabel(row.captureStatus);
+                  const reviewStatus = profileStatusLabel(row.reviewStatus);
+                  return (
+                    <tr key={row.id}>
+                      <td>{profileValue(undefined)}</td>
+                      <td>
+                        <time dateTime={row.occurredAt}>
+                          {profileDateTime(row.occurredAt)}
+                        </time>
+                      </td>
+                      <td>
+                        {typeof row.purchaseAmountKobo === 'number' ? (
+                          <Money amountKobo={row.purchaseAmountKobo} />
+                        ) : (
+                          profileValue(undefined)
+                        )}
+                      </td>
+                      <td>{profileValue(undefined)}</td>
+                      <td>
+                        <div className="supervisor-profile-transactions__outcome">
+                          <span
+                            className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${profileStatusTone(row.captureStatus)}`}
+                            aria-label={`Capture status: ${captureStatus}`}
+                          >
+                            {captureStatus}
+                          </span>
+                          <span
+                            className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${profileStatusTone(row.reviewStatus)}`}
+                            aria-label={`Review status: ${reviewStatus}`}
+                          >
+                            {reviewStatus}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    className="supervisor-profile-transactions__empty"
+                    colSpan={5}
+                  >
+                    No transactions were returned.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const PROFILE_LEDGER_PAGE_LIMIT = '25';
+
+async function getProfileWalletLedgerPage(customerId: string, cursor: string) {
+  const response = await loyaltyControllerGetCustomerLedgerV1(
+    customerId,
+    {
+      limit: PROFILE_LEDGER_PAGE_LIMIT,
+      cursor,
+    } satisfies LoyaltyControllerGetCustomerLedgerV1Params,
+    createApiRequest({ csrf: true }),
+  );
+  if (response.status !== 200 || response.data.data.customerId !== customerId) {
+    throw new Error('Wallet ledger response could not be verified.');
+  }
+  return response.data.data;
+}
+
+function walletLedgerTypeLabel(type: unknown): string {
+  const labels: Record<string, string> = {
+    EARN: 'Earned',
+    REDEEM: 'Redeemed',
+    REVERSAL: 'Reversal',
+    ADJUSTMENT: 'Adjustment',
+    EXPIRY: 'Expired',
+  };
+  return typeof type === 'string' ? (labels[type] ?? type) : 'Not provided';
+}
+
+function ProfileWalletLedger({ customerId }: { customerId: string }) {
+  const [entries, setEntries] = useState<
+    LoyaltyControllerGetCustomerLedgerV1200DataItemsItem[]
+  >([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMoreFailed, setLoadingMoreFailed] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setFailed(false);
+    setEntries([]);
+    setNextCursor(null);
+    setHasMore(false);
+    setLoadingMoreFailed(false);
+    void getProfileWalletLedgerPage(customerId, '')
+      .then((page) => {
+        if (!active) return;
+        setEntries(page.items);
+        setNextCursor(page.nextCursor);
+        setHasMore(page.hasMore && Boolean(page.nextCursor));
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setFailed(true);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [customerId, retryAttempt]);
+
+  async function loadOlderEntries() {
+    if (!nextCursor || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setLoadingMoreFailed(false);
+    try {
+      const page = await getProfileWalletLedgerPage(customerId, nextCursor);
+      setEntries((current) => {
+        const currentIds = new Set(current.map((entry) => entry.id));
+        return [
+          ...current,
+          ...page.items.filter((entry) => !currentIds.has(entry.id)),
+        ];
+      });
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore && Boolean(page.nextCursor));
+    } catch {
+      setLoadingMoreFailed(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  return (
+    <section
+      className="supervisor-profile-activity supervisor-profile-wallet-ledger"
+      aria-labelledby="profile-wallet-ledger-title"
+    >
+      <header className="supervisor-profile-wallet-ledger__header">
+        <h3 id="profile-wallet-ledger-title">Wallet ledger</h3>
+        <p id="profile-wallet-ledger-description">
+          Read-only history from this customer&apos;s wallet ledger.
+        </p>
+      </header>
+      <span id="profile-wallet-balance-help" className="sr-only">
+        A historical balance after each entry is not provided by the API.
+      </span>
+      <div className="supervisor-profile-wallet-ledger__table-wrap">
+        <table
+          className="supervisor-profile-wallet-ledger__table"
+          aria-label="Customer wallet ledger"
+          aria-describedby="profile-wallet-ledger-description"
+        >
+          <thead>
+            <tr>
+              <th scope="col">Source</th>
+              <th scope="col">Date &amp; Time</th>
+              <th scope="col">Type</th>
+              <th scope="col">Amount</th>
+              <th scope="col" aria-describedby="profile-wallet-balance-help">
+                Balance After
+              </th>
+              <th scope="col">Expiry</th>
+              <th scope="col">Staff</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td
+                  className="supervisor-profile-wallet-ledger__message"
+                  colSpan={7}
+                >
+                  <div role="status">Loading wallet ledger…</div>
+                </td>
+              </tr>
+            ) : failed ? (
+              <tr>
+                <td
+                  className="supervisor-profile-wallet-ledger__message"
+                  colSpan={7}
+                >
+                  <div role="alert">
+                    <p>Wallet ledger could not be loaded.</p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+                    >
+                      Retry this section
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ) : entries.length ? (
+              entries.map((entry) => {
+                const isCredit = entry.direction === 'CREDIT';
+                const signedAmount = isCredit
+                  ? Math.abs(entry.amountKobo)
+                  : -Math.abs(entry.amountKobo);
+                const typeTone =
+                  entry.status === 'INVALID'
+                    ? 'danger'
+                    : isCredit
+                      ? 'success'
+                      : 'neutral';
+                return (
+                  <tr key={entry.id}>
+                    <td>{profileValue(entry.source)}</td>
+                    <td>
+                      <time dateTime={entry.effectiveAt}>
+                        {profileDateTime(entry.effectiveAt)}
+                      </time>
+                    </td>
+                    <td>
+                      <span
+                        className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${typeTone}`}
+                      >
+                        {walletLedgerTypeLabel(entry.type)}
+                      </span>
+                    </td>
+                    <td>
+                      <Money
+                        amountKobo={signedAmount}
+                        signed
+                        emphasis={isCredit ? 'positive' : 'negative'}
+                      />
+                    </td>
+                    <td>{profileValue(undefined)}</td>
+                    <td>
+                      {walletLedgerExpiryDate(entry.creditLot?.expiresAt)}
+                    </td>
+                    <td>{profileValue(entry.staffUsername)}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td
+                  className="supervisor-profile-wallet-ledger__message"
+                  colSpan={7}
+                >
+                  No wallet ledger entries were returned.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {hasMore && nextCursor ? (
+        <div className="supervisor-profile-wallet-ledger__footer">
+          {loadingMoreFailed ? (
+            <p role="alert">Older wallet entries could not be loaded.</p>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={loadingMore}
+            onClick={loadOlderEntries}
+          >
+            {loadingMore ? 'Loading older entries…' : 'Load older entries'}
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function ExpirySchedule({
   entries,
   failed,
@@ -167,7 +603,7 @@ function ExpirySchedule({
 }) {
   return (
     <section
-      className="supervisor-profile-activity"
+      className="supervisor-profile-activity supervisor-profile-expiry"
       aria-labelledby="profile-expiry-title"
     >
       <h3 id="profile-expiry-title">Credit expiry schedule</h3>
@@ -233,6 +669,7 @@ export function CustomerDetailsDialog({
   onCancelStatusEditor,
   onRetry,
   onSave,
+  onDiscardProfileEdit,
   onChangeStatus,
   onClose,
   presentation = 'dialog',
@@ -254,12 +691,16 @@ export function CustomerDetailsDialog({
   onOpenStatusEditor: () => void;
   onCancelStatusEditor: () => void;
   onRetry: () => void;
-  onSave: () => void;
+  onSave: () => void | Promise<boolean>;
+  onDiscardProfileEdit?: () => void;
   onChangeStatus: () => void;
   onClose: () => void;
   presentation?: 'dialog' | 'page';
 }>) {
   const [discardPrompt, setDiscardPrompt] = useState(false);
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const [profileEditDiscardPrompt, setProfileEditDiscardPrompt] =
+    useState(false);
   const [profileTab, setProfileTab] = useState('Overview');
   const [projection, setProjection] =
     useState<CustomersControllerGetCustomerProfileProjectionV1200Data | null>(
@@ -321,8 +762,10 @@ export function CustomerDetailsDialog({
     profileDirty || statusEditorOpen || Boolean(confirmation.trim());
 
   useEffect(() => {
-    if (discardPrompt) keepEditingRef.current?.focus();
-  }, [discardPrompt]);
+    if (discardPrompt || profileEditDiscardPrompt) {
+      keepEditingRef.current?.focus();
+    }
+  }, [discardPrompt, profileEditDiscardPrompt]);
 
   useEffect(() => {
     setDiscardPrompt(false);
@@ -374,6 +817,27 @@ export function CustomerDetailsDialog({
     onClose();
   }
 
+  function requestProfileEditorClose() {
+    if (busy) return;
+    if (hasPendingEdits) {
+      setProfileEditDiscardPrompt(true);
+      return;
+    }
+    setProfileEditorOpen(false);
+  }
+
+  function keepProfileEditing() {
+    setProfileEditDiscardPrompt(false);
+    requestAnimationFrame(() => nameRef.current?.focus());
+  }
+
+  function discardProfileEdits() {
+    setProfileEditDiscardPrompt(false);
+    if (statusEditorOpen) onCancelStatusEditor();
+    onDiscardProfileEdit?.();
+    setProfileEditorOpen(false);
+  }
+
   function discardChanges() {
     setDiscardPrompt(false);
     onClose();
@@ -384,14 +848,21 @@ export function CustomerDetailsDialog({
     requestAnimationFrame(() => nameRef.current?.focus());
   }
 
-  function submitProfile(event: React.FormEvent<HTMLFormElement>) {
+  async function submitProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!busy && !loading && profileDirty) onSave();
+    if (busy || loading || !profileDirty) return;
+    const saved = await onSave();
+    if (presentation === 'page' && saved === true) {
+      setProfileEditDiscardPrompt(false);
+      setProfileEditorOpen(false);
+    }
   }
 
+  const hasProfileOverviewLayout =
+    presentation === 'page' && profileTab === 'Overview' && !discardPrompt;
   const content = (
     <div
-      className={`sc-customer-details ${presentation === 'page' ? 'sc-customer-details--page' : ''}`}
+      className={`sc-customer-details ${presentation === 'page' ? 'sc-customer-details--page' : ''} ${hasProfileOverviewLayout ? 'supervisor-profile-overview-layout' : ''}`}
     >
       <button
         type="button"
@@ -402,17 +873,6 @@ export function CustomerDetailsDialog({
       >
         <span aria-hidden="true">×</span>
       </button>
-
-      {presentation === 'page' ? (
-        <button
-          type="button"
-          className="supervisor-customer-profile__back"
-          disabled={busy}
-          onClick={requestClose}
-        >
-          ← Back to customers
-        </button>
-      ) : null}
 
       {discardPrompt ? (
         <section
@@ -442,34 +902,66 @@ export function CustomerDetailsDialog({
         <>
           {customer ? (
             <>
-              <header className="sc-customer-details__identity">
+              <header
+                className={`sc-customer-details__identity ${presentation === 'page' ? 'supervisor-profile-header' : ''}`}
+              >
                 <div className="min-w-0">
-                  <h2>{String(customer.fullName ?? 'Customer')}</h2>
-                  <p>{String(customer.phoneE164 ?? 'Phone not provided')}</p>
                   {presentation === 'page' ? (
-                    <p>
-                      Member since{' '}
-                      {profileDate(
-                        projection?.memberSince ?? customer.createdAt,
-                      )}
-                    </p>
-                  ) : null}
+                    <div className="supervisor-profile-header__customer">
+                      <h1>{String(customer.fullName ?? 'Customer')}</h1>
+                      <SupervisorCustomerStatusBadge
+                        status={customer.status}
+                        fallback="Status not provided"
+                      />
+                    </div>
+                  ) : (
+                    <h2>{String(customer.fullName ?? 'Customer')}</h2>
+                  )}
+                  <p>
+                    {presentation === 'page' ? (
+                      <>
+                        Member since{' '}
+                        {profileDateOnly(
+                          projection?.memberSince ?? customer.createdAt,
+                        )}
+                      </>
+                    ) : (
+                      String(customer.phoneE164 ?? 'Phone not provided')
+                    )}
+                  </p>
                 </div>
-                <div className="sc-customer-details__badges">
-                  <div>
-                    <span>Customer</span>
-                    <SupervisorCustomerStatusBadge
-                      status={customer.status}
-                      fallback="Status not provided"
-                    />
+                {presentation === 'page' ? (
+                  <div className="supervisor-profile-actions">
+                    <Link
+                      className="supervisor-profile-action--primary"
+                      href={`/cashier/earn${cardNumber ? `?card=${encodeURIComponent(cardNumber)}` : ''}`}
+                    >
+                      Capture Purchase
+                    </Link>
+                    <Link
+                      className="supervisor-profile-action--secondary"
+                      href={`/cashier/redeem${cardNumber ? `?card=${encodeURIComponent(cardNumber)}` : ''}`}
+                    >
+                      Redeem Credit
+                    </Link>
                   </div>
-                  <div>
-                    <span>Linked card</span>
-                    <span className="sc-customer-details__card-status">
-                      {cardStatusLabel}
-                    </span>
+                ) : (
+                  <div className="sc-customer-details__badges">
+                    <div>
+                      <span>Customer</span>
+                      <SupervisorCustomerStatusBadge
+                        status={customer.status}
+                        fallback="Status not provided"
+                      />
+                    </div>
+                    <div>
+                      <span>Linked card</span>
+                      <span className="sc-customer-details__card-status">
+                        {cardStatusLabel}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
               </header>
 
               {presentation === 'page' ? (
@@ -514,23 +1006,8 @@ export function CustomerDetailsDialog({
                       }
                     />
                     <ProfileMetric
-                      label="Next expiry"
-                      value={
-                        sourceFailed('expirySchedule') ? (
-                          'Unavailable'
-                        ) : groupedExpirySchedule[0] ? (
-                          <>
-                            {profileCalendarDate(groupedExpirySchedule[0][0])} ·{' '}
-                            <Money amountKobo={groupedExpirySchedule[0][1]} />
-                          </>
-                        ) : projectionState === 'loading' ? (
-                          'Loading'
-                        ) : projectionState === 'error' ? (
-                          'Unavailable'
-                        ) : (
-                          'No upcoming expiry returned'
-                        )
-                      }
+                      label="Annual Purchases"
+                      value="Not provided"
                     />
                   </div>
                   <nav
@@ -548,18 +1025,6 @@ export function CustomerDetailsDialog({
                       </button>
                     ))}
                   </nav>
-                  <div className="supervisor-profile-actions">
-                    <Link
-                      href={`/cashier/earn${cardNumber ? `?card=${encodeURIComponent(cardNumber)}` : ''}`}
-                    >
-                      Capture purchase
-                    </Link>
-                    <Link
-                      href={`/cashier/redeem${cardNumber ? `?card=${encodeURIComponent(cardNumber)}` : ''}`}
-                    >
-                      Redeem Credit
-                    </Link>
-                  </div>
                   {projectionState === 'loading' ? (
                     <section
                       className="supervisor-profile-activity"
@@ -586,10 +1051,13 @@ export function CustomerDetailsDialog({
                   ) : profileTab === 'Overview' ? (
                     <div className="supervisor-profile-overview-grid">
                       <section
-                        className="supervisor-profile-activity"
+                        className="supervisor-profile-activity supervisor-profile-recent-activity"
                         aria-labelledby="profile-activity-title"
                       >
-                        <h3 id="profile-activity-title">Recent activity</h3>
+                        <header className="supervisor-profile-recent-activity__header">
+                          <h3 id="profile-activity-title">Recent activity</h3>
+                          <p>Latest account events and credit movements.</p>
+                        </header>
                         {[
                           'walletLedger',
                           'redemptions',
@@ -603,26 +1071,69 @@ export function CustomerDetailsDialog({
                           />
                         ) : null}
                         {projection?.recentActivity.length ? (
-                          projection.recentActivity.map((item, index) => (
-                            <div
-                              key={profileText(item.id, `activity-${index}`)}
-                              className="supervisor-profile-activity__row"
-                            >
-                              <span>
-                                {profileEventLabel(item.type, item.targetType)}
-                              </span>
-                              <span>
-                                {profileText(
-                                  item.status,
-                                  'Status not provided',
-                                )}
-                              </span>
-                              {typeof item.amountKobo === 'number' ? (
-                                <Money amountKobo={item.amountKobo} />
-                              ) : null}
-                              <time>{profileDate(item.occurredAt)}</time>
-                            </div>
-                          ))
+                          <div className="supervisor-profile-recent-activity__list">
+                            {projection.recentActivity.map((item, index) => {
+                              const isEarning = item.type === 'EARNING';
+                              const isRedemption = item.type === 'REDEMPTION';
+                              const statusTone = profileStatusTone(item.status);
+                              const amountEmphasis = isRedemption
+                                ? 'negative'
+                                : typeof item.amountKobo === 'number' &&
+                                    item.amountKobo > 0
+                                  ? 'positive'
+                                  : typeof item.amountKobo === 'number' &&
+                                      item.amountKobo < 0
+                                    ? 'negative'
+                                    : 'normal';
+                              return (
+                                <article
+                                  key={profileText(
+                                    item.id,
+                                    `activity-${index}`,
+                                  )}
+                                  className="supervisor-profile-recent-activity__entry"
+                                >
+                                  <div className="supervisor-profile-recent-activity__copy">
+                                    <div className="supervisor-profile-recent-activity__title">
+                                      <span
+                                        className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${statusTone}`}
+                                      >
+                                        {profileStatusLabel(item.status)}
+                                      </span>
+                                      <h4>
+                                        {profileEventLabel(
+                                          item.type,
+                                          item.targetType,
+                                        )}
+                                      </h4>
+                                    </div>
+                                    <time
+                                      className="supervisor-profile-recent-activity__date"
+                                      dateTime={
+                                        typeof item.occurredAt === 'string'
+                                          ? item.occurredAt
+                                          : undefined
+                                      }
+                                    >
+                                      {profileActivityDate(item.occurredAt)}
+                                    </time>
+                                  </div>
+                                  {typeof item.amountKobo === 'number' ? (
+                                    <span className="supervisor-profile-recent-activity__amount">
+                                      {isRedemption && item.amountKobo > 0 ? (
+                                        <span aria-hidden="true">−</span>
+                                      ) : null}
+                                      <Money
+                                        amountKobo={item.amountKobo}
+                                        signed={isEarning}
+                                        emphasis={amountEmphasis}
+                                      />
+                                    </span>
+                                  ) : null}
+                                </article>
+                              );
+                            })}
+                          </div>
                         ) : ![
                             'walletLedger',
                             'redemptions',
@@ -630,7 +1141,9 @@ export function CustomerDetailsDialog({
                             'statusEvents',
                             'card',
                           ].some(sourceFailed) ? (
-                          <p>No recent customer activity was returned.</p>
+                          <p className="supervisor-profile-recent-activity__empty">
+                            No recent customer activity was returned.
+                          </p>
                         ) : null}
                       </section>
                       <ExpirySchedule
@@ -640,21 +1153,22 @@ export function CustomerDetailsDialog({
                       />
                     </div>
                   ) : profileTab === 'Transactions' ? (
-                    <ProfileRows
-                      title="Transactions"
+                    <ProfileTransactions
                       rows={projection?.transactions ?? []}
-                      kind="transaction"
                       failed={sourceFailed('transactions')}
                       onRetry={retryProfileProjection}
                     />
                   ) : profileTab === 'Wallet Ledger' ? (
-                    <ProfileRows
-                      title="Wallet ledger"
-                      rows={projection?.walletLedger ?? []}
-                      kind="ledger"
-                      failed={sourceFailed('walletLedger')}
-                      onRetry={retryProfileProjection}
-                    />
+                    typeof customer.id === 'string' && customer.id ? (
+                      <ProfileWalletLedger customerId={customer.id} />
+                    ) : (
+                      <section
+                        className="supervisor-profile-activity"
+                        role="alert"
+                      >
+                        <p>Customer identity could not be verified.</p>
+                      </section>
+                    )
                   ) : profileTab === 'Redemptions' ? (
                     <ProfileRows
                       title="Redemptions"
@@ -676,6 +1190,13 @@ export function CustomerDetailsDialog({
                         />
                       ) : projection?.card ? (
                         <>
+                          <SupervisorVirtualCardPreview
+                            customerName={profileValue(customer.fullName)}
+                            serialNumber={profileValue(
+                              projection.card.identifier,
+                            )}
+                            status={profileValue(projection.card.status)}
+                          />
                           <p>
                             Card{' '}
                             {profileText(
@@ -718,28 +1239,47 @@ export function CustomerDetailsDialog({
                           onRetry={retryProfileProjection}
                         />
                       ) : projection?.consent ? (
-                        <dl>
-                          <dt>Loyalty service consent</dt>
-                          <dd>
-                            {projection.consent.loyaltyConsent
-                              ? 'Granted'
-                              : 'Not granted'}
-                          </dd>
-                          <dt>Marketing opt-in</dt>
-                          <dd>
-                            {projection.consent.marketingOptIn
-                              ? 'Opted in'
-                              : 'Not opted in'}
-                          </dd>
-                          <dt>Captured</dt>
-                          <dd>{profileDate(projection.consent.capturedAt)}</dd>
-                          <dt>Consent version</dt>
-                          <dd>
-                            {profileText(
-                              projection.consent.consentVersion,
-                              'Not provided',
-                            )}
-                          </dd>
+                        <dl className="supervisor-profile-consent-grid">
+                          <div>
+                            <dt>Loyalty service consent</dt>
+                            <dd>
+                              {projection.consent.loyaltyConsent
+                                ? 'Granted'
+                                : 'Not granted'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Marketing opt-in</dt>
+                            <dd>
+                              {projection.consent.marketingOptIn
+                                ? 'Opted in'
+                                : 'Not opted in'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Captured</dt>
+                            <dd>
+                              {profileDate(projection.consent.capturedAt)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Consent version</dt>
+                            <dd>
+                              {profileText(
+                                projection.consent.consentVersion,
+                                'Not provided',
+                              )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Privacy notice version</dt>
+                            <dd>
+                              {profileText(
+                                projection.consent.privacyNoticeVersion,
+                                'Not provided',
+                              )}
+                            </dd>
+                          </div>
                         </dl>
                       ) : (
                         <p>No consent record was returned.</p>
@@ -749,12 +1289,109 @@ export function CustomerDetailsDialog({
                 </>
               ) : null}
 
-              {message ? (
+              {presentation === 'page' && profileTab === 'Overview' ? (
+                <section
+                  className="supervisor-profile-details-card"
+                  aria-labelledby="customer-details-card-title"
+                >
+                  <header className="supervisor-profile-details-card__header">
+                    <h3 id="customer-details-card-title">Customer details</h3>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      aria-label="Edit customer details"
+                      disabled={busy || loading || loadFailed}
+                      onClick={() => {
+                        setProfileEditDiscardPrompt(false);
+                        setProfileEditorOpen(true);
+                      }}
+                    >
+                      Edit details
+                    </Button>
+                  </header>
+                  <dl className="supervisor-profile-details-grid">
+                    <div>
+                      <dt>Full name</dt>
+                      <dd
+                        className={
+                          profileValue(
+                            profile.fullName || customer.fullName,
+                          ) === 'Not provided'
+                            ? 'is-not-provided'
+                            : undefined
+                        }
+                      >
+                        {profileValue(profile.fullName || customer.fullName)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Phone</dt>
+                      <dd
+                        className={
+                          profileValue(profile.phone || customer.phoneE164) ===
+                          'Not provided'
+                            ? 'is-not-provided'
+                            : undefined
+                        }
+                      >
+                        {profileValue(profile.phone || customer.phoneE164)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Email</dt>
+                      <dd
+                        className={`supervisor-profile-details-grid__email${profileValue(profile.email || customer.email) === 'Not provided' ? ' is-not-provided' : ''}`}
+                      >
+                        {profileValue(profile.email || customer.email)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Birthday month</dt>
+                      <dd
+                        className={
+                          profileValue(customer.birthdayMonth) ===
+                          'Not provided'
+                            ? 'is-not-provided'
+                            : undefined
+                        }
+                      >
+                        {profileValue(customer.birthdayMonth)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Registered</dt>
+                      <dd
+                        className={
+                          profileDateTime(
+                            projection?.memberSince ?? customer.createdAt,
+                          ) === 'Not provided'
+                            ? 'is-not-provided'
+                            : undefined
+                        }
+                      >
+                        {profileDateTime(
+                          projection?.memberSince ?? customer.createdAt,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Transactions</dt>
+                      <dd className="is-not-provided">Not provided</dd>
+                    </div>
+                    <div>
+                      <dt>Redemptions</dt>
+                      <dd className="is-not-provided">Not provided</dd>
+                    </div>
+                  </dl>
+                </section>
+              ) : null}
+
+              {message && (presentation !== 'page' || !profileEditorOpen) ? (
                 <p role="status" aria-live="polite" className="text-sm">
                   {message}
                 </p>
               ) : null}
-              {loadFailed ? (
+              {loadFailed && (presentation !== 'page' || !profileEditorOpen) ? (
                 <Button
                   type="button"
                   variant="secondary"
@@ -765,203 +1402,274 @@ export function CustomerDetailsDialog({
                 </Button>
               ) : null}
 
-              <form
-                className="sc-customer-details__form"
-                onSubmit={submitProfile}
+              <CustomerProfileEditorLayer
+                presentation={presentation}
+                open={profileEditorOpen}
+                onClose={requestProfileEditorClose}
               >
-                <section
-                  className="sc-customer-details__section"
-                  aria-labelledby="customer-profile-heading"
-                >
-                  <h3 id="customer-profile-heading">Profile</h3>
-                  <div className="sc-customer-details__fields">
-                    <label htmlFor="manage-customer-name">
-                      Full name
-                      <Input
-                        ref={nameRef}
-                        id="manage-customer-name"
-                        required
-                        disabled={busy || loading}
-                        value={profile.fullName}
-                        onChange={(event) =>
-                          onProfileChange('fullName', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label htmlFor="manage-customer-phone">
-                      Phone number
-                      <Input
-                        id="manage-customer-phone"
-                        type="tel"
-                        required
-                        disabled={busy || loading}
-                        value={profile.phone}
-                        onChange={(event) =>
-                          onProfileChange('phone', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label
-                      className="sc-customer-details__email"
-                      htmlFor="manage-customer-email"
-                    >
-                      Email
-                      <Input
-                        id="manage-customer-email"
-                        type="email"
-                        disabled={busy || loading}
-                        value={profile.email}
-                        onChange={(event) =>
-                          onProfileChange('email', event.target.value)
-                        }
-                      />
-                    </label>
-                  </div>
-                </section>
-
-                <section
-                  className="sc-customer-details__section sc-customer-details__account"
-                  aria-labelledby="customer-account-status-heading"
-                >
-                  <div className="sc-customer-details__section-heading">
-                    <div>
-                      <h3 id="customer-account-status-heading">
-                        Account status
-                      </h3>
-                      <p>Manage whether this customer can use ShopCity.</p>
+                {presentation === 'page' && profileEditDiscardPrompt ? (
+                  <section
+                    className="sc-customer-details__discard"
+                    aria-labelledby="customer-edit-discard-title"
+                    aria-describedby="customer-edit-discard-description"
+                  >
+                    <h2 id="customer-edit-discard-title">
+                      Discard unsaved changes?
+                    </h2>
+                    <p id="customer-edit-discard-description">
+                      Your edits haven&apos;t been saved.
+                    </p>
+                    <div className="sc-customer-details__actions">
+                      <Button
+                        ref={keepEditingRef}
+                        type="button"
+                        variant="secondary"
+                        onClick={keepProfileEditing}
+                      >
+                        Keep editing
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={discardProfileEdits}
+                      >
+                        Discard
+                      </Button>
                     </div>
-                    <SupervisorCustomerStatusBadge
-                      status={customer.status}
-                      fallback="Status not provided"
-                    />
-                  </div>
-                  {statusEditorOpen ? (
-                    <div className="sc-customer-details__status-editor">
-                      <label htmlFor="customer-status">
-                        New status
-                        <select
-                          id="customer-status"
-                          className="sc-control sc-input"
-                          disabled={busy || loading || profileDirty}
-                          value={status}
-                          onChange={(event) =>
-                            onStatusChange(
-                              event.target.value as 'ACTIVE' | 'BLOCKED',
-                            )
-                          }
-                        >
-                          <option value="ACTIVE">Active</option>
-                          <option value="BLOCKED">Blocked</option>
-                        </select>
-                      </label>
-                      <label htmlFor="customer-status-confirmation">
-                        Type {expectedConfirmation} to confirm
-                        <input
-                          id="customer-status-confirmation"
-                          className="sc-control sc-input"
-                          disabled={busy || loading || profileDirty}
-                          value={confirmation}
-                          onChange={(event) =>
-                            onConfirmationChange(event.target.value)
-                          }
-                        />
-                      </label>
-                      {profileDirty ? (
-                        <p>
-                          Save or discard profile edits before changing account
-                          status.
-                        </p>
-                      ) : null}
-                      <div className="sc-customer-details__actions">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={busy || loading}
-                          onClick={onCancelStatusEditor}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={status === 'BLOCKED' ? 'danger' : 'primary'}
-                          loading={busy}
-                          disabled={
-                            loading ||
-                            profileDirty ||
-                            status === customer.status ||
-                            confirmation.trim().toUpperCase() !==
-                              expectedConfirmation
-                          }
-                          onClick={onChangeStatus}
-                        >
-                          {status === 'BLOCKED'
-                            ? 'Block customer'
-                            : 'Activate customer'}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm">
-                        Change status only when the customer account needs to be
-                        blocked or restored.
+                  </section>
+                ) : (
+                  <form
+                    className={`sc-customer-details__form ${presentation === 'page' ? 'supervisor-profile-edit-form' : ''}`}
+                    hidden={
+                      presentation === 'page' &&
+                      profileTab !== 'Overview' &&
+                      !hasPendingEdits
+                    }
+                    onSubmit={submitProfile}
+                  >
+                    {presentation === 'page' && message ? (
+                      <p role="status" aria-live="polite" className="text-sm">
+                        {message}
                       </p>
+                    ) : null}
+                    {presentation === 'page' && loadFailed ? (
                       <Button
                         type="button"
                         variant="secondary"
-                        disabled={busy || loading || profileDirty}
-                        onClick={onOpenStatusEditor}
+                        disabled={busy || loading}
+                        onClick={onRetry}
                       >
-                        Change status
+                        Retry customer details
                       </Button>
-                      {profileDirty ? (
-                        <p className="text-sm">
-                          Save or discard profile edits before changing account
-                          status.
-                        </p>
-                      ) : null}
-                    </>
-                  )}
-                </section>
-
-                <section
-                  className="sc-customer-details__section sc-customer-details__linked-card"
-                  aria-labelledby="customer-linked-card-heading"
-                >
-                  <h3 id="customer-linked-card-heading">Linked card</h3>
-                  {cardNumber ? (
-                    <p>Card ending {cardNumber.replace(/\W/g, '').slice(-4)}</p>
-                  ) : (
-                    <p>Card number not provided.</p>
-                  )}
-                  {customer.id ? (
-                    <Link
-                      className="sc-customer-details__card-link"
-                      href={`/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`}
+                    ) : null}
+                    <section
+                      className="sc-customer-details__section"
+                      aria-labelledby="customer-profile-heading"
                     >
-                      Manage linked card →
-                    </Link>
-                  ) : null}
-                </section>
+                      <h3 id="customer-profile-heading">
+                        {presentation === 'page'
+                          ? 'Customer details'
+                          : 'Profile'}
+                      </h3>
+                      <div className="sc-customer-details__fields">
+                        <label htmlFor="manage-customer-name">
+                          Full name
+                          <Input
+                            ref={nameRef}
+                            id="manage-customer-name"
+                            required
+                            disabled={busy || loading}
+                            value={profile.fullName}
+                            onChange={(event) =>
+                              onProfileChange('fullName', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label htmlFor="manage-customer-phone">
+                          Phone number
+                          <Input
+                            id="manage-customer-phone"
+                            type="tel"
+                            required
+                            disabled={busy || loading}
+                            value={profile.phone}
+                            onChange={(event) =>
+                              onProfileChange('phone', event.target.value)
+                            }
+                          />
+                        </label>
+                        <label
+                          className="sc-customer-details__email"
+                          htmlFor="manage-customer-email"
+                        >
+                          Email
+                          <Input
+                            id="manage-customer-email"
+                            type="email"
+                            disabled={busy || loading}
+                            value={profile.email}
+                            onChange={(event) =>
+                              onProfileChange('email', event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+                    </section>
 
-                <footer className="sc-customer-details__actions">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={requestClose}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    loading={busy}
-                    disabled={loading || !profileDirty}
-                  >
-                    Save changes
-                  </Button>
-                </footer>
-              </form>
+                    <section
+                      className="sc-customer-details__section sc-customer-details__account"
+                      aria-labelledby="customer-account-status-heading"
+                    >
+                      <div className="sc-customer-details__section-heading">
+                        <div>
+                          <h3 id="customer-account-status-heading">
+                            Account status
+                          </h3>
+                          <p>Manage whether this customer can use ShopCity.</p>
+                        </div>
+                        <SupervisorCustomerStatusBadge
+                          status={customer.status}
+                          fallback="Status not provided"
+                        />
+                      </div>
+                      {statusEditorOpen ? (
+                        <div className="sc-customer-details__status-editor">
+                          <label htmlFor="customer-status">
+                            New status
+                            <select
+                              id="customer-status"
+                              className="sc-control sc-input"
+                              disabled={busy || loading || profileDirty}
+                              value={status}
+                              onChange={(event) =>
+                                onStatusChange(
+                                  event.target.value as 'ACTIVE' | 'BLOCKED',
+                                )
+                              }
+                            >
+                              <option value="ACTIVE">Active</option>
+                              <option value="BLOCKED">Blocked</option>
+                            </select>
+                          </label>
+                          <label htmlFor="customer-status-confirmation">
+                            Type {expectedConfirmation} to confirm
+                            <input
+                              id="customer-status-confirmation"
+                              className="sc-control sc-input"
+                              disabled={busy || loading || profileDirty}
+                              value={confirmation}
+                              onChange={(event) =>
+                                onConfirmationChange(event.target.value)
+                              }
+                            />
+                          </label>
+                          {profileDirty ? (
+                            <p>
+                              Save or discard profile edits before changing
+                              account status.
+                            </p>
+                          ) : null}
+                          <div className="sc-customer-details__actions">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={busy || loading}
+                              onClick={onCancelStatusEditor}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={
+                                status === 'BLOCKED' ? 'danger' : 'primary'
+                              }
+                              loading={busy}
+                              disabled={
+                                loading ||
+                                profileDirty ||
+                                status === customer.status ||
+                                confirmation.trim().toUpperCase() !==
+                                  expectedConfirmation
+                              }
+                              onClick={onChangeStatus}
+                            >
+                              {status === 'BLOCKED'
+                                ? 'Block customer'
+                                : 'Activate customer'}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm">
+                            Change status only when the customer account needs
+                            to be blocked or restored.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={busy || loading || profileDirty}
+                            onClick={onOpenStatusEditor}
+                          >
+                            Change status
+                          </Button>
+                          {profileDirty ? (
+                            <p className="text-sm">
+                              Save or discard profile edits before changing
+                              account status.
+                            </p>
+                          ) : null}
+                        </>
+                      )}
+                    </section>
+
+                    <section
+                      className="sc-customer-details__section sc-customer-details__linked-card"
+                      aria-labelledby="customer-linked-card-heading"
+                    >
+                      <h3 id="customer-linked-card-heading">Linked card</h3>
+                      {cardNumber ? (
+                        <p>
+                          Card ending {cardNumber.replace(/\W/g, '').slice(-4)}
+                        </p>
+                      ) : (
+                        <p>Card number not provided.</p>
+                      )}
+                      <p>{cardStatusLabel}</p>
+                      {customer.id ? (
+                        <Link
+                          className="sc-customer-details__card-link"
+                          href={`/supervisor/cards?tab=assign&id=${encodeURIComponent(customer.id)}`}
+                        >
+                          Manage linked card →
+                        </Link>
+                      ) : null}
+                    </section>
+
+                    <footer className="sc-customer-details__actions">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={
+                          presentation === 'page'
+                            ? requestProfileEditorClose
+                            : requestClose
+                        }
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        loading={busy}
+                        disabled={loading || !profileDirty}
+                      >
+                        Save changes
+                      </Button>
+                    </footer>
+                  </form>
+                )}
+              </CustomerProfileEditorLayer>
             </>
           ) : (
             <section className="sc-customer-details__load-state">

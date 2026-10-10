@@ -1279,6 +1279,13 @@ describe('SupervisorCustomerWorkflows', () => {
     await waitFor(() =>
       expect(customersControllerGetCustomerV1).toHaveBeenCalledTimes(2),
     );
+    const customerDetailsCard = document.querySelector<HTMLElement>(
+      '.supervisor-profile-details-card',
+    );
+    expect(customerDetailsCard).toHaveTextContent('Verified Customer');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit customer details' }),
+    );
     expect(await screen.findByLabelText('Full name')).toHaveValue(
       'Verified Customer',
     );
@@ -1370,7 +1377,7 @@ describe('SupervisorCustomerWorkflows', () => {
     expect(screen.getByLabelText('First card serial')).toHaveValue('DUP-022');
   });
 
-  it('requires explicit discard confirmation before leaving a dirty stable-ID profile', async () => {
+  it('requires explicit discard confirmation before closing a dirty profile edit', async () => {
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
       data: {
@@ -1383,23 +1390,26 @@ describe('SupervisorCustomerWorkflows', () => {
       },
     } as never);
     render(<SupervisorCustomerProfile customerId="dirty-customer" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit customer details' }),
+    );
     fireEvent.change(await screen.findByLabelText('Full name'), {
       target: { value: 'Edited Customer' },
     });
-    fireEvent.click(
-      screen.getByRole('button', { name: '← Back to customers' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(
       await screen.findByRole('heading', { name: 'Discard unsaved changes?' }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
     expect(screen.getByLabelText('Full name')).toHaveValue('Edited Customer');
     expect(push).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole('button', { name: '← Back to customers' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
-    expect(push).toHaveBeenCalledWith('/supervisor/customers');
+    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('.supervisor-profile-details-card'),
+    ).toHaveTextContent('Safe Customer');
+    expect(push).not.toHaveBeenCalled();
     expect(customersControllerUpdateCustomerV1).not.toHaveBeenCalled();
   });
 
@@ -1422,6 +1432,9 @@ describe('SupervisorCustomerWorkflows', () => {
       .mocked(customersControllerUpdateCustomerV1)
       .mockResolvedValue({ status: 200, data: { data: {} } } as never);
     render(<SupervisorCustomerProfile customerId="refresh-error-customer" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit customer details' }),
+    );
     fireEvent.change(await screen.findByLabelText('Full name'), {
       target: { value: 'Refresh Edited' },
     });
@@ -1470,14 +1483,17 @@ describe('SupervisorCustomerWorkflows', () => {
       .mocked(customersControllerUpdateStatusV1)
       .mockResolvedValue({ status: 200, data: { data: {} } } as never);
     render(<SupervisorCustomerProfile customerId="cust-1" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit customer details' }),
+    );
     fireEvent.change(await screen.findByLabelText('Full name'), {
       target: { value: 'Updated Customer' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByText('Card ending 0003')).toBeInTheDocument();
     expect(
       await screen.findByText('Customer changes saved'),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Card ending 0003')).not.toBeInTheDocument();
     expect(customersControllerUpdateCustomerV1).toHaveBeenCalledWith(
       'cust-1',
       {
@@ -1492,6 +1508,10 @@ describe('SupervisorCustomerWorkflows', () => {
         }),
       }),
     );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit customer details' }),
+    );
+    expect(await screen.findByText('Card ending 0003')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Change status' }));
     expect(screen.getByLabelText('Type BLOCK to confirm')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Block customer' }));

@@ -831,7 +831,7 @@ test.describe('workflow route coverage', () => {
     ]);
   });
 
-  test('verifies copy hierarchy, Cashier header typography, and responsive width across all Supervisor routes', async ({
+  test('verifies profile typography hierarchy and responsive width across all Supervisor routes', async ({
     page,
   }) => {
     const routes = [
@@ -848,8 +848,8 @@ test.describe('workflow route coverage', () => {
       ],
       [
         '/supervisor/customers',
-        'Manage customers',
-        'Register customers or find and manage customer accounts.',
+        'Customers',
+        'Find customers and open their verified profile.',
       ],
       [
         '/supervisor/fraud',
@@ -887,14 +887,8 @@ test.describe('workflow route coverage', () => {
       return { title: titleStyle, description: descriptionStyle };
     };
 
-    await mockShell(page, 'CASHIER');
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${baseUrl}/cashier/lookup`);
-    const cashierTypography = await headerTypography(
-      'Find customer',
-      'Search by phone number, card serial or name to continue a loyalty transaction.',
-    );
-
+    let supervisorTypography:
+      Awaited<ReturnType<typeof headerTypography>> | undefined;
     await mockShell(page, 'SUPERVISOR');
     for (const [path, title, description] of routes) {
       await page.setViewportSize({ width: 1440, height: 900 });
@@ -905,13 +899,34 @@ test.describe('workflow route coverage', () => {
         root.getByRole('heading', { level: 1, name: title }),
       ).toBeVisible();
       await expect(root.getByText(description, { exact: true })).toBeVisible();
-      expect(
-        await headerTypography(title, description),
-        `${path} header typography`,
-      ).toEqual(cashierTypography);
+      const typography = await headerTypography(title, description);
+      supervisorTypography ??= typography;
+      expect(typography, `${path} header typography`).toEqual(
+        supervisorTypography,
+      );
+      expect(typography.title[0]).toContain('Inter');
+      expect(typography.title.slice(1)).toEqual([
+        '28px',
+        '700',
+        typography.title[3],
+        'rgb(17, 24, 39)',
+      ]);
+      expect(typography.description[0]).toContain('Inter');
+      expect(typography.description.slice(1)).toEqual([
+        '14px',
+        typography.description[2],
+        typography.description[3],
+        'rgb(75, 85, 99)',
+      ]);
 
       if (path === '/supervisor') {
         const overview = root.locator('.supervisor-overview');
+        await expect(
+          overview.locator('.supervisor-overview__section-heading h2'),
+        ).toHaveCSS('font-size', '18px');
+        await expect(
+          overview.locator('.supervisor-overview__freshness'),
+        ).toHaveCSS('font-size', '12px');
         await expect(
           overview.getByRole('link', { name: 'Open Approvals' }),
         ).toHaveAttribute('href', '/supervisor/approvals');
@@ -920,6 +935,8 @@ test.describe('workflow route coverage', () => {
         await expect(overview.locator('tbody tr')).toHaveCount(5);
         await expect(overview.getByRole('columnheader')).toHaveCount(4);
         await expect(overview.locator('img')).toHaveCount(0);
+      } else if (path === '/supervisor/customers') {
+        await expect(root.getByRole('table')).toBeVisible();
       } else if (path === '/supervisor/transactions') {
         await expect(
           root.getByRole('textbox', { name: 'Receipt number' }),
@@ -989,11 +1006,24 @@ test.describe('workflow route coverage', () => {
       }
     }
 
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/lookup`);
+    const cashierTypography = await headerTypography(
+      'Find customer',
+      'Search by phone number, card serial or name to continue a loyalty transaction.',
+    );
+    expect(cashierTypography.title[1]).toBe('34px');
+    expect(cashierTypography.title[4]).toBe('rgb(142, 1, 1)');
+
     await mockShell(page, 'ADMIN');
     await page.goto(`${baseUrl}/admin/customers`);
     const adminCustomerWorkspace = page.locator(
       '[aria-label="Customer workspace"]',
     );
+    await expect(
+      adminCustomerWorkspace.locator('.supervisor-page'),
+    ).toHaveCount(0);
     await expect(
       adminCustomerWorkspace.getByRole('heading', {
         level: 1,
@@ -3102,7 +3132,9 @@ test.describe('workflow route coverage', () => {
           panel.getByRole('combobox', { name: 'Filter customers by status' }),
         ).toBeVisible();
         await expect(
-          panel.getByLabel('Search by customer name, phone number, or card number'),
+          panel.getByLabel(
+            'Search by customer name, phone number, or card number',
+          ),
         ).toBeVisible();
 
         const measurements = await page.evaluate(() => ({
@@ -3212,13 +3244,52 @@ test.describe('workflow route coverage', () => {
     }
   });
 
-  test('preserves directory search context through a stable-ID profile and guards dirty Back', async ({
+  test('preserves directory search context through a stable-ID profile and guards dirty cancellation', async ({
     page,
   }) => {
     await mockShell(page, 'SUPERVISOR');
     await page.route('**/api/v1/customers**', async (route) => {
       const url = new URL(route.request().url());
       const pathname = url.pathname;
+      if (
+        pathname === '/api/v1/customers/customer-1/ledger' &&
+        route.request().method() === 'GET'
+      ) {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              customerId: 'customer-1',
+              items: [
+                {
+                  id: 'ledger-internal-1',
+                  receiptId: 'receipt-internal-1',
+                  source: 'RC-8807-002',
+                  staffUsername: 'cashier.one',
+                  type: 'EARN',
+                  direction: 'CREDIT',
+                  amountKobo: 1200,
+                  status: 'CONFIRMED',
+                  effectiveAt: '2025-04-22T10:45:00.000Z',
+                  smsStatus: null,
+                  allocations: [],
+                  creditLot: {
+                    id: 'lot-internal-1',
+                    originalAmountKobo: 1200,
+                    remainingAmountKobo: 1200,
+                    earnedAt: '2025-04-22T10:45:00.000Z',
+                    expiresAt: '2027-03-27T23:59:59.000Z',
+                  },
+                  restorations: [],
+                },
+              ],
+              nextCursor: null,
+              hasMore: false,
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
       if (
         pathname === '/api/v1/customers' &&
         route.request().method() === 'GET'
@@ -3240,6 +3311,58 @@ test.describe('workflow route coverage', () => {
           }),
         );
       }
+      if (pathname === '/api/v1/customers/customer-1/profile-projection') {
+        return route.fulfill(
+          json({
+            success: true,
+            data: {
+              customerId: 'customer-1',
+              sourceErrors: [],
+              memberSince: '2024-01-02T00:00:00.000Z',
+              pendingApprovalsCount: 0,
+              lifetimeEarnedKobo: 9200,
+              expirySchedule: [
+                {
+                  expiresAt: '2026-12-31',
+                  remainingAmountKobo: 1200,
+                },
+              ],
+              expiryScheduleIsUpcomingWindow: true,
+              expiryScheduleLimit: 12,
+              recentActivity: [
+                {
+                  id: 'activity-1',
+                  type: 'EARNING',
+                  status: 'CONFIRMED',
+                  amountKobo: 1200,
+                  occurredAt: '2025-01-02T00:00:00.000Z',
+                },
+              ],
+              transactions: [
+                {
+                  id: 'receipt-projection-1',
+                  occurredAt: '2025-04-22T10:45:00.000Z',
+                  purchaseAmountKobo: 50_000,
+                  captureStatus: 'CAPTURED',
+                  reviewStatus: 'APPROVED',
+                },
+              ],
+              walletLedger: [],
+              redemptions: [],
+              approvals: [],
+              statusEvents: [],
+              consent: null,
+              card: {
+                identifier: 'SER-CUSTOMER-1',
+                status: 'ACTIVE',
+                issuedAt: '2024-01-02T00:00:00.000Z',
+                blockedAt: null,
+              },
+            },
+            meta: meta(pathname),
+          }),
+        );
+      }
       if (pathname === '/api/v1/customers/customer-1') {
         return route.fulfill(
           json({
@@ -3248,6 +3371,7 @@ test.describe('workflow route coverage', () => {
               id: 'customer-1',
               fullName: 'Ada Shopper',
               phoneE164: '+2348000000001',
+              availableBalanceKobo: 12345,
               status: 'ACTIVE',
             },
             meta: meta(pathname),
@@ -3267,22 +3391,385 @@ test.describe('workflow route coverage', () => {
     );
     await profileLink.click();
     await expect(page).toHaveURL(/\/supervisor\/customers\/customer-1\?q=Ada$/);
-    await expect(page.getByLabel('Full name')).toHaveValue('Ada Shopper');
+    const detailsCard = page.locator('.supervisor-profile-details-card');
+    await expect(detailsCard).toBeVisible();
+    await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: /ShopCity card preview/ }),
+    ).toHaveCount(0);
+    const annualPurchasesCard = page
+      .locator('.supervisor-profile-metric')
+      .filter({ hasText: 'Annual Purchases' });
+    await expect(annualPurchasesCard).toContainText('Not provided');
+    await expect(page.getByText('Next expiry')).toHaveCount(0);
+    await expect(page.getByLabel('Full name')).toHaveCount(0);
+    await expect(
+      page.locator('[aria-labelledby="profile-activity-title"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[aria-labelledby="profile-expiry-title"]'),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Transactions' }).click();
+    const transactionTable = page.getByRole('table', {
+      name: 'Customer transactions',
+    });
+    await expect(transactionTable).toBeVisible();
+    await expect(transactionTable.getByRole('row')).toHaveCount(2);
+    const transactionRow = transactionTable.getByRole('row').nth(1);
+    await expect(transactionRow.locator('td').nth(0)).toHaveText(
+      'Not provided',
+    );
+    await expect(transactionRow.locator('td').nth(1)).toContainText('2025');
+    await expect(transactionRow.locator('td').nth(2)).toContainText('500.00');
+    await expect(transactionRow.locator('td').nth(3)).toHaveText(
+      'Not provided',
+    );
+    await expect(transactionRow.locator('td').nth(4)).toContainText('Captured');
+    await expect(transactionRow.locator('td').nth(4)).toContainText('Approved');
+    await page.getByRole('button', { name: 'Wallet Ledger' }).click();
+    const walletLedgerTable = page.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    await expect(walletLedgerTable).toBeVisible();
+    const walletLedgerRow = walletLedgerTable.getByRole('row').nth(1);
+    await expect(walletLedgerRow.locator('td').nth(0)).toHaveText(
+      'RC-8807-002',
+    );
+    await expect(walletLedgerRow.locator('td').nth(1)).toContainText('2025');
+    await expect(walletLedgerRow.locator('td').nth(2)).toContainText('Earned');
+    await expect(walletLedgerRow.locator('td').nth(3)).toContainText('12.00');
+    await expect(walletLedgerRow.locator('td').nth(4)).toHaveText(
+      'Not provided',
+    );
+    await expect(walletLedgerRow.locator('td').nth(5)).toContainText(
+      '27 Mar 2027',
+    );
+    await expect(walletLedgerRow.locator('td').nth(6)).toHaveText(
+      'cashier.one',
+    );
+    await expect(walletLedgerTable).not.toContainText('ledger-internal-1');
+    await expect(walletLedgerTable).not.toContainText('receipt-internal-1');
+    await page.getByRole('button', { name: 'Virtual Card' }).click();
+    const profileCardPreview = page.getByRole('img', {
+      name: 'ShopCity card preview for Ada Shopper; serial SER-CUSTOMER-1; status ACTIVE',
+    });
+    await expect(profileCardPreview).toBeVisible();
+    await expect(profileCardPreview).toContainText('SER-CUSTOMER-1');
+    const virtualCardBranding = profileCardPreview.locator('img');
+    await expect(virtualCardBranding).toBeVisible();
+    const brandingBounds = await virtualCardBranding.boundingBox();
+    expect(brandingBounds?.height).toBeGreaterThan(40);
+    await expect(virtualCardBranding).toHaveAttribute(
+      'src',
+      /card-branding\.png/,
+    );
+    await expect
+      .poll(() =>
+        virtualCardBranding.evaluate(
+          (image: HTMLImageElement) => image.naturalWidth,
+        ),
+      )
+      .toBeGreaterThan(0);
+    await expect(profileCardPreview).toContainText('Ada Shopper');
+    await expect(profileCardPreview).toContainText('ACTIVE');
+    await expect(page.getByText(/Issued/)).toBeVisible();
+    await page.screenshot({
+      path: '/tmp/shopcity-profile-virtual-card.png',
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Wallet Ledger' }).click();
+    await page.screenshot({
+      path: '/tmp/shopcity-profile-wallet-ledger.png',
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Transactions' }).click();
+    await page.screenshot({
+      path: '/tmp/shopcity-customer-profile-transactions.png',
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 375, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    expect(
+      await page
+        .locator('.supervisor-profile-transactions__table-wrap')
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.getByRole('button', { name: 'Wallet Ledger' }).click();
+    const mobileWalletLedger = page.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    await expect(mobileWalletLedger).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    expect(
+      await page
+        .locator('.supervisor-profile-wallet-ledger__table-wrap')
+        .evaluate((element) => element.scrollWidth > element.clientWidth),
+    ).toBe(true);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Overview' }).click();
+    await detailsCard
+      .getByRole('button', { name: 'Edit customer details' })
+      .click();
+    const profileForm = page.locator('.sc-customer-details__form');
+    await expect(profileForm.getByLabel('Full name')).toHaveValue(
+      'Ada Shopper',
+    );
+    await expect(
+      page.getByRole('dialog', { name: 'Edit customer details' }),
+    ).toBeVisible();
+    await profileForm.getByRole('button', { name: 'Cancel' }).click();
+    await expect(
+      page.getByRole('dialog', { name: 'Edit customer details' }),
+    ).not.toBeVisible();
+    const desktopLayout = await page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element) throw new Error(`Missing layout element: ${selector}`);
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      };
+      const style = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element)
+          throw new Error(`Missing typography element: ${selector}`);
+        const computed = getComputedStyle(element);
+        return {
+          fontSize: computed.fontSize,
+          fontWeight: computed.fontWeight,
+          color: computed.color,
+          lineHeight: computed.lineHeight,
+          fontVariantNumeric: computed.fontVariantNumeric,
+          wordBreak: computed.wordBreak,
+          overflowWrap: computed.overflowWrap,
+        };
+      };
+      const card = document.querySelector<HTMLElement>(
+        '.supervisor-profile-details-card',
+      );
+      if (!card) throw new Error('Missing read-only customer details card');
+      return {
+        details: bounds('.supervisor-profile-details-card'),
+        activity: bounds('[aria-labelledby="profile-activity-title"]'),
+        expiry: bounds('[aria-labelledby="profile-expiry-title"]'),
+        paddingTop: getComputedStyle(card).paddingTop,
+        typography: {
+          base: style('.sc-customer-details--page'),
+          title: style('.supervisor-profile-header__customer h1'),
+          memberSince: style('.supervisor-profile-header > .min-w-0 > p'),
+          badge: style('.supervisor-profile-header__customer .sc-badge'),
+          metricLabel: style('.supervisor-profile-metric:first-child > span'),
+          metricValue: style('.supervisor-profile-metric:first-child > strong'),
+          pendingValue: style(
+            '.supervisor-profile-metric:nth-child(2) > strong',
+          ),
+          metricFallback: style(
+            '.supervisor-profile-metric:last-child > strong',
+          ),
+          detailLabel: style('.supervisor-profile-details-grid dt'),
+          detailValue: style('.supervisor-profile-details-grid dd'),
+          placeholder: style(
+            '.supervisor-profile-details-grid dd.is-not-provided',
+          ),
+          email: style('.supervisor-profile-details-grid__email'),
+          section: style('#customer-details-card-title'),
+          activitySection: style('#profile-activity-title'),
+          expirySection: style('#profile-expiry-title'),
+          expiryHelper: style('.supervisor-profile-expiry > p:last-child'),
+          event: style('.supervisor-profile-recent-activity__title h4'),
+          timestamp: style('.supervisor-profile-recent-activity__date'),
+          status: style('.supervisor-profile-recent-activity__status'),
+          inactiveTab: style(
+            '.supervisor-profile-tabs button:not([aria-current])',
+          ),
+          activeTab: style(
+            '.supervisor-profile-tabs button[aria-current="page"]',
+          ),
+          search: style('.global-shell-search__control input'),
+          searchButton: style('.global-shell-search__submit'),
+          connection: style('.shell-system-status'),
+          sidebar: style('.shell-nav-link'),
+          activeSidebar: style('.shell-nav-link.is-active'),
+          footer: style('.shell-sidebar-footer-link'),
+          footerMeta: style('.shell-sidebar-footer-meta'),
+        },
+      };
+    });
+    expect(desktopLayout.activity.x).toBeGreaterThan(desktopLayout.details.x);
+    expect(desktopLayout.activity.y).toBe(desktopLayout.details.y);
+    expect(desktopLayout.expiry.x).toBe(desktopLayout.details.x);
+    expect(desktopLayout.expiry.y).toBeGreaterThanOrEqual(
+      desktopLayout.details.y + desktopLayout.details.height,
+    );
+    expect(desktopLayout.paddingTop).toBe('24px');
+    const { typography } = desktopLayout;
+    expect(typography.base).toMatchObject({
+      fontSize: '16px',
+      lineHeight: '24px',
+    });
+    expect(typography.title).toMatchObject({
+      fontSize: '28px',
+      fontWeight: '700',
+      color: 'rgb(17, 24, 39)',
+    });
+    expect(typography.memberSince).toMatchObject({
+      fontSize: '14px',
+      color: 'rgb(75, 85, 99)',
+    });
+    expect(typography.badge).toMatchObject({
+      fontSize: '13px',
+      fontWeight: '600',
+    });
+    expect(typography.metricLabel).toMatchObject({
+      fontSize: '13px',
+      fontWeight: '500',
+      color: 'rgb(107, 114, 128)',
+    });
+    expect(typography.metricValue).toMatchObject({
+      fontSize: '30px',
+      fontWeight: '600',
+      color: 'rgb(17, 24, 39)',
+      fontVariantNumeric: 'tabular-nums',
+    });
+    expect(typography.pendingValue).toMatchObject({
+      fontSize: '30px',
+      fontWeight: '600',
+      fontVariantNumeric: 'tabular-nums',
+    });
+    expect(typography.metricFallback).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+      color: 'rgb(107, 114, 128)',
+    });
+    expect(typography.detailLabel).toMatchObject({
+      fontSize: '13px',
+      fontWeight: '500',
+    });
+    expect(typography.detailValue).toMatchObject({
+      fontSize: '15px',
+      fontWeight: '500',
+      color: 'rgb(17, 24, 39)',
+    });
+    expect(typography.placeholder).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '400',
+      color: 'rgb(107, 114, 128)',
+    });
+    expect(typography.email).toMatchObject({
+      fontSize: '14px',
+      wordBreak: 'normal',
+      overflowWrap: 'anywhere',
+    });
+    for (const section of [
+      typography.section,
+      typography.activitySection,
+      typography.expirySection,
+    ]) {
+      expect(section).toMatchObject({ fontSize: '18px', fontWeight: '600' });
+    }
+    expect(typography.expiryHelper).toMatchObject({
+      fontSize: '14px',
+      lineHeight: '21px',
+    });
+    expect(typography.event).toMatchObject({
+      fontSize: '15px',
+      fontWeight: '600',
+      lineHeight: '18px',
+    });
+    expect(typography.timestamp.fontSize).toBe('13px');
+    expect(typography.status).toMatchObject({
+      fontSize: '12px',
+      fontWeight: '600',
+    });
+    expect(typography.inactiveTab).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+      color: 'rgb(75, 85, 99)',
+    });
+    expect(typography.activeTab).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '600',
+      color: 'rgb(255, 255, 255)',
+    });
+    expect(typography.search.fontSize).toBe('13px');
+    expect(typography.searchButton.fontSize).toBe('13px');
+    expect(typography.connection.fontSize).toBe('12px');
+    expect(typography.sidebar).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+    });
+    expect(typography.activeSidebar.fontWeight).toBe('600');
+    expect(typography.footer).toMatchObject({
+      fontSize: '14px',
+      fontWeight: '500',
+    });
+    expect(
+      Number.parseFloat(typography.footerMeta.fontSize),
+    ).toBeGreaterThanOrEqual(12);
+
+    for (const width of [1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const viewport = await page.evaluate(() => ({
+        viewportWidth: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+      }));
+      expect(
+        viewport.documentWidth,
+        `horizontal overflow at ${width}px`,
+      ).toBeLessThanOrEqual(viewport.viewportWidth);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileLayout = await page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element) throw new Error(`Missing layout element: ${selector}`);
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      };
+      const card = document.querySelector<HTMLElement>(
+        '.supervisor-profile-details-card',
+      );
+      if (!card) throw new Error('Missing read-only customer details card');
+      return {
+        details: bounds('.supervisor-profile-details-card'),
+        activity: bounds('[aria-labelledby="profile-activity-title"]'),
+        expiry: bounds('[aria-labelledby="profile-expiry-title"]'),
+        paddingTop: getComputedStyle(card).paddingTop,
+      };
+    });
+    expect(mobileLayout.details.x).toBe(mobileLayout.expiry.x);
+    expect(mobileLayout.expiry.y).toBeGreaterThanOrEqual(
+      mobileLayout.details.y + mobileLayout.details.height,
+    );
+    expect(mobileLayout.activity.y).toBeGreaterThanOrEqual(
+      mobileLayout.expiry.y + mobileLayout.expiry.height,
+    );
+    expect(mobileLayout.paddingTop).toBe('16px');
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await expect(detailsCard).toBeVisible();
+    await detailsCard
+      .getByRole('button', { name: 'Edit customer details' })
+      .click();
     await expect(page.getByLabel('Full name')).toHaveValue('Ada Shopper');
     await page.getByLabel('Full name').fill('Unsaved Ada');
-    await page.getByRole('button', { name: 'Back to customers' }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(
       page.getByRole('heading', { name: 'Discard unsaved changes?' }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Keep editing' }).click();
     await expect(page.getByLabel('Full name')).toHaveValue('Unsaved Ada');
-    await page.getByRole('button', { name: 'Back to customers' }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('button', { name: 'Discard' }).click();
-    await expect(page).toHaveURL(`${baseUrl}/supervisor/customers?q=Ada`);
-    await expect(
-      page.getByLabel('Search by customer name, phone number, or card number'),
-    ).toHaveValue('Ada');
+    await expect(page).toHaveURL(
+      `${baseUrl}/supervisor/customers/customer-1?q=Ada`,
+    );
+    await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
   });
 
   test('restores Supervisor card tabs after direct load and reload, defaulting invalid tabs', async ({

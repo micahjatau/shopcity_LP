@@ -1,57 +1,66 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-09
+Updated: 2026-10-10
 
 ## Repository state
 
-- Repository: `shopcity_LP`
+- Repository: `/root/github-repos/micahjatau/shopcity_LP`
 - Branch: `workflow-states-implementation`
-- Main work commit: `f412879` — `feat: complete Supervisor and local POS workflows`
-- Previous overview commit: `47d4d72`
-- The main worktree is committed. Machine-generated `micah/BrowserMetrics/*.pma` files remain local and are ignored; do not add them to a commit.
-- No production or remote configuration was changed.
+- Current `HEAD`: `9d5c18c` — `feat(supervisor): add customer directory and profile`
+- The worktree contains numerous pre-existing and current uncommitted changes, plus unrelated untracked assets. Do not reset, clean, stage, or commit them without explicit direction. Supplied customer SVGs and screenshots were preserved.
+- A web production build was run with `SHOPCITY_WEB_DIST_DIR=.next-profile-card-tab-build`. It generated that build directory and ran the token generator; do not remove generated output or alter the existing `apps/web/tsconfig.json` includes without checking the current diff first.
+- No production/remote service configuration was changed during the latest work.
 
-## Completed work
+## Latest request: move the card preview
 
-- Supervisor overview uses live, branch-scoped reporting and paginated/searchable approvals.
-- Supervisor transactions load the first bounded branch page by default; receipt number is optional, and server-side status, staff, and minimum-amount filters precede cursor pagination. Ordering is newest effective time, then ledger-entry ID. Detail and reversal safeguards remain intact.
-- The duplicate branch-scope sentence was removed from the transaction page. Desktop and mobile shell footers now say “Powered by Radar Solutions.”
-- Login role guidance and login-background loading were updated.
-- Added a default-off local cashier test-session path. It requires development mode, a loopback database, deterministic SMS, and no Vercel environment; optional Tailscale access requires one exact HTTPS origin. The API binds to loopback when enabled. It does not change production login or device qualification.
-- OpenAPI/client and migration-tracker artifacts were updated. The receipt-number query is optional in the OpenAPI integration contract.
+The card graphic preview now appears only in the customer profile's **Virtual Card** tab:
 
-## Local runtime and safety
+- Reusable preview: `apps/web/components/workflows/supervisor-virtual-card-preview.tsx`.
+- Profile placement and tab content: `apps/web/components/workflows/customer-details-dialog.tsx`.
+- The Supervisor **Manage cards** workflow no longer renders the graphic. Its verified card details and protected block/replace actions remain intact in `apps/web/components/workflows/supervisor-card-management.tsx`.
+- The profile preview uses verified customer/card projection data; it does not use the supplied sample SVG as customer data and performs no card lifecycle writes.
+- The preview uses `apps/web/public/brand/supervisor/cutomer-profile/card-branding.png` as its ShopCity logo via `next/image`, displayed at 3.5rem high with its aspect ratio preserved. The supplied, untracked PNG remains unchanged. OpenSpec tasks 4.7 and 4.8 are checked complete.
 
-- `shopcity-next.service` serves the local frontend on `127.0.0.1:6767`; the backend is on `127.0.0.1:3000`. The Tailscale Serve frontend uses port `8444`.
-- Two pending migrations were applied to the local database only after backup to `/tmp/shopcity-signin-pre-migration-20261008.dump`; status is recorded in `docs/database/migration-tracker.md`.
-- POS pairing remains unresolved: the latest enrollment completion returned `DEVICE_ENROLLMENT_INVALID`; the device is still `ACTIVE` / `UNPAIRED` with no credentials. The authenticator type (external security key vs platform authenticator) is not yet clarified. Do not relax attestation or authenticator policy before that decision.
-- The WebAuthn OpenSpec remains in progress for real-device assurance/production qualification and Preview configuration.
+The card-move work and prior profile/typography/ledger changes remain uncommitted.
 
-## Verification
+## Completed implementation context
 
-- Backend unit tests: 63 suites, 443 tests passed.
-- Web unit tests: 27 suites, 202 tests passed.
-- Integration suite: 33 passed, 1 skipped; 157 tests passed, 2 skipped. The OpenAPI receipt-search integration assertion was corrected and the full suite rerun successfully.
-- Root/web lint and typechecks, client typecheck, backend and isolated web builds, OpenAPI lint, Semgrep (0 findings), OpenSpec validation, and `npm run format:check` passed.
-- Playwright Supervisor route sweep and transaction reversal flow passed against the existing local frontend; local cashier test-session flow passed with its development flag enabled.
-- GitNexus pre-commit detection reported critical aggregate blast radius (auth/session changes across 29 flows); the affected auth/session paths have focused tests and integration coverage.
+- The Supervisor customer directory and stable-ID customer profile are implemented, including registration feedback, cursor pagination, read-only details with the existing edit dialog, dirty-state protection, profile projections, and protected cashier handoffs.
+- Transactions and Wallet Ledger use responsive tables and tenant/customer-scoped data. Missing values remain “Not provided”; internal receipt/ledger IDs are not exposed.
+- Supervisor typography was unified with rem-based tokens while retaining established layouts and colors.
+- Wallet Ledger's earlier generic local error was traced to a missing Next.js `_document.js` build artifact. The frontend was restarted on port 6767; unauthenticated ledger requests reach the API and correctly return `401 AUTH_REQUIRED`.
+- `/supervisor/cards?tab=manage` is a serial lookup and verification workflow, not a card gallery. Live records cannot be inspected without an authenticated Supervisor session.
 
-## Playwright local-dev note
+## Verification completed
 
-The standalone Playwright dev server on `:3100` can conflict with the already-running Next dev server because both use `apps/web/.next`. The verified local workaround is to reuse `:6767`:
+- Focused profile/card-management Jest tests after the logo sizing adjustment: 2 suites, 34 tests passed.
+- Full web unit tests: 28 suites, 221 tests passed; accessibility tests: 27 suites, 216 tests passed (both completed before the branding-only update).
+- Web lint and TypeScript typecheck passed after the branding update.
+- Web production build passed after adding the branding image using the isolated `.next-card-branding-build` directory; the subsequent size adjustment changed only the image height utility class.
+- Focused Playwright stable-ID profile workflow passed against the existing frontend on port 6767 using system Chromium. It verifies that the graphic is absent from the overview, present in Virtual Card, that the supplied branding image loads at the enlarged size, then continues through Transactions, Wallet Ledger, and edit-dialog checks. Screenshot: `/tmp/shopcity-profile-virtual-card.png`.
+- Strict OpenSpec validation, Prettier check, and `git diff --check` passed after the branding update.
+
+A representative Playwright invocation (the config is session-local under `/tmp`):
 
 ```bash
 cd apps/web
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:6767 \
-PLAYWRIGHT_REUSE_EXISTING_SERVER=true \
-npx playwright test --config ./playwright.config.ts tests/workflow-routes.spec.ts \
-  -g 'verifies copy hierarchy, Cashier header typography'
+  ./node_modules/.bin/playwright test \
+  --config /tmp/shopcity-system-chromium.playwright.config.mjs \
+  /root/github-repos/micahjatau/shopcity_LP/apps/web/tests/workflow-routes.spec.ts \
+  -g 'preserves directory search context through a stable-ID profile and guards dirty cancellation'
 ```
 
-The user decided this standalone-server issue is not necessary to pursue now.
+## Next steps
 
-## Active specifications
+1. Continue the remaining acceptance work in `openspec/changes/supervisor-customer-table-profile-workflow/tasks.md`, especially visual/responsive/accessibility checks and broader Playwright coverage (tasks 3.1, 4.1–4.3, 5.2–5.4 remain open).
+2. Review the complete current `git status` and diffs before editing or staging; retain all unrelated dirty/untracked files and reference assets.
+3. If Wallet Ledger is tested again, use an authenticated session. If it fails there, inspect the browser Network response status and error code.
+4. Login troubleshooting is unresolved because the selected role and exact on-screen error have not been supplied. Ask only for those details; never request a password.
+5. Do not claim visibility into live virtual cards without an authenticated Supervisor session.
 
-- `shell-footer-branding`: complete.
-- `supervisor-transaction-receipt-search-dialog`: complete after lint verification.
-- `browser-pos-webauthn-attestation`: still in progress; hardware assurance and production qualification remain gated.
+## Local runtime
+
+- Frontend dev server: `127.0.0.1:6767` (reused for the latest Playwright check).
+- API server: port 3000.
+- The standalone Playwright server on port 3100 may conflict with the existing frontend because both can use `apps/web/.next`; prefer reusing port 6767 for this workflow.

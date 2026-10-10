@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import {
   SuccessPopUp,
@@ -15,6 +16,7 @@ import {
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
   customersControllerGetCustomerProfileProjectionV1,
+  customersControllerUpdateCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
 } from '../lib/api/generated-client';
 
@@ -98,6 +100,20 @@ describe('table-first customer workflow', () => {
             },
           }) as never,
       );
+    jest.mocked(loyaltyControllerGetCustomerLedgerV1).mockImplementation(
+      async (id) =>
+        ({
+          status: 200,
+          data: {
+            data: {
+              customerId: id,
+              items: [],
+              nextCursor: null,
+              hasMore: false,
+            },
+          },
+        }) as never,
+    );
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -273,7 +289,94 @@ describe('table-first customer workflow', () => {
     );
   });
 
-  it('requires an explicit keep/discard decision before returning from a dirty profile', async () => {
+  it('renders customer details read-only and keeps verified edits in a dialog', async () => {
+    const verifiedCustomer = {
+      id: 'profile-customer',
+      fullName: 'Ada Customer',
+      phoneE164: '+2348000000000',
+      email: 'ada@example.com',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      status: 'ACTIVE',
+    };
+    jest
+      .mocked(customersControllerGetCustomerV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { data: verifiedCustomer },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: { ...verifiedCustomer, fullName: 'Edited Customer' },
+        },
+      } as never);
+    jest
+      .mocked(customersControllerUpdateCustomerV1)
+      .mockResolvedValueOnce({ status: 200 } as never);
+
+    render(
+      <SupervisorCustomerProfile
+        customerId="profile-customer"
+        returnQuery="Ada Smith"
+      />,
+    );
+    await screen.findByRole('heading', { name: 'Customer details' });
+    const detailsCard = document.querySelector<HTMLElement>(
+      '.supervisor-profile-details-card',
+    );
+    if (!detailsCard) throw new Error('Missing read-only customer details');
+    expect(within(detailsCard).getByText('Ada Customer')).toBeVisible();
+    expect(
+      within(detailsCard).getByText('Phone').parentElement,
+    ).toHaveTextContent('+2348000000000');
+    expect(within(detailsCard).getAllByText('Not provided')).toHaveLength(3);
+    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(detailsCard as HTMLElement).getByRole('button', {
+        name: 'Edit customer details',
+      }),
+    );
+    const editDialog = await screen.findByRole('dialog', {
+      name: 'Edit customer details',
+    });
+    expect(within(editDialog).getByLabelText('Full name')).toHaveValue(
+      'Ada Customer',
+    );
+    fireEvent.change(within(editDialog).getByLabelText('Full name'), {
+      target: { value: 'Edited Customer' },
+    });
+    fireEvent.click(
+      within(editDialog).getByRole('button', { name: 'Save changes' }),
+    );
+
+    await waitFor(() =>
+      expect(customersControllerUpdateCustomerV1).toHaveBeenCalledWith(
+        'profile-customer',
+        {
+          fullName: 'Edited Customer',
+          phone: '+2348000000000',
+          email: 'ada@example.com',
+        },
+        expect.objectContaining({}),
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Edit customer details' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      within(
+        document.querySelector(
+          '.supervisor-profile-details-card',
+        ) as HTMLElement,
+      ).getByText('Edited Customer'),
+    ).toBeVisible();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('requires an explicit keep/discard decision before cancelling a dirty profile edit', async () => {
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
       data: {
@@ -291,13 +394,14 @@ describe('table-first customer workflow', () => {
         returnQuery="Ada Smith"
       />,
     );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit customer details' }),
+    );
     fireEvent.change(await screen.findByLabelText('Full name'), {
       target: { value: 'Edited Customer' },
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: '← Back to customers' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(
       await screen.findByRole('heading', { name: 'Discard unsaved changes?' }),
     ).toBeVisible();
@@ -305,11 +409,17 @@ describe('table-first customer workflow', () => {
     expect(screen.getByLabelText('Full name')).toHaveValue('Edited Customer');
     expect(push).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: '← Back to customers' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
-    expect(push).toHaveBeenCalledWith('/supervisor/customers?q=Ada%20Smith');
+    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
+    expect(
+      within(
+        document.querySelector(
+          '.supervisor-profile-details-card',
+        ) as HTMLElement,
+      ).getByText('Ada Customer'),
+    ).toBeVisible();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('places explicit search left of the status and registration controls', async () => {
@@ -736,23 +846,50 @@ describe('table-first customer workflow', () => {
         },
       } as never);
     render(<SupervisorCustomerProfile customerId="requested-id" />);
-    expect(await screen.findByText('Verified Customer')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Verified Customer',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'Customer profile' }),
+    ).not.toBeInTheDocument();
+    const profileHeader = screen
+      .getByRole('heading', { name: 'Verified Customer' })
+      .closest('header');
+    expect(profileHeader).toContainElement(
+      screen.getByRole('link', { name: 'Capture Purchase' }),
+    );
+    expect(profileHeader).toContainElement(
+      screen.getByRole('link', { name: 'Redeem Credit' }),
+    );
     expect(screen.getByText('Available balance')).toBeVisible();
     expect(screen.getByText('Pending approvals')).toBeVisible();
     expect(screen.getByText('Lifetime earned')).toBeVisible();
-    expect(screen.getByText('Next expiry')).toBeVisible();
+    const annualPurchasesCard = screen
+      .getByText('Annual Purchases')
+      .closest('article');
+    expect(annualPurchasesCard).toHaveTextContent('Not provided');
     expect(await screen.findByText('Credit earned')).toBeVisible();
+    expect(screen.getByText('Confirmed')).toHaveClass(
+      'supervisor-profile-recent-activity__status--success',
+    );
+    expect(screen.getByText('Pending')).toHaveClass(
+      'supervisor-profile-recent-activity__status--pending',
+    );
     expect(
       screen.getByText('purchase credit approval requested'),
     ).toBeVisible();
     expect(
       screen.getByText('redemption credit approval decision'),
     ).toBeVisible();
-    expect(screen.getByText(/Member since/)).toHaveTextContent('1/2/2024');
+    expect(screen.getByText(/Member since/)).toHaveTextContent('2024');
+    expect(screen.getByText(/Member since/)).not.toHaveTextContent(/12:00/);
     expect(screen.getByText('3')).toBeVisible();
     expect(screen.getByText(/Credit expiry schedule/)).toBeVisible();
     expect(
-      screen.getByRole('link', { name: 'Capture purchase' }),
+      screen.getByRole('link', { name: 'Capture Purchase' }),
     ).toHaveAttribute('href', '/cashier/earn?card=CARD-REAL-1');
     expect(screen.getByRole('link', { name: 'Redeem Credit' })).toHaveAttribute(
       'href',
@@ -760,17 +897,251 @@ describe('table-first customer workflow', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Transactions' }));
     expect(screen.getByRole('heading', { name: 'Transactions' })).toBeVisible();
-    expect(screen.getByText('Receipt')).toBeVisible();
+    const transactionTable = screen.getByRole('table', {
+      name: 'Customer transactions',
+    });
+    expect(within(transactionTable).getAllByText('Not provided')).toHaveLength(
+      2,
+    );
+    expect(within(transactionTable).getByText(/2025/)).toBeVisible();
+    expect(within(transactionTable).getByText(/54\.00/)).toBeVisible();
+    expect(within(transactionTable).getByText('Captured')).toBeVisible();
+    expect(within(transactionTable).getByText('Approved')).toBeVisible();
+    jest.mocked(loyaltyControllerGetCustomerLedgerV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          customerId: 'requested-id',
+          items: [
+            {
+              id: 'ledger-real',
+              receiptId: 'receipt-real',
+              source: 'RC-8807-001',
+              staffUsername: 'cashier.one',
+              type: 'EARN',
+              direction: 'CREDIT',
+              amountKobo: 1200,
+              status: 'CONFIRMED',
+              effectiveAt: '2025-02-02T00:00:00.000Z',
+              smsStatus: null,
+              allocations: [],
+              creditLot: {
+                id: 'lot-real',
+                originalAmountKobo: 1200,
+                remainingAmountKobo: 1200,
+                earnedAt: '2025-02-02T00:00:00.000Z',
+                expiresAt: '2027-03-27T23:59:59.000Z',
+              },
+              restorations: [],
+            },
+          ],
+          nextCursor: null,
+          hasMore: false,
+        },
+      },
+    } as never);
     fireEvent.click(screen.getByRole('button', { name: 'Wallet Ledger' }));
-    expect(screen.getByText('EARN')).toBeVisible();
-    expect(screen.getByText(/2025/)).toBeVisible();
+    const walletLedger = screen.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    await within(walletLedger).findByText('RC-8807-001');
+    const walletLedgerRow = within(walletLedger).getAllByRole('row')[1];
+    expect(within(walletLedger).getByText('RC-8807-001')).toBeVisible();
+    expect(within(walletLedger).getByText('Earned')).toBeVisible();
+    expect(within(walletLedger).getByText('cashier.one')).toBeVisible();
+    expect(within(walletLedger).getByText(/12\.00/)).toBeVisible();
+    expect(within(walletLedger).getByText('27 Mar 2027')).toBeVisible();
+    expect(walletLedgerRow.querySelectorAll('td')[4]).toHaveTextContent(
+      'Not provided',
+    );
+    expect(walletLedger).not.toHaveTextContent('ledger-real');
+    expect(walletLedger).not.toHaveTextContent('receipt-real');
+    expect(loyaltyControllerGetCustomerLedgerV1).toHaveBeenCalledWith(
+      'requested-id',
+      { limit: '25', cursor: '' },
+      expect.any(Object),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Redemptions' }));
     expect(screen.getByText('CONFIRMED')).toBeVisible();
+    expect(
+      screen.queryByRole('img', { name: /ShopCity card preview/ }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Virtual Card' }));
+    const virtualCardPreview = screen.getByRole('img', {
+      name: 'ShopCity card preview for Verified Customer; serial CARD-REAL-1; status ACTIVE',
+    });
+    expect(
+      virtualCardPreview.querySelector('img')?.getAttribute('src'),
+    ).toContain('card-branding.png');
+    expect(virtualCardPreview).toHaveTextContent('CARD-REAL-1');
+    expect(virtualCardPreview).toHaveTextContent('Verified Customer');
+    expect(virtualCardPreview).toHaveTextContent('ACTIVE');
     expect(screen.getByText('Card CARD-REAL-1')).toBeVisible();
     expect(screen.getByText(/Issued/)).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Consent' }));
     expect(screen.getByText('Granted')).toBeVisible();
+    expect(
+      document.querySelector('.sc-customer-details__form'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps Transactions table headings visible in an honest empty state', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'requested-id',
+          fullName: 'Verified Customer',
+          phoneE164: '+2348000000000',
+        },
+      },
+    } as never);
+    render(<SupervisorCustomerProfile customerId="requested-id" />);
+
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'Verified Customer',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Transactions' }));
+
+    const transactionTable = screen.getByRole('table', {
+      name: 'Customer transactions',
+    });
+    for (const heading of [
+      'Receipt No.',
+      'Date & Time',
+      'Amount',
+      'Credit',
+      'Outcome',
+    ]) {
+      expect(
+        within(transactionTable).getByRole('columnheader', { name: heading }),
+      ).toBeVisible();
+    }
+    expect(within(transactionTable).getAllByRole('row')).toHaveLength(2);
+    expect(
+      within(transactionTable).getByRole('cell', {
+        name: 'No transactions were returned.',
+      }),
+    ).toHaveAttribute('colspan', '5');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Wallet Ledger' }));
+    const walletLedgerTable = screen.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    for (const heading of [
+      'Source',
+      'Date & Time',
+      'Type',
+      'Amount',
+      'Balance After',
+      'Expiry',
+      'Staff',
+    ]) {
+      expect(
+        within(walletLedgerTable).getByRole('columnheader', { name: heading }),
+      ).toBeVisible();
+    }
+    expect(
+      await within(walletLedgerTable).findByRole('cell', {
+        name: 'No wallet ledger entries were returned.',
+      }),
+    ).toHaveAttribute('colspan', '7');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Virtual Card' }));
+    expect(screen.getByText('No assigned card was provided.')).toBeVisible();
+    expect(
+      screen.queryByRole('img', { name: /ShopCity card preview/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('loads older wallet ledger rows with the returned cursor', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'requested-id',
+          fullName: 'Verified Customer',
+          phoneE164: '+2348000000000',
+        },
+      },
+    } as never);
+    jest
+      .mocked(loyaltyControllerGetCustomerLedgerV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            customerId: 'requested-id',
+            items: [
+              {
+                id: 'ledger-first',
+                source: 'RC-FIRST',
+                type: 'EARN',
+                direction: 'CREDIT',
+                amountKobo: 100,
+                status: 'CONFIRMED',
+                effectiveAt: '2025-02-02T00:00:00.000Z',
+                creditLot: null,
+              },
+            ],
+            nextCursor: 'cursor-next',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            customerId: 'requested-id',
+            items: [
+              {
+                id: 'ledger-second',
+                source: 'RC-SECOND',
+                type: 'REDEEM',
+                direction: 'DEBIT',
+                amountKobo: 50,
+                status: 'CONFIRMED',
+                effectiveAt: '2025-02-01T00:00:00.000Z',
+                creditLot: null,
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<SupervisorCustomerProfile customerId="requested-id" />);
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'Verified Customer',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Wallet Ledger' }));
+    const walletLedgerTable = screen.getByRole('table', {
+      name: 'Customer wallet ledger',
+    });
+    await within(walletLedgerTable).findByText('RC-FIRST');
+    fireEvent.click(screen.getByRole('button', { name: 'Load older entries' }));
+    await within(walletLedgerTable).findByText('RC-SECOND');
+    expect(within(walletLedgerTable).getByText('RC-FIRST')).toBeVisible();
+    expect(within(walletLedgerTable).getByText('Redeemed')).toBeVisible();
+    expect(within(walletLedgerTable).getByText(/-₦0\.50/)).toBeVisible();
+    expect(loyaltyControllerGetCustomerLedgerV1).toHaveBeenNthCalledWith(
+      1,
+      'requested-id',
+      { limit: '25', cursor: '' },
+      expect.any(Object),
+    );
+    expect(loyaltyControllerGetCustomerLedgerV1).toHaveBeenNthCalledWith(
+      2,
+      'requested-id',
+      { limit: '25', cursor: 'cursor-next' },
+      expect.any(Object),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Load older entries' }),
+    ).not.toBeInTheDocument();
   });
 
   it('preserves the expiry calendar date in a timezone west of UTC', async () => {
@@ -820,8 +1191,8 @@ describe('table-first customer workflow', () => {
       await screen.findByText('Credit expiry schedule');
       expect(screen.getByText('1/1/2026')).toBeVisible();
       expect(
-        screen.getByText('Next expiry').closest('article'),
-      ).toHaveTextContent('1/1/2026');
+        screen.getByText('Annual Purchases').closest('article'),
+      ).toHaveTextContent('Not provided');
       expect(screen.queryByText(/12\/31\/2025/)).not.toBeInTheDocument();
     } finally {
       if (originalTimezone === undefined) delete process.env.TZ;

@@ -1225,8 +1225,8 @@ function ManageCustomers({
       setMessage('Customer search could not be completed. Try again.');
     }
   }
-  async function saveProfile() {
-    if (!customer?.id) return;
+  async function saveProfile(): Promise<boolean> {
+    if (!customer?.id) return false;
     const submitted = {
       fullName: form.fullName.trim(),
       phone: form.phone.trim(),
@@ -1234,13 +1234,13 @@ function ManageCustomers({
     };
     if (!submitted.fullName || !submitted.phone) {
       setDetailMessage('Full name and phone number are required.');
-      return;
+      return false;
     }
     if (String(customer.email ?? '').trim() && !submitted.email) {
       setDetailMessage(
         'The current customer update service cannot clear an existing email. Enter a replacement email or restore the current value.',
       );
-      return;
+      return false;
     }
     setBusy(true);
     setDetailMessage('Saving customer profile…');
@@ -1258,13 +1258,13 @@ function ManageCustomers({
         setDetailMessage(
           `Customer profile was not saved (${response.status}).`,
         );
-        return;
+        return false;
       }
       setDetailMessage('Saved. Verifying current customer details…');
       const refreshed = await reload(customer.id, false, false);
       if (!refreshed) {
         setForm(submitted);
-        return;
+        return false;
       }
       const savedValuesMatch =
         String(refreshed.fullName ?? '').trim() === submitted.fullName &&
@@ -1279,13 +1279,15 @@ function ManageCustomers({
         setDetailMessage(
           'The profile update succeeded, but the refreshed values did not match your edits. Reload before retrying.',
         );
-        return;
+        return false;
       }
       updateResultRecord(refreshed);
       setToastMessage('Customer changes saved');
-      onCustomerId(null);
+      if (!profileOnly) onCustomerId(null);
+      return true;
     } catch {
       setDetailMessage('Customer profile could not be saved.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -1475,7 +1477,16 @@ function ManageCustomers({
         onRetry={() => {
           if (customerId) void reload(customerId, !customer);
         }}
-        onSave={() => void saveProfile()}
+        onSave={() => saveProfile()}
+        onDiscardProfileEdit={() => {
+          if (!customer) return;
+          setForm({
+            fullName: String(customer.fullName ?? ''),
+            phone: String(customer.phoneE164 ?? ''),
+            email: String(customer.email ?? ''),
+          });
+          setDetailMessage('');
+        }}
         onChangeStatus={() => void changeStatus()}
         onClose={() => onCustomerId(null)}
       />
@@ -1503,10 +1514,6 @@ export function SupervisorCustomerProfile({
   const backHref = `/supervisor/customers${returnQuery ? `?q=${encodeURIComponent(returnQuery)}` : ''}`;
   return (
     <section className="supervisor-page sc-page">
-      <CashierPageHeader
-        title="Customer profile"
-        description="Verified customer details and account controls."
-      />
       <ManageCustomers
         key={customerId}
         initialQuery=""
