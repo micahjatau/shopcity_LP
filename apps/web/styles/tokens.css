@@ -76,6 +76,16 @@
   --sc-font-size-h2: 24px;
   --sc-font-size-h1: 32px;
   --sc-font-size-display: 40px;
+  --sc-font-size-profile-base: 1rem;
+  --sc-font-size-profile-page-title: 1.75rem;
+  --sc-font-size-profile-metric: 1.875rem;
+  --sc-font-size-profile-section: 1.125rem;
+  --sc-font-size-profile-event-title: 0.9375rem;
+  --sc-font-size-profile-value: 0.9375rem;
+  --sc-font-size-profile-sm: 0.875rem;
+  --sc-font-size-profile-body: 0.875rem;
+  --sc-font-size-profile-label: 0.8125rem;
+  --sc-font-size-profile-caption: 0.75rem;
   --sc-line-height-caption: 16px;
   --sc-line-height-sm: 20px;
   --sc-line-height-base: 24px;
@@ -84,6 +94,10 @@
   --sc-line-height-h2: 32px;
   --sc-line-height-h1: 40px;
   --sc-line-height-display: 48px;
+  --sc-line-height-profile-body: 1.5;
+  --sc-line-height-profile-heading: 1.2;
+  --sc-line-height-profile-label: 1.4;
+  --sc-line-height-profile-compact: 1.25;
   --sc-font-weight-regular: 400;
   --sc-font-weight-medium: 500;
   --sc-font-weight-semibold: 600;

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-09
+goal: Unify Supervisor page typography with the customer profile's rem-based
+  Inter hierarchy without changing layout, colors, or workflows.

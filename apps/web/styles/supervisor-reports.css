@@ -396,3 +396,76 @@
     transition: none;
   }
 }
+
+/* Reports follow the same Supervisor-scoped profile typography as other routes. */
+.supervisor-reports-page {
+  --sc-prototype-fontDisplaySans: var(--sc-font-family-sans);
+  --sc-font-size-xs: var(--sc-font-size-profile-caption);
+  --sc-font-size-caption: var(--sc-font-size-profile-caption);
+  --sc-font-size-sm: var(--sc-font-size-profile-sm);
+  --sc-font-size-base: var(--sc-font-size-profile-base);
+  --sc-font-size-lg: var(--sc-font-size-profile-section);
+  --sc-font-size-xl: var(--sc-font-size-profile-page-title);
+  --sc-font-size-h3: var(--sc-font-size-profile-section);
+  --sc-font-size-h2: var(--sc-font-size-profile-page-title);
+  --sc-font-size-h1: var(--sc-font-size-profile-page-title);
+  --sc-font-size-display: var(--sc-font-size-profile-metric);
+  --sc-line-height-caption: var(--sc-line-height-profile-compact);
+  --sc-line-height-sm: var(--sc-line-height-profile-label);
+  --sc-line-height-base: var(--sc-line-height-profile-body);
+  --sc-line-height-lg: var(--sc-line-height-profile-body);
+  --sc-line-height-h3: var(--sc-line-height-profile-heading);
+  --sc-line-height-h2: var(--sc-line-height-profile-heading);
+  --sc-line-height-h1: var(--sc-line-height-profile-heading);
+  font-family: var(--sc-font-family-sans);
+  font-size: var(--sc-font-size-profile-base);
+  line-height: var(--sc-line-height-profile-body);
+  color: var(--sc-color-neutral-900);
+}
+
+.supervisor-reports-page :is(h1, h2, h3, h4) {
+  font-family: var(--sc-font-family-sans);
+  color: var(--sc-color-neutral-900);
+}
+
+.supervisor-reports-page h1 {
+  font-size: var(--sc-font-size-profile-page-title);
+  font-weight: var(--sc-font-weight-bold);
+  line-height: var(--sc-line-height-profile-heading);
+}
+
+.supervisor-reports-page .supervisor-page__header p {
+  color: var(--sc-color-neutral-600);
+  font-size: var(--sc-font-size-profile-body);
+  line-height: var(--sc-line-height-profile-body);
+}
+
+.supervisor-reports-page h2 {
+  font-size: var(--sc-font-size-profile-section);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: var(--sc-line-height-profile-heading);
+}
+
+.supervisor-reports-page :is(h3, h4) {
+  font-size: var(--sc-font-size-profile-base);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: var(--sc-line-height-profile-heading);
+}
+
+.supervisor-reports-page :is(small, [class*='eyebrow'], [class$='__label']) {
+  color: var(--sc-color-neutral-600);
+  font-size: var(--sc-font-size-profile-caption);
+  line-height: var(--sc-line-height-profile-label);
+}
+
+.supervisor-reports-page .supervisor-reports-metric__value {
+  font-size: var(--sc-font-size-profile-metric);
+  font-weight: var(--sc-font-weight-semibold);
+  line-height: var(--sc-line-height-profile-heading);
+}
+
+.supervisor-reports-page .supervisor-reports-period__heading strong {
+  color: var(--sc-color-neutral-900);
+  font-size: var(--sc-font-size-profile-value);
+  font-weight: var(--sc-font-weight-semibold);
+}
