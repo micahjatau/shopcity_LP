@@ -36,7 +36,7 @@
 - [x] 4.5 Style the profile Transactions tab as a responsive table card matching the supplied reference and Overview tab; keep column headers visible in the empty state, render unavailable receipt number and transaction-level credit as Not provided, and preserve API/data behavior.
 - [x] 4.6 Implement the Wallet Ledger reference as a responsive table card backed by the authenticated, cursor-paginated customer ledger endpoint; add receipt source and creator username to the read-only ledger contract, map supported values to columns, and show historical Balance After as Not provided unless the API supplies an authoritative snapshot.
 - [x] 4.7 Move the verified ShopCity card preview from Manage cards to the customer profile Virtual Card tab; retain authoritative profile data, verified management details, and all protected management actions.
-- [x] 4.8 Use the supplied `card-branding.png` as the Virtual Card preview's ShopCity brand mark, preserve the asset unchanged, and verify it loads in the profile workflow.
+- [x] 4.8 Use the supplied `IMG-20260802-WA0001.jpg` as the Virtual Card preview background, preserve the asset unchanged, and verify it loads in the profile workflow.
 
 ## 5. Verify and close the change
 

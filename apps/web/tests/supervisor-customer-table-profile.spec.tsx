@@ -972,7 +972,7 @@ describe('table-first customer workflow', () => {
     });
     expect(
       virtualCardPreview.querySelector('img')?.getAttribute('src'),
-    ).toContain('card-branding.png');
+    ).toContain('IMG-20260802-WA0001.jpg');
     expect(virtualCardPreview).toHaveTextContent('CARD-REAL-1');
     expect(virtualCardPreview).toHaveTextContent('Verified Customer');
     expect(virtualCardPreview).toHaveTextContent('ACTIVE');

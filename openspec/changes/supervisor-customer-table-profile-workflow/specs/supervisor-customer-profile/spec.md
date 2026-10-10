@@ -115,7 +115,7 @@ The profile virtual card MUST use the current assigned card's authoritative iden
 - **WHEN** the Supervisor opens the Virtual Card tab
 - **THEN** the tab renders the ShopCity card preview using that card's real identifier, authoritative status, issue date, and verified customer name
 - **AND** the profile does not display the sample SVG's name, card number, barcode, or status as customer data
-- **AND** the card-branding image at `apps/web/public/brand/supervisor/cutomer-profile/card-branding.png` is displayed as the logo at 3.5rem high with its aspect ratio preserved, and the source asset remains unchanged
+- **AND** `apps/web/public/brand/supervisor/IMG-20260802-WA0001.jpg` is used as the card preview's cover background, with the source asset left unchanged
 - **AND** the preview does not appear on Overview or the global Manage cards tab
 - **AND** Manage cards retains its verified serial/customer details and existing protected card actions without rendering the graphic preview.
 
