@@ -11005,6 +11005,16 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   id: string;
   /** @nullable */
   receiptId: string | null;
+  /**
+   * POS receipt number associated with the ledger entry.
+   * @nullable
+   */
+  source?: string | null;
+  /**
+   * Username of the staff member who created the ledger entry.
+   * @nullable
+   */
+  staffUsername?: string | null;
   /** @nullable */
   redemptionId?: string | null;
   type: LoyaltyControllerGetTransactionV1200DataLedgerType;
@@ -11397,6 +11407,16 @@ export type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem = {
   id: string;
   /** @nullable */
   receiptId: string | null;
+  /**
+   * POS receipt number associated with the ledger entry.
+   * @nullable
+   */
+  source?: string | null;
+  /**
+   * Username of the staff member who created the ledger entry.
+   * @nullable
+   */
+  staffUsername?: string | null;
   /** @nullable */
   redemptionId?: string | null;
   type: LoyaltyControllerGetCustomerLedgerV1200DataItemsItemType;

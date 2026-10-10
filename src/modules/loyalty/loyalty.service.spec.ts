@@ -1135,6 +1135,8 @@ describe('LoyaltyService redemption approvals', () => {
         {
           id: 'ledger-2',
           receiptId: null,
+          source: null,
+          staffUsername: null,
           type: 'ADJUSTMENT',
           direction: 'CREDIT',
           amountKobo: 4_000,
@@ -1152,6 +1154,60 @@ describe('LoyaltyService redemption approvals', () => {
         },
       }),
     );
+  });
+
+  it('returns receipt source, credit expiry, and creator username for ledger rows', async () => {
+    const ledgerEntry = {
+      id: 'ledger-source-1',
+      receiptId: 'receipt-source-1',
+      type: 'EARN',
+      direction: 'CREDIT',
+      amountKobo: 1_200n,
+      status: 'CONFIRMED',
+      effectiveAt: new Date('2025-02-02T12:00:00.000Z'),
+      redemption: null,
+      receipt: { posReceiptNumber: 'RC-8807-001' },
+      createdByUser: { username: 'cashier.one' },
+      creditLot: {
+        id: 'lot-source-1',
+        originalAmountKobo: 1_200n,
+        remainingAmountKobo: 1_200n,
+        earnedAt: new Date('2025-02-02T12:00:00.000Z'),
+        expiresAt: new Date('2027-03-27T23:59:59.000Z'),
+      },
+      redemptionAllocations: [],
+      allocationRestorations: [],
+    };
+    const findMany = jest.fn().mockResolvedValue([ledgerEntry]);
+    const service = new LoyaltyService(
+      {
+        loyaltyLedgerEntry: { findMany },
+        smsMessage: { findFirst: jest.fn().mockResolvedValue(null) },
+      } as never,
+      auditService(),
+      configService(),
+      activeBalanceService(1_200n),
+    );
+
+    await expect(
+      service.listCustomerLedger(
+        'tenant-1',
+        supervisorAuthContext(),
+        'customer-1',
+      ),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: 'ledger-source-1',
+          source: 'RC-8807-001',
+          staffUsername: 'cashier.one',
+          creditLot: {
+            expiresAt: '2027-03-27T23:59:59.000Z',
+          },
+        },
+      ],
+    });
+    expect(findMany).toHaveBeenCalledTimes(1);
   });
 
   it('returns expiry transaction details with immutable lot evidence', async () => {

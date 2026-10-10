@@ -67,6 +67,16 @@ const transactionLedgerItemSchema = {
   properties: {
     id: { type: 'string', format: 'uuid' },
     receiptId: { type: 'string', format: 'uuid', nullable: true },
+    source: {
+      type: 'string',
+      nullable: true,
+      description: 'POS receipt number associated with the ledger entry.',
+    },
+    staffUsername: {
+      type: 'string',
+      nullable: true,
+      description: 'Username of the staff member who created the ledger entry.',
+    },
     redemptionId: { type: 'string', format: 'uuid', nullable: true },
     type: {
       type: 'string',

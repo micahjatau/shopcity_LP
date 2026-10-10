@@ -1508,7 +1508,13 @@ export class LoyaltyService {
       orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
       include: {
         creditLot: true,
-        redemption: true,
+        receipt: { select: { posReceiptNumber: true } },
+        createdByUser: { select: { username: true } },
+        redemption: {
+          include: {
+            receipt: { select: { posReceiptNumber: true } },
+          },
+        },
         allocationRestorations: {
           include: {
             allocation: {
@@ -1557,6 +1563,11 @@ export class LoyaltyService {
         return {
           id: entry.id,
           receiptId: entry.receiptId,
+          source:
+            entry.receipt?.posReceiptNumber ??
+            entry.redemption?.receipt?.posReceiptNumber ??
+            null,
+          staffUsername: entry.createdByUser?.username ?? null,
           type: entry.type,
           direction: entry.direction,
           amountKobo: Number(entry.amountKobo),
