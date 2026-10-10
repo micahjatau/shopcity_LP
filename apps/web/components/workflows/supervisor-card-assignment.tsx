@@ -369,9 +369,9 @@ export function SupervisorCardAssignment({
                   <p>
                     This customer already has an active card.{' '}
                     <Link
-                      href={`/supervisor/cards?tab=manage&id=${encodeURIComponent(customer.id!)}`}
+                      href={`/supervisor/cards?tab=issued&id=${encodeURIComponent(customer.id!)}`}
                     >
-                      Manage cards
+                      View issued cards
                     </Link>
                   </p>
                 ) : null}

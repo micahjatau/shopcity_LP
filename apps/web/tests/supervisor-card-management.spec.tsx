@@ -5,9 +5,11 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { format } from 'date-fns';
 import { SupervisorCardManagement } from '../components/workflows/supervisor-card-management';
 import { SupervisorCardWorkflows } from '../components/workflows/supervisor-card-workflows';
 import {
+  cardsControllerListIssuedManagementCardsV1,
   cardsControllerLookupManagementCardV1,
   cardsControllerReplaceCardV1,
   cardsControllerUpdateStatusV1,
@@ -24,6 +26,7 @@ jest.mock('../components/workflows/supervisor-card-assignment', () => ({
   SupervisorCardAssignment: () => <div>Assignment workspace</div>,
 }));
 jest.mock('../lib/api/generated-client', () => ({
+  cardsControllerListIssuedManagementCardsV1: jest.fn(),
   cardsControllerLookupManagementCardV1: jest.fn(),
   cardsControllerReplaceCardV1: jest.fn(),
   cardsControllerUpdateStatusV1: jest.fn(),
@@ -47,72 +50,459 @@ beforeEach(() => {
   jest
     .mocked(cardsControllerLookupManagementCardV1)
     .mockResolvedValue(ok(active) as never);
+  jest
+    .mocked(cardsControllerListIssuedManagementCardsV1)
+    .mockImplementation(() => new Promise(() => {}) as never);
 });
 
 describe('Supervisor card management tabs', () => {
-  it('keeps tab controls valid, roving keyboard semantics and only the selected workspace mounted', () => {
-    const { rerender } = render(<SupervisorCardWorkflows />);
-    const assign = screen.getByRole('tab', { name: 'Assign card' });
-    const manage = screen.getByRole('tab', { name: 'Manage cards' });
-    const expectValidPanelTargets = () => {
-      for (const tab of [assign, manage]) {
-        const targetId = tab.getAttribute('aria-controls');
-        expect(targetId).toBeTruthy();
-        expect(document.getElementById(targetId!)).toBeInTheDocument();
-      }
-    };
-    expectValidPanelTargets();
-    expect(assign).toHaveAttribute('aria-selected', 'true');
-    expect(assign).toHaveAttribute('tabindex', '0');
-    expect(manage).toHaveAttribute('tabindex', '-1');
-    expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(2);
-    expect(document.getElementById('card-panel-assign')).not.toHaveAttribute(
-      'hidden',
-    );
-    expect(document.getElementById('card-panel-manage')).toHaveAttribute(
-      'hidden',
-    );
-    expect(screen.getByText('Assignment workspace')).toBeInTheDocument();
+  it('defaults to the issued-card table and renders owner details with a Virtual Card profile link', async () => {
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'SER-1',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'customer-1', fullName: 'Ada Example' },
+              },
+              {
+                cardNumber: 'SER-2',
+                status: 'BLOCKED',
+                issuedAt: '2025-12-01T00:00:00.000Z',
+                customer: { id: 'customer-2', fullName: 'Grace Example' },
+              },
+              {
+                cardNumber: 'SER-3',
+                status: 'REPLACED',
+                issuedAt: '2025-11-01T00:00:00.000Z',
+                customer: { id: 'customer-3', fullName: 'Morgan Example' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<SupervisorCardWorkflows />);
+
+    expect(screen.queryByRole('button', { name: 'Issued cards' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Issued cards' })).toBeNull();
     expect(
-      within(screen.getByRole('tabpanel', { name: 'Assign card' })).queryByRole(
-        'heading',
-        { name: 'Manage cards' },
-      ),
-    ).not.toBeInTheDocument();
-    fireEvent.keyDown(assign, { key: 'ArrowRight' });
-    expect(manage).toHaveFocus();
-    query = new URLSearchParams('tab=manage');
-    rerender(<SupervisorCardWorkflows />);
-    expectValidPanelTargets();
-    expect(screen.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute(
-      'aria-selected',
-      'true',
+      screen.getByLabelText('Search by card number or owner name'),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('combobox', { name: 'Filter by status' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Pick a date range' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Assign card' })).toHaveClass(
+      'sc-button--primary',
     );
-    expect(pushUrl).toHaveBeenLastCalledWith('/supervisor/cards?tab=manage', {
-      scroll: false,
+    const table = await screen.findByRole('table', { name: 'Issued cards' });
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent?.trim());
+    expect(headers).toEqual([
+      'Card number',
+      'Owner',
+      'Status',
+      'Date issued',
+      'View card',
+    ]);
+    expect(table).toHaveClass('supervisor-customer-table');
+    expect(table.parentElement).toHaveClass('supervisor-customer-table-wrap');
+    expect(await within(table).findByText('SER-1')).toBeVisible();
+    expect(within(table).getByText('Ada Example')).toBeVisible();
+    expect(within(table).getByText('Active')).toBeVisible();
+    expect(within(table).getByText('Active').parentElement).toHaveClass(
+      'sc-badge--success',
+    );
+    expect(within(table).getByText('Grace Example')).toBeVisible();
+    expect(within(table).getByText('Blocked')).toBeVisible();
+    expect(within(table).getByText('Blocked').parentElement).toHaveClass(
+      'sc-badge--danger',
+    );
+    expect(within(table).getByText('Morgan Example')).toBeVisible();
+    expect(within(table).getByText('Replaced')).toBeVisible();
+    expect(within(table).getByText('Replaced').parentElement).toHaveClass(
+      'sc-badge--warning',
+    );
+    expect(
+      within(within(table).getByRole('row', { name: /SER-1/ })).getByRole(
+        'link',
+        { name: 'View card' },
+      ),
+    ).toHaveAttribute(
+      'href',
+      '/supervisor/customers/customer-1?tab=virtual-card',
+    );
+    expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenCalledWith(
+      { limit: '25', cursor: '' },
+      expect.any(Object),
+    );
+  });
+
+  it('reveals the search input from the search-icon control on compact layouts', async () => {
+    render(<SupervisorCardWorkflows />);
+    await screen.findByRole('table', { name: 'Issued cards' });
+    const toggle = screen.getByRole('button', { name: 'Search cards' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('searchbox', {
+        name: 'Search by card number or owner name',
+      }).parentElement,
+    ).toHaveClass('is-open');
+  });
+
+  it('applies card/owner search, lifecycle status, and issue-date filters to API requests', async () => {
+    jest.mocked(cardsControllerListIssuedManagementCardsV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: { items: [], nextCursor: null, hasMore: false },
+      },
+    } as never);
+    render(<SupervisorCardWorkflows />);
+    await screen.findByRole('table', { name: 'Issued cards' });
+
+    fireEvent.change(
+      screen.getByLabelText('Search by card number or owner name'),
+      {
+        target: { value: 'CARD-42' },
+      },
+    );
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Filter by status' }),
+      {
+        target: { value: 'REPLACED' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Pick a date range' }));
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    fireEvent.click(
+      screen.getByRole('button', { name: `Today, ${format(today, 'PPPP')}` }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: format(tomorrow, 'PPPP') }),
+    );
+
+    await waitFor(() =>
+      expect(
+        cardsControllerListIssuedManagementCardsV1,
+      ).toHaveBeenLastCalledWith(
+        {
+          limit: '25',
+          cursor: '',
+          q: 'CARD-42',
+          status: 'REPLACED',
+          issuedFrom: format(today, 'yyyy-MM-dd'),
+          issuedTo: format(tomorrow, 'yyyy-MM-dd'),
+        },
+        expect.any(Object),
+      ),
+    );
+  });
+
+  it('preserves active filters when loading a cursor continuation', async () => {
+    jest.mocked(cardsControllerListIssuedManagementCardsV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              cardNumber: 'REPLACED-1',
+              status: 'REPLACED',
+              issuedAt: '2025-01-01T00:00:00.000Z',
+              customer: { id: 'owner-1', fullName: 'Owner One' },
+            },
+          ],
+          nextCursor: 'next-page',
+          hasMore: true,
+        },
+      },
+    } as never);
+    render(<SupervisorCardWorkflows />);
+    await screen.findByRole('table', { name: 'Issued cards' });
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Filter by status' }),
+      {
+        target: { value: 'REPLACED' },
+      },
+    );
+    await waitFor(() =>
+      expect(
+        cardsControllerListIssuedManagementCardsV1,
+      ).toHaveBeenLastCalledWith(
+        { limit: '25', cursor: '', status: 'REPLACED' },
+        expect.any(Object),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Load more cards' }));
+    await waitFor(() =>
+      expect(
+        cardsControllerListIssuedManagementCardsV1,
+      ).toHaveBeenLastCalledWith(
+        { limit: '25', cursor: 'next-page', status: 'REPLACED' },
+        expect.any(Object),
+      ),
+    );
+  });
+
+  it('opens a two-month issue-date calendar and clears the applied range', async () => {
+    jest.mocked(cardsControllerListIssuedManagementCardsV1).mockResolvedValue({
+      status: 200,
+      data: { data: { items: [], nextCursor: null, hasMore: false } },
+    } as never);
+    render(<SupervisorCardWorkflows />);
+    await screen.findByRole('table', { name: 'Issued cards' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick a date range' }));
+    const calendar = screen.getByRole('dialog', {
+      name: 'Choose issue date range',
     });
-    expect(document.getElementById('card-panel-assign')).toHaveAttribute(
-      'hidden',
+    expect(within(calendar).getAllByRole('grid')).toHaveLength(2);
+
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    fireEvent.click(
+      within(calendar).getByRole('button', {
+        name: `Today, ${format(today, 'PPPP')}`,
+      }),
     );
-    expect(document.getElementById('card-panel-manage')).not.toHaveAttribute(
-      'hidden',
+    fireEvent.click(
+      within(calendar).getByRole('button', {
+        name: format(tomorrow, 'PPPP'),
+      }),
     );
-    expect(screen.getByRole('tabpanel')).toHaveAttribute(
-      'aria-labelledby',
-      'card-tab-manage',
+    await waitFor(() =>
+      expect(
+        cardsControllerListIssuedManagementCardsV1,
+      ).toHaveBeenLastCalledWith(
+        {
+          limit: '25',
+          cursor: '',
+          issuedFrom: format(today, 'yyyy-MM-dd'),
+          issuedTo: format(tomorrow, 'yyyy-MM-dd'),
+        },
+        expect.any(Object),
+      ),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `${format(today, 'MMM dd, yyyy')} – ${format(tomorrow, 'MMM dd, yyyy')}`,
+      }),
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole('dialog', { name: 'Choose issue date range' }),
+      ).getByRole('button', { name: 'Clear' }),
+    );
+    await waitFor(() =>
+      expect(
+        cardsControllerListIssuedManagementCardsV1,
+      ).toHaveBeenLastCalledWith(
+        { limit: '25', cursor: '' },
+        expect.any(Object),
+      ),
+    );
+  });
+
+  it('renders an explicit empty state when the issued-card collection is empty', async () => {
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { data: { items: [], nextCursor: null, hasMore: false } },
+      } as never);
+    render(<SupervisorCardWorkflows />);
+
+    expect(
+      await screen.findByText(
+        'No previously issued cards match these filters.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'View card' })).toBeNull();
+  });
+
+  it('shows loading, lets the user retry a failed first page, and recovers', async () => {
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockRejectedValueOnce(new Error('temporary failure'))
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'RETRY-SERIAL',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'retry-owner', fullName: 'Retry Owner' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<SupervisorCardWorkflows />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Loading issued cards',
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Issued cards could not be loaded.',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('RETRY-SERIAL')).toBeVisible();
+    expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads further issued-card pages using the returned cursor', async () => {
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'FIRST-SERIAL',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'first-owner', fullName: 'First Owner' },
+              },
+            ],
+            nextCursor: 'cursor-page-two',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'SECOND-SERIAL',
+                status: 'BLOCKED',
+                issuedAt: '2025-12-01T00:00:00.000Z',
+                customer: { id: 'second-owner', fullName: 'Second Owner' },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<SupervisorCardWorkflows />);
+
+    expect(await screen.findByText('FIRST-SERIAL')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Load more cards' }));
+    expect(await screen.findByText('SECOND-SERIAL')).toBeVisible();
+    expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenNthCalledWith(
+      2,
+      { limit: '25', cursor: 'cursor-page-two' },
+      expect.any(Object),
     );
     expect(
-      within(screen.getByRole('tabpanel', { name: 'Manage cards' })).getByRole(
-        'heading',
-        { name: 'Manage cards' },
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Assignment workspace')).not.toBeInTheDocument();
-    const selectedManage = screen.getByRole('tab', { name: 'Manage cards' });
-    fireEvent.keyDown(selectedManage, { key: 'Home' });
-    expect(assign).toHaveFocus();
-    fireEvent.keyDown(assign, { key: 'End' });
-    expect(selectedManage).toHaveFocus();
+      screen.queryByRole('button', { name: 'Load more cards' }),
+    ).toBeNull();
+  });
+
+  it('preserves current rows when loading more fails and retries the next page', async () => {
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'PRESERVED-SERIAL',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: {
+                  id: 'preserved-owner',
+                  fullName: 'Preserved Owner',
+                },
+              },
+            ],
+            nextCursor: 'cursor-after-preserved',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockRejectedValueOnce(new Error('temporary failure'))
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'RECOVERED-SERIAL',
+                status: 'BLOCKED',
+                issuedAt: '2025-12-01T00:00:00.000Z',
+                customer: {
+                  id: 'recovered-owner',
+                  fullName: 'Recovered Owner',
+                },
+              },
+            ],
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<SupervisorCardWorkflows />);
+
+    expect(await screen.findByText('PRESERVED-SERIAL')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Load more cards' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'More issued cards could not be loaded.',
+    );
+    expect(screen.getByText('PRESERVED-SERIAL')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading more' }));
+    expect(await screen.findByText('RECOVERED-SERIAL')).toBeVisible();
+    expect(screen.getByText('PRESERVED-SERIAL')).toBeVisible();
+  });
+
+  it('maps legacy directory URLs to the issued-card table without an Issued cards button', async () => {
+    query = new URLSearchParams('tab=manage');
+    render(<SupervisorCardWorkflows />);
+    expect(
+      await screen.findByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Issued cards' })).toBeNull();
+  });
+
+  it('opens assignment from the red action in a popup and leaves the directory in place', async () => {
+    render(<SupervisorCardWorkflows />);
+    expect(
+      await screen.findByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
+    const assign = screen.getByRole('button', { name: 'Assign card' });
+    expect(assign).toHaveClass('sc-button--primary');
+    fireEvent.click(assign);
+    expect(pushUrl).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Assign card' })).toBeVisible();
+    expect(screen.getByText('Assignment workspace')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close assignment' }));
+    expect(screen.queryByRole('dialog', { name: 'Assign card' })).toBeNull();
+    expect(screen.getByRole('table', { name: 'Issued cards' })).toBeVisible();
   });
 
   it('does not render raw card lookup response data after selection', async () => {
@@ -141,6 +531,59 @@ describe('Supervisor card management tabs', () => {
     expect(screen.getByText('Card status')).toBeInTheDocument();
     expect(document.body.textContent).not.toContain(privateDebugField);
     expect(document.body.textContent).not.toContain(JSON.stringify(response));
+  });
+
+  it('shows only verified lifecycle buttons in the customer-profile popup', async () => {
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
+      .mockResolvedValue(ok(active) as never);
+    render(
+      <SupervisorCardManagement
+        initialSerial="SER-1"
+        expectedCustomerId="customer-1"
+        compact
+      />,
+    );
+
+    expect(
+      await screen.findByRole('group', { name: 'Card management actions' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Block card' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Replace card' })).toBeVisible();
+    expect(screen.queryByLabelText('Card serial')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Search card' })).toBeNull();
+    expect(screen.queryByText('Card status')).toBeNull();
+    expect(screen.queryByText('Customer status')).toBeNull();
+    expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace card' }));
+    expect(screen.getByLabelText('New replacement serial')).toHaveValue('');
+    expect(screen.getByLabelText('Type REPLACE to confirm')).toBeVisible();
+  });
+
+  it('does not expose popup management buttons when the card belongs to another customer', async () => {
+    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue(
+      ok({
+        ...active,
+        customer: { ...active.customer, id: 'other-customer' },
+      }) as never,
+    );
+    render(
+      <SupervisorCardManagement
+        initialSerial="SER-1"
+        expectedCustomerId="customer-1"
+        compact
+      />,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Card controls could not be verified for this customer.',
+    );
+    expect(
+      screen.queryByRole('group', { name: 'Card management actions' }),
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Block card' })).toBeNull();
+    expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(1);
   });
 
   it('requires explicit candidate selection and authoritative ID verification before actions', async () => {

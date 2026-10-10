@@ -3606,3 +3606,184 @@
     padding-inline: var(--sc-spacing-4);
   }
 }
+
+.supervisor-issued-card-directory__toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  border-bottom: 0;
+  padding: 0 0 16px;
+}
+
+.supervisor-issued-card-directory__toolbar-left,
+.supervisor-issued-card-directory__toolbar-right {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  gap: 10px;
+}
+
+.supervisor-issued-card-directory__toolbar-left {
+  flex-wrap: wrap;
+}
+
+.supervisor-issued-card-directory__search {
+  flex: 1 1 260px;
+}
+
+.supervisor-issued-card-directory__toolbar-right {
+  justify-content: flex-end;
+}
+
+.supervisor-issued-card-directory__search-toggle {
+  display: none;
+}
+
+.supervisor-issued-card-directory__date-filter {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 0 1 255px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.supervisor-issued-card-directory__date-label {
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.supervisor-issued-card-directory__date-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow: hidden;
+  padding-inline: 10px;
+  text-align: left;
+}
+
+.supervisor-issued-card-directory__date-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supervisor-issued-card-directory__calendar-popover {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(680px, calc(100vw - 32px));
+  overflow-x: auto;
+  border: 1px solid var(--sc-color-neutral-200);
+  border-radius: 12px;
+  background: var(--sc-color-neutral-0);
+  padding: 12px;
+  box-shadow: 0 16px 40px rgb(24 24 27 / 16%);
+}
+
+.supervisor-issued-card-directory__calendar-popover .rdp-root {
+  --rdp-accent-color: var(--sc-color-brand-500);
+  --rdp-accent-background-color: var(--sc-color-brand-50);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+  --rdp-months-gap: 12px;
+  margin: 0 auto;
+}
+
+.supervisor-issued-card-directory__calendar-popover .rdp-button_previous,
+.supervisor-issued-card-directory__calendar-popover .rdp-button_next {
+  border: 1px solid var(--sc-color-neutral-200);
+  border-radius: 8px;
+  color: var(--sc-color-neutral-800);
+}
+
+.supervisor-issued-card-directory__calendar-popover
+  .rdp-day_button:focus-visible,
+.supervisor-issued-card-directory__calendar-popover
+  .rdp-button_previous:focus-visible,
+.supervisor-issued-card-directory__calendar-popover
+  .rdp-button_next:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: 2px;
+}
+
+.supervisor-issued-card-directory__calendar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--sc-color-neutral-200);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.supervisor-issued-card-directory__calendar-footer span {
+  flex: 1;
+  color: var(--sc-color-neutral-700);
+  font-size: 12px;
+}
+
+@media (max-width: 1024px) {
+  .supervisor-issued-card-directory__toolbar-left {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: end;
+  }
+
+  .supervisor-issued-card-directory__search-toggle {
+    display: inline-flex;
+    min-width: 40px;
+    padding-inline: 10px;
+  }
+
+  .supervisor-issued-card-directory__search {
+    display: none;
+  }
+
+  .supervisor-issued-card-directory__search.is-open {
+    display: flex;
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .supervisor-issued-card-directory__toolbar-left
+    > .supervisor-customer-directory__filter {
+    grid-column: 2;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .supervisor-issued-card-directory__toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .supervisor-issued-card-directory__toolbar-left,
+  .supervisor-issued-card-directory__toolbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .supervisor-issued-card-directory__toolbar-right {
+    justify-content: space-between;
+  }
+
+  .supervisor-issued-card-directory__date-filter {
+    flex: 1;
+  }
+
+  .supervisor-issued-card-directory__calendar-popover .rdp-root {
+    --rdp-day-height: 31px;
+    --rdp-day-width: 31px;
+    --rdp-day_button-height: 30px;
+    --rdp-day_button-width: 30px;
+    --rdp-months-gap: 4px;
+  }
+}

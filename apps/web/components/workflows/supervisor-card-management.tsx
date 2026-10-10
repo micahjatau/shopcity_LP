@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cardsControllerLookupManagementCardV1,
   cardsControllerReplaceCardV1,
@@ -18,8 +18,16 @@ function cardFrom(response: unknown): Card | null {
   return envelope?.data?.data ?? null;
 }
 
-export function SupervisorCardManagement() {
-  const [serial, setSerial] = useState('');
+export function SupervisorCardManagement({
+  initialSerial = '',
+  compact = false,
+  expectedCustomerId,
+}: Readonly<{
+  initialSerial?: string;
+  compact?: boolean;
+  expectedCustomerId?: string;
+}>) {
+  const [serial, setSerial] = useState(initialSerial);
   const [candidate, setCandidate] = useState<Card | null>(null);
   const [card, setCard] = useState<Card | null>(null);
   const [operation, setOperation] = useState<Operation | null>(null);
@@ -27,6 +35,7 @@ export function SupervisorCardManagement() {
   const [confirmation, setConfirmation] = useState('');
   const [message, setMessage] = useState('Enter a card serial to find a card.');
   const [busy, setBusy] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const retryKey = useRef<{ payload: string; key: string } | null>(null);
   const cardHeading = useRef<HTMLHeadingElement>(null);
   const selectionSerial = useRef('');
@@ -46,14 +55,72 @@ export function SupervisorCardManagement() {
     setMessage('Search for a card, then select its result to verify it.');
   }
 
-  async function lookup(value: string): Promise<Card | null> {
+  const lookup = useCallback(async (value: string): Promise<Card | null> => {
     const response = await cardsControllerLookupManagementCardV1(
       encodeURIComponent(value),
       createApiRequest({ csrf: true }),
     );
     if (response.status !== 200) return null;
     return cardFrom(response);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!compact) return;
+    let active = true;
+    setCandidate(null);
+    setCard(null);
+    setOperation(null);
+    setReplacementSerial('');
+    setConfirmation('');
+    retryKey.current = null;
+    selectionSerial.current = '';
+    setBusy(true);
+    setMessage('Verifying card controls…');
+    void (async () => {
+      try {
+        if (!initialSerial.trim() || !expectedCustomerId) {
+          setMessage('Card controls could not be verified for this customer.');
+          return;
+        }
+        const candidate = await lookup(initialSerial.trim());
+        if (!active) return;
+        const candidateSerial = candidate?.serialNumber;
+        if (
+          !candidate ||
+          candidate.customer?.id !== expectedCustomerId ||
+          typeof candidateSerial !== 'string' ||
+          !candidateSerial
+        ) {
+          setMessage('Card controls could not be verified for this customer.');
+          return;
+        }
+        const authoritative = await lookup(candidateSerial);
+        if (!active) return;
+        if (
+          !authoritative ||
+          typeof authoritative.serialNumber !== 'string' ||
+          !authoritative.serialNumber ||
+          authoritative.id !== candidate.id ||
+          authoritative.customer?.id !== expectedCustomerId
+        ) {
+          setMessage('Card details changed or are unavailable. Try again.');
+          return;
+        }
+        selectionSerial.current = authoritative.serialNumber;
+        setCard(authoritative);
+        setMessage(
+          'Current card details verified. Choose an operation to continue.',
+        );
+      } catch {
+        if (active) setMessage('Card controls could not be loaded. Try again.');
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [compact, expectedCustomerId, initialSerial, lookup, retryAttempt]);
 
   async function search(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -243,39 +310,67 @@ export function SupervisorCardManagement() {
 
   return (
     <section
-      className="sc-card sc-card--standard min-w-0 p-4 sm:p-6"
-      aria-labelledby="manage-cards-heading"
+      className={
+        compact
+          ? 'min-w-0 space-y-3'
+          : 'sc-card sc-card--standard min-w-0 p-4 sm:p-6'
+      }
+      aria-labelledby={compact ? undefined : 'manage-cards-heading'}
+      aria-label={compact ? 'Card management' : undefined}
     >
-      <h2 id="manage-cards-heading" className="mb-4 text-lg font-semibold">
-        Manage cards
-      </h2>
-      <form
-        onSubmit={search}
-        className="flex flex-col gap-3 sm:flex-row sm:items-end"
-      >
-        <div className="min-w-0 flex-1">
-          <label
-            htmlFor="management-card-serial"
-            className="mb-1 block text-sm font-medium"
+      {!compact ? (
+        <>
+          <h2 id="manage-cards-heading" className="mb-4 text-lg font-semibold">
+            Manage cards
+          </h2>
+          <form
+            onSubmit={search}
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
           >
-            Card serial
-          </label>
-          <Input
-            id="management-card-serial"
-            value={serial}
-            onChange={(event) => setQuery(event.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <Button type="submit" disabled={busy}>
-          Search card
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="management-card-serial"
+                className="mb-1 block text-sm font-medium"
+              >
+                Card serial
+              </label>
+              <Input
+                id="management-card-serial"
+                value={serial}
+                onChange={(event) => setQuery(event.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <Button type="submit" disabled={busy}>
+              Search card
+            </Button>
+          </form>
+        </>
+      ) : null}
+      {(!compact ||
+        !card ||
+        message !==
+          'Current card details verified. Choose an operation to continue.') && (
+        <p
+          role={compact && !busy && !card ? 'alert' : 'status'}
+          aria-live="polite"
+          className="mt-3 text-sm"
+        >
+          {message}
+        </p>
+      )}
+      {compact && !busy && !card ? (
+        <Button
+          className="mt-3"
+          type="button"
+          variant="secondary"
+          onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+        >
+          Retry card controls
         </Button>
-      </form>
-      <p role="status" aria-live="polite" className="mt-3 text-sm">
-        {message}
-      </p>
+      ) : null}
 
-      {candidate && !card && (
+      {candidate && !card && !compact && (
         <div className="mt-4 rounded-md border p-4">
           <p>
             Matching card: <strong>{candidate.serialNumber}</strong> ·{' '}
@@ -293,63 +388,87 @@ export function SupervisorCardManagement() {
       )}
 
       {card && (
-        <div className="mt-4 space-y-4">
-          <h3
-            ref={cardHeading}
-            tabIndex={-1}
-            className="sr-only focus:not-sr-only"
-          >
-            Verified card {card.serialNumber}
-          </h3>
-          <div className="min-w-0">
-            <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <dt className="text-sm font-medium">Card serial</dt>
-                <dd className="break-all">{card.serialNumber}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium">Card status</dt>
-                <dd>{card.status}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium">Customer</dt>
-                <dd className="break-words">
-                  {card.customer?.fullName ?? 'Unavailable'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium">Customer status</dt>
-                <dd>{card.customer?.status ?? 'Unavailable'}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium">Issued</dt>
-                <dd>{fmtDate(card.issuedAt)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium">Blocked</dt>
-                <dd>{fmtDate(card.blockedAt)}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium">Replaced</dt>
-                <dd>{fmtDate(card.replacedAt)}</dd>
-              </div>
-            </dl>
-          </div>
-          {card.status === 'ACTIVE' && canManage && (
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" onClick={() => choose('block')}>
-                Block card
-              </Button>
-              <Button type="button" onClick={() => choose('replace')}>
-                Replace card
-              </Button>
+        <div className={compact ? 'space-y-3' : 'mt-4 space-y-4'}>
+          {!compact ? (
+            <h3
+              ref={cardHeading}
+              tabIndex={-1}
+              className="sr-only focus:not-sr-only"
+            >
+              Verified card {card.serialNumber}
+            </h3>
+          ) : null}
+          {!compact ? (
+            <div className="min-w-0">
+              <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <dt className="text-sm font-medium">Card serial</dt>
+                  <dd className="break-all">{card.serialNumber}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium">Card status</dt>
+                  <dd>{card.status}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium">Customer</dt>
+                  <dd className="break-words">
+                    {card.customer?.fullName ?? 'Unavailable'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium">Customer status</dt>
+                  <dd>{card.customer?.status ?? 'Unavailable'}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium">Issued</dt>
+                  <dd>{fmtDate(card.issuedAt)}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium">Blocked</dt>
+                  <dd>{fmtDate(card.blockedAt)}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium">Replaced</dt>
+                  <dd>{fmtDate(card.replacedAt)}</dd>
+                </div>
+              </dl>
             </div>
-          )}
-          {card.status === 'BLOCKED' && canManage && (
-            <Button type="button" onClick={() => choose('reactivate')}>
-              Reactivate card
-            </Button>
-          )}
+          ) : null}
+          {canManage && card.status !== 'REPLACED' ? (
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Card management actions"
+            >
+              {card.status === 'ACTIVE' ? (
+                <>
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => choose('block')}
+                  >
+                    Block card
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => choose('replace')}
+                  >
+                    Replace card
+                  </Button>
+                </>
+              ) : null}
+              {card.status === 'BLOCKED' ? (
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => choose('reactivate')}
+                >
+                  Reactivate card
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {card.status === 'REPLACED' && (
             <p>This card has been replaced and is read-only.</p>
           )}

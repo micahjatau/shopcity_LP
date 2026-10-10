@@ -117,7 +117,7 @@ Assign card MUST be a task for an existing customer with no active card, requiri
 
 ### Requirement: Card management respects lifecycle status boundaries
 
-Manage cards MUST provide a read-only tenant-scoped card lookup at `GET /api/v1/cards/management/lookup/{serialNumber}`, require explicit card selection and show sufficient card/customer context to prevent acting on the wrong account. It MUST show only supported actions for the authoritative current card/customer status. Only `SUPERVISOR` and `ADMIN` may use this endpoint. Tenant scope MUST always come from authenticated context and MUST NOT be request-selected. Lookup MUST canonicalize serial matching case-insensitively; return ACTIVE, BLOCKED and REPLACED cards; return 404 when no tenant-scoped match exists; and fail closed rather than choose arbitrarily when canonical matches are ambiguous. The authoritative response MUST contain card `id`, `serial`, `status`, `issuedAt`, `blockedAt`, `replacedAt`, `replacedByCardId`, and `customer` `{ id, fullName, status }` only. It MUST exclude phone, email, balance, audit and internal actor details. It MUST be bounded by the existing card-lookup throttle policy. It is read-only and MUST NOT change DB/schema, RBAC policy, or status policy. Existing Cashier `GET /cards/lookup/:serialNumber` MUST remain unchanged and continue its active-card behavior.
+Manage cards MUST provide a read-only tenant-scoped card lookup at `GET /api/v1/cards/management/lookup/{serialNumber}`, require explicit card selection and show sufficient card/customer context to prevent acting on the wrong account. Exception: the `Manage customer card` popup opened from a verified customer's Virtual Card profile is already explicitly scoped to that customer; it MAY resolve that profile's card identifier automatically, but MUST verify the lookup's customer ID matches the profile ID and re-fetch the same card ID before showing controls. This popup MUST present only status-appropriate management buttons by default, without a serial-search workspace or duplicate card-details panel. It MUST show only supported actions for the authoritative current card/customer status. Only `SUPERVISOR` and `ADMIN` may use this endpoint. Tenant scope MUST always come from authenticated context and MUST NOT be request-selected. Lookup MUST canonicalize serial matching case-insensitively; return ACTIVE, BLOCKED and REPLACED cards; return 404 when no tenant-scoped match exists; and fail closed rather than choose arbitrarily when canonical matches are ambiguous. The authoritative response MUST contain card `id`, `serial`, `status`, `issuedAt`, `blockedAt`, `replacedAt`, `replacedByCardId`, and `customer` `{ id, fullName, status }` only. It MUST exclude phone, email, balance, audit and internal actor details. It MUST be bounded by the existing card-lookup throttle policy. It is read-only and MUST NOT change DB/schema, RBAC policy, or status policy. Existing Cashier `GET /cards/lookup/:serialNumber` MUST remain unchanged and continue its active-card behavior.
 
 #### Scenario: Locate a card for management
 
@@ -133,6 +133,14 @@ Manage cards MUST provide a read-only tenant-scoped card lookup at `GET /api/v1/
 - **THEN** authorization denies the unauthorized role and tenant scope remains derived only from authenticated context
 - **AND** no cross-tenant card is disclosed.
 - **AND** the existing Cashier `GET /cards/lookup/:serialNumber` remains unchanged and continues to return its active-card behavior.
+
+#### Scenario: Manage card popup from verified customer profile
+
+- **GIVEN** the Supervisor is viewing an authoritative customer's Virtual Card tab
+- **WHEN** they open `Manage card`
+- **THEN** the popup verifies the profile's card identifier resolves to the same stable customer ID and re-fetches the same card before enabling actions
+- **AND** it shows only the supported management buttons, without a serial search form or duplicate card details
+- **AND** choosing an action still reveals its required confirmation and operation-specific inputs.
 
 #### Scenario: Active card is selected
 

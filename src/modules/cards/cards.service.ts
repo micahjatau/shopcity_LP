@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   CardStatus,
   CustomerStatus,
@@ -19,6 +20,60 @@ import { DomainHttpException } from '../../common/errors/domain.exception';
 import { ActiveBalanceService } from '../../common/balance/active-balance.service';
 import { normalizeCardSerial } from '../../common/card-identity';
 import { buildCardReplacedSmsPayload } from '../../jobs/sms.templates';
+import {
+  decodeCursor,
+  encodeCursor,
+  pageMeta,
+  type CursorPageRequest,
+} from '../../common/pagination/cursor-pagination';
+
+type IssuedCardFilters = {
+  search?: string;
+  status?: CardStatus;
+  issuedFrom?: string;
+  issuedTo?: string;
+};
+
+function dateAtShopCityMidnight(value: string, timeZone: string): Date {
+  const targetUtc = new Date(`${value}T00:00:00.000Z`).getTime();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  let timestamp = targetUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = Object.fromEntries(
+      formatter
+        .formatToParts(new Date(timestamp))
+        .filter(({ type }) => type !== 'literal')
+        .map(({ type, value: partValue }) => [type, Number(partValue)]),
+    ) as Record<string, number>;
+    const localAsUtc = Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+    const correction = targetUtc - localAsUtc;
+    if (correction === 0) return new Date(timestamp);
+    timestamp += correction;
+  }
+  return new Date(timestamp);
+}
+
+function nextCalendarDay(value: string): string {
+  const nextDay = new Date(`${value}T00:00:00.000Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  return nextDay.toISOString().slice(0, 10);
+}
 
 @Injectable()
 export class CardsService {
@@ -28,7 +83,118 @@ export class CardsService {
     private readonly activeBalanceService: ActiveBalanceService = new ActiveBalanceService(
       prismaService,
     ),
+    private readonly configService: ConfigService = new ConfigService(),
   ) {}
+
+  async listIssuedManagementCards(
+    tenantId: string,
+    page: CursorPageRequest,
+    filters: IssuedCardFilters = {},
+  ) {
+    const cursorPosition = page.cursor ? decodeCursor(page.cursor) : null;
+    const cursorTimestamp = cursorPosition
+      ? new Date(cursorPosition.timestamp)
+      : null;
+    if (cursorTimestamp && Number.isNaN(cursorTimestamp.getTime())) {
+      throw new BadRequestException('Issued-card cursor is invalid');
+    }
+
+    if (
+      filters.issuedFrom &&
+      filters.issuedTo &&
+      filters.issuedFrom > filters.issuedTo
+    ) {
+      throw new BadRequestException(
+        'Issued-card start date must not be after end date',
+      );
+    }
+    const search = filters.search?.trim();
+    const timeZone =
+      this.configService.get<string>('SHOPCITY_TIMEZONE') ?? 'Africa/Lagos';
+    const cards = await this.prismaService.card.findMany({
+      where: {
+        tenantId,
+        status: filters.status ?? {
+          in: [CardStatus.ACTIVE, CardStatus.BLOCKED, CardStatus.REPLACED],
+        },
+        ...(search
+          ? {
+              OR: [
+                {
+                  barcodeValue: { contains: search, mode: 'insensitive' },
+                },
+                {
+                  customer: {
+                    is: {
+                      fullName: { contains: search, mode: 'insensitive' },
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+        ...(filters.issuedFrom || filters.issuedTo
+          ? {
+              issuedAt: {
+                ...(filters.issuedFrom
+                  ? {
+                      gte: dateAtShopCityMidnight(filters.issuedFrom, timeZone),
+                    }
+                  : {}),
+                ...(filters.issuedTo
+                  ? {
+                      lt: dateAtShopCityMidnight(
+                        nextCalendarDay(filters.issuedTo),
+                        timeZone,
+                      ),
+                    }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(cursorPosition && cursorTimestamp
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { issuedAt: { lt: cursorTimestamp } },
+                    {
+                      issuedAt: cursorTimestamp,
+                      id: { lt: cursorPosition.id },
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ issuedAt: 'desc' }, { id: 'desc' }],
+      take: page.limit + 1,
+      select: {
+        id: true,
+        barcodeValue: true,
+        status: true,
+        issuedAt: true,
+        customer: { select: { id: true, fullName: true } },
+      },
+    });
+    const { pageItems, hasMore } = pageMeta(cards, page.limit);
+    const lastCard = pageItems.at(-1);
+
+    return {
+      items: pageItems.map((card) => ({
+        cardNumber: card.barcodeValue,
+        status: card.status,
+        issuedAt: card.issuedAt,
+        customer: card.customer,
+      })),
+      nextCursor:
+        hasMore && lastCard
+          ? encodeCursor(lastCard.id, lastCard.issuedAt)
+          : null,
+      hasMore,
+    };
+  }
 
   async lookupManagementCard(tenantId: string, serialNumber: string) {
     const canonicalSerialNumber = normalizeCardSerial(serialNumber);

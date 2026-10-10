@@ -15,6 +15,7 @@ import { resolveCustomerCardNumber } from '../../lib/customer-card-number';
 import { Button, Dialog, Input } from '../ui';
 import { SupervisorCustomerStatusBadge } from './supervisor-customer-status-badge';
 import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
+import { SupervisorCardManagement } from './supervisor-card-management';
 
 function ProfileMetric({
   label,
@@ -673,6 +674,7 @@ export function CustomerDetailsDialog({
   onChangeStatus,
   onClose,
   presentation = 'dialog',
+  initialTab,
 }: Readonly<{
   open: boolean;
   customer: SupervisorCustomerRecord | null;
@@ -696,12 +698,16 @@ export function CustomerDetailsDialog({
   onChangeStatus: () => void;
   onClose: () => void;
   presentation?: 'dialog' | 'page';
+  initialTab?: string;
 }>) {
+  const resolvedInitialTab =
+    initialTab === 'virtual-card' ? 'Virtual Card' : 'Overview';
   const [discardPrompt, setDiscardPrompt] = useState(false);
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [profileEditDiscardPrompt, setProfileEditDiscardPrompt] =
     useState(false);
   const [profileTab, setProfileTab] = useState('Overview');
+  const [cardManagementOpen, setCardManagementOpen] = useState(false);
   const [projection, setProjection] =
     useState<CustomersControllerGetCustomerProfileProjectionV1200Data | null>(
       null,
@@ -769,8 +775,9 @@ export function CustomerDetailsDialog({
 
   useEffect(() => {
     setDiscardPrompt(false);
-    setProfileTab('Overview');
-  }, [customer?.id, open]);
+    setProfileTab(customer?.id ? resolvedInitialTab : 'Overview');
+    setCardManagementOpen(false);
+  }, [customer?.id, open, resolvedInitialTab]);
 
   useEffect(() => {
     if (presentation !== 'page' || !customer?.id) return;
@@ -1217,11 +1224,12 @@ export function CustomerDetailsDialog({
                               Blocked {profileDate(projection.card.blockedAt)}
                             </p>
                           ) : null}
-                          <Link
-                            href={`/supervisor/cards?customerId=${encodeURIComponent(String(customer.id ?? ''))}`}
+                          <Button
+                            type="button"
+                            onClick={() => setCardManagementOpen(true)}
                           >
-                            Manage cards
-                          </Link>
+                            Manage card
+                          </Button>
                         </>
                       ) : (
                         <p>No assigned card was provided.</p>
@@ -1706,7 +1714,35 @@ export function CustomerDetailsDialog({
   );
   if (!open) return null;
   return presentation === 'page' ? (
-    <section aria-label="Customer details">{content}</section>
+    <>
+      <section aria-label="Customer details">{content}</section>
+      <Dialog
+        open={cardManagementOpen}
+        title="Manage customer card"
+        onClose={() => setCardManagementOpen(false)}
+      >
+        <div className="space-y-4 p-4 sm:p-6">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setCardManagementOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+          <SupervisorCardManagement
+            initialSerial={
+              typeof projection?.card?.identifier === 'string'
+                ? projection.card.identifier
+                : ''
+            }
+            compact
+            expectedCustomerId={customer?.id}
+          />
+        </div>
+      </Dialog>
+    </>
   ) : (
     <Dialog open title="Customer details" onClose={requestClose}>
       {content}

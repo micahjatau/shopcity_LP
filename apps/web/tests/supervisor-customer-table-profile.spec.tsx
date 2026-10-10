@@ -12,6 +12,7 @@ import {
   SupervisorCustomerWorkflows,
 } from '../components/workflows/supervisor-customer-workflows';
 import {
+  cardsControllerLookupManagementCardV1,
   customersControllerCreateCustomerV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
@@ -54,6 +55,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 jest.mock('../lib/api/generated-client', () => ({
+  cardsControllerLookupManagementCardV1: jest.fn(),
   customersControllerGetCustomerV1: jest.fn(),
   customersControllerListCustomersV1: jest.fn(),
   customersControllerCreateCustomerV1: jest.fn(),
@@ -69,6 +71,9 @@ jest.mock('../lib/api/generated-client', () => ({
 describe('table-first customer workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest
+      .mocked(cardsControllerLookupManagementCardV1)
+      .mockResolvedValue({ status: 404, data: {} } as never);
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
       data: { data: { items: [] } },
@@ -116,6 +121,188 @@ describe('table-first customer workflow', () => {
     );
   });
   afterEach(() => jest.restoreAllMocks());
+
+  it('opens a compact card popup with only eligible management buttons', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'profile-owner-id',
+          fullName: 'Profile Owner',
+          phoneE164: '+2348000000000',
+          status: 'ACTIVE',
+        },
+      },
+    } as never);
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockImplementation(
+        async (id) =>
+          ({
+            status: 200,
+            data: {
+              data: {
+                customerId: id,
+                sourceErrors: [],
+                memberSince: '2025-01-01T00:00:00.000Z',
+                pendingApprovalsCount: 0,
+                lifetimeEarnedKobo: 0,
+                expirySchedule: [],
+                expiryScheduleIsUpcomingWindow: true,
+                expiryScheduleLimit: 12,
+                recentActivity: [],
+                transactions: [],
+                redemptions: [],
+                walletLedger: [],
+                approvals: [],
+                consent: null,
+                card: {
+                  identifier: 'SER-1',
+                  status: 'ACTIVE',
+                  issuedAt: '2026-01-01T00:00:00.000Z',
+                  blockedAt: null,
+                },
+              },
+            },
+          }) as never,
+      );
+    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'card-1',
+          serialNumber: 'SER-1',
+          status: 'ACTIVE',
+          issuedAt: '2026-01-01T00:00:00.000Z',
+          blockedAt: null,
+          replacedAt: null,
+          replacedByCardId: null,
+          customer: {
+            id: 'profile-owner-id',
+            fullName: 'Profile Owner',
+            status: 'ACTIVE',
+          },
+        },
+      },
+    } as never);
+
+    render(
+      <SupervisorCustomerProfile
+        customerId="profile-owner-id"
+        initialTab="virtual-card"
+      />,
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Profile Owner' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage card' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Manage customer card',
+    });
+    expect(
+      await within(dialog).findByRole('group', {
+        name: 'Card management actions',
+      }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', { name: 'Block card' }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', { name: 'Replace card' }),
+    ).toBeVisible();
+    expect(within(dialog).queryByLabelText('Card serial')).toBeNull();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Search card' }),
+    ).toBeNull();
+    expect(within(dialog).queryByText('Card status')).toBeNull();
+    expect(cardsControllerLookupManagementCardV1).toHaveBeenCalledTimes(2);
+    expect(cardsControllerLookupManagementCardV1).toHaveBeenNthCalledWith(
+      2,
+      'SER-1',
+      expect.any(Object),
+    );
+  });
+
+  it('does not select the Virtual Card tab until the stable customer ID is verified', async () => {
+    let resolveCustomer: (response: unknown) => void = () => {};
+    jest.mocked(customersControllerGetCustomerV1).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCustomer = resolve;
+        }) as never,
+    );
+    render(
+      <SupervisorCustomerProfile
+        customerId="profile-owner-id"
+        initialTab="virtual-card"
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Virtual Card' }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveCustomer({
+        status: 200,
+        data: {
+          data: {
+            id: 'profile-owner-id',
+            fullName: 'Profile Owner',
+            phoneE164: '+2348000000000',
+            status: 'ACTIVE',
+          },
+        },
+      });
+    });
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Profile Owner',
+      }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Virtual Card' }),
+      ).toHaveAttribute('aria-current', 'page'),
+    );
+  });
+
+  it.each([
+    ['virtual-card', 'Virtual Card'],
+    ['invalid-tab', 'Overview'],
+  ])(
+    'selects %s only after the stable customer profile is verified',
+    async (initialTab, expectedTab) => {
+      jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+        status: 200,
+        data: {
+          data: {
+            id: 'profile-owner-id',
+            fullName: 'Profile Owner',
+            phoneE164: '+2348000000000',
+            status: 'ACTIVE',
+          },
+        },
+      } as never);
+      render(
+        <SupervisorCustomerProfile
+          customerId="profile-owner-id"
+          initialTab={initialTab}
+        />,
+      );
+
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Profile Owner',
+      });
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: expectedTab }),
+        ).toHaveAttribute('aria-current', 'page'),
+      );
+      expect(
+        customersControllerGetCustomerProfileProjectionV1,
+      ).toHaveBeenCalledWith('profile-owner-id', expect.any(Object));
+    },
+  );
 
   async function submitRegistration() {
     fireEvent.click(screen.getByRole('button', { name: 'Register customer' }));
@@ -968,16 +1155,77 @@ describe('table-first customer workflow', () => {
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Virtual Card' }));
     const virtualCardPreview = screen.getByRole('img', {
-      name: 'ShopCity card preview for Verified Customer; serial CARD-REAL-1; status ACTIVE',
+      name: 'ShopCity card preview for Verified Customer; card number CARD-REAL-1; status ACTIVE',
     });
     expect(
       virtualCardPreview.querySelector('img')?.getAttribute('src'),
     ).toContain('IMG-20260802-WA0001.jpg');
     expect(virtualCardPreview).toHaveTextContent('CARD-REAL-1');
-    expect(virtualCardPreview).toHaveTextContent('Verified Customer');
-    expect(virtualCardPreview).toHaveTextContent('ACTIVE');
+    expect(virtualCardPreview).toHaveTextContent('VERIFIED CUSTOMER');
+    expect(virtualCardPreview.querySelector('.grid.h-8.w-11')).toBeNull();
+    const customerNameOnCard =
+      within(virtualCardPreview).getByText('VERIFIED CUSTOMER');
+    const cardNumberOnCard =
+      within(virtualCardPreview).getByText('CARD-REAL-1');
+    expect(customerNameOnCard).toHaveClass('text-[25px]', 'sm:text-[29px]');
+    expect(cardNumberOnCard).toHaveClass('text-[25px]', 'sm:text-[29px]');
+    expect(
+      within(virtualCardPreview).queryByText(/CARD NUMBER:/),
+    ).not.toBeInTheDocument();
+    expect(customerNameOnCard).toHaveStyle({ color: 'rgb(255, 255, 255)' });
+    expect(cardNumberOnCard).toHaveStyle({ color: 'rgb(255, 255, 255)' });
+    expect(cardNumberOnCard.parentElement).toHaveClass('bottom-5', 'left-5');
+    expect(
+      within(virtualCardPreview).queryByText('ACTIVE'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Card CARD-REAL-1')).toBeVisible();
     expect(screen.getByText(/Issued/)).toBeVisible();
+    jest.mocked(cardsControllerLookupManagementCardV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'card-real-1',
+          serialNumber: 'CARD-REAL-1',
+          status: 'ACTIVE',
+          issuedAt: '2024-01-02T00:00:00.000Z',
+          blockedAt: null,
+          replacedAt: null,
+          replacedByCardId: null,
+          customer: {
+            id: 'requested-id',
+            fullName: 'Verified Customer',
+            status: 'ACTIVE',
+          },
+        },
+      },
+    } as never);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage card' }));
+    const cardManagementDialog = screen.getByRole('dialog', {
+      name: 'Manage customer card',
+    });
+    expect(
+      await within(cardManagementDialog).findByRole('group', {
+        name: 'Card management actions',
+      }),
+    ).toBeVisible();
+    expect(
+      within(cardManagementDialog).getByRole('button', { name: 'Block card' }),
+    ).toBeVisible();
+    expect(
+      within(cardManagementDialog).getByRole('button', {
+        name: 'Replace card',
+      }),
+    ).toBeVisible();
+    expect(
+      within(cardManagementDialog).queryByLabelText('Card serial'),
+    ).toBeNull();
+    expect(push).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(cardManagementDialog).getByRole('button', { name: 'Close' }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page');
     fireEvent.click(screen.getByRole('button', { name: 'Consent' }));
     expect(screen.getByText('Granted')).toBeVisible();
     expect(

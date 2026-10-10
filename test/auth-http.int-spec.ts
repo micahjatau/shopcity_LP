@@ -841,6 +841,161 @@ describe('auth and readiness flows (int)', () => {
     });
   }, 120000);
 
+  it('lists tenant-scoped issued cards in all lifecycle states with bounded filtered cursors', async () => {
+    const fixture = await createCustomerReadFixture(
+      prisma,
+      seedData,
+      'issued-card-directory-http',
+    );
+    const adminCookie = await loginSessionCookie(seedData.user.username);
+    const supervisorCookie = await loginSessionCookie(supervisorUser.username);
+    const cashierCookie = await loginSessionCookie(cashierUser.username);
+    const activeIssuedAt = new Date('2025-01-01T00:00:00.000Z');
+    const blockedIssuedAt = new Date('2025-02-01T00:00:00.000Z');
+    await prisma.card.update({
+      where: { id: fixture.card.id },
+      data: { issuedAt: activeIssuedAt },
+    });
+    const blocked = await prisma.card.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: fixture.customer.id,
+        barcodeValue: 'CARD-DIRECTORY-BLOCKED',
+        status: CardStatus.BLOCKED,
+        issuedAt: blockedIssuedAt,
+      },
+    });
+    const replaced = await prisma.card.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        customerId: fixture.customer.id,
+        barcodeValue: 'CARD-DIRECTORY-REPLACED',
+        status: CardStatus.REPLACED,
+        issuedAt: new Date('2025-03-01T00:00:00.000Z'),
+      },
+    });
+
+    const firstResponse = await request(httpServer)
+      .get('/api/v1/cards/management/issued?limit=1')
+      .set('Cookie', supervisorCookie)
+      .expect(200);
+    const firstPage = (
+      firstResponse.body as unknown as {
+        data: {
+          items: Array<Record<string, unknown>>;
+          nextCursor: string | null;
+          hasMore: boolean;
+        };
+      }
+    ).data;
+    expect(firstPage.items).toEqual([
+      {
+        cardNumber: replaced.barcodeValue,
+        status: CardStatus.REPLACED,
+        issuedAt: new Date('2025-03-01T00:00:00.000Z').toISOString(),
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+        },
+      },
+    ]);
+    expect(Object.keys(firstPage.items[0]).sort()).toEqual(
+      ['cardNumber', 'status', 'issuedAt', 'customer'].sort(),
+    );
+    expect(JSON.stringify(firstPage)).not.toMatch(
+      /phone|email|balance|tenant|actor|audit/i,
+    );
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.nextCursor).toBeTruthy();
+    await request(httpServer)
+      .get('/api/v1/cards/management/issued?tenantId=not-authenticated-tenant')
+      .set('Cookie', supervisorCookie)
+      .expect(400);
+
+    const secondResponse = await request(httpServer)
+      .get(
+        `/api/v1/cards/management/issued?limit=1&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
+      )
+      .set('Cookie', adminCookie)
+      .expect(200);
+    const secondPage = (
+      secondResponse.body as unknown as {
+        data: {
+          items: Array<Record<string, unknown>>;
+          nextCursor: string | null;
+          hasMore: boolean;
+        };
+      }
+    ).data;
+    expect(secondPage.items).toEqual([
+      {
+        cardNumber: blocked.barcodeValue,
+        status: CardStatus.BLOCKED,
+        issuedAt: blockedIssuedAt.toISOString(),
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+        },
+      },
+    ]);
+    expect(secondPage.hasMore).toBe(true);
+    expect(secondPage.nextCursor).toBeTruthy();
+
+    const thirdResponse = await request(httpServer)
+      .get(
+        `/api/v1/cards/management/issued?limit=1&cursor=${encodeURIComponent(secondPage.nextCursor!)}`,
+      )
+      .set('Cookie', supervisorCookie)
+      .expect(200);
+    const thirdPage = (
+      thirdResponse.body as unknown as {
+        data: { items: Array<Record<string, unknown>>; hasMore: boolean };
+      }
+    ).data;
+    expect(thirdPage.items).toEqual([
+      {
+        cardNumber: fixture.card.barcodeValue,
+        status: CardStatus.ACTIVE,
+        issuedAt: activeIssuedAt.toISOString(),
+        customer: {
+          id: fixture.customer.id,
+          fullName: fixture.customer.fullName,
+        },
+      },
+    ]);
+    expect(thirdPage.hasMore).toBe(false);
+
+    const filteredResponse = await request(httpServer)
+      .get(
+        '/api/v1/cards/management/issued?q=CARD-DIRECTORY-REPLACED&status=REPLACED&issuedFrom=2025-03-01&issuedTo=2025-03-01',
+      )
+      .set('Cookie', supervisorCookie)
+      .expect(200);
+    expect(
+      (
+        filteredResponse.body as {
+          data: { items: Array<{ cardNumber: string }> };
+        }
+      ).data.items.map(({ cardNumber }) => cardNumber),
+    ).toEqual([replaced.barcodeValue]);
+
+    await request(httpServer)
+      .get(
+        '/api/v1/cards/management/issued?issuedFrom=2025-04-01&issuedTo=2025-03-01',
+      )
+      .set('Cookie', supervisorCookie)
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/cards/management/issued?status=UNKNOWN')
+      .set('Cookie', supervisorCookie)
+      .expect(400);
+
+    await request(httpServer)
+      .get('/api/v1/cards/management/issued')
+      .set('Cookie', cashierCookie)
+      .expect(403);
+  }, 120000);
+
   it('limits management card lookup with the cards.lookup policy', async () => {
     const fixture = await createCustomerReadFixture(
       prisma,

@@ -7834,6 +7834,290 @@ export type CustomersControllerUpdateStatusV1503 = {
   meta: CustomersControllerUpdateStatusV1503Meta;
 };
 
+export type CardsControllerListIssuedManagementCardsV1Params = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: string;
+  cursor?: string;
+  /**
+   * Card number or owner name search
+   * @maxLength 120
+   */
+  q?: string;
+  status?: CardsControllerListIssuedManagementCardsV1Status;
+  issuedFrom?: string;
+  issuedTo?: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1Status =
+  (typeof CardsControllerListIssuedManagementCardsV1Status)[keyof typeof CardsControllerListIssuedManagementCardsV1Status];
+
+export const CardsControllerListIssuedManagementCardsV1Status = {
+  ACTIVE: 'ACTIVE',
+  BLOCKED: 'BLOCKED',
+  REPLACED: 'REPLACED',
+} as const;
+
+export type CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus =
+  (typeof CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus)[keyof typeof CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus];
+
+export const CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus =
+  {
+    ACTIVE: 'ACTIVE',
+    BLOCKED: 'BLOCKED',
+    REPLACED: 'REPLACED',
+  } as const;
+
+export type CardsControllerListIssuedManagementCardsV1200DataItemsItemCustomer =
+  {
+    id: string;
+    fullName: string;
+  };
+
+export type CardsControllerListIssuedManagementCardsV1200DataItemsItem = {
+  cardNumber: string;
+  status: CardsControllerListIssuedManagementCardsV1200DataItemsItemStatus;
+  issuedAt: string;
+  customer: CardsControllerListIssuedManagementCardsV1200DataItemsItemCustomer;
+};
+
+export type CardsControllerListIssuedManagementCardsV1200Data = {
+  items: CardsControllerListIssuedManagementCardsV1200DataItemsItem[];
+  /** @nullable */
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export type CardsControllerListIssuedManagementCardsV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1200 = {
+  success: boolean;
+  data: CardsControllerListIssuedManagementCardsV1200Data;
+  meta: CardsControllerListIssuedManagementCardsV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1400ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1400 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1400Error;
+  meta: CardsControllerListIssuedManagementCardsV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1401ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1401 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1401Error;
+  meta: CardsControllerListIssuedManagementCardsV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1403ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1403 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1403Error;
+  meta: CardsControllerListIssuedManagementCardsV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1404ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1404 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1404Error;
+  meta: CardsControllerListIssuedManagementCardsV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1409ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1409 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1409Error;
+  meta: CardsControllerListIssuedManagementCardsV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1422ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1422 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1422Error;
+  meta: CardsControllerListIssuedManagementCardsV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1429ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1429 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1429Error;
+  meta: CardsControllerListIssuedManagementCardsV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CardsControllerListIssuedManagementCardsV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CardsControllerListIssuedManagementCardsV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CardsControllerListIssuedManagementCardsV1503ErrorDetails;
+};
+
+export type CardsControllerListIssuedManagementCardsV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CardsControllerListIssuedManagementCardsV1503 = {
+  success: boolean;
+  error: CardsControllerListIssuedManagementCardsV1503Error;
+  meta: CardsControllerListIssuedManagementCardsV1503Meta;
+};
+
 export type CardsControllerLookupManagementCardV1200DataStatus =
   (typeof CardsControllerLookupManagementCardV1200DataStatus)[keyof typeof CardsControllerLookupManagementCardV1200DataStatus];
 
@@ -21150,6 +21434,118 @@ export const customersControllerUpdateStatusV1 = async (
     status: res.status,
     headers: res.headers,
   } as customersControllerUpdateStatusV1Response;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response200 = {
+  data: CardsControllerListIssuedManagementCardsV1200;
+  status: 200;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response400 = {
+  data: CardsControllerListIssuedManagementCardsV1400;
+  status: 400;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response401 = {
+  data: CardsControllerListIssuedManagementCardsV1401;
+  status: 401;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response403 = {
+  data: CardsControllerListIssuedManagementCardsV1403;
+  status: 403;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response404 = {
+  data: CardsControllerListIssuedManagementCardsV1404;
+  status: 404;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response409 = {
+  data: CardsControllerListIssuedManagementCardsV1409;
+  status: 409;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response422 = {
+  data: CardsControllerListIssuedManagementCardsV1422;
+  status: 422;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response429 = {
+  data: CardsControllerListIssuedManagementCardsV1429;
+  status: 429;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response503 = {
+  data: CardsControllerListIssuedManagementCardsV1503;
+  status: 503;
+};
+
+export type cardsControllerListIssuedManagementCardsV1ResponseSuccess =
+  cardsControllerListIssuedManagementCardsV1Response200 & {
+    headers: Headers;
+  };
+export type cardsControllerListIssuedManagementCardsV1ResponseError = (
+  | cardsControllerListIssuedManagementCardsV1Response400
+  | cardsControllerListIssuedManagementCardsV1Response401
+  | cardsControllerListIssuedManagementCardsV1Response403
+  | cardsControllerListIssuedManagementCardsV1Response404
+  | cardsControllerListIssuedManagementCardsV1Response409
+  | cardsControllerListIssuedManagementCardsV1Response422
+  | cardsControllerListIssuedManagementCardsV1Response429
+  | cardsControllerListIssuedManagementCardsV1Response503
+) & {
+  headers: Headers;
+};
+
+export type cardsControllerListIssuedManagementCardsV1Response =
+  | cardsControllerListIssuedManagementCardsV1ResponseSuccess
+  | cardsControllerListIssuedManagementCardsV1ResponseError;
+
+export const getCardsControllerListIssuedManagementCardsV1Url = (
+  params?: CardsControllerListIssuedManagementCardsV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/cards/management/issued?${stringifiedParams}`
+    : `/api/v1/cards/management/issued`;
+};
+
+/**
+ * List issued cards for card management
+ * @summary List issued cards for card management
+ */
+export const cardsControllerListIssuedManagementCardsV1 = async (
+  params?: CardsControllerListIssuedManagementCardsV1Params,
+  options?: RequestInit,
+): Promise<cardsControllerListIssuedManagementCardsV1Response> => {
+  const res = await fetch(
+    getCardsControllerListIssuedManagementCardsV1Url(params),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cardsControllerListIssuedManagementCardsV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cardsControllerListIssuedManagementCardsV1Response;
 };
 
 export type cardsControllerLookupManagementCardV1Response200 = {

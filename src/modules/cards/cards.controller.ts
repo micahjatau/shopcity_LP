@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Headers,
   Version,
@@ -23,6 +24,7 @@ import { Throttle } from '../../common/throttle/throttle.decorator';
 import { buildCardLookupThrottleKey } from '../../common/throttle/throttle.keys';
 import {
   CreateCardDto,
+  ListIssuedManagementCardsQueryDto,
   ReplaceCardDto,
   UpdateCardStatusDto,
 } from './cards.dto';
@@ -30,6 +32,7 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+import { parseCursorPageRequest } from '../../common/pagination/cursor-pagination';
 
 @ApiTags('cards')
 @ApiBearerAuth()
@@ -37,6 +40,59 @@ import {
 @apiErrorEnvelopeResponses()
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
+
+  @Get('management/issued')
+  @Version('1')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiOperation({ summary: 'List issued cards for card management' })
+  @apiSuccessEnvelopeResponse({
+    dataSchema: {
+      type: 'object',
+      required: ['items', 'nextCursor', 'hasMore'],
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['cardNumber', 'status', 'issuedAt', 'customer'],
+            properties: {
+              cardNumber: { type: 'string' },
+              status: {
+                type: 'string',
+                enum: ['ACTIVE', 'BLOCKED', 'REPLACED'],
+              },
+              issuedAt: { type: 'string', format: 'date-time' },
+              customer: {
+                type: 'object',
+                required: ['id', 'fullName'],
+                properties: {
+                  id: { type: 'string' },
+                  fullName: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        nextCursor: { type: 'string', nullable: true },
+        hasMore: { type: 'boolean' },
+      },
+    },
+  })
+  listIssuedManagementCards(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ListIssuedManagementCardsQueryDto,
+  ) {
+    return this.cardsService.listIssuedManagementCards(
+      request.authContext!.user.tenantId,
+      parseCursorPageRequest(query.limit, query.cursor, 25, 100),
+      {
+        search: query.q,
+        status: query.status,
+        issuedFrom: query.issuedFrom,
+        issuedTo: query.issuedTo,
+      },
+    );
+  }
 
   @Get('management/lookup/:serialNumber')
   @Throttle({

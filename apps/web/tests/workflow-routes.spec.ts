@@ -841,11 +841,7 @@ test.describe('workflow route coverage', () => {
         'Approvals',
         'Review pending transactions and recent decisions.',
       ],
-      [
-        '/supervisor/cards',
-        'Manage cards',
-        'Find a customer to assign, replace, or update card status.',
-      ],
+      ['/supervisor/cards', 'Cards', 'View issued cards or assign a card.'],
       [
         '/supervisor/customers',
         'Customers',
@@ -3409,6 +3405,28 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.locator('[aria-labelledby="profile-expiry-title"]'),
     ).toBeVisible();
+
+    await page.goto(
+      `${baseUrl}/supervisor/customers/customer-1?q=Ada&tab=virtual-card`,
+    );
+    await expect(
+      page.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      page.getByRole('img', {
+        name: 'ShopCity card preview for Ada Shopper; serial SER-CUSTOMER-1; status ACTIVE',
+      }),
+    ).toBeVisible();
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await expect(
+      page.getByRole('button', { name: 'Virtual Card' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(
+      page.getByRole('img', {
+        name: 'ShopCity card preview for Ada Shopper; serial SER-CUSTOMER-1; status ACTIVE',
+      }),
+    ).toBeVisible();
+
     await page.getByRole('button', { name: 'Transactions' }).click();
     const transactionTable = page.getByRole('table', {
       name: 'Customer transactions',
@@ -3772,53 +3790,76 @@ test.describe('workflow route coverage', () => {
     await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
   });
 
-  test('restores Supervisor card tabs after direct load and reload, defaulting invalid tabs', async ({
+  test('shows the issued-card directory by default and preserves direct task URLs', async ({
     page,
   }) => {
     await mockShell(page, 'SUPERVISOR');
-    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    await page.goto(`${baseUrl}/supervisor/cards`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
     await expect(
-      page.getByRole('tab', { name: 'Assign card' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await page.goto(`${baseUrl}/supervisor/cards?tab=manage`);
+      page.getByRole('heading', { name: 'Issued cards' }),
+    ).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: 'Manage cards' }),
-    ).toHaveAttribute('aria-selected', 'true');
+      page.getByRole('button', { name: 'Issued cards' }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Assign card' })).toHaveClass(
+      /sc-button--primary/,
+    );
+    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    const assignmentDialog = page.getByRole('dialog', { name: 'Assign card' });
+    await expect(assignmentDialog).toBeVisible();
+    await expect(
+      assignmentDialog.getByRole('heading', {
+        name: 'Find an existing customer',
+      }),
+    ).toBeVisible();
+    await page.goto(`${baseUrl}/supervisor/cards?tab=issued`);
+    await expect(
+      page.getByRole('heading', { name: 'Issued cards' }),
+    ).toBeVisible();
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
     await expect(
-      page.getByRole('tab', { name: 'Manage cards' }),
-    ).toHaveAttribute('aria-selected', 'true');
+      page.getByRole('heading', { name: 'Issued cards' }),
+    ).toBeVisible();
+    await page.goto(`${baseUrl}/supervisor/cards?tab=manage`);
+    await expect(
+      page.getByRole('heading', { name: 'Issued cards' }),
+    ).toBeVisible();
     await page.goto(`${baseUrl}/supervisor/cards?tab=invalid`);
     await expect(
-      page.getByRole('tab', { name: 'Assign card' }),
-    ).toHaveAttribute('aria-selected', 'true');
+      page.getByRole('heading', { name: 'Issued cards' }),
+    ).toBeVisible();
   });
 
-  test('restores Supervisor card task tabs with browser back and forward', async ({
+  test('opens assignment in a popup without changing routes and closes back to the directory', async ({
     page,
   }) => {
     await mockShell(page, 'SUPERVISOR');
-    await page.goto(`${baseUrl}/supervisor/cards?tab=assign`);
+    await page.goto(`${baseUrl}/supervisor/cards`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    const directoryUrl = `${baseUrl}/supervisor/cards`;
     await expect(
-      page.getByRole('tab', { name: 'Assign card' }),
-    ).toHaveAttribute('aria-selected', 'true');
+      page.getByRole('button', { name: 'Assign card' }),
+    ).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Manage cards' }).click();
-    await expect(page).toHaveURL(`${baseUrl}/supervisor/cards?tab=manage`);
+    await page.getByRole('button', { name: 'Assign card' }).click();
+    const assignmentDialog = page.getByRole('dialog', { name: 'Assign card' });
+    await expect(assignmentDialog).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: 'Manage cards' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await page.goBack({ waitUntil: 'commit', timeout: 15_000 });
+      assignmentDialog.getByRole('heading', {
+        name: 'Find an existing customer',
+      }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(directoryUrl);
+
+    await assignmentDialog
+      .getByRole('button', { name: 'Close assignment' })
+      .click();
+    await expect(assignmentDialog).toHaveCount(0);
+    await expect(page).toHaveURL(directoryUrl);
     await expect(
-      page.getByRole('tab', { name: 'Assign card' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await page.goForward({ waitUntil: 'commit', timeout: 15_000 });
-    await expect(
-      page.getByRole('tab', { name: 'Manage cards' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tabpanel')).toHaveCount(1);
+      page.getByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
   });
 
   test('denies Cashier and Admin direct navigation to Supervisor customer and card workflows', async ({

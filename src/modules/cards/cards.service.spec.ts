@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { CardStatus, CustomerStatus } from '@prisma/client';
+import { encodeCursor } from '../../common/pagination/cursor-pagination';
 import { CardsService } from './cards.service';
 
 describe('CardsService', () => {
@@ -186,6 +187,157 @@ describe('CardsService', () => {
       service.lookupManagementCard('tenant-id', 'CARD-1'),
     ).rejects.toThrow('Card not found');
     expect(prisma.card.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('lists all tenant-scoped issued lifecycle statuses with a minimal paginated projection', async () => {
+    const issuedAt = new Date('2025-01-01T00:00:00.000Z');
+    const prisma = {
+      card: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'internal-id-2',
+            barcodeValue: 'CARD-2',
+            status: CardStatus.BLOCKED,
+            issuedAt,
+            customer: { id: 'customer-2', fullName: 'Ada Customer' },
+          },
+          {
+            id: 'card-1',
+            barcodeValue: 'CARD-1',
+            status: CardStatus.ACTIVE,
+            issuedAt,
+            customer: { id: 'customer-1', fullName: 'Grace Customer' },
+          },
+        ]),
+      },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    const page = await service.listIssuedManagementCards('tenant-id', {
+      limit: 1,
+    });
+
+    expect(page.items).toEqual([
+      {
+        cardNumber: 'CARD-2',
+        status: CardStatus.BLOCKED,
+        issuedAt,
+        customer: { id: 'customer-2', fullName: 'Ada Customer' },
+      },
+    ]);
+    expect(page.hasMore).toBe(true);
+    expect(page.nextCursor).toBeTruthy();
+    expect(JSON.stringify(page)).not.toMatch(
+      /internal-id-2|tenant|phone|email|balance/i,
+    );
+    expect(prisma.card.findMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-id',
+        status: {
+          in: [CardStatus.ACTIVE, CardStatus.BLOCKED, CardStatus.REPLACED],
+        },
+      },
+      orderBy: [{ issuedAt: 'desc' }, { id: 'desc' }],
+      take: 2,
+      select: {
+        id: true,
+        barcodeValue: true,
+        status: true,
+        issuedAt: true,
+        customer: { select: { id: true, fullName: true } },
+      },
+    });
+  });
+
+  it('applies search, status, and inclusive issue-date filters before pagination', async () => {
+    const prisma = { card: { findMany: jest.fn().mockResolvedValue([]) } };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await service.listIssuedManagementCards(
+      'tenant-id',
+      { limit: 25 },
+      {
+        search: ' Ada ',
+        status: CardStatus.REPLACED,
+        issuedFrom: '2025-01-02',
+        issuedTo: '2025-01-03',
+      },
+    );
+
+    expect(prisma.card.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant-id',
+          status: CardStatus.REPLACED,
+          OR: [
+            { barcodeValue: { contains: 'Ada', mode: 'insensitive' } },
+            {
+              customer: {
+                is: {
+                  fullName: { contains: 'Ada', mode: 'insensitive' },
+                },
+              },
+            },
+          ],
+          issuedAt: {
+            gte: new Date('2025-01-01T23:00:00.000Z'),
+            lt: new Date('2025-01-03T23:00:00.000Z'),
+          },
+        },
+      }),
+    );
+  });
+
+  it('rejects an issue-date range whose start follows its end', async () => {
+    const service = new CardsService({} as never, auditStub() as never);
+
+    await expect(
+      service.listIssuedManagementCards(
+        'tenant-id',
+        { limit: 25 },
+        { issuedFrom: '2025-02-01', issuedTo: '2025-01-01' },
+      ),
+    ).rejects.toThrow('Issued-card start date must not be after end date');
+  });
+
+  it('continues issued-card pages by issue timestamp and ID and rejects invalid timestamp cursors', async () => {
+    const issuedAt = new Date('2025-01-01T00:00:00.000Z');
+    const prisma = {
+      card: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CardsService(prisma as never, auditStub() as never);
+
+    await service.listIssuedManagementCards('tenant-id', {
+      limit: 25,
+      cursor: encodeCursor('last-card-id', issuedAt),
+    });
+    expect(prisma.card.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant-id',
+          status: {
+            in: [CardStatus.ACTIVE, CardStatus.BLOCKED, CardStatus.REPLACED],
+          },
+          AND: [
+            {
+              OR: [
+                { issuedAt: { lt: issuedAt } },
+                { issuedAt, id: { lt: 'last-card-id' } },
+              ],
+            },
+          ],
+        },
+        orderBy: [{ issuedAt: 'desc' }, { id: 'desc' }],
+      }),
+    );
+    await expect(
+      service.listIssuedManagementCards('tenant-id', {
+        limit: 25,
+        cursor: encodeCursor('card-id', 'not-a-date'),
+      }),
+    ).rejects.toThrow('Issued-card cursor is invalid');
   });
 
   it('returns card lookup without nested customer PII', async () => {

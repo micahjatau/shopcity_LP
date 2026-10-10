@@ -11,6 +11,61 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-10 — Polish Supervisor issued-card controls
+
+Upstream GitNexus impact is LOW for each edited UI symbol: `SupervisorIssuedCardDirectory` (1 impacted symbol; 1 `SupervisorCardsPage` process), `SupervisorCardWorkflows` (0), `SupervisorCardsPage` (0), and `SupervisorCardAssignment` (1 impacted symbol; 1 `SupervisorCardsPage` process). `SupervisorVirtualCardPreview` is LOW (3 impacted symbols across 2 processes: `SupervisorCustomerProfilePage` and `CustomerDetailsDialog`), and the UI `Popover` primitive is LOW (1 direct dependant, no indexed process). No HIGH/CRITICAL impact was reported. The work is scoped to presentation and UI orchestration; API filtering, tenant scope, stable customer identity, and lifecycle protections remain unchanged.
+
+```text
+node .gitnexus/run.cjs impact SupervisorIssuedCardDirectory --file apps/web/components/workflows/supervisor-issued-card-directory.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact SupervisorCardWorkflows --file apps/web/components/workflows/supervisor-card-workflows.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact SupervisorCardsPage --file 'apps/web/app/(shell)/supervisor/cards/page.tsx' --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact SupervisorCardAssignment --file apps/web/components/workflows/supervisor-card-assignment.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact SupervisorVirtualCardPreview --file apps/web/components/workflows/supervisor-virtual-card-preview.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact Popover --file apps/web/components/ui/popover.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+### 2026-10-10 — Include historical cards and filters in Supervisor Cards
+
+`CardsController` (3 impacted symbols), `CardsService` (5), and `SupervisorIssuedCardDirectory` (1; Cards page process) report LOW upstream risk. `SupervisorCustomerStatusBadge` reports HIGH impact (10 symbols and four UI processes); it is deliberately left unchanged. Card-specific status colors use the existing lower-level StatusBadge directly to avoid widening that shared symbol's blast radius.
+
+```text
+node .gitnexus/run.cjs impact CardsController --file src/modules/cards/cards.controller.ts --kind Class --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact CardsService --file src/modules/cards/cards.service.ts --kind Class --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact SupervisorIssuedCardDirectory --file apps/web/components/workflows/supervisor-issued-card-directory.tsx --kind Function --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact SupervisorCustomerStatusBadge --file apps/web/components/workflows/supervisor-customer-status-badge.tsx --kind Function --repo shopcity_LP --direction upstream
+```
+
+No HIGH/CRITICAL-risk symbol is modified; no schema, tenant boundary, or lifecycle write behavior changes.
+
+### 2026-10-10 — Simplify the verified-customer card management popup
+
+Upstream impact for the popup workflow is LOW. `SupervisorCardManagement` reports 0 indexed dependants. An exact kind-filtered `CustomerDetailsDialog` function query affects one direct dependant, two indexed symbols total, and the `SupervisorCustomerProfilePage` process; its broader earlier tracker entry likewise reported LOW.
+
+```text
+node .gitnexus/run.cjs impact SupervisorCardManagement --file apps/web/components/workflows/supervisor-card-management.tsx --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact CustomerDetailsDialog --file apps/web/components/workflows/customer-details-dialog.tsx --kind Function --repo shopcity_LP --direction upstream
+```
+
+No HIGH/CRITICAL symbol-level upstream risk was reported. The popup is scoped by verified profile customer ID, performs same-customer card lookups before exposing status-appropriate buttons, and retains existing operation confirmations and write contracts.
+
+### 2026-10-10 — Add Supervisor issued-card directory and Virtual Card profile link
+
+Upstream impact was checked for the changed route and card service. The new method `listIssuedManagementCards` is not yet indexed as a standalone symbol; the containing service class was used as the nearest available indexed target.
+
+```text
+node .gitnexus/run.cjs impact CardsService --file src/modules/cards/cards.service.ts --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact SupervisorCardWorkflows --file apps/web/components/workflows/supervisor-card-workflows.tsx --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact SupervisorCustomerProfile --file apps/web/components/workflows/supervisor-customer-workflows.tsx --repo shopcity_LP --direction upstream
+```
+
+| Symbol                      | Risk       | Impacted symbols | Direct dependants | Affected processes / modules |
+| --------------------------- | ---------- | ---------------: | ----------------: | ---------------------------- |
+| `CardsService`              | LOW, exact |                5 |                 3 | No process reported          |
+| `SupervisorCardWorkflows`   | LOW, exact |                0 |                 0 | No process reported          |
+| `SupervisorCustomerProfile` | LOW, exact |                0 |                 0 | No process reported          |
+
+No HIGH/CRITICAL symbol-level upstream impact was reported. Post-implementation `detect-changes --scope all` reports CRITICAL at the worktree level (27 files, 74 symbols, 16 flows), including pre-existing dirty files and the expected Supervisor Cards and customer-profile flows; this is not scoped solely to this feature. No commit was made.
+
 ### 2026-10-10 — Apply supplied branding to the Virtual Card preview
 
 `SupervisorVirtualCardPreview` is a new untracked symbol and was not present in the current GitNexus index. Upstream impact was checked on its existing caller, `CustomerDetailsDialog`:

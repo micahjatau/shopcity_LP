@@ -52,6 +52,7 @@
 - [x] 7.2 Remove default ledger history from registration and assignment; keep only relevant customer/card context, functional status and actionable error/confirmation states.
 - [x] 7.3 Ensure customer status is distinct from card status and each selected task owns one clear primary action.
 - [x] 7.4 Test that removed content is absent while user-facing errors, statuses, confirmation and accessibility announcements remain.
+- [x] 7.5 Keep the verified-customer `Manage customer card` popup focused on the authoritative card's status-appropriate lifecycle buttons; do not repeat the serial search/details workspace, and retain same-customer verification plus action confirmations. Verified by compact-mode component and profile-modal tests in `apps/web/tests/supervisor-card-management.spec.tsx` and `apps/web/tests/supervisor-customer-table-profile.spec.tsx`.
 
 ## 8. Desktop/mobile composition — Review 80 implementation order 7
 

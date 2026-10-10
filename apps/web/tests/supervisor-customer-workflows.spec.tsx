@@ -13,6 +13,7 @@ import {
 } from '../components/workflows/supervisor-customer-workflows';
 import {
   cardsControllerCreateCardV1,
+  cardsControllerListIssuedManagementCardsV1,
   customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
   customersControllerCreateCustomerV1,
@@ -33,6 +34,12 @@ function expectNoImplementationFacingWorkflowUi() {
   expect(content).not.toMatch(/ledger history|earn ledger/i);
   expect(content).not.toMatch(/\{\s*"(?:status|data|id)"\s*:/i);
   expect(document.querySelector('[role="alert"]')).not.toBeInTheDocument();
+}
+
+function assignmentSubmitButton() {
+  return within(
+    screen.getByRole('dialog', { name: 'Assignment eligibility' }),
+  ).getByRole('button', { name: 'Assign card' });
 }
 
 async function openRegistrationDialog() {
@@ -58,6 +65,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('../lib/api/generated-client', () => ({
   cardsControllerCreateCardV1: jest.fn(),
+  cardsControllerListIssuedManagementCardsV1: jest.fn(),
   customersControllerGetCustomerV1: jest.fn(),
   customersControllerListCustomersV1: jest.fn(),
   customersControllerCreateCustomerV1: jest.fn(),
@@ -97,40 +105,53 @@ describe('SupervisorCardWorkflows', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     query = new URLSearchParams();
+    jest
+      .mocked(cardsControllerListIssuedManagementCardsV1)
+      .mockImplementation(() => new Promise(() => {}) as never);
   });
 
-  it('provides directly addressable card tabs without customer workflows', () => {
-    query = new URLSearchParams('tab=manage');
+  it('shows the issued-card table without an Issued cards navigation button', async () => {
+    query = new URLSearchParams('tab=issued');
     render(<SupervisorCardWorkflows />);
-    expect(screen.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    expect(screen.getByRole('tab', { name: 'Assign card' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    );
     expect(
-      screen.getByRole('region', { name: 'Manage cards' }),
-    ).toBeInTheDocument();
+      await screen.findByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Issued cards' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Assign card' })).toHaveClass(
+      'sc-button--primary',
+    );
     expect(
       screen.queryByRole('heading', { name: 'Customers' }),
     ).not.toBeInTheDocument();
   });
 
-  it('records card-task tab selections in browser history', () => {
-    query = new URLSearchParams('tab=assign');
+  it('opens assignment in a popup without navigating and supports direct assignment links', async () => {
+    query = new URLSearchParams();
     const view = render(<SupervisorCardWorkflows />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Manage cards' }));
-    expect(push).toHaveBeenCalledWith('/supervisor/cards?tab=manage', {
+    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    expect(push).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole('dialog', { name: 'Assign card' }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close assignment' }));
+    expect(
+      await screen.findByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
+
+    query = new URLSearchParams('tab=assign');
+    view.rerender(<SupervisorCardWorkflows />);
+    expect(
+      await screen.findByRole('dialog', { name: 'Assign card' }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close assignment' }));
+    expect(replace).toHaveBeenLastCalledWith('/supervisor/cards', {
       scroll: false,
     });
-    query = new URLSearchParams('tab=manage');
+    query = new URLSearchParams();
     view.rerender(<SupervisorCardWorkflows />);
-    expect(screen.getByRole('tab', { name: 'Manage cards' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(
+      await screen.findByRole('table', { name: 'Issued cards' }),
+    ).toBeVisible();
   });
 
   it('loads verified assignment details directly after deliberate customer selection', async () => {
@@ -285,7 +306,12 @@ describe('SupervisorCardWorkflows', () => {
     view.rerender(<SupervisorCardWorkflows />);
     await screen.findByRole('dialog', { name: 'Assignment eligibility' });
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: 'Assign card' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: 'Assignment eligibility' }),
+    ).not.toBeInTheDocument();
     expect(searchInput).toHaveValue('Ada');
     expect(
       screen.getByRole('button', { name: /Ada Customer/ }),
@@ -360,11 +386,11 @@ describe('SupervisorCardWorkflows', () => {
     ).toBeInTheDocument();
     expect(
       screen
-        .getAllByRole('link', { name: 'Manage cards' })
+        .getAllByRole('link', { name: 'View issued cards' })
         .some(
           (link) =>
             link.getAttribute('href') ===
-            '/supervisor/cards?tab=manage&id=customer-1',
+            '/supervisor/cards?tab=issued&id=customer-1',
         ),
     ).toBe(true);
     expect(screen.queryByLabelText('New card serial')).not.toBeInTheDocument();
@@ -380,7 +406,7 @@ describe('SupervisorCardWorkflows', () => {
     expect(screen.queryByLabelText('New card serial')).not.toBeInTheDocument();
   });
 
-  it('blocks inactive customers and routes active-card cases to Manage cards', async () => {
+  it('blocks inactive customers and routes active-card cases to the issued-card directory', async () => {
     query = new URLSearchParams('tab=assign&id=blocked');
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
@@ -437,7 +463,7 @@ describe('SupervisorCardWorkflows', () => {
       screen.getByRole('heading', { name: 'Review card assignment' }),
     ).toBeInTheDocument();
     expect(screen.getByText('NEW-101')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
     await waitFor(() =>
       expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(1),
     );
@@ -499,7 +525,7 @@ describe('SupervisorCardWorkflows', () => {
       fireEvent.click(
         screen.getByRole('button', { name: 'Review assignment' }),
       );
-      const submit = screen.getByRole('button', { name: 'Assign card' });
+      const submit = assignmentSubmitButton();
       fireEvent.click(submit);
       fireEvent.click(submit);
       expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(1);
@@ -574,7 +600,7 @@ describe('SupervisorCardWorkflows', () => {
     const serialInput = await screen.findByLabelText('New card serial');
     fireEvent.change(serialInput, { target: { value: ' RETRY-101 ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
 
     expect(
       await screen.findByText(/not completed \(503\)/i),
@@ -590,7 +616,7 @@ describe('SupervisorCardWorkflows', () => {
     expect(
       screen.getByRole('heading', { name: 'Review card assignment' }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
     await waitFor(() =>
       expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2),
     );
@@ -635,7 +661,7 @@ describe('SupervisorCardWorkflows', () => {
     const serialInput = await screen.findByLabelText('New card serial');
     fireEvent.change(serialInput, { target: { value: 'RETRY-101' } });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
     expect(
       await screen.findByText(/not completed \(503\)/i),
     ).toBeInTheDocument();
@@ -645,7 +671,7 @@ describe('SupervisorCardWorkflows', () => {
       target: { value: 'RETRY-102' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
     await waitFor(() =>
       expect(cardsControllerCreateCardV1).toHaveBeenCalledTimes(2),
     );
@@ -660,6 +686,7 @@ describe('SupervisorCardWorkflows', () => {
     query = new URLSearchParams(
       'tab=assign&id=eligible&status=BLOCKED&balance=999999',
     );
+    jest.mocked(customersControllerGetCustomerV1).mockReset();
     jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
       status: 200,
       data: {
@@ -699,7 +726,7 @@ describe('SupervisorCardWorkflows', () => {
       target: { value: 'DUP-1' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
     expect(
       await screen.findByText(
         'This card serial is already assigned. Enter a different serial.',
@@ -744,7 +771,7 @@ describe('SupervisorCardWorkflows', () => {
       target: { value: 'NEW-102' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Review assignment' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Assign card' }));
+    fireEvent.click(assignmentSubmitButton());
     expect(
       await screen.findByText(
         'Assignment was rejected because customer eligibility changed. Check the updated eligibility before retrying.',

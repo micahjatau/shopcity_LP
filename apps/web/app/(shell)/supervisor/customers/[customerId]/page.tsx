@@ -5,13 +5,17 @@ export default async function SupervisorCustomerProfilePage({
   searchParams,
 }: {
   params: Promise<{ customerId: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; tab?: string }>;
 }) {
-  const [{ customerId }, { q }] = await Promise.all([params, searchParams]);
+  const [{ customerId }, { q, tab }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   return (
     <SupervisorCustomerProfile
       customerId={customerId}
       returnQuery={typeof q === 'string' ? q : ''}
+      initialTab={typeof tab === 'string' ? tab : undefined}
     />
   );
 }

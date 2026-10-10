@@ -37,6 +37,7 @@
 - [x] 4.6 Implement the Wallet Ledger reference as a responsive table card backed by the authenticated, cursor-paginated customer ledger endpoint; add receipt source and creator username to the read-only ledger contract, map supported values to columns, and show historical Balance After as Not provided unless the API supplies an authoritative snapshot.
 - [x] 4.7 Move the verified ShopCity card preview from Manage cards to the customer profile Virtual Card tab; retain authoritative profile data, verified management details, and all protected management actions.
 - [x] 4.8 Use the supplied `IMG-20260802-WA0001.jpg` as the Virtual Card preview background, preserve the asset unchanged, and verify it loads in the profile workflow.
+- [x] 4.9 Open the protected card-management workflow from Virtual Card in an accessible in-profile dialog, prefill the assigned serial without skipping lookup/re-verification, and remain on the profile when closing.
 
 ## 5. Verify and close the change
 
@@ -44,3 +45,4 @@
 - [ ] 5.2 Add or update Playwright coverage for desktop and mobile directory/profile layouts, registration dialog, read-only customer-details card and edit dialog, verified-success animation/reduced-motion and failure states, search, row-to-profile navigation, direct profile reload, dirty-state handling, profile tabs, API-backed activity, expiry, virtual card, capture/redeem handoffs, and keyboard use; verify all affected workflows pass against the app.
 - [ ] 5.3 Regenerate the OpenAPI/client contract, then run web lint, typecheck, tests, and production build; run applicable Semgrep and OpenSpec validation; verify every acceptance criterion has passing evidence and `git diff --check` is clean.
 - [ ] 5.4 Review the final diff and worktree, preserve unrelated changes/reference assets, and report any unresolved visual or behavior decisions; verify only intended source, tests, and OpenSpec artifacts changed.
+- [x] 5.5 Verify Manage card opens a dialog with the verified serial prefilled, preserves the profile route/tab, and retains the existing lookup and action safeguards.

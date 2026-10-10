@@ -116,8 +116,17 @@ The profile virtual card MUST use the current assigned card's authoritative iden
 - **THEN** the tab renders the ShopCity card preview using that card's real identifier, authoritative status, issue date, and verified customer name
 - **AND** the profile does not display the sample SVG's name, card number, barcode, or status as customer data
 - **AND** `apps/web/public/brand/supervisor/IMG-20260802-WA0001.jpg` is used as the card preview's cover background, with the source asset left unchanged
+- **AND** the customer name and card number appear directly over the background at the bottom left in consistent white type at 25px by default and 29px from the small breakpoint upward, with the name in all caps, no card-number label, no text-panel background, and no visible Active badge
 - **AND** the preview does not appear on Overview or the global Manage cards tab
 - **AND** Manage cards retains its verified serial/customer details and existing protected card actions without rendering the graphic preview.
+
+#### Scenario: Manage card opens in a profile dialog
+
+- **GIVEN** the Supervisor is viewing the verified customer's Virtual Card tab and an assigned card is returned
+- **WHEN** the Supervisor activates **Manage card**
+- **THEN** the existing protected card-management workflow opens in an accessible dialog without navigating away from the profile
+- **AND** the current card identifier is prefilled for lookup but must still be searched and re-verified before any lifecycle action is available
+- **AND** closing the dialog returns to the same Virtual Card tab and preserves all existing authorization, CSRF, idempotency, confirmation, and authoritative-refresh safeguards.
 
 #### Scenario: Customer has no issued virtual card
 

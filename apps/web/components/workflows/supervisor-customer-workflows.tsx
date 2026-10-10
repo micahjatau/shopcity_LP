@@ -1084,11 +1084,13 @@ function ManageCustomers({
   customerId,
   onCustomerId,
   profileOnly = false,
+  initialProfileTab,
 }: {
   initialQuery: string;
   customerId: string | null;
   onCustomerId: (id: string | null) => void;
   profileOnly?: boolean;
+  initialProfileTab?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Customer[]>([]);
@@ -1439,6 +1441,7 @@ function ManageCustomers({
       <CustomerDetailsDialog
         open={Boolean(customerId)}
         presentation={profileOnly ? 'page' : 'dialog'}
+        initialTab={initialProfileTab}
         customer={customer}
         profile={form}
         profileDirty={profileDirty}
@@ -1506,9 +1509,11 @@ function ManageCustomers({
 export function SupervisorCustomerProfile({
   customerId,
   returnQuery = '',
+  initialTab,
 }: {
   customerId: string;
   returnQuery?: string;
+  initialTab?: string;
 }) {
   const router = useRouter();
   const backHref = `/supervisor/customers${returnQuery ? `?q=${encodeURIComponent(returnQuery)}` : ''}`;
@@ -1519,6 +1524,7 @@ export function SupervisorCustomerProfile({
         initialQuery=""
         customerId={customerId}
         profileOnly
+        initialProfileTab={initialTab}
         onCustomerId={() => router.push(backHref)}
       />
     </section>
