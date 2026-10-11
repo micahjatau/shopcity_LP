@@ -2,7 +2,6 @@
 @import './tokens.css';
 @import './base.css';
 @import './primitives.css';
-@import 'react-day-picker/style.css';
 @import './cashier-design-system.css';
 @import './cashier-routes.css';
 @import './supervisor-routes.css';

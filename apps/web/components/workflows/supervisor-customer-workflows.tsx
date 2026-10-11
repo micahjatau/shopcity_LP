@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -15,6 +16,8 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -39,7 +42,7 @@ import {
 } from './customer-details-dialog';
 import { CustomerRegistrationReviewDialog } from './customer-registration-review-dialog';
 import { SupervisorCustomerStatusBadge } from './supervisor-customer-status-badge';
-import { Button, Checkbox, Dialog, Input, Select } from '../ui';
+import { Button, Checkbox, Dialog, Input } from '../ui';
 
 type Customer = SupervisorCustomerRecord;
 type CustomerNumericSortKey =
@@ -49,6 +52,15 @@ type CustomerSortState = {
   direction: 'asc' | 'desc';
 } | null;
 const CUSTOMER_TABLE_PAGE_SIZE = 5;
+type CustomerStatusFilterValue = 'ALL' | 'ACTIVE' | 'BLOCKED';
+const CUSTOMER_STATUS_FILTER_OPTIONS: ReadonlyArray<{
+  value: CustomerStatusFilterValue;
+  label: string;
+}> = [
+  { value: 'ALL', label: 'All statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'BLOCKED', label: 'Blocked' },
+];
 
 const blank = {
   fullName: '',
@@ -78,6 +90,134 @@ function cardSummaryLabel(customer: Customer): string {
   if (status === 'ACTIVE') return 'Active card';
   if (status === 'BLOCKED') return 'Blocked card';
   return 'Card status not included';
+}
+
+function SupervisorCustomerStatusFilter({
+  value,
+  onChange,
+}: Readonly<{
+  value: CustomerStatusFilterValue;
+  onChange: (status: CustomerStatusFilterValue) => void;
+}>) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(
+    CUSTOMER_STATUS_FILTER_OPTIONS.findIndex(
+      (option) => option.value === value,
+    ),
+  );
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = CUSTOMER_STATUS_FILTER_OPTIONS.findIndex(
+    (option) => option.value === value,
+  );
+  const selectedOption = CUSTOMER_STATUS_FILTER_OPTIONS[selectedIndex];
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) optionRefs.current[activeIndex]?.focus();
+  }, [activeIndex, open]);
+
+  const handleOptionKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | undefined;
+    if (event.key === 'ArrowDown')
+      nextIndex = (index + 1) % CUSTOMER_STATUS_FILTER_OPTIONS.length;
+    if (event.key === 'ArrowUp')
+      nextIndex =
+        (index - 1 + CUSTOMER_STATUS_FILTER_OPTIONS.length) %
+        CUSTOMER_STATUS_FILTER_OPTIONS.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End')
+      nextIndex = CUSTOMER_STATUS_FILTER_OPTIONS.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      setActiveIndex(nextIndex);
+      optionRefs.current[nextIndex]?.focus();
+    }
+    if (event.key === 'Tab') setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="supervisor-customer-directory__status-filter">
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="secondary"
+        className="supervisor-customer-directory__filter supervisor-customer-directory__status-trigger"
+        aria-label={`Filter customers by status, ${selectedOption.label}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="supervisor-customer-status-options"
+        onClick={() => {
+          if (!open) setActiveIndex(selectedIndex);
+          setOpen((current) => !current);
+        }}
+      >
+        <Filter aria-hidden="true" size={15} />
+        <span>{selectedOption.label}</span>
+        <ChevronDown aria-hidden="true" size={14} />
+      </Button>
+      {open ? (
+        <div
+          id="supervisor-customer-status-options"
+          className="supervisor-customer-directory__status-menu"
+          role="listbox"
+          aria-label="Filter customers by status"
+        >
+          {CUSTOMER_STATUS_FILTER_OPTIONS.map((option, index) => (
+            <button
+              key={option.value}
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
+              type="button"
+              role="option"
+              aria-selected={value === option.value}
+              tabIndex={activeIndex === index ? 0 : -1}
+              className="supervisor-customer-directory__status-option"
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
+              <span>{option.label}</span>
+              {value === option.value ? (
+                <Check aria-hidden="true" size={14} />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function SupervisorCustomerWorkflows() {
@@ -600,7 +740,8 @@ function CustomerDirectory({
   const [message, setMessage] = useState('Loading customers…');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] =
+    useState<CustomerStatusFilterValue>('ALL');
   const [sort, setSort] = useState<CustomerSortState>(null);
   const [page, setPage] = useState(1);
   const pendingUrlQuery = useRef<string | null>(null);
@@ -762,30 +903,13 @@ function CustomerDirectory({
           </div>
         </form>
         <div className="supervisor-customer-directory__actions">
-          <div className="supervisor-customer-directory__filter">
-            <Filter aria-hidden="true" size={15} />
-            <label
-              className="sr-only"
-              htmlFor="supervisor-customer-status-filter"
-            >
-              Filter customers by status
-            </label>
-            <Select
-              id="supervisor-customer-status-filter"
-              aria-label="Filter customers by status"
-              className="supervisor-customer-directory__filter-select"
-              value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.target.value);
-                setPage(1);
-              }}
-              options={[
-                { value: 'ALL', label: 'All statuses' },
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'BLOCKED', label: 'Blocked' },
-              ]}
-            />
-          </div>
+          <SupervisorCustomerStatusFilter
+            value={statusFilter}
+            onChange={(status) => {
+              setStatusFilter(status);
+              setPage(1);
+            }}
+          />
           <Button
             type="button"
             className="supervisor-customer-directory__register"

@@ -39,7 +39,34 @@
 
 ## 7. Polish the date, assignment, and responsive card controls
 
-- [x] 7.1 Replace native issue-date fields with an accessible two-month calendar range popover that updates the existing filtered API query.
+- [x] 7.1 Replace native issue-date fields with an accessible calendar range picker that updates the existing filtered API query.
 - [x] 7.2 Open Assign card in a controlled popup without navigating away; keep direct `?tab=assign` compatibility and ensure Escape closes the topmost eligibility dialog first.
 - [x] 7.3 Collapse the search input behind a search-icon button on tablet and mobile, revealing it on demand.
 - [x] 7.4 Remove the decorative chip graphic from the Virtual Card preview and update focused tests/spec verification.
+
+## 8. Integrate the authorized SOM date-range component
+
+- [x] 8.1 Replace the temporary React Day Picker with the Michigan `som-calendar` and load it client-side.
+- [x] 8.2 Map `datesChanged` events to ISO date filters; verify range application and clearing.
+- [x] 8.3 Bundle only the component's required icon assets and avoid package-wide global CSS to preserve ShopCity styling.
+
+## 9. Refine issued-card date and action controls
+
+- [x] 9.1 Use a single-month, sequentially selected calendar in a compact animated popup with viewport-aware alignment.
+- [x] 9.2 Replace the separate date label with a filter-style Date issued button and align Assign card styling with the toolbar controls while retaining its primary color.
+- [x] 9.3 Verify selection, clearing, popup behavior, and updated button styles.
+
+## 10. Display selected issue dates above the calendar
+
+- [x] 10.1 Add a compact, accessible field for empty, partial, and complete date ranges.
+- [x] 10.2 Test that the field tracks selections and preserves the applied range when reopened.
+
+## 11. Style and keyboard-enable the status filter menu
+
+- [x] 11.1 Replace the native status select with a rounded custom listbox matching the filter trigger.
+- [x] 11.2 Verify selection indication, keyboard navigation, and API filter updates.
+
+## 12. Match the Customers directory presentation
+
+- [x] 12.1 Reuse the Customers table, row-action, toolbar/filter, dropdown, and primary-action styles in the issued-card directory.
+- [x] 12.2 Apply card-appropriate table column widths and verify the shared controls and filtering behavior with focused tests.

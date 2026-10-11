@@ -5,7 +5,6 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { format } from 'date-fns';
 import { SupervisorCardManagement } from '../components/workflows/supervisor-card-management';
 import { SupervisorCardWorkflows } from '../components/workflows/supervisor-card-workflows';
 import {
@@ -25,6 +24,44 @@ jest.mock('next/navigation', () => ({
 jest.mock('../components/workflows/supervisor-card-assignment', () => ({
   SupervisorCardAssignment: () => <div>Assignment workspace</div>,
 }));
+jest.mock('../components/workflows/supervisor-issue-date-range-picker', () => {
+  const React = jest.requireActual('react');
+  return {
+    SupervisorIssueDateRangePicker: ({
+      className,
+      onChange,
+    }: {
+      className: string;
+      onChange: (value: { startDate: string; endDate: string }) => void;
+    }) =>
+      React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(
+          'button',
+          {
+            type: 'button',
+            className: `${className} supervisor-customer-directory__filter`,
+            'aria-label': 'Date issued',
+            'data-testid': 'issue-date-range-picker',
+            onClick: () =>
+              onChange({ startDate: '10/10/2025', endDate: '10/31/2025' }),
+          },
+          'Date issued',
+        ),
+        React.createElement(
+          'button',
+          {
+            type: 'button',
+            hidden: true,
+            'data-testid': 'clear-issued-date-range',
+            onClick: () => onChange({ startDate: '', endDate: '' }),
+          },
+          'Clear',
+        ),
+      ),
+  };
+});
 jest.mock('../lib/api/generated-client', () => ({
   cardsControllerListIssuedManagementCardsV1: jest.fn(),
   cardsControllerLookupManagementCardV1: jest.fn(),
@@ -95,14 +132,42 @@ describe('Supervisor card management tabs', () => {
     expect(
       screen.getByLabelText('Search by card number or owner name'),
     ).toBeVisible();
-    expect(
-      screen.getByRole('combobox', { name: 'Filter by status' }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Pick a date range' }),
-    ).toBeVisible();
+    const statusFilter = screen.getByRole('button', {
+      name: /Filter by status/,
+    });
+    expect(statusFilter).toHaveClass(
+      'sc-button--secondary',
+      'supervisor-customer-directory__filter',
+      'supervisor-customer-directory__status-trigger',
+    );
+    fireEvent.click(statusFilter);
+    const statusOptions = screen.getByRole('listbox', {
+      name: 'Filter by status',
+    });
+    expect(statusOptions).toHaveClass(
+      'supervisor-customer-directory__status-menu',
+    );
+    expect(within(statusOptions).getAllByRole('option')).toHaveLength(4);
+    const allStatuses = within(statusOptions).getByRole('option', {
+      name: 'All statuses',
+    });
+    expect(allStatuses).toHaveAttribute('aria-selected', 'true');
+    expect(allStatuses).toHaveFocus();
+    fireEvent.keyDown(allStatuses, { key: 'ArrowDown' });
+    const activeStatus = within(statusOptions).getByRole('option', {
+      name: 'Active',
+    });
+    expect(activeStatus).toHaveFocus();
+    fireEvent.keyDown(activeStatus, { key: 'Escape' });
+    expect(statusFilter).toHaveFocus();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Date issued' })).toHaveClass(
+      'supervisor-customer-directory__filter',
+    );
     expect(screen.getByRole('button', { name: 'Assign card' })).toHaveClass(
       'sc-button--primary',
+      'supervisor-customer-directory__register',
+      'supervisor-issued-card-directory__assign-button',
     );
     const table = await screen.findByRole('table', { name: 'Issued cards' });
     const headers = within(table)
@@ -115,7 +180,10 @@ describe('Supervisor card management tabs', () => {
       'Date issued',
       'View card',
     ]);
-    expect(table).toHaveClass('supervisor-customer-table');
+    expect(table).toHaveClass(
+      'supervisor-customer-table',
+      'supervisor-issued-card-directory__table',
+    );
     expect(table.parentElement).toHaveClass('supervisor-customer-table-wrap');
     expect(await within(table).findByText('SER-1')).toBeVisible();
     expect(within(table).getByText('Ada Example')).toBeVisible();
@@ -142,6 +210,12 @@ describe('Supervisor card management tabs', () => {
       'href',
       '/supervisor/customers/customer-1?tab=virtual-card',
     );
+    expect(
+      within(within(table).getByRole('row', { name: /SER-1/ })).getByRole(
+        'link',
+        { name: 'View card' },
+      ),
+    ).toHaveClass('supervisor-customer-table__profile-link');
     expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenCalledWith(
       { limit: '25', cursor: '' },
       expect.any(Object),
@@ -152,6 +226,7 @@ describe('Supervisor card management tabs', () => {
     render(<SupervisorCardWorkflows />);
     await screen.findByRole('table', { name: 'Issued cards' });
     const toggle = screen.getByRole('button', { name: 'Search cards' });
+    expect(toggle).toHaveClass('supervisor-customer-directory__search-submit');
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(toggle);
@@ -180,22 +255,9 @@ describe('Supervisor card management tabs', () => {
         target: { value: 'CARD-42' },
       },
     );
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Filter by status' }),
-      {
-        target: { value: 'REPLACED' },
-      },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Pick a date range' }));
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    fireEvent.click(
-      screen.getByRole('button', { name: `Today, ${format(today, 'PPPP')}` }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: format(tomorrow, 'PPPP') }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Filter by status/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Replaced' }));
+    fireEvent.click(screen.getByTestId('issue-date-range-picker'));
 
     await waitFor(() =>
       expect(
@@ -206,8 +268,8 @@ describe('Supervisor card management tabs', () => {
           cursor: '',
           q: 'CARD-42',
           status: 'REPLACED',
-          issuedFrom: format(today, 'yyyy-MM-dd'),
-          issuedTo: format(tomorrow, 'yyyy-MM-dd'),
+          issuedFrom: '2025-10-10',
+          issuedTo: '2025-10-31',
         },
         expect.any(Object),
       ),
@@ -234,12 +296,8 @@ describe('Supervisor card management tabs', () => {
     } as never);
     render(<SupervisorCardWorkflows />);
     await screen.findByRole('table', { name: 'Issued cards' });
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Filter by status' }),
-      {
-        target: { value: 'REPLACED' },
-      },
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Filter by status/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Replaced' }));
     await waitFor(() =>
       expect(
         cardsControllerListIssuedManagementCardsV1,
@@ -259,7 +317,7 @@ describe('Supervisor card management tabs', () => {
     );
   });
 
-  it('opens a two-month issue-date calendar and clears the applied range', async () => {
+  it('applies and clears the selected issue-date range in API requests', async () => {
     jest.mocked(cardsControllerListIssuedManagementCardsV1).mockResolvedValue({
       status: 200,
       data: { data: { items: [], nextCursor: null, hasMore: false } },
@@ -267,25 +325,7 @@ describe('Supervisor card management tabs', () => {
     render(<SupervisorCardWorkflows />);
     await screen.findByRole('table', { name: 'Issued cards' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pick a date range' }));
-    const calendar = screen.getByRole('dialog', {
-      name: 'Choose issue date range',
-    });
-    expect(within(calendar).getAllByRole('grid')).toHaveLength(2);
-
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    fireEvent.click(
-      within(calendar).getByRole('button', {
-        name: `Today, ${format(today, 'PPPP')}`,
-      }),
-    );
-    fireEvent.click(
-      within(calendar).getByRole('button', {
-        name: format(tomorrow, 'PPPP'),
-      }),
-    );
+    fireEvent.click(screen.getByTestId('issue-date-range-picker'));
     await waitFor(() =>
       expect(
         cardsControllerListIssuedManagementCardsV1,
@@ -293,23 +333,14 @@ describe('Supervisor card management tabs', () => {
         {
           limit: '25',
           cursor: '',
-          issuedFrom: format(today, 'yyyy-MM-dd'),
-          issuedTo: format(tomorrow, 'yyyy-MM-dd'),
+          issuedFrom: '2025-10-10',
+          issuedTo: '2025-10-31',
         },
         expect.any(Object),
       ),
     );
 
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: `${format(today, 'MMM dd, yyyy')} – ${format(tomorrow, 'MMM dd, yyyy')}`,
-      }),
-    );
-    fireEvent.click(
-      within(
-        screen.getByRole('dialog', { name: 'Choose issue date range' }),
-      ).getByRole('button', { name: 'Clear' }),
-    );
+    fireEvent.click(screen.getByTestId('clear-issued-date-range'));
     await waitFor(() =>
       expect(
         cardsControllerListIssuedManagementCardsV1,

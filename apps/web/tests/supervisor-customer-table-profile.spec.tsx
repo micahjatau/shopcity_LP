@@ -626,7 +626,7 @@ describe('table-first customer workflow', () => {
     );
     const actions = toolbar?.children[1];
     expect(actions?.firstElementChild).toHaveClass(
-      'supervisor-customer-directory__filter',
+      'supervisor-customer-directory__status-filter',
     );
     expect(actions?.lastElementChild).toHaveTextContent('Register customer');
 
@@ -754,11 +754,25 @@ describe('table-first customer workflow', () => {
     expect(await screen.findByText('Active Four')).toBeVisible();
     expect(screen.queryByText('Active One')).not.toBeInTheDocument();
 
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Filter customers by status' }),
-      {
-        target: { value: 'BLOCKED' },
-      },
+    const statusFilter = screen.getByRole('button', {
+      name: /Filter customers by status/,
+    });
+    expect(statusFilter).toHaveClass(
+      'sc-button--secondary',
+      'supervisor-customer-directory__filter',
+    );
+    fireEvent.click(statusFilter);
+    const statusOptions = screen.getByRole('listbox', {
+      name: 'Filter customers by status',
+    });
+    expect(statusOptions).toHaveClass(
+      'supervisor-customer-directory__status-menu',
+    );
+    expect(
+      within(statusOptions).getByRole('option', { name: 'All statuses' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(
+      within(statusOptions).getByRole('option', { name: 'Blocked' }),
     );
     expect(screen.getByText('Blocked One')).toBeVisible();
     expect(screen.getByText('Blocked Two')).toBeVisible();

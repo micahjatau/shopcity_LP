@@ -1,22 +1,39 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import Link from 'next/link';
-import { format } from 'date-fns';
-import { DayPicker, type DateRange } from 'react-day-picker';
-import { CalendarDays, Filter, Search, X } from 'lucide-react';
+import { format, isValid, parse } from 'date-fns';
+import { Check, ChevronDown, Filter, Search, X } from 'lucide-react';
 import {
   cardsControllerListIssuedManagementCardsV1,
   type CardsControllerListIssuedManagementCardsV1Params,
   type CardsControllerListIssuedManagementCardsV1200DataItemsItem,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Button, Input, Popover, Select } from '../ui';
+import { Button, Input } from '../ui';
 import { StatusBadge, type StatusTone } from '../shopcity';
+import { SupervisorIssueDateRangePicker } from './supervisor-issue-date-range-picker';
 
 const PAGE_LIMIT = '25';
 type IssuedCard = CardsControllerListIssuedManagementCardsV1200DataItemsItem;
 type StatusFilter = 'ALL' | 'ACTIVE' | 'BLOCKED' | 'REPLACED';
+const STATUS_FILTER_OPTIONS: ReadonlyArray<{
+  value: StatusFilter;
+  label: string;
+}> = [
+  { value: 'ALL', label: 'All statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'BLOCKED', label: 'Blocked' },
+  { value: 'REPLACED', label: 'Replaced' },
+];
+type DateRangeValue = { startDate: string; endDate: string };
+
+function toApiDate(value: string): string {
+  if (!value) return '';
+  const date = parse(value, 'M/d/yyyy', new Date(2000, 0, 1));
+  return isValid(date) ? format(date, 'yyyy-MM-dd') : '';
+}
 
 type IssuedCardFilters = Pick<
   CardsControllerListIssuedManagementCardsV1Params,
@@ -55,6 +72,129 @@ function issuedDate(value: string): string {
       });
 }
 
+function SupervisorIssuedCardStatusFilter({
+  value,
+  onChange,
+}: Readonly<{
+  value: StatusFilter;
+  onChange: (status: StatusFilter) => void;
+}>) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = STATUS_FILTER_OPTIONS.findIndex(
+    (option) => option.value === value,
+  );
+  const [activeIndex, setActiveIndex] = useState(selectedIndex);
+  const selectedOption = STATUS_FILTER_OPTIONS[selectedIndex];
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) optionRefs.current[activeIndex]?.focus();
+  }, [activeIndex, open]);
+
+  const handleOptionKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | undefined;
+    if (event.key === 'ArrowDown')
+      nextIndex = (index + 1) % STATUS_FILTER_OPTIONS.length;
+    if (event.key === 'ArrowUp')
+      nextIndex =
+        (index - 1 + STATUS_FILTER_OPTIONS.length) %
+        STATUS_FILTER_OPTIONS.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = STATUS_FILTER_OPTIONS.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      setActiveIndex(nextIndex);
+      optionRefs.current[nextIndex]?.focus();
+    }
+    if (event.key === 'Tab') setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="supervisor-customer-directory__status-filter">
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="secondary"
+        className="supervisor-customer-directory__filter supervisor-customer-directory__status-trigger"
+        aria-label={`Filter by status, ${selectedOption.label}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="issued-card-status-options"
+        onClick={() => {
+          if (!open) setActiveIndex(selectedIndex);
+          setOpen((current) => !current);
+        }}
+      >
+        <Filter aria-hidden="true" size={15} />
+        <span>{selectedOption.label}</span>
+        <ChevronDown aria-hidden="true" size={14} />
+      </Button>
+      {open ? (
+        <div
+          id="issued-card-status-options"
+          className="supervisor-customer-directory__status-menu"
+          role="listbox"
+          aria-label="Filter by status"
+        >
+          {STATUS_FILTER_OPTIONS.map((option, index) => (
+            <button
+              key={option.value}
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
+              type="button"
+              role="option"
+              aria-selected={value === option.value}
+              tabIndex={activeIndex === index ? 0 : -1}
+              className="supervisor-customer-directory__status-option"
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
+              <span>{option.label}</span>
+              {value === option.value ? (
+                <Check aria-hidden="true" size={14} />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function SupervisorIssuedCardDirectory({
   onAssignCard,
 }: Readonly<{ onAssignCard: () => void }>) {
@@ -62,15 +202,14 @@ export function SupervisorIssuedCardDirectory({
   const [searchQuery, setSearchQuery] = useState('');
   const [settledSearchQuery, setSettledSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [dateRange, setDateRange] = useState<DateRange>();
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({
+    startDate: '',
+    endDate: '',
+  });
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const datePickerRef = useRef<HTMLDivElement>(null);
-  const issuedFrom = dateRange?.from
-    ? format(dateRange.from, 'yyyy-MM-dd')
-    : '';
-  const issuedTo = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '';
+  const issuedFrom = toApiDate(dateRange.startDate);
+  const issuedTo = toApiDate(dateRange.endDate);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,27 +227,6 @@ export function SupervisorIssuedCardDirectory({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    if (!datePickerOpen) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !datePickerRef.current?.contains(event.target)
-      ) {
-        setDatePickerOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDatePickerOpen(false);
-    };
-    document.addEventListener('pointerdown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [datePickerOpen]);
-
   const filters = useMemo<IssuedCardFilters>(
     () => ({
       ...(settledSearchQuery ? { q: settledSearchQuery } : {}),
@@ -121,12 +239,6 @@ export function SupervisorIssuedCardDirectory({
   const invalidDateRange = Boolean(
     issuedFrom && issuedTo && issuedFrom > issuedTo,
   );
-  const dateRangeLabel = dateRange?.from
-    ? dateRange.to
-      ? `${format(dateRange.from, 'MMM dd, yyyy')} – ${format(dateRange.to, 'MMM dd, yyyy')}`
-      : `${format(dateRange.from, 'MMM dd, yyyy')} – Select end date`
-    : 'Pick a date range';
-
   useEffect(() => {
     let active = true;
     requestVersion.current += 1;
@@ -212,7 +324,7 @@ export function SupervisorIssuedCardDirectory({
           <Button
             type="button"
             variant="secondary"
-            className="supervisor-issued-card-directory__search-toggle"
+            className="supervisor-customer-directory__search-submit supervisor-issued-card-directory__search-toggle"
             aria-label={mobileSearchOpen ? 'Hide card search' : 'Search cards'}
             aria-expanded={mobileSearchOpen}
             aria-controls="issued-card-search"
@@ -246,87 +358,34 @@ export function SupervisorIssuedCardDirectory({
               onChange={(event) => setSearchQuery(event.target.value)}
             />
           </div>
-          <div className="supervisor-customer-directory__filter">
-            <Filter aria-hidden="true" size={15} />
-            <Select
-              aria-label="Filter by status"
-              className="supervisor-customer-directory__filter-select"
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as StatusFilter)
-              }
-              options={[
-                { value: 'ALL', label: 'All statuses' },
-                { value: 'ACTIVE', label: 'Active' },
-                { value: 'BLOCKED', label: 'Blocked' },
-                { value: 'REPLACED', label: 'Replaced' },
-              ]}
-            />
-          </div>
+          <SupervisorIssuedCardStatusFilter
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
         </div>
         <div className="supervisor-issued-card-directory__toolbar-right">
-          <div
-            className="supervisor-issued-card-directory__date-filter"
-            ref={datePickerRef}
-          >
-            <span className="supervisor-issued-card-directory__date-label">
-              Date issued
-            </span>
-            <Button
-              type="button"
-              variant="secondary"
+          <div className="supervisor-issued-card-directory__date-filter">
+            <SupervisorIssueDateRangePicker
               className="supervisor-issued-card-directory__date-trigger"
-              aria-haspopup="dialog"
-              aria-expanded={datePickerOpen}
-              onClick={() => setDatePickerOpen((open) => !open)}
-            >
-              <CalendarDays aria-hidden="true" size={16} />
-              <span>{dateRangeLabel}</span>
-            </Button>
-            <Popover
-              open={datePickerOpen}
-              label="Choose issue date range"
-              className="supervisor-issued-card-directory__calendar-popover"
-            >
-              <DayPicker
-                mode="range"
-                min={1}
-                selected={dateRange}
-                onSelect={(range) => {
-                  setDateRange(range);
-                  if (range?.to) setDatePickerOpen(false);
-                }}
-                defaultMonth={dateRange?.from ?? new Date()}
-                numberOfMonths={2}
-                className="supervisor-issued-card-directory__calendar"
-              />
-              <div className="supervisor-issued-card-directory__calendar-footer">
-                <span aria-live="polite">{dateRangeLabel}</span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={!dateRange?.from}
-                  onClick={() => setDateRange(undefined)}
-                >
-                  Clear
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setDatePickerOpen(false)}
-                >
-                  Done
-                </Button>
-              </div>
-            </Popover>
+              startDate={dateRange.startDate}
+              endDate={dateRange.endDate}
+              onChange={setDateRange}
+            />
           </div>
-          <Button variant="primary" onClick={onAssignCard}>
+          <Button
+            variant="primary"
+            className="supervisor-customer-directory__register supervisor-issued-card-directory__assign-button"
+            onClick={onAssignCard}
+          >
             Assign card
           </Button>
         </div>
       </div>
       <div className="supervisor-customer-table-wrap">
-        <table aria-label="Issued cards" className="supervisor-customer-table">
+        <table
+          aria-label="Issued cards"
+          className="supervisor-customer-table supervisor-issued-card-directory__table"
+        >
           <thead>
             <tr>
               <th scope="col">Card number</th>
@@ -379,7 +438,7 @@ export function SupervisorIssuedCardDirectory({
                 <tr key={item.cardNumber}>
                   <td
                     data-label="Card number"
-                    className="supervisor-customer-table__card-number break-all font-mono"
+                    className="supervisor-customer-table__card-number"
                   >
                     {item.cardNumber}
                   </td>
