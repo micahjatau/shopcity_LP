@@ -22,6 +22,7 @@ import {
 import type { FastifyReply } from 'fastify';
 import { UserRole } from '@prisma/client';
 import { CurrentSession } from '../../common/auth/current-user.decorator';
+import { SkipResponseEnvelope } from '../../common/interceptors/skip-response-envelope.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
 import type { AuthContext } from '../../common/auth/session.types';
 import {
@@ -485,6 +486,7 @@ export class ReportsController {
   }
 
   @Get(':report/export')
+  @SkipResponseEnvelope()
   @Version('1')
   @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @Throttle({
