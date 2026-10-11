@@ -11,6 +11,18 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-12 — Supervisor and Admin Operational Reports presentation and role controls
+
+| Symbol                                                                                              |     Risk | Impacted | Direct | Processes | Notes                                                                                                                          |
+| --------------------------------------------------------------------------------------------------- | -------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------ |
+| `SupervisorOperationalReports` (`apps/web/components/workflows/supervisor-operational-reports.tsx`) |      LOW |        2 |      2 |         1 | Existing Supervisor wrapper remains unchanged; the added Admin audience is served by the shared dashboard implementation.      |
+| `OperationalReportsDashboard` (`apps/web/components/workflows/supervisor-operational-reports.tsx`)  |  UNKNOWN |        0 |      0 |         0 | New symbol was not present in the index; its route callers were verified directly in source.                                   |
+| `AdminReportsPage` (`apps/web/app/(shell)/admin/reports/page.tsx`)                                  |      LOW |        0 |      0 |         0 | Admin route maps to the shared presentation; Admin shell authorization remains unchanged.                                      |
+| `ReportsWorkspace` (`apps/web/components/workflows/reports-workspace.tsx`)                          | **HIGH** |        6 |      4 |         3 | Shared by Supervisor Reports, Admin Reports, and Admin Operations; role flags are opt-in and Admin Operations remains default. |
+| `formatReportMoney` (`apps/web/lib/reports/supervisor-report-metrics.ts`)                           |      LOW |        7 |      4 |         2 | Display-only conversion to exact integer/decimal formatting; API values and calculations are unchanged.                        |
+
+The reports controller exposes most report reads to both `SUPERVISOR` and `ADMIN`; audit, pilot operations, and materialization refresh are Admin-only. Audit and pilot operations are tenant-wide under their existing API contracts. The TRD role table/RBAC matrix does not consistently match controller declarations. The export path is rate limited to 10 requests per minute per actor/report; report-list reads and refresh do not declare that throttle in the inspected controller. The backend emits its existing `success/error/meta.requestId` envelope rather than RFC 7807. This change preserves those contracts and authorization; it does not grant a role access the backend does not already permit. GitNexus did not resolve `formatReportBusinessDate` or `formatReportTimestamp` (UNKNOWN, 0 indexed impacts); their direct call sites and usages were inspected in source.
+
 ### 2026-10-12 — Add persisted late-claim approvals and server-side category counts
 
 GitNexus reports `LoyaltyService.earn` at MEDIUM risk (7 direct callers, 9 total impacts), `listApprovals` LOW (4), `decideApproval` LOW (8), `ApprovalsController` LOW (4), and `buildApprovalListWhere` LOW (5). The index is stale and reported no execution processes for these symbols; tests and source were separately traced. Earn changes remain constrained to receipt age >7 days, pending approval, and no financial effect until existing audited decision execution. No HIGH/CRITICAL result was reported.

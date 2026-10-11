@@ -47,13 +47,43 @@ export function lastReportNumber(
 }
 
 export function formatReportMoney(kobo: number | null): string {
-  if (kobo === null) return '—';
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(kobo / 100);
+  if (kobo === null || !Number.isSafeInteger(kobo)) return '—';
+
+  const amount = BigInt(kobo);
+  const negative = amount < 0n;
+  const absolute = negative ? -amount : amount;
+  const naira = absolute / 100n;
+  const cents = (absolute % 100n).toString().padStart(2, '0');
+  const formattedNaira = new Intl.NumberFormat('en-NG', {
+    maximumFractionDigits: 0,
+  }).format(naira);
+
+  return `${negative ? '−' : ''}₦${formattedNaira}.${cents}`;
+}
+
+export function formatReportMoneyCompact(kobo: number | null): string {
+  if (kobo === null || !Number.isSafeInteger(kobo)) return '—';
+
+  const amount = BigInt(kobo);
+  const negative = amount < 0n;
+  const absolute = negative ? -amount : amount;
+  const naira = absolute / 100n;
+  const units = [
+    { divisor: 1_000_000_000n, suffix: 'B' },
+    { divisor: 1_000_000n, suffix: 'M' },
+    { divisor: 1_000n, suffix: 'K' },
+  ];
+  const unit = units.find(({ divisor }) => naira >= divisor);
+
+  if (!unit) return formatReportMoney(kobo);
+
+  const tenths = (naira * 10n + unit.divisor / 2n) / unit.divisor;
+  const formatted =
+    tenths % 10n === 0n
+      ? String(tenths / 10n)
+      : `${tenths / 10n}.${tenths % 10n}`;
+
+  return `${negative ? '−' : ''}₦${formatted}${unit.suffix}`;
 }
 
 export function formatReportCount(count: number | null): string {

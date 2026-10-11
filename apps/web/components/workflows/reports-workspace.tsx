@@ -1,5 +1,6 @@
 'use client';
 
+import { Download, Info, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
@@ -20,8 +21,21 @@ import {
   type ReportsControllerExportReportV1Params,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
+import {
+  reportProblemFromHttpResponse,
+  reportProblemFromSettled,
+  type ReportProblem,
+} from '../../lib/reports/report-errors';
 import { Alert, Button, Input, Select, Table } from '../ui';
 import { StatusBadge } from '../shopcity';
+import {
+  CopyableChip,
+  formatReportBusinessDate,
+  formatReportTimestamp,
+  formatSupervisorReportFieldLabel,
+  ReportProblemNotice,
+  SupervisorReportValue,
+} from './report-ui';
 
 type ReportKey =
   | 'executive-summary'
@@ -44,6 +58,13 @@ type ReportsWorkspaceProps = {
   period?: { from: string; to: string };
   /** Supervisor branch and period are enforced outside this low-level report UI. */
   hideScopeInputs?: boolean;
+  /** Selects the role-aware operational report presentation for report routes. */
+  presentation?: 'default' | 'supervisor' | 'admin';
+  /** Parent-applied scope used by the operational dashboard routes. */
+  scopeFilters?: { branchId?: string; timezone?: string };
+  /** Shared retry cooldown for report loads, materialization, and exports. */
+  rateLimitSeconds?: number;
+  onRateLimited?: (seconds: number) => void;
 };
 
 type ReportItem = Record<string, unknown>;
@@ -101,6 +122,109 @@ const reportOptions: Array<{ value: ReportKey; label: string }> = [
   { value: 'pilot-operations-summary', label: 'Pilot operations summary' },
 ];
 
+const reportTableColumnOrder: Partial<Record<ReportKey, readonly string[]>> = {
+  'executive-summary': [
+    'reportDate',
+    'loyaltyPurchaseValueKobo',
+    'creditIssuedKobo',
+    'creditRedeemedKobo',
+    'outstandingLiabilityKobo',
+    'transactionCount',
+  ],
+  'liability-ageing': [
+    'reportDate',
+    'expiryMonth',
+    'ageBucket',
+    'outstandingKobo',
+    'customerCount',
+    'lotCount',
+  ],
+  'customer-performance': [
+    'customerId',
+    'purchaseValueKobo',
+    'currentBalanceKobo',
+    'visitCount',
+    'dormant',
+    'lastActivityAt',
+    'reportDate',
+  ],
+  'cashier-activity': [
+    'reportDate',
+    'cashierId',
+    'transactionCount',
+    'purchaseValueKobo',
+    'creditIssuedKobo',
+    'redemptionCount',
+  ],
+  'redemption-summary': [
+    'reportDate',
+    'redemptionCount',
+    'confirmedKobo',
+    'requestedKobo',
+    'pendingApprovalCount',
+    'endingBalanceKobo',
+  ],
+  'sms-operations': [
+    'reportDate',
+    'totalCount',
+    'queuedCount',
+    'sentCount',
+    'deliveredCount',
+    'failedCount',
+  ],
+  'materialization-state': [
+    'status',
+    'asOf',
+    'materializedAt',
+    'branchId',
+    'scopeKey',
+    'lastError',
+  ],
+};
+
+const reportDefinitions: Record<
+  ReportKey,
+  { description: string; freshness: string }
+> = {
+  'executive-summary': {
+    description: 'Period activity and the latest available liability snapshot.',
+    freshness: 'Daily or on-demand',
+  },
+  'liability-ageing': {
+    description: 'Outstanding credit grouped by age at the latest snapshot.',
+    freshness: 'Daily snapshot',
+  },
+  'customer-performance': {
+    description: 'Customer activity, visits, spend, and available balances.',
+    freshness: 'Daily snapshot',
+  },
+  'cashier-activity': {
+    description: 'Branch cashier activity and reported operational flags.',
+    freshness: 'Daily snapshot',
+  },
+  'redemption-summary': {
+    description: 'Redemption counts, confirmed value, and reported approvals.',
+    freshness: 'Daily snapshot',
+  },
+  'sms-operations': {
+    description:
+      'SMS queue and delivery statuses; sent does not mean delivered.',
+    freshness: 'Near real-time',
+  },
+  'audit-report': {
+    description: 'Audited actions available to authorized Admin users.',
+    freshness: 'Immediate',
+  },
+  'materialization-state': {
+    description: 'Read-model freshness and report materialization status.',
+    freshness: 'Near real-time',
+  },
+  'pilot-operations-summary': {
+    description: 'Live operational health signals for the pilot.',
+    freshness: 'Near real-time',
+  },
+};
+
 export function ReportsWorkspace({
   canRefreshReports = true,
   canExportReports = true,
@@ -109,6 +233,10 @@ export function ReportsWorkspace({
   canUseMaterializationState = true,
   period,
   hideScopeInputs = false,
+  presentation = 'default',
+  scopeFilters,
+  rateLimitSeconds = 0,
+  onRateLimited,
 }: ReportsWorkspaceProps = {}) {
   const [report, setReport] = useState<ReportKey>('executive-summary');
   const [branchId, setBranchId] = useState('');
@@ -120,7 +248,16 @@ export function ReportsWorkspace({
   );
   const [message, setMessage] = useState('Loading report summary…');
   const [actionMessage, setActionMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [problem, setProblem] = useState<ReportProblem | null>(null);
+  const [problemAction, setProblemAction] = useState<
+    'load' | 'refresh' | 'export' | 'sms' | null
+  >(null);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const [customerSort, setCustomerSort] = useState<
     'spend' | 'balance' | 'visits' | 'recent' | 'dormant-value'
   >('spend');
@@ -151,19 +288,41 @@ export function ReportsWorkspace({
 
   const params = useMemo<ReportsControllerListExecutiveSummaryV1Params>(
     () => ({
-      branchId: branchId || undefined,
-      timezone: timezone || undefined,
+      branchId:
+        report === 'audit-report'
+          ? undefined
+          : (scopeFilters?.branchId ?? branchId) || undefined,
+      timezone: (scopeFilters?.timezone ?? timezone) || undefined,
       from: (period?.from ?? from) || undefined,
       to: (period?.to ?? to) || undefined,
     }),
-    [branchId, from, timezone, to, period?.from, period?.to],
+    [
+      branchId,
+      from,
+      report,
+      scopeFilters?.branchId,
+      scopeFilters?.timezone,
+      timezone,
+      to,
+      period?.from,
+      period?.to,
+    ],
   );
   const refreshParams = useMemo<ReportsControllerRefreshReportV1Params>(
     () => ({
-      branchId: branchId || undefined,
-      timezone: timezone || 'UTC',
+      branchId:
+        report === 'audit-report'
+          ? undefined
+          : (scopeFilters?.branchId ?? branchId) || undefined,
+      timezone: (scopeFilters?.timezone ?? timezone) || 'UTC',
     }),
-    [branchId, timezone],
+    [
+      branchId,
+      report,
+      scopeFilters?.branchId,
+      scopeFilters?.timezone,
+      timezone,
+    ],
   );
   const exportParams = useMemo<ReportsControllerExportReportV1Params>(
     () => ({
@@ -196,6 +355,51 @@ export function ReportsWorkspace({
     () => (report === 'sms-operations' ? summarizeSmsOperations(items) : null),
     [items, report],
   );
+  const columns = useMemo(
+    () =>
+      [...new Set(items.flatMap((item) => Object.keys(item)))].filter((field) =>
+        items.some((item) => {
+          const value = item[field];
+          return value !== null && value !== undefined && value !== '';
+        }),
+      ),
+    [items],
+  );
+  const visibleColumns = useMemo(() => {
+    const preferredOrder = reportTableColumnOrder[report] ?? [];
+    const ordered = preferredOrder.filter((field) => columns.includes(field));
+    return [
+      ...ordered,
+      ...columns.filter((field) => !ordered.includes(field)),
+    ].slice(0, 6);
+  }, [columns, report]);
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const visibleItems = items.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+  const currentReportDefinition = reportDefinitions[report];
+  const materializationState = String(
+    reportSummary?.materializationState ?? '',
+  ).toUpperCase();
+  const freshness = loading
+    ? 'Loading'
+    : materializationState === 'RUNNING'
+      ? 'Updating'
+      : materializationState === 'FAILED' ||
+          (reportSummary?.staleCount ?? 0) > 0
+        ? 'Lagging'
+        : (reportSummary?.freshCount ?? 0) > 0 ||
+            (reportSummary?.items ?? []).some(
+              (item) => typeof item.materializedAt === 'string',
+            )
+          ? 'Fresh'
+          : 'Unknown';
+  const latestMaterializedAt = (reportSummary?.items ?? [])
+    .map((item) => item.materializedAt)
+    .filter((value): value is string => typeof value === 'string')
+    .sort()
+    .at(-1);
 
   useEffect(() => {
     if (selectedItemIndex >= items.length) {
@@ -209,88 +413,125 @@ export function ReportsWorkspace({
     }
   }, [availableReportOptions, report]);
 
+  function applyProblem(
+    nextProblem: ReportProblem,
+    action: 'load' | 'refresh' | 'export' | 'sms' = 'load',
+  ) {
+    setProblem(nextProblem);
+    setProblemAction(action);
+    if (presentation !== 'default') {
+      setMessage('');
+    } else if (action === 'load') {
+      setMessage(
+        nextProblem.status > 0
+          ? `Reports unavailable (${nextProblem.status}).`
+          : 'Reports unavailable.',
+      );
+    }
+    if (nextProblem.status === 429) {
+      onRateLimited?.(nextProblem.retryAfterSeconds ?? 60);
+    }
+  }
+
   async function refresh() {
     const generation = ++reportLoadGeneration.current;
+    setLoading(true);
     setSummary(null);
+    setProblem(null);
     setMessage('Loading report summary…');
     setActionMessage('');
     setActionResult(null);
+    setProblemAction(null);
+    setCurrentPage(1);
     try {
-      if (report === 'pilot-operations-summary') {
-        const response = await reportsControllerGetPilotOperationsSummaryV1(
-          createApiRequest({ csrf: true }),
-        );
-        if (generation !== reportLoadGeneration.current) return;
-        if (response.status === 200) {
-          setSummary(response.data.data);
-          setSelectedItemIndex(0);
-          setMessage('Pilot operations summary loaded.');
-        } else {
-          setMessage(`Reports unavailable (${response.status}).`);
-        }
-        return;
-      }
-
       const response =
-        report === 'liability-ageing'
-          ? await reportsControllerListLiabilityAgeingV1(
-              params,
+        report === 'pilot-operations-summary'
+          ? await reportsControllerGetPilotOperationsSummaryV1(
               createApiRequest({ csrf: true }),
             )
-          : report === 'customer-performance'
-            ? await reportsControllerListCustomerPerformanceV1(
+          : report === 'liability-ageing'
+            ? await reportsControllerListLiabilityAgeingV1(
                 params,
                 createApiRequest({ csrf: true }),
               )
-            : report === 'cashier-activity'
-              ? await reportsControllerListCashierActivityV1(
+            : report === 'customer-performance'
+              ? await reportsControllerListCustomerPerformanceV1(
                   params,
                   createApiRequest({ csrf: true }),
                 )
-              : report === 'redemption-summary'
-                ? await reportsControllerListRedemptionSummaryV1(
+              : report === 'cashier-activity'
+                ? await reportsControllerListCashierActivityV1(
                     params,
                     createApiRequest({ csrf: true }),
                   )
-                : report === 'sms-operations'
-                  ? await reportsControllerListSmsOperationsV1(
+                : report === 'redemption-summary'
+                  ? await reportsControllerListRedemptionSummaryV1(
                       params,
                       createApiRequest({ csrf: true }),
                     )
-                  : report === 'audit-report'
-                    ? await reportsControllerListAuditReportV1(
+                  : report === 'sms-operations'
+                    ? await reportsControllerListSmsOperationsV1(
                         params,
                         createApiRequest({ csrf: true }),
                       )
-                    : report === 'materialization-state'
-                      ? await reportsControllerListMaterializationStateV1(
+                    : report === 'audit-report'
+                      ? await reportsControllerListAuditReportV1(
                           params,
                           createApiRequest({ csrf: true }),
                         )
-                      : await reportsControllerListExecutiveSummaryV1(
-                          params,
-                          createApiRequest({ csrf: true }),
-                        );
+                      : report === 'materialization-state'
+                        ? await reportsControllerListMaterializationStateV1(
+                            params,
+                            createApiRequest({ csrf: true }),
+                          )
+                        : await reportsControllerListExecutiveSummaryV1(
+                            params,
+                            createApiRequest({ csrf: true }),
+                          );
 
       if (generation !== reportLoadGeneration.current) return;
       if (response.status === 200) {
         setSummary(response.data.data);
         setSelectedItemIndex(0);
-        setMessage(`Report summary loaded for ${report}.`);
+        setProblem(null);
+        setProblemAction(null);
+        setMessage(
+          report === 'pilot-operations-summary'
+            ? 'Pilot operations summary loaded.'
+            : `Report summary loaded for ${report}.`,
+        );
       } else {
-        setMessage(`Reports unavailable (${response.status}).`);
+        applyProblem(
+          reportProblemFromHttpResponse(
+            response.status,
+            response.data,
+            response.headers,
+          ),
+        );
       }
-    } catch {
+    } catch (error) {
       if (generation === reportLoadGeneration.current) {
-        setMessage('Reports unavailable.');
+        const nextProblem = reportProblemFromSettled({
+          status: 'rejected',
+          reason: error,
+        });
+        if (nextProblem) applyProblem(nextProblem);
       }
+    } finally {
+      if (generation === reportLoadGeneration.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report, period?.from, period?.to]);
+  }, [
+    report,
+    period?.from,
+    period?.to,
+    scopeFilters?.branchId,
+    scopeFilters?.timezone,
+  ]);
 
   async function inspectSelectedSms() {
     const transactionId =
@@ -315,22 +556,45 @@ export function ReportsWorkspace({
           ? (responseData as Record<string, unknown>)
           : null,
       );
+      if (response.status !== 200) {
+        applyProblem(
+          reportProblemFromHttpResponse(
+            response.status,
+            response.data,
+            response.headers,
+          ),
+          'sms',
+        );
+      } else {
+        setProblem(null);
+        setProblemAction(null);
+      }
       setActionMessage(
         response.status === 200
           ? 'SMS inspection loaded with masked operational fields.'
           : `SMS inspection responded with ${response.status}.`,
       );
-    } catch {
+    } catch (error) {
+      const nextProblem = reportProblemFromSettled({
+        status: 'rejected',
+        reason: error,
+      });
+      if (nextProblem) applyProblem(nextProblem, 'sms');
       setActionMessage('SMS inspection unavailable.');
     }
   }
 
   async function refreshReport() {
+    if (
+      !canRefreshReports ||
+      isPilotOperationsSummary ||
+      rateLimitSeconds > 0
+    ) {
+      return;
+    }
+    setRefreshing(true);
+    setProblem(null);
     try {
-      if (!canRefreshReports || isPilotOperationsSummary) {
-        setActionMessage('Refresh is not available for this report.');
-        return;
-      }
       const response = await reportsControllerRefreshReportV1(
         report,
         refreshParams,
@@ -341,23 +605,39 @@ export function ReportsWorkspace({
           ? (response.data as Record<string, unknown>)
           : null,
       );
-      setActionMessage(
-        response.status === 202
-          ? 'Refresh queued.'
-          : `Refresh responded with ${response.status}.`,
-      );
+      if (response.status !== 202) {
+        applyProblem(
+          reportProblemFromHttpResponse(
+            response.status,
+            response.data,
+            response.headers,
+          ),
+          'refresh',
+        );
+        setActionMessage(`Refresh responded with ${response.status}.`);
+        return;
+      }
+      setActionMessage('Refresh queued.');
       await refresh();
-    } catch {
+    } catch (error) {
+      const nextProblem = reportProblemFromSettled({
+        status: 'rejected',
+        reason: error,
+      });
+      if (nextProblem) applyProblem(nextProblem, 'refresh');
       setActionMessage('Refresh unavailable.');
+    } finally {
+      setRefreshing(false);
     }
   }
 
   async function exportReport() {
+    if (!canExportReports || isPilotOperationsSummary || rateLimitSeconds > 0) {
+      return;
+    }
+    setExporting(true);
+    setProblem(null);
     try {
-      if (!canExportReports || isPilotOperationsSummary) {
-        setActionMessage('Export is not available for this report.');
-        return;
-      }
       const request = createApiRequest({ csrf: true });
       const headers = new Headers(request.headers);
       headers.set('Accept', 'text/csv');
@@ -368,15 +648,42 @@ export function ReportsWorkspace({
           headers,
         },
       );
-      const csv = await response.text();
+      const body = await response.text();
       if (!response.ok) {
-        setActionMessage(`Export unavailable (${response.status}).`);
+        let payload: unknown;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          payload = null;
+        }
+        const nextProblem = reportProblemFromHttpResponse(
+          response.status,
+          payload,
+          response.headers,
+        );
+        applyProblem(nextProblem, 'export');
+        setActionMessage(
+          presentation === 'default'
+            ? `Export unavailable (${response.status}).`
+            : 'Export unavailable.',
+        );
         return;
       }
-      setActionMessage('Export downloaded from backend CSV response.');
-      triggerCsvDownload(csv, `${report}.csv`);
-    } catch {
+      setActionMessage(
+        presentation === 'default'
+          ? 'Export downloaded from backend CSV response.'
+          : 'CSV export downloaded.',
+      );
+      triggerCsvDownload(body, `${report}.csv`);
+    } catch (error) {
+      const nextProblem = reportProblemFromSettled({
+        status: 'rejected',
+        reason: error,
+      });
+      if (nextProblem) applyProblem(nextProblem, 'export');
       setActionMessage('Export unavailable.');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -392,6 +699,612 @@ export function ReportsWorkspace({
           params.to ?? '',
         )
       : 'No report loaded yet.';
+
+  if (presentation !== 'default') {
+    const reportLabel =
+      reportOptions.find((option) => option.value === report)?.label ?? report;
+    const branchScope = isPilotOperationsSummary
+      ? 'TENANT'
+      : (reportSummary?.scope ??
+        (scopeFilters
+          ? 'Scope pending'
+          : hideScopeInputs
+            ? 'BRANCH'
+            : 'Scope pending'));
+    const branchIdValue =
+      typeof reportSummary?.branchId === 'string'
+        ? reportSummary.branchId
+        : null;
+    const timezoneValue = isPilotOperationsSummary
+      ? (scopeFilters?.timezone ?? 'Africa/Lagos')
+      : (reportSummary?.timezone ??
+        scopeFilters?.timezone ??
+        (hideScopeInputs ? 'Africa/Lagos' : 'Timezone not provided'));
+    const reportWindow = isPilotOperationsSummary
+      ? 'Current operational snapshot'
+      : params.from && params.to
+        ? `${formatReportBusinessDate(params.from, timezoneValue)} – ${formatReportBusinessDate(params.to, timezoneValue)}`
+        : 'All available dates';
+    const retryProblem = () => {
+      if (problemAction === 'export') void exportReport();
+      else if (problemAction === 'refresh') void refreshReport();
+      else if (problemAction === 'sms') void inspectSelectedSms();
+      else void refresh();
+    };
+    const hasRows = items.length > 0;
+
+    return (
+      <section
+        className="reports-workspace reports-workspace--operational"
+        aria-label="Detailed report builder"
+        aria-busy={loading}
+      >
+        <section
+          className="reports-workspace__panel reports-workspace__controls"
+          aria-label="Report controls"
+        >
+          <div className="reports-workspace__panel-heading">
+            <div>
+              <p className="reports-workspace__eyebrow">REPORT BUILDER</p>
+              <h3>Choose a report</h3>
+              <p>{currentReportDefinition.description}</p>
+            </div>
+            <span
+              className="reports-workspace__freshness"
+              data-state={freshness.toLowerCase()}
+            >
+              <span aria-hidden="true" />
+              {freshness} · {currentReportDefinition.freshness}
+            </span>
+          </div>
+
+          <div className="reports-workspace__filters">
+            <div className="reports-workspace__field">
+              <span>Report type</span>
+              <Select
+                aria-label="Report"
+                value={report}
+                onChange={(event) => {
+                  setCurrentPage(1);
+                  setReport(event.target.value as ReportKey);
+                }}
+                options={availableReportOptions}
+              />
+            </div>
+            {report === 'sms-operations' ? (
+              <div className="reports-workspace__field">
+                <span>SMS transaction ID</span>
+                <Input
+                  aria-label="SMS transaction ID"
+                  placeholder="Transaction ID to inspect"
+                  value={smsTransactionId}
+                  onChange={(event) => setSmsTransactionId(event.target.value)}
+                />
+              </div>
+            ) : null}
+            {report === 'customer-performance' ? (
+              <div className="reports-workspace__field">
+                <span>Rank customers by</span>
+                <Select
+                  aria-label="Customer performance ranking"
+                  value={customerSort}
+                  onChange={(event) => {
+                    setCurrentPage(1);
+                    setCustomerSort(
+                      event.target.value as
+                        | 'spend'
+                        | 'balance'
+                        | 'visits'
+                        | 'recent'
+                        | 'dormant-value',
+                    );
+                  }}
+                  options={[
+                    { value: 'spend', label: 'Top spenders' },
+                    { value: 'balance', label: 'Highest balances' },
+                    { value: 'visits', label: 'Most frequent visitors' },
+                    { value: 'recent', label: 'Recently active' },
+                    { value: 'dormant-value', label: 'Dormant high-value' },
+                  ]}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {hideScopeInputs ? (
+            <p className="reports-workspace__scope-hint">
+              {scopeFilters
+                ? isPilotOperationsSummary || report === 'audit-report'
+                  ? 'This report is tenant-wide under Admin authorization. The report window follows its server-supported period behavior.'
+                  : 'Scope follows the applied Admin filter and server authorization. The report window follows the shared dashboard period.'
+                : 'Branch access is determined by your Supervisor session. The report window follows the dashboard and uses Africa/Lagos business dates.'}
+            </p>
+          ) : (
+            <div className="reports-workspace__filters">
+              <div className="reports-workspace__field">
+                <span>Branch ID</span>
+                <Input
+                  aria-label="Branch filter"
+                  placeholder="Branch ID"
+                  value={branchId}
+                  onChange={(event) => setBranchId(event.target.value)}
+                />
+              </div>
+              <div className="reports-workspace__field">
+                <span>Timezone</span>
+                <Input
+                  aria-label="Timezone filter"
+                  placeholder="Timezone"
+                  value={timezone}
+                  onChange={(event) => setTimezone(event.target.value)}
+                />
+              </div>
+              <div className="reports-workspace__field">
+                <span>From</span>
+                <Input
+                  aria-label="From date"
+                  type="date"
+                  value={from}
+                  onChange={(event) => setFrom(event.target.value)}
+                />
+              </div>
+              <div className="reports-workspace__field">
+                <span>To</span>
+                <Input
+                  aria-label="To date"
+                  type="date"
+                  value={to}
+                  onChange={(event) => setTo(event.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="reports-workspace__actions">
+            <Button
+              type="button"
+              onClick={() => void refresh()}
+              loading={loading}
+              disabled={rateLimitSeconds > 0}
+            >
+              Load report
+            </Button>
+            {canRefreshReports && !isPilotOperationsSummary ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void refreshReport()}
+                loading={refreshing}
+                disabled={rateLimitSeconds > 0 || loading}
+              >
+                <RefreshCw size={16} aria-hidden="true" />
+                Refresh materialization
+              </Button>
+            ) : null}
+            {canExportReports && !isPilotOperationsSummary ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void exportReport()}
+                loading={exporting}
+                disabled={!hasRows || loading || rateLimitSeconds > 0}
+                title={
+                  !hasRows
+                    ? 'Load a report with rows before exporting.'
+                    : undefined
+                }
+              >
+                <Download size={16} aria-hidden="true" />
+                Export CSV
+              </Button>
+            ) : null}
+            {report === 'sms-operations' ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void inspectSelectedSms()}
+                disabled={
+                  rateLimitSeconds > 0 ||
+                  (typeof selectedItem?.transactionId !== 'string' &&
+                    smsTransactionId.trim().length === 0)
+                }
+              >
+                Inspect SMS
+              </Button>
+            ) : null}
+          </div>
+          {rateLimitSeconds > 0 ? (
+            <p
+              className="reports-workspace__rate-limit"
+              role="status"
+              aria-live="polite"
+            >
+              Report actions are paused for {rateLimitSeconds} seconds.
+            </p>
+          ) : null}
+        </section>
+
+        {problem ? (
+          <ReportProblemNotice
+            problem={problem}
+            retryAfterSeconds={rateLimitSeconds}
+            onRetry={retryProblem}
+          />
+        ) : null}
+        {actionMessage ? (
+          <div
+            className="reports-workspace__toast"
+            role="status"
+            aria-live="polite"
+          >
+            {actionMessage}
+          </div>
+        ) : null}
+        {actionResult ? (
+          <section
+            className="reports-workspace__panel"
+            aria-label="Report action details"
+          >
+            <h3>Action details</h3>
+            <dl className="reports-workspace__definition-list">
+              {Object.entries(actionResult)
+                .filter(
+                  ([, value]) =>
+                    value !== null && value !== undefined && value !== '',
+                )
+                .map(([field, value]) => (
+                  <div key={field}>
+                    <dt>{formatSupervisorReportFieldLabel(field)}</dt>
+                    <dd>
+                      <SupervisorReportValue field={field} value={value} />
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          </section>
+        ) : null}
+
+        <section
+          className="reports-workspace__panel reports-workspace__current"
+          aria-label="Current report"
+        >
+          <div className="reports-workspace__panel-heading">
+            <div>
+              <p className="reports-workspace__eyebrow">CURRENT REPORT</p>
+              <h3>{reportLabel}</h3>
+              <p>{currentReportDefinition.description}</p>
+            </div>
+            <span
+              className="reports-workspace__freshness"
+              data-state={freshness.toLowerCase()}
+            >
+              <span aria-hidden="true" />
+              {freshness}
+            </span>
+          </div>
+          <div
+            className="reports-workspace__scope"
+            aria-label="Report scope and filters"
+          >
+            <div className="reports-workspace__scope-item">
+              <span>Scope</span>
+              <strong>{branchScope}</strong>
+            </div>
+            {branchIdValue ? (
+              <CopyableChip label="Branch ID" value={branchIdValue} />
+            ) : branchScope === 'TENANT' ? (
+              <div className="reports-workspace__scope-item">
+                <span>Branch</span>
+                <strong>All branches</strong>
+              </div>
+            ) : hideScopeInputs && !scopeFilters ? (
+              <div className="reports-workspace__scope-item">
+                <span>Branch</span>
+                <strong>Assigned branch</strong>
+              </div>
+            ) : null}
+            <div className="reports-workspace__scope-item">
+              <span>Timezone</span>
+              <strong>{timezoneValue}</strong>
+            </div>
+            <div className="reports-workspace__scope-item">
+              <span>Window</span>
+              <strong>
+                {reportWindow} · {timezoneValue}
+              </strong>
+            </div>
+          </div>
+          <div className="reports-workspace__report-meta">
+            <span>
+              <Info size={15} aria-hidden="true" />
+              Expected freshness: {currentReportDefinition.freshness}
+            </span>
+            {latestMaterializedAt ? (
+              <span>
+                Updated{' '}
+                {formatReportTimestamp(latestMaterializedAt, timezoneValue)} ·
+                {timezoneValue}
+              </span>
+            ) : null}
+            {reportSummary?.materializationState ? (
+              <span>Materialization: {reportSummary.materializationState}</span>
+            ) : null}
+          </div>
+          {loading ? (
+            <p
+              className="reports-workspace__loading"
+              role="status"
+              aria-live="polite"
+            >
+              Loading {reportLabel.toLowerCase()}…
+            </p>
+          ) : null}
+          {!loading && !problem && reportSummary && !hasRows ? (
+            <div className="reports-workspace__empty" role="status">
+              <h4>No report rows</h4>
+              <p>
+                The selected report returned no rows for this window. Try a
+                different date range or reload the report after materialization.
+              </p>
+            </div>
+          ) : null}
+        </section>
+
+        {loading ? (
+          <section
+            className="reports-workspace__panel reports-workspace__table-panel"
+            aria-label="Report summary items"
+            aria-busy="true"
+          >
+            <div className="reports-workspace__table-heading">
+              <div>
+                <h3>Report results</h3>
+                <p>Loading report rows…</p>
+              </div>
+            </div>
+            <div
+              className="reports-workspace__table-skeleton"
+              role="status"
+              aria-label="Loading report table"
+            >
+              {Array.from({ length: 5 }, (_, index) => (
+                <span key={index} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {hasRows ? (
+          <div className="reports-workspace__results">
+            <section
+              className="reports-workspace__panel reports-workspace__table-panel"
+              aria-label="Report summary items"
+              aria-busy={loading}
+            >
+              <div className="reports-workspace__table-heading">
+                <div>
+                  <h3>Report results</h3>
+                  <p>
+                    Key fields are shown here; select a row to inspect all
+                    populated fields.
+                  </p>
+                </div>
+                <div className="reports-workspace__field">
+                  <span>Rows per page</span>
+                  <Select
+                    aria-label="Rows per page"
+                    value={String(pageSize)}
+                    onChange={(event) => {
+                      setPageSize(Number(event.target.value));
+                      setCurrentPage(1);
+                    }}
+                    options={[
+                      { value: '10', label: '10 rows' },
+                      { value: '25', label: '25 rows' },
+                      { value: '50', label: '50 rows' },
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="reports-workspace__table-scroll">
+                <Table className="reports-workspace__table">
+                  <caption className="report-sr-only">
+                    {reportLabel} report rows
+                  </caption>
+                  <thead>
+                    <tr>
+                      {visibleColumns.map((column) => (
+                        <th key={column} scope="col">
+                          {formatSupervisorReportFieldLabel(column)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleItems.map((item, pageIndex) => {
+                      const itemIndex =
+                        (currentPage - 1) * pageSize + pageIndex;
+                      const primaryField = visibleColumns[0];
+                      const primaryValue = primaryField
+                        ? item[primaryField]
+                        : null;
+                      const accessibleName =
+                        typeof primaryValue === 'string'
+                          ? primaryField === 'reportDate'
+                            ? formatReportBusinessDate(primaryValue)
+                            : primaryValue
+                          : typeof primaryValue === 'number'
+                            ? String(primaryValue)
+                            : `row ${itemIndex + 1}`;
+                      return (
+                        <tr
+                          key={`${report}-${itemIndex}`}
+                          className={
+                            itemIndex === selectedItemIndex
+                              ? 'is-selected'
+                              : undefined
+                          }
+                          aria-selected={itemIndex === selectedItemIndex}
+                          onClick={() => setSelectedItemIndex(itemIndex)}
+                        >
+                          {visibleColumns.map((column, columnIndex) => (
+                            <td key={`${itemIndex}-${column}`}>
+                              {columnIndex === 0 ? (
+                                <button
+                                  type="button"
+                                  className="reports-workspace__row-select"
+                                  aria-pressed={itemIndex === selectedItemIndex}
+                                  aria-label={`View details for ${accessibleName}`}
+                                  onClick={() =>
+                                    setSelectedItemIndex(itemIndex)
+                                  }
+                                >
+                                  <SupervisorReportValue
+                                    field={column}
+                                    value={item[column]}
+                                  />
+                                </button>
+                              ) : (
+                                <SupervisorReportValue
+                                  field={column}
+                                  value={item[column]}
+                                />
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </div>
+              <div className="reports-workspace__pagination">
+                <p aria-live="polite">
+                  Showing {(currentPage - 1) * pageSize + 1}–
+                  {Math.min(currentPage * pageSize, items.length)} of{' '}
+                  {items.length} loaded rows
+                </p>
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="compact"
+                    onClick={() =>
+                      setCurrentPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={currentPage <= 1}
+                    aria-label="Previous report page"
+                  >
+                    Previous
+                  </Button>
+                  <span aria-live="polite">
+                    Page {currentPage} of {pageCount}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="compact"
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(pageCount, page + 1))
+                    }
+                    disabled={currentPage >= pageCount}
+                    aria-label="Next report page"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </section>
+
+            <section
+              className="reports-workspace__panel reports-workspace__details"
+              aria-label="Selected report item"
+            >
+              <div className="reports-workspace__table-heading">
+                <div>
+                  <p className="reports-workspace__eyebrow">ROW DETAILS</p>
+                  <h3>Selected item</h3>
+                </div>
+                {selectedItem ? (
+                  <span className="reports-workspace__selected-tag">
+                    Selected
+                  </span>
+                ) : null}
+              </div>
+              {selectedItem ? (
+                <dl className="reports-workspace__definition-list">
+                  {Object.entries(selectedItem)
+                    .filter(
+                      ([, value]) =>
+                        value !== null && value !== undefined && value !== '',
+                    )
+                    .map(([field, value]) => (
+                      <div key={field}>
+                        <dt>{formatSupervisorReportFieldLabel(field)}</dt>
+                        <dd>
+                          <SupervisorReportValue field={field} value={value} />
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+              ) : (
+                <p className="reports-workspace__empty">
+                  Select a report row to see its available fields.
+                </p>
+              )}
+            </section>
+          </div>
+        ) : null}
+
+        {smsOperationalDrilldown ? (
+          <section
+            className="reports-workspace__panel"
+            aria-label="SMS operational drilldown"
+          >
+            <h3>SMS delivery status</h3>
+            <dl className="reports-workspace__definition-list">
+              {Object.entries(smsOperationalDrilldown).map(([field, value]) => (
+                <div key={field}>
+                  <dt>{formatSupervisorReportFieldLabel(field)}</dt>
+                  <dd>
+                    <SupervisorReportValue field={field} value={value} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
+        {reportSummary?.reconciliation ? (
+          <section
+            className="reports-workspace__panel"
+            aria-label="Reconciliation"
+          >
+            <h3>Reconciliation</h3>
+            <dl className="reports-workspace__definition-list">
+              <div>
+                <dt>Healthy</dt>
+                <dd>
+                  {reportSummary.reconciliation.healthy
+                    ? 'Yes'
+                    : 'Needs review'}
+                </dd>
+              </div>
+              <div>
+                <dt>Mismatches</dt>
+                <dd>
+                  <SupervisorReportValue
+                    field="mismatchCount"
+                    value={reportSummary.reconciliation.mismatchCount}
+                  />
+                </dd>
+              </div>
+            </dl>
+          </section>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section style={workspaceGrid}>

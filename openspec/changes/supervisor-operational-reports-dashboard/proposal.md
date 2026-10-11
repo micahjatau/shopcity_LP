@@ -1,25 +1,30 @@
-# Add Supervisor Operational Reports dashboard
+# Share Operational Reports across Supervisor and Admin
 
 ## Why
 
-The Supervisor Reports route currently emphasizes the detailed report builder, making it difficult to review branch activity quickly. Supervisors need a compact, period-based overview for loyalty purchase value, credit issuance and redemption, outstanding credit, daily trends, and operational summaries, while retaining the existing detailed report/export workflow.
+The Reports routes emphasize the detailed report builder, making it difficult to review activity quickly. Supervisors need a branch-scoped overview, while Admins need the same operational view with tenant or selected-branch scope and the additional report controls allowed by their role. Both roles need a period-based overview for loyalty purchase value, credit issuance and redemption, outstanding credit, daily trends, and operational summaries alongside detailed report generation and export.
 
 ## What Changes
 
 - Add Last 7 days, Last 30 days, and validated custom reporting periods shared by the dashboard and detailed report builder.
 - Show four financial KPIs, a daily activity chart, and category-filtered operational summaries for overall activity, cashier performance, redemptions, and SMS.
-- Reuse existing reporting APIs and the existing report builder; keep branch scope enforced by backend authorization and report APIs.
+- Reuse existing reporting APIs and the existing report builder on both `/supervisor/reports` and `/admin/reports`; keep scope and authorization enforced by existing backend APIs.
+- Show Admin-only audit and pilot-operations reports and materialization refresh controls to Admins; keep those options hidden from Supervisors.
 - Clearly distinguish period flow totals from the latest available outstanding-credit snapshot.
+- Restyle the page content and detailed workspace using the Approvals design language, with accessible loading, empty, error, freshness, and rate-limit states.
+- Format money and business timestamps for display using integer/decimal-safe and Africa/Lagos-aware formatting; expose metric definitions and report provenance without changing report calculations or API contracts.
 
 ## Non-goals
 
 - No new reporting API, database schema, migration, materialization job, or backend authorization behavior.
-- No client-selectable branch scope or cross-branch reporting.
-- No changes to financial ledger semantics, report-generation/export formats, or Admin report defaults.
+- Supervisors cannot select or widen branch scope; Admins may use existing authorized branch filters.
+- No changes to financial ledger semantics, report-generation/export formats, backend authorization, or API contracts.
+- Preserve existing Admin branch, timezone, date-range, export, and refresh capabilities within the shared presentation.
+- Supervisor UI actions remain limited to endpoints already permitted by the current session role; Admin-only reports and refresh remain unavailable to Supervisors.
 
 ## Impact
 
-The Supervisor Reports route and a new route-specific dashboard component are added, along with report-metric helpers, scoped styles, and tests. `ReportsWorkspace` is shared with Admin workflows and has **HIGH** GitNexus upstream impact (four direct dependants across three report-related flows); preserve its defaults and verify Admin regressions. Proposal-time findings are recorded in `docs/development/gitnexus-impact-tracker.md`.
+The Supervisor and Admin Reports routes share the operational dashboard component, report-metric helpers, responsive styles, and role-aware report workspace. `ReportsWorkspace` is shared with Admin Operations and has **HIGH** GitNexus upstream impact (four direct dependants across three report-related flows); preserve Supervisor restrictions and verify Admin Operations defaults. Proposal-time findings are recorded in `docs/development/gitnexus-impact-tracker.md`.
 
 ## Acceptance
 
@@ -27,5 +32,7 @@ The Supervisor Reports route and a new route-specific dashboard component are ad
 - Loyalty purchase value, credit issued, and credit redeemed are sums across available daily rows in the period.
 - Outstanding credit is taken from the latest available daily snapshot within the selected period, never summed as a flow.
 - Supervisor report requests remain branch-scoped by existing backend authorization; the UI does not select or widen branch scope.
+- Admin can use the same dashboard at `/admin/reports`, with tenant scope by default and existing authorized branch filters applied consistently to branch-capable dashboard and detailed-report requests; Audit and Pilot Operations remain tenant-wide as defined by their APIs.
+- The Admin report picker exposes audit and pilot-operations reports and materialization refresh; Supervisor options remain role-filtered and do not expose Admin-only actions.
 - Empty, loading, partial-failure, and unavailable data are represented without fabricating financial values.
 - The dashboard, category summaries, and existing report builder remain readable and operable at desktop, tablet, and phone widths.

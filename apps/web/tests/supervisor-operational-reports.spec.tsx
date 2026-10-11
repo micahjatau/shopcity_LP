@@ -93,11 +93,14 @@ describe('SupervisorOperationalReports', () => {
       }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByText(/7,000\.00/)).toBeInTheDocument(),
+      expect(screen.getAllByText(/7,000\.00/).length).toBeGreaterThan(0),
     );
     expect(screen.getByText(/140\.00/)).toBeInTheDocument();
     expect(screen.getByText(/60\.00/)).toBeInTheDocument();
     expect(screen.getByText(/2,300\.00/)).toBeInTheDocument();
+    const trendBar = screen.getByRole('button', { name: /7,000\.00/ });
+    fireEvent.click(trendBar);
+    expect(trendBar).toHaveAttribute('aria-pressed', 'true');
     const period = recentReportPeriod(7);
     expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
       { from: period.from, to: period.to },
@@ -139,7 +142,7 @@ describe('SupervisorOperationalReports', () => {
 
   it('rejects an inverted date range without triggering new report requests', async () => {
     render(<SupervisorOperationalReports />);
-    await screen.findByText(/7,000\.00/);
+    await screen.findAllByText(/7,000\.00/);
     fireEvent.change(screen.getByLabelText('Reporting period'), {
       target: { value: 'custom' },
     });
@@ -161,16 +164,47 @@ describe('SupervisorOperationalReports', () => {
       .mocked(reportsControllerListExecutiveSummaryV1)
       .mockRejectedValue(new Error('Service unavailable'));
     render(<SupervisorOperationalReports />);
+    expect(await screen.findAllByText("Couldn't load")).toHaveLength(4);
+    expect(
+      await screen.findAllByText('Reporting service unavailable'),
+    ).not.toHaveLength(0);
+    expect(screen.queryByText('₦0.00')).not.toBeInTheDocument();
+  });
+
+  it('shows a confirmed empty response as no data rather than a zero value', async () => {
+    jest
+      .mocked(reportsControllerListExecutiveSummaryV1)
+      .mockResolvedValue(response([]));
+    render(<SupervisorOperationalReports />);
+
+    expect(await screen.findAllByText('No data yet')).not.toHaveLength(0);
+    expect(screen.queryByText('₦0.00')).not.toBeInTheDocument();
+  });
+
+  it('displays a 429 retry countdown and disables report refresh actions', async () => {
+    jest.mocked(reportsControllerListExecutiveSummaryV1).mockResolvedValue({
+      status: 429,
+      headers: new Headers(),
+      data: {
+        success: false,
+        error: {
+          statusCode: 429,
+          code: 'RATE_LIMITED',
+          message: 'Too many requests',
+        },
+        meta: { requestId: 'req-rate-limited' },
+      },
+    } as never);
+    render(<SupervisorOperationalReports />);
+
+    expect(
+      await screen.findAllByText('Try again in 60 seconds.'),
+    ).not.toHaveLength(0);
     await waitFor(() =>
       expect(
-        screen.getByText(/financial could not be loaded/),
-      ).toBeInTheDocument(),
+        screen.getByRole('button', { name: 'Refresh dashboard data' }),
+      ).toBeDisabled(),
     );
-    expect(
-      screen.getByText('No materialized daily financial rows for this period.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('This report category is unavailable. Try Refresh.'),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText('req-rate-limited').length).toBeGreaterThan(0);
   });
 });

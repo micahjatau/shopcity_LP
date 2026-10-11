@@ -1,6 +1,7 @@
 import {
   businessDate,
   formatReportMoney,
+  formatReportMoneyCompact,
   lastReportNumber,
   recentReportPeriod,
   reportInsights,
@@ -52,7 +53,13 @@ describe('supervisor operational report aggregation', () => {
       ),
     ).toBeNull();
     expect(formatReportMoney(null)).toBe('—');
-    expect(formatReportMoney(100050)).toContain('1,000.50');
+    expect(formatReportMoney(100050)).toBe('₦1,000.50');
+    expect(formatReportMoney(1)).toBe('₦0.01');
+    expect(formatReportMoney(-50)).toBe('−₦0.50');
+    expect(formatReportMoney(Number.MAX_SAFE_INTEGER)).toBe(
+      '₦90,071,992,547,409.91',
+    );
+    expect(formatReportMoneyCompact(123_456_789)).toBe('₦1.2M');
   });
 
   it('uses inclusive Lagos business-date ranges for weekly and monthly filters', () => {
