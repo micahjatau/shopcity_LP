@@ -18,6 +18,7 @@ describe('ApprovalsController.listApprovals', () => {
       [ApprovalStatus.APPROVED, ApprovalStatus.EXECUTED],
       false,
       undefined,
+      undefined,
     );
   });
 
@@ -29,6 +30,7 @@ describe('ApprovalsController.listApprovals', () => {
       expect.objectContaining({ limit: 10 }),
       undefined,
       false,
+      undefined,
       undefined,
     );
   });
@@ -49,7 +51,44 @@ describe('ApprovalsController.listApprovals', () => {
       [ApprovalStatus.PENDING],
       true,
       'Ada',
+      undefined,
     );
+  });
+
+  it('parses the supported late receipt category filter', () => {
+    void controller.listApprovals(
+      context,
+      '5',
+      undefined,
+      'PENDING',
+      'true',
+      'receipt',
+      'LATE_RECEIPT_CLAIM',
+    );
+    expect(approvalsService.listApprovals).toHaveBeenCalledWith(
+      'tenant-1',
+      context,
+      expect.objectContaining({ limit: 5 }),
+      [ApprovalStatus.PENDING],
+      true,
+      'receipt',
+      'LATE_RECEIPT_CLAIM',
+    );
+  });
+
+  it('rejects unsupported category filters', () => {
+    expect(() =>
+      controller.listApprovals(
+        context,
+        '5',
+        undefined,
+        'PENDING',
+        'true',
+        undefined,
+        'MANUAL_ADJUSTMENT',
+      ),
+    ).toThrow(BadRequestException);
+    expect(approvalsService.listApprovals).not.toHaveBeenCalled();
   });
 
   it('rejects invalid count flags', () => {

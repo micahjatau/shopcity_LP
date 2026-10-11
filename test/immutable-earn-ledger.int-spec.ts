@@ -200,26 +200,33 @@ describe('immutable earn ledger (int)', () => {
 
     const response = await loyaltyService.earn(
       tenant.id,
-      makeContext(
-        {
-          id: approver.id,
-          tenantId: tenant.id,
-          branchId: branch.id,
-          role: UserRole.SUPERVISOR,
-        },
-        fixture.device.id,
-      ),
+      fixture.actor,
       'earn-leap-day-key',
       {
         posReceiptNumber: fixture.posReceiptNumber,
         cardSerialNumber: fixture.card.barcodeValue,
         purchaseAmountKobo: 1_000_000,
         occurredAt: '2024-02-29T10:15:00.000Z',
-        overrideReason: 'leap-day regression',
       },
     );
 
-    expect(response.expiresAt).toBe('2025-02-28T10:15:00.000Z');
+    expect(response.state).toBe('PENDING_APPROVAL');
+    expect(response.reasonCode).toBe('LATE_RECEIPT_CLAIM');
+    await approvalsService.decideApproval(
+      tenant.id,
+      makeContext(approver),
+      response.approvalId!,
+      'APPROVED',
+      'late receipt verified',
+      'earn-leap-day-approval-key',
+    );
+    const ledgerEntry = await prisma.loyaltyLedgerEntry.findUniqueOrThrow({
+      where: { receiptId: response.receiptId },
+    });
+    const creditLot = await prisma.creditLot.findUniqueOrThrow({
+      where: { earnLedgerEntryId: ledgerEntry.id },
+    });
+    expect(creditLot.expiresAt.toISOString()).toBe('2025-02-28T10:15:00.000Z');
   }, 120000);
 
   it('creates approval records and executes them exactly once', async () => {
@@ -253,6 +260,11 @@ describe('immutable earn ledger (int)', () => {
     const approvalsBefore = await approvalsService.listApprovals(
       tenant.id,
       makeContext(approver),
+      undefined,
+      [ApprovalStatus.PENDING],
+      false,
+      undefined,
+      'HIGH_VALUE_TRANSACTION',
     );
     expect(approvalsBefore.items).toHaveLength(1);
     expect(approvalsBefore.items[0]?.status).toBe(ApprovalStatus.PENDING);
@@ -319,6 +331,104 @@ describe('immutable earn ledger (int)', () => {
     expect(transaction.state).toBe('CONFIRMED');
     expect(transaction.ledgerEntryId).toBeDefined();
     expect(transaction.availableBalanceKobo).toBeGreaterThan(0);
+  }, 120000);
+
+  it('holds >7-day receipt claims for an audited approval before creating financial effects', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-LATE-CLAIM-0001',
+    );
+    const occurredAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+
+    const pending = await loyaltyService.earn(
+      tenant.id,
+      fixture.actor,
+      'earn-late-claim-key',
+      {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: occurredAt.toISOString(),
+      },
+    );
+
+    expect(pending.state).toBe('PENDING_APPROVAL');
+    expect(pending.reasonCode).toBe('LATE_RECEIPT_CLAIM');
+    expect(pending.creditKobo).toBeNull();
+    expect(pending.smsStatus).toBeNull();
+    const [ledgerCount, smsCount] = await Promise.all([
+      prisma.loyaltyLedgerEntry.count({
+        where: { tenantId: tenant.id, receiptId: pending.receiptId },
+      }),
+      prisma.smsMessage.count({
+        where: { tenantId: tenant.id, receiptId: pending.receiptId },
+      }),
+    ]);
+    expect([ledgerCount, smsCount]).toEqual([0, 0]);
+
+    const approvalRecord = await prisma.approval.findUniqueOrThrow({
+      where: { receiptId: pending.receiptId },
+    });
+    expect(approvalRecord).toMatchObject({
+      reasonCode: 'LATE_RECEIPT_CLAIM',
+      status: ApprovalStatus.PENDING,
+      requestedBy: cashier.id,
+    });
+
+    const lateQueue = await approvalsService.listApprovals(
+      tenant.id,
+      makeContext(approver),
+      { limit: 5 },
+      [ApprovalStatus.PENDING],
+      true,
+      undefined,
+      'LATE_RECEIPT_CLAIM',
+    );
+    const lateQueueItem = lateQueue.items.find(
+      (item) => item.id === pending.approvalId,
+    );
+    expect(lateQueueItem?.category).toBe('LATE_RECEIPT_CLAIM');
+    expect(lateQueueItem?.reasonCode).toBe('LATE_RECEIPT_CLAIM');
+    expect(lateQueueItem?.receipt?.occurredAt).toBe(occurredAt.toISOString());
+    expect(lateQueue.categoryCounts.LATE_RECEIPT_CLAIM).toBeGreaterThan(0);
+
+    const decision = await approvalsService.decideApproval(
+      tenant.id,
+      makeContext(approver),
+      pending.approvalId!,
+      'APPROVED',
+      'Receipt evidence verified',
+      'late-claim-approval-key',
+    );
+    expect(decision.status).toBe(ApprovalStatus.EXECUTED);
+    expect(
+      await prisma.loyaltyLedgerEntry.count({
+        where: { tenantId: tenant.id, receiptId: pending.receiptId },
+      }),
+    ).toBe(1);
+  }, 120000);
+
+  it('retains the existing cashier stale timestamp rejection below the late-claim threshold', async () => {
+    const fixture = await createEarnFixture(
+      prisma,
+      tenant.id,
+      branch.id,
+      cashier.id,
+      'POS-STALE-BEFORE-LATE-CLAIM',
+    );
+    const occurredAt = new Date(Date.now() - 13 * 60 * 60 * 1000);
+
+    await expect(
+      loyaltyService.earn(tenant.id, fixture.actor, 'earn-stale-13h', {
+        posReceiptNumber: fixture.posReceiptNumber,
+        cardSerialNumber: fixture.card.barcodeValue,
+        purchaseAmountKobo: 1_000_000,
+        occurredAt: occurredAt.toISOString(),
+      }),
+    ).rejects.toThrow('occurredAt cannot be too old');
   }, 120000);
 
   it('persists expired approvals without financial side effects', async () => {

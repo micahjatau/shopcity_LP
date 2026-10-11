@@ -300,6 +300,7 @@ describe('LoyaltyService redemption approvals', () => {
               customerId: 'customer-1',
               posReceiptNumber: 'POS-REDEEM-1',
               purchaseAmountKobo: 30_000n,
+              occurredAt: new Date('2026-07-26T11:00:00.000Z'),
               captureStatus: 'PENDING_APPROVAL',
               reviewStatus: ReceiptReviewStatus.PENDING,
               branchId: 'branch-1',
@@ -740,6 +741,7 @@ describe('LoyaltyService redemption approvals', () => {
           id: 'receipt-1',
           posReceiptNumber: 'POS-APPROVAL-1',
           purchaseAmountKobo: 30_000n,
+          occurredAt: new Date('2026-07-18T12:00:00.000Z'),
           captureStatus: 'PENDING_APPROVAL',
           reviewStatus: ReceiptReviewStatus.PENDING,
         },
@@ -795,6 +797,7 @@ describe('LoyaltyService redemption approvals', () => {
           customerId: 'customer-1',
           posReceiptNumber: 'POS-LIVE-1',
           purchaseAmountKobo: 30_000n,
+          occurredAt: new Date('2026-07-18T12:00:00.000Z'),
           captureStatus: 'PENDING_APPROVAL',
           reviewStatus: ReceiptReviewStatus.PENDING,
           branchId: 'branch-1',
@@ -804,9 +807,17 @@ describe('LoyaltyService redemption approvals', () => {
       },
     ]);
     const approvalCount = jest.fn().mockResolvedValue(9);
+    const approvalGroupBy = jest.fn().mockResolvedValue([
+      { reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD', _count: { _all: 5 } },
+      { reasonCode: 'LATE_RECEIPT_CLAIM', _count: { _all: 2 } },
+    ]);
     const service = new LoyaltyService(
       {
-        approval: { findMany: approvalFindMany, count: approvalCount },
+        approval: {
+          findMany: approvalFindMany,
+          count: approvalCount,
+          groupBy: approvalGroupBy,
+        },
       } as never,
       auditService(),
       configService(),
@@ -823,9 +834,17 @@ describe('LoyaltyService redemption approvals', () => {
     ).resolves.toMatchObject({
       totalCount: 9,
       scopeTotalCount: 9,
+      categoryCounts: {
+        HIGH_VALUE_TRANSACTION: 5,
+        LATE_RECEIPT_CLAIM: 2,
+      },
       items: [
         {
+          category: 'HIGH_VALUE_TRANSACTION',
           customer: { fullName: 'Ada Customer' },
+          receipt: {
+            occurredAt: '2026-07-18T12:00:00.000Z',
+          },
           requester: { username: 'cashier-1', role: UserRole.CASHIER },
         },
       ],
@@ -840,8 +859,29 @@ describe('LoyaltyService redemption approvals', () => {
       ],
     };
     expect(approvalCount).toHaveBeenCalledWith({ where: expectedScope });
-    expect(approvalFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expectedScope, take: 6 }),
+    expect(approvalGroupBy).toHaveBeenCalledWith({
+      by: ['reasonCode'],
+      where: expectedScope,
+      _count: { _all: true },
+    });
+    expect(approvalFindMany).toHaveBeenCalled();
+    const firstApprovalCall = (
+      approvalFindMany.mock.calls as unknown as Array<[unknown]>
+    )[0];
+    const listQuery = firstApprovalCall?.[0] as {
+      where: typeof expectedScope;
+      take: number;
+      include: {
+        receipt: { select: { occurredAt: boolean } };
+        redemption: {
+          select: { receipt: { select: { occurredAt: boolean } } };
+        };
+      };
+    };
+    expect(listQuery).toMatchObject({ where: expectedScope, take: 6 });
+    expect(listQuery.include.receipt.select.occurredAt).toBe(true);
+    expect(listQuery.include.redemption.select.receipt.select.occurredAt).toBe(
+      true,
     );
   });
 
@@ -853,7 +893,11 @@ describe('LoyaltyService redemption approvals', () => {
       .mockResolvedValueOnce(9);
     const service = new LoyaltyService(
       {
-        approval: { findMany: approvalFindMany, count: approvalCount },
+        approval: {
+          findMany: approvalFindMany,
+          count: approvalCount,
+          groupBy: jest.fn().mockResolvedValue([]),
+        },
       } as never,
       auditService(),
       configService(),
@@ -921,12 +965,83 @@ describe('LoyaltyService redemption approvals', () => {
     });
   });
 
+  it('filters by category before pagination and counts categories across the full search scope', async () => {
+    const approvalFindMany = jest.fn().mockResolvedValue([]);
+    const approvalCount = jest.fn().mockResolvedValue(4);
+    const approvalGroupBy = jest.fn().mockResolvedValue([
+      { reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD', _count: { _all: 6 } },
+      {
+        reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
+        _count: { _all: 3 },
+      },
+      { reasonCode: 'LATE_RECEIPT_CLAIM', _count: { _all: 4 } },
+    ]);
+    const service = new LoyaltyService(
+      {
+        approval: {
+          findMany: approvalFindMany,
+          count: approvalCount,
+          groupBy: approvalGroupBy,
+        },
+      } as never,
+      auditService(),
+      configService(),
+    );
+
+    await expect(
+      service.listApprovals(
+        'tenant-1',
+        supervisorAuthContext(),
+        { limit: 2 },
+        [ApprovalStatus.PENDING],
+        true,
+        'receipt',
+        'LATE_RECEIPT_CLAIM',
+      ),
+    ).resolves.toMatchObject({
+      totalCount: 4,
+      scopeTotalCount: 4,
+      categoryCounts: {
+        HIGH_VALUE_TRANSACTION: 9,
+        LATE_RECEIPT_CLAIM: 4,
+      },
+    });
+
+    const categoryAndScopeMatcher: unknown = expect.objectContaining({
+      tenantId: 'tenant-1',
+      status: { in: [ApprovalStatus.PENDING] },
+      AND: expect.arrayContaining([
+        expect.objectContaining({
+          reasonCode: { in: ['LATE_RECEIPT_CLAIM'] },
+        }),
+      ]) as unknown,
+    });
+    expect(approvalFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 3, where: categoryAndScopeMatcher }),
+    );
+    const unfilteredCategoryScopeMatcher: unknown = expect.not.objectContaining(
+      {
+        reasonCode: { in: ['LATE_RECEIPT_CLAIM'] },
+      },
+    );
+    expect(approvalGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['reasonCode'],
+        where: unfilteredCategoryScopeMatcher,
+      }),
+    );
+  });
+
   it('searches displayed amounts in naira as exact kobo values', async () => {
     const approvalFindMany = jest.fn().mockResolvedValue([]);
     const approvalCount = jest.fn().mockResolvedValue(1);
     const service = new LoyaltyService(
       {
-        approval: { findMany: approvalFindMany, count: approvalCount },
+        approval: {
+          findMany: approvalFindMany,
+          count: approvalCount,
+          groupBy: jest.fn().mockResolvedValue([]),
+        },
       } as never,
       auditService(),
       configService(),

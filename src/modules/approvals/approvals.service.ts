@@ -3,6 +3,7 @@ import { ApprovalStatus } from '@prisma/client';
 import { AuthContext } from '../../common/auth/session.types';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import { CursorPageRequest } from '../../common/pagination/cursor-pagination';
+import type { ApprovalCategory } from '../loyalty/approval-category';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ApprovalsService {
     statuses?: ApprovalStatus[],
     includeTotalCount = false,
     search?: string,
+    category?: ApprovalCategory,
   ) {
     return this.loyaltyService.listApprovals(
       tenantId,
@@ -24,6 +26,7 @@ export class ApprovalsService {
       statuses,
       includeTotalCount,
       search,
+      category,
     );
   }
 

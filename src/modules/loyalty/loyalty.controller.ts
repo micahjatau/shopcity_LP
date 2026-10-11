@@ -390,6 +390,7 @@ const earnPendingApprovalResponseSchema = {
     'occurredAt',
     'capturedAt',
     'reviewStatus',
+    'reasonCode',
   ],
   properties: {
     id: { type: 'string', format: 'uuid' },
@@ -413,6 +414,10 @@ const earnPendingApprovalResponseSchema = {
     occurredAt: { type: 'string', format: 'date-time' },
     capturedAt: { type: 'string', format: 'date-time' },
     reviewStatus: { type: 'string', example: 'PENDING' },
+    reasonCode: {
+      type: 'string',
+      enum: ['PURCHASE_ABOVE_APPROVAL_THRESHOLD', 'LATE_RECEIPT_CLAIM'],
+    },
   },
 } as const;
 

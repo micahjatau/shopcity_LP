@@ -22514,7 +22514,7 @@
             "name": "includeTotalCount",
             "required": false,
             "in": "query",
-            "description": "When true, include exact matching and unfiltered scope counts, independent of cursor pagination.",
+            "description": "When true, include exact selected-category and pre-search scope totals plus per-category counts; all counts are independent of cursor pagination.",
             "schema": {
               "type": "boolean"
             }
@@ -22528,11 +22528,21 @@
               "maxLength": 100
             },
             "description": "Search approval fields within the caller’s authorized scope before cursor pagination; any status filter is applied as well."
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category before cursor pagination. Category counts, when requested, remain independent of this filter.",
+            "schema": {
+              "enum": ["HIGH_VALUE_TRANSACTION", "LATE_RECEIPT_CLAIM"],
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Cursor-paginated approvals in the caller’s authorized scope",
+            "description": "Cursor-paginated approvals with typed categories and exact scoped category counts",
             "content": {
               "application/json": {
                 "schema": {
@@ -22556,6 +22566,7 @@
                               "receiptId",
                               "redemptionId",
                               "targetType",
+                              "category",
                               "status",
                               "requestedAmountKobo",
                               "requestedAt",
@@ -22583,6 +22594,14 @@
                               "targetType": {
                                 "type": "string",
                                 "enum": ["EARN", "REDEEM"]
+                              },
+                              "category": {
+                                "type": "string",
+                                "enum": [
+                                  "HIGH_VALUE_TRANSACTION",
+                                  "LATE_RECEIPT_CLAIM"
+                                ],
+                                "nullable": true
                               },
                               "status": {
                                 "type": "string",
@@ -22653,6 +22672,7 @@
                                   "customerId",
                                   "posReceiptNumber",
                                   "purchaseAmountKobo",
+                                  "occurredAt",
                                   "captureStatus",
                                   "reviewStatus",
                                   "branchId"
@@ -22672,6 +22692,10 @@
                                   },
                                   "purchaseAmountKobo": {
                                     "type": "integer"
+                                  },
+                                  "occurredAt": {
+                                    "type": "string",
+                                    "format": "date-time"
                                   },
                                   "captureStatus": {
                                     "type": "string"
@@ -22704,7 +22728,25 @@
                         "scopeTotalCount": {
                           "type": "integer",
                           "minimum": 0,
-                          "description": "Exact count within the caller scope and status filter, before text search."
+                          "description": "Exact selected-category count within caller scope and status filter, before text search."
+                        },
+                        "categoryCounts": {
+                          "type": "object",
+                          "required": [
+                            "HIGH_VALUE_TRANSACTION",
+                            "LATE_RECEIPT_CLAIM"
+                          ],
+                          "properties": {
+                            "HIGH_VALUE_TRANSACTION": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "LATE_RECEIPT_CLAIM": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "description": "Exact per-category counts under caller scope, status, and search, independent of cursor and selected category."
                         }
                       }
                     },
@@ -24013,7 +24055,8 @@
                         "smsStatus",
                         "occurredAt",
                         "capturedAt",
-                        "reviewStatus"
+                        "reviewStatus",
+                        "reasonCode"
                       ],
                       "properties": {
                         "id": {
@@ -24099,6 +24142,13 @@
                         "reviewStatus": {
                           "type": "string",
                           "example": "PENDING"
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "enum": [
+                            "PURCHASE_ABOVE_APPROVAL_THRESHOLD",
+                            "LATE_RECEIPT_CLAIM"
+                          ]
                         }
                       }
                     },

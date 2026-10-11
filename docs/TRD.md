@@ -536,7 +536,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 | GET        | /customers/{id}/ledger                                             | Supervisor/Admin                   | Paginated customer ledger.                                                                                                               |
 | POST       | /transactions/{id}/reverse                                         | Supervisor/Admin                   | Create compensating reversal.                                                                                                            |
 | POST       | /adjustments                                                       | Admin                              | Manual credit/debit with reason.                                                                                                         |
-| GET        | /approvals                                                         | Supervisor/Admin                   | List pending/recent approvals.                                                                                                           |
+| GET        | /approvals                                                         | Supervisor/Admin                   | Cursor-paginated approval list with category/status/search filters and exact scoped category counts.                                     |
 | POST       | /approvals/{id}/decision                                           | Supervisor/Admin                   | Approve or reject.                                                                                                                       |
 | POST       | /offline-sync/earn-batch                                           | Cashier+                           | Synchronize offline earning<br>records.                                                                                                  |
 | GET        | /fraud-flags                                                       | Supervisor/Admin                   | Review suspicious activity.                                                                                                              |
@@ -565,7 +565,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ### **12.1 POST /api/v1/transactions/earn**
 
-Records a purchase and issues store credit. For purchases above the configured approval threshold, the endpoint returns a pending approval rather than a confirmed ledger effect.
+Records a purchase and issues store credit. For purchases above the configured approval threshold, or an earn claim submitted more than seven days after the receipt occurred, the endpoint returns a pending approval rather than a confirmed ledger effect. The seven-day interval is elapsed time from `occurredAt` to server receipt time. A late receipt claim uses reason code `LATE_RECEIPT_CLAIM`, which takes category precedence when the purchase also exceeds the high-value threshold. Late receipt approval still revalidates the current policy and eligibility before financial execution.
 
 ```
 Headers:
@@ -576,7 +576,7 @@ Request:
   "cardBarcode": "SC-00001234",
   "branchId": "uuid",
   "receiptNumber": "10452",
-  "purchaseAmountKobo": 1000000,
+  "purchaseAmountKobo": 21000000,
   "occurredAt": "2026-07-19T09:44:00+01:00",
   "deviceId": "uuid"
 }
@@ -585,8 +585,8 @@ Request:
   "data": {
     "transactionId": "uuid",
     "status": "CONFIRMED",
-    "purchaseAmountKobo": 1000000,
-    "creditEarnedKobo": 20000,
+    "purchaseAmountKobo": 21000000,
+    "creditEarnedKobo": 420000,
     "availableBalanceKobo": 145000,
     "expiresAt": "2027-07-19T08:44:00Z",
     "smsStatus": "QUEUED"
@@ -603,6 +603,8 @@ Request:
   "meta": { ... }
 }
 ```
+
+For a claim submitted more than seven elapsed days after `occurredAt`, the same 202 response uses `reasonCode: "LATE_RECEIPT_CLAIM"` (including when it also exceeds the purchase approval threshold).
 
 | **Status** | **Code**         | **Meaning**                           |
 | ---------- | ---------------- | ------------------------------------- |
@@ -621,7 +623,13 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 | 422        | POLICY_VIOLATION            | Business rule cannot be satisfied.                                       |
 | 503        | DEPENDENCY_UNAVAILABLE      | Database/required service unavailable; no<br>financial effect committed. |
 
-### **12.2 POST /api/v1/transactions/redeem**
+### **12.2 GET /api/v1/approvals**
+
+The approval list accepts optional `category` values `HIGH_VALUE_TRANSACTION` and `LATE_RECEIPT_CLAIM`. Apply tenant/branch authorization scope, status, search, and category before cursor pagination. Each item returns a typed nullable category derived from its persisted reason code and the receipt `occurredAt` timestamp when a receipt is present. Supervisor queue rows show Name and Amount for high-value approvals, and Name and Receipt Age for late claims; Receipt Age is measured from `occurredAt` to approval `requestedAt`. When `includeTotalCount=true`, return `totalCount` for the selected category and search/status scope plus exact `categoryCounts` for both categories under the same authorization, status, and search scope; category counts are independent of the cursor and selected category. `scopeTotalCount` remains the selected-category count under authorization and status before text search.
+
+Manual adjustments remain Admin-only and are excluded from Supervisor approval categories. OTP overrides are not an MVP approval category.
+
+### **12.3 POST /api/v1/transactions/redeem**
 
 ```
 Request:
@@ -655,7 +663,7 @@ Request:
 
 - No credit earned on the referenced purchase can be consumed in the same transaction.
 
-### **12.3 POST /api/v1/offline-sync/earn-batch**
+### **12.4 POST /api/v1/offline-sync/earn-batch**
 
 ```
 Request:
@@ -696,7 +704,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 }
 ```
 
-### **12.4 POST /api/v1/transactions/{id}/reverse**
+### **12.5 POST /api/v1/transactions/{id}/reverse**
 
 - Supervisor/Admin only; requires reason and idempotency key.
 
@@ -787,6 +795,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 | Approve high-value<br>action           | No          | Yes             | Yes             | No         |
 | Reverse transaction                    | No          | Yes             | Yes             | No         |
 | Manual adjustment                      | No          | No              | Yes             | No         |
+| Approve late receipt claim             | No          | Yes             | Yes             | No         |
 | View liability reports                 | No          | Limited         | Yes             | No         |
 | Manage users/policies                  | No          | No              | Yes             | No         |
 | Manage POS devices / authorize pairing | No          | Own branch only | Tenant-wide     | No         |
@@ -847,16 +856,17 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 ## **16. Fraud, Abuse Prevention and Approvals**
 
-| **Rule Code** | **Trigger**                                               | **Severity** | **System Action**                                                        |
-| ------------- | --------------------------------------------------------- | ------------ | ------------------------------------------------------------------------ |
-| FR-DUP-001    | Duplicate branch + receipt + week                         | High         | Block; log attempt; notify<br>supervisor dashboard.                      |
-| FR-HV-001     | Purchase above NGN 100,000                                | Medium       | Allow and flag.                                                          |
-| FR-HV-002     | Purchase above NGN 200,000                                | High         | Create pending approval; no credit<br>until approved.                    |
-| FR-RED-001    | Redemption above NGN 5,000                                | High         | Require supervisor approval.                                             |
-| FR-CARD-001   | Same card used above configured<br>daily count            | Medium       | Flag for review; do not<br>automatically punish legitimate<br>customers. |
-| FR-CASH-001   | Cashier value/count materially<br>above peers or baseline | Medium       | Flag and surface comparative<br>metrics.                                 |
-| FR-ROUND-001  | Repeated rounded purchase<br>values by one cashier        | Low/Medium   | Flag pattern after minimum<br>sample size.                               |
-| FR-REV-001    | Unusual reversal frequency                                | Medium       | Flag cashier and supervisor                                              |
+| **Rule Code** | **Trigger**                                               | **Severity** | **System Action**                                                                                                                                       |
+| ------------- | --------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-DUP-001    | Duplicate branch + receipt + week                         | High         | Block; log attempt; notify<br>supervisor dashboard.                                                                                                     |
+| FR-HV-001     | Purchase above NGN 100,000                                | Medium       | Allow and flag.                                                                                                                                         |
+| FR-HV-002     | Purchase above NGN 200,000                                | High         | Create pending approval; no credit<br>until approved.                                                                                                   |
+| FR-RED-001    | Redemption above NGN 5,000                                | High         | Require supervisor approval.                                                                                                                            |
+| FR-LATE-001   | Earn claim submitted more than seven days after receipt   | High         | Create pending supervisor approval; no credit<br>until approved. Use `LATE_RECEIPT_CLAIM`; execution revalidates receipt uniqueness and current policy. |
+| FR-CARD-001   | Same card used above configured<br>daily count            | Medium       | Flag for review; do not<br>automatically punish legitimate<br>customers.                                                                                |
+| FR-CASH-001   | Cashier value/count materially<br>above peers or baseline | Medium       | Flag and surface comparative<br>metrics.                                                                                                                |
+| FR-ROUND-001  | Repeated rounded purchase<br>values by one cashier        | Low/Medium   | Flag pattern after minimum<br>sample size.                                                                                                              |
+| FR-REV-001    | Unusual reversal frequency                                | Medium       | Flag cashier and supervisor                                                                                                                             |
 
 Radar Solutions | Confidential | Page 21
 
@@ -881,6 +891,8 @@ Rules:
 - `Decision requires supervisor/admin identity and reason.`
 
 - `Requester cannot approve own controlled action.`
+
+- `Supervisor approval categories in the MVP are high-value purchase, high-value redemption, and late receipt claim (>7 elapsed days after receipt occurrence). Manual adjustments remain Admin-only and are not Supervisor approvals; OTP overrides are not an MVP approval category.`
 
 - `Execution revalidates customer, card, receipt, balance and current policy.`
 

@@ -10041,7 +10041,7 @@ export type ApprovalsControllerListApprovalsV1Params = {
    */
   status?: ApprovalsControllerListApprovalsV1Status;
   /**
-   * When true, include exact matching and unfiltered scope counts, independent of cursor pagination.
+   * When true, include exact selected-category and pre-search scope totals plus per-category counts; all counts are independent of cursor pagination.
    */
   includeTotalCount?: boolean;
   /**
@@ -10049,6 +10049,10 @@ export type ApprovalsControllerListApprovalsV1Params = {
    * @maxLength 100
    */
   search?: string;
+  /**
+   * Filter by category before cursor pagination. Category counts, when requested, remain independent of this filter.
+   */
+  category?: ApprovalsControllerListApprovalsV1Category;
 };
 
 export type ApprovalsControllerListApprovalsV1Status =
@@ -10062,12 +10066,32 @@ export const ApprovalsControllerListApprovalsV1Status = {
   EXPIRED: 'EXPIRED',
 } as const;
 
+export type ApprovalsControllerListApprovalsV1Category =
+  (typeof ApprovalsControllerListApprovalsV1Category)[keyof typeof ApprovalsControllerListApprovalsV1Category];
+
+export const ApprovalsControllerListApprovalsV1Category = {
+  HIGH_VALUE_TRANSACTION: 'HIGH_VALUE_TRANSACTION',
+  LATE_RECEIPT_CLAIM: 'LATE_RECEIPT_CLAIM',
+} as const;
+
 export type ApprovalsControllerListApprovalsV1200DataItemsItemTargetType =
   (typeof ApprovalsControllerListApprovalsV1200DataItemsItemTargetType)[keyof typeof ApprovalsControllerListApprovalsV1200DataItemsItemTargetType];
 
 export const ApprovalsControllerListApprovalsV1200DataItemsItemTargetType = {
   EARN: 'EARN',
   REDEEM: 'REDEEM',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ApprovalsControllerListApprovalsV1200DataItemsItemCategory =
+  | (typeof ApprovalsControllerListApprovalsV1200DataItemsItemCategory)[keyof typeof ApprovalsControllerListApprovalsV1200DataItemsItemCategory]
+  | null;
+
+export const ApprovalsControllerListApprovalsV1200DataItemsItemCategory = {
+  HIGH_VALUE_TRANSACTION: 'HIGH_VALUE_TRANSACTION',
+  LATE_RECEIPT_CLAIM: 'LATE_RECEIPT_CLAIM',
 } as const;
 
 export type ApprovalsControllerListApprovalsV1200DataItemsItemCustomer = {
@@ -10095,6 +10119,7 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItemReceipt = {
   customerId: string | null;
   posReceiptNumber: string;
   purchaseAmountKobo: number;
+  occurredAt: string;
   captureStatus: string;
   reviewStatus: string;
   /** @nullable */
@@ -10108,6 +10133,8 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItem = {
   /** @nullable */
   redemptionId: string | null;
   targetType: ApprovalsControllerListApprovalsV1200DataItemsItemTargetType;
+  /** @nullable */
+  category: ApprovalsControllerListApprovalsV1200DataItemsItemCategory;
   status: string;
   /** @nullable */
   reasonCode?: string | null;
@@ -10126,6 +10153,16 @@ export type ApprovalsControllerListApprovalsV1200DataItemsItem = {
   receipt: ApprovalsControllerListApprovalsV1200DataItemsItemReceipt;
 };
 
+/**
+ * Exact per-category counts under caller scope, status, and search, independent of cursor and selected category.
+ */
+export type ApprovalsControllerListApprovalsV1200DataCategoryCounts = {
+  /** @minimum 0 */
+  HIGH_VALUE_TRANSACTION: number;
+  /** @minimum 0 */
+  LATE_RECEIPT_CLAIM: number;
+};
+
 export type ApprovalsControllerListApprovalsV1200Data = {
   items: ApprovalsControllerListApprovalsV1200DataItemsItem[];
   /** @nullable */
@@ -10137,10 +10174,12 @@ export type ApprovalsControllerListApprovalsV1200Data = {
    */
   totalCount?: number;
   /**
-   * Exact count within the caller scope and status filter, before text search.
+   * Exact selected-category count within caller scope and status filter, before text search.
    * @minimum 0
    */
   scopeTotalCount?: number;
+  /** Exact per-category counts under caller scope, status, and search, independent of cursor and selected category. */
+  categoryCounts?: ApprovalsControllerListApprovalsV1200DataCategoryCounts;
 };
 
 export type ApprovalsControllerListApprovalsV1200Meta = {
@@ -10655,6 +10694,14 @@ export type LoyaltyControllerEarnV1201 = {
   meta: LoyaltyControllerEarnV1201Meta;
 };
 
+export type LoyaltyControllerEarnV1202DataReasonCode =
+  (typeof LoyaltyControllerEarnV1202DataReasonCode)[keyof typeof LoyaltyControllerEarnV1202DataReasonCode];
+
+export const LoyaltyControllerEarnV1202DataReasonCode = {
+  PURCHASE_ABOVE_APPROVAL_THRESHOLD: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+  LATE_RECEIPT_CLAIM: 'LATE_RECEIPT_CLAIM',
+} as const;
+
 export type LoyaltyControllerEarnV1202Data = {
   id: string;
   /** @nullable */
@@ -10683,6 +10730,7 @@ export type LoyaltyControllerEarnV1202Data = {
   occurredAt: string;
   capturedAt: string;
   reviewStatus: string;
+  reasonCode: LoyaltyControllerEarnV1202DataReasonCode;
 };
 
 export type LoyaltyControllerEarnV1202Meta = {
