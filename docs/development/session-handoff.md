@@ -1,48 +1,52 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-12
+Updated: 2026-10-11
 
-## Repository state and preservation
+## Repository state
 
 - Repository: `/root/github-repos/micahjatau/shopcity_LP`
-- Branch: `workflow-states-implementation`.
-- Latest reports commit: `fa94754` — `feat(reports): map operational reporting to Admin`. Approval work remains separately committed: `3fe287f` — `feat(web): complete approval review workflows`; `68dc483` — `feat(approvals): add late receipt claim workflow`.
-- This handoff document has its own commit, separate from the reports feature. Other modified files and generated/untracked outputs—including `AGENTS.md`, `CLAUDE.md`, `apps/web/tsconfig.json`, `apps/web/tsconfig.tsbuildinfo`, `package-lock.json`, test-result metadata, `.next-*` build directories, and Supervisor artwork—remain unrelated/uncommitted. Preserve them; do not reset, clean, or remove them. Inspect current status and targeted diffs before further edits.
-- The latest browser run used the local Chromium configuration at `/tmp/shopcity-system-chromium.playwright.config.mjs` against the dev server on port `6767`. Keep running servers and existing build artifacts intact.
+- Branch: `workflow-states-implementation`
+- Recent separate commits:
+  - `c7a27b2` — `chore(dev): add local report demo seed`
+  - `6e25b45` — `feat(reports): improve operational report workspace`
+  - `a81f53b` — `fix(reports): preserve raw CSV export responses`
+  - `3607779` — `feat(web): refine device management UX`
+- Preserve the remaining dirty worktree. Do not reset, clean, or stage residual files without reviewing them. Current tracked leftovers are GitNexus context files (`AGENTS.md`, `CLAUDE.md`), generated test/build state (`apps/web/test-results/.last-run.json`, `apps/web/tsconfig.tsbuildinfo`, `apps/web/tsconfig.json`), and an unrelated broad `package-lock.json` update. Untracked `.next-*` build directories and Supervisor brand artwork also remain; none were included in the feature commits.
 
-## Completed work
+## Completed in the latest commits
 
-### Supervisor approvals and receipt-time validation
+### Device management page
 
-- `68dc483` adds the persisted `LATE_RECEIPT_CLAIM` approval workflow. A claim is late when more than seven elapsed days separate receipt occurrence and server request receipt time; pending claims have no financial effect before an authorized decision.
-- `3fe287f` contains the Supervisor approval review UI and cashier Earn form validation requiring a valid receipt `occurredAt` timestamp.
-- Approval category filtering/counts, receipt occurrence timestamps, generated OpenAPI/client artifacts, responsive and keyboard-accessible controls, and related tests are included in those commits. Keep these completed workflows intact.
+- Matched the device page content styling to Supervisor Transactions and placed Create device left of Device list/details on wide screens; panels stack on tablet/mobile.
+- Pairing confirmation is an accessible dialog. Success and failure feedback stays in the dialog until dismissed; the Device selector is a button-triggered, keyboard-accessible listbox styled to match the page controls.
+- Removed the manual Refresh button and redundant Supervisor branch-scope notes. Initial loading and post-action refreshes remain.
+- Admin and Supervisor routes continue to share `apps/web/components/devices/device-management.tsx`; server-side scope and API behavior were not changed.
+- Device review findings remain unimplemented: pairing can race with a selection change; create/update retries generate new idempotency keys; failed refresh retains stale actionable devices; and unknown statuses may expose an inappropriate Reactivate action. Address these separately if device-flow behavior is changed.
 
-### Supervisor and Admin operational reports
+### Reports workspace and API
 
-- `/admin/reports` and `/supervisor/reports` now use the shared operational dashboard in `apps/web/components/workflows/supervisor-operational-reports.tsx`.
-- Admin has tenant scope by default and branch/timezone filters. The shared date period flows into dashboard and detailed reports. Branch scope changes trigger a detailed-workspace reload.
-- Admin can select Audit, Pilot Operations, and materialization refresh. Audit and Pilot Operations remain tenant-wide under their existing API contracts; an Admin-selected branch is not sent to Audit. The Supervisor presentation does not expose these Admin-only options or refresh action.
-- Backend authorization, API calls, financial calculations, and server scope resolution were not changed. Admin Operations retains the default `ReportsWorkspace` presentation; regression coverage verifies its existing report options, raw scope controls, and refresh action.
-- Report-controller/RBAC discrepancies are recorded in `docs/development/gitnexus-impact-tracker.md`: most report reads are permitted to Supervisor and Admin despite inconsistent TRD role tables; audit, pilot operations, and materialization refresh are Admin-only. The tracker also records the export throttle and existing error-envelope contract. No backend RBAC change was made.
-- `ReportsWorkspace` is GitNexus **HIGH** impact (6 impacts, 4 direct dependants, 3 processes). Keep role-specific presentation opt-in; Admin Operations must remain on defaults. Re-run GitNexus analysis/`detect_changes()` before any future commit.
-- The OpenSpec change is `openspec/changes/supervisor-operational-reports-dashboard`. Tasks 5.1–5.4 are complete. Task 3.4 remains blocked pending visual review with an authorized Supervisor session and populated live branch data. Fixture-based desktop/tablet/mobile review passed; screenshots are in `/tmp/shopcity-supervisor-reports-{desktop-top,desktop-bottom,mobile-top}.png` and `/tmp/shopcity-admin-reports-{desktop,mobile}.png`.
+- Supervisor/Admin operational report pages have Overview, Insights, and Reports tabs, deep links, responsive controls, clearer field labels, readable customer/cashier identities, and report details/help popups. The combined freshness/cadence badge is removed; materialization state and timestamps remain available.
+- Customer full names and cashier email-like usernames are resolved within tenant and branch scope; IDs remain API fallbacks. Report calculations, authorization, API query contracts, and exports remain unchanged.
+- CSV export skips the global JSON response envelope at the controller route. Browser and backend regressions cover the raw download response.
+- GitNexus `detect-changes` classified the report workspace commit **CRITICAL** (48 symbols, 27 flows), reflecting the shared `ReportsWorkspace` used by Supervisor Reports, Admin Reports, and Admin Operations. Those were the expected affected surfaces; keep future changes scoped and re-run impact/detect-changes before edits/commits.
 
-### Earlier Supervisor UI work
+### Local report demo and database reconciliation
 
-- Supervisor issued-card directory work is in `openspec/changes/supervisor-issued-card-directory`; customer/card directory presentation and Supervisor Transactions alignment remain in the worktree/history. Recent UI commits include `3b07ae7` and `eaf0cad`.
-- Preserve card lifecycle safeguards, branch scoping, stable identity links, transaction reversal controls, and existing customer/card workflows.
+- Added `npm run seed:local-reports-demo`, `scripts/seed-local-report-demo.ts`, and `docs/development/local-report-demo-data.md`. It is guarded for the approved local-only database and seeds synthetic report read models, not fake operational activity.
+- Migration tracker documents local-only reconciliation and verified backups. The active API database is `shopcity_profiles_local_20260929` at `127.0.0.1:55422`; local Supabase bootstrap database `postgres` is separate. The linked development project `nmuedccamqacgszvosvm` was inspected read-only; no shared or production database was changed.
+- Backups are under `/tmp`, including `/tmp/shopcity-active-api-db-before-reconcile-20261011T151500.dump` and `/tmp/shopcity-local-supabase-pre-reconcile-20261011T150000.dump`. Do not treat `/tmp` as durable backup storage.
 
 ## Verification completed
 
-- Full web test suite: 29 suites, 255 tests passed. Focused report suites: 4 suites, 22 tests passed.
-- Playwright report browser tests: 2 passed, including responsive widths (1440, 1024, 768, 390), Admin scope propagation and refresh, tenant-wide Audit/Pilot scope, and Supervisor restrictions.
-- Web typecheck, lint, Prettier check, `git diff --check`, strict OpenSpec validation (46 changes passed), and isolated production build passed.
-- Semgrep security scan of the changed report components: 0 findings.
-- Build used `SHOPCITY_WEB_DIST_DIR` to avoid colliding with `next dev`; its temporary output was removed and its temporary `tsconfig`/`next-env.d.ts` references were restored. For future builds, use a distinct dist directory and preserve existing `.next-*` outputs.
+- Device-management Jest suite: 10 tests passed.
+- CSV interceptor/controller Jest tests: 5 passed.
+- Reports workspace/dashboard Jest tests: 15 passed; report service tests: 16 passed.
+- Reports Playwright browser suite: 3 passed at desktop/tablet/mobile and for CSV/Admin behavior, using the existing dev server at `127.0.0.1:6767`. A fresh server on port 3100 could not start because its Next build referenced a missing `vendor-chunks/next.js`; the existing server run passed.
+- Relevant Prettier, ESLint, TypeScript, style-ownership checks, `git diff --check`, and strict OpenSpec validations passed. One pre-commit lint finding in the report-service mock assertions was corrected before the report commit.
 
-## Next steps
+## Open items and safety gates
 
-1. When available, review the reports page with authorized Admin/Supervisor sessions and real branch-scoped data; update OpenSpec task 3.4 after the live Supervisor review.
-2. Before any future commit, inspect `git status --short`, run GitNexus `detect_changes()` against the intended scope, and verify that only expected files/symbols are affected.
-3. Do not stage, commit, reset, clean, or remove pre-existing worktree/generated files without explicit direction.
+1. Supervisor report OpenSpec task 3.4 still awaits visual acceptance with an authorized Supervisor session and populated live branch data; fixture-based browser checks are not a substitute.
+2. Production WebAuthn hardware qualification remains incomplete and separate from local UI work. Keep production enrollment gated by `WEBAUTHN_DEVICE_QUALIFICATION_APPROVED`; never treat browser attachment metadata as proof of a qualified physical POS.
+3. Preserve the local-only synthetic-data constraint. Do not seed or mutate shared/production databases, expose credentials, or remove the existing database quarantine tables/backups.
+4. Before committing further work, inspect the current worktree, stage only the intended paths, run GitNexus `detect-changes` on the staged scope, and leave generated/unrelated artifacts untouched.
