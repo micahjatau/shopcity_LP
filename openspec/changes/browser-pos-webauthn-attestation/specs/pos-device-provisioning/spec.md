@@ -25,6 +25,30 @@ The system SHALL allow an authorized Admin to manage tenant devices and an autho
 - **AND** stores public credential material and required authenticator metadata only
 - **AND** atomically activates the credential, changes the device to `WEBAUTHN`, consumes the authorization, and audits the result
 
+#### Scenario: Pairing outcome stays visible in its confirmation dialog
+
+- **GIVEN** an authorized actor starts pairing from the confirmation dialog
+- **WHEN** pairing succeeds or fails
+- **THEN** the success or error message is displayed inside that dialog
+- **AND** the dialog remains open until the actor dismisses it
+- **AND** pairing authorization and private credential material are not displayed
+
+#### Scenario: Device management panels adapt to viewport width
+
+- **GIVEN** an authorized actor opens device management
+- **WHEN** the viewport is wide enough for a two-column layout
+- **THEN** the create-device panel appears to the left of the device list and details
+- **WHEN** the viewport is tablet or mobile width
+- **THEN** the create-device panel and device list stack vertically
+
+#### Scenario: Device selection uses a styled button menu
+
+- **GIVEN** the actor has one or more devices in their authorized scope
+- **WHEN** the actor activates the Device selector
+- **THEN** a styled listbox of those devices is displayed from a button matching the page controls
+- **AND** the actor can choose a device using pointer or keyboard interaction
+- **AND** selection updates the device details without changing the authorized scope
+
 ### Requirement: Device-attested sessions remain fail-closed
 
 For CASHIER, valid account authentication SHALL NOT create a ShopCity session until the backend also verifies fresh device proof for an active, branch-compatible device. WebAuthn login SHALL use two phases: password success creates only a short-lived, single-use login attempt and returns `DEVICE_ASSERTION_REQUIRED` with WebAuthn options; it SHALL issue no ShopCity session, session cookie, CSRF token, or refresh authority. Only successful login completion after rechecking account, tenant, device, credential, branch, and challenge state MAY issue a session. Every WebAuthn cashier session SHALL bind both `deviceId` and `deviceCredentialId`. A WebAuthn credential SHALL be scoped to the POS device, not to a single cashier; each eligible cashier SHALL authenticate with their own account credentials and a fresh assertion using that paired device credential. Supervisor/Admin login SHALL remain on the existing path unless separately approved.

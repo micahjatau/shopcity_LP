@@ -1513,6 +1513,307 @@
   }
 }
 
+.device-management-page {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.device-management-page > .device-management__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-spacing-4);
+}
+
+.device-management-page .device-management__status {
+  margin: 0;
+  padding: 8px 0 10px;
+  color: var(--sc-prototype-muted);
+  font-size: var(--sc-font-size-caption);
+  line-height: 1.4;
+}
+
+.device-management__workspace {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.82fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.device-management-page .device-management__panel {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+  padding: 16px 20px 14px;
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: 16px;
+  background: var(--sc-prototype-surface);
+}
+
+.device-management-page .device-management__panel > h2 {
+  margin: 0;
+}
+
+.device-management__create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
+}
+
+.device-management__field {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--sc-prototype-muted);
+  font-size: var(--sc-font-size-caption);
+  line-height: var(--sc-line-height-caption);
+}
+
+.device-management__field > span {
+  font-weight: 600;
+}
+
+.device-management-page .device-management__field :is(.sc-input, .sc-select) {
+  width: 100%;
+  min-height: var(--sc-size-control);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-prototype-canvas);
+}
+
+.device-management__create-form > .sc-button {
+  min-height: var(--sc-size-control);
+  white-space: nowrap;
+}
+
+.device-management__selector {
+  width: 100%;
+  max-width: 30rem;
+}
+
+.device-management-page .device-management__list-panel {
+  overflow: visible;
+}
+
+.device-management__selector-dropdown {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  min-width: 0;
+}
+
+.device-management__selector-trigger.sc-button {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  font-size: var(--sc-font-size-lg);
+  text-align: left;
+}
+
+.device-management__selector-trigger > span {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-spacing-3);
+}
+
+.device-management__selector-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-management__selector-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: min(18rem, 55vh);
+  gap: 2px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: 12px;
+  background: var(--sc-prototype-surface);
+  box-shadow: var(--sc-shadow-level2);
+}
+
+.device-management__selector-option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--sc-size-controlCompact);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-spacing-3);
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sc-prototype-foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.device-management__selector-option:hover,
+.device-management__selector-option:focus-visible,
+.device-management__selector-option[aria-selected='true'] {
+  background: var(--sc-color-neutral-50);
+  color: var(--sc-color-semantic-textPrimary);
+}
+
+.device-management__selector-option:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-focus);
+  outline-offset: -2px;
+}
+
+.device-management__selector-option > span {
+  overflow-wrap: anywhere;
+}
+
+.device-management__summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.device-management__summary-table :is(th, td) {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--sc-prototype-border);
+  text-align: left;
+}
+
+.device-management__summary-table th {
+  width: 13rem;
+  color: var(--sc-prototype-muted);
+  font-weight: 600;
+}
+
+.device-management__credentials {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sc-prototype-border);
+}
+
+.device-management__credentials > h3 {
+  margin: 0;
+}
+
+.device-management__locator-flow {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.device-management__locator-flow > p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--sc-prototype-muted);
+  line-height: 1.5;
+}
+
+.device-management__credential-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.device-management__credential-table {
+  min-width: 42rem;
+}
+
+.device-management__actions,
+.device-management__pairing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-spacing-2);
+}
+
+.device-management__pairing-dialog {
+  display: grid;
+  gap: var(--sc-spacing-4);
+}
+
+.device-management__pairing-dialog > p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--sc-prototype-muted);
+  line-height: 1.5;
+}
+
+.device-management__pairing-dialog > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.device-management__secret-value {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: var(--sc-spacing-3);
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: 12px;
+  background: var(--sc-prototype-canvas);
+}
+
+@media (max-width: 960px) {
+  .device-management__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-management__create-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .device-management__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-management__create-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-management-page > .device-management__header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .device-management-page > .device-management__header .sc-page-head__actions {
+    width: auto;
+    margin-left: auto;
+  }
+
+  .device-management__create-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .device-management__create-form > .sc-button {
+    grid-column: auto;
+    width: 100%;
+  }
+
+  .device-management-page .device-management__panel {
+    padding: 14px;
+  }
+
+  .device-management__summary-table th {
+    width: 8rem;
+  }
+}
+
 .supervisor-transactions-dashboard {
   gap: 18px;
 }

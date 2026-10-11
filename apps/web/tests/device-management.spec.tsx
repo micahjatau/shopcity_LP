@@ -133,6 +133,18 @@ describe('DeviceManagement', () => {
     );
     expect(createEnrollment).not.toHaveBeenCalled();
     expect(
+      screen.getByRole('dialog', { name: 'Before pairing this register' }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Pair on target POS browser' }),
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Before pairing this register' }),
+    ).toBeVisible();
+    expect(
       screen.getByText(
         /software cannot independently prove physical register identity/i,
       ),
@@ -163,6 +175,47 @@ describe('DeviceManagement', () => {
       'device-1',
     );
     expect(window.localStorage.length).toBe(1);
+    expect(
+      screen.getByRole('dialog', { name: 'Before pairing this register' }),
+    ).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /credential paired on this browser/i,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows pairing errors inside the confirmation dialog until dismissed', async () => {
+    Object.defineProperty(navigator, 'credentials', {
+      configurable: true,
+      value: { create: jest.fn() },
+    });
+    jest
+      .mocked(branchesControllerCreateDeviceEnrollmentV1)
+      .mockResolvedValue({ status: 403, data: {} } as never);
+
+    render(<DeviceManagement />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Pair on target POS browser' }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /i confirm this is the target POS browser/i,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Start pairing on this browser' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /pairing failed, expired, or is blocked by the server qualification gate/i,
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Before pairing this register' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry pairing' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('restores the device locator only after target-POS confirmation for an active credential', async () => {
@@ -214,6 +267,38 @@ describe('DeviceManagement', () => {
     ).toBeVisible();
   });
 
+  it('opens a button-matched device menu and supports keyboard selection', async () => {
+    const secondDevice = {
+      ...activeUnpairedDevice,
+      id: 'device-2',
+      name: 'Back register',
+    };
+    jest.mocked(branchesControllerListDevicesV1).mockResolvedValue({
+      status: 200,
+      data: { success: true, data: [activeUnpairedDevice, secondDevice] },
+    } as never);
+
+    render(<DeviceManagement />);
+    const trigger = await screen.findByRole('button', {
+      name: 'Device: Front register',
+    });
+    fireEvent.click(trigger);
+
+    expect(
+      screen.getByRole('listbox', { name: 'Device options' }),
+    ).toBeVisible();
+    fireEvent.keyDown(screen.getByRole('option', { name: 'Front register' }), {
+      key: 'ArrowDown',
+    });
+    expect(screen.getByRole('option', { name: 'Back register' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('option', { name: 'Back register' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Device: Back register' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
   it('limits Supervisor device creation to the session branch without listing all branches', async () => {
     jest.mocked(getCurrentSession).mockResolvedValue({
       user: {
@@ -234,7 +319,20 @@ describe('DeviceManagement', () => {
     } as never);
 
     render(<DeviceManagement supervisor />);
-    await screen.findByText(/branch is locked to your assigned branch/i);
+    await screen.findByRole('button', { name: 'Pair on target POS browser' });
+    const createPanel = screen.getByRole('region', { name: 'Create device' });
+    const listPanel = screen.getByRole('region', { name: 'Device list' });
+    expect(createPanel.parentElement).toHaveClass(
+      'device-management__workspace',
+    );
+    expect(listPanel.parentElement).toBe(createPanel.parentElement);
+    expect(createPanel.parentElement?.lastElementChild).toBe(listPanel);
+    expect(
+      screen.queryByText(/branch is locked to your assigned branch/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Refresh devices' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('combobox', { name: 'Branch' }),
     ).not.toBeInTheDocument();

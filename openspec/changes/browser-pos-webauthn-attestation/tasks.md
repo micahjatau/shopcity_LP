@@ -49,6 +49,9 @@
 - [x] 6.4 Remove manual `fingerprintHash` entry; set it null for WebAuthn devices. Any optional random browser installation ID is non-secret locator metadata only.
 - [x] 6.5 Ensure pairing authorization, private credential material, HMAC secrets, and password/login-attempt secrets never appear in URLs, logs, analytics, or persistent browser storage.
 - [x] 6.6 Clear cashier-only missing-device guidance when switching to Supervisor/Admin and cover the selection flow with a frontend test.
+- [x] 6.7 Keep pairing outcomes visible in the confirmation dialog until dismissed and align the device selector dimensions with standard button controls.
+- [x] 6.8 Place the create-device panel left of the device inventory on wide screens and stack the panels at tablet/mobile widths.
+- [x] 6.9 Replace the browser-native device selector with a matching, keyboard-accessible button menu.
 
 ## 7. Migrate legacy HMAC devices
 
