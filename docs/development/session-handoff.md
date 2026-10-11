@@ -1,66 +1,56 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-10
+Updated: 2026-10-11
 
-## Repository state
+## Repository and preservation notes
 
 - Repository: `/root/github-repos/micahjatau/shopcity_LP`
 - Branch: `workflow-states-implementation`
-- Current `HEAD`: `9d5c18c` — `feat(supervisor): add customer directory and profile`
-- The worktree contains numerous pre-existing and current uncommitted changes, plus unrelated untracked assets. Do not reset, clean, stage, or commit them without explicit direction. Supplied customer SVGs and screenshots were preserved.
-- A web production build was run with `SHOPCITY_WEB_DIST_DIR=.next-profile-card-tab-build`. It generated that build directory and ran the token generator; do not remove generated output or alter the existing `apps/web/tsconfig.json` includes without checking the current diff first.
-- No production/remote service configuration was changed during the latest work.
+- Latest code commit: `eaf0cad` — `style(supervisor): align transaction directory with customer tables`
+- Recent feature commits are separate: `3b07ae7` — `feat(supervisor): align customer and issued card directories`; `eaf0cad` — `style(supervisor): align transaction directory with customer tables`.
+- There are still extensive uncommitted changes, including unrelated prior work, customer profile/reference assets, and untracked `.next-*` build directories. Preserve them: do not reset, clean, delete, stage, or commit without explicit direction.
+- `apps/web/tsconfig.json`, `apps/web/tsconfig.tsbuildinfo`, `AGENTS.md`, `CLAUDE.md`, and generated test-result metadata remain dirty; inspect their current diffs before touching them.
+- Dev servers are running and return HTTP 200: frontend `http://localhost:6767`, API `http://localhost:3000`. Keep them running.
 
-## Latest request: move the card preview
+## Recent completed work
 
-The card graphic preview now appears only in the customer profile's **Virtual Card** tab:
+### Supervisor issued-card directory
 
-- Reusable preview: `apps/web/components/workflows/supervisor-virtual-card-preview.tsx`.
-- Profile placement and tab content: `apps/web/components/workflows/customer-details-dialog.tsx`.
-- The Supervisor **Manage cards** workflow no longer renders the graphic. Its verified card details and protected block/replace actions remain intact in `apps/web/components/workflows/supervisor-card-management.tsx`.
-- The profile preview uses verified customer/card projection data; it does not use the supplied sample SVG as customer data and performs no card lifecycle writes.
-- The preview uses `apps/web/public/brand/supervisor/cutomer-profile/card-branding.png` as its ShopCity logo via `next/image`, displayed at 3.5rem high with its aspect ratio preserved. The supplied, untracked PNG remains unchanged. OpenSpec tasks 4.7 and 4.8 are checked complete.
+- The issued-card collection API is in commit `ba55d21`; directory presentation, accessible status filtering, and SOM issue-date calendar updates are in commit `3b07ae7`.
+- The directory shows ACTIVE, BLOCKED, and REPLACED cards, uses the Customers table styling with card-specific column widths, and retains stable-ID profile links and lifecycle safeguards.
+- The status dropdown reuses the Customers directory's accessible rounded button/listbox styling and keyboard interaction. Assign card, Date issued, search, and row-action styling are aligned to the Customers directory.
+- Michigan SOM calendar integration remains in place, including selected-date summary, sequential range selection, and compact popup.
+- Relevant OpenSpec: `openspec/changes/supervisor-issued-card-directory`; strict validation passed.
 
-The card-move work and prior profile/typography/ledger changes remain uncommitted.
+### Customers directory
 
-## Completed implementation context
+- Its status filter is a rounded trigger with an accessible selected-state listbox and keyboard support.
+- The change is local to the customer directory; shared `Select` and high-impact status-badge primitives were not altered.
 
-- The Supervisor customer directory and stable-ID customer profile are implemented, including registration feedback, cursor pagination, read-only details with the existing edit dialog, dirty-state protection, profile projections, and protected cashier handoffs.
-- Transactions and Wallet Ledger use responsive tables and tenant/customer-scoped data. Missing values remain “Not provided”; internal receipt/ledger IDs are not exposed.
-- Supervisor typography was unified with rem-based tokens while retaining established layouts and colors.
-- Wallet Ledger's earlier generic local error was traced to a missing Next.js `_document.js` build artifact. The frontend was restarted on port 6767; unauthenticated ledger requests reach the API and correctly return `401 AUTH_REQUIRED`.
-- `/supervisor/cards?tab=manage` is a serial lookup and verification workflow, not a card gallery. Live records cannot be inspected without an authenticated Supervisor session.
+### Supervisor Transactions
 
-## Verification completed
+- `/supervisor/transactions` now reuses Customers directory table styling, including labeled row cards on narrow screens.
+- Status and Staff use rounded accessible dropdown triggers/menus; branch scope, explicit filter submission, cursor pagination, transaction details, and reversal safeguards are unchanged.
+- Refresh uses the Customers table's neutral action-pill treatment with a subtle border.
+- The visible label, accessible name, and placeholder are **Minimum amount (₦)**. All placeholders on this page, including reversal-dialog fields, use 12px text. These presentation changes are committed in `eaf0cad`.
+- The Cashier `/cashier/transactions` page was not changed by this work.
+- Relevant OpenSpec: `openspec/changes/supervisor-transaction-receipt-search-dialog`; strict validation passed.
 
-- Focused profile/card-management Jest tests after the logo sizing adjustment: 2 suites, 34 tests passed.
-- Full web unit tests: 28 suites, 221 tests passed; accessibility tests: 27 suites, 216 tests passed (both completed before the branding-only update).
-- Web lint and TypeScript typecheck passed after the branding update.
-- Web production build passed after adding the branding image using the isolated `.next-card-branding-build` directory; the subsequent size adjustment changed only the image height utility class.
-- Focused Playwright stable-ID profile workflow passed against the existing frontend on port 6767 using system Chromium. It verifies that the graphic is absent from the overview, present in Virtual Card, that the supplied branding image loads at the enlarged size, then continues through Transactions, Wallet Ledger, and edit-dialog checks. Screenshot: `/tmp/shopcity-profile-virtual-card.png`.
-- Strict OpenSpec validation, Prettier check, and `git diff --check` passed after the branding update.
+## Verification
 
-A representative Playwright invocation (the config is session-local under `/tmp`):
+Passed after the latest edits:
 
-```bash
-cd apps/web
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:6767 \
-  ./node_modules/.bin/playwright test \
-  --config /tmp/shopcity-system-chromium.playwright.config.mjs \
-  /root/github-repos/micahjatau/shopcity_LP/apps/web/tests/workflow-routes.spec.ts \
-  -g 'preserves directory search context through a stable-ID profile and guards dirty cancellation'
-```
+- Focused Jest: `supervisor-card-management.spec.tsx`, `supervisor-customer-table-profile.spec.tsx`, `supervisor-issue-date-range-picker.spec.tsx`, and `supervisor-transactions-dashboard.spec.tsx` passed.
+- `npm --prefix apps/web run typecheck` passed.
+- ESLint passed for the changed Supervisor UI components and tests.
+- Prettier, strict OpenSpec validation for the customer/card/transaction changes, and `git diff --check` passed.
+
+Browser verification is still outstanding. The focused Playwright route test was attempted, but Playwright could not launch because Chromium is missing from `/root/.cache/ms-playwright/chromium_headless_shell-1234/...`. The failed-test artifact created during that attempt was removed. The browser test source was updated to check shared table styling, filter menus, Refresh styling, and placeholder font/label behavior, but those browser assertions have not run. If visual/browser verification is needed, first check for an available system Chromium or the prior temporary config at `/tmp/shopcity-system-chromium.playwright.config.mjs`; otherwise resolve the browser installation before retrying.
+
+GitNexus impact results were LOW: `SupervisorIssuedCardDirectory` has one direct dependant (`SupervisorCardWorkflows`); `SupervisorCustomerWorkflows` and `SupervisorTransactionsDashboard` have zero direct dependants. `detect-changes --repo shopcity_LP --scope all` reported 25 files, 23 symbols, zero affected processes, and LOW risk before the two feature commits. The index was stale (indexed at `5719617`); a prior re-index attempt failed because its FTS index was inconsistent. No HIGH/CRITICAL risks were reported.
 
 ## Next steps
 
-1. Continue the remaining acceptance work in `openspec/changes/supervisor-customer-table-profile-workflow/tasks.md`, especially visual/responsive/accessibility checks and broader Playwright coverage (tasks 3.1, 4.1–4.3, 5.2–5.4 remain open).
-2. Review the complete current `git status` and diffs before editing or staging; retain all unrelated dirty/untracked files and reference assets.
-3. If Wallet Ledger is tested again, use an authenticated session. If it fails there, inspect the browser Network response status and error code.
-4. Login troubleshooting is unresolved because the selected role and exact on-screen error have not been supplied. Ask only for those details; never request a password.
-5. Do not claim visibility into live virtual cards without an authenticated Supervisor session.
-
-## Local runtime
-
-- Frontend dev server: `127.0.0.1:6767` (reused for the latest Playwright check).
-- API server: port 3000.
-- The standalone Playwright server on port 3100 may conflict with the existing frontend because both can use `apps/web/.next`; prefer reusing port 6767 for this workflow.
+1. Continue from the current worktree; inspect `git status --short` and targeted diffs before any edits.
+2. If browser visual verification is requested, use an available Chromium setup; do not discard or overwrite existing build artifacts while doing so.
+3. Keep all API, tenant/branch scoping, stable-identity verification, and transaction/card lifecycle safeguards intact. No financial, API, or schema behavior changed in the latest UI work.

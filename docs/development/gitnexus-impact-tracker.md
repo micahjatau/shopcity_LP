@@ -11,6 +11,66 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-11 — Align Supervisor Transactions table and filters to Customers directory
+
+`SupervisorTransactionsDashboard` has LOW upstream risk: zero direct dependants, affected processes, or modules. The presentation changes preserve branch scope, explicit filter submission, pagination, transaction detail, and reversal safeguards; Refresh now uses the bordered Customers table action-pill treatment, and the amount field's label/placeholder use `Minimum amount (₦)` with a consistent 12px placeholder size throughout the route.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --direction upstream --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
+### 2026-10-11 — Match issued-card table and controls to Customers directory
+
+`SupervisorIssuedCardDirectory` has LOW upstream risk: one direct dependant (`SupervisorCardWorkflows`), no affected processes or modules. The directory now reuses the Customers table action/toolbar/filter/primary-button styles, with card-specific column widths; API and lifecycle behavior are unchanged.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --direction upstream --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
+### 2026-10-11 — Match the Supervisor Customers status dropdown to the filter button
+
+`SupervisorCustomerWorkflows` has LOW upstream risk: zero direct dependants, affected processes, or modules. The status menu is scoped to the customer directory; no shared UI primitive or customer filtering semantics are changed.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --direction upstream --file apps/web/components/workflows/supervisor-customer-workflows.tsx SupervisorCustomerWorkflows
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
+### 2026-10-11 — Replace the temporary issue-date picker with the authorized SOM component
+
+`SupervisorIssuedCardDirectory` has LOW upstream risk: one direct dependant (`SupervisorCardWorkflows`), no affected processes or modules. The local index is stale; the attempted re-index failed because its FTS index is inconsistent, but the existing index resolved the symbol and direct caller.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --direction upstream --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory
+```
+
+No HIGH/CRITICAL symbol-level impact was reported. The change is confined to date-picker presentation/event mapping; the issued-card endpoint, tenant/date filtering semantics, and lifecycle protections remain unchanged.
+
+### 2026-10-11 — Refine issue-date and assignment controls
+
+`SupervisorIssuedCardDirectory` has LOW upstream risk: one direct dependant (`SupervisorCardWorkflows`), no affected processes or modules. This refinement changes the date trigger, popup presentation, selected-range field, and toolbar button sizing only; API filters and card workflows are unchanged.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --direction upstream --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
+### 2026-10-11 — Style Supervisor issued-card status options
+
+`SupervisorIssuedCardDirectory` has LOW upstream risk: one direct dependant (`SupervisorCardWorkflows`), no affected processes or modules. The native select is replaced locally by an accessible styled listbox; shared Select behavior remains untouched.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --direction upstream --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
 ### 2026-10-10 — Polish Supervisor issued-card controls
 
 Upstream GitNexus impact is LOW for each edited UI symbol: `SupervisorIssuedCardDirectory` (1 impacted symbol; 1 `SupervisorCardsPage` process), `SupervisorCardWorkflows` (0), `SupervisorCardsPage` (0), and `SupervisorCardAssignment` (1 impacted symbol; 1 `SupervisorCardsPage` process). `SupervisorVirtualCardPreview` is LOW (3 impacted symbols across 2 processes: `SupervisorCustomerProfilePage` and `CustomerDetailsDialog`), and the UI `Popover` primitive is LOW (1 direct dependant, no indexed process). No HIGH/CRITICAL impact was reported. The work is scoped to presentation and UI orchestration; API filtering, tenant scope, stable customer identity, and lifecycle protections remain unchanged.
