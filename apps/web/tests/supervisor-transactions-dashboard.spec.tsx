@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {
   loyaltyControllerGetTransactionV1,
   loyaltyControllerSearchTransactionsByReceiptV1,
@@ -96,6 +102,9 @@ describe('SupervisorTransactionsDashboard', () => {
 
     render(<SupervisorTransactionsDashboard />);
     await waitForInitialListLoad();
+    expect(
+      screen.getByRole('button', { name: 'Refresh transactions' }),
+    ).toHaveClass('supervisor-customer-table__profile-link');
     expect(await screen.findByText('R-001')).toBeInTheDocument();
     expect(loyaltyControllerSearchTransactionsByReceiptV1).toHaveBeenCalledWith(
       { limit: 10, cursor: undefined },
@@ -123,6 +132,15 @@ describe('SupervisorTransactionsDashboard', () => {
       screen.queryByRole('columnheader', { name: 'Eligible' }),
     ).not.toBeInTheDocument();
     expect(screen.getByText('Michael Adeyemi')).toBeInTheDocument();
+    const table = screen.getByRole('table', {
+      name: 'Supervisor branch transactions',
+    });
+    expect(table).toHaveClass('supervisor-customer-table');
+    expect(receipt.closest('td')).toHaveAttribute('data-label', 'Receipt No.');
+    expect(screen.getByText('Michael Adeyemi').closest('td')).toHaveAttribute(
+      'data-label',
+      'Name',
+    );
     const row = receipt.closest('tr');
     expect(row).not.toBeNull();
     row!.focus();
@@ -316,23 +334,68 @@ describe('SupervisorTransactionsDashboard', () => {
       ).toHaveBeenCalledTimes(3),
     );
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Status filter' }), {
-      target: { value: 'REVERSED' },
+    const statusTrigger = screen.getByRole('button', {
+      name: 'Status filter, All Statuses',
     });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Staff filter' }), {
-      target: { value: 'cashier-1' },
-    });
-    fireEvent.change(
-      screen.getByRole('textbox', { name: 'Minimum receipt amount' }),
-      { target: { value: '10000.01' } },
+    expect(statusTrigger).toHaveClass(
+      'supervisor-customer-directory__filter',
+      'supervisor-customer-directory__status-trigger',
     );
+    fireEvent.click(statusTrigger);
+    const statusOptions = screen.getByRole('listbox', {
+      name: 'Status filter',
+    });
+    expect(statusOptions).toHaveClass(
+      'supervisor-customer-directory__status-menu',
+    );
+    const allStatuses = within(statusOptions).getByRole('option', {
+      name: 'All Statuses',
+    });
+    expect(allStatuses).toHaveFocus();
+    fireEvent.keyDown(allStatuses, { key: 'ArrowDown' });
+    const confirmedStatus = within(statusOptions).getByRole('option', {
+      name: 'Confirmed',
+    });
+    expect(confirmedStatus).toHaveFocus();
+    fireEvent.keyDown(confirmedStatus, { key: 'ArrowDown' });
+    const reversedStatus = within(statusOptions).getByRole('option', {
+      name: 'Reversed',
+    });
+    expect(reversedStatus).toHaveFocus();
+    fireEvent.click(reversedStatus);
+    const staffTrigger = screen.getByRole('button', {
+      name: 'Staff filter, All Staff',
+    });
+    expect(staffTrigger).toHaveClass(
+      'supervisor-customer-directory__filter',
+      'supervisor-customer-directory__status-trigger',
+    );
+    fireEvent.click(staffTrigger);
+    const staffOptions = screen.getByRole('listbox', { name: 'Staff filter' });
+    expect(staffOptions).toHaveClass(
+      'supervisor-customer-directory__status-menu',
+    );
+    fireEvent.click(
+      within(staffOptions).getByRole('option', {
+        name: 'cashier@example.test',
+      }),
+    );
+    expect(screen.getByText('Minimum amount (₦)')).toBeInTheDocument();
+    const minimumAmountInput =
+      screen.getByPlaceholderText('Minimum amount (₦)');
+    expect(minimumAmountInput).toHaveAccessibleName('Minimum amount (₦)');
+    fireEvent.change(minimumAmountInput, {
+      target: { value: '10000.01' },
+    });
     expect(
       screen.getByRole('button', { name: 'Previous transactions page' }),
     ).toBeDisabled();
     expect(
       screen.getByRole('button', { name: 'Next transactions page' }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    const applyFilters = screen.getByRole('button', { name: 'Apply filters' });
+    expect(applyFilters).toHaveClass('supervisor-customer-directory__register');
+    fireEvent.click(applyFilters);
 
     await waitFor(() =>
       expect(
@@ -449,9 +512,10 @@ describe('SupervisorTransactionsDashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByText('R-001')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Status filter' }), {
-      target: { value: 'REVERSED' },
-    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Status filter, All Statuses' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Reversed' }));
     expect(refreshButton).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
     await waitFor(() =>

@@ -1524,7 +1524,7 @@
 }
 
 .supervisor-transactions-dashboard .supervisor-transaction-search {
-  grid-template-columns: minmax(190px, 1.7fr) repeat(3, minmax(125px, 1fr)) auto;
+  grid-template-columns: minmax(190px, 1.7fr) repeat(3, minmax(154px, 1fr)) auto;
   align-items: end;
   gap: 10px;
   padding-bottom: 14px;
@@ -1544,24 +1544,50 @@
   font-weight: 600;
 }
 
-.supervisor-transactions-dashboard .supervisor-transaction-search input,
-.supervisor-transactions-dashboard .supervisor-transaction-search select {
-  min-height: 38px;
+.supervisor-transactions-dashboard .supervisor-transaction-search input {
+  min-height: 40px;
   border-radius: 999px;
   background: var(--sc-prototype-canvas);
 }
 
-.supervisor-transactions-dashboard .supervisor-transaction-search select {
+.supervisor-transactions-dashboard input::placeholder,
+.supervisor-transactions-dashboard textarea::placeholder {
+  color: #737373;
+  font-size: 12px;
+  opacity: 1;
+}
+
+.supervisor-transactions-dashboard .supervisor-transaction-filter-dropdown {
+  width: 100%;
+}
+
+.supervisor-transactions-dashboard
+  .supervisor-customer-directory__status-trigger.sc-button {
   width: 100%;
   min-width: 0;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--sc-prototype-border);
-  border-radius: 999px;
-  color: var(--sc-color-semantic-textPrimary);
-  font: inherit;
-  font-size: var(--sc-font-size-base);
-  line-height: var(--sc-line-height-base);
+}
+
+.supervisor-transactions-dashboard
+  .supervisor-transaction-filter-dropdown__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supervisor-transactions-dashboard
+  .supervisor-transaction-filter-dropdown
+  .supervisor-customer-directory__status-menu {
+  max-height: min(18rem, calc(100vh - 2rem));
+  overflow-y: auto;
+}
+
+.supervisor-transactions-dashboard
+  .supervisor-transaction-filter-dropdown
+  .supervisor-customer-directory__status-option
+  > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .supervisor-transaction-filter-error {
@@ -1583,31 +1609,32 @@
   overflow-x: auto;
 }
 
-.supervisor-transaction-table-card table {
-  width: 100%;
-  min-width: 900px;
-  border-collapse: collapse;
+.supervisor-transaction-table-card .supervisor-transaction-table {
+  min-width: 760px;
 }
 
-.supervisor-transaction-table-card thead th {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--sc-prototype-border);
-  background: var(--sc-prototype-canvas);
-  color: var(--sc-prototype-muted);
-  font-size: var(--sc-font-size-caption);
-  font-weight: 600;
-  line-height: var(--sc-line-height-caption);
-  text-align: left;
-  white-space: nowrap;
+.supervisor-transaction-table th:first-child {
+  width: 16%;
 }
 
-.supervisor-transaction-table-card tbody td {
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--sc-prototype-border);
-  color: var(--sc-color-semantic-textPrimary);
-  font-size: var(--sc-font-size-sm);
-  line-height: var(--sc-line-height-sm);
-  white-space: nowrap;
+.supervisor-transaction-table th:nth-child(2) {
+  width: 18%;
+}
+
+.supervisor-transaction-table th:nth-child(3) {
+  width: 17%;
+}
+
+.supervisor-transaction-table th:nth-child(4) {
+  width: 14%;
+}
+
+.supervisor-transaction-table th:nth-child(5) {
+  width: 21%;
+}
+
+.supervisor-transaction-table th:last-child {
+  width: 14%;
 }
 
 .supervisor-transaction-table-card tbody tr:hover {
@@ -1645,13 +1672,14 @@
 }
 
 .supervisor-transactions-dashboard .supervisor-transaction-refresh {
-  min-height: 32px;
-  padding: 0 12px;
-  border-color: #e4e4e4;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #ded9da;
   border-radius: 999px;
-  background: #fff;
-  color: var(--sc-color-semantic-textPrimary);
-  font-size: 12px;
+  background: #f6f4f5;
+  color: #4a4a4a;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .supervisor-transactions-dashboard .supervisor-transaction-refresh-content {
@@ -1663,8 +1691,8 @@
 
 .supervisor-transactions-dashboard
   .supervisor-transaction-refresh:hover:not(:disabled) {
-  border-color: #c9151c;
-  color: var(--sc-color-semantic-textPrimary);
+  background: #ece9ea;
+  color: #9e1015;
 }
 
 .supervisor-transactions-dashboard
@@ -1831,6 +1859,14 @@
 }
 
 @media (max-width: 767px) {
+  .supervisor-transactions-dashboard .supervisor-transaction-table {
+    min-width: 0;
+  }
+
+  .supervisor-transactions-dashboard .supervisor-transaction-table-scroll {
+    overflow: visible;
+  }
+
   .supervisor-transactions-dashboard > .supervisor-page__header {
     flex-direction: row;
     align-items: center;

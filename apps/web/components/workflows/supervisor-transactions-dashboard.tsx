@@ -1,8 +1,16 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  RefreshCw,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   loyaltyControllerGetTransactionV1,
   loyaltyControllerSearchTransactionsByReceiptV1,
@@ -98,6 +106,147 @@ function statusLabel(status: string) {
   return normalized
     ? normalized[0].toUpperCase() + normalized.slice(1)
     : 'Unknown';
+}
+
+type TransactionFilterOption = Readonly<{ value: string; label: string }>;
+
+function SupervisorTransactionFilterDropdown({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+  disabled = false,
+}: Readonly<{
+  id: string;
+  label: string;
+  value: string;
+  options: readonly TransactionFilterOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}>) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+  const selectedOption = options[selectedIndex];
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  useEffect(() => {
+    if (open) optionRefs.current[activeIndex]?.focus();
+  }, [activeIndex, open]);
+
+  const handleOptionKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | undefined;
+    if (event.key === 'ArrowDown') nextIndex = (index + 1) % options.length;
+    if (event.key === 'ArrowUp')
+      nextIndex = (index - 1 + options.length) % options.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = options.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      setActiveIndex(nextIndex);
+      optionRefs.current[nextIndex]?.focus();
+    }
+    if (event.key === 'Tab') setOpen(false);
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      className="supervisor-customer-directory__status-filter supervisor-transaction-filter-dropdown"
+    >
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="secondary"
+        className="supervisor-customer-directory__filter supervisor-customer-directory__status-trigger"
+        aria-label={`${label}, ${selectedOption.label}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={`${id}-options`}
+        disabled={disabled}
+        onClick={() => {
+          if (!open) setActiveIndex(selectedIndex);
+          setOpen((current) => !current);
+        }}
+      >
+        <Filter aria-hidden="true" size={15} />
+        <span className="supervisor-transaction-filter-dropdown__value">
+          {selectedOption.label}
+        </span>
+        <ChevronDown aria-hidden="true" size={14} />
+      </Button>
+      {open ? (
+        <div
+          id={`${id}-options`}
+          className="supervisor-customer-directory__status-menu"
+          role="listbox"
+          aria-label={label}
+        >
+          {options.map((option, index) => (
+            <button
+              key={option.value}
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
+              type="button"
+              role="option"
+              aria-selected={value === option.value}
+              tabIndex={activeIndex === index ? 0 : -1}
+              className="supervisor-customer-directory__status-option"
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
+              <span>{option.label}</span>
+              {value === option.value ? (
+                <Check aria-hidden="true" size={14} />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function SupervisorTransactionsDashboard() {
@@ -411,6 +560,18 @@ export function SupervisorTransactionsDashboard() {
   }
 
   const currentPage = pageIndex + 1;
+  const statusFilterOptions: readonly TransactionFilterOption[] = [
+    { value: '', label: 'All Statuses' },
+    { value: 'CONFIRMED', label: 'Confirmed' },
+    { value: 'REVERSED', label: 'Reversed' },
+  ];
+  const staffFilterOptions: readonly TransactionFilterOption[] = [
+    { value: '', label: 'All Staff' },
+    ...staffOptions.map((option) => ({
+      value: option.id,
+      label: option.label,
+    })),
+  ];
 
   return (
     <section
@@ -427,7 +588,7 @@ export function SupervisorTransactionsDashboard() {
           <Button
             variant="secondary"
             size="compact"
-            className="supervisor-transaction-refresh"
+            className="supervisor-customer-table__profile-link supervisor-transaction-refresh"
             type="button"
             aria-label="Refresh transactions"
             title="Refresh transactions"
@@ -483,65 +644,50 @@ export function SupervisorTransactionsDashboard() {
               }}
             />
           </label>
-          <label
-            className="supervisor-transaction-filter"
-            htmlFor="supervisor-transaction-status-filter"
-          >
+          <div className="supervisor-transaction-filter">
             <span>Status</span>
-            <select
+            <SupervisorTransactionFilterDropdown
               id="supervisor-transaction-status-filter"
-              aria-label="Status filter"
+              label="Status filter"
               value={statusFilter}
-              onChange={(event) => {
+              options={statusFilterOptions}
+              onChange={(value) => {
                 setStatusFilter(
-                  event.target.value as
+                  value as
                     LoyaltyControllerSearchTransactionsByReceiptV1Status | '',
                 );
                 setFiltersDirty(true);
                 setFilterError('');
               }}
-            >
-              <option value="">All Statuses</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="REVERSED">Reversed</option>
-            </select>
-          </label>
-          <label
-            className="supervisor-transaction-filter"
-            htmlFor="supervisor-transaction-staff-filter"
-          >
+            />
+          </div>
+          <div className="supervisor-transaction-filter">
             <span>Staff</span>
-            <select
+            <SupervisorTransactionFilterDropdown
               id="supervisor-transaction-staff-filter"
-              aria-label="Staff filter"
+              label="Staff filter"
               value={staffFilter}
+              options={staffFilterOptions}
               disabled={searching}
-              onChange={(event) => {
-                setStaffFilter(event.target.value);
+              onChange={(value) => {
+                setStaffFilter(value);
                 setFiltersDirty(true);
                 setFilterError('');
               }}
-            >
-              <option value="">All Staff</option>
-              {staffOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <label
             className="supervisor-transaction-filter"
             htmlFor="supervisor-transaction-minimum-amount"
           >
-            <span>Minimum receipt amount (naira)</span>
+            <span>Minimum amount (₦)</span>
             <Input
               id="supervisor-transaction-minimum-amount"
-              aria-label="Minimum receipt amount"
+              aria-label="Minimum amount (₦)"
               autoComplete="off"
               inputMode="decimal"
               maxLength={20}
-              placeholder="Min. Amount"
+              placeholder="Minimum amount (₦)"
               value={minimumAmount}
               onChange={(event) => {
                 setMinimumAmount(event.target.value);
@@ -550,7 +696,11 @@ export function SupervisorTransactionsDashboard() {
               }}
             />
           </label>
-          <Button type="submit" loading={searching}>
+          <Button
+            type="submit"
+            className="supervisor-customer-directory__register"
+            loading={searching}
+          >
             {searchedReceipt || statusFilter || staffFilter || minimumAmount
               ? 'Apply filters'
               : 'Search'}
@@ -573,8 +723,8 @@ export function SupervisorTransactionsDashboard() {
           </p>
         ) : null}
 
-        <div className="supervisor-transaction-table-scroll">
-          <Table>
+        <div className="supervisor-customer-table-wrap supervisor-transaction-table-scroll">
+          <Table className="supervisor-customer-table supervisor-transaction-table">
             <caption className="sr-only">
               Supervisor branch transactions
             </caption>
@@ -613,24 +763,41 @@ export function SupervisorTransactionsDashboard() {
                       }
                     }}
                   >
-                    <td>{item.receiptNumber}</td>
-                    <td>{item.customerName ?? 'Not provided'}</td>
-                    <td>
+                    <td
+                      data-label="Receipt No."
+                      className="supervisor-customer-table__card-number"
+                    >
+                      {item.receiptNumber}
+                    </td>
+                    <td data-label="Name">
+                      <div className="supervisor-customer-table__identity">
+                        <strong>{item.customerName ?? 'Not provided'}</strong>
+                      </div>
+                    </td>
+                    <td
+                      data-label="Receipt amount"
+                      className="supervisor-customer-table__money"
+                    >
                       {item.purchaseAmountKobo == null ? (
                         'Not provided'
                       ) : (
                         <Money amountKobo={item.purchaseAmountKobo} />
                       )}
                     </td>
-                    <td>
+                    <td
+                      data-label="Credit"
+                      className="supervisor-customer-table__money"
+                    >
                       {item.creditKobo == null ? (
                         <span aria-label="Not applicable">—</span>
                       ) : (
                         <Money amountKobo={item.creditKobo} />
                       )}
                     </td>
-                    <td>{formatDate(item.occurredAt)}</td>
-                    <td>
+                    <td data-label="Date & time">
+                      {formatDate(item.occurredAt)}
+                    </td>
+                    <td data-label="Status">
                       <StatusBadge
                         label={statusLabel(item.status)}
                         tone={statusTone(item.status)}
@@ -640,7 +807,7 @@ export function SupervisorTransactionsDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6}>
+                  <td className="supervisor-customer-table__empty" colSpan={6}>
                     <div
                       className="transaction-empty-state"
                       role={listState === 'error' ? 'alert' : 'status'}

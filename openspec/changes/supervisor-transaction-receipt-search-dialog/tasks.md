@@ -56,3 +56,9 @@
 - [x] Add unit and browser coverage for scope, search, selection, dialog lifecycle, and reversal behavior.
 - [x] Run focused backend/frontend tests, changed-file and web lint, typechecks, OpenAPI validation, and OpenSpec validation.
 - [x] Clear repository-wide lint; `npm run lint` passes.
+
+## Customers-directory style alignment
+
+- [x] Reuse Customers directory table styles and responsive labeled row-card layout for Supervisor Transactions.
+- [x] Replace native Status/Staff selects with matching accessible filter buttons and dropdown menus; style Refresh like the bordered Customers table action pill, keep Apply primary, and label the minimum amount field/placeholder `Minimum amount (₦)` while keeping all page placeholder text at 12px.
+- [x] Verify keyboard selection, applied filter request values, transaction row semantics, and narrow-screen layout.

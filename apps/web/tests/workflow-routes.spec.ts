@@ -1178,14 +1178,17 @@ test.describe('workflow route coverage', () => {
       .click();
     await expect(resultRow).toBeVisible();
     await page
-      .getByRole('combobox', { name: 'Status filter' })
-      .selectOption('CONFIRMED');
-    await page
-      .getByRole('combobox', { name: 'Staff filter' })
-      .selectOption('cashier-1');
-    await page
-      .getByRole('textbox', { name: 'Minimum receipt amount' })
-      .fill('100.00');
+      .getByRole('button', { name: 'Status filter, All Statuses' })
+      .click();
+    await page.getByRole('option', { name: 'Confirmed' }).click();
+    await page.getByRole('button', { name: 'Staff filter, All Staff' }).click();
+    await page.getByRole('option', { name: 'cashier@example.test' }).click();
+    const minimumAmountInput = page.getByPlaceholder('Minimum amount (₦)');
+    await expect(minimumAmountInput).toHaveAttribute(
+      'aria-label',
+      'Minimum amount (₦)',
+    );
+    await minimumAmountInput.fill('100.00');
     await page
       .locator('.supervisor-transaction-search')
       .getByRole('button', { name: 'Apply filters' })
@@ -1193,7 +1196,13 @@ test.describe('workflow route coverage', () => {
     await expect.poll(() => receiptSearchCallCount).toBe(3);
     await expect(resultRow).toBeVisible();
     await expect(refreshButton).toBeEnabled();
-    await expect(refreshButton).toHaveCSS('color', 'rgb(17, 24, 39)');
+    await expect(refreshButton).toHaveCSS('color', 'rgb(74, 74, 74)');
+    await expect(refreshButton).toHaveCSS(
+      'background-color',
+      'rgb(246, 244, 245)',
+    );
+    await expect(refreshButton).toHaveCSS('border-width', '1px');
+    await expect(refreshButton).toHaveCSS('border-color', 'rgb(222, 217, 218)');
     const refreshContent = refreshButton.locator(
       '.supervisor-transaction-refresh-content',
     );
@@ -1269,15 +1278,26 @@ test.describe('workflow route coverage', () => {
       page.locator('.supervisor-transaction-filter > span').first(),
     ).toHaveCSS('font-size', '12px');
     await expect(
-      page.getByRole('combobox', { name: 'Status filter' }),
-    ).toHaveCSS('font-size', '16px');
+      page.getByRole('button', { name: 'Status filter, Confirmed' }),
+    ).toHaveCSS('font-size', '12px');
+    const receiptPlaceholderFontSize = await page
+      .getByRole('textbox', { name: 'Receipt number' })
+      .evaluate((input) => getComputedStyle(input, '::placeholder').fontSize);
+    expect(receiptPlaceholderFontSize).toBe('12px');
+    const minimumPlaceholderFontSize = await page
+      .getByPlaceholder('Minimum amount (₦)')
+      .evaluate((input) => getComputedStyle(input, '::placeholder').fontSize);
+    expect(minimumPlaceholderFontSize).toBe('12px');
+    await expect(
+      page.getByText('Minimum amount (₦)', { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'Status' })).toHaveCSS(
       'font-size',
       '12px',
     );
     await expect(resultRow.locator('td').first()).toHaveCSS(
       'font-size',
-      '14px',
+      '13px',
     );
     await expect(page.locator('.supervisor-transaction-table-card')).toHaveCSS(
       'border-radius',
@@ -1304,6 +1324,15 @@ test.describe('workflow route coverage', () => {
     await expect(
       dialog.getByRole('heading', { name: 'Request reversal' }),
     ).toBeVisible();
+    for (const placeholder of [
+      'Reason for reversal',
+      'Type REVERSE to confirm',
+    ]) {
+      const placeholderFontSize = await dialog
+        .getByPlaceholder(placeholder)
+        .evaluate((input) => getComputedStyle(input, '::placeholder').fontSize);
+      expect(placeholderFontSize).toBe('12px');
+    }
     await dialog
       .getByRole('textbox', { name: 'Reversal reason' })
       .fill('Duplicate receipt entry');
@@ -1342,7 +1371,7 @@ test.describe('workflow route coverage', () => {
     ).toHaveCSS('width', '34px');
     await expect(
       page.locator('.supervisor-transaction-table-scroll'),
-    ).toHaveCSS('overflow-x', 'auto');
+    ).toHaveCSS('overflow-x', 'visible');
     expect(
       await page.locator('body').evaluate((body) => body.scrollWidth),
     ).toBeLessThanOrEqual(375);
