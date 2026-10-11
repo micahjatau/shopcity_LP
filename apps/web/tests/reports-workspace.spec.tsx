@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReportsWorkspace } from '../components/workflows/reports-workspace';
-import { formatReportBusinessDate } from '../components/workflows/report-ui';
+import {
+  formatReportBusinessDate,
+  formatSupervisorReportFieldLabel,
+} from '../components/workflows/report-ui';
 import {
   reportsControllerListExecutiveSummaryV1,
   reportsControllerRefreshReportV1,
@@ -22,6 +25,16 @@ jest.mock('../lib/api/generated-client', () => ({
 }));
 
 describe('ReportsWorkspace', () => {
+  it('uses the shared plain-language label dictionary for report fields', () => {
+    expect(formatSupervisorReportFieldLabel('reportDate')).toBe('Report date');
+    expect(formatSupervisorReportFieldLabel('duplicateAttempts')).toBe(
+      'Duplicate receipt attempts',
+    );
+    expect(formatSupervisorReportFieldLabel('sentCount')).toBe(
+      'Submitted to provider',
+    );
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(reportsControllerListExecutiveSummaryV1).mockResolvedValue({

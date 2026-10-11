@@ -115,7 +115,7 @@ Money SHALL be formatted from integer kobo without floating-point display conver
 
 ### Requirement: Detailed reports reflect role access and preserve scope
 
-The report picker SHALL include only reports exposed to the current role. The workspace SHALL display server-returned scope, branch identifier, and timezone. Admin branch filters SHALL use existing API query parameters and be applied consistently to branch-capable dashboard and detailed-report requests. Audit and pilot-operations reports SHALL remain tenant-wide and display their server-defined scope. Supervisors SHALL NOT receive a client-selected branch filter. Actions unavailable to the current role SHALL not be presented as working actions.
+The report picker SHALL include only reports exposed to the current role. The workspace SHALL display server-returned scope and timezone, and show a configured branch name when available with the branch identifier as a fallback. Admin branch filters SHALL use existing API query parameters and be applied consistently to branch-capable dashboard and detailed-report requests. Audit and pilot-operations reports SHALL remain tenant-wide and display their server-defined scope. Supervisors SHALL NOT receive a client-selected branch filter. Actions unavailable to the current role SHALL not be presented as working actions.
 
 #### Scenario: Supervisor views permitted report types
 
@@ -139,7 +139,8 @@ The report picker SHALL include only reports exposed to the current role. The wo
 #### Scenario: Supervisor report response confirms branch scope
 
 - **WHEN** a Supervisor report response includes branch scope metadata
-- **THEN** the workspace labels that scope and provides a copyable branch identifier
+- **THEN** the workspace labels that scope and displays the configured branch name when available
+- **AND** it provides the branch identifier when no branch name is available
 - **AND** it does not invent a branch name or send a client-selected branch identifier
 
 ### Requirement: The Admin reports route uses the shared operational page
@@ -166,7 +167,7 @@ The Admin presentation SHALL expose audit and pilot-operations reports and the e
 
 ### Requirement: Report loading, empty, and error states are explicit
 
-The dashboard and detailed report workspace SHALL distinguish loading, successful empty data, missing/unmaterialized data, and request failures. A 403 SHALL explain that access is unavailable; a 429 SHALL show a retry countdown and temporarily disable report actions. Error states SHALL display a human-readable title/detail and a copyable request reference when the response contains one. Existing API calls and response contracts SHALL remain unchanged.
+The dashboard and detailed report workspace SHALL distinguish loading, successful empty data, missing/unmaterialized data, and request failures. A 403 SHALL explain that access is unavailable; a 429 SHALL show a retry countdown and temporarily disable report actions. Error states SHALL display a human-readable title/detail and a copyable request reference when the response contains one. Existing API calls, authorization, and existing report fields SHALL remain unchanged; the explicitly scoped `customerName` and `cashierEmail` fields MAY be added to detailed report rows.
 
 #### Scenario: A report is still loading
 
@@ -191,6 +192,32 @@ The dashboard and detailed report workspace SHALL distinguish loading, successfu
 - **WHEN** an endpoint returns HTTP 429
 - **THEN** the UI shows a retry countdown and disables Load, Refresh, and Export actions until the cooldown ends
 - **AND** it provides a copyable request reference when available
+
+### Requirement: Current report omits the combined freshness badge
+
+The current report panel SHALL NOT display a badge combining a freshness classification with an expected cadence (for example, “Fresh · Daily snapshot”). Available materialization state and update timestamps SHALL remain visible in report metadata.
+
+#### Scenario: A report includes freshness metadata
+
+- **WHEN** a report response includes materialization state or update timestamps
+- **THEN** the metadata remains available in the current report panel
+- **AND** no combined freshness-and-cadence badge is displayed beside the report title
+
+### Requirement: Customer and cashier report rows use recognizable identities
+
+Customer-performance rows SHALL include the tenant- and branch-scoped customer's full name when the customer record is available. Cashier-activity rows SHALL include the tenant- and branch-scoped cashier email from the cashier user's email-backed username when that user record is available. The UI SHALL show the name or email instead of the corresponding ID when available and SHALL fall back to the ID when the lookup is unavailable. Existing IDs SHALL remain in the API response for stable identification and export compatibility. Name lookups MUST be constrained to tenant and report branch scope.
+
+#### Scenario: A customer or cashier identity is available
+
+- **WHEN** a customer-performance or cashier-activity row refers to an entity with an available scoped record
+- **THEN** the response includes the customer name or cashier email
+- **AND** the report table and row-details popup display that readable identity instead of the entity ID
+
+#### Scenario: A customer or cashier identity is unavailable
+
+- **WHEN** a report row's entity record is missing from the authorized lookup
+- **THEN** the report continues to include the row
+- **AND** the UI falls back to the existing entity ID rather than inventing a name
 
 ### Requirement: Detailed report rows are readable and selectable
 

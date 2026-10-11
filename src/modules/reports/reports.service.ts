@@ -150,18 +150,55 @@ export class ReportsService {
   ): Promise<ReportCollection<Record<string, unknown>>> {
     const sort = normalizeCustomerPerformanceSort(query.sort);
     const limit = normalizeReportLimit(query.limit);
-    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
-      this.prisma.reportCustomerSnapshot.findMany({
-        where: {
-          tenantId,
-          scope: scope.scope,
-          scopeKey: scope.scopeKey,
-          ...(dateFilter ? { reportDate: dateFilter } : {}),
-        },
-        orderBy: customerPerformanceOrderBy(sort),
-        take: limit,
-      }),
+    const result = await this.listRows(
+      tenantId,
+      context,
+      query,
+      async (scope, dateFilter) =>
+        this.prisma.reportCustomerSnapshot.findMany({
+          where: {
+            tenantId,
+            scope: scope.scope,
+            scopeKey: scope.scopeKey,
+            ...(dateFilter ? { reportDate: dateFilter } : {}),
+          },
+          orderBy: customerPerformanceOrderBy(sort),
+          take: limit,
+        }),
     );
+    const customerIds = [
+      ...new Set(
+        result.items.flatMap((item) =>
+          typeof item.customerId === 'string' ? [item.customerId] : [],
+        ),
+      ),
+    ];
+    if (customerIds.length === 0) return result;
+
+    const customers = await this.prisma.customer.findMany({
+      where: {
+        tenantId,
+        id: { in: customerIds },
+        ...(result.scope === 'BRANCH' && result.branchId
+          ? { branchId: result.branchId }
+          : {}),
+      },
+      select: { id: true, fullName: true },
+    });
+    const customerNames = new Map(
+      customers.map((customer) => [customer.id, customer.fullName.trim()]),
+    );
+
+    return {
+      ...result,
+      items: result.items.map((item) => {
+        const customerName =
+          typeof item.customerId === 'string'
+            ? customerNames.get(item.customerId)
+            : undefined;
+        return { ...item, customerName: customerName || null };
+      }),
+    };
   }
 
   async listCashierToday(
@@ -264,17 +301,54 @@ export class ReportsService {
     context: AuthContext,
     query: ReportQuery = {},
   ): Promise<ReportCollection<Record<string, unknown>>> {
-    return this.listRows(tenantId, context, query, async (scope, dateFilter) =>
-      this.prisma.reportCashierDailySummary.findMany({
-        where: {
-          tenantId,
-          scope: scope.scope,
-          scopeKey: scope.scopeKey,
-          ...(dateFilter ? { reportDate: dateFilter } : {}),
-        },
-        orderBy: [{ reportDate: 'desc' }, { cashierId: 'asc' }],
-      }),
+    const result = await this.listRows(
+      tenantId,
+      context,
+      query,
+      async (scope, dateFilter) =>
+        this.prisma.reportCashierDailySummary.findMany({
+          where: {
+            tenantId,
+            scope: scope.scope,
+            scopeKey: scope.scopeKey,
+            ...(dateFilter ? { reportDate: dateFilter } : {}),
+          },
+          orderBy: [{ reportDate: 'desc' }, { cashierId: 'asc' }],
+        }),
     );
+    const cashierIds = [
+      ...new Set(
+        result.items.flatMap((item) =>
+          typeof item.cashierId === 'string' ? [item.cashierId] : [],
+        ),
+      ),
+    ];
+    if (cashierIds.length === 0) return result;
+
+    const cashiers = await this.prisma.user.findMany({
+      where: {
+        tenantId,
+        id: { in: cashierIds },
+        ...(result.scope === 'BRANCH' && result.branchId
+          ? { branchId: result.branchId }
+          : {}),
+      },
+      select: { id: true, username: true },
+    });
+    const cashierEmails = new Map(
+      cashiers.map((cashier) => [cashier.id, cashier.username.trim()]),
+    );
+
+    return {
+      ...result,
+      items: result.items.map((item) => {
+        const cashierEmail =
+          typeof item.cashierId === 'string'
+            ? cashierEmails.get(item.cashierId)
+            : undefined;
+        return { ...item, cashierEmail: cashierEmail || null };
+      }),
+    };
   }
 
   async listRedemptionSummary(

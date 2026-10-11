@@ -420,6 +420,74 @@ describe('ReportsService', () => {
     }
   });
 
+  it('adds tenant- and branch-scoped customer names to customer performance rows', async () => {
+    const prisma = prismaStub({
+      customerSnapshotRows: [
+        { customerId: 'customer-1', purchaseValueKobo: 1200n },
+      ],
+      customers: [{ id: 'customer-1', fullName: 'Amina Bello' }],
+    });
+    const service = new ReportsService(prisma, configService());
+
+    const result = await service.listCustomerPerformance(
+      'tenant-1',
+      supervisorContext(),
+    );
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        customerId: 'customer-1',
+        customerName: 'Amina Bello',
+        purchaseValueKobo: 1200,
+      }),
+    ]);
+    const customerDelegate = prisma.customer as unknown as {
+      findMany: jest.Mock<unknown, [Record<string, unknown>]>;
+    };
+    const customerFindMany = customerDelegate.findMany;
+    expect(customerFindMany.mock.calls[0]?.[0]).toEqual({
+      where: {
+        tenantId: 'tenant-1',
+        id: { in: ['customer-1'] },
+        branchId: 'branch-1',
+      },
+      select: { id: true, fullName: true },
+    });
+  });
+
+  it('adds tenant- and branch-scoped cashier emails to cashier activity rows', async () => {
+    const prisma = prismaStub({
+      cashierActivityRows: [{ cashierId: 'cashier-1', transactionCount: 3 }],
+      cashierUsers: [{ id: 'cashier-1', username: 'cashier.one@example.test' }],
+    });
+    const service = new ReportsService(prisma, configService());
+
+    const result = await service.listCashierActivity(
+      'tenant-1',
+      supervisorContext(),
+    );
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        cashierId: 'cashier-1',
+        cashierEmail: 'cashier.one@example.test',
+        transactionCount: 3,
+      }),
+    ]);
+    const userDelegate = prisma.user as unknown as {
+      findMany: jest.Mock<unknown, [Record<string, unknown>]>;
+    };
+    const userFindMany = userDelegate.findMany;
+    expect(userFindMany.mock.calls[0]?.[0]).toEqual({
+      where: {
+        tenantId: 'tenant-1',
+        id: { in: ['cashier-1'] },
+        branchId: 'branch-1',
+      },
+      select: { id: true, username: true },
+    });
+  });
+
   it('rejects invalid report dates', async () => {
     const service = new ReportsService(prismaStub(), configService());
 
@@ -498,6 +566,10 @@ function prismaStub(
   options: {
     executiveSummaryRows?: Array<Record<string, unknown>>;
     executiveSnapshotRow?: Record<string, unknown> | null;
+    customerSnapshotRows?: Array<Record<string, unknown>>;
+    cashierActivityRows?: Array<Record<string, unknown>>;
+    customers?: Array<{ id: string; fullName: string }>;
+    cashierUsers?: Array<{ id: string; username: string }>;
     receipts?: Array<Record<string, unknown>>;
   } = {},
 ): PrismaService {
@@ -517,7 +589,16 @@ function prismaStub(
       findMany: jest.fn().mockResolvedValue([]),
     },
     reportCustomerSnapshot: {
-      findMany: jest.fn().mockResolvedValue([]),
+      findMany: jest.fn().mockResolvedValue(options.customerSnapshotRows ?? []),
+    },
+    reportCashierDailySummary: {
+      findMany: jest.fn().mockResolvedValue(options.cashierActivityRows ?? []),
+    },
+    customer: {
+      findMany: jest.fn().mockResolvedValue(options.customers ?? []),
+    },
+    user: {
+      findMany: jest.fn().mockResolvedValue(options.cashierUsers ?? []),
     },
     reportMaterializationState: {
       findMany: jest.fn().mockResolvedValue([]),

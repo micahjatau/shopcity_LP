@@ -33,3 +33,6 @@
 - [x] 5.2 Map `/admin/reports` to the shared dashboard and preserve Admin branch/timezone filters and the shared reporting period.
 - [x] 5.3 Expose audit, pilot-operations, and materialization refresh only in the Admin presentation; preserve Supervisor restrictions and server RBAC.
 - [x] 5.4 Add Admin route, role-option, scope-propagation, refresh, and Admin Operations regression coverage.
+- [x] 5.5 Keep CSV export responses outside the global JSON envelope and cover the raw API and browser download paths.
+- [x] 5.6 Resolve branch-scoped customer names and cashier emails in detailed reports, and display readable identities in tables and row details.
+- [x] 5.7 Remove the combined current-report freshness/cadence badge while retaining materialization metadata.
