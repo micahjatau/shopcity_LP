@@ -71,6 +71,8 @@ export function useEarnTransactionController({
   const [receiptNumber, setReceiptNumber] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState<number | null>(null);
   const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString());
+  const occurredAtValid =
+    occurredAt.trim().length > 0 && Number.isFinite(Date.parse(occurredAt));
   const [overrideReason, setOverrideReason] = useState('');
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [status, setStatus] = useState<EarnStatus>('idle');
@@ -147,7 +149,8 @@ export function useEarnTransactionController({
     cardSerialNumber.trim() &&
     receiptNumber.trim() &&
     purchaseAmount !== null &&
-    purchaseAmount > 0,
+    purchaseAmount > 0 &&
+    occurredAtValid,
   );
 
   function resetDraft() {
@@ -182,6 +185,11 @@ export function useEarnTransactionController({
     if (purchaseAmount === null || purchaseAmount <= 0) {
       setStatus('error');
       setMessage('Enter a valid purchase amount before submitting.');
+      return;
+    }
+    if (!occurredAtValid) {
+      setStatus('error');
+      setMessage('Enter the receipt date and time before submitting.');
       return;
     }
 
@@ -285,6 +293,7 @@ export function useEarnTransactionController({
     lookupReady,
     message,
     occurredAt,
+    occurredAtValid,
     overrideReason,
     purchaseAmount,
     receiptNumber,

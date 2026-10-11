@@ -11,6 +11,49 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-12 — Add persisted late-claim approvals and server-side category counts
+
+GitNexus reports `LoyaltyService.earn` at MEDIUM risk (7 direct callers, 9 total impacts), `listApprovals` LOW (4), `decideApproval` LOW (8), `ApprovalsController` LOW (4), and `buildApprovalListWhere` LOW (5). The index is stale and reported no execution processes for these symbols; tests and source were separately traced. Earn changes remain constrained to receipt age >7 days, pending approval, and no financial effect until existing audited decision execution. No HIGH/CRITICAL result was reported.
+
+```text
+node .gitnexus/run.cjs impact earn --file src/modules/loyalty/loyalty.service.ts --kind Method --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact listApprovals --file src/modules/loyalty/loyalty.service.ts --kind Method --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact decideApproval --file src/modules/loyalty/loyalty.service.ts --kind Method --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact ApprovalsController --file src/modules/approvals/approvals.controller.ts --kind Class --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact buildApprovalListWhere --file src/modules/loyalty/loyalty.service.ts --kind Function --repo shopcity_LP --direction upstream
+```
+
+### 2026-10-12 — Restrict Supervisor approval categories and define late receipt claims
+
+`ApprovalsPanel` has LOW upstream risk: two direct dependants, no affected processes or modules. `categoryForApproval` and `SupervisorApprovalCenter` were not individually resolvable in the stale index, so the containing exported panel was used as the impact target. The category presentation remains Supervisor-only; Admin behavior and decision/API workflows are unchanged.
+
+```text
+node .gitnexus/run.cjs impact ApprovalsPanel --file apps/web/components/workflows/approvals-panel.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
+### 2026-10-12 — Require the cashier Earn occurrence timestamp
+
+GitNexus reports HIGH upstream risk for `EarnTransactionForm` (7 impacted symbols, 3 direct dependants) and `useEarnTransactionController` (8 impacted symbols, 1 direct dependant); each is associated with the `CashierEarnPage`, `CashierLookupPage`, and `CashierRedeemPage` processes in the Shopcity module. The change is limited to cashier Earn client-side required/validity checks and preserving the empty state safely; the backend contract and financial/late-claim rules are unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/earn-transaction-form.tsx EarnTransactionForm
+npm run proposal:impact -- --file apps/web/components/workflows/use-earn-transaction-controller.ts useEarnTransactionController
+```
+
+No HIGH/CRITICAL result is ignored; the reported HIGH risk is contained to UI form validation.
+
+### 2026-10-12 — Add category-specific approval columns and Card-style filter menus
+
+After refreshing the stale index, `SupervisorApprovalCenter` reports LOW upstream risk: 4 impacted symbols (1 direct dependant), two indexed approval processes (`SupervisorApprovalsPage` and `AdminApprovalsPage`), and the Workflows module. The changed table headers/cells and custom filter menus remain confined to the Supervisor approval presentation branch; the Admin presentation and audited decision handlers are unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/approvals-panel.tsx SupervisorApprovalCenter
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
 ### 2026-10-11 — Align Supervisor Transactions table and filters to Customers directory
 
 `SupervisorTransactionsDashboard` has LOW upstream risk: zero direct dependants, affected processes, or modules. The presentation changes preserve branch scope, explicit filter submission, pagination, transaction detail, and reversal safeguards; Refresh now uses the bordered Customers table action-pill treatment, and the amount field's label/placeholder use `Minimum amount (₦)` with a consistent 12px placeholder size throughout the route.
@@ -1240,3 +1283,31 @@ npm run proposal:impact -- --file apps/web/components/workflows/customer-details
 | `CustomerDetailsDialog` | LOW, exact |                5 |                 1 | 1 `SupervisorCustomerProfilePage` flow; Workflows |
 
 The planned change is read-only UI rendering and scoped CSS. No API, tenant scope, ledger, receipt, or card-lifecycle writes are in scope. Keep column headings visible in an empty result by rendering the empty message in a full-width table row. The current projection does not provide a receipt number or transaction-level credit amount; the UI must show **Not provided** rather than reveal the internal receipt ID or infer credit.
+
+### 2026-10-11 — Restyle Supervisor approvals queue
+
+Proposal-time upstream impact was run before the Supervisor-only approvals redesign. The shared `ApprovalsPanel` currently has three direct dependants; visual changes will be gated by an explicit variant so Admin remains unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/approvals-panel.tsx ApprovalsPanel
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes / modules |
+| ---------------- | ---------- | ---------------: | ----------------: | ---------------------------- |
+| `ApprovalsPanel` | LOW, exact |                3 |                 3 | 0 processes / modules        |
+
+No API, tenant scope, decision policy, ledger, or schema changes are planned. The API exposes EARN/REDEEM and `reasonCode`, but not the four requested approval categories or per-category counts; category tabs must not invent data and their constraints should be explicit in the UI/spec.
+
+### 2026-10-11 — Update Supervisor approvals selected-item state
+
+Follow-up upstream impact for the updated selected-item interaction and details presentation:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/approvals-panel.tsx ApprovalsPanel
+```
+
+| Symbol           | Risk       | Impacted symbols | Direct dependants | Affected processes / modules |
+| ---------------- | ---------- | ---------------: | ----------------: | ---------------------------- |
+| `ApprovalsPanel` | LOW, exact |                2 |                 2 | 0 processes / modules        |
+
+The list response contains UUID, amount, requested/decision timestamps, nullable customer name/ID, nullable requester username/role, and a policy `reasonCode`. It omits wallet balance, lifetime earned, and submitter-entered reason text. Preserve these as “Not provided”; do not treat `reasonCode` as free-text. No backend changes are authorized by this UI update.

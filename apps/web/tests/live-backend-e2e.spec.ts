@@ -273,7 +273,7 @@ test.describe('backend-connected frontend flows', () => {
 
     await page.goto('/supervisor/approvals');
     await expect(
-      page.getByRole('heading', { name: 'Transactions awaiting approval' }),
+      page.getByRole('heading', { name: 'Approval Centre' }),
     ).toBeVisible();
     await expect(page.locator('.approval-queue__results')).toBeVisible();
 

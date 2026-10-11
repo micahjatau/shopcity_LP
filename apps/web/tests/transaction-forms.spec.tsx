@@ -143,6 +143,38 @@ describe('cashier transaction forms', () => {
     expect(submit).toBeEnabled();
   });
 
+  it('requires a valid occurred-at timestamp before allowing Earn review', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    const occurredAt = screen.getByLabelText('Occurred at');
+    expect(occurredAt).toBeRequired();
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-REQUIRED-TIMESTAMP' },
+    });
+    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+      target: { value: '10' },
+    });
+    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+
+    const proceedButton = screen.getByRole('button', {
+      name: 'Proceed to review',
+    });
+    expect(proceedButton).toBeEnabled();
+    fireEvent.change(occurredAt, { target: { value: '' } });
+
+    expect(occurredAt).toHaveValue('');
+    expect(
+      screen.getByText('Receipt date and time is required.'),
+    ).toBeInTheDocument();
+    expect(proceedButton).toBeDisabled();
+    expect(loyaltyControllerEarnV1).not.toHaveBeenCalled();
+  });
+
   it('maps duplicate receipt errors to an actionable message', async () => {
     jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
       status: 409,

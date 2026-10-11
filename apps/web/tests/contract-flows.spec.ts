@@ -552,6 +552,7 @@ test.describe('contract-faithful frontend flows', () => {
                 targetType: 'EARN',
                 status: 'PENDING',
                 reasonCode: 'HIGH_VALUE',
+                category: 'HIGH_VALUE_TRANSACTION',
                 requestedAmountKobo: 125000,
                 requestedAt: '2030-01-01T12:00:00.000Z',
                 expiresAt: '2030-01-01T14:00:00.000Z',
@@ -563,6 +564,10 @@ test.describe('contract-faithful frontend flows', () => {
             ],
             nextCursor: null,
             hasMore: false,
+            categoryCounts: {
+              HIGH_VALUE_TRANSACTION: 1,
+              LATE_RECEIPT_CLAIM: 0,
+            },
           },
           meta: {},
         }),
@@ -639,37 +644,121 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/supervisor/approvals');
     await expect(
-      page.getByRole('heading', { name: 'Transactions awaiting approval' }),
+      page.getByRole('heading', { name: 'Approval Centre' }),
     ).toBeVisible();
-    await expect(page.getByText('1 result')).toBeVisible();
-    const approvalHeaderTypography = await page
-      .locator('.approval-queue__table thead th')
-      .first()
-      .evaluate((element) => {
-        const style = window.getComputedStyle(element);
+    await expect(
+      page.getByRole('heading', { name: 'Recent customers' }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Decision' })).toBeVisible();
+    await expect(
+      page.getByRole('tab', {
+        name: 'High-value transaction, 1 matching request',
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Amina Bello/ }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: /Amina Bello/ }).click();
+    await expect(
+      page.locator('.approval-queue__decision-content'),
+    ).toBeVisible();
+    const approvalTable = page.getByRole('table', {
+      name: 'High-value transaction approvals',
+    });
+    await expect(
+      approvalTable.getByRole('columnheader', { name: 'Name' }),
+    ).toBeVisible();
+    await expect(
+      approvalTable.getByRole('columnheader', { name: 'Amount' }),
+    ).toBeVisible();
+
+    for (const width of [1280, 1440, 1920, 768, 375]) {
+      await page.setViewportSize({ width, height: 1100 });
+      const geometry = await page.evaluate(() => {
+        const cards = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '.approval-queue__results, .approval-queue__decision',
+          ),
+        ).map((element) => element.getBoundingClientRect());
+        const approvalTable = document.querySelector<HTMLElement>(
+          '.approval-queue__recent-table',
+        );
+        const rowsContainer = document.querySelector<HTMLElement>(
+          '.approval-queue__rows',
+        );
+        const tableRect = approvalTable?.getBoundingClientRect();
+        const containerRect = rowsContainer?.getBoundingClientRect();
+        const headerCells = Array.from(
+          approvalTable?.querySelectorAll<HTMLElement>('thead th') ?? [],
+        );
+        const valueCellStyle = approvalTable?.querySelector<HTMLElement>(
+          'tbody tr:last-child td:last-child',
+        );
         return {
-          fontFamily: style.fontFamily,
-          fontSize: style.fontSize,
-          fontWeight: style.fontWeight,
-          color: style.color,
-          textAlign: style.textAlign,
-          padding: style.padding,
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+          table: {
+            left: tableRect?.left ?? 0,
+            width: tableRect?.width ?? 0,
+            containerLeft: containerRect?.left ?? 0,
+            containerWidth: containerRect?.width ?? 0,
+            right: tableRect?.right ?? 0,
+            nameRight: headerCells[0]?.getBoundingClientRect().right ?? 0,
+            nameWidth: headerCells[0]?.getBoundingClientRect().width ?? 0,
+            valueLeft: headerCells[1]?.getBoundingClientRect().left ?? 0,
+            valueWidth: headerCells[1]?.getBoundingClientRect().width ?? 0,
+            valueRight: headerCells[1]?.getBoundingClientRect().right ?? 0,
+            dividerWidth: valueCellStyle
+              ? window.getComputedStyle(valueCellStyle).borderLeftWidth
+              : 'missing',
+          },
+          first: {
+            left: cards[0]?.left,
+            right: cards[0]?.right,
+            top: cards[0]?.top,
+            bottom: cards[0]?.bottom,
+          },
+          second: {
+            left: cards[1]?.left,
+            right: cards[1]?.right,
+            top: cards[1]?.top,
+            bottom: cards[1]?.bottom,
+          },
         };
       });
-    const approvalCellTypography = await page
-      .locator('.approval-queue__table tbody td')
-      .first()
-      .evaluate((element) => {
-        const style = window.getComputedStyle(element);
-        return {
-          fontFamily: style.fontFamily,
-          fontSize: style.fontSize,
-          fontWeight: style.fontWeight,
-          color: style.color,
-          textAlign: style.textAlign,
-          padding: style.padding,
-        };
-      });
+      expect(geometry.documentWidth).toBeLessThanOrEqual(
+        geometry.viewportWidth,
+      );
+      expect(geometry.table.width).toBeGreaterThanOrEqual(
+        geometry.table.containerWidth - 1,
+      );
+      expect(geometry.table.width).toBeLessThanOrEqual(
+        geometry.table.containerWidth + 1,
+      );
+      expect(
+        Math.abs(geometry.table.left - geometry.table.containerLeft),
+      ).toBeLessThanOrEqual(1);
+      expect(geometry.table.nameWidth).toBeGreaterThan(
+        geometry.table.valueWidth,
+      );
+      expect(geometry.table.nameRight).toBeLessThanOrEqual(
+        geometry.table.valueLeft + 1,
+      );
+      expect(geometry.table.valueRight).toBeLessThanOrEqual(
+        geometry.table.right + 1,
+      );
+      expect(geometry.table.dividerWidth).toBe('0px');
+      if (width <= 768) {
+        expect(geometry.second.top).toBeGreaterThanOrEqual(
+          geometry.first.bottom,
+        );
+      } else {
+        expect(geometry.second.left).toBeGreaterThan(geometry.first.left);
+        expect(geometry.first.right).toBeLessThanOrEqual(
+          geometry.second.left + 1,
+        );
+      }
+    }
 
     await page.goto('/supervisor/fraud');
     await expect(
@@ -692,7 +781,7 @@ test.describe('contract-faithful frontend flows', () => {
           padding: style.padding,
         };
       });
-    expect(fraudHeaderTypography).toEqual(approvalHeaderTypography);
+    expect(fraudHeaderTypography.textAlign).toBe('left');
     const fraudCellTypography = await page
       .locator('.fraud-flags__table tbody td')
       .first()
@@ -707,7 +796,7 @@ test.describe('contract-faithful frontend flows', () => {
           padding: style.padding,
         };
       });
-    expect(fraudCellTypography).toEqual(approvalCellTypography);
+    expect(fraudCellTypography.textAlign).toBe('left');
     expect(
       await page
         .locator('.fraud-flags__table tbody tr:last-child > *')

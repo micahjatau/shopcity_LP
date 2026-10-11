@@ -39,6 +39,7 @@ export function EarnTransactionForm({
     lookupReady,
     message,
     occurredAt,
+    occurredAtValid,
     overrideReason,
     purchaseAmount,
     receiptNumber,
@@ -168,14 +169,39 @@ export function EarnTransactionForm({
               valueKobo={purchaseAmount}
               onValueChange={setPurchaseAmount}
             />
-            <Input
-              aria-label="Occurred at"
-              type="datetime-local"
-              value={occurredAt.slice(0, 16)}
-              onChange={(event) =>
-                setOccurredAt(new Date(event.target.value).toISOString())
-              }
-            />
+            <div className="cashier-receipt-time-field">
+              <label htmlFor="earn-occurred-at">Occurred at (required)</label>
+              <Input
+                id="earn-occurred-at"
+                aria-label="Occurred at"
+                aria-required="true"
+                aria-invalid={!occurredAtValid}
+                aria-describedby={
+                  occurredAtValid ? undefined : 'earn-occurred-at-error'
+                }
+                required
+                type="datetime-local"
+                value={occurredAtValid ? occurredAt.slice(0, 16) : ''}
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  const parsed = new Date(value);
+                  setOccurredAt(
+                    value && Number.isFinite(parsed.getTime())
+                      ? parsed.toISOString()
+                      : '',
+                  );
+                }}
+              />
+              {!occurredAtValid ? (
+                <p
+                  id="earn-occurred-at-error"
+                  className="cashier-receipt-time-hint"
+                  role="alert"
+                >
+                  Receipt date and time is required.
+                </p>
+              ) : null}
+            </div>
             <Textarea
               aria-label="Override reason"
               placeholder="Optional override reason"
