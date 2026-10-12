@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { EarnTransactionForm } from '../components/workflows/earn-transaction-form';
 import { RedeemTransactionForm } from '../components/workflows/redeem-transaction-form';
+import { saveOfflineEarnRecord } from '../lib/browser/offline-earn-queue';
 import {
   loyaltyControllerEarnV1,
   redemptionsControllerRedeemV1,
@@ -301,6 +302,67 @@ describe('cashier transaction forms', () => {
         screen.getByText(/receipt has already been used this week/i),
       ).toBeInTheDocument();
     });
+  });
+
+  it.each([
+    {
+      code: 'SESSION_DEVICE_REQUIRED',
+      message:
+        'Your cashier session needs an assigned device. Sign in again with your cashier device or contact a supervisor.',
+    },
+    {
+      code: 'DEVICE_NOT_ACTIVE',
+      message:
+        'This cashier device is inactive. Contact a supervisor before capturing a purchase.',
+    },
+    {
+      code: 'DEVICE_BRANCH_MISMATCH',
+      message:
+        'This cashier device is assigned to a different branch. Contact a supervisor.',
+    },
+    {
+      code: 'BRANCH_CONTEXT_REQUIRED',
+      message:
+        'Your cashier session is missing a branch assignment. Sign in again or contact a supervisor.',
+    },
+    {
+      code: 'VALIDATION_ERROR',
+      message:
+        'ShopCity rejected the receipt details. Check the receipt number, amount, and date/time.',
+    },
+    {
+      code: 'UNEXPECTED_BAD_REQUEST',
+      message:
+        'ShopCity rejected the earn request (UNEXPECTED_BAD_REQUEST). Check the receipt details and cashier device, then try again.',
+    },
+  ])('maps $code to an actionable Earn message', async ({ code, message }) => {
+    jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
+      status: 400,
+      data: { error: { code } },
+    } as never);
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-400' },
+    });
+    const purchase = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(purchase, { target: { value: '10' } });
+    fireEvent.blur(purchase);
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(message, { exact: true })).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/status 400/i)).not.toBeInTheDocument();
+    expect(jest.mocked(saveOfflineEarnRecord)).not.toHaveBeenCalled();
   });
 
   it('renders an approval-pending Earn outcome from the backend', async () => {

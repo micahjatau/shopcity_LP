@@ -376,9 +376,25 @@ function cashierEarnErrorMessage(code: string | null, status: number) {
       return 'Available credit is lower than this redemption.';
     case 'AUTH_SESSION_EXPIRED':
       return 'Your session has expired. Sign in again before continuing.';
+    case 'SESSION_DEVICE_REQUIRED':
+      return 'Your cashier session needs an assigned device. Sign in again with your cashier device or contact a supervisor.';
+    case 'DEVICE_NOT_ACTIVE':
+      return 'This cashier device is inactive. Contact a supervisor before capturing a purchase.';
+    case 'DEVICE_BRANCH_MISMATCH':
+      return 'This cashier device is assigned to a different branch. Contact a supervisor.';
+    case 'BRANCH_CONTEXT_REQUIRED':
+      return 'Your cashier session is missing a branch assignment. Sign in again or contact a supervisor.';
+    case 'VALIDATION_ERROR':
+      return 'ShopCity rejected the receipt details. Check the receipt number, amount, and date/time.';
     default:
-      return status === 0
-        ? 'Earn could not be submitted because the network is unavailable.'
-        : `Earn could not be submitted (status ${status}). Review the transaction and try again.`;
+      if (status === 0)
+        return 'Earn could not be submitted because the network is unavailable.';
+      if (status === 400) {
+        const safeCode = code && /^[A-Z0-9_]{1,64}$/.test(code) ? code : null;
+        return safeCode
+          ? `ShopCity rejected the earn request (${safeCode}). Check the receipt details and cashier device, then try again.`
+          : 'ShopCity rejected the earn request. Check the receipt details and cashier device, then try again.';
+      }
+      return `Earn could not be submitted (status ${status}). Review the transaction and try again.`;
   }
 }

@@ -171,6 +171,13 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **THEN** the layout renders the truthful corresponding state
 - **AND** existing financial authority, integer-kobo validation, idempotency, and approval safeguards remain unchanged
 
+#### Scenario: Earn bad-request responses are actionable
+
+- **WHEN** the earn endpoint returns a 400 response with a documented error code
+- **THEN** the cashier sees actionable guidance for receipt validation, required session device, or inactive device
+- **AND** unknown 400 error codes are surfaced for support instead of showing only the HTTP status
+- **AND** server-rejected requests are not silently retried or queued as offline earns
+
 ### Requirement: Redeem Credit uses an intentional narrower flow variant
 
 Redeem Credit SHALL use an approximately 720px flow-panel variant that reuses Capture Purchase lookup and workflow presentation while providing basket subtotal, redemption amount, confirmation summary, remaining balance, and result states. Credit summaries SHALL use two columns on desktop and one column on smaller viewports with accessible reading order.
