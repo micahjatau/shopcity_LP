@@ -1585,13 +1585,15 @@ test.describe('workflow route coverage', () => {
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
     await expect(lookup).toHaveValue('CARD-001');
     await lookup.press('Enter');
-    await expect(page.getByText('Ada Shopper')).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Capture Purchase' }),
-    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper',
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Redeem Credit' }),
-    ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+      page.getByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1&card=CARD-001');
     await page.locator('main').evaluate((main) => {
       main.style.height = '836px';
       main.style.overflow = 'hidden';
@@ -1619,7 +1621,6 @@ test.describe('workflow route coverage', () => {
       { width: 390, height: 844 },
     ]) {
       await page.setViewportSize(viewport);
-      await page.reload();
       await expect(searchPanel).toBeVisible();
       await expect(recentPanel).toBeVisible();
 
@@ -1673,13 +1674,74 @@ test.describe('workflow route coverage', () => {
       .locator('#customer-search-form')
       .getByRole('button', { name: 'Search' })
       .click();
-    await expect(page.getByText('Ada Shopper')).toBeVisible();
+    await expect(
+      page.locator('.find-customer-table').getByRole('cell', {
+        name: 'Ada Shopper',
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
       page.getByText('Scan an active card to continue'),
     ).toBeVisible();
     await expect(
       page.locator('main').getByRole('link', { name: 'Capture Purchase' }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+  });
+
+  test('shows a recent customer table and profile transaction actions', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.goto(`${baseUrl}/cashier/lookup`);
+
+    const recentTable = page.locator('.find-customer-table');
+    await expect(recentTable.getByRole('row')).toHaveCount(2);
+    await expect(
+      recentTable.getByRole('columnheader', { name: 'Customer ID' }),
+    ).toBeVisible();
+    await expect(recentTable.getByText('customer-1')).toBeVisible();
+
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const layout = await page.evaluate(() => {
+        const tableWrap = document.querySelector('.find-customer-table-wrap');
+        return {
+          pageWidth: document.documentElement.scrollWidth,
+          tableWidth: tableWrap?.scrollWidth ?? 0,
+          tableClientWidth: tableWrap?.clientWidth ?? 0,
+        };
+      });
+      expect(layout.pageWidth).toBeLessThanOrEqual(width);
+      if (width < 620) {
+        expect(layout.tableWidth).toBeGreaterThan(layout.tableClientWidth);
+      }
+    }
+
+    await page.goto(`${baseUrl}/cashier/lookup?card=CARD-001`);
+    const profileLink = page.getByRole('link', {
+      name: 'View profile for Ada Shopper',
+    });
+    await expect(profileLink).toHaveAttribute(
+      'href',
+      '/cashier/customers?id=customer-1&card=CARD-001',
+    );
+    await page.goto(`${baseUrl}${await profileLink.getAttribute('href')}`);
+    await expect(page).toHaveURL(
+      /\/cashier\/customers\?id=customer-1&card=CARD-001/,
+    );
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(
+      page.getByRole('navigation', { name: 'Customer transaction actions' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Capture Purchase', exact: true }),
+    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
+    await expect(
+      page.getByRole('link', { name: 'Redeem Credit', exact: true }),
+    ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
   });
 
   test('shows an authoritative lookup error state', async ({ page }) => {

@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   getShellNavigationSections,
   getActiveShellNavigationItem,
+  matchShellRoute,
   shellNavigationByRole,
 } from '../components/shell-navigation';
 
@@ -47,6 +48,37 @@ describe('canonical shell navigation', () => {
         path.join(process.cwd(), 'app/(shell)/cashier/customers/page.tsx'),
       ),
     ).toBe(true);
+  });
+
+  it('authorizes the Cashier profile alias without adding a sidebar item', () => {
+    const cashierItems = shellNavigationByRole.CASHIER.flatMap(
+      (section) => section.items,
+    );
+    const lookupItem = cashierItems.find(
+      (item) => item.id === 'cashier-lookup',
+    );
+
+    expect(cashierItems).toHaveLength(6);
+    if (!lookupItem) throw new Error('Cashier lookup route is missing');
+    expect(matchShellRoute('/cashier/customers', lookupItem)).toBe(true);
+    expect(
+      getActiveShellNavigationItem(
+        '/cashier/customers',
+        getShellNavigationSections('CASHIER', 'ready'),
+      ),
+    ).toEqual(expect.objectContaining({ id: 'cashier-lookup' }));
+    expect(
+      getActiveShellNavigationItem(
+        '/cashier/customers',
+        getShellNavigationSections('SUPERVISOR', 'ready'),
+      ),
+    ).toBeNull();
+    expect(
+      getActiveShellNavigationItem(
+        '/cashier/customers',
+        getShellNavigationSections('ADMIN', 'ready'),
+      ),
+    ).toBeNull();
   });
 
   it('uses the most specific canonical route for nested paths', () => {

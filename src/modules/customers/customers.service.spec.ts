@@ -234,6 +234,39 @@ describe('CustomersService', () => {
     });
   });
 
+  it('matches local formatted phone queries against stored E.164 numbers', async () => {
+    let findManyArgs: unknown;
+    const findMany = jest.fn().mockImplementation((args: unknown) => {
+      findManyArgs = args;
+      return Promise.resolve([]);
+    });
+    const service = new CustomersService(
+      { customer: { findMany } } as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+
+    await service.listCustomers(
+      'tenant-id',
+      actorStub(UserRole.CASHIER),
+      '080 1234 5678',
+    );
+
+    const query = findManyArgs as {
+      where?: {
+        tenantId?: string;
+        OR?: Array<{ phoneE164?: { contains?: string } }>;
+      };
+    };
+    expect(query.where?.tenantId).toBe('tenant-id');
+    expect(query.where?.OR).toEqual(
+      expect.arrayContaining([
+        { phoneE164: { contains: '080 1234 5678' } },
+        { phoneE164: { contains: '+2348012345678' } },
+      ]),
+    );
+  });
+
   it('returns customer-specific card, latest-purchase, and earned-credit values', async () => {
     const customerOneId = 'customer-one';
     const customerTwoId = 'customer-two';

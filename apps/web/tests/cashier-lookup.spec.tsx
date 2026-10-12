@@ -47,6 +47,9 @@ jest.mock('../lib/api/generated-client', () => {
 describe('Cashier lookup workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest
+      .mocked(customersControllerListCustomersV1)
+      .mockReturnValue(new Promise(() => {}) as never);
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
       status: 200,
       data: {
@@ -308,9 +311,11 @@ describe('Cashier lookup workflow', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('searchbox', { name: 'Customer search' }),
-    ).toHaveAttribute('placeholder', 'Search');
+    ).toHaveAttribute('placeholder', 'Search customers, phone, or card…');
     expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
-    expect(screen.getByText('No customers found')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Customer ID' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps workflow landmarks in prototype reading order', () => {
@@ -377,6 +382,85 @@ describe('Cashier lookup workflow', () => {
     }
   });
 
+  it('loads ten recent customers with identifiers and profile actions', async () => {
+    const recentCustomers = Array.from({ length: 10 }, (_, index) => ({
+      id: `customer-${index + 1}`,
+      fullName: `Recent Shopper ${index + 1}`,
+      maskedPhone: `+234801* *** ${String(index + 1).padStart(4, '0')}`,
+      cardStatus: 'ACTIVE',
+      availableBalanceKobo: 1200 + index,
+    }));
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: { data: { items: recentCustomers } },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+
+    expect(await screen.findByText('Recent Shopper 10')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(11);
+    expect(screen.getByText('customer-1')).toBeInTheDocument();
+    expect(screen.getByText('+234801* *** 0001')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'View profile for Recent Shopper 1' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+    expect(customersControllerListCustomersV1).toHaveBeenCalledWith(
+      { q: '', limit: '10', cursor: '' },
+      expect.any(Object),
+    );
+  });
+
+  it('debounces customer directory search and accepts a local phone query', async () => {
+    jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          items: [
+            {
+              id: 'customer-phone',
+              fullName: 'Ada Shopper',
+              maskedPhone: '+234801* *** 5678',
+              cardStatus: 'ACTIVE',
+              availableBalanceKobo: 5500,
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="lookup"
+        title="Cashier lookup"
+        description="Find a customer"
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Customer search' }),
+      {
+        target: { value: '080 1234 5678' },
+      },
+    );
+
+    await waitFor(
+      () =>
+        expect(customersControllerListCustomersV1).toHaveBeenCalledWith(
+          { q: '080 1234 5678', limit: '8', cursor: '' },
+          expect.any(Object),
+        ),
+      { timeout: 1500 },
+    );
+    expect(
+      await screen.findByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-phone');
+  });
+
   it('restores lookup focus and clears discovery state on Escape', async () => {
     render(
       <CashierWorkflowRoute
@@ -392,7 +476,9 @@ describe('Cashier lookup workflow', () => {
 
     expect(search).toHaveFocus();
     expect(search).toHaveValue('');
-    expect(screen.getByText('No customers found')).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', { name: 'Loading recent customers…' }),
+    ).toBeInTheDocument();
     expect(
       document.querySelector('[data-od-id="customer-search-state"]'),
     ).toHaveAttribute('role', 'status');
@@ -445,7 +531,7 @@ describe('Cashier lookup workflow', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps lookup focused and preserves context for Earn and Redeem', async () => {
+  it('links a verified card result to its customer profile', async () => {
     render(
       <CashierWorkflowRoute
         kind="lookup"
@@ -466,12 +552,8 @@ describe('Cashier lookup workflow', () => {
       expect(screen.getByText('Ada Shopper')).toBeInTheDocument();
     });
     expect(
-      screen.getByRole('link', { name: 'Capture Purchase' }),
-    ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
-    expect(screen.getByRole('link', { name: 'Redeem Credit' })).toHaveAttribute(
-      'href',
-      '/cashier/redeem?card=CARD-001',
-    );
+      screen.getByRole('link', { name: 'View profile for Ada Shopper' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1&card=CARD-001');
     expect(
       screen.queryByRole('heading', { name: 'Policy context' }),
     ).not.toBeInTheDocument();

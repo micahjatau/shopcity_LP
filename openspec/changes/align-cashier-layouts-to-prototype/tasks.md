@@ -33,6 +33,11 @@
 - [x] 4.3 Align discovered-customer result cards, empty results, failed search, offline, and stale-response states without implying authoritative card verification.
 - [x] 4.4 Preserve exact card lookup, Cashier-safe masking, tenant/branch scope, authorization, 404/error contract, keyboard selection, Escape, focus restoration, and deep-link handoff.
 - [x] 4.5 Add desktop/tablet/mobile/reduced-motion route evidence and verify that layout does not depend on search success.
+- [x] 4.6 Merge the search and recent-results card surfaces into one route-scoped discovery card without changing lookup behavior or other workflow consumers.
+- [x] 4.7 Load up to ten latest cashier-visible customer records into a table with name, customer ID, masked phone, card status, available balance, and a profile action.
+- [x] 4.8 Match topbar customer-search behavior with debounced table results and add local-phone normalization against stored E.164 numbers without exposing unmasked phone data.
+- [x] 4.9 Authorize the existing Cashier profile route as a Find Customer alias without adding a sidebar item; add Capture Purchase and Redeem Credit actions that preserve exact-card verification and existing financial safeguards.
+- [x] 4.10 Test recent-list loading, live name/international/local-phone search, profile routing, empty/error states, and protected Earn/Redeem verification.
 
 ## 5. Adapt Capture Purchase
 

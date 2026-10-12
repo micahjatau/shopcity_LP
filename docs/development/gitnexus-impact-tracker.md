@@ -1323,3 +1323,25 @@ npm run proposal:impact -- --file apps/web/components/workflows/approvals-panel.
 | `ApprovalsPanel` | LOW, exact |                2 |                 2 | 0 processes / modules        |
 
 The list response contains UUID, amount, requested/decision timestamps, nullable customer name/ID, nullable requester username/role, and a policy `reasonCode`. It omits wallet balance, lifetime earned, and submitter-entered reason text. Preserve these as “Not provided”; do not treat `reasonCode` as free-text. No backend changes are authorized by this UI update.
+
+### 2026-10-12 — Cashier customer search, recent directory, and profile actions
+
+Proposal-time impact was run before expanding the Cashier Find Customer flow. The branch contains unrelated dirty work that must remain untouched.
+
+```text
+npm run proposal:impact -- --file openspec/changes/align-cashier-layouts-to-prototype/proposal.md FindCustomerView
+node .gitnexus/run.cjs impact --uid 'Function:src/modules/customers/customers.service.ts:customerSearchWhere' --direction upstream -r shopcity_LP
+node .gitnexus/run.cjs impact CashierCustomersPage --direction upstream -r shopcity_LP
+npm run proposal:impact -- --file openspec/changes/align-cashier-layouts-to-prototype/proposal.md matchShellRoute
+node .gitnexus/run.cjs impact matchShellRoute --direction upstream -r shopcity_LP
+```
+
+| Symbol                              | Risk        | Impacted symbols | Direct dependants | Affected processes / modules                      |
+| ----------------------------------- | ----------- | ---------------: | ----------------: | ------------------------------------------------- |
+| `FindCustomerView`                  | HIGH, exact |                4 |                 1 | 3 Cashier lookup/Earn/Redeem processes; Workflows |
+| `customerSearchWhere`               | LOW, exact  |                1 |                 1 | 1 `listCustomers` process; Customers              |
+| `CashierCustomersPage`              | LOW, exact  |                0 |                 0 | No upstream processes or modules                  |
+| `useCashierLookupController.lookup` | HIGH, exact |                5 |                 1 | Cashier lookup/Earn/Redeem processes; 2 modules   |
+| `matchShellRoute`                   | LOW, exact  |                8 |                 4 | 2 shell navigation/access processes; Components   |
+
+Keep all table/search/profile UI changes gated to the Lookup/Cashier route. Do not alter the shared lookup controller or Earn/Redeem behavior. Name/phone directory results use the existing tenant-authorized, cashier-minimized customer projection; local phone input normalization must not reveal unmasked phone numbers. Profile workflow links still require exact card verification before financial actions. The existing `/cashier/customers` profile path was not recognized by the Cashier shell route guard; add it as a route alias of Find Customer without exposing another sidebar item. Regression-test Cashier access plus unchanged Admin/Supervisor route guards.

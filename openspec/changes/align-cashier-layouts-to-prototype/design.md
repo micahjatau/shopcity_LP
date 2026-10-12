@@ -47,7 +47,7 @@ The shell contract includes the same page-heading block on every route. Navigati
 Implement routes in dependency order:
 
 1. Overview establishes page width, heading/action row, metric-card grid, table, and responsive spacing.
-2. Find Customer extracts the reusable compact search/result composition.
+2. Find Customer presents the search form, live status, and recent customer results inside one shared approximately 712px card. The search and result sections remain separate for semantics but no longer render as separate cards; this treatment is scoped to `/cashier/lookup` so shared workflow consumers retain their existing presentation. Load up to ten latest customer records initially; show customer name, customer ID, masked phone, card status, available balance, and a profile action in table columns. Debounced name/phone search replaces the initial rows with matches and sends both international and normalized local phone input through the existing cashier-authorized directory query. Profile navigation uses `/cashier/customers?id=...`; register that existing profile path as an alias of the Cashier Find Customer shell route so it is authorized without adding another sidebar item. The cashier profile provides Capture Purchase and Redeem Credit actions, which still enter the existing exact-card-verification workflows. A serial may be carried forward only from an exact verified card result.
 3. Capture Purchase consumes that search presentation and adds the stable 860px guided flow.
 4. Redeem Credit consumes the same lookup and flow primitives with the intentional 720px variant and credit-summary layout.
 5. Transactions establishes the table/filter/detail-dialog composition.

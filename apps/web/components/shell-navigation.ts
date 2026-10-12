@@ -15,6 +15,7 @@ export type ShellNavigationItem = {
   href: string;
   icon: ShellNavigationIconName;
   exact?: boolean;
+  routeAliases?: string[];
   badge?: ShellNavigationItemBadge;
 };
 
@@ -45,6 +46,7 @@ export const shellNavigationByRole: Record<
           label: 'Find Customer',
           href: '/cashier/lookup',
           icon: 'search',
+          routeAliases: ['/cashier/customers'],
         },
         {
           id: 'cashier-earn',
@@ -282,11 +284,12 @@ export function matchShellRoute(
     return false;
   }
 
-  if (item.exact) {
-    return pathname === item.href;
-  }
-
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const routes = [item.href, ...(item.routeAliases ?? [])];
+  return routes.some((route) =>
+    item.exact
+      ? pathname === route
+      : pathname === route || pathname.startsWith(`${route}/`),
+  );
 }
 
 export function getActiveShellNavigationItem(

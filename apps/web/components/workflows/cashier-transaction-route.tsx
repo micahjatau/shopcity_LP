@@ -1,9 +1,11 @@
 'use client';
 
-import { CreditCard, Search, ScanLine } from 'lucide-react';
+import { Search, ScanLine } from 'lucide-react';
 import Link from 'next/link';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { customersControllerListCustomersV1 } from '../../lib/api/generated-client';
+import { createApiRequest } from '../../lib/api/request';
 import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
 import { Alert, Button, Input } from '../ui';
@@ -201,7 +203,7 @@ export function CashierWorkflowRoute({
           lookupPending={lookupPending}
           lookupRecord={lookupRecord}
           discoveryMatches={discoveryMatches}
-          onLookup={(event) => void handleLookup(event)}
+          onLookup={(eventOrValue) => void handleLookup(eventOrValue)}
           onQueryChange={setLookupValue}
           selectedCardSerial={selectedCardSerial}
           onClearLookup={clearLookup}
@@ -393,12 +395,92 @@ function FindCustomerView({
   lookupPending: boolean;
   lookupRecord: CashierLookupRecord | null;
   discoveryMatches: CashierDiscoveryRecord[];
-  onLookup: (event: FormEvent<HTMLFormElement>) => void;
+  onLookup: (eventOrValue: FormEvent<HTMLFormElement> | string) => void;
   onQueryChange: (value: string) => void;
   selectedCardSerial: string;
   onClearLookup: () => void;
 }>) {
   const queryInputRef = useRef<HTMLInputElement | null>(null);
+  const lookupHandlerRef = useRef(onLookup);
+  const previousLookupValue = useRef(lookupValue);
+  const searchTimerRef = useRef<number | null>(null);
+  const triggeredSearchRef = useRef('');
+  const scrollRegionProps = { tabIndex: 0 };
+  const [recentCustomers, setRecentCustomers] = useState<
+    CashierDiscoveryRecord[]
+  >([]);
+  const [recentPending, setRecentPending] = useState(true);
+  const [recentError, setRecentError] = useState('');
+  const [directoryPending, setDirectoryPending] = useState(false);
+
+  useEffect(() => {
+    lookupHandlerRef.current = onLookup;
+  }, [onLookup]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRecentCustomers() {
+      try {
+        const response = await customersControllerListCustomersV1(
+          { q: '', limit: '10', cursor: '' },
+          createApiRequest({ csrf: true }),
+        );
+        if (!active) return;
+        if (response.status !== 200) {
+          setRecentError(`Recent customers unavailable (${response.status}).`);
+          return;
+        }
+        const data = response.data.data;
+        const items = Array.isArray(data) ? data : data.items;
+        setRecentCustomers((items ?? []) as CashierDiscoveryRecord[]);
+      } catch {
+        if (active) setRecentError('Recent customers unavailable.');
+      } finally {
+        if (active) setRecentPending(false);
+      }
+    }
+
+    void loadRecentCustomers();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (lookupValue === previousLookupValue.current) return;
+    previousLookupValue.current = lookupValue;
+    const term = lookupValue.trim();
+    if (term.length < 2) {
+      triggeredSearchRef.current = '';
+      setDirectoryPending(false);
+      return;
+    }
+
+    setDirectoryPending(true);
+    const timer = window.setTimeout(() => {
+      searchTimerRef.current = null;
+      triggeredSearchRef.current = term;
+      lookupHandlerRef.current(term);
+    }, 280);
+    searchTimerRef.current = timer;
+
+    return () => {
+      window.clearTimeout(timer);
+      if (searchTimerRef.current === timer) searchTimerRef.current = null;
+    };
+  }, [lookupValue]);
+
+  useEffect(() => {
+    if (
+      triggeredSearchRef.current &&
+      triggeredSearchRef.current === lookupValue.trim() &&
+      !lookupPending
+    ) {
+      setDirectoryPending(false);
+      triggeredSearchRef.current = '';
+    }
+  }, [lookupPending, lookupValue]);
 
   useEffect(() => {
     function restoreLookupFocus(event: KeyboardEvent) {
@@ -417,14 +499,59 @@ function FindCustomerView({
     return () => window.removeEventListener('keydown', restoreLookupFocus);
   }, [discoveryMatches.length, lookupRecord, lookupValue, onClearLookup]);
 
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    const term = lookupValue.trim();
+    if (term.length >= 2) {
+      triggeredSearchRef.current = term;
+      setDirectoryPending(true);
+    }
+    lookupHandlerRef.current(event);
+  }
+
+  const verifiedCustomer: CashierDiscoveryRecord | null = lookupRecord
+    ? {
+        customerId:
+          lookupRecord.customerId ??
+          lookupRecord.customer?.customerId ??
+          lookupRecord.customer?.id,
+        fullName: lookupRecord.customer?.fullName ?? lookupRecord.customerName,
+        maskedPhone: lookupRecord.customer?.maskedPhone,
+        cardStatus: lookupRecord.cardStatus ?? lookupRecord.status,
+        availableBalanceKobo:
+          lookupRecord.availableBalanceKobo ?? lookupRecord.balanceKobo,
+      }
+    : null;
+  const hasSearchTerm = Boolean(lookupValue.trim());
+  const visibleCustomers = verifiedCustomer
+    ? [verifiedCustomer]
+    : hasSearchTerm
+      ? discoveryMatches
+      : recentCustomers;
+  const tableBusy = hasSearchTerm
+    ? lookupPending || directoryPending
+    : recentPending;
+  const statusMessage = hasSearchTerm
+    ? lookupValue.trim().length < 2 && !lookupPending
+      ? 'Enter at least 2 characters to search.'
+      : directoryPending && !lookupPending
+        ? `Searching for “${lookupValue.trim()}”…`
+        : lookupMessage
+    : recentPending
+      ? 'Loading recent customers…'
+      : recentError || 'Search by customer name, phone number, or card serial.';
+
   return (
     <div className="find-customer-view" data-od-id="find-customer-content">
       <section
         className="find-customer-search sc-discovery-panel"
         data-od-id="customer-search"
-        aria-busy={lookupPending}
+        aria-busy={lookupPending || directoryPending}
       >
-        <form id="customer-search-form" onSubmit={onLookup}>
+        <form id="customer-search-form" onSubmit={submitSearch}>
           <div className="find-customer-search-row">
             <label
               className="find-customer-query"
@@ -437,7 +564,7 @@ function FindCustomerView({
                 type="search"
                 aria-label="Customer search"
                 aria-describedby="customer-search-hint"
-                placeholder="Search"
+                placeholder="Search customers, phone, or card…"
                 autoComplete="off"
                 className="sc-input--compact"
                 value={lookupValue}
@@ -467,7 +594,8 @@ function FindCustomerView({
             className="find-customer-hint sc-discovery-muted"
           >
             Search by name, phone number, or card serial. Press enter or select
-            Search to look up a customer.
+            Search to look up a customer. Type at least two characters to see
+            customer matches.
           </p>
         </form>
       </section>
@@ -478,113 +606,122 @@ function FindCustomerView({
         role="status"
         aria-live="polite"
       >
-        {lookupMessage}
+        {statusMessage}
       </p>
 
       <section
         className="find-customer-recent sc-discovery-panel"
         data-od-id="recent-customers"
+        aria-busy={tableBusy}
       >
         <div className="find-customer-recent-head">
           <h2 className="sc-discovery-section-title">Recent customers</h2>
           <p className="sc-discovery-muted">
-            Customers served most recently at this branch.
+            Up to ten of the most recently registered customer profiles.
           </p>
         </div>
-        <div className="find-customer-list" data-od-id="customer-results">
-          {lookupRecord ? (
-            <article
-              className="find-customer-row sc-discovery-row"
-              data-od-id="customer-selection"
-            >
-              <div
-                className="find-customer-row-main"
-                data-od-id="verified-card-handoff"
-              >
-                <strong>
-                  {lookupRecord.customer?.fullName ??
-                    lookupRecord.customerName ??
-                    'Customer'}
-                </strong>
-                <span className="sc-discovery-muted">
-                  {lookupRecord.customer?.maskedPhone ?? selectedCardSerial}
-                </span>
-                <span className="find-customer-status sc-discovery-muted">
-                  {lookupRecord.status ??
-                    lookupRecord.cardStatus ??
-                    'Card verified'}
-                </span>
-              </div>
-              <div className="find-customer-row-side">
-                <span className="find-customer-balance">
-                  {typeof lookupRecord.availableBalanceKobo === 'number' ? (
-                    <Money amountKobo={lookupRecord.availableBalanceKobo} />
-                  ) : (
-                    'Balance unavailable'
-                  )}
-                </span>
-                <div className="find-customer-actions">
-                  <Link
-                    className="sc-discovery-action"
-                    href={`/cashier/earn?card=${encodeURIComponent(selectedCardSerial)}`}
-                  >
-                    Capture Purchase
-                  </Link>
-                  <Link
-                    className="sc-discovery-action"
-                    href={`/cashier/redeem?card=${encodeURIComponent(selectedCardSerial)}`}
-                  >
-                    Redeem Credit
-                  </Link>
-                </div>
-              </div>
-            </article>
-          ) : discoveryMatches.length > 0 ? (
-            discoveryMatches.map((customer, index) => {
-              const customerKey = customer.customerId ?? customer.id ?? index;
-              const cardStatus =
-                customer.cardStatus?.toLowerCase() === 'active'
-                  ? 'Active card'
-                  : 'Card status unavailable';
+        <div
+          className="find-customer-table-wrap"
+          data-od-id="customer-results"
+          role="region"
+          aria-label="Customer results"
+          {...scrollRegionProps}
+        >
+          <table className="find-customer-table">
+            <caption className="sr-only">
+              Customer name, customer ID, masked phone, card status, available
+              balance, and profile action.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Customer</th>
+                <th scope="col">Customer ID</th>
+                <th scope="col">Phone</th>
+                <th scope="col">Card status</th>
+                <th scope="col">Available balance</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleCustomers.length ? (
+                visibleCustomers.map((customer, index) => {
+                  const customerId = customer.customerId ?? customer.id;
+                  const customerName = customer.fullName ?? 'Name unavailable';
+                  const profileQuery = customerId
+                    ? new URLSearchParams({ id: customerId })
+                    : null;
+                  if (profileQuery && verifiedCustomer && selectedCardSerial) {
+                    profileQuery.set('card', selectedCardSerial);
+                  }
+                  const cardStatus =
+                    customer.cardStatus?.toUpperCase() === 'ACTIVE'
+                      ? 'Active card'
+                      : customer.cardStatus
+                        ? customer.cardStatus
+                            .replaceAll('_', ' ')
+                            .toLowerCase()
+                            .replace(/^\w/, (letter) => letter.toUpperCase())
+                        : 'Card status unavailable';
 
-              return (
-                <article
-                  className="find-customer-row sc-discovery-row"
-                  data-od-id={`customer-card-${customerKey}`}
-                  key={customerKey}
-                >
-                  <div className="find-customer-row-main">
-                    <strong>{customer.fullName ?? 'Customer'}</strong>
-                    <span className="sc-discovery-muted">
-                      {customer.maskedPhone ?? 'Phone unavailable'}
-                    </span>
-                    <span className="find-customer-status sc-discovery-muted">
-                      {cardStatus}
-                    </span>
-                  </div>
-                  <div className="find-customer-row-side">
-                    <span className="find-customer-balance">
-                      {typeof customer.availableBalanceKobo === 'number' ? (
-                        <Money amountKobo={customer.availableBalanceKobo} />
-                      ) : (
-                        'Balance unavailable'
-                      )}
-                    </span>
-                    <span className="find-customer-discovery-hint sc-discovery-muted">
-                      Scan an active card to continue
-                    </span>
-                  </div>
-                </article>
-              );
-            })
-          ) : (
-            <div className="find-customer-empty">
-              <CreditCard aria-hidden="true" size={62} strokeWidth={1.2} />
-              <strong>No customers found</strong>
-              <span>Search by name, phone, or an active card to continue.</span>
-            </div>
-          )}
+                  return (
+                    <tr
+                      key={customerId ?? `${customerName}-${index}`}
+                      data-od-id={
+                        verifiedCustomer
+                          ? 'customer-selection'
+                          : `customer-card-${customerId ?? index}`
+                      }
+                    >
+                      <td>{customerName}</td>
+                      <td className="find-customer-table__id">
+                        {customerId ?? 'Customer ID unavailable'}
+                      </td>
+                      <td>{customer.maskedPhone ?? 'Phone unavailable'}</td>
+                      <td>{cardStatus}</td>
+                      <td>
+                        {typeof customer.availableBalanceKobo === 'number' ? (
+                          <Money amountKobo={customer.availableBalanceKobo} />
+                        ) : (
+                          'Balance unavailable'
+                        )}
+                      </td>
+                      <td>
+                        {profileQuery ? (
+                          <Link
+                            className="cashier-primary-action find-customer-profile-action"
+                            href={`/cashier/customers?${profileQuery.toString()}`}
+                            aria-label={`View profile for ${customerName}`}
+                          >
+                            View profile
+                          </Link>
+                        ) : (
+                          'Profile unavailable'
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td className="find-customer-empty-cell" colSpan={6}>
+                    {tableBusy
+                      ? hasSearchTerm
+                        ? `Searching for “${lookupValue.trim()}”…`
+                        : 'Loading recent customers…'
+                      : hasSearchTerm
+                        ? lookupMessage || 'No customers found.'
+                        : recentError || 'No customers found.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
+        {!verifiedCustomer && hasSearchTerm && visibleCustomers.length > 0 ? (
+          <p className="find-customer-discovery-note sc-discovery-muted">
+            Scan an active card to continue
+          </p>
+        ) : null}
       </section>
     </div>
   );

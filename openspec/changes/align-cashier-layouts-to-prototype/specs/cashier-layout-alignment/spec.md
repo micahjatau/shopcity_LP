@@ -59,7 +59,28 @@ Overview SHALL present the shared page heading and action region, welcome/suppor
 
 ### Requirement: Find Customer separates discovery from authoritative verification
 
-Find Customer SHALL provide a compact search panel of approximately 712px maximum width with aligned name/phone/card input, Search, and Scan controls on desktop and a stacked arrangement on smaller widths. Discovery results SHALL remain visually distinct from authoritative verified-card state.
+Find Customer SHALL provide one compact card of approximately 712px maximum width containing aligned name/phone/card input, Search, and Scan controls on desktop and a stacked arrangement on smaller widths, followed by live status and customer results within that card. On initial load, the results table SHALL show up to ten latest customer records with name, customer ID, masked phone, card status, available balance, and a profile action. After a search of at least two characters, debounced customer matches SHALL replace those rows. Customer searches SHALL accept international and local phone-number formats against stored E.164 numbers. Discovery results SHALL remain visually distinct from authoritative verified-card state, and no data shown to a Cashier SHALL include an unmasked phone number.
+
+#### Scenario: Recent customer directory and profile navigation
+
+- **WHEN** a Cashier opens Find Customer without a search term
+- **THEN** the route loads at most ten latest customer records into the result table
+- **AND** the table shows customer name, customer ID, masked phone, card status, and available balance in separate columns
+- **AND** each row with a customer ID has an action that opens `/cashier/customers?id=...`
+
+#### Scenario: Debounced customer and phone search
+
+- **WHEN** a Cashier enters at least two characters of a customer name or phone number
+- **THEN** the customer table updates to the matches from the cashier-authorized directory endpoint
+- **AND** local phone input is normalized to match the stored E.164 number
+- **AND** search results keep the phone masked and expose a profile action
+
+#### Scenario: Cashier profile workflow actions
+
+- **WHEN** a Cashier opens a customer profile from Find Customer
+- **THEN** the profile route remains authorized within the Cashier shell without adding a separate sidebar item
+- **AND** the profile offers Capture Purchase and Redeem Credit actions
+- **AND** either action continues through the existing active-card verification and financial workflow controls
 
 #### Scenario: Customer discovery search
 

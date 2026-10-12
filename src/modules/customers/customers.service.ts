@@ -1117,25 +1117,40 @@ function customerSearchWhere(
   tenantId: string,
   normalizedQuery?: string,
 ): Prisma.CustomerWhereInput {
+  const query = normalizedQuery?.trim();
+  const phoneQuery = isPhoneSearchQuery(query)
+    ? normalizePhoneToE164(query)
+    : null;
   return {
     tenantId,
-    ...(normalizedQuery
+    ...(query
       ? {
           OR: [
             {
-              fullName: { contains: normalizedQuery, mode: 'insensitive' },
+              fullName: { contains: query, mode: 'insensitive' },
             },
-            { phoneE164: { contains: normalizedQuery } },
-            { email: { contains: normalizedQuery, mode: 'insensitive' } },
+            { phoneE164: { contains: query } },
+            ...(phoneQuery && phoneQuery !== query
+              ? [{ phoneE164: { contains: phoneQuery } }]
+              : []),
+            { email: { contains: query, mode: 'insensitive' } },
             {
               cards: {
-                some: { barcodeValue: { contains: normalizedQuery } },
+                some: { barcodeValue: { contains: query } },
               },
             },
           ],
         }
       : {}),
   };
+}
+
+function isPhoneSearchQuery(query?: string): query is string {
+  return Boolean(
+    query &&
+    /^[+()\d\s.-]+$/.test(query) &&
+    query.replace(/\D/g, '').length >= 7,
+  );
 }
 
 function classifyCustomerSearchQuery(
@@ -1150,7 +1165,7 @@ function classifyCustomerSearchQuery(
     return 'email';
   }
 
-  if (/^\+?\d[\d\s-]+$/.test(query)) {
+  if (isPhoneSearchQuery(query)) {
     return 'phone';
   }
 

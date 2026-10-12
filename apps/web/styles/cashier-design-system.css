@@ -44,6 +44,18 @@
   background: var(--sc-prototype-surface);
 }
 
+.cashier-route-page--lookup .find-customer-view {
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: 16px;
+  background: var(--sc-prototype-surface);
+}
+
+.cashier-route-page--lookup .find-customer-view > .sc-discovery-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .sc-discovery-muted {
   color: var(--sc-prototype-muted);
   font-size: 12px;
@@ -366,5 +378,67 @@
 
   .cashier-sync-priority {
     grid-template-columns: 1fr;
+  }
+}
+
+.cashier-customer-profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #f0eeee;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.cashier-customer-profile-actions h2,
+.cashier-customer-profile-actions p {
+  margin: 0;
+}
+
+.cashier-customer-profile-actions h2 {
+  color: #414141;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cashier-customer-profile-actions p {
+  margin-top: 4px;
+  color: #595959;
+  font-size: 12px;
+}
+
+.cashier-customer-profile-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cashier-customer-profile-actions .cashier-primary-action {
+  border-color: #c9151c;
+  background: #c9151c;
+  color: #fff;
+}
+
+.cashier-customer-profile-actions .cashier-secondary-action {
+  border-color: #c9151c;
+  background: #fff;
+  color: #9e1015;
+}
+
+@media (max-width: 767px) {
+  .cashier-customer-profile-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cashier-customer-profile-actions__buttons {
+    width: 100%;
+  }
+
+  .cashier-customer-profile-actions__buttons > * {
+    flex: 1 1 auto;
   }
 }

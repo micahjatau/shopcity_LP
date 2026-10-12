@@ -1,3 +1,4 @@
+import { CashierCustomerProfileActions } from '../../../../components/workflows/cashier-customer-profile-actions';
 import { CustomerWorkspace } from '../../../../components/workflows/customer-workspace';
 
 export default function CashierCustomersPage() {
@@ -13,6 +14,7 @@ export default function CashierCustomersPage() {
           'linear-gradient(145deg, rgba(255, 241, 241, 0.72), var(--sc-color-neutral-0))',
       }}
     >
+      <CashierCustomerProfileActions />
       <CustomerWorkspace canManage={false} />
     </section>
   );
