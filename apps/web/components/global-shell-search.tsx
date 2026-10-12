@@ -165,12 +165,20 @@ export function GlobalShellSearch({
         valueToText(customer?.fullName) ||
         valueToText(record.customerName) ||
         'Verified card';
+      const customerId =
+        valueToText(record.customerId) ||
+        valueToText(customer?.customerId) ||
+        valueToText(customer?.id);
+      const href =
+        userRole === 'SUPERVISOR' && customerId
+          ? `/supervisor/customers/${encodeURIComponent(customerId)}?tab=virtual-card`
+          : `${userRole === 'CASHIER' ? '/cashier/lookup' : userRole === 'ADMIN' ? '/admin/cards' : '/supervisor/cards'}?card=${encodeURIComponent(serial)}`;
       setResults([
         {
           id: serial,
           label: name,
           detail: `Card ${serial}`,
-          href: `${userRole === 'CASHIER' ? '/cashier/lookup' : userRole === 'ADMIN' ? '/admin/cards' : '/supervisor/cards'}?card=${encodeURIComponent(serial)}`,
+          href,
         },
       ]);
       setMessage('');

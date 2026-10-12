@@ -15,6 +15,7 @@ The existing `/users` endpoint is Admin-only and returns broad user data. It mus
 5. **No generic Redeem lookup fallback.** Redeem’s initial workflow stage always mounts the shared lookup step; later stages render only after verified context, so an empty generic section is not left mounted.
 6. **Topbar has truthful status only.** Remove notification and permanent online copy. Keep accessible session diagnostics and the existing offline indicator; connection status is represented only when backed by actual offline/online state.
 7. **Generated contracts are regenerated, not hand-edited.** If the cashier directory endpoint is added, regenerate OpenAPI/client artifacts with the repository CLI and include authorization tests.
+8. **Supervisor card search opens the customer's Virtual Card profile tab.** Use the customer identifier returned by exact card lookup to deep-link to `/supervisor/customers/{customerId}?tab=virtual-card`; if the identifier is missing, retain the Supervisor card-management fallback. Admin card results continue to open `/admin/cards`, and Cashier results continue to use the cashier lookup flow.
 
 ## Risks
 

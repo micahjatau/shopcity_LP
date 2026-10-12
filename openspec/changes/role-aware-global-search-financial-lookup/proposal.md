@@ -9,6 +9,7 @@ The repaired shell still contains a non-functional search field, while Cashier a
 - Replace the inactive topbar search and notification control with a reusable role-aware global search, account avatar, and mobile navigation control.
 - Search Customers and Cards for Cashiers; search Customers, Cards, and authorized Cashiers for Supervisor/Admin users.
 - Use the existing customer directory and exact card lookup contracts with controlled/debounced directory search, explicit card lookup, masked Cashier results, stale-request protection, keyboard navigation, Escape, loading/error/empty states, and selected-record deep links.
+- Route verified Supervisor card results to the matching customer profile's Virtual Card tab when the lookup response identifies the customer; preserve existing role-authorized destinations for Admin and Cashier.
 - Add a narrowly scoped authorized cashier directory contract for Supervisor/Admin that enforces tenant and branch scope rather than broadening the Admin-only Users endpoint.
 - Extract shared `VerifiedCardLookupStep` presentation for Capture Purchase and Redeem Credit while preserving the existing lookup controller, generated clients, financial safeguards, and workflow transitions.
 - Remove Redeem’s generic initial lookup fallback and replace structural first-of-type/route-specific override styling with explicit shared classes/tokens.
@@ -24,7 +25,7 @@ Out of scope: changing financial calculations, transaction APIs, RBAC semantics,
 
 - Search is functional, role-aware, keyboard accessible, debounced for directories, and explicit for exact card lookup.
 - Cashier sees only Customers and Cards; Supervisor/Admin additionally see authorized Cashiers with branch scope enforced.
-- Selected results navigate to supported customer/card/cashier destinations without fabricating data.
+- Selected results navigate to supported customer/card/cashier destinations without fabricating data; verified Supervisor card results open the identified customer's Virtual Card profile tab.
 - Capture Purchase and Redeem share identical lookup geometry and state presentation across idle/loading/error/found/confirmation states.
 - Existing generated API contracts, card authority, offline behavior, idempotency, RBAC, and financial safeguards remain intact.
 - Affected lint, typecheck, unit, accessibility, Playwright, build, integration, Semgrep, and final-SHA CI checks pass.

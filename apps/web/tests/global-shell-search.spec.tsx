@@ -176,6 +176,47 @@ describe('GlobalShellSearch', () => {
     expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
   });
 
+  it('routes Supervisor card results to the customer Virtual Card profile tab', async () => {
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          serialNumber: 'CARD-001',
+          customer: { customerId: 'cust-123', fullName: 'Ada Shopper' },
+        },
+      },
+    } as never);
+    render(<GlobalShellSearch userRole="SUPERVISOR" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByRole('option')).toHaveAttribute(
+      'href',
+      '/supervisor/customers/cust-123?tab=virtual-card',
+    );
+  });
+
+  it('routes Supervisor card results to card management when no customer id is returned', async () => {
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValue({
+      status: 200,
+      data: { data: { serialNumber: 'CARD-001', customerName: 'Ada Shopper' } },
+    } as never);
+    render(<GlobalShellSearch userRole="SUPERVISOR" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cards' }));
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByRole('option')).toHaveAttribute(
+      'href',
+      '/supervisor/cards?card=CARD-001',
+    );
+  });
+
   it('routes Admin card results to the Admin card workspace', async () => {
     jest.mocked(cardsControllerLookupCardV1).mockResolvedValue({
       status: 200,
