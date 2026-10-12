@@ -1209,12 +1209,16 @@ function ManageCustomers({
   onCustomerId,
   profileOnly = false,
   initialProfileTab,
+  profileAudience = 'supervisor',
+  profileCardHint,
 }: {
   initialQuery: string;
   customerId: string | null;
   onCustomerId: (id: string | null) => void;
   profileOnly?: boolean;
   initialProfileTab?: string;
+  profileAudience?: 'supervisor' | 'cashier';
+  profileCardHint?: string;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Customer[]>([]);
@@ -1269,9 +1273,13 @@ function ManageCustomers({
           createApiRequest({ csrf: true }),
         );
         if (request !== detailSequence.current) return null;
-        const record =
+        const responseRecord =
           response.status === 200 ? dataOf<Customer>(response) : undefined;
-        if (!record || record.id !== id) {
+        const responseCustomerId =
+          profileAudience === 'cashier'
+            ? responseRecord?.customerId
+            : responseRecord?.id;
+        if (!responseRecord || responseCustomerId !== id) {
           setDetailLoadFailed(true);
           setDetailMessage(
             `Customer details could not be verified (${response.status}).`,
@@ -1279,12 +1287,28 @@ function ManageCustomers({
           setDetailLoading(false);
           return null;
         }
+        const record: Customer =
+          profileAudience === 'cashier'
+            ? {
+                id: responseCustomerId,
+                customerId: responseCustomerId,
+                fullName: responseRecord.fullName,
+                maskedPhone: responseRecord.maskedPhone,
+                email: responseRecord.email,
+                birthdayMonth: responseRecord.birthdayMonth,
+                cardNumber: responseRecord.cardNumber,
+                cardStatus: responseRecord.cardStatus,
+                availableBalanceKobo: responseRecord.availableBalanceKobo,
+              }
+            : responseRecord;
         setCustomer(record);
         if (updateResults) updateResultRecord(record);
         setForm({
           fullName: String(record.fullName ?? ''),
-          phone: String(record.phoneE164 ?? ''),
-          email: String(record.email ?? ''),
+          phone:
+            profileAudience === 'cashier' ? '' : String(record.phoneE164 ?? ''),
+          email:
+            profileAudience === 'cashier' ? '' : String(record.email ?? ''),
         });
         setStatus(record.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE');
         setConfirmation('');
@@ -1303,7 +1327,7 @@ function ManageCustomers({
         return null;
       }
     },
-    [updateResultRecord],
+    [profileAudience, updateResultRecord],
   );
   useEffect(() => {
     if (customerId) {
@@ -1352,7 +1376,7 @@ function ManageCustomers({
     }
   }
   async function saveProfile(): Promise<boolean> {
-    if (!customer?.id) return false;
+    if (profileAudience === 'cashier' || !customer?.id) return false;
     const submitted = {
       fullName: form.fullName.trim(),
       phone: form.phone.trim(),
@@ -1419,6 +1443,7 @@ function ManageCustomers({
     }
   }
   async function changeStatus() {
+    if (profileAudience === 'cashier') return;
     const requiredPhrase = status === 'BLOCKED' ? 'BLOCK' : 'ACTIVATE';
     if (customer && status === customer.status) {
       setDetailMessage('Choose a different customer status before updating.');
@@ -1566,6 +1591,8 @@ function ManageCustomers({
         open={Boolean(customerId)}
         presentation={profileOnly ? 'page' : 'dialog'}
         initialTab={initialProfileTab}
+        profileAudience={profileAudience}
+        cashierCardHint={profileCardHint}
         customer={customer}
         profile={form}
         profileDirty={profileDirty}
@@ -1609,8 +1636,12 @@ function ManageCustomers({
           if (!customer) return;
           setForm({
             fullName: String(customer.fullName ?? ''),
-            phone: String(customer.phoneE164 ?? ''),
-            email: String(customer.email ?? ''),
+            phone:
+              profileAudience === 'cashier'
+                ? ''
+                : String(customer.phoneE164 ?? ''),
+            email:
+              profileAudience === 'cashier' ? '' : String(customer.email ?? ''),
           });
           setDetailMessage('');
         }}
@@ -1650,6 +1681,32 @@ export function SupervisorCustomerProfile({
         profileOnly
         initialProfileTab={initialTab}
         onCustomerId={() => router.push(backHref)}
+      />
+    </section>
+  );
+}
+
+export function CashierCustomerProfile({
+  customerId,
+  cardHint,
+  initialTab,
+}: Readonly<{
+  customerId: string;
+  cardHint?: string;
+  initialTab?: string;
+}>) {
+  const router = useRouter();
+  return (
+    <section className="supervisor-page sc-page">
+      <ManageCustomers
+        key={customerId}
+        initialQuery=""
+        customerId={customerId}
+        profileOnly
+        initialProfileTab={initialTab}
+        profileAudience="cashier"
+        profileCardHint={cardHint}
+        onCustomerId={() => router.push('/cashier/lookup')}
       />
     </section>
   );

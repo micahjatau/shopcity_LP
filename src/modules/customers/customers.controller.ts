@@ -63,6 +63,12 @@ export class CustomersController {
                 nullable: true,
                 description: 'Compatibility alias for cardNumber.',
               },
+              email: {
+                type: 'string',
+                nullable: true,
+                description: 'Masked email for cashier-safe customer display.',
+              },
+              birthdayMonth: { type: 'string', nullable: true },
               availableBalanceKobo: { type: 'integer' },
               lastPurchaseAmountKobo: {
                 type: 'integer',
@@ -338,7 +344,21 @@ export class CustomersController {
   @Get(':id')
   @Version('1')
   @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
-  @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
+  @apiSuccessEnvelopeResponse({
+    dataSchema: {
+      type: 'object',
+      properties: {
+        customerId: { type: 'string', format: 'uuid' },
+        fullName: { type: 'string' },
+        maskedPhone: { type: 'string' },
+        email: { type: 'string', nullable: true },
+        birthdayMonth: { type: 'string', nullable: true },
+        cardNumber: { type: 'string', nullable: true },
+        cardStatus: { type: 'string' },
+        availableBalanceKobo: { type: 'integer' },
+      },
+    },
+  })
   getCustomer(@Req() request: AuthenticatedRequest, @Param('id') id: string) {
     return this.customersService.getCustomer(
       request.authContext!.user.tenantId,

@@ -26,16 +26,16 @@ export function SupervisorVirtualCardPreview({
       />
       <div className="absolute bottom-5 left-5 z-10 max-w-[75%] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
         <p
-          className="break-words text-[25px] font-semibold text-white uppercase sm:text-[29px]"
+          className="break-words text-[28px] font-semibold text-white uppercase sm:text-[32px]"
           style={{ color: '#fff' }}
         >
           {customerName.toUpperCase()}
         </p>
         <p
-          className="mt-2 break-all font-mono text-[25px] font-semibold tracking-wide text-white sm:text-[29px]"
+          className="mt-2 break-all font-mono text-[28px] font-semibold tracking-wide text-white sm:text-[32px]"
           style={{ color: '#fff' }}
         >
-          {serialNumber}
+          {serialNumber || 'Not provided'}
         </p>
       </div>
     </figure>

@@ -570,9 +570,9 @@
 }
 
 .cashier-route-page--lookup .find-customer-view {
-  width: min(712px, 100%);
-  max-width: 100%;
-  margin-inline: auto;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
 }
 
 .find-customer-search,
@@ -581,39 +581,30 @@
   min-width: 0;
   max-width: 100%;
   margin: 0;
-  padding: 16px 24px 17px;
+}
+
+.find-customer-search {
+  padding: 0 24px 16px;
 }
 
 .find-customer-search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px 160px;
-  gap: 9px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
   align-items: center;
 }
 
 .find-customer-query {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
 }
 
-.find-customer-hint,
 .find-customer-notice {
-  margin: 10px 0 0;
-}
-
-/* Keep the full lookup guidance available while matching the prototype's
- * single-line hint rhythm at the approved desktop width. */
-.find-customer-hint {
-  margin-top: 10px;
-  font-size: 11px;
-  line-height: 18px;
-}
-
-.find-customer-notice {
-  width: min(712px, 100%);
+  width: auto;
   min-height: 18px;
-  margin-inline: auto;
+  margin: 0 24px 12px;
 }
 
 .cashier-route-page--lookup .find-customer-notice {
@@ -622,24 +613,22 @@
 }
 
 .find-customer-recent {
-  min-height: 398px;
-  padding: 16px 23px;
+  min-height: 0;
+  padding: 0 24px 20px;
 }
 
 .find-customer-recent-head {
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--sc-prototype-border);
+  padding: 20px 24px 12px;
 }
 
-.find-customer-recent h2 {
-  margin: 0 0 2px;
+.find-customer-recent-head h2 {
+  margin: 0;
 }
 
 .find-customer-table-wrap {
   width: 100%;
   min-width: 0;
   overflow-x: auto;
-  padding-top: 9px;
   overscroll-behavior-inline: contain;
 }
 
@@ -660,11 +649,7 @@
 }
 
 .find-customer-table th {
-  padding: 9px 8px;
-  background: #fafafa;
-  color: #4a4a4a;
-  font-size: 10px;
-  font-weight: 600;
+  padding: 12px 16px;
   white-space: nowrap;
 }
 
@@ -678,16 +663,7 @@
   border-bottom: 0;
 }
 
-.find-customer-table__id {
-  max-width: 132px;
-  overflow-wrap: anywhere;
-  color: #5c5656;
-  font-family: var(--sc-font-family-mono, ui-monospace, monospace);
-  font-size: 10px;
-}
-
-.find-customer-table td:nth-child(5) {
-  color: #247a4b;
+.find-customer-table__balance {
   white-space: nowrap;
 }
 
@@ -720,12 +696,6 @@
 .find-customer-discovery-note {
   margin: 8px 0 0;
   font-size: 11px;
-}
-
-@media (max-width: 920px) and (min-width: 621px) {
-  .find-customer-search-row {
-    grid-template-columns: minmax(0, 1fr) 140px 140px;
-  }
 }
 
 @media (max-width: 700px) {
@@ -769,34 +739,17 @@
   .find-customer-search-row {
     grid-template-columns: 1fr;
   }
-
-  .find-customer-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .find-customer-row-side {
-    width: 100%;
-    justify-items: start;
-  }
-
-  .find-customer-actions {
-    justify-content: flex-start;
-    width: 100%;
-  }
 }
 
 /* Extracted from apps/web/components/workflows/cashier-overview-lookup.tsx during Cashier design-system migration. */
 .cashier-overview-lookup {
   display: grid;
-  gap: 22px;
+  gap: 12px;
 }
 
 .cashier-overview-notice {
   min-height: 20px;
-  margin: -8px 0 0;
-  color: var(--sc-color-semantic-textSecondary);
-  font-size: 12px;
+  margin: 0;
 }
 
 .cashier-overview-notice.error {
@@ -820,36 +773,31 @@
 .cashier-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
+  gap: 8px;
 }
 
-.cashier-metric {
+.cashier-overview .cashier-metric {
+  display: grid;
   min-width: 0;
+  min-height: 106px;
+  align-content: space-between;
+  gap: 14px;
+  padding: 18px 22px 14px;
 }
 
-.metric-label {
-  color: var(--sc-color-neutral-800);
-  font-size: 15px;
-  margin-bottom: 23px;
+.cashier-overview .metric-label,
+.cashier-overview .metric-note {
+  margin: 0;
 }
 
-.metric-value {
-  color: var(--sc-color-brand-700);
-  font-family: var(--sc-prototype-fontDisplaySans);
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-}
-
-.metric-note {
-  color: var(--sc-color-semantic-textSecondary);
-  font-size: 11px;
-  margin-top: 4px;
+.cashier-overview .metric-value {
+  overflow-wrap: anywhere;
 }
 
 .cashier-today-card {
   display: grid;
-  gap: 0;
+  min-width: 0;
+  gap: 12px;
   overflow: hidden;
   padding: 16px;
 }
@@ -877,6 +825,16 @@
   border-bottom: 1px solid var(--sc-color-semantic-border);
 }
 
+.cashier-today-card .table-head {
+  min-width: 0;
+  gap: 20px;
+  padding: 2px 0 10px;
+}
+
+.cashier-today-card .table-head .cashier-muted {
+  margin: 4px 0 0;
+}
+
 .table-search {
   width: min(220px, 42vw);
   height: 26px;
@@ -888,6 +846,15 @@
   gap: 7px;
   padding: 0 12px;
   font-size: 11px;
+}
+
+.cashier-today-card .table-search {
+  width: min(320px, 100%);
+  height: auto;
+  min-height: 36px;
+  flex: 0 1 320px;
+  gap: 8px;
+  padding: 0 12px;
 }
 
 .table-search input {
@@ -913,12 +880,24 @@
   border-collapse: collapse;
 }
 
+.cashier-today-card .cashier-table {
+  min-width: 900px;
+}
+
 .cashier-table th,
 .cashier-table td {
   text-align: left;
   padding: 13px 24px;
   border-bottom: 1px solid var(--sc-color-semantic-border);
   white-space: nowrap;
+}
+
+.cashier-today-card .cashier-table th {
+  padding: 12px 16px;
+}
+
+.cashier-today-card .cashier-table td {
+  padding: 12px 16px;
 }
 
 .cashier-table th {
@@ -967,13 +946,25 @@
   background: var(--sc-color-error-surface, #fff0ed);
 }
 
+.cashier-table .transaction-credit--approved {
+  color: var(--sc-color-success-strong, #067647);
+}
+
+.cashier-table .transaction-credit--pending {
+  color: #175cd3;
+}
+
+.cashier-table .transaction-credit--failed {
+  color: var(--sc-color-error-strong, #b42318);
+}
+
 .cashier-empty {
   padding: 45px;
   text-align: center;
   color: var(--sc-color-semantic-textSecondary);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 900px) {
   .cashier-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -990,27 +981,75 @@
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 420px) {
   .cashier-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 620px) and (max-width: 800px) {
+  .cashier-overview .table-head {
+    align-items: center;
+    flex-direction: row;
+  }
+}
+
+@media (min-width: 620px) and (max-width: 767px) {
+  .cashier-overview .cashier-overview-actions {
+    width: auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .cashier-overview .cashier-overview-actions > * {
+    width: auto;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 619px) {
+  .cashier-overview-header {
+    align-items: flex-start;
+  }
+
+  .cashier-overview-actions {
+    width: auto;
+    margin: 0 0 0 auto;
+    justify-content: flex-end;
+  }
+
+  .cashier-overview-actions > * {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  .cashier-overview .table-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cashier-today-card .table-search {
+    width: 100%;
   }
 }
 
 /* Extracted from apps/web/app/(shell)/cashier/page.tsx during Cashier design-system migration. */
 .cashier-overview {
   display: grid;
-  gap: 24px;
-  width: min(100%, var(--sc-prototype-contentMaxWidth));
+  width: min(100%, 1064px);
+  max-width: 1064px;
   margin-inline: auto;
+  gap: 16px;
 }
 
 .cashier-overview-header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .cashier-welcome {
@@ -1083,10 +1122,6 @@
 @media (max-width: 800px) {
   .cashier-context-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cashier-overview-actions > * {
-    width: 100%;
   }
 
   .cashier-context-sync {

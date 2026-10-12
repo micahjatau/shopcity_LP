@@ -1,5 +1,6 @@
 'use client';
 
+import { Search } from 'lucide-react';
 import type { ButtonHTMLAttributes, ChangeEvent, ReactNode } from 'react';
 
 export function CashierPageHeader({
@@ -105,7 +106,7 @@ export function CashierTableToolbar({
         {description ? <p className="cashier-muted">{description}</p> : null}
       </div>
       <label className="table-search">
-        <span aria-hidden="true">⌕</span>
+        <Search aria-hidden="true" size={16} />
         <input
           type="search"
           aria-label={searchLabel}

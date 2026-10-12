@@ -1443,16 +1443,19 @@ test.describe('workflow route coverage', () => {
       const transactionSearch = page.getByRole('searchbox', {
         name: 'Search recent transactions',
       });
+      const transactionSearchField = page.locator(
+        '.cashier-today-card .table-search',
+      );
       await transactionSearch.focus();
       await expect(transactionSearch).toBeFocused();
       await expect
         .poll(() =>
-          transactionSearch.evaluate((element) => {
+          transactionSearchField.evaluate((element) => {
             const style = getComputedStyle(element);
             return `${style.outlineStyle} ${style.outlineWidth}`;
           }),
         )
-        .toBe('solid 2px');
+        .toBe('solid 3px');
 
       const overviewWidth = await overview.evaluate((element) =>
         Math.round(element.getBoundingClientRect().width),
@@ -1610,9 +1613,12 @@ test.describe('workflow route coverage', () => {
     await mockShell(page, 'CASHIER');
     await page.goto(`${baseUrl}/cashier/lookup`);
 
+    const content = page.locator('.find-customer-view');
     const searchPanel = page.locator('.find-customer-search');
     const recentPanel = page.locator('.find-customer-recent');
     const searchRow = page.locator('.find-customer-search-row');
+    const searchField = page.locator('.find-customer-query');
+    const recentTitle = page.getByRole('heading', { name: 'Recent customers' });
     const lookup = page.getByRole('searchbox', { name: 'Customer search' });
 
     for (const viewport of [
@@ -1624,16 +1630,30 @@ test.describe('workflow route coverage', () => {
       await expect(searchPanel).toBeVisible();
       await expect(recentPanel).toBeVisible();
 
-      const panelWidths = await searchPanel.evaluate((element) => ({
-        search: Math.round(element.getBoundingClientRect().width),
-        recent: Math.round(
-          element.parentElement
-            ?.querySelector('.find-customer-recent')
+      const panelWidths = await content.evaluate((element) => ({
+        content: element.getBoundingClientRect().width,
+        search:
+          element
+            .querySelector('.find-customer-search')
             ?.getBoundingClientRect().width ?? 0,
-        ),
+        recent:
+          element
+            .querySelector('.find-customer-recent')
+            ?.getBoundingClientRect().width ?? 0,
       }));
-      expect(panelWidths.search).toBeLessThanOrEqual(712);
-      expect(panelWidths.recent).toBeLessThanOrEqual(712);
+      expect(Math.abs(panelWidths.search - panelWidths.content)).toBeLessThan(
+        4,
+      );
+      expect(Math.abs(panelWidths.recent - panelWidths.content)).toBeLessThan(
+        4,
+      );
+      const titleBottom = await recentTitle.evaluate(
+        (element) => element.getBoundingClientRect().bottom,
+      );
+      const searchTop = await searchField.evaluate(
+        (element) => element.getBoundingClientRect().top,
+      );
+      expect(titleBottom).toBeLessThan(searchTop);
       expect(
         await page.locator('body').evaluate((body) => body.scrollWidth),
       ).toBeLessThanOrEqual(viewport.width);
@@ -1642,23 +1662,37 @@ test.describe('workflow route coverage', () => {
       await expect(lookup).toBeFocused();
       await expect
         .poll(() =>
-          lookup.evaluate((element) => {
+          searchField.evaluate((element) => {
             const style = getComputedStyle(element);
             return `${style.outlineStyle} ${style.outlineWidth}`;
           }),
         )
-        .toBe('solid 2px');
+        .toBe('solid 3px');
+      await expect(lookup).toHaveAttribute(
+        'placeholder',
+        'Search customers, phone, or card…',
+      );
+      await expect(searchField).toHaveCSS(
+        'background-color',
+        'rgb(246, 244, 245)',
+      );
 
       const columns = await searchRow.evaluate(
         (element) => getComputedStyle(element).gridTemplateColumns,
       );
       if (viewport.width <= 620) {
         expect(columns.trim().split(/\s+/)).toHaveLength(1);
-      } else if (viewport.width <= 920) {
-        expect(columns).toContain('140px 140px');
       } else {
-        expect(columns).toContain('160px 160px');
+        expect(columns.trim().split(/\s+/)).toHaveLength(3);
       }
+      const searchButtonContent = page
+        .getByRole('button', { name: 'Search' })
+        .locator('span');
+      await expect(searchButtonContent).toHaveCSS('display', 'flex');
+      await expect(searchButtonContent).toHaveCSS('flex-direction', 'row');
+      await expect(
+        page.getByRole('columnheader', { name: 'Customer' }),
+      ).toHaveCSS('font-size', '12px');
     }
   });
 
@@ -1691,18 +1725,46 @@ test.describe('workflow route coverage', () => {
     ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
   });
 
-  test('shows a recent customer table and profile transaction actions', async ({
+  test('shows a recent customer table and cashier-safe shared customer profile', async ({
     page,
   }) => {
     await mockShell(page, 'CASHIER');
+    let profileProjectionRequests = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname.endsWith('/profile-projection')) {
+        profileProjectionRequests += 1;
+      }
+    });
+    await page.route('**/api/v1/customers/customer-1', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customerId: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+23480* *** 0001',
+            phoneE164: '+2348000000001',
+            email: 'private@example.com',
+            status: 'BLOCKED',
+            cardNumber: 'PRIVATE-CARD-001',
+            cardStatus: 'ACTIVE',
+            availableBalanceKobo: 5500,
+          },
+          meta: meta('/api/v1/customers/customer-1'),
+        }),
+      ),
+    );
     await page.goto(`${baseUrl}/cashier/lookup`);
 
     const recentTable = page.locator('.find-customer-table');
     await expect(recentTable.getByRole('row')).toHaveCount(2);
     await expect(
       recentTable.getByRole('columnheader', { name: 'Customer ID' }),
+    ).toHaveCount(0);
+    await expect(recentTable.getByText('customer-1')).toHaveCount(0);
+    await expect(
+      recentTable.getByRole('columnheader', { name: 'Available balance' }),
     ).toBeVisible();
-    await expect(recentTable.getByText('customer-1')).toBeVisible();
 
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 900 });
@@ -1728,20 +1790,54 @@ test.describe('workflow route coverage', () => {
       'href',
       '/cashier/customers?id=customer-1&card=CARD-001',
     );
+    await expect(
+      recentTable.locator('.find-customer-card-status--active'),
+    ).toHaveCSS('color', 'rgb(6, 118, 71)');
+    await expect(
+      recentTable.locator('.find-customer-balance--positive'),
+    ).toHaveCSS('color', 'rgb(6, 118, 71)');
     await page.goto(`${baseUrl}${await profileLink.getAttribute('href')}`);
     await expect(page).toHaveURL(
       /\/cashier\/customers\?id=customer-1&card=CARD-001/,
     );
     await expect(page.locator('.shell-loading-screen')).toBeHidden();
     await expect(
-      page.getByRole('navigation', { name: 'Customer transaction actions' }),
+      page.getByRole('heading', { level: 1, name: 'Ada Shopper' }),
     ).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Customer profile sections' }),
+    ).toBeVisible();
+    await expect(page.getByText('+23480* *** 0001')).toBeVisible();
+    await expect(page.getByText('+2348000000001')).toHaveCount(0);
+    await expect(page.getByText('private@example.com')).toHaveCount(0);
+    await expect(page.getByText('PRIVATE-CARD-001')).toHaveCount(0);
+    await expect(page.getByText('Last purchase amount')).toBeVisible();
+    await expect(page.getByText('Total monthly Earn')).toBeVisible();
+    await expect(page.getByText('Last amount redeemed')).toBeVisible();
+    await expect(page.getByText('Member since Date not provided')).toHaveCount(
+      0,
+    );
+    await expect(page.getByText('Status not provided')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Edit customer details' }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Manage card' })).toHaveCount(
+      0,
+    );
     await expect(
       page.getByRole('link', { name: 'Capture Purchase', exact: true }),
     ).toHaveAttribute('href', '/cashier/earn?card=CARD-001');
     await expect(
       page.getByRole('link', { name: 'Redeem Credit', exact: true }),
     ).toHaveAttribute('href', '/cashier/redeem?card=CARD-001');
+    expect(profileProjectionRequests).toBe(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await expect(page).toHaveScreenshot('cashier-customer-profile-mobile.png', {
+      fullPage: true,
+      maxDiffPixelRatio: 0.02,
+    });
   });
 
   test('shows an authoritative lookup error state', async ({ page }) => {

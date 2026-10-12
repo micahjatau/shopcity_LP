@@ -79,6 +79,7 @@ export function TransactionDashboard() {
     setMessage('Loading today’s cashier activity…');
     try {
       const response = await reportsControllerListCashierTodayV1(
+        undefined,
         createApiRequest({ csrf: true }),
       );
       if (response.status !== 200) throw new Error('activity unavailable');

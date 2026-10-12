@@ -608,7 +608,7 @@ export class LoyaltyController {
 
   @Get('customers/:id/ledger')
   @Version('1')
-  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
+  @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
   @apiSuccessEnvelopeResponse({
     description: 'Customer ledger for transactions',
     dataSchema: customerLedgerResponseSchema,

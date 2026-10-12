@@ -13,6 +13,27 @@ import { branchDayWindow } from '../../jobs/branch-day-window';
 
 const DEFAULT_REPORT_TIME_ZONE = 'Africa/Lagos';
 
+function branchMonthWindow(reference: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(reference);
+  const year = Number(parts.find((part) => part.type === 'year')?.value ?? '0');
+  const month = Number(
+    parts.find((part) => part.type === 'month')?.value ?? '0',
+  );
+  const monthStart = branchDayWindow(
+    new Date(Date.UTC(year, month - 1, 15)),
+    timeZone,
+  ).windowStart;
+  const nextMonthStart = branchDayWindow(
+    new Date(Date.UTC(year, month, 15)),
+    timeZone,
+  ).windowStart;
+  return { windowStart: monthStart, windowEnd: nextMonthStart };
+}
+
 type ReportScope = 'TENANT' | 'BRANCH';
 
 type CustomerPerformanceSort =
@@ -204,13 +225,18 @@ export class ReportsService {
   async listCashierToday(
     tenantId: string,
     context: AuthContext,
+    customerId?: string,
+    limit = 10,
   ): Promise<{
     branchId: string;
     timezone: string;
+    monthlyEarnKobo: number | null;
     items: Array<{
       id: string;
       occurredAt: string;
       operation: 'EARN' | 'REDEEM';
+      customerName: string;
+      purchaseAmountKobo: number | null;
       loyaltyAmountKobo: number | null;
       receiptNumber: string;
       status: string;
@@ -237,16 +263,40 @@ export class ReportsService {
       new Date(),
       branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
     );
+    const monthWindow = branchMonthWindow(
+      new Date(),
+      branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+    );
+    const monthlyEarnPromise = customerId
+      ? this.prisma.loyaltyLedgerEntry
+          ?.aggregate({
+            where: {
+              tenantId,
+              customerId,
+              customer: { is: { branchId: branch.id } },
+              type: 'EARN',
+              direction: 'CREDIT',
+              status: 'CONFIRMED',
+              effectiveAt: {
+                gte: monthWindow.windowStart,
+                lt: monthWindow.windowEnd,
+              },
+            },
+            _sum: { amountKobo: true },
+          })
+          .catch(() => null)
+      : Promise.resolve(null);
     const receipts = await this.prisma.receipt.findMany({
       where: {
         tenantId,
         branchId: branch.id,
         capturedByTenantId: tenantId,
         capturedBy: context.user.id,
+        ...(customerId ? { customerId } : {}),
         occurredAt: { gte: windowStart, lt: windowEnd },
       },
       orderBy: { occurredAt: 'desc' },
-      take: 10,
+      take: Math.min(Math.max(limit, 1), 10),
       include: {
         redemption: {
           select: {
@@ -264,20 +314,33 @@ export class ReportsService {
           orderBy: { effectiveAt: 'desc' },
           take: 1,
         },
+        customer: { select: { fullName: true } },
       },
     });
 
+    const monthlyEarn = await monthlyEarnPromise;
+    const monthlyEarnKobo = monthlyEarn?._sum.amountKobo;
     return {
       branchId: branch.id,
       timezone: branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+      monthlyEarnKobo:
+        typeof monthlyEarnKobo === 'bigint' && monthlyEarnKobo >= 0n
+          ? Number(monthlyEarnKobo)
+          : null,
       items: receipts.map((receipt) => {
         const redemption = receipt.redemption;
         const ledger = receipt.ledgerEntries[0];
         const isRedeem = Boolean(redemption);
+        const purchaseAmountKobo = Number(receipt.purchaseAmountKobo);
         return {
           id: receipt.id,
           occurredAt: receipt.occurredAt.toISOString(),
           operation: isRedeem ? 'REDEEM' : 'EARN',
+          customerName: receipt.customer.fullName,
+          purchaseAmountKobo:
+            Number.isSafeInteger(purchaseAmountKobo) && purchaseAmountKobo >= 0
+              ? purchaseAmountKobo
+              : null,
           loyaltyAmountKobo: isRedeem
             ? Number(
                 redemption?.confirmedAmountKobo ??

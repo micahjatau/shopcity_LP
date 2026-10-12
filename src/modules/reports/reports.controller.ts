@@ -50,10 +50,11 @@ const reportCollectionSchema = {
 
 const cashierTodaySchema = {
   type: 'object',
-  required: ['branchId', 'timezone', 'items'],
+  required: ['branchId', 'timezone', 'monthlyEarnKobo', 'items'],
   properties: {
     branchId: { type: 'string', format: 'uuid' },
     timezone: { type: 'string' },
+    monthlyEarnKobo: { type: 'integer', nullable: true },
     items: {
       type: 'array',
       maxItems: 10,
@@ -63,6 +64,8 @@ const cashierTodaySchema = {
           'id',
           'occurredAt',
           'operation',
+          'customerName',
+          'purchaseAmountKobo',
           'loyaltyAmountKobo',
           'receiptNumber',
           'status',
@@ -71,6 +74,8 @@ const cashierTodaySchema = {
           id: { type: 'string', format: 'uuid' },
           occurredAt: { type: 'string', format: 'date-time' },
           operation: { type: 'string', enum: ['EARN', 'REDEEM'] },
+          customerName: { type: 'string' },
+          purchaseAmountKobo: { type: 'integer', nullable: true },
           loyaltyAmountKobo: { type: 'integer', nullable: true },
           receiptNumber: { type: 'string' },
           status: { type: 'string' },
@@ -295,13 +300,38 @@ export class ReportsController {
   @Get('cashier-today')
   @Version('1')
   @Roles(UserRole.CASHIER)
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    type: String,
+    description: 'Optional stable customer ID filter within the cashier scope',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum number of recent rows to return, capped at 10',
+  })
   @apiSuccessEnvelopeResponse({
     description: "Today's cashier transaction summary",
     dataSchema: cashierTodaySchema,
   })
   @ApiOperation({ summary: "List today's cashier transactions" })
-  listCashierToday(@CurrentSession() context: AuthContext) {
-    return this.reportsService.listCashierToday(context.user.tenantId, context);
+  listCashierToday(
+    @CurrentSession() context: AuthContext,
+    @Query('customerId') customerId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = Number.parseInt(limit ?? '', 10);
+    const boundedLimit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 10)
+      : 10;
+    return this.reportsService.listCashierToday(
+      context.user.tenantId,
+      context,
+      customerId?.trim() || undefined,
+      boundedLimit,
+    );
   }
 
   @Get('cashier-activity')

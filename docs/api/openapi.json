@@ -13832,6 +13832,15 @@
                                 "nullable": true,
                                 "description": "Compatibility alias for cardNumber."
                               },
+                              "email": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Masked email for cashier-safe customer display."
+                              },
+                              "birthdayMonth": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "availableBalanceKobo": {
                                 "type": "integer"
                               },
@@ -15753,7 +15762,37 @@
                       "example": true
                     },
                     "data": {
-                      "type": "object"
+                      "type": "object",
+                      "properties": {
+                        "customerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "fullName": {
+                          "type": "string"
+                        },
+                        "maskedPhone": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "birthdayMonth": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "cardNumber": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "cardStatus": {
+                          "type": "string"
+                        },
+                        "availableBalanceKobo": {
+                          "type": "integer"
+                        }
+                      }
                     },
                     "meta": {
                       "type": "object",
@@ -34152,7 +34191,26 @@
     "/api/v1/reports/cashier-today": {
       "get": {
         "operationId": "ReportsController_listCashierToday_v1",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "description": "Optional stable customer ID filter within the cashier scope",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of recent rows to return, capped at 10",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Today's cashier transaction summary",
@@ -34168,7 +34226,12 @@
                     },
                     "data": {
                       "type": "object",
-                      "required": ["branchId", "timezone", "items"],
+                      "required": [
+                        "branchId",
+                        "timezone",
+                        "monthlyEarnKobo",
+                        "items"
+                      ],
                       "properties": {
                         "branchId": {
                           "type": "string",
@@ -34176,6 +34239,10 @@
                         },
                         "timezone": {
                           "type": "string"
+                        },
+                        "monthlyEarnKobo": {
+                          "type": "integer",
+                          "nullable": true
                         },
                         "items": {
                           "type": "array",
@@ -34186,6 +34253,8 @@
                               "id",
                               "occurredAt",
                               "operation",
+                              "customerName",
+                              "purchaseAmountKobo",
                               "loyaltyAmountKobo",
                               "receiptNumber",
                               "status"
@@ -34202,6 +34271,13 @@
                               "operation": {
                                 "type": "string",
                                 "enum": ["EARN", "REDEEM"]
+                              },
+                              "customerName": {
+                                "type": "string"
+                              },
+                              "purchaseAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
                               },
                               "loyaltyAmountKobo": {
                                 "type": "integer",

@@ -5,9 +5,12 @@ import Link from 'next/link';
 import {
   customersControllerGetCustomerProfileProjectionV1,
   loyaltyControllerGetCustomerLedgerV1,
+  reportsControllerListCashierTodayV1,
   type CustomersControllerGetCustomerProfileProjectionV1200Data,
   type LoyaltyControllerGetCustomerLedgerV1200DataItemsItem,
   type LoyaltyControllerGetCustomerLedgerV1Params,
+  type ReportsControllerListCashierTodayV1200DataItemsItem,
+  type ReportsControllerListCashierTodayV1Params,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Money } from '../shopcity';
@@ -269,13 +272,114 @@ function ProfileRows({
   );
 }
 
-function ProfileTransactions({
+type ProfileTransactionRow =
+  CustomersControllerGetCustomerProfileProjectionV1200Data['transactions'][number] & {
+    receiptNumber?: string;
+  };
+
+type CashierRecentTransaction =
+  ReportsControllerListCashierTodayV1200DataItemsItem;
+
+function toProfileTransactionRow(
+  row: CashierRecentTransaction,
+): ProfileTransactionRow {
+  return {
+    id: row.id,
+    receiptNumber: row.receiptNumber,
+    occurredAt: row.occurredAt,
+    purchaseAmountKobo: row.purchaseAmountKobo,
+    captureStatus: row.status,
+    reviewStatus: row.status,
+  };
+}
+
+function CashierRecentActivity({
   rows,
+  loading,
   failed,
   onRetry,
 }: {
-  rows: CustomersControllerGetCustomerProfileProjectionV1200Data['transactions'];
+  rows: CashierRecentTransaction[];
+  loading: boolean;
   failed: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <section
+      className="supervisor-profile-activity supervisor-profile-recent-activity"
+      aria-labelledby="profile-activity-title"
+    >
+      <header className="supervisor-profile-recent-activity__header">
+        <h3 id="profile-activity-title">Recent activity</h3>
+        <p>Latest cashier-recorded credit activity for this customer.</p>
+      </header>
+      {failed ? (
+        <ProfileDataError
+          message="Recent activity could not be loaded."
+          onRetry={onRetry}
+        />
+      ) : loading ? (
+        <p className="supervisor-profile-recent-activity__empty">
+          Loading recent activity…
+        </p>
+      ) : rows.length ? (
+        <div className="supervisor-profile-recent-activity__list">
+          {rows.map((row) => {
+            const isRedemption = row.operation === 'REDEEM';
+            return (
+              <article
+                key={row.id}
+                className="supervisor-profile-recent-activity__entry"
+              >
+                <div className="supervisor-profile-recent-activity__copy">
+                  <div className="supervisor-profile-recent-activity__title">
+                    <span
+                      className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${profileStatusTone(row.status)}`}
+                    >
+                      {profileStatusLabel(row.status)}
+                    </span>
+                    <h4>
+                      {isRedemption ? 'Credit redeemed' : 'Credit earned'}
+                    </h4>
+                  </div>
+                  <time
+                    className="supervisor-profile-recent-activity__date"
+                    dateTime={row.occurredAt}
+                  >
+                    {profileDateTime(row.occurredAt)}
+                  </time>
+                </div>
+                {typeof row.loyaltyAmountKobo === 'number' ? (
+                  <span className="supervisor-profile-recent-activity__amount">
+                    {isRedemption ? '−' : '+'}
+                    <Money
+                      amountKobo={row.loyaltyAmountKobo}
+                      emphasis={isRedemption ? 'negative' : 'positive'}
+                    />
+                  </span>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="supervisor-profile-recent-activity__empty">
+          No recent customer activity was returned.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ProfileTransactions({
+  rows,
+  failed,
+  loading = false,
+  onRetry,
+}: {
+  rows: ProfileTransactionRow[];
+  failed: boolean;
+  loading?: boolean;
   onRetry: () => void;
 }) {
   return (
@@ -313,13 +417,21 @@ function ProfileTransactions({
               </tr>
             </thead>
             <tbody>
-              {rows.length ? (
+              {loading ? (
+                <tr>
+                  <td
+                    className="supervisor-profile-transactions__empty"
+                    colSpan={5}
+                  >
+                    Loading recent transactions…
+                  </td>
+                </tr>
+              ) : rows.length ? (
                 rows.map((row) => {
                   const captureStatus = profileStatusLabel(row.captureStatus);
-                  const reviewStatus = profileStatusLabel(row.reviewStatus);
                   return (
                     <tr key={row.id}>
-                      <td>{profileValue(undefined)}</td>
+                      <td>{profileValue(row.receiptNumber)}</td>
                       <td>
                         <time dateTime={row.occurredAt}>
                           {profileDateTime(row.occurredAt)}
@@ -340,12 +452,6 @@ function ProfileTransactions({
                             aria-label={`Capture status: ${captureStatus}`}
                           >
                             {captureStatus}
-                          </span>
-                          <span
-                            className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${profileStatusTone(row.reviewStatus)}`}
-                            aria-label={`Review status: ${reviewStatus}`}
-                          >
-                            {reviewStatus}
                           </span>
                         </div>
                       </td>
@@ -597,10 +703,12 @@ function ExpirySchedule({
   entries,
   failed,
   onRetry,
+  unavailable = false,
 }: {
   entries: Array<[string, number]>;
   failed: boolean;
   onRetry: () => void;
+  unavailable?: boolean;
 }) {
   return (
     <section
@@ -613,6 +721,8 @@ function ExpirySchedule({
           message="Credit expiry data could not be loaded."
           onRetry={onRetry}
         />
+      ) : unavailable ? (
+        <p>Expiry details are not provided in the Cashier profile.</p>
       ) : entries.length ? (
         entries.map(([expiresAt, amount]) => (
           <div key={expiresAt} className="supervisor-profile-activity__row">
@@ -623,21 +733,28 @@ function ExpirySchedule({
       ) : (
         <p>No upcoming expiry was returned.</p>
       )}
-      <p>
-        Upcoming positive remaining-credit lots; schedule is limited to the next
-        12 entries.
-      </p>
+      {!unavailable ? (
+        <p>
+          Upcoming positive remaining-credit lots; schedule is limited to the
+          next 12 entries.
+        </p>
+      ) : null}
     </section>
   );
 }
 
 export type SupervisorCustomerRecord = Record<string, unknown> & {
   id?: string;
+  customerId?: string;
   fullName?: string;
   phoneE164?: string;
+  maskedPhone?: string;
   email?: string;
   status?: string;
+  cardStatus?: string;
   activeCardStatus?: string;
+  availableBalanceKobo?: number;
+  lifetimeEarnedKobo?: number;
   cardNumber?: string | null;
   virtualCardNumber?: string | null;
   cardSerialNumber?: string | null;
@@ -675,6 +792,8 @@ export function CustomerDetailsDialog({
   onClose,
   presentation = 'dialog',
   initialTab,
+  profileAudience = 'supervisor',
+  cashierCardHint,
 }: Readonly<{
   open: boolean;
   customer: SupervisorCustomerRecord | null;
@@ -699,6 +818,8 @@ export function CustomerDetailsDialog({
   onClose: () => void;
   presentation?: 'dialog' | 'page';
   initialTab?: string;
+  profileAudience?: 'supervisor' | 'cashier';
+  cashierCardHint?: string;
 }>) {
   const resolvedInitialTab =
     initialTab === 'virtual-card' ? 'Virtual Card' : 'Overview';
@@ -716,14 +837,33 @@ export function CustomerDetailsDialog({
     'loading' | 'loaded' | 'error'
   >('loading');
   const [projectionAttempt, setProjectionAttempt] = useState(0);
+  const [cashierTransactions, setCashierTransactions] = useState<
+    CashierRecentTransaction[]
+  >([]);
+  const [monthlyEarnKobo, setMonthlyEarnKobo] = useState<number | null>(null);
+  const [cashierTransactionsState, setCashierTransactionsState] = useState<
+    'loading' | 'loaded' | 'error'
+  >('loading');
   const keepEditingRef = useRef<HTMLButtonElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const activeCard =
     customer?.activeCard && typeof customer.activeCard === 'object'
       ? (customer.activeCard as Record<string, unknown>)
       : null;
-  const cardStatus = customer?.activeCardStatus ?? activeCard?.status;
+  const isCashierProfile =
+    presentation === 'page' && profileAudience === 'cashier';
+  const cardStatus =
+    customer?.activeCardStatus ?? customer?.cardStatus ?? activeCard?.status;
   const cardNumber = resolveCustomerCardNumber(customer);
+  const actionCardNumber = isCashierProfile
+    ? (cardNumber ?? cashierCardHint)
+    : cardNumber;
+  const lastPurchaseAmountKobo = cashierTransactions.find(
+    (transaction) => transaction.operation === 'EARN',
+  )?.purchaseAmountKobo;
+  const lastAmountRedeemedKobo = cashierTransactions.find(
+    (transaction) => transaction.operation === 'REDEEM',
+  )?.loyaltyAmountKobo;
   const groupedExpirySchedule = useMemo(() => {
     const grouped = new Map<string, number>();
     projection?.expirySchedule.forEach((entry) => {
@@ -753,9 +893,9 @@ export function CustomerDetailsDialog({
     'Overview',
     'Transactions',
     'Wallet Ledger',
-    'Redemptions',
+    ...(isCashierProfile ? [] : ['Redemptions']),
     'Virtual Card',
-    'Consent',
+    ...(isCashierProfile ? [] : ['Consent']),
   ];
   const cardStatusLabel =
     cardStatus === 'ACTIVE'
@@ -781,8 +921,38 @@ export function CustomerDetailsDialog({
 
   useEffect(() => {
     if (presentation !== 'page' || !customer?.id) return;
-    let active = true;
     setProjection(null);
+    if (profileAudience === 'cashier') {
+      let active = true;
+      setProjectionState('loaded');
+      setCashierTransactions([]);
+      setMonthlyEarnKobo(null);
+      setCashierTransactionsState('loading');
+      void reportsControllerListCashierTodayV1(
+        {
+          customerId: customer.id,
+          limit: 10,
+        } satisfies ReportsControllerListCashierTodayV1Params,
+        createApiRequest({ csrf: true }),
+      )
+        .then((response) => {
+          if (!active) return;
+          if (response.status !== 200) {
+            setCashierTransactionsState('error');
+            return;
+          }
+          setCashierTransactions(response.data.data.items);
+          setMonthlyEarnKobo(response.data.data.monthlyEarnKobo);
+          setCashierTransactionsState('loaded');
+        })
+        .catch(() => {
+          if (active) setCashierTransactionsState('error');
+        });
+      return () => {
+        active = false;
+      };
+    }
+    let active = true;
     setProjectionState('loading');
     void customersControllerGetCustomerProfileProjectionV1(
       customer.id,
@@ -806,7 +976,7 @@ export function CustomerDetailsDialog({
     return () => {
       active = false;
     };
-  }, [customer?.id, presentation, projectionAttempt]);
+  }, [customer?.id, presentation, profileAudience, projectionAttempt]);
 
   useEffect(() => {
     if (!profileDirty || presentation !== 'page') return;
@@ -916,38 +1086,40 @@ export function CustomerDetailsDialog({
                   {presentation === 'page' ? (
                     <div className="supervisor-profile-header__customer">
                       <h1>{String(customer.fullName ?? 'Customer')}</h1>
-                      <SupervisorCustomerStatusBadge
-                        status={customer.status}
-                        fallback="Status not provided"
-                      />
+                      {!isCashierProfile ? (
+                        <SupervisorCustomerStatusBadge
+                          status={customer.status}
+                          fallback="Status not provided"
+                        />
+                      ) : null}
                     </div>
                   ) : (
                     <h2>{String(customer.fullName ?? 'Customer')}</h2>
                   )}
-                  <p>
-                    {presentation === 'page' ? (
-                      <>
+                  {presentation === 'page' ? (
+                    !isCashierProfile ? (
+                      <p>
                         Member since{' '}
                         {profileDateOnly(
                           projection?.memberSince ?? customer.createdAt,
                         )}
-                      </>
-                    ) : (
-                      String(customer.phoneE164 ?? 'Phone not provided')
-                    )}
-                  </p>
+                      </p>
+                    ) : null
+                  ) : (
+                    <p>{String(customer.phoneE164 ?? 'Phone not provided')}</p>
+                  )}
                 </div>
                 {presentation === 'page' ? (
                   <div className="supervisor-profile-actions">
                     <Link
                       className="supervisor-profile-action--primary"
-                      href={`/cashier/earn${cardNumber ? `?card=${encodeURIComponent(cardNumber)}` : ''}`}
+                      href={`/cashier/earn${actionCardNumber ? `?card=${encodeURIComponent(actionCardNumber)}` : ''}`}
                     >
                       Capture Purchase
                     </Link>
                     <Link
                       className="supervisor-profile-action--secondary"
-                      href={`/cashier/redeem${cardNumber ? `?card=${encodeURIComponent(cardNumber)}` : ''}`}
+                      href={`/cashier/redeem${actionCardNumber ? `?card=${encodeURIComponent(actionCardNumber)}` : ''}`}
                     >
                       Redeem Credit
                     </Link>
@@ -988,20 +1160,42 @@ export function CustomerDetailsDialog({
                       }
                     />
                     <ProfileMetric
-                      label="Pending approvals"
+                      label={
+                        isCashierProfile
+                          ? 'Last purchase amount'
+                          : 'Pending approvals'
+                      }
                       value={
-                        projectionState === 'loading'
-                          ? 'Loading'
-                          : sourceFailed('pendingApprovals') ||
-                              projection?.pendingApprovalsCount == null
-                            ? 'Unavailable'
-                            : projection.pendingApprovalsCount
+                        isCashierProfile ? (
+                          typeof lastPurchaseAmountKobo === 'number' ? (
+                            <Money amountKobo={lastPurchaseAmountKobo} />
+                          ) : (
+                            'Not provided'
+                          )
+                        ) : projectionState === 'loading' ? (
+                          'Loading'
+                        ) : sourceFailed('pendingApprovals') ||
+                          projection?.pendingApprovalsCount == null ? (
+                          'Unavailable'
+                        ) : (
+                          projection.pendingApprovalsCount
+                        )
                       }
                     />
                     <ProfileMetric
-                      label="Lifetime earned"
+                      label={
+                        isCashierProfile
+                          ? 'Total monthly Earn'
+                          : 'Lifetime earned'
+                      }
                       value={
-                        sourceFailed('lifetimeEarned') ? (
+                        isCashierProfile ? (
+                          typeof monthlyEarnKobo === 'number' ? (
+                            <Money amountKobo={monthlyEarnKobo} />
+                          ) : (
+                            'Not provided'
+                          )
+                        ) : sourceFailed('lifetimeEarned') ? (
                           'Unavailable'
                         ) : projection?.lifetimeEarnedKobo != null ? (
                           <Money amountKobo={projection.lifetimeEarnedKobo} />
@@ -1013,8 +1207,22 @@ export function CustomerDetailsDialog({
                       }
                     />
                     <ProfileMetric
-                      label="Annual Purchases"
-                      value="Not provided"
+                      label={
+                        isCashierProfile
+                          ? 'Last amount redeemed'
+                          : 'Annual Purchases'
+                      }
+                      value={
+                        isCashierProfile ? (
+                          typeof lastAmountRedeemedKobo === 'number' ? (
+                            <Money amountKobo={lastAmountRedeemedKobo} />
+                          ) : (
+                            'Not provided'
+                          )
+                        ) : (
+                          'Not provided'
+                        )
+                      }
                     />
                   </div>
                   <nav
@@ -1057,112 +1265,144 @@ export function CustomerDetailsDialog({
                     </section>
                   ) : profileTab === 'Overview' ? (
                     <div className="supervisor-profile-overview-grid">
-                      <section
-                        className="supervisor-profile-activity supervisor-profile-recent-activity"
-                        aria-labelledby="profile-activity-title"
-                      >
-                        <header className="supervisor-profile-recent-activity__header">
-                          <h3 id="profile-activity-title">Recent activity</h3>
-                          <p>Latest account events and credit movements.</p>
-                        </header>
-                        {[
-                          'walletLedger',
-                          'redemptions',
-                          'approvals',
-                          'statusEvents',
-                          'card',
-                        ].some(sourceFailed) ? (
-                          <ProfileDataError
-                            message="Some recent activity sources could not be loaded."
-                            onRetry={retryProfileProjection}
-                          />
-                        ) : null}
-                        {projection?.recentActivity.length ? (
-                          <div className="supervisor-profile-recent-activity__list">
-                            {projection.recentActivity.map((item, index) => {
-                              const isEarning = item.type === 'EARNING';
-                              const isRedemption = item.type === 'REDEMPTION';
-                              const statusTone = profileStatusTone(item.status);
-                              const amountEmphasis = isRedemption
-                                ? 'negative'
-                                : typeof item.amountKobo === 'number' &&
-                                    item.amountKobo > 0
-                                  ? 'positive'
-                                  : typeof item.amountKobo === 'number' &&
-                                      item.amountKobo < 0
-                                    ? 'negative'
-                                    : 'normal';
-                              return (
-                                <article
-                                  key={profileText(
-                                    item.id,
-                                    `activity-${index}`,
-                                  )}
-                                  className="supervisor-profile-recent-activity__entry"
-                                >
-                                  <div className="supervisor-profile-recent-activity__copy">
-                                    <div className="supervisor-profile-recent-activity__title">
-                                      <span
-                                        className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${statusTone}`}
-                                      >
-                                        {profileStatusLabel(item.status)}
-                                      </span>
-                                      <h4>
-                                        {profileEventLabel(
-                                          item.type,
-                                          item.targetType,
-                                        )}
-                                      </h4>
-                                    </div>
-                                    <time
-                                      className="supervisor-profile-recent-activity__date"
-                                      dateTime={
-                                        typeof item.occurredAt === 'string'
-                                          ? item.occurredAt
-                                          : undefined
-                                      }
-                                    >
-                                      {profileActivityDate(item.occurredAt)}
-                                    </time>
-                                  </div>
-                                  {typeof item.amountKobo === 'number' ? (
-                                    <span className="supervisor-profile-recent-activity__amount">
-                                      {isRedemption && item.amountKobo > 0 ? (
-                                        <span aria-hidden="true">−</span>
-                                      ) : null}
-                                      <Money
-                                        amountKobo={item.amountKobo}
-                                        signed={isEarning}
-                                        emphasis={amountEmphasis}
-                                      />
-                                    </span>
-                                  ) : null}
-                                </article>
-                              );
-                            })}
-                          </div>
-                        ) : ![
+                      {isCashierProfile ? (
+                        <CashierRecentActivity
+                          rows={cashierTransactions}
+                          loading={cashierTransactionsState === 'loading'}
+                          failed={cashierTransactionsState === 'error'}
+                          onRetry={retryProfileProjection}
+                        />
+                      ) : (
+                        <section
+                          className="supervisor-profile-activity supervisor-profile-recent-activity"
+                          aria-labelledby="profile-activity-title"
+                        >
+                          <header className="supervisor-profile-recent-activity__header">
+                            <h3 id="profile-activity-title">Recent activity</h3>
+                            <p>
+                              {isCashierProfile
+                                ? 'Activity details are not provided in the Cashier profile.'
+                                : 'Latest account events and credit movements.'}
+                            </p>
+                          </header>
+                          {[
                             'walletLedger',
                             'redemptions',
                             'approvals',
                             'statusEvents',
                             'card',
                           ].some(sourceFailed) ? (
-                          <p className="supervisor-profile-recent-activity__empty">
-                            No recent customer activity was returned.
-                          </p>
-                        ) : null}
-                      </section>
-                      <ExpirySchedule
-                        entries={groupedExpirySchedule}
-                        failed={sourceFailed('expirySchedule')}
-                        onRetry={retryProfileProjection}
-                      />
+                            <ProfileDataError
+                              message="Some recent activity sources could not be loaded."
+                              onRetry={retryProfileProjection}
+                            />
+                          ) : null}
+                          {projection?.recentActivity.length ? (
+                            <div className="supervisor-profile-recent-activity__list">
+                              {projection.recentActivity.map((item, index) => {
+                                const isEarning = item.type === 'EARNING';
+                                const isRedemption = item.type === 'REDEMPTION';
+                                const statusTone = profileStatusTone(
+                                  item.status,
+                                );
+                                const amountEmphasis = isRedemption
+                                  ? 'negative'
+                                  : typeof item.amountKobo === 'number' &&
+                                      item.amountKobo > 0
+                                    ? 'positive'
+                                    : typeof item.amountKobo === 'number' &&
+                                        item.amountKobo < 0
+                                      ? 'negative'
+                                      : 'normal';
+                                return (
+                                  <article
+                                    key={profileText(
+                                      item.id,
+                                      `activity-${index}`,
+                                    )}
+                                    className="supervisor-profile-recent-activity__entry"
+                                  >
+                                    <div className="supervisor-profile-recent-activity__copy">
+                                      <div className="supervisor-profile-recent-activity__title">
+                                        <span
+                                          className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${statusTone}`}
+                                        >
+                                          {profileStatusLabel(item.status)}
+                                        </span>
+                                        <h4>
+                                          {profileEventLabel(
+                                            item.type,
+                                            item.targetType,
+                                          )}
+                                        </h4>
+                                      </div>
+                                      <time
+                                        className="supervisor-profile-recent-activity__date"
+                                        dateTime={
+                                          typeof item.occurredAt === 'string'
+                                            ? item.occurredAt
+                                            : undefined
+                                        }
+                                      >
+                                        {profileActivityDate(item.occurredAt)}
+                                      </time>
+                                    </div>
+                                    {typeof item.amountKobo === 'number' ? (
+                                      <span className="supervisor-profile-recent-activity__amount">
+                                        {isRedemption && item.amountKobo > 0 ? (
+                                          <span aria-hidden="true">−</span>
+                                        ) : null}
+                                        <Money
+                                          amountKobo={item.amountKobo}
+                                          signed={isEarning}
+                                          emphasis={amountEmphasis}
+                                        />
+                                      </span>
+                                    ) : null}
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          ) : !isCashierProfile &&
+                            ![
+                              'walletLedger',
+                              'redemptions',
+                              'approvals',
+                              'statusEvents',
+                              'card',
+                            ].some(sourceFailed) ? (
+                            <p className="supervisor-profile-recent-activity__empty">
+                              No recent customer activity was returned.
+                            </p>
+                          ) : null}
+                        </section>
+                      )}
+                      {!isCashierProfile ? (
+                        <ExpirySchedule
+                          entries={groupedExpirySchedule}
+                          failed={sourceFailed('expirySchedule')}
+                          onRetry={retryProfileProjection}
+                        />
+                      ) : null}
                     </div>
                   ) : profileTab === 'Transactions' ? (
                     <ProfileTransactions
-                      rows={projection?.transactions ?? []}
-                      failed={sourceFailed('transactions')}
+                      rows={
+                        isCashierProfile
+                          ? cashierTransactions
+                              .slice(0, 3)
+                              .map(toProfileTransactionRow)
+                          : (projection?.transactions ?? [])
+                      }
+                      loading={
+                        isCashierProfile &&
+                        cashierTransactionsState === 'loading'
+                      }
+                      failed={
+                        isCashierProfile
+                          ? cashierTransactionsState === 'error'
+                          : sourceFailed('transactions')
+                      }
                       onRetry={retryProfileProjection}
                     />
                   ) : profileTab === 'Wallet Ledger' ? (
@@ -1190,7 +1430,18 @@ export function CustomerDetailsDialog({
                       aria-label="Virtual card"
                     >
                       <h3>Virtual card</h3>
-                      {sourceFailed('card') ? (
+                      {isCashierProfile ? (
+                        <>
+                          <SupervisorVirtualCardPreview
+                            customerName={profileValue(customer.fullName)}
+                            serialNumber={actionCardNumber ?? ''}
+                            status={profileText(cardStatus, 'Not provided')}
+                          />
+                          <p>
+                            Status: {profileText(cardStatus, 'Not provided')}
+                          </p>
+                        </>
+                      ) : sourceFailed('card') ? (
                         <ProfileDataError
                           message="Card details could not be loaded."
                           onRetry={retryProfileProjection}
@@ -1241,7 +1492,12 @@ export function CustomerDetailsDialog({
                       aria-labelledby="profile-consent-title"
                     >
                       <h3 id="profile-consent-title">Consent</h3>
-                      {sourceFailed('consent') ? (
+                      {isCashierProfile ? (
+                        <p>
+                          Consent details are not provided in the Cashier
+                          profile.
+                        </p>
+                      ) : sourceFailed('consent') ? (
                         <ProfileDataError
                           message="Consent details could not be loaded."
                           onRetry={retryProfileProjection}
@@ -1304,18 +1560,20 @@ export function CustomerDetailsDialog({
                 >
                   <header className="supervisor-profile-details-card__header">
                     <h3 id="customer-details-card-title">Customer details</h3>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      aria-label="Edit customer details"
-                      disabled={busy || loading || loadFailed}
-                      onClick={() => {
-                        setProfileEditDiscardPrompt(false);
-                        setProfileEditorOpen(true);
-                      }}
-                    >
-                      Edit details
-                    </Button>
+                    {!isCashierProfile ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        aria-label="Edit customer details"
+                        disabled={busy || loading || loadFailed}
+                        onClick={() => {
+                          setProfileEditDiscardPrompt(false);
+                          setProfileEditorOpen(true);
+                        }}
+                      >
+                        Edit details
+                      </Button>
+                    ) : null}
                   </header>
                   <dl className="supervisor-profile-details-grid">
                     <div>
@@ -1336,21 +1594,32 @@ export function CustomerDetailsDialog({
                       <dt>Phone</dt>
                       <dd
                         className={
-                          profileValue(profile.phone || customer.phoneE164) ===
-                          'Not provided'
+                          profileValue(
+                            isCashierProfile
+                              ? customer.maskedPhone
+                              : profile.phone || customer.phoneE164,
+                          ) === 'Not provided'
                             ? 'is-not-provided'
                             : undefined
                         }
                       >
-                        {profileValue(profile.phone || customer.phoneE164)}
+                        {profileValue(
+                          isCashierProfile
+                            ? customer.maskedPhone
+                            : profile.phone || customer.phoneE164,
+                        )}
                       </dd>
                     </div>
                     <div>
                       <dt>Email</dt>
                       <dd
-                        className={`supervisor-profile-details-grid__email${profileValue(profile.email || customer.email) === 'Not provided' ? ' is-not-provided' : ''}`}
+                        className={`supervisor-profile-details-grid__email${profileValue(isCashierProfile ? customer.email : profile.email || customer.email) === 'Not provided' ? ' is-not-provided' : ''}`}
                       >
-                        {profileValue(profile.email || customer.email)}
+                        {profileValue(
+                          isCashierProfile
+                            ? customer.email
+                            : profile.email || customer.email,
+                        )}
                       </dd>
                     </div>
                     <div>
@@ -1366,30 +1635,34 @@ export function CustomerDetailsDialog({
                         {profileValue(customer.birthdayMonth)}
                       </dd>
                     </div>
-                    <div>
-                      <dt>Registered</dt>
-                      <dd
-                        className={
-                          profileDateTime(
-                            projection?.memberSince ?? customer.createdAt,
-                          ) === 'Not provided'
-                            ? 'is-not-provided'
-                            : undefined
-                        }
-                      >
-                        {profileDateTime(
-                          projection?.memberSince ?? customer.createdAt,
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Transactions</dt>
-                      <dd className="is-not-provided">Not provided</dd>
-                    </div>
-                    <div>
-                      <dt>Redemptions</dt>
-                      <dd className="is-not-provided">Not provided</dd>
-                    </div>
+                    {!isCashierProfile ? (
+                      <>
+                        <div>
+                          <dt>Registered</dt>
+                          <dd
+                            className={
+                              profileDateTime(
+                                projection?.memberSince ?? customer.createdAt,
+                              ) === 'Not provided'
+                                ? 'is-not-provided'
+                                : undefined
+                            }
+                          >
+                            {profileDateTime(
+                              projection?.memberSince ?? customer.createdAt,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Transactions</dt>
+                          <dd className="is-not-provided">Not provided</dd>
+                        </div>
+                        <div>
+                          <dt>Redemptions</dt>
+                          <dd className="is-not-provided">Not provided</dd>
+                        </div>
+                      </>
+                    ) : null}
                   </dl>
                 </section>
               ) : null}
@@ -1412,7 +1685,7 @@ export function CustomerDetailsDialog({
 
               <CustomerProfileEditorLayer
                 presentation={presentation}
-                open={profileEditorOpen}
+                open={profileEditorOpen && !isCashierProfile}
                 onClose={requestProfileEditorClose}
               >
                 {presentation === 'page' && profileEditDiscardPrompt ? (
@@ -1717,7 +1990,7 @@ export function CustomerDetailsDialog({
     <>
       <section aria-label="Customer details">{content}</section>
       <Dialog
-        open={cardManagementOpen}
+        open={cardManagementOpen && !isCashierProfile}
         title="Manage customer card"
         onClose={() => setCardManagementOpen(false)}
       >

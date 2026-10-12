@@ -13,13 +13,29 @@ type TodayTransaction = ReportsControllerListCashierTodayV1200DataItemsItem;
 
 function statusTone(status: TodayTransaction['status']) {
   const normalized = String(status ?? '').toUpperCase();
-  if (normalized.includes('APPROV') || normalized === 'CONFIRMED') {
+  if (normalized === 'APPROVED' || normalized === 'CONFIRMED') {
     return 'approved';
   }
-  if (normalized.includes('FAIL') || normalized.includes('REJECT')) {
+  if (
+    normalized.includes('FAIL') ||
+    normalized.includes('REJECT') ||
+    normalized.includes('DENIED')
+  ) {
     return 'failed';
   }
   return 'pending';
+}
+
+function statusLabel(status: TodayTransaction['status']) {
+  const normalized = String(status ?? '').toUpperCase();
+  if (normalized === 'APPROVED' || normalized === 'CONFIRMED')
+    return 'Approved';
+  if (normalized.includes('REJECT') || normalized.includes('DENIED')) {
+    return 'Denied';
+  }
+  if (normalized.includes('FAIL')) return 'Failed';
+  if (normalized.includes('PENDING')) return 'Pending';
+  return status;
 }
 
 export function CashierOverviewLookup() {
@@ -29,12 +45,14 @@ export function CashierOverviewLookup() {
   const [todayMessage, setTodayMessage] = useState('Loading today’s activity…');
   const [activityError, setActivityError] = useState(false);
   const [search, setSearch] = useState('');
+  const [timezone, setTimezone] = useState('Africa/Lagos');
 
   useEffect(() => {
     let ignore = false;
     async function loadTodayTransactions() {
       try {
         const response = await reportsControllerListCashierTodayV1(
+          undefined,
           createApiRequest({ csrf: true }),
         );
         if (response.status !== 200) {
@@ -42,6 +60,7 @@ export function CashierOverviewLookup() {
         }
         if (!ignore) {
           setTodayTransactions(response.data.data.items);
+          setTimezone(response.data.data.timezone || 'Africa/Lagos');
           setTodayMessage('');
           setActivityError(false);
         }
@@ -67,8 +86,10 @@ export function CashierOverviewLookup() {
     if (!normalizedSearch) {
       return loaded;
     }
-    return loaded.filter((transaction) =>
-      transaction.receiptNumber?.toLowerCase().includes(normalizedSearch),
+    return loaded.filter(
+      (transaction) =>
+        transaction.receiptNumber?.toLowerCase().includes(normalizedSearch) ||
+        transaction.customerName?.toLowerCase().includes(normalizedSearch),
     );
   }, [search, todayTransactions]);
   const earnTransactions = loadedTransactions.filter(
@@ -177,7 +198,7 @@ export function CashierOverviewLookup() {
           }
           description="Today’s bounded cashier activity feed"
           searchLabel="Search recent transactions"
-          searchPlaceholder="Search receipt"
+          searchPlaceholder="Search customer or receipt"
           searchValue={search}
           onSearchChange={(event) => setSearch(event.target.value)}
         />
@@ -185,21 +206,31 @@ export function CashierOverviewLookup() {
           <table className="cashier-table">
             <thead>
               <tr>
-                <th>Customer / receipt</th>
-                <th>Operation</th>
+                <th>Customer</th>
+                <th>Receipt No.</th>
+                <th>Amount</th>
                 <th>Credit</th>
                 <th>Status</th>
-                <th>Date &amp; time</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody>
               {visibleTransactions.length ? (
                 visibleTransactions.map((transaction) => (
                   <tr key={transaction.id}>
-                    <td>#{transaction.receiptNumber}</td>
-                    <td>{transaction.operation}</td>
+                    <td>
+                      {transaction.customerName || 'Customer unavailable'}
+                    </td>
+                    <td>{transaction.receiptNumber}</td>
+                    <td className="amount">
+                      {transaction.purchaseAmountKobo == null ? (
+                        'Unavailable'
+                      ) : (
+                        <Money amountKobo={transaction.purchaseAmountKobo} />
+                      )}
+                    </td>
                     <td
-                      className="amount"
+                      className={`amount transaction-credit transaction-credit--${statusTone(transaction.status)}`}
                       aria-label={
                         transaction.loyaltyAmountKobo === null
                           ? undefined
@@ -221,27 +252,34 @@ export function CashierOverviewLookup() {
                       <span
                         className={`status-pill status-pill--${statusTone(transaction.status)}`}
                       >
-                        {transaction.status}
+                        {statusLabel(transaction.status)}
                       </span>
                     </td>
                     <td>
                       <time dateTime={transaction.occurredAt}>
-                        {new Intl.DateTimeFormat('en-NG', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        }).format(new Date(transaction.occurredAt))}
+                        {new Intl.DateTimeFormat('en-GB', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true,
+                          timeZone: timezone,
+                        })
+                          .format(new Date(transaction.occurredAt))
+                          .replaceAll('/', '-')}
                       </time>
                     </td>
                   </tr>
                 ))
               ) : todayTransactions ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="cashier-empty">
                       {search ? (
                         <>
                           <span>No matching transactions.</span>{' '}
-                          <span>Try another receipt number.</span>
+                          <span>Try a customer name or receipt number.</span>
                         </>
                       ) : (
                         <strong>No transactions recorded today.</strong>

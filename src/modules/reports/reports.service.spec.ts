@@ -280,27 +280,62 @@ describe('ReportsService', () => {
       posReceiptNumber: '1831',
       purchaseAmountKobo: 420n,
       reviewStatus: 'APPROVED',
+      customer: { fullName: 'Ada Shopper' },
       redemption: null,
       ledgerEntries: [{ type: 'EARN', amountKobo: 42n, status: 'CONFIRMED' }],
     };
-    const prisma = prismaStub({ receipts: [receipt] });
+    const prisma = prismaStub({
+      receipts: [receipt],
+      monthlyEarnKobo: 2000n,
+    });
     const service = new ReportsService(prisma, configService());
 
     await expect(
-      service.listCashierToday('tenant-1', cashierContext()),
+      service.listCashierToday('tenant-1', cashierContext(), 'customer-1'),
     ).resolves.toMatchObject({
       branchId: 'branch-1',
       timezone: 'Africa/Lagos',
+      monthlyEarnKobo: 2000,
       items: [
         {
           id: 'receipt-1',
           operation: 'EARN',
+          customerName: 'Ada Shopper',
+          purchaseAmountKobo: 420,
           loyaltyAmountKobo: 42,
           receiptNumber: '1831',
           status: 'CONFIRMED',
         },
       ],
     });
+  });
+
+  it('filters recent cashier activity by customer and bounds the requested limit', async () => {
+    const prisma = prismaStub({ receipts: [] });
+    const findMany = jest.spyOn(prisma.receipt, 'findMany');
+    const service = new ReportsService(prisma, configService());
+
+    await service.listCashierToday(
+      'tenant-1',
+      cashierContext(),
+      'customer-1',
+      3,
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Jest asymmetric matcher types expose `any`; this assertion inspects the Prisma where payload.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({
+          tenantId: 'tenant-1',
+          branchId: 'branch-1',
+          capturedByTenantId: 'tenant-1',
+          capturedBy: 'cashier-1',
+          customerId: 'customer-1',
+        }),
+        take: 3,
+      }),
+    );
   });
 
   it('does not represent a pending Earn purchase amount as loyalty credit', async () => {
@@ -312,6 +347,7 @@ describe('ReportsService', () => {
           posReceiptNumber: '1831-PENDING',
           purchaseAmountKobo: 1000000n,
           reviewStatus: 'PENDING',
+          customer: { fullName: 'Ada Shopper' },
           redemption: null,
           ledgerEntries: [],
         },
@@ -325,11 +361,37 @@ describe('ReportsService', () => {
       items: [
         {
           operation: 'EARN',
+          customerName: 'Ada Shopper',
+          purchaseAmountKobo: 1000000,
           loyaltyAmountKobo: null,
           receiptNumber: '1831-PENDING',
           status: 'PENDING',
         },
       ],
+    });
+  });
+
+  it('omits purchase amounts that cannot be represented as safe integer kobo', async () => {
+    const prisma = prismaStub({
+      receipts: [
+        {
+          id: 'receipt-large-amount',
+          occurredAt: new Date('2026-08-25T10:00:00.000Z'),
+          posReceiptNumber: '1833',
+          purchaseAmountKobo: BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+          reviewStatus: 'APPROVED',
+          customer: { fullName: 'Ada Shopper' },
+          redemption: null,
+          ledgerEntries: [],
+        },
+      ],
+    });
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.listCashierToday('tenant-1', cashierContext()),
+    ).resolves.toMatchObject({
+      items: [{ customerName: 'Ada Shopper', purchaseAmountKobo: null }],
     });
   });
 
@@ -342,6 +404,7 @@ describe('ReportsService', () => {
           posReceiptNumber: '1832',
           purchaseAmountKobo: 1000n,
           reviewStatus: 'APPROVED',
+          customer: { fullName: 'Ada Shopper' },
           redemption: {
             requestedAmountKobo: 500n,
             confirmedAmountKobo: 450n,
@@ -571,6 +634,7 @@ function prismaStub(
     customers?: Array<{ id: string; fullName: string }>;
     cashierUsers?: Array<{ id: string; username: string }>;
     receipts?: Array<Record<string, unknown>>;
+    monthlyEarnKobo?: bigint | null;
   } = {},
 ): PrismaService {
   return {
@@ -605,6 +669,11 @@ function prismaStub(
     },
     receipt: {
       findMany: jest.fn().mockResolvedValue(options.receipts ?? []),
+    },
+    loyaltyLedgerEntry: {
+      aggregate: jest.fn().mockResolvedValue({
+        _sum: { amountKobo: options.monthlyEarnKobo ?? null },
+      }),
     },
   } as unknown as PrismaService;
 }

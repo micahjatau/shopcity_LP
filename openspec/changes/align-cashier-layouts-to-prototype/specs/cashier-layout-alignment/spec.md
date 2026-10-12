@@ -59,13 +59,13 @@ Overview SHALL present the shared page heading and action region, welcome/suppor
 
 ### Requirement: Find Customer separates discovery from authoritative verification
 
-Find Customer SHALL provide one compact card of approximately 712px maximum width containing aligned name/phone/card input, Search, and Scan controls on desktop and a stacked arrangement on smaller widths, followed by live status and customer results within that card. On initial load, the results table SHALL show up to ten latest customer records with name, customer ID, masked phone, card status, available balance, and a profile action. After a search of at least two characters, debounced customer matches SHALL replace those rows. Customer searches SHALL accept international and local phone-number formats against stored E.164 numbers. Discovery results SHALL remain visually distinct from authoritative verified-card state, and no data shown to a Cashier SHALL include an unmasked phone number.
+Find Customer SHALL provide one full-content-width card with the Recent customers heading and listing description above the search field, followed by live status and customer results. The search field SHALL retain the `Search customers, phone, or card…` placeholder and match the Cashier Overview search surface. Search and Scan actions SHALL match Overview button sizing, with each icon and label on one line. Static search guidance and the generic idle prompt SHALL be omitted. The results table SHALL span the full Cashier content width and match the Overview table-header styling. On initial load, it SHALL show up to ten latest customer records with name, masked phone, card status, available balance, and a profile action; customer ID SHALL NOT appear as a table column, but MAY remain available internally for profile routing. Card status SHALL use semantic colors (active green, pending amber, inactive red, unknown neutral). Balance SHALL use green for positive, red for negative, and neutral for zero or unavailable values. After a search of at least two characters, debounced customer matches SHALL replace those rows. Customer searches SHALL accept international and local phone-number formats against stored E.164 numbers. Discovery results SHALL remain visually distinct from authoritative verified-card state, and no data shown to a Cashier SHALL include an unmasked phone number.
 
 #### Scenario: Recent customer directory and profile navigation
 
 - **WHEN** a Cashier opens Find Customer without a search term
 - **THEN** the route loads at most ten latest customer records into the result table
-- **AND** the table shows customer name, customer ID, masked phone, card status, and available balance in separate columns
+- **AND** the table shows customer name, masked phone, card status, and available balance in separate columns, without a customer ID column
 - **AND** each row with a customer ID has an action that opens `/cashier/customers?id=...`
 
 #### Scenario: Debounced customer and phone search
@@ -81,6 +81,62 @@ Find Customer SHALL provide one compact card of approximately 712px maximum widt
 - **THEN** the profile route remains authorized within the Cashier shell without adding a separate sidebar item
 - **AND** the profile offers Capture Purchase and Redeem Credit actions
 - **AND** either action continues through the existing active-card verification and financial workflow controls
+
+### Requirement: Cashier customer profile mirrors the Supervisor presentation safely
+
+The Cashier customer profile at `/cashier/customers?id=...` SHALL mirror the Supervisor profile's page hierarchy, responsive layout, summary-card geometry, and Overview, Transactions, Wallet Ledger, and Virtual Card tabs, but SHALL omit the Consent and Redemptions tabs because Wallet Ledger contains both earn and redemption entries. It SHALL remain read-only and use only the existing cashier-authorized customer-detail and customer-ledger APIs. The detail response's `customerId` MUST equal the requested stable ID before profile values render. The profile MUST display only the API's masked phone, masked email, birthday-month field, and cashier-safe card number, and MUST NOT call the Supervisor/Admin-only profile-projection endpoint. The Customer details section MUST omit unsupported Registered, Transactions, and Redemptions rows. It MUST omit Edit details, customer-status changes, and card-management actions. Capture Purchase and Redeem Credit MAY remain visible, but MUST continue through exact active-card verification before any financial workflow.
+
+The Transactions tab SHALL reuse the Supervisor transaction table presentation and show up to the three newest rows returned by the cashier-authorized `cashier-today` endpoint filtered by the stable customer ID. It SHALL display the returned receipt number, date/time, purchase amount, and status; unsupported receipt credit remains explicitly not provided. The endpoint filter MUST preserve authenticated tenant, branch, and cashier scope.
+
+The Cashier summary cards SHALL be labelled Available balance, Last purchase amount, Total monthly Earn, and Last amount redeemed. Total monthly Earn MUST be the sum of confirmed EARN/CREDIT ledger entries for the verified customer in the branch-local calendar month; it MUST be explicitly unavailable when the authoritative value cannot be returned. Last purchase and redeemed amounts MAY use the latest returned cashier activity rows. Profile fields unavailable from the cashier-safe customer summary or cashier-today response—including pending approvals, lifetime earned, annual purchases, transaction history beyond the returned three rows, card identifier, consent, and expiry details—MUST be shown as explicitly unavailable/not provided, not fabricated or inferred. The Cashier profile MUST NOT widen API authorization or expose an unmasked phone number.
+
+#### Scenario: Cashier opens a safe profile presentation
+
+- **GIVEN** a Cashier opens a profile using a stable customer ID
+- **WHEN** `GET /api/v1/customers/{id}` returns a cashier-safe summary with a matching `customerId`
+- **THEN** the page renders the Supervisor-aligned profile layout and tabs using only returned cashier-safe fields
+- **AND** the phone remains masked and unsupported profile fields remain truthfully unavailable
+- **AND** the Supervisor/Admin-only profile-projection API is not requested
+- **AND** the Transactions tab requests at most three customer-scoped cashier activity rows
+
+#### Scenario: Cashier profile response is mismatched or unavailable
+
+- **GIVEN** the requested customer detail fails or returns a different `customerId`
+- **WHEN** the profile is rendered
+- **THEN** no customer values or actions from another record are exposed
+- **AND** the page shows a truthful retryable error state
+
+#### Scenario: Cashier profile shows recent transactions
+
+- **WHEN** a Cashier opens the Transactions tab for a verified customer
+- **THEN** the profile renders the Supervisor transaction table with the newest returned customer-scoped cashier activity rows
+- **AND** no more than three rows are requested or displayed
+- **AND** receipt number, date/time, purchase amount, and status are shown from the authorized response
+- **AND** unavailable credit values remain explicitly not provided
+
+#### Scenario: Cashier virtual card stays concise
+
+- **WHEN** a Cashier opens the Virtual Card tab
+- **THEN** the Supervisor card image treatment is shown with the verified customer context when available
+- **AND** the verified cashier card number is rendered on the card image when supplied
+- **AND** only card status is shown outside the image
+- **AND** card identifier labels, issue details, and explanatory unavailable-copy are omitted
+
+#### Scenario: Cashier profile remains read-only
+
+- **WHEN** a Cashier views the customer profile
+- **THEN** Edit details, customer status controls, and card-management controls are absent
+- **AND** Capture Purchase and Redeem Credit continue through the existing exact active-card verification workflow
+
+#### Scenario: Overview-aligned lookup presentation
+
+- **WHEN** a Cashier opens the Find Customer route
+- **THEN** the Recent customers heading appears before the search field
+- **AND** the placeholder remains `Search customers, phone, or card…`
+- **AND** Search and Scan icons and labels appear on one line in Overview-sized buttons
+- **AND** no static search instructions or generic idle prompt are displayed
+- **AND** the full-width table header matches the Cashier Overview table header and omits customer ID
+- **AND** card-status and balance values use semantic, accessible color distinctions
 
 #### Scenario: Customer discovery search
 

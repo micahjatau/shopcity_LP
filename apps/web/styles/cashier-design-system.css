@@ -56,6 +56,134 @@
   background: transparent;
 }
 
+.cashier-overview .cashier-today-card .table-search,
+.cashier-route-page--lookup .find-customer-query {
+  border: 1px solid transparent;
+  background: #f6f4f5;
+  color: #666;
+  font-size: 12px;
+}
+
+.cashier-route-page--lookup .find-customer-query {
+  width: min(320px, 100%);
+  height: auto;
+  min-height: 36px;
+  flex: 0 1 320px;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.cashier-overview .cashier-today-card .table-search:focus-within,
+.cashier-route-page--lookup .find-customer-query:focus-within {
+  border-color: #c9151c;
+  outline: 3px solid color-mix(in srgb, #c9151c 24%, transparent);
+  outline-offset: 2px;
+}
+
+.cashier-overview .cashier-today-card .table-search svg,
+.cashier-route-page--lookup .find-customer-query svg {
+  flex: none;
+}
+
+.cashier-overview .cashier-today-card .table-search input,
+.cashier-route-page--lookup .find-customer-query input {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #414141;
+  font-size: 12px;
+}
+
+.cashier-overview .cashier-today-card .table-search input:focus-visible,
+.cashier-route-page--lookup .find-customer-query input:focus-visible {
+  outline: 0;
+}
+
+.cashier-overview .cashier-today-card .table-search input::placeholder,
+.cashier-route-page--lookup .find-customer-query input::placeholder {
+  color: #737373;
+  opacity: 1;
+}
+
+.cashier-route-page--lookup
+  #customer-search-form
+  .find-customer-search-action
+  > span {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.cashier-route-page--lookup .find-customer-search-action svg {
+  flex: none;
+}
+
+.cashier-route-page--lookup .find-customer-search-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
+  outline-offset: 3px;
+}
+
+.cashier-route-page--lookup .find-customer-card-status,
+.cashier-route-page--lookup .find-customer-balance {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cashier-route-page--lookup .find-customer-card-status {
+  gap: 6px;
+  padding: 4px 9px;
+}
+
+.cashier-route-page--lookup .find-customer-card-status::before {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.cashier-route-page--lookup .find-customer-card-status--active,
+.cashier-route-page--lookup .find-customer-balance--positive {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.cashier-route-page--lookup .find-customer-card-status--pending {
+  background: #fff7d6;
+  color: #9a6700;
+}
+
+.cashier-route-page--lookup .find-customer-card-status--inactive,
+.cashier-route-page--lookup .find-customer-balance--negative {
+  background: #fff0ed;
+  color: #b42318;
+}
+
+.cashier-route-page--lookup .find-customer-card-status--unknown,
+.cashier-route-page--lookup .find-customer-balance--zero,
+.cashier-route-page--lookup .find-customer-balance--unknown {
+  background: #f6f4f5;
+  color: #595959;
+}
+
+.cashier-route-page--lookup .find-customer-balance {
+  padding: 4px 8px;
+}
+
 .sc-discovery-muted {
   color: var(--sc-prototype-muted);
   font-size: 12px;
@@ -180,10 +308,18 @@
 
 .cashier-overview-header h1 {
   margin: 0;
-  font-family: var(--sc-prototype-fontDisplaySans);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  color: #262626;
+  font-family: var(--sc-font-family-sans);
+  font-size: var(--sc-font-size-profile-page-title);
+  font-weight: 700;
+  line-height: var(--sc-line-height-profile-heading);
+  letter-spacing: 0;
+}
+
+.cashier-overview-header p {
+  color: #595959;
+  font-size: var(--sc-font-size-profile-body);
+  line-height: var(--sc-line-height-profile-body);
 }
 
 .cashier-overview-actions {
@@ -221,6 +357,116 @@
 .cashier-secondary-action--disabled {
   cursor: not-allowed;
   opacity: 0.72;
+}
+
+.cashier-overview-header .cashier-primary-action,
+.cashier-overview-header .cashier-secondary-action,
+.cashier-route-page--lookup #customer-search-form .find-customer-search-action {
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 18px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cashier-overview-header .cashier-primary-action,
+.cashier-route-page--lookup .find-customer-search-action--primary {
+  border-color: #c9151c;
+  background: #c9151c;
+  color: #fff;
+}
+
+.cashier-overview-header .cashier-secondary-action--disabled,
+.cashier-route-page--lookup .find-customer-search-action--secondary {
+  border-color: #e4e4e4;
+  background: #fff;
+  color: #737373;
+  opacity: 1;
+}
+
+.cashier-overview .cashier-overview-notice {
+  color: #737373;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.cashier-overview .section-label,
+.cashier-overview .cashier-today-card .table-head h2,
+.cashier-route-page--lookup .find-customer-recent-head h2 {
+  color: #414141;
+  font-family: var(--sc-font-family-sans);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cashier-overview .cashier-metric {
+  border: 1px solid #e4e4e4;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.cashier-overview .metric-label {
+  color: #414141;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.cashier-overview .metric-value {
+  color: #a81419;
+  font-family: var(--sc-font-family-sans);
+  font-size: clamp(22px, 2vw, 27px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.cashier-overview .metric-note {
+  color: #737373;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.cashier-overview .cashier-today-card {
+  border: 1px solid #f0eeee;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.cashier-overview .cashier-today-card .table-head {
+  border-bottom-color: #e4e4e4;
+}
+
+.cashier-overview .cashier-today-card .table-head .cashier-muted,
+.cashier-route-page--lookup .find-customer-recent-head p {
+  color: #595959;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cashier-overview .cashier-today-card .cashier-table th,
+.cashier-route-page--lookup .find-customer-table th {
+  background: #fafafa;
+  color: #4a4a4a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cashier-overview .cashier-today-card .cashier-table td {
+  border-bottom-color: #e7e5e5;
+}
+
+.cashier-overview .cashier-today-card .cashier-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cashier-overview-header .cashier-primary-action:focus-visible,
+.cashier-overview-header .cashier-secondary-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
+  outline-offset: 3px;
 }
 
 .cashier-primary-action:focus-visible,

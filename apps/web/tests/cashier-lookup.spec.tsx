@@ -61,6 +61,8 @@ describe('Cashier lookup workflow', () => {
               id: 'receipt-1',
               occurredAt: '2026-08-25T10:00:00.000Z',
               operation: 'EARN',
+              customerName: 'Ada Shopper',
+              purchaseAmountKobo: 42000,
               loyaltyAmountKobo: 42,
               receiptNumber: '1831',
               status: 'CONFIRMED',
@@ -99,6 +101,21 @@ describe('Cashier lookup workflow', () => {
         expect.any(Object),
       );
     });
+    expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
+    for (const heading of [
+      'Customer',
+      'Receipt No.',
+      'Amount',
+      'Credit',
+      'Status',
+      'Date',
+    ]) {
+      expect(
+        screen.getByRole('columnheader', { name: heading }),
+      ).toBeInTheDocument();
+    }
+    expect(screen.getByText('1831')).toBeInTheDocument();
+    expect(screen.getByText('₦420.00')).toBeInTheDocument();
     expect(cardsControllerLookupCardV1).not.toHaveBeenCalled();
   });
 
@@ -186,10 +203,12 @@ describe('Cashier lookup workflow', () => {
     const search = screen.getByRole('searchbox', {
       name: 'Search recent transactions',
     });
-    await screen.findByText('#1831');
+    await screen.findByText('1831');
+    fireEvent.change(search, { target: { value: 'Ada' } });
+    expect(screen.getByText('1831')).toBeInTheDocument();
     fireEvent.change(search, { target: { value: 'missing' } });
 
-    expect(screen.queryByText('#1831')).not.toBeInTheDocument();
+    expect(screen.queryByText('1831')).not.toBeInTheDocument();
     expect(screen.getByText('No matching transactions.')).toBeInTheDocument();
     expect(reportsControllerListCashierTodayV1).toHaveBeenCalledTimes(1);
   });
@@ -197,9 +216,8 @@ describe('Cashier lookup workflow', () => {
   it('renders authenticated cashier activity', async () => {
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('#1831')).toBeInTheDocument();
-    expect(screen.getByText('EARN')).toBeInTheDocument();
-    expect(screen.getByText('CONFIRMED')).toBeInTheDocument();
+    expect(await screen.findByText('1831')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
     expect(screen.getByText('+')).toBeInTheDocument();
     expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
       expect.any(Object),
@@ -229,7 +247,7 @@ describe('Cashier lookup workflow', () => {
 
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('#1832')).toBeInTheDocument();
+    expect(await screen.findByText('1832')).toBeInTheDocument();
     expect(screen.getByText('−')).toBeInTheDocument();
     expect(
       screen.getByLabelText('Credit redeemed: 450 kobo'),
@@ -289,7 +307,7 @@ describe('Cashier lookup workflow', () => {
 
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('#1831-AUTH')).toBeInTheDocument();
+    expect(await screen.findByText('1831-AUTH')).toBeInTheDocument();
     expect(screen.getByLabelText('Credit added: 42 kobo')).toBeInTheDocument();
     expect(screen.queryByText('Pending calculation')).not.toBeInTheDocument();
   });
@@ -314,7 +332,10 @@ describe('Cashier lookup workflow', () => {
     ).toHaveAttribute('placeholder', 'Search customers, phone, or card…');
     expect(screen.getByRole('button', { name: 'Scan' })).toBeInTheDocument();
     expect(
-      screen.getByRole('columnheader', { name: 'Customer ID' }),
+      screen.queryByRole('columnheader', { name: 'Customer ID' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Available balance' }),
     ).toBeInTheDocument();
   });
 
@@ -364,31 +385,44 @@ describe('Cashier lookup workflow', () => {
         const content = page?.querySelector(
           '[data-od-id="find-customer-content"]',
         );
-        expect(content?.children).toHaveLength(3);
+        expect(content?.children).toHaveLength(4);
         expect(content?.children[0]).toHaveAttribute(
           'data-od-id',
-          'customer-search',
+          'recent-customers-heading',
         );
         expect(content?.children[1]).toHaveAttribute(
           'data-od-id',
-          'customer-search-state',
+          'customer-search',
         );
         expect(content?.children[2]).toHaveAttribute(
           'data-od-id',
+          'customer-search-state',
+        );
+        expect(content?.children[3]).toHaveAttribute(
+          'data-od-id',
           'recent-customers',
         );
+        expect(
+          screen.queryByText(/Search by name, phone number, or card serial/i),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(
+            /Search by customer name, phone number, or card serial/i,
+          ),
+        ).not.toBeInTheDocument();
       }
       unmount();
     }
   });
 
-  it('loads ten recent customers with identifiers and profile actions', async () => {
+  it('loads ten recent customers without exposing IDs and provides profile actions', async () => {
     const recentCustomers = Array.from({ length: 10 }, (_, index) => ({
       id: `customer-${index + 1}`,
       fullName: `Recent Shopper ${index + 1}`,
       maskedPhone: `+234801* *** ${String(index + 1).padStart(4, '0')}`,
-      cardStatus: 'ACTIVE',
-      availableBalanceKobo: 1200 + index,
+      cardStatus: index === 1 ? 'BLOCKED' : index === 2 ? undefined : 'ACTIVE',
+      availableBalanceKobo:
+        index === 1 ? 0 : index === 2 ? undefined : 1200 + index,
     }));
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
@@ -405,8 +439,30 @@ describe('Cashier lookup workflow', () => {
 
     expect(await screen.findByText('Recent Shopper 10')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(11);
-    expect(screen.getByText('customer-1')).toBeInTheDocument();
+    expect(screen.queryByText('customer-1')).not.toBeInTheDocument();
     expect(screen.getByText('+234801* *** 0001')).toBeInTheDocument();
+    const rows = screen.getAllByRole('row');
+    expect(rows[1].querySelector('.find-customer-card-status')).toHaveClass(
+      'find-customer-card-status--active',
+    );
+    expect(rows[1].querySelector('.find-customer-balance')).toHaveClass(
+      'find-customer-balance--positive',
+    );
+    expect(rows[2].querySelector('.find-customer-card-status')).toHaveClass(
+      'find-customer-card-status--inactive',
+    );
+    expect(rows[2].querySelector('.find-customer-balance')).toHaveClass(
+      'find-customer-balance--zero',
+    );
+    expect(rows[3].querySelector('.find-customer-card-status')).toHaveClass(
+      'find-customer-card-status--unknown',
+    );
+    expect(rows[3].querySelector('.find-customer-balance')).toHaveClass(
+      'find-customer-balance--unknown',
+    );
+    expect(
+      screen.queryByRole('columnheader', { name: 'Customer ID' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'View profile for Recent Shopper 1' }),
     ).toHaveAttribute('href', '/cashier/customers?id=customer-1');

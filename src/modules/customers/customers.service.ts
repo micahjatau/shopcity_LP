@@ -1052,6 +1052,13 @@ function isPrivilegedCustomerRead(actor: AuthContext): boolean {
   );
 }
 
+function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const [localPart, domainPart] = email.split('@');
+  if (!domainPart) return `${localPart.slice(0, 1)}***`;
+  return `${localPart.slice(0, 1)}***@${domainPart}`;
+}
+
 function toCashierCustomerSummary(
   customer: CustomerReadRecord,
   activeBalanceKobo: bigint,
@@ -1060,6 +1067,9 @@ function toCashierCustomerSummary(
     customerId: customer.id,
     fullName: customer.fullName,
     maskedPhone: maskPhone(customer.phoneE164),
+    email: maskEmail(customer.email),
+    birthdayMonth: null,
+    cardNumber: customer.cards[0]?.barcodeValue ?? null,
     cardStatus: customer.cards[0]?.status ?? CardStatus.BLOCKED,
     availableBalanceKobo: Number(activeBalanceKobo),
   };

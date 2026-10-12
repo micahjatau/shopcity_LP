@@ -6285,6 +6285,13 @@ export type CustomersControllerListCustomersV1200DataItemsItem = {
    * @nullable
    */
   activeCardSerialNumber?: string | null;
+  /**
+   * Masked email for cashier-safe customer display.
+   * @nullable
+   */
+  email?: string | null;
+  /** @nullable */
+  birthdayMonth?: string | null;
   availableBalanceKobo?: number;
   /**
    * Full basket total in integer kobo from the latest captured and approved receipt.
@@ -7139,7 +7146,17 @@ export type CustomersControllerGetCustomerProfileProjectionV1503 = {
 };
 
 export type CustomersControllerGetCustomerV1200Data = {
-  [key: string]: unknown;
+  customerId?: string;
+  fullName?: string;
+  maskedPhone?: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  birthdayMonth?: string | null;
+  /** @nullable */
+  cardNumber?: string | null;
+  cardStatus?: string;
+  availableBalanceKobo?: number;
 };
 
 export type CustomersControllerGetCustomerV1200Meta = {
@@ -14870,6 +14887,17 @@ export type ReportsControllerListCustomerPerformanceV1503 = {
   meta: ReportsControllerListCustomerPerformanceV1503Meta;
 };
 
+export type ReportsControllerListCashierTodayV1Params = {
+  /**
+   * Optional stable customer ID filter within the cashier scope
+   */
+  customerId?: string;
+  /**
+   * Maximum number of recent rows to return, capped at 10
+   */
+  limit?: number;
+};
+
 export type ReportsControllerListCashierTodayV1200DataItemsItemOperation =
   (typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation)[keyof typeof ReportsControllerListCashierTodayV1200DataItemsItemOperation];
 
@@ -14882,6 +14910,9 @@ export type ReportsControllerListCashierTodayV1200DataItemsItem = {
   id: string;
   occurredAt: string;
   operation: ReportsControllerListCashierTodayV1200DataItemsItemOperation;
+  customerName: string;
+  /** @nullable */
+  purchaseAmountKobo: number | null;
   /** @nullable */
   loyaltyAmountKobo: number | null;
   receiptNumber: string;
@@ -14891,6 +14922,8 @@ export type ReportsControllerListCashierTodayV1200DataItemsItem = {
 export type ReportsControllerListCashierTodayV1200Data = {
   branchId: string;
   timezone: string;
+  /** @nullable */
+  monthlyEarnKobo: number | null;
   /** @maxItems 10 */
   items: ReportsControllerListCashierTodayV1200DataItemsItem[];
 };
@@ -24355,8 +24388,22 @@ export type reportsControllerListCashierTodayV1Response =
   | reportsControllerListCashierTodayV1ResponseSuccess
   | reportsControllerListCashierTodayV1ResponseError;
 
-export const getReportsControllerListCashierTodayV1Url = () => {
-  return `/api/v1/reports/cashier-today`;
+export const getReportsControllerListCashierTodayV1Url = (
+  params?: ReportsControllerListCashierTodayV1Params,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/reports/cashier-today?${stringifiedParams}`
+    : `/api/v1/reports/cashier-today`;
 };
 
 /**
@@ -24364,9 +24411,10 @@ export const getReportsControllerListCashierTodayV1Url = () => {
  * @summary List today's cashier transactions
  */
 export const reportsControllerListCashierTodayV1 = async (
+  params?: ReportsControllerListCashierTodayV1Params,
   options?: RequestInit,
 ): Promise<reportsControllerListCashierTodayV1Response> => {
-  const res = await fetch(getReportsControllerListCashierTodayV1Url(), {
+  const res = await fetch(getReportsControllerListCashierTodayV1Url(params), {
     ...options,
     method: 'GET',
   });

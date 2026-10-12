@@ -25,6 +25,9 @@
 - [x] 3.3 Implement desktop, tablet, and mobile metric-card rearrangement without changing bounded activity data, masking, or transaction semantics.
 - [x] 3.4 Add stable Overview fixtures and route assertions for required landmarks, no overflow, keyboard/focus behavior, reduced motion, and supported empty/loading/error states.
 - [x] 3.5 Capture the first approved shell-and-Overview comparison as the spatial baseline for the remaining routes.
+- [x] 3.6 Extend the existing cashier-today contract with scoped customer name and purchase amount projections; regenerate OpenAPI/client artifacts and test the six-column Recent Transactions table with supported and missing values.
+- [x] 3.7 Apply the Supervisor Overview's typography, spacing, card, action, search, table, and responsive styling to Cashier Overview without changing cashier content or data scope.
+- [x] 3.8 Match the Cashier Overview search field to the Supervisor customer-table search control while preserving live local filtering.
 
 ## 4. Adapt Find Customer and reusable discovery presentation
 
@@ -34,10 +37,19 @@
 - [x] 4.4 Preserve exact card lookup, Cashier-safe masking, tenant/branch scope, authorization, 404/error contract, keyboard selection, Escape, focus restoration, and deep-link handoff.
 - [x] 4.5 Add desktop/tablet/mobile/reduced-motion route evidence and verify that layout does not depend on search success.
 - [x] 4.6 Merge the search and recent-results card surfaces into one route-scoped discovery card without changing lookup behavior or other workflow consumers.
-- [x] 4.7 Load up to ten latest cashier-visible customer records into a table with name, customer ID, masked phone, card status, available balance, and a profile action.
+- [x] 4.7 Load up to ten latest cashier-visible customer records into a table with name, masked phone, card status, available balance, and a profile action; keep customer IDs internal for profile routing rather than displaying them.
 - [x] 4.8 Match topbar customer-search behavior with debounced table results and add local-phone normalization against stored E.164 numbers without exposing unmasked phone data.
 - [x] 4.9 Authorize the existing Cashier profile route as a Find Customer alias without adding a sidebar item; add Capture Purchase and Redeem Credit actions that preserve exact-card verification and existing financial safeguards.
 - [x] 4.10 Test recent-list loading, live name/international/local-phone search, profile routing, empty/error states, and protected Earn/Redeem verification.
+- [x] 4.11 Move the recent-customer heading above search, remove static guidance and the idle prompt, match Overview search/button/header styling, and expand the table to full content width without a Customer ID column.
+- [x] 4.12 Color-code card-status and available-balance values with semantic states for active, pending, inactive, positive, zero, negative, and unavailable values.
+- [x] 4.13 Reuse the Supervisor profile presentation for Cashier profiles while verifying cashier summary identity, masking phone data, using only authorized customer/ledger APIs, and omitting Supervisor-only controls.
+- [x] 4.14 Add Cashier profile tests for same-page structure, unavailable-data honesty, no profile-projection request, read-only controls, and exact-card workflow handoff.
+- [x] 4.15 Add a cashier-scoped customer filter to cashier-today and render the latest three rows in the shared Supervisor transaction table on the Cashier profile.
+- [x] 4.16 Refine Cashier profile cards, concise virtual-card presentation, single transaction outcome badge, Consent-tab omission, and branch-scoped wallet-ledger authorization.
+- [x] 4.17 Replace monthly transaction placeholder with authoritative monthly earned-credit total and verify card number rendering.
+- [x] 4.18 Remove the Cashier Redemptions tab because Wallet Ledger captures both earn and redemption entries; revert profile typography changes and enlarge virtual-card text.
+- [x] 4.19 Populate Cashier Overview activity and calculated metrics, remove the Cashier credit-expiry card, and expose only cashier-safe masked email, card number, and birthday-month details.
 
 ## 5. Adapt Capture Purchase
 

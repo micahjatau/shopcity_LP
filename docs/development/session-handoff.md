@@ -1,6 +1,17 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-11
+Updated: 2026-10-12
+
+## Current session — Cashier customer workflow
+
+- Branch: `workflow-states-implementation`
+- Scope committed in this session: Cashier customer directory/profile alignment, cashier-safe profile and ledger authorization, monthly earned-credit metric, Cashier Overview activity/metric population, virtual-card presentation, masked customer details, and generated API/OpenSpec/test updates.
+- The Cashier profile now uses authorized customer summary, cashier-today activity, and branch-scoped ledger reads only. It verifies the customer ID, keeps phone masked, shows masked email/card number/birthday-month field, omits unsupported Cashier detail rows and the Cashier Redemptions tab, and hides Supervisor/Admin controls.
+- Cashier Overview Recent activity is populated from authorized activity rows. Monthly Earn comes from confirmed EARN/CREDIT ledger entries in the branch-local month; Last purchase and Last amount redeemed derive from recent cashier activity. The credit-expiry card is omitted for Cashiers. Transactions display only the newest three rows while requesting up to ten for metric derivation.
+- The virtual card uses the Supervisor image treatment with larger customer/card-number text and the verified customer card number rendered without an extra label.
+- Verification passed: targeted/backend Jest suites, web unit tests, typechecks, source and targeted web lint, production web build, Playwright cashier profile coverage, Semgrep, strict OpenSpec validation, Prettier, `git diff --check`, and GitNexus `detect_changes` (LOW risk; no affected processes).
+- Known limitation: the current Prisma Customer schema has no birthday-month column, so Cashier Birthday month is an explicit unavailable value until the data model/API gains an authoritative source.
+- No generated `.next-*` directories, prototype artwork, build state, or unrelated worktree changes were included in the feature commit.
 
 ## Repository state
 

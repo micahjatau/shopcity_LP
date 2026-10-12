@@ -542,10 +542,24 @@ function FindCustomerView({
         : lookupMessage
     : recentPending
       ? 'Loading recent customers…'
-      : recentError || 'Search by customer name, phone number, or card serial.';
+      : recentError;
 
   return (
     <div className="find-customer-view" data-od-id="find-customer-content">
+      <header
+        className="find-customer-recent-head"
+        data-od-id="recent-customers-heading"
+      >
+        <h2
+          className="sc-discovery-section-title"
+          id="find-customer-results-title"
+        >
+          Recent customers
+        </h2>
+        <p className="sc-discovery-muted">
+          Up to ten of the most recently registered customer profiles.
+        </p>
+      </header>
       <section
         className="find-customer-search sc-discovery-panel"
         data-od-id="customer-search"
@@ -554,7 +568,7 @@ function FindCustomerView({
         <form id="customer-search-form" onSubmit={submitSearch}>
           <div className="find-customer-search-row">
             <label
-              className="find-customer-query"
+              className="find-customer-query table-search"
               htmlFor="customer-search-query"
             >
               <Search aria-hidden="true" size={16} strokeWidth={1.8} />
@@ -563,7 +577,6 @@ function FindCustomerView({
                 id="customer-search-query"
                 type="search"
                 aria-label="Customer search"
-                aria-describedby="customer-search-hint"
                 placeholder="Search customers, phone, or card…"
                 autoComplete="off"
                 className="sc-input--compact"
@@ -574,6 +587,7 @@ function FindCustomerView({
             <Button
               type="submit"
               disabled={lookupPending}
+              className="find-customer-search-action find-customer-search-action--primary"
               data-od-id="customer-search-button"
             >
               <Search aria-hidden="true" size={16} strokeWidth={1.8} />
@@ -582,6 +596,7 @@ function FindCustomerView({
             <Button
               type="button"
               variant="secondary"
+              className="find-customer-search-action find-customer-search-action--secondary"
               data-od-id="customer-scan-button"
               onClick={() => queryInputRef.current?.focus()}
             >
@@ -589,37 +604,26 @@ function FindCustomerView({
               Scan
             </Button>
           </div>
-          <p
-            id="customer-search-hint"
-            className="find-customer-hint sc-discovery-muted"
-          >
-            Search by name, phone number, or card serial. Press enter or select
-            Search to look up a customer. Type at least two characters to see
-            customer matches.
-          </p>
         </form>
       </section>
 
-      <p
-        className="find-customer-notice sc-discovery-muted"
-        data-od-id="customer-search-state"
-        role="status"
-        aria-live="polite"
-      >
-        {statusMessage}
-      </p>
+      {statusMessage ? (
+        <p
+          className="find-customer-notice sc-discovery-muted"
+          data-od-id="customer-search-state"
+          role="status"
+          aria-live="polite"
+        >
+          {statusMessage}
+        </p>
+      ) : null}
 
       <section
         className="find-customer-recent sc-discovery-panel"
         data-od-id="recent-customers"
+        aria-labelledby="find-customer-results-title"
         aria-busy={tableBusy}
       >
-        <div className="find-customer-recent-head">
-          <h2 className="sc-discovery-section-title">Recent customers</h2>
-          <p className="sc-discovery-muted">
-            Up to ten of the most recently registered customer profiles.
-          </p>
-        </div>
         <div
           className="find-customer-table-wrap"
           data-od-id="customer-results"
@@ -629,13 +633,12 @@ function FindCustomerView({
         >
           <table className="find-customer-table">
             <caption className="sr-only">
-              Customer name, customer ID, masked phone, card status, available
-              balance, and profile action.
+              Customer name, masked phone, card status, available balance, and
+              profile action.
             </caption>
             <thead>
               <tr>
                 <th scope="col">Customer</th>
-                <th scope="col">Customer ID</th>
                 <th scope="col">Phone</th>
                 <th scope="col">Card status</th>
                 <th scope="col">Available balance</th>
@@ -653,8 +656,11 @@ function FindCustomerView({
                   if (profileQuery && verifiedCustomer && selectedCardSerial) {
                     profileQuery.set('card', selectedCardSerial);
                   }
+                  const normalizedCardStatus = customer.cardStatus
+                    ?.trim()
+                    .toUpperCase();
                   const cardStatus =
-                    customer.cardStatus?.toUpperCase() === 'ACTIVE'
+                    normalizedCardStatus === 'ACTIVE'
                       ? 'Active card'
                       : customer.cardStatus
                         ? customer.cardStatus
@@ -662,6 +668,35 @@ function FindCustomerView({
                             .toLowerCase()
                             .replace(/^\w/, (letter) => letter.toUpperCase())
                         : 'Card status unavailable';
+                  const cardStatusTone =
+                    normalizedCardStatus === 'ACTIVE'
+                      ? 'active'
+                      : ['PENDING', 'ISSUING'].includes(
+                            normalizedCardStatus ?? '',
+                          )
+                        ? 'pending'
+                        : [
+                              'BLOCKED',
+                              'CANCELLED',
+                              'DEACTIVATED',
+                              'EXPIRED',
+                              'INACTIVE',
+                              'LOST',
+                              'REVOKED',
+                              'SUSPENDED',
+                            ].includes(normalizedCardStatus ?? '')
+                          ? 'inactive'
+                          : 'unknown';
+                  const balanceKobo = customer.availableBalanceKobo;
+                  const balanceTone =
+                    typeof balanceKobo !== 'number' ||
+                    !Number.isFinite(balanceKobo)
+                      ? 'unknown'
+                      : balanceKobo > 0
+                        ? 'positive'
+                        : balanceKobo < 0
+                          ? 'negative'
+                          : 'zero';
 
                   return (
                     <tr
@@ -673,17 +708,25 @@ function FindCustomerView({
                       }
                     >
                       <td>{customerName}</td>
-                      <td className="find-customer-table__id">
-                        {customerId ?? 'Customer ID unavailable'}
-                      </td>
                       <td>{customer.maskedPhone ?? 'Phone unavailable'}</td>
-                      <td>{cardStatus}</td>
                       <td>
-                        {typeof customer.availableBalanceKobo === 'number' ? (
-                          <Money amountKobo={customer.availableBalanceKobo} />
-                        ) : (
-                          'Balance unavailable'
-                        )}
+                        <span
+                          className={`find-customer-card-status find-customer-card-status--${cardStatusTone}`}
+                        >
+                          {cardStatus}
+                        </span>
+                      </td>
+                      <td className="find-customer-table__balance">
+                        <span
+                          className={`find-customer-balance find-customer-balance--${balanceTone}`}
+                        >
+                          {typeof balanceKobo === 'number' &&
+                          Number.isFinite(balanceKobo) ? (
+                            <Money amountKobo={balanceKobo} />
+                          ) : (
+                            'Balance unavailable'
+                          )}
+                        </span>
                       </td>
                       <td>
                         {profileQuery ? (
@@ -703,7 +746,7 @@ function FindCustomerView({
                 })
               ) : (
                 <tr>
-                  <td className="find-customer-empty-cell" colSpan={6}>
+                  <td className="find-customer-empty-cell" colSpan={5}>
                     {tableBusy
                       ? hasSearchTerm
                         ? `Searching for “${lookupValue.trim()}”…`

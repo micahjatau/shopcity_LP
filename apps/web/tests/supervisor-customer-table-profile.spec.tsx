@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react';
 import {
+  CashierCustomerProfile,
   SuccessPopUp,
   SupervisorCustomerProfile,
   SupervisorCustomerWorkflows,
@@ -19,6 +20,7 @@ import {
   customersControllerGetCustomerProfileProjectionV1,
   customersControllerUpdateCustomerV1,
   loyaltyControllerGetCustomerLedgerV1,
+  reportsControllerListCashierTodayV1,
 } from '../lib/api/generated-client';
 
 jest.mock('framer-motion', () => {
@@ -65,6 +67,7 @@ jest.mock('../lib/api/generated-client', () => ({
     status: 200,
     data: { data: { items: [] } },
   }),
+  reportsControllerListCashierTodayV1: jest.fn(),
   customersControllerGetCustomerProfileProjectionV1: jest.fn(),
 }));
 
@@ -77,6 +80,12 @@ describe('table-first customer workflow', () => {
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,
       data: { data: { items: [] } },
+    } as never);
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: { branchId: 'branch-1', timezone: 'Africa/Lagos', items: [] },
+      },
     } as never);
     jest
       .mocked(customersControllerGetCustomerProfileProjectionV1)
@@ -219,6 +228,169 @@ describe('table-first customer workflow', () => {
       'SER-1',
       expect.any(Object),
     );
+  });
+
+  it('renders the shared profile for Cashier with safe data and no Supervisor controls', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          customerId: 'cashier-profile-id',
+          fullName: 'Cashier Profile Owner',
+          maskedPhone: '+23480* *** 0012',
+          phoneE164: '+2348000000012',
+          email: 'p***@example.com',
+          status: 'BLOCKED',
+          cardNumber: 'PRIVATE-CARD-001',
+          cardStatus: 'ACTIVE',
+          availableBalanceKobo: 5500,
+        },
+      },
+    } as never);
+
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          monthlyEarnKobo: 2000,
+          items: [
+            {
+              id: 'receipt-1',
+              occurredAt: '2026-10-13T10:00:00.000Z',
+              operation: 'EARN',
+              customerName: 'Cashier Profile Owner',
+              purchaseAmountKobo: 12500,
+              loyaltyAmountKobo: 625,
+              receiptNumber: 'R-001',
+              status: 'APPROVED',
+            },
+            {
+              id: 'receipt-2',
+              occurredAt: '2026-10-12T10:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Cashier Profile Owner',
+              purchaseAmountKobo: 5000,
+              loyaltyAmountKobo: 1000,
+              receiptNumber: 'R-002',
+              status: 'CONFIRMED',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierCustomerProfile
+        customerId="cashier-profile-id"
+        cardHint="CARD-HINT-001"
+      />,
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Cashier Profile Owner',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('navigation', { name: 'Customer profile sections' }),
+    ).toBeVisible();
+    expect(screen.getByText('+23480* *** 0012')).toBeVisible();
+    expect(screen.queryByText('+2348000000012')).not.toBeInTheDocument();
+    expect(screen.getByText('p***@example.com')).toBeVisible();
+    expect(screen.queryByText('PRIVATE-CARD-001')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('term', { name: 'Registered' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('term', { name: 'Transactions' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('term', { name: 'Redemptions' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Last purchase amount')).toBeInTheDocument();
+    expect(screen.getByText('Total monthly Earn')).toBeInTheDocument();
+    expect(screen.getByText('Last amount redeemed')).toBeInTheDocument();
+    expect(await screen.findByText('Credit earned')).toBeVisible();
+    expect(await screen.findByText('Credit redeemed')).toBeVisible();
+    expect(
+      screen.queryByText('Credit expiry schedule'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Member since Date not provided'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Status not provided')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Edit customer details' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Change status' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Manage card' }),
+    ).not.toBeInTheDocument();
+    expect(
+      customersControllerGetCustomerProfileProjectionV1,
+    ).not.toHaveBeenCalled();
+    expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
+      { customerId: 'cashier-profile-id', limit: 10 },
+      expect.any(Object),
+    );
+    expect(
+      screen.getByRole('link', { name: 'Capture Purchase' }),
+    ).toHaveAttribute('href', '/cashier/earn?card=PRIVATE-CARD-001');
+    fireEvent.click(screen.getByRole('button', { name: 'Transactions' }));
+    expect(
+      screen.getByRole('table', { name: 'Customer transactions' }),
+    ).toBeVisible();
+    expect(await screen.findByText('R-001')).toBeVisible();
+    expect(await screen.findByText('R-002')).toBeVisible();
+    expect(
+      await screen.findByLabelText('Capture status: Approved'),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Redemptions' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Virtual Card' }));
+    expect(
+      screen.getByRole('img', {
+        name: /ShopCity card preview.*card number PRIVATE-CARD-001/,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText('Status: ACTIVE')).toBeVisible();
+    expect(
+      screen.queryByText(
+        'Card identifier and issue details are not provided in the Cashier profile.',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Consent' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('rejects a mismatched cashier customer summary before rendering profile data', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          customerId: 'different-customer-id',
+          fullName: 'Wrong Customer',
+          maskedPhone: '+23480* *** 0099',
+        },
+      },
+    } as never);
+
+    render(<CashierCustomerProfile customerId="cashier-profile-id" />);
+
+    expect(
+      await screen.findByText('Customer details could not be verified (200).'),
+    ).toBeVisible();
+    expect(screen.queryByText('Wrong Customer')).not.toBeInTheDocument();
+    expect(
+      customersControllerGetCustomerProfileProjectionV1,
+    ).not.toHaveBeenCalled();
   });
 
   it('does not select the Virtual Card tab until the stable customer ID is verified', async () => {
@@ -1107,7 +1279,9 @@ describe('table-first customer workflow', () => {
     expect(within(transactionTable).getByText(/2025/)).toBeVisible();
     expect(within(transactionTable).getByText(/54\.00/)).toBeVisible();
     expect(within(transactionTable).getByText('Captured')).toBeVisible();
-    expect(within(transactionTable).getByText('Approved')).toBeVisible();
+    expect(
+      within(transactionTable).queryByText('Approved'),
+    ).not.toBeInTheDocument();
     jest.mocked(loyaltyControllerGetCustomerLedgerV1).mockResolvedValueOnce({
       status: 200,
       data: {
@@ -1181,10 +1355,10 @@ describe('table-first customer workflow', () => {
       within(virtualCardPreview).getByText('VERIFIED CUSTOMER');
     const cardNumberOnCard =
       within(virtualCardPreview).getByText('CARD-REAL-1');
-    expect(customerNameOnCard).toHaveClass('text-[25px]', 'sm:text-[29px]');
-    expect(cardNumberOnCard).toHaveClass('text-[25px]', 'sm:text-[29px]');
+    expect(customerNameOnCard).toHaveClass('text-[28px]', 'sm:text-[32px]');
+    expect(cardNumberOnCard).toHaveClass('text-[28px]', 'sm:text-[32px]');
     expect(
-      within(virtualCardPreview).queryByText(/CARD NUMBER:/),
+      within(virtualCardPreview).queryByText('CARD NUMBER'),
     ).not.toBeInTheDocument();
     expect(customerNameOnCard).toHaveStyle({ color: 'rgb(255, 255, 255)' });
     expect(cardNumberOnCard).toHaveStyle({ color: 'rgb(255, 255, 255)' });

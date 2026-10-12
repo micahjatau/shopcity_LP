@@ -11,6 +11,18 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-12 — Populate Cashier Overview recent-transactions columns
+
+`CashierOverviewLookup` has LOW upstream risk: no indexed callers. `ReportsService.listCashierToday` has LOW risk with one direct controller caller and one affected process; `ReportsController.listCashierToday` has LOW risk and no indexed dependants. The change adds read-only customer-name and receipt purchase-amount projections to the existing cashier/branch/tenant-scoped endpoint; role and scope enforcement remain unchanged.
+
+```text
+npm run proposal:impact -- --file openspec/changes/align-cashier-layouts-to-prototype/proposal.md CashierOverviewLookup
+node .gitnexus/run.cjs impact listCashierToday --file src/modules/reports/reports.service.ts --kind Method --repo shopcity_LP --direction upstream
+node .gitnexus/run.cjs impact listCashierToday --file src/modules/reports/reports.controller.ts --kind Method --repo shopcity_LP --direction upstream
+```
+
+No HIGH/CRITICAL symbol-level impact was reported.
+
 ### 2026-10-12 — Supervisor and Admin Operational Reports presentation and role controls
 
 | Symbol                                                                                              |     Risk | Impacted | Direct | Processes | Notes                                                                                                                          |
@@ -1345,3 +1357,50 @@ node .gitnexus/run.cjs impact matchShellRoute --direction upstream -r shopcity_L
 | `matchShellRoute`                   | LOW, exact  |                8 |                 4 | 2 shell navigation/access processes; Components   |
 
 Keep all table/search/profile UI changes gated to the Lookup/Cashier route. Do not alter the shared lookup controller or Earn/Redeem behavior. Name/phone directory results use the existing tenant-authorized, cashier-minimized customer projection; local phone input normalization must not reveal unmasked phone numbers. Profile workflow links still require exact card verification before financial actions. The existing `/cashier/customers` profile path was not recognized by the Cashier shell route guard; add it as a route alias of Find Customer without exposing another sidebar item. Regression-test Cashier access plus unchanged Admin/Supervisor route guards.
+
+### 2026-10-13 — Refine Cashier Find Customer presentation
+
+```text
+node .gitnexus/run.cjs impact FindCustomerView --direction upstream --repo shopcity_LP
+node .gitnexus/run.cjs impact CashierOverviewLookup --direction upstream --repo shopcity_LP
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Affected processes / modules |
+| ----------------------- | ---------- | ---------------: | ----------------: | ---------------------------- |
+| `FindCustomerView`      | LOW, exact |                4 |                 1 | No indexed processes         |
+| `CashierOverviewLookup` | LOW, exact |                0 |                 0 | No indexed processes         |
+
+The index was stale at commit `ff5c515`; impact queries remained available, but reanalysis failed because the local `file_fts` index was inconsistent. This is a presentation-only refinement scoped to Find Customer; the overview and cashier verification/financial workflows remain unchanged. The follow-up color-codes active/positive states green, pending amber, inactive/negative red, and zero or unavailable values neutral; no API or business logic changes.
+
+### 2026-10-13 — Cashier profile presentation parity (cashier-safe)
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+node .gitnexus/run.cjs impact --uid 'Function:apps/web/components/workflows/customer-details-dialog.tsx:CustomerDetailsDialog' --direction upstream --repo shopcity_LP
+node .gitnexus/run.cjs impact --uid 'Function:apps/web/components/workflows/supervisor-customer-workflows.tsx:ManageCustomers' --direction upstream --repo shopcity_LP
+node .gitnexus/run.cjs impact --uid 'Function:apps/web/components/workflows/customer-details-dialog.tsx:ExpirySchedule' --direction upstream --repo shopcity_LP
+node .gitnexus/run.cjs impact --file 'apps/web/app/(shell)/cashier/customers/page.tsx' --kind Function --direction upstream --repo shopcity_LP page
+```
+
+| Symbol                  | Risk       | Impacted symbols | Direct dependants | Notes                                                                 |
+| ----------------------- | ---------- | ---------------: | ----------------: | --------------------------------------------------------------------- |
+| `CustomerDetailsDialog` | LOW, exact |                2 |                 1 | Direct caller `ManageCustomers`; indirect `SupervisorCustomerProfile` |
+| `ManageCustomers`       | LOW, exact |                1 |                 1 | Direct caller `SupervisorCustomerProfile`                             |
+| `ExpirySchedule`        | LOW, exact |                3 |                 1 | Call chain remains within customer profile                            |
+| Cashier `page`          | UNKNOWN    |                0 |                 0 | Target not found in stale index                                       |
+
+The index is stale at `ff5c515` and its reanalysis previously failed because the local FTS index was inconsistent. The Cashier replica will use only cashier-authorized customer summary and ledger APIs; it will not call or broaden access to the Supervisor/Admin profile-projection endpoint. Phone stays masked; profile editing, status changes, and card management remain Supervisor-only. Implementation verification reported LOW risk from `detect_changes` for the combined dirty tree; targeted source lint, typecheck, Jest, Playwright, build, Semgrep, OpenSpec, formatting, and diff checks passed.
+
+### 2026-10-13 — Cashier profile recent transactions
+
+```text
+node .gitnexus/run.cjs impact listCashierToday --file src/modules/reports/reports.controller.ts --kind Method --direction upstream --repo shopcity_LP
+node .gitnexus/run.cjs impact listCashierToday --file src/modules/reports/reports.service.ts --kind Method --direction upstream --repo shopcity_LP
+node .gitnexus/run.cjs impact --uid 'Function:apps/web/components/workflows/customer-details-dialog.tsx:ProfileTransactions' --direction upstream --repo shopcity_LP
+```
+
+`listCashierToday` controller and service impact was LOW; the service has one direct controller caller. `ProfileTransactions` impact was LOW with one direct caller inside the shared profile. The existing cashier/tenant/branch/cashier scope remains enforced; the optional stable customer filter only narrows the existing read and caps the profile request at three rows. The generated client was regenerated from the updated OpenAPI contract.
+
+### 2026-10-13 — Cashier profile metric, card, tab, and ledger refinement
+
+`CustomerDetailsDialog` and `ProfileWalletLedger` both reported LOW exact impact within the shared profile chain. The wallet-ledger diagnosis found the frontend request was correct but the controller role guard excluded Cashiers; adding Cashier to the existing branch-scoped ledger read fixes the authorization mismatch without changing ledger writes or query scope. Cashier presentation now uses Last purchase amount, Total monthly Earn (the confirmed EARN/CREDIT ledger sum for the branch-local month), and Last amount redeemed; omits the Cashier Redemptions tab because Wallet Ledger captures both earn and redemption entries; omits Consent, duplicate transaction outcome badges, missing member/status fallback copy, and extra virtual-card explanation; and reuses the Supervisor card image with the verified card number rendered on it and only status shown outside it. The profile typography remains shared, while the virtual-card customer/card-number text is larger. Cashier Overview now maps the authorized activity rows into Recent activity, derives the latest purchase/redeem values from those rows, requests up to ten rows while displaying only three in Transactions, and omits the credit-expiry card. The cashier-safe customer summary now returns a card number, masked email, and explicit birthday-month field; Cashier Customer details omits Registered, Transactions, and Redemptions rows.
