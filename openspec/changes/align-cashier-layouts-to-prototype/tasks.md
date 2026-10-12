@@ -60,6 +60,7 @@
 - [x] 5.5 Add paired workflow tests for lookup-to-confirmation-to-review-to-success and regression tests for protected transitions, without changing controller/API authority.
 - [x] 5.9 Match Capture Purchase Step 1 to Figma node `408:513` with scoped search/list geometry, copy, icons, and controls while preserving API-backed activity, privacy, card verification, and shared Lookup/Redeem presentation. Verified with targeted Jest and Playwright coverage, computed geometry checks, mobile overflow, and unchanged Redeem lookup defaults.
 - [x] 5.10 Map documented Earn 400 responses to actionable messages, surface unknown error codes for support, and verify server rejections are not queued as offline earns. Verified by six targeted 400-response cases in the transaction-form suite.
+- [x] 5.11 Update only Capture Purchase Step 2 to Figma node `412:2478`, including the dynamic light card preview and accessible card-serial copy action; preserve cashier-safe data, Earn workflow transitions, and Lookup/Redeem presentation. Verified at six POS/mobile viewport widths, with serial-copy coverage, relevant Jest suites, typecheck, design-system check, and strict OpenSpec validation.
 
 ## 6. Adapt Redeem Credit
 

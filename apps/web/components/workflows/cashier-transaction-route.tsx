@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ArrowRight, Info, Search, ScanLine } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Search, ScanLine } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, type FormEvent, type ReactNode } from 'react';
@@ -348,15 +348,20 @@ export function CashierWorkflowRoute({
             >
               <div className="cashier-stage-heading">
                 <h2 className="cashier-stage-heading-title">
-                  Confirm customer
+                  Step 2 — Confirm customer
                 </h2>
-              </div>
-              <p className="cashier-capture-confirm__instruction" role="note">
-                <Info aria-hidden="true" size={18} />
-                <span>
+                <p className="cashier-stage-heading-description">
                   Read the name back to the customer before continuing.
-                </span>
-              </p>
+                </p>
+                <Image
+                  src="/brand/cashier/cashier-confirmation-divider.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={664}
+                  height={1}
+                  className="cashier-capture-confirm__divider"
+                />
+              </div>
               <CaptureCustomerConfirmationCard
                 customerName={
                   lookupContext?.customerName ??
@@ -382,20 +387,14 @@ export function CashierWorkflowRoute({
                     setEarnConfirmed(false);
                   }}
                 >
-                  <span className="cashier-capture-confirm__button-content">
-                    <ArrowLeft aria-hidden="true" size={18} />
-                    <span>Back</span>
-                  </span>
+                  Back
                 </Button>
                 <Button
                   type="button"
                   className="cashier-capture-confirm__proceed sc-button--cashier-confirm-action sc-button--cashier-confirm-proceed"
                   onClick={() => setEarnConfirmed(true)}
                 >
-                  <span className="cashier-capture-confirm__button-content">
-                    <span>Proceed</span>
-                    <ArrowRight aria-hidden="true" size={18} />
-                  </span>
+                  Proceed
                 </Button>
               </div>
             </div>
@@ -540,10 +539,22 @@ function CaptureCustomerConfirmationCard({
   walletBalanceKobo?: number | null;
   cardSerialNumber?: string;
 }>) {
+  const [copyMessage, setCopyMessage] = useState('');
   const displayName = customerName?.trim() || 'Not provided';
   const cardStatusDisplay = getCaptureCardStatus(cardStatus);
-  const serialNumber = cardSerialNumber || 'Not provided';
+  const serialNumber = cardSerialNumber?.trim() || 'Not provided';
+  const canCopySerial = serialNumber !== 'Not provided';
   const isEmailLoading = maskedEmail === 'Loading…';
+
+  async function copySerialNumber() {
+    if (!canCopySerial) return;
+    try {
+      await navigator.clipboard.writeText(serialNumber);
+      setCopyMessage('Card number copied.');
+    } catch {
+      setCopyMessage('Could not copy card number. Select the value manually.');
+    }
+  }
 
   return (
     <div
@@ -552,19 +563,11 @@ function CaptureCustomerConfirmationCard({
       aria-label="Verified customer details"
     >
       <div className="cashier-capture-confirm__identity">
-        <dl className="cashier-capture-confirm__name">
-          <dt>Customer</dt>
-          <dd className={displayName === 'Not provided' ? 'is-missing' : ''}>
-            {displayName}
-          </dd>
-        </dl>
         <dl className="cashier-capture-confirm__details">
-          <div>
-            <dt>Phone</dt>
-            <dd
-              className={`cashier-capture-confirm__phone ${maskedPhone ? '' : 'is-missing'}`}
-            >
-              {maskedPhone || 'Not provided'}
+          <div className="cashier-capture-confirm__field--customer">
+            <dt>Customer</dt>
+            <dd className={displayName === 'Not provided' ? 'is-missing' : ''}>
+              {displayName}
             </dd>
           </div>
           <div>
@@ -585,18 +588,45 @@ function CaptureCustomerConfirmationCard({
             </dd>
           </div>
           <div>
-            <dt>Card status</dt>
+            <dt>Phone number</dt>
+            <dd
+              className={`cashier-capture-confirm__phone ${maskedPhone ? '' : 'is-missing'}`}
+            >
+              {maskedPhone || 'Not provided'}
+            </dd>
+          </div>
+          <div className="cashier-capture-confirm__serial">
+            <dt>Virtual Card Number</dt>
             <dd>
-              <span
-                className={`cashier-capture-confirm__status cashier-capture-confirm__status--${cardStatusDisplay.tone}`}
-              >
-                <span aria-hidden="true" />
-                <span>{cardStatusDisplay.label}</span>
+              <span className={canCopySerial ? '' : 'is-missing'}>
+                {serialNumber}
+              </span>
+              {canCopySerial ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="compact"
+                  className="cashier-capture-confirm__copy"
+                  aria-label={`Copy virtual card number ${serialNumber}`}
+                  title="Copy virtual card number"
+                  onClick={() => void copySerialNumber()}
+                >
+                  <Image
+                    src="/brand/cashier/cashier-confirmation-copy.svg"
+                    alt=""
+                    aria-hidden="true"
+                    width={16}
+                    height={16}
+                  />
+                </Button>
+              ) : null}
+              <span className="sr-only" aria-live="polite">
+                {copyMessage}
               </span>
             </dd>
           </div>
           <div className="cashier-capture-confirm__wallet">
-            <dt>Wallet balance</dt>
+            <dt>Wallet Balance</dt>
             <dd
               className={`cashier-capture-confirm__wallet-value ${typeof walletBalanceKobo === 'number' ? '' : 'is-missing'}`}
             >
@@ -609,14 +639,84 @@ function CaptureCustomerConfirmationCard({
           </div>
         </dl>
       </div>
-      <SupervisorVirtualCardPreview
-        confirmation
-        ariaLabel={`ShopCity loyalty card for ${displayName}, number ${serialNumber}`}
+      <CashierCaptureVirtualCardPreview
         customerName={displayName}
         serialNumber={serialNumber}
-        status={cardStatusDisplay.label}
+        statusLabel={cardStatusDisplay.label}
+        statusTone={cardStatusDisplay.tone}
       />
     </div>
+  );
+}
+
+function CashierCaptureVirtualCardPreview({
+  customerName,
+  serialNumber,
+  statusLabel,
+  statusTone,
+}: Readonly<{
+  customerName: string;
+  serialNumber: string;
+  statusLabel: string;
+  statusTone: 'active' | 'blocked' | 'lost' | 'inactive';
+}>) {
+  return (
+    <figure
+      className="cashier-capture-card-preview"
+      role="img"
+      aria-label={`ShopCity loyalty card preview for ${customerName}, number ${serialNumber}, status ${statusLabel}`}
+    >
+      <Image
+        src="/brand/cashier/cashier-confirmation-card-texture.jpg"
+        alt=""
+        aria-hidden="true"
+        width={3000}
+        height={2000}
+        sizes="248px"
+        className="cashier-capture-card-preview__texture"
+      />
+      <span className="cashier-capture-card-preview__wash" aria-hidden="true" />
+      <div className="cashier-capture-card-preview__brand" aria-hidden="true">
+        <Image
+          src="/brand/cashier/cashier-confirmation-brand-mark.svg"
+          alt=""
+          width={15.1762}
+          height={15.4568}
+        />
+        <span>
+          <strong>SHOPCITY</strong>
+          <small>SUPERMARKET</small>
+        </span>
+      </div>
+      <div className="cashier-capture-card-preview__identity">
+        <span>{customerName}</span>
+        <strong>{serialNumber}</strong>
+      </div>
+      <span
+        className={`cashier-capture-card-preview__status cashier-capture-confirm__status cashier-capture-confirm__status--${statusTone}`}
+      >
+        {statusTone === 'active' ? (
+          <Image
+            src="/brand/cashier/cashier-confirmation-status-dot.svg"
+            alt=""
+            aria-hidden="true"
+            width={4.52174}
+            height={4.52174}
+          />
+        ) : (
+          <span aria-hidden="true" />
+        )}
+        <span>{statusLabel}</span>
+      </span>
+      <Image
+        src="/brand/cashier/cashier-confirmation-barcode.svg"
+        alt=""
+        aria-hidden="true"
+        width={96}
+        height={37}
+        className="cashier-capture-card-preview__barcode"
+      />
+    </figure>
   );
 }
 

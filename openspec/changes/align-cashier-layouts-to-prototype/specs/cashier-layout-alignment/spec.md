@@ -163,6 +163,10 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **WHEN** the user advances through the four guided stages
 - **THEN** the outer flow panel retains its alignment and intended dimensions while inner content changes
 - **AND** Back, Continue, validation, focus, and stage semantics remain accessible
+- **AND** the Step 2 heading and customer-confirmation content follow Figma node `412:2478` without changing the shared stepper or other stages
+- **AND** unavailable `Available balance` and `Expiring credit` placeholders are omitted
+- **AND** the Earn confirmation stage uses the compact light ShopCity card preview with dynamic verified customer/card identity; the customer profile retains its own artwork
+- **AND** Back is an outlined text pill with an accessible `Back` name
 
 #### Scenario: Capture Purchase protected outcomes
 
@@ -170,6 +174,22 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **WHEN** the backend returns success, approval-required, offline, retryable, or error behavior
 - **THEN** the layout renders the truthful corresponding state
 - **AND** existing financial authority, integer-kobo validation, idempotency, and approval safeguards remain unchanged
+
+#### Scenario: Capture Purchase confirmation card matches Figma node 412:2478
+
+- **WHEN** a verified customer reaches step 2 of `/cashier/earn`
+- **THEN** only the Earn confirmation stage matches Figma node `412:2478`; the shell, page title, stepper, other steps, API calls, and workflow behavior remain unchanged
+- **AND** the heading reads `Step 2 — Confirm customer` in 16px bold type, followed by the read-back sentence and a 1px `#E5E5E5` divider
+- **AND** the left-side customer details appear in this order: Customer, Email, Phone number, Virtual Card Number, and Wallet Balance, with compact 10px labels and 14px values
+- **AND** the API-provided masked phone and cashier-safe masked email are rendered without UI normalization or unmasking, and missing optional fields read `Not provided`
+- **AND** the card serial has a keyboard-accessible copy action that copies only the displayed serial and announces success or failure without changing workflow state
+- **AND** wallet balance uses the verified lookup or matching cashier-safe customer summary's available balance in integer-kobo formatting
+- **AND** while the existing cashier-safe customer-summary request is unresolved, only the optional email value shows an accessible reduced-motion-safe skeleton; no additional request or Proceed gate is added
+- **AND** a compact light ShopCity virtual-card preview sits alongside the details on desktop and stacks below them at narrow widths, showing the dynamic customer name, card serial, and status
+- **AND** the preview's barcode is decorative only and is not treated as customer data or a scannable/authoritative identifier
+- **AND** Back and Proceed remain approximately 160px by 32px, retain accessible names and visible keyboard focus, and preserve the existing transitions
+- **AND** the layout has no horizontal overflow at 1366, 1280, 1440, 1920, 768, and 390px viewports
+- **AND** non-active-card and customer-eligibility behavior stays on the existing lookup/server paths; no new Proceed-blocking rule, retry, or submission state is introduced
 
 #### Scenario: Earn bad-request responses are actionable
 

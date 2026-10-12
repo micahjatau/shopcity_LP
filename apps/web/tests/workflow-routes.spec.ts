@@ -456,16 +456,31 @@ test.describe('workflow route coverage', () => {
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
       await page.getByRole('button', { name: 'Search customer' }).click();
       const confirmationHeading = page.getByRole('heading', {
-        name: 'Confirm customer',
+        name: 'Step 2 — Confirm customer',
       });
       await expect(confirmationHeading).toBeVisible();
-      await expect(confirmationHeading).toHaveCSS('font-size', '20px');
-      await expect(confirmationHeading).toHaveCSS('font-weight', '600');
+      const barcodePreview = page.locator(
+        '.cashier-capture-card-preview__barcode',
+      );
+      await expect(barcodePreview).toBeVisible();
+      await expect
+        .poll(() =>
+          barcodePreview.evaluate(
+            (image: HTMLImageElement) =>
+              image.complete && image.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+      await expect(confirmationHeading).toHaveCSS('font-size', '16px');
+      await expect(confirmationHeading).toHaveCSS('font-weight', '700');
+      await expect(
+        page.locator('.cashier-stage-heading-description'),
+      ).toHaveText('Read the name back to the customer before continuing.');
       await expect(
         page.locator('.cashier-capture-confirm__instruction'),
-      ).toHaveCSS('background-color', 'rgb(255, 245, 247)');
+      ).toHaveCount(0);
       await expect(
-        page.locator('.cashier-capture-confirm__name dd'),
+        page.locator('.cashier-capture-confirm__field--customer dd'),
       ).toHaveText(customerName);
       await expect(
         page.locator('.cashier-capture-confirm__details'),
@@ -475,19 +490,26 @@ test.describe('workflow route coverage', () => {
       ).toContainText(
         'ale***@very-long-subdomain-for-overflow-checking.customer-data.example',
       );
-      await expect(page.locator('.cashier-capture-confirm__wallet')).toHaveCSS(
-        'background-color',
-        'rgb(246, 244, 245)',
-      );
       await expect(
-        page.locator('.cashier-capture-confirm__status--active'),
-      ).toHaveCSS('background-color', 'rgb(236, 253, 243)');
+        page.locator('.cashier-capture-confirm__details dt'),
+      ).toHaveText([
+        'Customer',
+        'Email',
+        'Phone number',
+        'Virtual Card Number',
+        'Wallet Balance',
+      ]);
+      await expect(
+        page.locator(
+          '.cashier-capture-card-preview .cashier-capture-confirm__status--active',
+        ),
+      ).toHaveCSS('background-color', 'rgb(209, 250, 226)');
       await expect(
         page.locator('.cashier-capture-confirm__details'),
       ).toContainText('₦400.00');
       await expect(
         page.getByRole('img', {
-          name: `ShopCity loyalty card for ${customerName}, number CARD-001`,
+          name: `ShopCity loyalty card preview for ${customerName}, number CARD-001, status Active`,
         }),
       ).toBeVisible();
       const details = page.locator('.cashier-capture-confirm__details');
@@ -528,8 +550,16 @@ test.describe('workflow route coverage', () => {
         name: 'Go back to find customer',
       });
       const proceedButton = actions.getByRole('button', { name: 'Proceed' });
-      await expect(backButton).toHaveCSS('height', '44px');
-      await expect(proceedButton).toHaveCSS('height', '44px');
+      await expect(backButton).toHaveText('Back');
+      await expect(backButton).toHaveCSS('width', '160px');
+      await expect(proceedButton).toHaveCSS('width', '160px');
+      await expect(backButton).toHaveCSS('height', '32px');
+      await expect(proceedButton).toHaveCSS('height', '32px');
+      await expect(
+        page.getByRole('button', {
+          name: 'Copy virtual card number CARD-001',
+        }),
+      ).toBeVisible();
       await expect(proceedButton).toHaveCSS(
         'background-image',
         /linear-gradient/,
@@ -691,9 +721,11 @@ test.describe('workflow route coverage', () => {
       await page.reload();
       await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-PAIR');
       await page.getByRole('button', { name: 'Search customer' }).click();
-      await expect(
-        page.getByRole('heading', { name: 'Confirm customer' }),
-      ).toBeVisible();
+      const confirmationHeading = page.getByRole('heading', {
+        name:
+          kind === 'earn' ? 'Step 2 — Confirm customer' : 'Confirm customer',
+      });
+      await expect(confirmationHeading).toBeVisible();
       await expect(page.getByText('Step 2', { exact: true })).toHaveCount(0);
       if (kind === 'earn') {
         await expect(
@@ -704,7 +736,7 @@ test.describe('workflow route coverage', () => {
         ).not.toContainText(/Earn eligibility|Expiring credit/);
         await expect(
           page.getByRole('img', {
-            name: /ShopCity loyalty card for Ada Shopper/,
+            name: /ShopCity loyalty card preview for Ada Shopper/,
           }),
         ).toBeVisible();
         const backButton = page.getByRole('button', {
@@ -712,7 +744,7 @@ test.describe('workflow route coverage', () => {
         });
         await expect(backButton).toBeVisible();
         await expect(backButton).toHaveText('Back');
-        await expect(backButton.locator('svg')).toHaveCount(1);
+        await expect(backButton.locator('svg')).toHaveCount(0);
       } else {
         await expect(page.locator('.cashier-confirm-details')).toContainText(
           'Wallet balance',
@@ -2275,7 +2307,7 @@ test.describe('workflow route coverage', () => {
     await expect(
       page
         .getByLabel('Verified customer details')
-        .getByText('Ada Shopper', { exact: true }),
+        .locator('.cashier-capture-confirm__field--customer dd'),
     ).toBeVisible({ timeout: 30000 });
     const captureFlow = page.locator('[data-od-id="capture-flow"]');
     await expect(captureFlow).toBeVisible({ timeout: 30000 });
@@ -2318,7 +2350,7 @@ test.describe('workflow route coverage', () => {
     );
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(
-      page.getByRole('heading', { name: 'Confirm customer' }),
+      page.getByRole('heading', { name: 'Step 2 — Confirm customer' }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Proceed' }).click();
     await expect(page.getByLabel('Receipt number *')).toBeVisible();

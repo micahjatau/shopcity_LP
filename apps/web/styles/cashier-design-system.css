@@ -246,6 +246,258 @@
   gap: var(--sc-spacing-3);
 }
 
+/* Canonical appearance for the Earn step-2 customer confirmation card. */
+.cashier-route-page--earn .sc-flow-panel[data-state='step-2'] {
+  border-color: #e5e5e5;
+  border-radius: 16px;
+}
+
+.cashier-route-page--earn .cashier-confirm-stage .cashier-stage-heading-title {
+  color: #414141;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
+}
+
+.cashier-route-page--earn
+  .cashier-confirm-stage
+  .cashier-stage-heading-description {
+  color: #414141;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cashier-capture-confirm__email-skeleton {
+  display: block;
+  width: min(144px, 100%);
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f2f4f7 25%, #e9eaeb 50%, #f2f4f7 75%);
+  background-size: 200% 100%;
+  animation: cashier-confirm-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+@keyframes cashier-confirm-skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cashier-capture-confirm__email-skeleton {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+.cashier-capture-confirm__details dt {
+  color: #676767;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.cashier-capture-confirm__details dd {
+  color: #414141;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.cashier-capture-confirm__details .is-missing {
+  color: #676767;
+  font-weight: 400;
+}
+
+.cashier-capture-confirm__wallet-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.cashier-capture-confirm__copy {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #676767;
+}
+
+.cashier-capture-confirm__copy > span {
+  display: grid;
+  place-items: center;
+}
+
+.cashier-capture-confirm__copy:hover:not(:disabled) {
+  background: #f2f2f2;
+}
+
+.cashier-capture-card-preview {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  background: #f8f8f8;
+  isolation: isolate;
+}
+
+.cashier-capture-card-preview__texture {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cashier-capture-card-preview__wash {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: rgb(248 248 248 / 71%);
+}
+
+.cashier-capture-card-preview__brand {
+  display: grid;
+  width: 44px;
+  justify-items: center;
+  color: #be1313;
+}
+
+.cashier-capture-card-preview__brand > span {
+  display: grid;
+  justify-items: center;
+  line-height: 0.96;
+  white-space: nowrap;
+}
+
+.cashier-capture-card-preview__brand strong {
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.cashier-capture-card-preview__brand small {
+  font-size: 4.5px;
+  font-weight: 600;
+}
+
+.cashier-capture-card-preview__identity {
+  display: grid;
+  max-width: 70%;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.cashier-capture-card-preview__identity > span {
+  overflow-wrap: anywhere;
+  color: #414141;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.cashier-capture-card-preview__identity > strong {
+  overflow-wrap: anywhere;
+  color: #be1313;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cashier-capture-card-preview .cashier-capture-confirm__status {
+  display: inline-flex;
+  min-height: 12px;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  font-size: 6px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.cashier-capture-card-preview
+  .cashier-capture-confirm__status
+  > span:first-child {
+  width: 4.5px;
+  height: 4.5px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cashier-capture-card-preview .cashier-capture-confirm__status > img {
+  flex: none;
+}
+
+.cashier-capture-confirm__status--active {
+  background: #d1fae2;
+  color: #027a48;
+}
+
+.cashier-capture-confirm__status--blocked {
+  background: #ffd6d7;
+  color: #b42318;
+}
+
+.cashier-capture-confirm__status--lost {
+  background: #fff7e2;
+  color: #8a5a00;
+}
+
+.cashier-capture-confirm__status--inactive {
+  background: #f3f4f6;
+  color: #414141;
+}
+
+.sc-button--cashier-confirm-action {
+  display: inline-flex;
+  width: 160px;
+  min-width: 160px;
+  height: 32px;
+  min-height: 32px;
+  flex: 0 1 160px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sc-button--cashier-confirm-action:focus-visible,
+.cashier-capture-confirm__copy:focus-visible {
+  outline: 2px solid color-mix(in srgb, #be1313 35%, transparent);
+  outline-offset: 2px;
+}
+
+.sc-button--cashier-confirm-back {
+  border: 1px solid #e5e5e5;
+  background: #fff;
+  color: #414141;
+}
+
+.sc-button--cashier-confirm-back:hover:not(:disabled) {
+  background: #f6f6f6;
+}
+
+.sc-button--cashier-confirm-proceed {
+  border-color: transparent;
+  background: linear-gradient(100.54deg, #be1313 0.73%, #cf6900 99.27%);
+  color: #fff;
+}
+
+.sc-button--cashier-confirm-proceed:hover:not(:disabled) {
+  background: linear-gradient(100.54deg, #ad1111 0.73%, #b95e00 99.27%);
+}
+
 .sc-status[data-tone='info'] {
   color: var(--sc-color-info-strong);
 }

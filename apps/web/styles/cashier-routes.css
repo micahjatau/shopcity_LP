@@ -848,66 +848,52 @@
 
 /* Earn confirmation geometry only; component appearance lives in the design system. */
 .cashier-route-page--earn .cashier-confirm-stage {
-  gap: 1.5rem;
+  gap: 24px;
 }
 
 .cashier-route-page--earn .cashier-confirm-stage .cashier-stage-heading {
-  gap: 0.25rem;
-  padding-bottom: 1rem;
+  gap: 4px;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
-.cashier-capture-confirm__instruction {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-  margin: 0;
-  padding: 0.75rem 1rem;
-}
-
-.cashier-capture-confirm__instruction svg {
-  flex: none;
-  margin-top: 0.0625rem;
+.cashier-capture-confirm__divider {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-top: 4px;
 }
 
 .cashier-capture-confirm-layout {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(18rem, 2fr);
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr) 248px;
+  gap: 24px;
   align-items: start;
 }
 
 .cashier-capture-confirm__identity {
-  display: grid;
   min-width: 0;
-  gap: 1.5rem;
-}
-
-.cashier-capture-confirm__name,
-.cashier-capture-confirm__details {
-  min-width: 0;
-  margin: 0;
-}
-
-.cashier-capture-confirm__name dt,
-.cashier-capture-confirm__details dt {
-  margin: 0 0 0.375rem;
-}
-
-.cashier-capture-confirm__name dd,
-.cashier-capture-confirm__details dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .cashier-capture-confirm__details {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem 1.5rem;
+  min-width: 0;
+  gap: 12px;
+  margin: 0;
 }
 
 .cashier-capture-confirm__details > div {
   min-width: 0;
+}
+
+.cashier-capture-confirm__details dt {
+  margin: 0 0 4px;
+}
+
+.cashier-capture-confirm__details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .cashier-capture-confirm__details .cashier-capture-confirm__phone {
@@ -919,42 +905,53 @@
   overflow-wrap: anywhere;
 }
 
-.cashier-capture-confirm__details .cashier-capture-confirm__wallet {
-  padding: 0.875rem 1rem;
+.cashier-capture-confirm__serial dd {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.cashier-capture-confirm-layout > figure {
-  margin: 0 0 0 auto;
+.cashier-capture-card-preview {
+  justify-self: end;
+  width: min(248px, 100%);
+  aspect-ratio: 248 / 165;
+  margin: 0;
+}
+
+.cashier-capture-card-preview__brand,
+.cashier-capture-card-preview__identity,
+.cashier-capture-card-preview__status,
+.cashier-capture-card-preview__barcode {
+  position: absolute;
+  z-index: 1;
+}
+
+.cashier-capture-card-preview__brand {
+  top: 10%;
+  left: 10%;
+}
+
+.cashier-capture-card-preview__identity {
+  top: 35%;
+  left: 10%;
+}
+
+.cashier-capture-card-preview__status {
+  top: 33%;
+  right: 11%;
+}
+
+.cashier-capture-card-preview__barcode {
+  bottom: 12%;
+  left: 10%;
 }
 
 .cashier-confirm-stage .cashier-stage-actions {
   flex-direction: row;
   align-items: center;
-  gap: 1rem;
+  gap: 16px;
   margin-top: 0;
-  padding-top: 1.5rem;
-}
-
-.cashier-confirm-stage .cashier-stage-actions .sc-button {
-  width: auto;
-  min-height: 2.75rem;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.cashier-confirm-stage .cashier-capture-confirm__back {
-  padding-inline: 1rem;
-}
-
-.cashier-capture-confirm__button-content {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.cashier-confirm-stage .cashier-capture-confirm__proceed {
-  min-width: 8.75rem;
-  padding-inline: 1.25rem;
+  padding-top: 0;
 }
 
 @media (max-width: 899px) {
@@ -962,14 +959,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cashier-capture-confirm-layout > figure {
-    margin-inline: 0 auto;
+  .cashier-capture-card-preview {
+    justify-self: start;
   }
 }
 
 @media (max-width: 639px) {
-  .cashier-capture-confirm__details {
-    grid-template-columns: minmax(0, 1fr);
+  .cashier-confirm-stage .cashier-stage-actions {
+    gap: 8px;
   }
 }
 

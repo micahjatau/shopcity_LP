@@ -11,6 +11,18 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-13 — Figma Step 2 Capture Purchase confirmation card
+
+| Symbol                 |    Risk | Impacted | Direct | Processes | Notes                                                                                                                       |
+| ---------------------- | ------: | -------: | -----: | --------: | --------------------------------------------------------------------------------------------------------------------------- |
+| `CashierWorkflowRoute` | **LOW** |        3 |      3 |         0 | Step 2 markup is in the Earn branch and its styles are Earn-scoped; Lookup and Redeem presentation/behavior stay unchanged. |
+
+```text
+node .gitnexus/run.cjs impact CashierWorkflowRoute --file apps/web/components/workflows/cashier-transaction-route.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+The index was stale at `b2603c2` against current commit `600317e`; refresh failed with an inconsistent FTS index, so the LOW result uses the existing index. The change was also checked directly for Earn-only markup/CSS scope. No API calls, eligibility rules, or financial workflow behavior are changed.
+
 ### 2026-10-12 — Populate Cashier Overview recent-transactions columns
 
 `CashierOverviewLookup` has LOW upstream risk: no indexed callers. `ReportsService.listCashierToday` has LOW risk with one direct controller caller and one affected process; `ReportsController.listCashierToday` has LOW risk and no indexed dependants. The change adds read-only customer-name and receipt purchase-amount projections to the existing cashier/branch/tenant-scoped endpoint; role and scope enforcement remain unchanged.

@@ -580,7 +580,9 @@ describe('Cashier lookup workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Confirm customer' }),
+      await screen.findByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      }),
     ).toBeInTheDocument();
     const emailLoading = screen.getByRole('status', {
       name: 'Loading customer email',
@@ -621,7 +623,9 @@ describe('Cashier lookup workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Confirm customer' }),
+      await screen.findByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText('Step 2', { exact: true }),
@@ -630,10 +634,16 @@ describe('Cashier lookup workflow', () => {
     const confirmationDetails = document.querySelector(
       '.cashier-capture-confirm__details',
     );
-    expect(confirmationDetails).toHaveTextContent('Wallet balance');
+    expect(confirmationDetails).toHaveTextContent('Wallet Balance');
     expect(confirmationDetails).toHaveTextContent('₦55.00');
     expect(confirmationDetails).toHaveTextContent('+234280* *** 5799');
-    expect(confirmationDetails).toHaveTextContent('Active');
+    expect(
+      screen
+        .getByRole('img', {
+          name: 'ShopCity loyalty card preview for Ada Shopper, number CARD-001, status Active',
+        })
+        .querySelector('.cashier-capture-confirm__status'),
+    ).toHaveTextContent('Active');
     expect(
       screen.getByText('Active').closest('.cashier-capture-confirm__status'),
     ).toHaveClass('cashier-capture-confirm__status--active');
@@ -642,14 +652,14 @@ describe('Cashier lookup workflow', () => {
     );
     expect(
       screen.getByRole('img', {
-        name: 'ShopCity loyalty card for Ada Shopper, number CARD-001',
+        name: 'ShopCity loyalty card preview for Ada Shopper, number CARD-001, status Active',
       }),
     ).toBeInTheDocument();
     const backButton = screen.getByRole('button', {
       name: 'Go back to find customer',
     });
     expect(backButton).toHaveTextContent('Back');
-    expect(backButton.querySelector('svg')).toBeInTheDocument();
+    expect(backButton.querySelector('svg')).not.toBeInTheDocument();
     const stages = document.querySelector('[data-od-id="capture-stages"]');
     const steps = stages?.querySelectorAll('.cashier-flow-step');
     const connectors = stages?.querySelectorAll('.cashier-flow-connector');
@@ -659,6 +669,68 @@ describe('Cashier lookup workflow', () => {
     expect(connectors?.[0]).toHaveClass('is-complete');
     expect(connectors?.[0]?.querySelector('img')).toBeInTheDocument();
     expect(connectors?.[1]).not.toHaveClass('is-complete');
+  });
+
+  it('copies the verified card serial from Earn confirmation', async () => {
+    const previousClipboard = Object.getOwnPropertyDescriptor(
+      navigator,
+      'clipboard',
+    );
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    try {
+      jest.mocked(cardsControllerLookupCardV1).mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            customer: {
+              id: 'customer-1',
+              fullName: 'Ada Shopper',
+              maskedPhone: '+234280* *** 5799',
+            },
+            serialNumber: 'CARD-001',
+            status: 'ACTIVE',
+            branchId: 'branch-1',
+          },
+        },
+      } as never);
+
+      render(
+        <CashierWorkflowRoute
+          kind="earn"
+          title="Capture purchase"
+          description="Capture a purchase"
+        />,
+      );
+
+      fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+        target: { value: 'CARD-001' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+      await screen.findByRole('heading', {
+        name: 'Step 2 — Confirm customer',
+      });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Copy virtual card number CARD-001',
+        }),
+      );
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('CARD-001'));
+      expect(
+        await screen.findByText('Card number copied.'),
+      ).toBeInTheDocument();
+    } finally {
+      if (previousClipboard) {
+        Object.defineProperty(navigator, 'clipboard', previousClipboard);
+      } else {
+        Reflect.deleteProperty(navigator, 'clipboard');
+      }
+    }
   });
 
   it('loads ten recent customers without exposing IDs and provides profile actions', async () => {
