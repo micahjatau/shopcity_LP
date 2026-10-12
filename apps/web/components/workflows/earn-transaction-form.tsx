@@ -1,8 +1,8 @@
 'use client';
 
-import { CircleCheck, RotateCcw } from 'lucide-react';
+import { CircleCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Input, Textarea, Table } from '../ui';
+import { Button, Input, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 import {
   useEarnTransactionController,
@@ -19,6 +19,7 @@ type EarnTransactionFormProps = {
   branchTimezone?: string | null;
   receiptWeekStartDay?: number | null;
   onFlowStepChange?: (step: number) => void;
+  onBackToCustomerConfirmation?: () => void;
 };
 export function EarnTransactionForm({
   lookupContext,
@@ -29,25 +30,21 @@ export function EarnTransactionForm({
   branchTimezone,
   receiptWeekStartDay,
   onFlowStepChange,
+  onBackToCustomerConfirmation,
 }: EarnTransactionFormProps) {
   const [reviewing, setReviewing] = useState(false);
   const {
-    authoritativeCardSerial,
-    cardSerialNumber,
     expectedCreditKobo,
     handleSubmit,
     lookupReady,
     message,
     occurredAt,
     occurredAtValid,
-    overrideReason,
     purchaseAmount,
     receiptNumber,
     resetDraft,
     responseData,
-    setCardSerialNumber,
     setOccurredAt,
-    setOverrideReason,
     setPurchaseAmount,
     setReceiptNumber,
     status,
@@ -64,17 +61,40 @@ export function EarnTransactionForm({
 
   useEffect(() => {
     if (!onFlowStepChange) return;
-    const hasReceiptDraft = Boolean(
-      receiptNumber.trim() || purchaseAmount !== null,
-    );
     onFlowStepChange(
-      status === 'confirmed' || status === 'pending'
-        ? 3
-        : reviewing || hasReceiptDraft
-          ? 3
-          : 2,
+      status === 'confirmed' || status === 'pending' || reviewing ? 3 : 2,
     );
-  }, [onFlowStepChange, purchaseAmount, receiptNumber, reviewing, status]);
+  }, [onFlowStepChange, reviewing, status]);
+
+  const reviewReceiptDate = occurredAtValid
+    ? new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).format(new Date(occurredAt))
+    : '—';
+  const balanceBeforeKobo = lookupContext?.availableBalanceKobo;
+  const canShowBalanceBefore =
+    typeof balanceBeforeKobo === 'number' &&
+    Number.isSafeInteger(balanceBeforeKobo);
+  const estimatedBalanceKobo =
+    canShowBalanceBefore &&
+    expectedCreditKobo !== null &&
+    Number.isSafeInteger(expectedCreditKobo) &&
+    Number.isSafeInteger(balanceBeforeKobo + expectedCreditKobo)
+      ? balanceBeforeKobo + expectedCreditKobo
+      : null;
+  const cashbackRateBps = policyContext?.defaultEarnRateBps;
+  const cashbackRateLabel =
+    typeof cashbackRateBps === 'number' && Number.isFinite(cashbackRateBps)
+      ? `${(cashbackRateBps / 100).toLocaleString('en-GB', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 2,
+        })}%`
+      : 'Set by ShopCity';
 
   return (
     <form
@@ -87,101 +107,89 @@ export function EarnTransactionForm({
         }
         void handleSubmit(event);
       }}
-      className="cashier-transaction-form"
+      className={`cashier-transaction-form cashier-earn-receipt-form${
+        reviewing && !responseData ? ' cashier-earn-receipt-form--review' : ''
+      }`}
       data-od-id="capture-form"
     >
-      <Alert
-        tone="info"
-        title="Review before submit"
-        data-od-id="capture-review"
-      >
-        Use lookup first, confirm the customer context, then submit the earn.
-        {expectedCreditKobo !== null ? (
-          <>
-            {' '}
-            Expected credit: <Money amountKobo={expectedCreditKobo} />.
-          </>
-        ) : null}
-      </Alert>
-      <p className="cashier-workflow-status" role="status">
-        {lookupReady ? 'Context ready' : 'Awaiting lookup'}
+      <p className="sr-only" role="status">
+        {lookupReady ? 'Verified customer context ready.' : 'Awaiting lookup'}
       </p>
-      {lookupContext ? (
-        <Alert tone="success" title="Lookup context applied">
-          {lookupContext.customerName ?? 'Customer'} is loaded.
-          {typeof lookupContext.availableBalanceKobo === 'number' ? (
-            <>
-              {' '}
-              Available balance:{' '}
-              <Money amountKobo={lookupContext.availableBalanceKobo} />.
-            </>
-          ) : null}
-          {typeof lookupContext.expiringCreditKobo === 'number' ? (
-            <>
-              {' '}
-              Expiring credit:{' '}
-              <Money amountKobo={lookupContext.expiringCreditKobo} />.
-            </>
-          ) : null}
-        </Alert>
-      ) : (
-        <Alert tone="warning" title="Lookup recommended">
-          Lookup first so the cashier can review the customer and card context
-          before submitting.
-        </Alert>
-      )}
-      <div data-od-id="capture-find">
-        <Input
-          aria-label="Card serial number"
-          placeholder="Look up a card first"
-          value={lookupReady ? authoritativeCardSerial : cardSerialNumber}
-          readOnly={lookupReady}
-          onChange={(event) => {
-            if (!lookupReady) setCardSerialNumber(event.target.value);
-          }}
-        />
-      </div>
       {!reviewing ? (
         <section
           className="cashier-workflow-stage"
           data-od-id="capture-receipt"
         >
           <div className="cashier-stage-heading">
-            <span className="cashier-stage-kicker">Step 3</span>
             <h2 className="cashier-stage-heading-title">
               Step 3 — Receipt details
             </h2>
             <p className="cashier-stage-heading-description">
-              Enter the values exactly as shown on the POS receipt.
+              {lookupContext?.customerName?.trim() || 'Verified customer'}
+              {' · '}
+              {occurredAtValid
+                ? new Intl.DateTimeFormat('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hourCycle: 'h23',
+                  }).format(new Date(occurredAt))
+                : 'Receipt date and time required'}
             </p>
           </div>
           <div className="cashier-receipt-fields">
-            <Input
-              aria-label="POS receipt number"
-              aria-required="true"
-              placeholder="Receipt number (required)"
-              value={receiptNumber}
-              onChange={(event) => setReceiptNumber(event.target.value)}
-            />
+            <div className="cashier-receipt-field">
+              <label htmlFor="earn-receipt-number">Receipt number *</label>
+              <Input
+                id="earn-receipt-number"
+                className="cashier-earn-receipt-control"
+                aria-required="true"
+                required
+                placeholder="Enter receipt number"
+                value={receiptNumber}
+                onChange={(event) => setReceiptNumber(event.target.value)}
+              />
+            </div>
             <MoneyInput
-              label="Purchase amount"
-              hint="Enter the purchase amount in naira"
+              id="earn-purchase-amount"
+              className="cashier-earn-receipt-control"
+              label="Receipt amount (₦) *"
               valueKobo={purchaseAmount}
               onValueChange={setPurchaseAmount}
             />
+            <div className="cashier-earn-receipt-estimate-field">
+              <span className="cashier-earn-receipt-estimate-label">
+                Estimated ShopCity credit
+              </span>
+              <div className="cashier-earn-receipt-estimate" aria-live="polite">
+                <output>
+                  {expectedCreditKobo !== null ? (
+                    <Money amountKobo={expectedCreditKobo} />
+                  ) : (
+                    'Enter receipt amount to estimate'
+                  )}
+                </output>
+              </div>
+            </div>
             <div className="cashier-receipt-time-field">
-              <label htmlFor="earn-occurred-at">Occurred at (required)</label>
+              <label htmlFor="earn-occurred-at">
+                Receipt date &amp; time *
+              </label>
               <Input
                 id="earn-occurred-at"
-                aria-label="Occurred at"
+                className="cashier-earn-receipt-control"
                 aria-required="true"
                 aria-invalid={!occurredAtValid}
                 aria-describedby={
-                  occurredAtValid ? undefined : 'earn-occurred-at-error'
+                  occurredAtValid
+                    ? 'earn-receipt-age-hint'
+                    : 'earn-receipt-age-hint earn-occurred-at-error'
                 }
                 required
                 type="datetime-local"
-                value={occurredAtValid ? occurredAt.slice(0, 16) : ''}
+                value={occurredAtValid ? toDateTimeLocalValue(occurredAt) : ''}
                 onChange={(event) => {
                   const value = event.currentTarget.value;
                   const parsed = new Date(value);
@@ -192,6 +200,13 @@ export function EarnTransactionForm({
                   );
                 }}
               />
+              <p
+                id="earn-receipt-age-hint"
+                className="cashier-receipt-age-hint"
+              >
+                Enter the timestamp shown on the receipt. ShopCity validates
+                receipt age and approval eligibility.
+              </p>
               {!occurredAtValid ? (
                 <p
                   id="earn-occurred-at-error"
@@ -202,40 +217,35 @@ export function EarnTransactionForm({
                 </p>
               ) : null}
             </div>
-            <Textarea
-              aria-label="Override reason"
-              placeholder="Optional override reason"
-              value={overrideReason}
-              onChange={(event) => setOverrideReason(event.target.value)}
-              rows={3}
-            />
-            {!receiptNumber ? (
-              <span className="cashier-workflow-hint">
-                Receipt number is required
-              </span>
-            ) : null}
           </div>
         </section>
-      ) : (
+      ) : !responseData ? (
         <section
-          className="cashier-workflow-stage"
+          className="cashier-workflow-stage cashier-earn-review-stage"
           data-od-id="capture-review-details"
         >
           <div className="cashier-stage-heading">
-            <span className="cashier-stage-kicker">Step 4</span>
             <h2 className="cashier-stage-heading-title">Step 4 — Review</h2>
             <p className="cashier-stage-heading-description">
-              Confirm the receipt and credit calculation before saving.
+              {lookupContext?.customerName?.trim() || 'Verified customer'}
+              {' · '}
+              {reviewReceiptDate}
             </p>
           </div>
           <div className="cashier-review-card">
             <div className="cashier-review-grid">
               <div>
+                <span>Customer</span>
+                <strong>
+                  {lookupContext?.customerName?.trim() || 'Verified customer'}
+                </strong>
+              </div>
+              <div>
                 <span>Receipt number</span>
                 <strong>{receiptNumber || '—'}</strong>
               </div>
               <div>
-                <span>Purchase amount</span>
+                <span>Receipt amount</span>
                 <strong>
                   {purchaseAmount !== null ? (
                     <Money amountKobo={purchaseAmount} />
@@ -245,76 +255,127 @@ export function EarnTransactionForm({
                 </strong>
               </div>
               <div>
-                <span>Receipt date</span>
-                <strong>{new Date(occurredAt).toLocaleString()}</strong>
+                <span>Eligible amount</span>
+                <strong>
+                  {purchaseAmount !== null ? (
+                    <Money amountKobo={purchaseAmount} />
+                  ) : (
+                    '—'
+                  )}
+                </strong>
               </div>
               <div>
-                <span>Customer</span>
-                <strong>{lookupContext?.customerName ?? 'Customer'}</strong>
+                <span>Cashback rate</span>
+                <strong>{cashbackRateLabel}</strong>
+              </div>
+              <div>
+                <span>Receipt date</span>
+                <strong>{reviewReceiptDate}</strong>
               </div>
             </div>
-            <p>
-              Confirm the receipt details and the ShopCity earn policy will
-              calculate the final credit.
-            </p>
+            <div className="cashier-review-credit" aria-live="polite">
+              <span>Estimated ShopCity Credit</span>
+              <strong
+                className={
+                  expectedCreditKobo === null
+                    ? 'cashier-review-credit__value--unavailable'
+                    : undefined
+                }
+              >
+                {expectedCreditKobo !== null ? (
+                  <Money amountKobo={expectedCreditKobo} signed />
+                ) : (
+                  'Calculated after confirmation'
+                )}
+              </strong>
+            </div>
+            <div className="cashier-review-divider" aria-hidden="true" />
+            <div className="cashier-review-balances">
+              <div>
+                <span>Balance before</span>
+                <strong>
+                  {canShowBalanceBefore ? (
+                    <Money amountKobo={balanceBeforeKobo} />
+                  ) : (
+                    'Not available'
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Estimated new balance</span>
+                <strong>
+                  {estimatedBalanceKobo !== null ? (
+                    <Money amountKobo={estimatedBalanceKobo} />
+                  ) : (
+                    'Calculated after confirmation'
+                  )}
+                </strong>
+              </div>
+            </div>
           </div>
         </section>
-      )}
-      <div className="cashier-form-actions">
-        <Button
-          type="submit"
-          loading={status === 'submitting'}
-          disabled={!submissionReady}
-        >
-          <CircleCheck aria-hidden="true" size={16} strokeWidth={1.8} />
-          {reviewing ? 'Confirm & add credit' : 'Proceed to review'}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            if (reviewing) {
-              setReviewing(false);
-              onFlowStepChange?.(2);
-              return;
+      ) : null}
+      {!responseData ? (
+        <div className="cashier-form-actions cashier-earn-receipt-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            className="cashier-earn-receipt-back"
+            aria-label={reviewing ? 'Edit receipt' : undefined}
+            onClick={() => {
+              if (reviewing) {
+                setReviewing(false);
+                onFlowStepChange?.(2);
+                return;
+              }
+              onBackToCustomerConfirmation?.();
+            }}
+          >
+            Back
+          </Button>
+          <Button
+            type="submit"
+            className="cashier-earn-receipt-proceed"
+            loading={status === 'submitting'}
+            disabled={!submissionReady}
+            aria-label={
+              reviewing ? 'Confirm & add credit' : 'Proceed to review'
             }
-            resetDraft();
-          }}
+          >
+            {reviewing ? 'Confirm & Add Credit' : 'Proceed'}
+          </Button>
+        </div>
+      ) : null}
+      {status !== 'idle' && message && !responseData ? (
+        <section
+          className="cashier-form-status"
+          data-od-id="capture-outcome"
+          aria-live="polite"
+          aria-label="Capture purchase outcome"
         >
-          <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
-          {reviewing ? 'Edit receipt' : 'Reset draft'}
-        </Button>
-      </div>
-      <section
-        className="cashier-form-status"
-        data-od-id="capture-outcome"
-        aria-live="polite"
-        aria-label="Capture purchase outcome"
-      >
-        <StatusBadge
-          label={
-            status === 'pending'
-              ? 'Awaiting approval'
-              : status === 'confirmed'
-                ? 'Confirmed'
-                : status === 'error'
-                  ? 'Error'
-                  : 'Draft'
-          }
-          tone={
-            status === 'error'
-              ? 'danger'
-              : status === 'pending'
-                ? 'warning'
+          <StatusBadge
+            label={
+              status === 'pending'
+                ? 'Awaiting approval'
                 : status === 'confirmed'
-                  ? 'success'
-                  : 'neutral'
-          }
-        />
-        <p className="cashier-form-status__message">
-          {message || 'The final transaction status will appear here.'}
-        </p>
-      </section>
+                  ? 'Confirmed'
+                  : status === 'error'
+                    ? 'Error'
+                    : 'Draft'
+            }
+            tone={
+              status === 'error'
+                ? 'danger'
+                : status === 'pending'
+                  ? 'warning'
+                  : status === 'confirmed'
+                    ? 'success'
+                    : 'neutral'
+            }
+          />
+          <p className="cashier-form-status__message">{message}</p>
+        </section>
+      ) : null}
       {responseData ? (
         <section
           className={`capture-result-card cashier-workflow-stage capture-result-card--${status}`}
@@ -391,6 +452,15 @@ export function EarnTransactionForm({
       ) : null}
     </form>
   );
+}
+
+function toDateTimeLocalValue(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const localDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60_000,
+  );
+  return localDate.toISOString().slice(0, 16);
 }
 
 function renderValue(value: unknown) {

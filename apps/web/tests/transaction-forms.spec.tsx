@@ -65,10 +65,10 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-001' },
     });
-    const purchase = screen.getByLabelText('Purchase amount');
+    const purchase = screen.getByLabelText('Receipt amount (₦) *');
     fireEvent.change(purchase, { target: { value: '10' } });
     fireEvent.blur(purchase);
     fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
@@ -78,7 +78,10 @@ describe('cashier transaction forms', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Purchase captured and credit added.'),
+        screen.getByRole('heading', {
+          level: 3,
+          name: 'Purchase captured successfully',
+        }),
       ).toBeInTheDocument();
     });
     expect(loyaltyControllerEarnV1).toHaveBeenCalledTimes(1);
@@ -105,13 +108,13 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-NO-CARD' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '10' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
 
     expect(
       screen.getByRole('button', { name: 'Proceed to review' }),
@@ -129,15 +132,15 @@ describe('cashier transaction forms', () => {
 
     const submit = screen.getByRole('button', { name: 'Proceed to review' });
     expect(submit).toBeDisabled();
-    expect(screen.getByText('Receipt number is required')).toBeInTheDocument();
+    expect(screen.getByLabelText('Receipt number *')).toBeRequired();
 
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-002' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '1.01' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
 
     expect(screen.getByText('₦0.06')).toBeInTheDocument();
     expect(submit).toBeEnabled();
@@ -151,15 +154,15 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    const occurredAt = screen.getByLabelText('Occurred at');
+    const occurredAt = screen.getByLabelText('Receipt date & time *');
     expect(occurredAt).toBeRequired();
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-REQUIRED-TIMESTAMP' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '10' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
 
     const proceedButton = screen.getByRole('button', {
       name: 'Proceed to review',
@@ -175,6 +178,101 @@ describe('cashier transaction forms', () => {
     expect(loyaltyControllerEarnV1).not.toHaveBeenCalled();
   });
 
+  it('renders the receipt-details design with an authoritative credit estimate', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Step 3 — Receipt details' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Receipt number *')).toBeRequired();
+    expect(screen.getByLabelText('Receipt amount (₦) *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Receipt date & time *')).toBeRequired();
+    expect(
+      screen.queryByRole('textbox', { name: /till|cashier reference/i }),
+    ).not.toBeInTheDocument();
+
+    const receiptAmount = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(receiptAmount, { target: { value: '10' } });
+    fireEvent.blur(receiptAmount);
+
+    expect(screen.getByText('₦0.50')).toBeInTheDocument();
+    const creditLabel = screen.getByText('Estimated ShopCity credit');
+    expect(creditLabel.parentElement).toHaveClass(
+      'cashier-earn-receipt-estimate-field',
+    );
+    expect(creditLabel.closest('.cashier-earn-receipt-estimate')).toBeNull();
+    expect(
+      screen.queryByText(/final credit amount is calculated by ShopCity/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders an Earn review with the Figma summary and non-authoritative estimates', () => {
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
+      target: { value: 'R-REVIEW' },
+    });
+    const receiptAmount = screen.getByLabelText('Receipt amount (₦) *');
+    fireEvent.change(receiptAmount, { target: { value: '10' } });
+    fireEvent.blur(receiptAmount);
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Step 4 — Review' }),
+    ).toBeInTheDocument();
+    for (const label of [
+      'Customer',
+      'Receipt number',
+      'Receipt amount',
+      'Eligible amount',
+      'Cashback rate',
+      'Receipt date',
+      'Estimated ShopCity Credit',
+      'Balance before',
+      'Estimated new balance',
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText('5.0%')).toBeInTheDocument();
+    expect(screen.getByText('+₦0.50')).toBeInTheDocument();
+    expect(screen.getByText('₦55.00')).toBeInTheDocument();
+    expect(screen.getByText('₦55.50')).toBeInTheDocument();
+    expect(screen.queryByText('Till reference')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('ShopCity Credit earned'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Back')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirm & add credit' }),
+    ).toBeEnabled();
+    expect(loyaltyControllerEarnV1).not.toHaveBeenCalled();
+  });
+
+  it('returns from receipt details to customer confirmation when Back is used', () => {
+    const onBackToCustomerConfirmation = jest.fn();
+    render(
+      <EarnTransactionForm
+        lookupContext={lookupContext}
+        policyContext={policyContext}
+        onBackToCustomerConfirmation={onBackToCustomerConfirmation}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(onBackToCustomerConfirmation).toHaveBeenCalledTimes(1);
+  });
+
   it('maps duplicate receipt errors to an actionable message', async () => {
     jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
       status: 409,
@@ -186,13 +284,13 @@ describe('cashier transaction forms', () => {
         policyContext={policyContext}
       />,
     );
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-003' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '10' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
     fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Confirm & add credit' }),
@@ -216,13 +314,13 @@ describe('cashier transaction forms', () => {
         policyContext={policyContext}
       />,
     );
-    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    fireEvent.change(screen.getByLabelText('Receipt number *'), {
       target: { value: 'R-PENDING' },
     });
-    fireEvent.change(screen.getByLabelText('Purchase amount'), {
+    fireEvent.change(screen.getByLabelText('Receipt amount (₦) *'), {
       target: { value: '10' },
     });
-    fireEvent.blur(screen.getByLabelText('Purchase amount'));
+    fireEvent.blur(screen.getByLabelText('Receipt amount (₦) *'));
     fireEvent.click(screen.getByRole('button', { name: 'Proceed to review' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Confirm & add credit' }),
@@ -230,12 +328,9 @@ describe('cashier transaction forms', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Purchase captured and waiting for approval.'),
+        screen.getByRole('heading', { name: 'Purchase pending approval' }),
       ).toBeInTheDocument();
     });
-    expect(
-      screen.getByRole('heading', { name: 'Purchase pending approval' }),
-    ).toBeInTheDocument();
     expect(
       screen.queryByText('ShopCity Credit earned'),
     ).not.toBeInTheDocument();

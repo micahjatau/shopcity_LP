@@ -1,5 +1,16 @@
+import { ScanLine, Search } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { useRef } from 'react';
 import { Alert, Button, Input } from '../ui';
+
+const IDLE_LOOKUP_PROMPT = 'Scan or type a card serial.';
+const PASSIVE_CONTEXT_MESSAGES = new Set([
+  'Loading public context…',
+  'Public context loaded.',
+  'Public context loaded from the session cache.',
+  'Using cached public context while refreshing.',
+  'Public context pending until sign-in.',
+]);
 
 export type VerifiedCardLookupStepProps = Readonly<{
   lookupValue: string;
@@ -8,6 +19,7 @@ export type VerifiedCardLookupStepProps = Readonly<{
   policyMessage?: string;
   onLookup: (event: FormEvent<HTMLFormElement>) => void;
   onQueryChange: (value: string) => void;
+  captureLayout?: boolean;
 }>;
 
 export function VerifiedCardLookupStep({
@@ -17,7 +29,21 @@ export function VerifiedCardLookupStep({
   policyMessage,
   onLookup,
   onQueryChange,
+  captureLayout = false,
 }: VerifiedCardLookupStepProps) {
+  const cardInputRef = useRef<HTMLInputElement | null>(null);
+  const policyNotice =
+    captureLayout &&
+    policyMessage &&
+    !PASSIVE_CONTEXT_MESSAGES.has(policyMessage)
+      ? policyMessage
+      : '';
+  const statusMessage = captureLayout
+    ? lookupMessage === IDLE_LOOKUP_PROMPT
+      ? policyNotice
+      : lookupMessage || policyNotice
+    : lookupMessage || policyMessage || 'Verify the card before continuing.';
+
   return (
     <div
       className="cashier-verified-card-lookup"
@@ -39,20 +65,62 @@ export function VerifiedCardLookupStep({
         </div>
         <form onSubmit={onLookup} className="cashier-lookup-form">
           <Input
-            placeholder="Scan card serial number"
+            ref={cardInputRef}
+            placeholder={
+              captureLayout
+                ? 'Scan card or Search card number'
+                : 'Scan card serial number'
+            }
             aria-label="Lookup"
             value={lookupValue}
             onChange={(event) => onQueryChange(event.target.value)}
           />
-          <Button type="submit" disabled={lookupPending}>
-            {lookupPending ? 'Looking up…' : 'Search customer'}
+          <Button
+            type="submit"
+            aria-label={
+              captureLayout
+                ? lookupPending
+                  ? 'Looking up…'
+                  : 'Search customer'
+                : undefined
+            }
+            disabled={lookupPending}
+            className={
+              captureLayout
+                ? 'cashier-capture-search-action cashier-capture-search-primary'
+                : undefined
+            }
+          >
+            {captureLayout ? (
+              <Search aria-hidden="true" size={16} strokeWidth={1.8} />
+            ) : null}
+            {lookupPending
+              ? 'Looking up…'
+              : captureLayout
+                ? 'Search'
+                : 'Search customer'}
           </Button>
+          {captureLayout ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="cashier-capture-search-action"
+              onClick={() => cardInputRef.current?.focus()}
+            >
+              <ScanLine aria-hidden="true" size={16} strokeWidth={1.8} />
+              Scan
+            </Button>
+          ) : null}
         </form>
-        <Alert tone="info" title="Ready to continue">
-          {lookupMessage ||
-            policyMessage ||
-            'Verify the card before continuing.'}
-        </Alert>
+        {captureLayout ? (
+          statusMessage ? (
+            <Alert tone="info">{statusMessage}</Alert>
+          ) : null
+        ) : (
+          <Alert tone="info" title="Ready to continue">
+            {statusMessage}
+          </Alert>
+        )}
       </div>
     </div>
   );

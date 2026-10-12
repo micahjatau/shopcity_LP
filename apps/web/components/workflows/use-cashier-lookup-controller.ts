@@ -65,7 +65,7 @@ export function useCashierLookupController(initialCardSerial?: string | null) {
     setLookupRecord(null);
     setDiscoveryMatches([]);
     if (!query) {
-      setLookupMessage('Enter a name, phone number, or card serial.');
+      setLookupMessage('Enter a customer name, phone number, or card number.');
       return;
     }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {

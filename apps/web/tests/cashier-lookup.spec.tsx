@@ -2,8 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CashierPage from '../app/(shell)/cashier/page';
 import { CashierOverviewLookup } from '../components/workflows/cashier-overview-lookup';
 import { CashierWorkflowRoute } from '../components/workflows/cashier-transaction-route';
+import { VerifiedCardLookupStep } from '../components/workflows/verified-card-lookup-step';
 import {
   cardsControllerLookupCardV1,
+  customersControllerGetCustomerV1,
   customersControllerListCustomersV1,
   reportsControllerListCashierTodayV1,
 } from '../lib/api/generated-client';
@@ -50,6 +52,16 @@ describe('Cashier lookup workflow', () => {
     jest
       .mocked(customersControllerListCustomersV1)
       .mockReturnValue(new Promise(() => {}) as never);
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          customerId: 'customer-1',
+          email: 'ada***@example.com',
+          availableBalanceKobo: 5500,
+        },
+      },
+    } as never);
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
       status: 200,
       data: {
@@ -75,7 +87,11 @@ describe('Cashier lookup workflow', () => {
       status: 200,
       data: {
         data: {
-          customer: { id: 'customer-1', fullName: 'Ada Shopper' },
+          customer: {
+            id: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+234280* *** 5799',
+          },
           serialNumber: 'CARD-001',
           status: 'ACTIVE',
           availableBalanceKobo: 5500,
@@ -98,6 +114,7 @@ describe('Cashier lookup workflow', () => {
 
     await waitFor(() => {
       expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
+        undefined,
         expect.any(Object),
       );
     });
@@ -220,6 +237,7 @@ describe('Cashier lookup workflow', () => {
     expect(screen.getByText('Approved')).toBeInTheDocument();
     expect(screen.getByText('+')).toBeInTheDocument();
     expect(reportsControllerListCashierTodayV1).toHaveBeenCalledWith(
+      undefined,
       expect.any(Object),
     );
   });
@@ -381,6 +399,18 @@ describe('Cashier lookup workflow', () => {
       if (route.stages && route.flow) {
         expect(page?.children[1]).toHaveAttribute('data-od-id', route.stages);
         expect(page?.children[2]).toHaveAttribute('data-od-id', route.flow);
+        if (route.kind === 'earn') {
+          expect(page?.children[1]).toHaveClass('cashier-flow-steps--capture');
+          expect(page?.querySelectorAll('.cashier-flow-step')).toHaveLength(4);
+          expect(
+            page?.querySelectorAll('.cashier-flow-connector'),
+          ).toHaveLength(3);
+          expect(page?.querySelector('.cashier-flow-step b')).toBeNull();
+          expect(page?.querySelector('.cashier-flow-step svg')).toBeNull();
+          expect(
+            page?.querySelector('[data-od-id="verified-card-lookup"]'),
+          ).toBeInTheDocument();
+        }
       } else {
         const content = page?.querySelector(
           '[data-od-id="find-customer-content"]',
@@ -413,6 +443,207 @@ describe('Cashier lookup workflow', () => {
       }
       unmount();
     }
+  });
+
+  it('keeps the verified-card idle state quiet and shows actionable lookup feedback', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    const lookupStep = document.querySelector(
+      '[data-od-id="verified-card-lookup"]',
+    );
+    const searchButton = screen.getByRole('button', {
+      name: 'Search customer',
+    });
+    expect(
+      screen.getByPlaceholderText('Scan card or Search card number'),
+    ).toBeInTheDocument();
+    expect(lookupStep?.querySelector('[role="alert"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ready to continue')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Scan or type a card serial.'),
+    ).not.toBeInTheDocument();
+    expect(searchButton).toHaveClass('cashier-capture-search-primary');
+    expect(searchButton.querySelector('svg')).toBeInTheDocument();
+
+    fireEvent.click(searchButton);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Enter a customer name, phone number, or card number.',
+    );
+  });
+
+  it('uses the capture layout with real recent earn activity and scanner focus', async () => {
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Search customer' }),
+    ).toHaveTextContent('Search');
+    const searchField = screen.getByRole('textbox', { name: 'Lookup' });
+    fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    expect(searchField).toHaveFocus();
+    expect(
+      await screen.findByRole('heading', { name: 'Recently captured' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Ada Shopper')).toBeInTheDocument();
+    expect(screen.getByText('Receipt 1831')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(
+      document.querySelector('.cashier-recent-captures__amount'),
+    ).toHaveClass('cashier-recent-captures__amount--approved');
+    expect(
+      document.querySelector('[data-od-id="capture-recent-list"]'),
+    ).toBeInTheDocument();
+  });
+
+  it('preserves the default Redeem lookup presentation outside Capture Purchase', () => {
+    render(
+      <VerifiedCardLookupStep
+        lookupValue=""
+        lookupMessage="Scan or type a card serial."
+        lookupPending={false}
+        policyMessage="Public context loaded."
+        onLookup={jest.fn()}
+        onQueryChange={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByPlaceholderText('Scan card serial number'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Ready to continue')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Scan or type a card serial.',
+    );
+    expect(
+      screen.queryByPlaceholderText('Scan card or Search card number'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an accessible email skeleton while the existing summary request loads', async () => {
+    jest
+      .mocked(customersControllerGetCustomerV1)
+      .mockReturnValueOnce(new Promise(() => {}) as never);
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          customer: {
+            id: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+234280* *** 5799',
+          },
+          serialNumber: 'CARD-001',
+          status: 'ACTIVE',
+          availableBalanceKobo: 5500,
+          branchId: 'branch-1',
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirm customer' }),
+    ).toBeInTheDocument();
+    const emailLoading = screen.getByRole('status', {
+      name: 'Loading customer email',
+    });
+    expect(emailLoading).toBeInTheDocument();
+    expect(emailLoading.parentElement).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('button', { name: 'Proceed' })).toBeEnabled();
+  });
+
+  it('animates the pathway connector when customer lookup completes', async () => {
+    jest.mocked(cardsControllerLookupCardV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          customer: {
+            id: 'customer-1',
+            fullName: 'Ada Shopper',
+            maskedPhone: '+234280* *** 5799',
+          },
+          serialNumber: 'CARD-001',
+          status: 'ACTIVE',
+          branchId: 'branch-1',
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="earn"
+        title="Capture purchase"
+        description="Capture a purchase"
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirm customer' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Step 2', { exact: true }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText('ada***@example.com')).toBeInTheDocument();
+    const confirmationDetails = document.querySelector(
+      '.cashier-capture-confirm__details',
+    );
+    expect(confirmationDetails).toHaveTextContent('Wallet balance');
+    expect(confirmationDetails).toHaveTextContent('₦55.00');
+    expect(confirmationDetails).toHaveTextContent('+234280* *** 5799');
+    expect(confirmationDetails).toHaveTextContent('Active');
+    expect(
+      screen.getByText('Active').closest('.cashier-capture-confirm__status'),
+    ).toHaveClass('cashier-capture-confirm__status--active');
+    expect(confirmationDetails).not.toHaveTextContent(
+      /Earn eligibility|Expiring credit/,
+    );
+    expect(
+      screen.getByRole('img', {
+        name: 'ShopCity loyalty card for Ada Shopper, number CARD-001',
+      }),
+    ).toBeInTheDocument();
+    const backButton = screen.getByRole('button', {
+      name: 'Go back to find customer',
+    });
+    expect(backButton).toHaveTextContent('Back');
+    expect(backButton.querySelector('svg')).toBeInTheDocument();
+    const stages = document.querySelector('[data-od-id="capture-stages"]');
+    const steps = stages?.querySelectorAll('.cashier-flow-step');
+    const connectors = stages?.querySelectorAll('.cashier-flow-connector');
+    expect(steps?.[0]).toHaveClass('is-complete');
+    expect(steps?.[0]?.querySelector('img')).toBeInTheDocument();
+    expect(steps?.[1]).toHaveClass('is-active');
+    expect(connectors?.[0]).toHaveClass('is-complete');
+    expect(connectors?.[0]?.querySelector('img')).toBeInTheDocument();
+    expect(connectors?.[1]).not.toHaveClass('is-complete');
   });
 
   it('loads ten recent customers without exposing IDs and provides profile actions', async () => {

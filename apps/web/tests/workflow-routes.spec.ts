@@ -407,6 +407,140 @@ test.describe('workflow route coverage', () => {
     }
   });
 
+  test('keeps the Capture Purchase confirmation card readable at POS and mobile widths', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    const customerName =
+      'Alexandria Emmanuelle Shopper With A Long Name For Small POS Screens';
+    const maskedPhone = '+234280* *** 5799';
+    await page.route('**/api/v1/cards/lookup/CARD-001', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customer: {
+              id: 'customer-1',
+              fullName: customerName,
+              maskedPhone,
+            },
+            customerId: 'customer-1',
+            customerName,
+            serialNumber: 'CARD-001',
+            status: 'ACTIVE',
+            branchId: 'branch-1',
+          },
+          meta: meta('/api/v1/cards/lookup/CARD-001'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/customers/customer-1', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            customerId: 'customer-1',
+            fullName: customerName,
+            email:
+              'ale***@very-long-subdomain-for-overflow-checking.customer-data.example',
+            availableBalanceKobo: 40000,
+          },
+          meta: meta('/api/v1/customers/customer-1'),
+        }),
+      ),
+    );
+
+    for (const width of [1366, 1280, 1440, 1920, 768, 390]) {
+      await page.setViewportSize({ width, height: 768 });
+      await page.goto(`${baseUrl}/cashier/earn`);
+      await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
+      await page.getByRole('button', { name: 'Search customer' }).click();
+      const confirmationHeading = page.getByRole('heading', {
+        name: 'Confirm customer',
+      });
+      await expect(confirmationHeading).toBeVisible();
+      await expect(confirmationHeading).toHaveCSS('font-size', '20px');
+      await expect(confirmationHeading).toHaveCSS('font-weight', '600');
+      await expect(
+        page.locator('.cashier-capture-confirm__instruction'),
+      ).toHaveCSS('background-color', 'rgb(255, 245, 247)');
+      await expect(
+        page.locator('.cashier-capture-confirm__name dd'),
+      ).toHaveText(customerName);
+      await expect(
+        page.locator('.cashier-capture-confirm__details'),
+      ).toContainText(maskedPhone);
+      await expect(
+        page.locator('.cashier-capture-confirm__details'),
+      ).toContainText(
+        'ale***@very-long-subdomain-for-overflow-checking.customer-data.example',
+      );
+      await expect(page.locator('.cashier-capture-confirm__wallet')).toHaveCSS(
+        'background-color',
+        'rgb(246, 244, 245)',
+      );
+      await expect(
+        page.locator('.cashier-capture-confirm__status--active'),
+      ).toHaveCSS('background-color', 'rgb(236, 253, 243)');
+      await expect(
+        page.locator('.cashier-capture-confirm__details'),
+      ).toContainText('₦400.00');
+      await expect(
+        page.getByRole('img', {
+          name: `ShopCity loyalty card for ${customerName}, number CARD-001`,
+        }),
+      ).toBeVisible();
+      const details = page.locator('.cashier-capture-confirm__details');
+      const detailsOverflow = await details.evaluate(
+        (element) => element.scrollWidth > element.clientWidth,
+      );
+      expect(detailsOverflow).toBe(false);
+      const bounds = await page
+        .locator('.cashier-capture-confirm-layout')
+        .evaluate((element) => {
+          const identity = element
+            .querySelector('.cashier-capture-confirm__identity')!
+            .getBoundingClientRect();
+          const card = element.querySelector('figure')!.getBoundingClientRect();
+          return {
+            identityRight: identity.right,
+            identityBottom: identity.bottom,
+            cardLeft: card.left,
+            cardTop: card.top,
+            scrollWidth: element.scrollWidth,
+            clientWidth: element.clientWidth,
+          };
+        });
+      expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+      const cardWidth = await page
+        .locator('.cashier-capture-confirm-layout > figure')
+        .evaluate((element) => element.getBoundingClientRect().width);
+      expect(cardWidth).toBeLessThanOrEqual(320);
+      if (width >= 900) {
+        expect(bounds.cardLeft).toBeGreaterThanOrEqual(bounds.identityRight);
+      } else {
+        expect(bounds.cardTop).toBeGreaterThanOrEqual(bounds.identityBottom);
+      }
+      const actions = page.locator(
+        '.cashier-confirm-stage .cashier-stage-actions',
+      );
+      const backButton = actions.getByRole('button', {
+        name: 'Go back to find customer',
+      });
+      const proceedButton = actions.getByRole('button', { name: 'Proceed' });
+      await expect(backButton).toHaveCSS('height', '44px');
+      await expect(proceedButton).toHaveCSS('height', '44px');
+      await expect(proceedButton).toHaveCSS(
+        'background-image',
+        /linear-gradient/,
+      );
+      await backButton.focus();
+      await page.keyboard.press('Tab');
+      await expect(proceedButton).toBeFocused();
+      await expect(proceedButton).toHaveCSS('outline-style', 'solid');
+    }
+  });
+
   test('keeps Capture Purchase and Redeem lookup states visually paired', async ({
     page,
   }) => {
@@ -444,6 +578,18 @@ test.describe('workflow route coverage', () => {
       await page.goto(`${baseUrl}${route}`);
       const lookup = page.locator('.cashier-verified-card-lookup');
       await expect(lookup).toBeVisible();
+      if (kind === 'earn') {
+        const capturePanel = page.locator('[data-od-id="capture-flow"]');
+        const panelSize = await capturePanel.evaluate((element) => {
+          const { width, height } = element.getBoundingClientRect();
+          return { width, height };
+        });
+        expect(panelSize.width).toBeCloseTo(712, 0);
+        expect(panelSize.height).toBeCloseTo(550, 0);
+        const pathway = page.locator('[data-od-id="capture-stages"]');
+        await expect(pathway).toHaveCSS('width', '562px');
+        await expect(pathway).toHaveCSS('height', '36px');
+      }
       const lookupStyles = await page
         .getByRole('textbox', { name: 'Lookup' })
         .evaluate((input): ComputedStyleSnapshot => {
@@ -463,7 +609,14 @@ test.describe('workflow route coverage', () => {
             paddingBlock: `${style.paddingTop}|${style.paddingBottom}`,
           };
         });
-      expect(lookupStyles).toMatchObject(canonicalCashierLookupControl);
+      if (kind === 'earn') {
+        expect(lookupStyles).toMatchObject({
+          ...canonicalCashierLookupControl,
+          minHeight: '32px',
+        });
+      } else {
+        expect(lookupStyles).toMatchObject(canonicalCashierLookupControl);
+      }
       const lookupButtonStyles = await page
         .getByRole('button', { name: 'Search customer' })
         .evaluate((button) => {
@@ -481,15 +634,23 @@ test.describe('workflow route coverage', () => {
             paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
           };
         });
-      if (canonicalLookupButtonStyles) {
+      if (kind === 'earn') {
+        expect(lookupButtonStyles).toMatchObject({
+          minHeight: '34px',
+          borderRadius: '999px',
+          backgroundColor: 'oklch(1 0 0)',
+        });
+      } else if (canonicalLookupButtonStyles) {
         expect(lookupButtonStyles).toEqual(canonicalLookupButtonStyles);
       } else {
         canonicalLookupButtonStyles = lookupButtonStyles;
       }
-      if (canonicalLookupStyles) {
-        expect(lookupStyles).toEqual(canonicalLookupStyles);
-      } else {
-        canonicalLookupStyles = lookupStyles;
+      if (kind === 'redeem') {
+        if (canonicalLookupStyles) {
+          expect(lookupStyles).toEqual(canonicalLookupStyles);
+        } else {
+          canonicalLookupStyles = lookupStyles;
+        }
       }
       await expect(page).toHaveScreenshot(`financial-lookup-${kind}-idle.png`, {
         maxDiffPixelRatio: 0.08,
@@ -533,6 +694,41 @@ test.describe('workflow route coverage', () => {
       await expect(
         page.getByRole('heading', { name: 'Confirm customer' }),
       ).toBeVisible();
+      await expect(page.getByText('Step 2', { exact: true })).toHaveCount(0);
+      if (kind === 'earn') {
+        await expect(
+          page.locator('.cashier-capture-confirm__details'),
+        ).toContainText('Wallet balance');
+        await expect(
+          page.locator('.cashier-capture-confirm__details'),
+        ).not.toContainText(/Earn eligibility|Expiring credit/);
+        await expect(
+          page.getByRole('img', {
+            name: /ShopCity loyalty card for Ada Shopper/,
+          }),
+        ).toBeVisible();
+        const backButton = page.getByRole('button', {
+          name: 'Go back to find customer',
+        });
+        await expect(backButton).toBeVisible();
+        await expect(backButton).toHaveText('Back');
+        await expect(backButton.locator('svg')).toHaveCount(1);
+      } else {
+        await expect(page.locator('.cashier-confirm-details')).toContainText(
+          'Wallet balance',
+        );
+        await expect(
+          page.locator('.cashier-confirm-details'),
+        ).not.toContainText(/Earn eligibility|Expiring credit/);
+        await expect(
+          page.getByRole('img', {
+            name: /ShopCity card preview for Ada Shopper/,
+          }),
+        ).toBeVisible();
+        const backButton = page.getByRole('button', { name: 'Back' });
+        await expect(backButton).toBeVisible();
+        await expect(backButton.locator('svg')).toHaveCount(1);
+      }
       await expect(page).toHaveScreenshot(
         `financial-lookup-${kind}-verified.png`,
         {
@@ -1884,13 +2080,39 @@ test.describe('workflow route coverage', () => {
 
   test('covers authoritative Earn and Redeem outcomes', async ({ page }) => {
     await mockShell(page, 'CASHIER');
+    await page.route('**/api/v1/config/operational', async (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
     await expect(page.locator('.shell-loading-screen')).toBeHidden({
       timeout: 30000,
     });
     await expect(
       page
-        .getByLabel('Lookup and status')
+        .getByLabel('Verified customer details')
         .getByText('Ada Shopper', { exact: true }),
     ).toBeVisible({ timeout: 30000 });
     const captureFlow = page.locator('[data-od-id="capture-flow"]');
@@ -1903,19 +2125,80 @@ test.describe('workflow route coverage', () => {
       await page.locator('body').evaluate((body) => body.scrollWidth),
     ).toBeLessThanOrEqual(1440);
     await page.getByRole('button', { name: 'Proceed' }).click();
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-EARN-001');
-    const purchase = page.getByLabel('Purchase amount');
+    await expect(
+      page.getByRole('heading', { name: 'Step 3 — Receipt details' }),
+    ).toBeVisible();
+    await expect(captureFlow).toHaveAttribute('data-state', 'step-3');
+    await expect(page.getByLabel('Receipt number *')).toBeVisible();
+    await expect(page.getByLabel('Receipt amount (₦) *')).toBeVisible();
+    const captureStages = page.locator('[data-od-id="capture-stages"]');
+    await expect(captureStages).toHaveCSS('width', '562px');
+    await expect(captureStages).toHaveCSS('height', '36px');
+    await expect(
+      captureStages.locator('.cashier-flow-step.is-active'),
+    ).toHaveText('Receipt Details');
+    const receiptDateTime = page.getByLabel('Receipt date & time *');
+    await expect(receiptDateTime).toBeVisible();
+    await receiptDateTime.fill('2026-09-05T11:28');
+    await expect(receiptDateTime).toHaveValue('2026-09-05T11:28');
+    await receiptDateTime.blur();
+    await expect(
+      page.getByRole('textbox', { name: /till|cashier reference/i }),
+    ).toHaveCount(0);
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBe(712);
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-earn-receipt-details.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Confirm customer' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Proceed' }).click();
+    await expect(page.getByLabel('Receipt number *')).toBeVisible();
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-EARN-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
     await purchase.fill('10');
     await purchase.blur();
     await page.getByRole('button', { name: 'Proceed to review' }).click();
+    const earnReview = page.locator('[data-od-id="capture-review-details"]');
+    await expect(
+      earnReview.getByRole('heading', { name: 'Step 4 — Review' }),
+    ).toBeVisible();
+    await expect(
+      earnReview.getByText('Estimated ShopCity Credit'),
+    ).toBeVisible();
+    await expect(earnReview.getByText('Balance before')).toBeVisible();
+    await expect(earnReview.getByText('Estimated new balance')).toBeVisible();
+    await expect(earnReview.getByText('Till reference')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Confirm & add credit' }),
+    ).toHaveText('Confirm & Add Credit');
     await expect(captureFlow).toBeVisible();
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBe(712);
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-earn-review.png',
       { maxDiffPixelRatio: 0.08 },
     );
+    await page.setViewportSize({ width: 375, height: 812 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
-      page.getByText('Purchase captured and credit added.'),
+      page.getByRole('heading', {
+        level: 3,
+        name: 'Purchase captured successfully',
+      }),
     ).toBeVisible();
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-earn-outcome.png',
@@ -1980,31 +2263,54 @@ test.describe('workflow route coverage', () => {
     ] as const) {
       const stepsId =
         route.landmark === 'capture-flow' ? 'capture-stages' : 'redeem-stages';
-      for (const [width, expectedColumns] of [
-        [701, 4],
-        [700, 1],
-      ] as const) {
+      const viewports =
+        route.landmark === 'capture-flow' ? [701, 700, 390] : [701, 700];
+      for (const width of viewports) {
         await page.setViewportSize({ width, height: 844 });
         await page.goto(`${baseUrl}${route.path}`);
         await expect(page.locator('.shell-loading-screen')).toBeHidden({
           timeout: 30000,
         });
+        const customerContext =
+          route.landmark === 'capture-flow'
+            ? page.getByLabel('Verified customer details')
+            : page.getByLabel('Lookup and status');
         await expect(
-          page.getByLabel('Lookup and status').getByText('Ada Shopper', {
-            exact: true,
-          }),
+          customerContext.getByText('Ada Shopper', { exact: true }),
         ).toBeVisible({ timeout: 30000 });
         const flow = page.locator(`[data-od-id="${route.landmark}"]`);
         const steps = page.locator(`[data-od-id="${stepsId}"]`);
         await expect(flow).toBeVisible({ timeout: 30000 });
         await expect(steps).toBeVisible({ timeout: 30000 });
-        const columns = await steps.evaluate(
-          (element) => getComputedStyle(element).gridTemplateColumns,
-        );
-        expect(
-          columns.trim().split(/\s+/),
-          `${route.path} at ${width}px`,
-        ).toHaveLength(expectedColumns);
+        if (route.landmark === 'capture-flow') {
+          expect(
+            await steps.evaluate(
+              (element) => getComputedStyle(element).display,
+            ),
+          ).toBe('block');
+          expect(
+            await steps.evaluate((element) => element.clientWidth),
+          ).toBeLessThanOrEqual(width);
+          const stepViewportWidth = await steps.evaluate(
+            (element) => element.clientWidth,
+          );
+          const stepContentWidth = await steps.evaluate(
+            (element) => element.scrollWidth,
+          );
+          if (width < 562) {
+            expect(stepContentWidth).toBeGreaterThan(stepViewportWidth);
+          } else {
+            expect(stepContentWidth).toBeLessThanOrEqual(stepViewportWidth);
+          }
+        } else {
+          const columns = await steps.evaluate(
+            (element) => getComputedStyle(element).gridTemplateColumns,
+          );
+          expect(
+            columns.trim().split(/\s+/),
+            `${route.path} at ${width}px`,
+          ).toHaveLength(width > 700 ? 4 : 1);
+        }
         expect(
           await page.locator('body').evaluate((body) => body.scrollWidth),
           `${route.path} at ${width}px overflow`,
@@ -2061,9 +2367,9 @@ test.describe('workflow route coverage', () => {
 
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
     await page.getByRole('button', { name: 'Proceed' }).click();
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-APPROVAL-001');
-    await page.getByLabel('Purchase amount').fill('10');
-    await page.getByLabel('Purchase amount').blur();
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-APPROVAL-001');
+    await page.getByLabel('Receipt amount (₦) *').fill('10');
+    await page.getByLabel('Receipt amount (₦) *').blur();
     await page.getByRole('button', { name: 'Proceed to review' }).click();
     await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
@@ -2763,8 +3069,8 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
     await page.getByRole('button', { name: 'Proceed' }).click();
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-OFFLINE-001');
-    const purchase = page.getByLabel('Purchase amount');
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-OFFLINE-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
     await purchase.fill('10');
     await purchase.blur();
     await page.getByRole('button', { name: 'Proceed to review' }).click();
@@ -2827,8 +3133,8 @@ test.describe('workflow route coverage', () => {
     await page.goto(`${baseUrl}/cashier/earn?card=CARD-001`);
 
     await page.getByRole('button', { name: 'Proceed' }).click();
-    await page.getByLabel('POS receipt number').fill('WORKFLOW-PENDING-001');
-    const purchase = page.getByLabel('Purchase amount');
+    await page.getByLabel('Receipt number *').fill('WORKFLOW-PENDING-001');
+    const purchase = page.getByLabel('Receipt amount (₦) *');
     await purchase.fill('10');
     await purchase.blur();
     const proceed = page.getByRole('button', { name: 'Proceed to review' });
