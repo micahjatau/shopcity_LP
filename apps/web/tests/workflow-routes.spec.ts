@@ -275,6 +275,10 @@ test.describe('workflow route coverage', () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${baseUrl}/cashier`);
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+      'href',
+      /\/brand\/supervisor\/icon\.png/,
+    );
     const sidebar = page.locator('.shell-sidebar');
     await expect(sidebar).toHaveAttribute('data-collapsed', 'false');
     await page.waitForTimeout(300);
@@ -286,6 +290,10 @@ test.describe('workflow route coverage', () => {
 
     await page.getByRole('button', { name: 'Collapse sidebar' }).click();
     await expect(sidebar).toHaveAttribute('data-collapsed', 'true');
+    await expect(sidebar.locator('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      /\/brand\/supervisor\/icon\.png/,
+    );
     await page.waitForTimeout(300);
     await page.mouse.move(600, 500);
     await expect(

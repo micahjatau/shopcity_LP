@@ -5,6 +5,9 @@ import '../styles/globals.css';
 export const metadata: Metadata = {
   title: 'ShopCity',
   description: 'ShopCity frontend design-system implementation scaffold.',
+  icons: {
+    icon: [{ url: '/brand/supervisor/icon.png', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {

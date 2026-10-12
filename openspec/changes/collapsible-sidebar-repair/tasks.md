@@ -30,3 +30,4 @@
 - [x] 5.1 Run lint, typecheck, build, Semgrep, OpenSpec validation, and affected Jest/Playwright suites.
 - [x] 5.2 Run GitNexus detect_changes and inspect affected flows, expected files, unrelated dirty files, and residual risk; analyzer refresh was blocked by a pre-existing FTS index inconsistency, documented in evidence.
 - [x] 5.3 Document changed-file rationale, route authority preservation, screenshot evidence, unsupported changes, and final verification results.
+- [ ] 5.4 Use the approved icon asset for the collapsed sidebar and global favicon; verify collapsed/expanded rendering and metadata.

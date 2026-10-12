@@ -236,12 +236,20 @@ describe('AppShell', () => {
       name: 'Collapse sidebar',
     });
     expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('Frame%202147224881.svg'),
+    );
     fireEvent.click(collapseButton);
     expect(
       screen.getByRole('button', { name: 'Expand sidebar' }),
     ).toHaveAttribute('aria-expanded', 'false');
     expect(localStorage.getItem('shopcity:shell:sidebar-collapsed')).toBe(
       'true',
+    );
+    expect(document.querySelector('.shell-sidebar-brand-logo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('/brand/supervisor/icon.png'),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(

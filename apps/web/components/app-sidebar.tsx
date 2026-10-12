@@ -40,10 +40,14 @@ export function AppSidebar({
         <div className="shell-sidebar-brand">
           <Image
             className="shell-sidebar-brand-logo"
-            src="/brand/Frame%202147224881.svg"
+            src={
+              isCollapsed
+                ? '/brand/supervisor/icon.png'
+                : '/brand/Frame%202147224881.svg'
+            }
             alt="ShopCity Supermarket"
-            width={124}
-            height={33}
+            width={isCollapsed ? 52 : 124}
+            height={isCollapsed ? 52 : 33}
           />
         </div>
         <button
