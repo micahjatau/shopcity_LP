@@ -58,6 +58,7 @@
 - [x] 5.3 Keep the outer panel alignment and dimensions stable as inner workflow stages change; preserve accessible stage announcements and focus targets.
 - [x] 5.4 Preserve receipt validation, integer-kobo/money grammar, idempotency, approval, offline, error, retry, card verification, and financial gating behavior.
 - [x] 5.5 Add paired workflow tests for lookup-to-confirmation-to-review-to-success and regression tests for protected transitions, without changing controller/API authority.
+- [x] 5.9 Match Capture Purchase Step 1 to Figma node `408:513` with scoped search/list geometry, copy, icons, and controls while preserving API-backed activity, privacy, card verification, and shared Lookup/Redeem presentation. Verified with targeted Jest and Playwright coverage, computed geometry checks, mobile overflow, and unchanged Redeem lookup defaults.
 
 ## 6. Adapt Redeem Credit
 

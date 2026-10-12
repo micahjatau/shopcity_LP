@@ -189,6 +189,21 @@ Redeem Credit SHALL use an approximately 720px flow-panel variant that reuses Ca
 - **THEN** content remains readable, ordered, and within the viewport
 - **AND** verified-card authority, approval, idempotency, balance, money, and financial-gating rules remain unchanged
 
+### Requirement: Capture Purchase Step 1 matches the supplied Figma reference
+
+The Earn-only Step 1 surface SHALL match Figma node `408:513` within the stable 712px Capture Purchase panel: a separate white search card above the Recent captures card, 16px/700 `Step 1 — Find customer` heading, 12px supporting copy, divider, 320px/32px search field with `Search` placeholder, adjacent 160px Search and Scan actions, and the reference helper copy. The recent-captures card SHALL retain the 399px minimum height, 16px heading, compact 40px rows with 8px spacing, and semantic outcome amounts/statuses. This newer Capture-only reference overrides the shared lookup placeholder, heading, and Search-button styling only when `captureLayout` is enabled; Lookup and Redeem SHALL retain their current presentations.
+
+Recent-capture rows MUST use only cashier-authorized API data. Because the cashier activity projection does not provide customer phone numbers, the UI MUST retain the supported receipt reference instead of displaying or fabricating the phone values shown in the Figma sample. Loading, empty, and error states MUST remain truthful and visually contained. Search, scanner focus, card verification, API calls, data masking, and financial safeguards MUST remain unchanged.
+
+#### Scenario: Earn Step 1 matches the reference without changing shared consumers
+
+- **WHEN** a cashier opens Capture Purchase at desktop width
+- **THEN** the Step 1 heading, search field, actions, helper, recent-captures card, and rows follow Figma node `408:513`
+- **AND** only Capture Purchase receives the new placeholder, title scale, and outlined Search/neutral Scan control treatment
+- **AND** Lookup and Redeem retain their existing shared verified-card lookup presentation
+- **AND** no unmasked or unsupported customer phone data is rendered
+- **AND** the recent-captures panel remains API-backed in loading, empty, error, and populated states
+
 ### Requirement: Transactions provides truthful bounded list and detail composition
 
 Transactions SHALL provide page heading/supporting copy, refresh, receipt/ID search, status and operation filters, bounded activity table, result count, and available-scope messaging. Its detail dialog SHALL be approximately 600px wide where supported, use an accessible two-column internal composition, and render only backend-supported fields.

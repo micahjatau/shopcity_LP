@@ -461,7 +461,18 @@ describe('Cashier lookup workflow', () => {
       name: 'Search customer',
     });
     expect(
-      screen.getByPlaceholderText('Scan card or Search card number'),
+      screen.getByRole('heading', { name: 'Step 1 — Find customer' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Scan the virtual card, or search by phone number or card serial.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Target lookup speed is under 5 seconds. Press Enter to search.',
+      ),
     ).toBeInTheDocument();
     expect(lookupStep?.querySelector('[role="alert"]')).not.toBeInTheDocument();
     expect(screen.queryByText('Ready to continue')).not.toBeInTheDocument();
@@ -469,7 +480,13 @@ describe('Cashier lookup workflow', () => {
       screen.queryByText('Scan or type a card serial.'),
     ).not.toBeInTheDocument();
     expect(searchButton).toHaveClass('cashier-capture-search-primary');
-    expect(searchButton.querySelector('svg')).toBeInTheDocument();
+    expect(searchButton.querySelector('img')).toHaveAttribute(
+      'src',
+      '/brand/cashier/cashier-capture-step1-search-icon.svg',
+    );
+    expect(screen.getByRole('button', { name: 'Scan' })).toHaveClass(
+      'cashier-capture-search-action--scan',
+    );
 
     fireEvent.click(searchButton);
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -525,9 +542,7 @@ describe('Cashier lookup workflow', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Scan or type a card serial.',
     );
-    expect(
-      screen.queryByPlaceholderText('Scan card or Search card number'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search')).not.toBeInTheDocument();
   });
 
   it('shows an accessible email skeleton while the existing summary request loads', async () => {

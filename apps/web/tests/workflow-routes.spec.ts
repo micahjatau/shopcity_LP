@@ -2078,6 +2078,168 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
   });
 
+  test('matches Capture Purchase Step 1 to Figma node 408:513', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 923 });
+    await page.route('**/api/v1/config/operational', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: { defaultEarnRateBps: 500 },
+          },
+          meta: meta('/api/v1/config/operational'),
+        }),
+      ),
+    );
+    await page.route('**/api/v1/reports/cashier-today', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            branchId: 'branch-1',
+            timezone: 'Africa/Lagos',
+            items: [
+              ['Sammie Tomiwa', 'CAP-001', 'APPROVED'],
+              ['Aliyu Mohammed', 'CAP-002', 'APPROVED'],
+              ['Alice Wonda Lahand', 'CAP-003', 'DENIED'],
+              ['Sonia Tizhe', 'CAP-004', 'APPROVED'],
+              ['Olaolu Mofe', 'CAP-005', 'APPROVED'],
+              ['Chidera Aguiyi', 'CAP-006', 'DENIED'],
+            ].map(([customerName, receiptNumber, status], index) => ({
+              id: `earn-${index + 1}`,
+              occurredAt: `2030-01-01T10:0${index}:00.000Z`,
+              operation: 'EARN',
+              customerName,
+              receiptNumber,
+              loyaltyAmountKobo: 451000,
+              status,
+            })),
+          },
+          meta: meta('/api/v1/reports/cashier-today'),
+        }),
+      ),
+    );
+
+    await page.goto(`${baseUrl}/cashier/earn`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
+
+    const captureFlow = page.locator('[data-od-id="capture-flow"]');
+    const searchCard = page.locator('.cashier-verified-card-lookup');
+    const recentCard = page.locator('.cashier-recent-captures');
+    await expect(captureFlow).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Step 1 — Find customer' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        'Scan the virtual card, or search by phone number or card serial.',
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toBeVisible();
+    await expect(
+      page.getByText(
+        'Target lookup speed is under 5 seconds. Press Enter to search.',
+      ),
+    ).toBeVisible();
+    await expect(
+      recentCard.getByRole('heading', { name: 'Recently captured' }),
+    ).toBeVisible();
+    await expect(recentCard.locator('li')).toHaveCount(6);
+    await expect(recentCard.getByText('₦4,510', { exact: true })).toHaveCount(
+      6,
+    );
+    await expect(
+      recentCard.getByText('₦4,510.00', { exact: true }),
+    ).toHaveCount(0);
+    await expect(recentCard).not.toContainText('0803 123 4567');
+
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBe(712);
+    expect(
+      await captureFlow.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().height),
+      ),
+    ).toBe(550);
+    await expect(searchCard).toHaveCSS('height', '143px');
+    await expect(recentCard).toHaveCSS('min-height', '399px');
+    await expect(recentCard.locator('h3')).toHaveCSS('font-size', '16px');
+    await expect(recentCard.locator('li').first()).toHaveCSS('height', '40px');
+    await expect(recentCard.locator('ul')).toHaveCSS('row-gap', '8px');
+    await expect(page.locator('.cashier-capture-search-field')).toHaveCSS(
+      'width',
+      '320px',
+    );
+    await expect(page.locator('.cashier-capture-search-field')).toHaveCSS(
+      'height',
+      '32px',
+    );
+    await expect(page.locator('.cashier-capture-search-actions')).toHaveCSS(
+      'width',
+      '328px',
+    );
+    await expect(
+      page.getByRole('button', { name: 'Search customer' }),
+    ).toHaveCSS('width', '160px');
+    await expect(
+      page.getByRole('button', { name: 'Search customer' }),
+    ).toHaveCSS('height', '32px');
+    await expect(page.getByRole('button', { name: 'Scan' })).toHaveCSS(
+      'height',
+      '32px',
+    );
+    await expect(captureFlow).toHaveScreenshot(
+      'cashier-earn-find-customer.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Search customer' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Scan' })).toBeVisible();
+    expect(
+      await page
+        .locator('.cashier-capture-search-actions')
+        .evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+
+    await page.goto(`${baseUrl}/cashier/redeem`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 30000,
+    });
+    await expect(
+      page.getByRole('heading', { name: 'Find customer' }),
+    ).toBeVisible();
+    await expect(
+      page.getByPlaceholder('Scan card serial number'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.cashier-verified-card-lookup .sc-alert'),
+    ).toContainText('Scan or type a card serial.');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+  });
+
   test('covers authoritative Earn and Redeem outcomes', async ({ page }) => {
     await mockShell(page, 'CASHIER');
     await page.route('**/api/v1/config/operational', async (route) =>

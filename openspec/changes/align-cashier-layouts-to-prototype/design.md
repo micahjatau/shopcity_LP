@@ -62,6 +62,8 @@ Each route must use named variants for intentional geometry differences. Route C
 
 Capture Purchase stages remain Find customer, Confirm customer, Receipt details, Review/confirm, and success. The outer flow panel keeps its dimensions and alignment while the inner stage changes. Redeem retains its basket, redemption, confirmation, and remaining-balance semantics.
 
+The newer Figma node `408:513` supersedes the shared placeholder, 22px heading, and gradient Search action for Earn Step 1 only: use the 16px `Step 1 — Find customer` heading, the reference search placeholder and helper, a white red-outlined Search action beside the neutral Scan action, and the 16px/700 Recent captures heading. Preserve the existing API-backed receipt details rather than adding phone values absent from the cashier activity projection. Lookup and Redeem keep their existing shared presentation.
+
 ### 5. Truthful transaction detail
 
 Transactions and Sync Queue must not render fields that the backend does not provide. A modal may use a two-column layout only for supported customer, receipt, amount, credit, status, and evidence/history fields. Unsupported receipt imagery or audit events are omitted or explicitly marked unavailable rather than fabricated.

@@ -240,7 +240,7 @@
 .cashier-route-page--earn .cashier-recent-captures {
   width: min(712px, 100%);
   margin-inline: auto;
-  padding: 18px 24px;
+  padding: 16px 24px;
   border: 1px solid var(--sc-prototype-border);
   border-radius: 16px;
   background: var(--sc-prototype-surface);
@@ -264,12 +264,13 @@
 
 .cashier-route-page--earn .cashier-verified-card-lookup {
   min-height: 143px;
-  padding-block: 14px;
+  padding: 16px 24px;
+  border: 0;
 }
 
 .cashier-route-page--earn .cashier-verified-card-lookup .cashier-stage-heading {
   gap: 2px;
-  padding-bottom: 6px;
+  padding-bottom: 5px;
 }
 
 .cashier-route-page--earn .cashier-verified-card-lookup [role='alert'] {
@@ -295,7 +296,14 @@
 
 .cashier-route-page--earn
   .cashier-verified-card-lookup
-  .cashier-stage-heading-title,
+  .cashier-stage-heading-title {
+  color: #414141;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
+}
+
 .cashier-route-page--redeem
   .cashier-verified-card-lookup
   .cashier-stage-heading-title {
@@ -307,97 +315,184 @@
 .cashier-route-page--earn
   .cashier-verified-card-lookup
   .cashier-stage-heading-description {
-  font-size: 11px;
-  line-height: 1.25;
+  color: #414141;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .cashier-route-page--earn .cashier-verified-card-lookup .cashier-lookup-form {
-  grid-template-columns: minmax(0, 1fr) 160px 160px;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.cashier-route-page--earn .cashier-capture-search-field {
+  display: grid;
+  width: 100%;
+  height: 32px;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: center;
   gap: 8px;
+  padding: 0 16px;
+  border: 0.5px solid #ecebeb;
+  border-radius: 40px;
+  background: #f4f4f4;
+  box-sizing: border-box;
+}
+
+.cashier-route-page--earn .cashier-capture-search-field:focus-within {
+  outline: 2px solid var(--sc-color-brand-700);
+  outline-offset: 2px;
+}
+
+.cashier-route-page--earn .cashier-capture-search-field > img {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.cashier-route-page--earn .cashier-capture-search-field > input {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #414141;
+  font-size: 12px;
+}
+
+.cashier-route-page--earn .cashier-capture-search-field > input::placeholder {
+  color: #bababa;
+  opacity: 1;
+}
+
+.cashier-route-page--earn .cashier-capture-search-actions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  gap: 4px;
 }
 
 .cashier-route-page--earn .cashier-capture-search-action {
-  height: 34px;
-  min-height: 34px;
+  display: inline-flex;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 16px;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 
 .cashier-route-page--earn .cashier-capture-search-action > span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 4px;
   white-space: nowrap;
 }
 
+.cashier-route-page--earn .cashier-capture-search-action img {
+  display: block;
+  flex: 0 0 auto;
+}
+
 .cashier-route-page--earn .cashier-capture-search-primary {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)),
-    linear-gradient(180deg, #c9151c 0%, #d96800 100%);
-  color: #fff;
+  border: 0.5px solid #bf1713;
+  background: #fff;
+  color: #be1313;
 }
 
 .cashier-route-page--earn .cashier-capture-search-primary:hover:not(:disabled) {
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.28)),
-    linear-gradient(180deg, #c9151c 0%, #d96800 100%);
+  border-color: #bf1713;
+  background: #fff;
+  color: #be1313;
+}
+
+.cashier-route-page--earn .cashier-capture-search-action--scan {
+  border: 0.5px solid #dadada;
+  background: #fff;
+  color: #414141;
+}
+
+.cashier-route-page--earn
+  .cashier-capture-search-action--scan:hover:not(:disabled) {
+  border-color: #dadada;
+  background: #fff;
+  color: #414141;
 }
 
 .cashier-route-page--earn .cashier-verified-card-lookup .cashier-stage-content {
   gap: 8px;
 }
 
+.cashier-route-page--earn .cashier-capture-search-hint {
+  margin: 0;
+  color: #676767;
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .cashier-route-page--earn
   .cashier-verified-card-lookup
-  .cashier-lookup-form
-  > input {
-  height: 32px;
-  min-height: 32px;
+  .cashier-stage-content
+  > [role='alert'] {
+  margin: 0;
 }
 
 .cashier-route-page--earn .cashier-recent-captures {
   min-height: 399px;
-  padding-block: 18px 22px;
+  padding: 16px 24px;
+  border: 0.6px solid #e4e4e4;
 }
 
 .cashier-recent-captures h3 {
-  margin: 0 0 4px;
+  margin: 0;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--sc-prototype-border);
-  font-size: 20px;
+  color: #414141;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
 }
 
 .cashier-recent-captures__list {
   display: grid;
-  gap: 0;
-  margin: 0;
+  gap: 8px;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .cashier-recent-captures__item {
   display: flex;
-  min-height: 48px;
+  height: 40px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.cashier-recent-captures__customer,
-.cashier-recent-captures__result {
+.cashier-recent-captures__customer {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 0;
 }
 
 .cashier-recent-captures__customer strong {
   overflow: hidden;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
+  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -405,21 +500,29 @@
 .cashier-recent-captures__customer span,
 .cashier-recent-captures__message {
   color: var(--sc-prototype-muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .cashier-recent-captures__result {
+  display: grid;
+  min-width: max-content;
+  grid-template-columns: minmax(0, 138px) max-content;
+  align-items: center;
   justify-items: end;
+  gap: 12px;
   text-align: right;
 }
 
 .cashier-recent-captures__result strong {
   color: var(--sc-color-brand-700);
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .cashier-recent-captures__result .cashier-recent-captures__amount--approved {
-  color: var(--sc-color-success-strong);
+  color: #027a48;
 }
 
 .cashier-recent-captures__result .cashier-recent-captures__amount--pending {
@@ -427,19 +530,36 @@
 }
 
 .cashier-recent-captures__result .cashier-recent-captures__amount--denied {
-  color: var(--sc-color-danger-strong);
+  color: #be1313;
 }
 
 .cashier-recent-captures__status {
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 9px;
-  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 16px;
+  font-size: 8px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.cashier-recent-captures__status::before {
+  width: 4.52px;
+  height: 4.52px;
+  flex: 0 0 4.52px;
+  background-repeat: no-repeat;
+  background-size: 4.52px 4.52px;
+  content: '';
 }
 
 .cashier-recent-captures__status--approved {
-  background: #e2f7ec;
-  color: #087443;
+  background: #d1fae2;
+  color: #027a48;
+}
+
+.cashier-recent-captures__status--approved::before {
+  background-image: url('/brand/cashier/cashier-capture-step1-status-approved-dot.svg');
 }
 
 .cashier-recent-captures__status--pending {
@@ -447,9 +567,18 @@
   color: #805100;
 }
 
+.cashier-recent-captures__status--pending::before {
+  border-radius: 50%;
+  background: var(--sc-color-warning-strong);
+}
+
 .cashier-recent-captures__status--denied {
-  background: #fde9e9;
-  color: #a20f16;
+  background: #fad1d2;
+  color: #be1313;
+}
+
+.cashier-recent-captures__status--denied::before {
+  background-image: url('/brand/cashier/cashier-capture-step1-status-denied-dot.svg');
 }
 
 .cashier-recent-captures__message {
@@ -458,20 +587,25 @@
 
 @media (max-width: 700px) {
   .cashier-route-page--earn .cashier-verified-card-lookup .cashier-lookup-form {
-    grid-template-columns: minmax(0, 1fr) 120px 120px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cashier-route-page--earn .cashier-capture-search-actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 400px) {
+  .cashier-route-page--earn .cashier-capture-search-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 500px) {
-  .cashier-route-page--earn .cashier-verified-card-lookup .cashier-lookup-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cashier-route-page--earn
-    .cashier-verified-card-lookup
-    .cashier-lookup-form
-    > input {
-    grid-column: 1 / -1;
+  .cashier-recent-captures__result {
+    grid-template-columns: auto max-content;
+    gap: 8px;
   }
 }
 

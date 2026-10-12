@@ -6,9 +6,14 @@ import {
   type ReportsControllerListCashierTodayV1200DataItemsItem,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
-import { Money } from '../shopcity';
+import { formatMoney } from '../shopcity/money';
 
 type CashierActivityItem = ReportsControllerListCashierTodayV1200DataItemsItem;
+
+function formatCaptureCredit(amountKobo: number) {
+  const formatted = formatMoney(amountKobo);
+  return amountKobo % 100 === 0 ? formatted.replace(/\.00$/, '') : formatted;
+}
 
 type RecentCapturesState =
   | { status: 'loading'; items: [] }
@@ -99,7 +104,12 @@ export function RecentCashierCaptures() {
                     className={`cashier-recent-captures__amount cashier-recent-captures__amount--${captureStatus.tone}`}
                   >
                     {typeof item.loyaltyAmountKobo === 'number' ? (
-                      <Money amountKobo={item.loyaltyAmountKobo} />
+                      <span
+                        className="sc-money"
+                        aria-label={formatCaptureCredit(item.loyaltyAmountKobo)}
+                      >
+                        {formatCaptureCredit(item.loyaltyAmountKobo)}
+                      </span>
                     ) : (
                       'Credit unavailable'
                     )}
