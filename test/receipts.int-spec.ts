@@ -344,7 +344,7 @@ describe('receipt capture flows (int)', () => {
         occurredAt: recentOccurredAt(),
       });
 
-      const boundaryStart = new Date('2026-07-21T00:00:00.000Z');
+      const boundaryStart = recentUtcWeekdayStart(2);
 
       await postReceipt(
         {
@@ -406,19 +406,21 @@ describe('receipt capture flows (int)', () => {
     });
 
     try {
+      const sundayStart = recentUtcWeekdayStart(0);
+      const occurredAt = sundayStart.toISOString();
       const { authHeaders, body } = await prepareReceiptFixture({
         customerSuffix: '05a',
         cardSerialNumber: 'SC-1005A',
         deviceName: 'POS-5A',
         fingerprintHash: 'device-fingerprint-5a',
         posReceiptNumber: 'POS-1005A',
-        occurredAt: '2026-07-19T12:00:00.000Z',
+        occurredAt,
       });
 
       await postReceipt(
         {
           ...body,
-          occurredAt: '2026-07-19T12:00:00.000Z',
+          occurredAt,
           overrideReason: 'Zero-based week validation',
         },
         authHeaders,
@@ -432,9 +434,7 @@ describe('receipt capture flows (int)', () => {
         },
       });
 
-      expect(receipt?.receiptWeekStart.toISOString()).toBe(
-        '2026-07-19T00:00:00.000Z',
-      );
+      expect(receipt?.receiptWeekStart.toISOString()).toBe(occurredAt);
     } finally {
       await prisma.branch.update({
         where: { id: seedData.branch.id },
@@ -1127,6 +1127,18 @@ function cookieToken(cookiePair: string): string {
 
 function recentOccurredAt(minutesAgo = 1): string {
   return new Date(Date.now() - minutesAgo * 60_000).toISOString();
+}
+
+function recentUtcWeekdayStart(weekday: number): Date {
+  const now = new Date();
+  const daysSinceWeekday = (now.getUTCDay() - weekday + 7) % 7;
+  return new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - daysSinceWeekday,
+    ),
+  );
 }
 
 function createSupabaseAdminStub(supabaseAuthId: string) {
