@@ -6,10 +6,10 @@ export default function SupervisorFraudPage() {
     <section className="supervisor-page">
       <CashierPageHeader
         className="cashier-route-header supervisor-page__header"
-        title="Fraud"
-        description="Review flagged activity and record an acknowledgment or resolution."
+        title="Flagged activity"
+        description="Review patterns, check the context, and record the next step."
       />
-      <FraudFlagsPanel />
+      <FraudFlagsPanel presentation="supervisor" />
     </section>
   );
 }

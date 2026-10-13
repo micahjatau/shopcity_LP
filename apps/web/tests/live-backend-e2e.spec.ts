@@ -279,29 +279,31 @@ test.describe('backend-connected frontend flows', () => {
 
     await page.goto('/supervisor/fraud');
     const fraudReview = page.getByRole('region', {
-      name: /fraud workspace/i,
+      name: /flagged activity workspace/i,
     });
     await expect(
-      fraudReview.getByRole('heading', { name: 'Fraud review results' }),
+      fraudReview.getByRole('heading', { name: 'Recent activity' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('region', { name: /fraud flag list/i }).getByRole('table'),
+      page
+        .getByRole('region', { name: /flagged activity results/i })
+        .getByRole('table'),
     ).toBeVisible();
     const fraudReviewActions = page
-      .getByRole('region', { name: /fraud flag list/i })
+      .getByRole('region', { name: /flagged activity results/i })
       .getByRole('button', { name: /^Review /i });
     if ((await fraudReviewActions.count()) > 0) {
       await fraudReviewActions.first().click();
       const reviewDialog = page.getByRole('dialog', {
-        name: 'Review fraud case',
+        name: 'Review flagged activity',
       });
       await expect(reviewDialog).toBeVisible();
       await expect(
-        reviewDialog.getByRole('button', { name: 'Submit decision' }),
+        reviewDialog.getByRole('button', { name: 'Record decision' }),
       ).toBeDisabled();
     } else {
       await expect(fraudReview).toContainText(
-        /no fraud flags|fraud flags unavailable/i,
+        /no flagged activity|no activity matches|flagged activity could not be loaded/i,
       );
     }
 

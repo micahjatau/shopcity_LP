@@ -1,7 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+} from 'lucide-react';
 import {
   FraudFlagDecisionDtoDecision,
   fraudControllerDecideFraudFlagV1,
@@ -11,6 +18,7 @@ import {
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Dialog, Input, RadioGroup, Select, Table } from '../ui';
 import { Money } from '../shopcity';
+import { SupervisorFlaggedActivity } from './supervisor-flagged-activity';
 
 type FraudFlagRecord = Record<string, unknown> & {
   id?: string;
@@ -31,8 +39,173 @@ const decisionOptions = [
 ] as const;
 
 const FRAUD_PAGE_SIZE = 5;
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All statuses' },
+  { value: 'OPEN', label: 'Open' },
+  { value: 'ACKNOWLEDGED', label: 'Acknowledged' },
+  { value: 'RESOLVED', label: 'Resolved' },
+];
+const SEVERITY_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All severities' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'LOW', label: 'Low' },
+];
 
-export function FraudFlagsPanel() {
+type FraudFilterOption = { value: string; label: string };
+
+function FraudFilterDropdown({
+  id,
+  label,
+  triggerLabel,
+  value,
+  options,
+  onChange,
+}: Readonly<{
+  id: string;
+  label: string;
+  triggerLabel: string;
+  value: string;
+  options: readonly FraudFilterOption[];
+  onChange: (value: string) => void;
+}>) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+  const [activeIndex, setActiveIndex] = useState(selectedIndex);
+  const selectedOption = options[selectedIndex];
+  const menuId = `${id}-options`;
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) optionRefs.current[activeIndex]?.focus();
+  }, [activeIndex, open]);
+
+  const handleOptionKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | undefined;
+    if (event.key === 'ArrowDown') nextIndex = (index + 1) % options.length;
+    if (event.key === 'ArrowUp')
+      nextIndex = (index - 1 + options.length) % options.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = options.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      setActiveIndex(nextIndex);
+      optionRefs.current[nextIndex]?.focus();
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+    if (event.key === 'Tab') setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="fraud-flags__dropdown">
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="ghost"
+        className="fraud-flags__dropdown-trigger"
+        aria-label={`${label}: ${selectedOption.label}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActiveIndex(selectedIndex);
+            setOpen(true);
+          }
+        }}
+        onClick={() => {
+          if (!open) setActiveIndex(selectedIndex);
+          setOpen((current) => !current);
+        }}
+      >
+        <span className="fraud-flags__dropdown-value">{triggerLabel}</span>
+        <ChevronDown aria-hidden="true" size={14} />
+      </Button>
+      {open ? (
+        <div
+          id={menuId}
+          className="supervisor-customer-directory__status-menu fraud-flags__dropdown-menu"
+          role="listbox"
+          aria-label={label}
+        >
+          {options.map((option, index) => (
+            <button
+              key={option.value}
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
+              type="button"
+              role="option"
+              aria-selected={value === option.value}
+              tabIndex={activeIndex === index ? 0 : -1}
+              className="supervisor-customer-directory__status-option"
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
+              <span>{option.label}</span>
+              {value === option.value ? (
+                <Check aria-hidden="true" size={14} />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function FraudFlagsPanel({
+  presentation = 'default',
+}: Readonly<{ presentation?: 'default' | 'supervisor' }> = {}) {
+  return presentation === 'supervisor' ? (
+    <SupervisorFlaggedActivity />
+  ) : (
+    <LegacyFraudFlagsPanel />
+  );
+}
+
+function LegacyFraudFlagsPanel() {
   const [items, setItems] = useState<FraudFlagRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -76,6 +249,7 @@ export function FraudFlagsPanel() {
     pageIndex * FRAUD_PAGE_SIZE,
     pageIndex * FRAUD_PAGE_SIZE + FRAUD_PAGE_SIZE,
   );
+  const refreshLabel = 'Refresh fraud flags';
 
   useEffect(() => {
     if (pageIndex * FRAUD_PAGE_SIZE >= filteredItems.length) {
@@ -164,12 +338,7 @@ export function FraudFlagsPanel() {
               id="fraud-status-filter"
               aria-label="Fraud status filter"
               value={statusFilter}
-              options={[
-                { value: 'ALL', label: 'All statuses' },
-                { value: 'OPEN', label: 'Open' },
-                { value: 'ACKNOWLEDGED', label: 'Acknowledged' },
-                { value: 'RESOLVED', label: 'Resolved' },
-              ]}
+              options={STATUS_FILTER_OPTIONS}
               onChange={(event) => {
                 setPageIndex(0);
                 setStatusFilter(event.target.value);
@@ -185,12 +354,7 @@ export function FraudFlagsPanel() {
               id="fraud-severity-filter"
               aria-label="Fraud severity filter"
               value={severityFilter}
-              options={[
-                { value: 'ALL', label: 'All severities' },
-                { value: 'HIGH', label: 'High' },
-                { value: 'MEDIUM', label: 'Medium' },
-                { value: 'LOW', label: 'Low' },
-              ]}
+              options={SEVERITY_FILTER_OPTIONS}
               onChange={(event) => {
                 setPageIndex(0);
                 setSeverityFilter(event.target.value);
@@ -200,6 +364,7 @@ export function FraudFlagsPanel() {
           <label className="fraud-flags__filter" htmlFor="fraud-branch-filter">
             <span>Branch</span>
             <Input
+              className="fraud-flags__branch-input"
               id="fraud-branch-filter"
               aria-label="Fraud branch filter"
               placeholder="Any branch"
@@ -214,13 +379,13 @@ export function FraudFlagsPanel() {
         <Button
           className="fraud-flags__refresh"
           variant="secondary"
-          aria-label="Refresh fraud flags"
-          title="Refresh fraud flags"
+          aria-label={refreshLabel}
+          title={refreshLabel}
           onClick={() => void refresh()}
           loading={loading}
         >
           <RefreshCw aria-hidden="true" size={16} strokeWidth={2} />
-          <span className="fraud-flags__refresh-label">Refresh</span>
+          <span className="fraud-flags__refresh-label">{refreshLabel}</span>
         </Button>
       </div>
 
@@ -276,24 +441,29 @@ export function FraudFlagsPanel() {
                     return (
                       <tr
                         key={item.id ?? `${rule}-${subject}`}
-                        className={selected ? 'fraud-flags__row--selected' : ''}
+                        className={`fraud-flags__row${selected ? ' fraud-flags__row--selected' : ''}`}
                       >
-                        <th scope="row">{rule}</th>
-                        <td>{subject}</td>
-                        <td>{item.severity ?? 'LOW'}</td>
-                        <td>{item.status ?? 'Unknown'}</td>
-                        <td>{item.branchId ?? 'Tenant-wide'}</td>
-                        <td>
+                        <th scope="row" data-label="Rule">
+                          {rule}
+                        </th>
+                        <td data-label="Subject">{subject}</td>
+                        <td data-label="Severity">{item.severity ?? 'LOW'}</td>
+                        <td data-label="Status">{item.status ?? 'Unknown'}</td>
+                        <td data-label="Branch">
+                          {item.branchId ?? 'Tenant-wide'}
+                        </td>
+                        <td data-label="Amount">
                           {typeof item.amountKobo === 'number' ? (
                             <Money amountKobo={item.amountKobo} />
                           ) : (
                             '—'
                           )}
                         </td>
-                        <td>
+                        <td data-label="Action">
                           <Button
+                            className="fraud-flags__review-button"
                             variant="secondary"
-                            aria-label={`Review ${rule} for ${subject}`}
+                            aria-label={`Review case: ${rule} for ${subject}`}
                             aria-haspopup="dialog"
                             aria-pressed={selected}
                             onClick={() => {
@@ -307,7 +477,7 @@ export function FraudFlagsPanel() {
                               setDialogOpen(true);
                             }}
                           >
-                            Review
+                            Review case
                           </Button>
                         </td>
                       </tr>
@@ -322,6 +492,7 @@ export function FraudFlagsPanel() {
             aria-label="Fraud result pages"
           >
             <Button
+              className="fraud-flags__page-button"
               variant="secondary"
               aria-label="Previous page"
               title="Previous page"
@@ -334,6 +505,7 @@ export function FraudFlagsPanel() {
             </Button>
             <span>Page {pageIndex + 1}</span>
             <Button
+              className="fraud-flags__page-button"
               variant="secondary"
               aria-label="Next page"
               title="Next page"

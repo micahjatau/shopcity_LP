@@ -39,27 +39,29 @@ test('Supervisor can access operational workflows in the smoke tenant', async ({
     }
     await page.goto('/supervisor/fraud');
     await expect(
-      page.getByRole('heading', { name: 'Fraud', exact: true }),
+      page.getByRole('heading', { name: 'Flagged activity', exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole('region', { name: /fraud flag list/i }),
+      page.getByRole('region', { name: /flagged activity results/i }),
     ).toBeVisible();
     const fraudReviewActions = page
-      .getByRole('region', { name: /fraud flag list/i })
+      .getByRole('region', { name: /flagged activity results/i })
       .getByRole('button', { name: /^Review /i });
     if ((await fraudReviewActions.count()) > 0) {
       await fraudReviewActions.first().click();
       const reviewDialog = page.getByRole('dialog', {
-        name: 'Review fraud case',
+        name: 'Review flagged activity',
       });
+      await expect(reviewDialog.getByLabel('Decision reason')).toBeVisible();
       await expect(
-        reviewDialog.getByLabel('Fraud decision reason'),
-      ).toBeVisible();
-      await expect(
-        reviewDialog.getByRole('button', { name: 'Submit decision' }),
+        reviewDialog.getByRole('button', { name: 'Record decision' }),
       ).toBeVisible();
     } else {
-      await expect(page.getByText(/No fraud flags match/i)).toBeVisible();
+      await expect(
+        page.getByText(
+          /No flagged activity is available|No activity matches these filters/i,
+        ),
+      ).toBeVisible();
     }
     for (const route of [
       '/admin/users',

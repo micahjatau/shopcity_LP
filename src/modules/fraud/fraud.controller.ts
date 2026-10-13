@@ -35,12 +35,41 @@ import {
 
 const fraudFlagListSchema = {
   type: 'object',
-  required: ['scope', 'scopeKey', 'branchId', 'items', 'nextCursor', 'hasMore'],
+  required: [
+    'scope',
+    'scopeKey',
+    'branchId',
+    'items',
+    'summary',
+    'nextCursor',
+    'hasMore',
+  ],
   properties: {
     scope: { type: 'string', enum: ['TENANT', 'BRANCH'] },
     scopeKey: { type: 'string' },
     branchId: { type: 'string', nullable: true },
-    items: { type: 'array', items: { type: 'object' } },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          branchName: { type: 'string', nullable: true },
+          cashierName: { type: 'string', nullable: true },
+          customerName: { type: 'string', nullable: true },
+          receiptNumber: { type: 'string', nullable: true },
+          amountKobo: { type: 'integer', nullable: true },
+        },
+      },
+    },
+    summary: {
+      type: 'object',
+      required: ['needReviewCount', 'highPriorityCount', 'underReviewCount'],
+      properties: {
+        needReviewCount: { type: 'integer' },
+        highPriorityCount: { type: 'integer' },
+        underReviewCount: { type: 'integer' },
+      },
+    },
     nextCursor: { type: 'string', nullable: true },
     hasMore: { type: 'boolean' },
   },

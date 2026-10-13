@@ -31,7 +31,19 @@ const fraudFlag = {
 };
 
 function listResponse(items = [fraudFlag]) {
-  return { status: 200, data: { data: { items } } } as never;
+  return {
+    status: 200,
+    data: {
+      data: {
+        items,
+        summary: {
+          needReviewCount: 12,
+          highPriorityCount: 4,
+          underReviewCount: 6,
+        },
+      },
+    },
+  } as never;
 }
 
 describe('FraudFlagsPanel', () => {
@@ -52,6 +64,9 @@ describe('FraudFlagsPanel', () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText('1 result')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Refresh fraud flags' }),
+    ).toHaveTextContent('Refresh fraud flags');
     for (const label of [
       'Rule',
       'Subject',
@@ -65,15 +80,26 @@ describe('FraudFlagsPanel', () => {
         screen.getByRole('columnheader', { name: label }),
       ).toBeInTheDocument();
     }
+    const firstRow = within(results).getByRole('row', {
+      name: /HIGH_VALUE Amina Bello/,
+    });
+    expect(firstRow.querySelector('[data-label="Rule"]')).toHaveTextContent(
+      'HIGH_VALUE',
+    );
+    expect(firstRow.querySelector('[data-label="Subject"]')).toHaveTextContent(
+      'Amina Bello',
+    );
     expect(
       within(results).getByRole('cell', { name: 'OPEN' }),
     ).toBeInTheDocument();
     expect(
       within(results).getByRole('cell', { name: 'HIGH' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Review HIGH_VALUE for Amina Bello' }),
-    ).toHaveAttribute('aria-pressed', 'false');
+    const reviewButton = screen.getByRole('button', {
+      name: 'Review case: HIGH_VALUE for Amina Bello',
+    });
+    expect(reviewButton).toHaveTextContent('Review case');
+    expect(reviewButton).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Submit decision' }),
@@ -155,6 +181,244 @@ describe('FraudFlagsPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('presents Supervisor flags as neutral activity with branch-scoped summaries', async () => {
+    const supervisorFlag = {
+      ...fraudFlag,
+      id: 'case-12345678-private-id',
+      ruleCode: 'FR-HV-001',
+      branchName: 'Wuse',
+      customerName: 'Amina Bello',
+      cashierName: 'jane.a',
+      receiptNumber: 'POS-1042',
+      evidence: {
+        purchaseAmountKobo: '125000',
+        thresholdKobo: 100000,
+        occurredAt: '2026-10-13T10:00:00.000Z',
+      },
+    };
+    jest
+      .mocked(fraudControllerListFraudFlagsV1)
+      .mockResolvedValue(listResponse([supervisorFlag]));
+    render(<FraudFlagsPanel presentation="supervisor" />);
+
+    const results = screen.getByRole('region', {
+      name: 'Flagged activity results',
+    });
+    const row = await within(results).findByRole('row', {
+      name: /Purchase above the review threshold/,
+    });
+    expect(row).toBeInTheDocument();
+    expect(row).toHaveTextContent('Customer Amina Bello');
+    expect(row).toHaveTextContent('Cashier Jane A');
+    expect(row).toHaveTextContent('Receipt POS-1042');
+    expect(screen.getByText('Transactions')).toBeInTheDocument();
+    expect(
+      screen.getByText(/This rule added a review flag/),
+    ).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Refresh flagged activity' }),
+    ).toHaveTextContent('Refresh');
+    expect(
+      screen.getByRole('button', {
+        name: 'Review case: Purchase above the review threshold for Customer Amina Bello · Cashier Jane A · Receipt POS-1042',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('case-12345678-private-id'),
+    ).not.toBeInTheDocument();
+
+    const statusTrigger = screen.getByRole('button', {
+      name: 'Review status: All statuses',
+    });
+    expect(statusTrigger).toHaveTextContent('Review status');
+    fireEvent.keyDown(statusTrigger, { key: 'ArrowDown' });
+    const statusMenu = screen.getByRole('listbox', { name: 'Review status' });
+    const allStatuses = within(statusMenu).getByRole('option', {
+      name: 'All statuses',
+    });
+    const needsReview = within(statusMenu).getByRole('option', {
+      name: 'Needs review',
+    });
+    await waitFor(() => expect(allStatuses).toHaveFocus());
+    fireEvent.keyDown(allStatuses, { key: 'ArrowDown' });
+    await waitFor(() => expect(needsReview).toHaveFocus());
+    fireEvent.keyDown(needsReview, { key: 'Escape' });
+    expect(statusTrigger).toHaveFocus();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+
+    const branchTrigger = screen.getByRole('button', {
+      name: 'Branch: All branches',
+    });
+    fireEvent.click(branchTrigger);
+    expect(screen.getByRole('option', { name: 'Wuse' })).toBeInTheDocument();
+    expect(screen.queryByText('branch-1')).not.toBeInTheDocument();
+  });
+
+  it('shows allowlisted context and hides technical identifiers until requested', async () => {
+    const supervisorFlag = {
+      ...fraudFlag,
+      id: 'case-12345678-private-id',
+      ruleCode: 'FR-HV-003',
+      branchName: 'Wuse',
+      customerName: 'Amina Bello',
+      cashierName: 'jane.a',
+      amountKobo: 750000,
+      evidence: { requestedAmountKobo: '750000', thresholdKobo: 500000 },
+    };
+    jest
+      .mocked(fraudControllerListFraudFlagsV1)
+      .mockResolvedValue(listResponse([supervisorFlag]));
+    render(<FraudFlagsPanel presentation="supervisor" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Review case: Large redemption needing approval for Customer Amina Bello · Cashier Jane A',
+      }),
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Review flagged activity',
+    });
+    expect(within(dialog).getByText('Case summary')).toBeInTheDocument();
+    expect(within(dialog).getByText('Key details')).toBeInTheDocument();
+    expect(within(dialog).getByText('What ShopCity did')).toBeInTheDocument();
+    expect(within(dialog).getByText('Suggested review')).toBeInTheDocument();
+    expect(within(dialog).getByText('₦7,500.00')).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText('Backend response'),
+    ).not.toBeInTheDocument();
+    const technicalReference = within(dialog).getByText('Technical reference');
+    expect(technicalReference.closest('details')).not.toHaveAttribute('open');
+
+    fireEvent.click(technicalReference);
+    expect(technicalReference.closest('details')).toHaveAttribute('open');
+    expect(within(dialog).getByText('FR-HV-003')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('case-12345678-private-id'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: 'Copy technical reference' }),
+    ).toBeInTheDocument();
+  });
+
+  it('filters Supervisor cases by human category, status, priority, and branch', async () => {
+    const purchase = {
+      ...fraudFlag,
+      id: 'case-purchase',
+      ruleCode: 'FR-HV-001',
+      branchId: 'branch-1',
+      branchName: 'Wuse',
+      customerName: 'Amina Bello',
+    };
+    const staffPattern = {
+      ...fraudFlag,
+      id: 'case-staff-pattern',
+      ruleCode: 'FR-CASH-001',
+      severity: 'MEDIUM',
+      status: 'ACKNOWLEDGED',
+      branchId: 'branch-2',
+      branchName: 'Maitama',
+      customerName: 'Bola Ade',
+      evidence: { cashierCount: 8, sampleSize: 10 },
+    };
+    jest
+      .mocked(fraudControllerListFraudFlagsV1)
+      .mockResolvedValue(listResponse([purchase, staffPattern]));
+    render(<FraudFlagsPanel presentation="supervisor" />);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Review case: Purchase activity differs from peers for Customer Bola Ade',
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Category: All activity' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Transactions' }));
+    expect(screen.getByText('1 shown')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Category: Transactions' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Staff activity' }));
+    expect(screen.getByText('1 shown')).toBeInTheDocument();
+    expect(
+      screen.getByText('Purchase activity differs from peers'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Review status: All statuses' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Under review' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Priority: All priorities' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Needs attention' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Branch: All branches' }),
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Maitama' }));
+
+    expect(screen.getByText('1 shown')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Review case: Purchase activity differs from peers for Customer Bola Ade',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Review case: Purchase above the review threshold for Customer Amina Bello',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('reports a successful Supervisor decision from the accepted response', async () => {
+    const supervisorFlag = {
+      ...fraudFlag,
+      id: 'case-2',
+      ruleCode: 'FR-HV-003',
+      customerName: 'Bola Ade',
+    };
+    jest
+      .mocked(fraudControllerListFraudFlagsV1)
+      .mockResolvedValue(listResponse([supervisorFlag]));
+    jest.mocked(fraudControllerDecideFraudFlagV1).mockResolvedValue({
+      status: 200,
+      data: { success: true, data: { id: 'case-2', status: 'ACKNOWLEDGED' } },
+    } as never);
+    render(<FraudFlagsPanel presentation="supervisor" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Review case: Large redemption needing approval for Customer Bola Ade',
+      }),
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Review flagged activity',
+    });
+    fireEvent.change(within(dialog).getByLabelText('Decision reason'), {
+      target: { value: 'Approval record checked' },
+    });
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Record decision' }),
+    );
+
+    await waitFor(() => {
+      expect(fraudControllerDecideFraudFlagV1).toHaveBeenCalledWith(
+        'case-2',
+        { decision: 'ACKNOWLEDGED', reason: 'Approval record checked' },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Case under review',
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('preserves case selection and decision submission', async () => {
     const secondFlag = {
       ...fraudFlag,
@@ -174,12 +438,14 @@ describe('FraudFlagsPanel', () => {
 
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Review LOW_VALUE for Bola Ade',
+        name: 'Review case: LOW_VALUE for Bola Ade',
       }),
     );
     const dialog = screen.getByRole('dialog', { name: 'Review fraud case' });
     expect(
-      screen.getByRole('button', { name: 'Review LOW_VALUE for Bola Ade' }),
+      screen.getByRole('button', {
+        name: 'Review case: LOW_VALUE for Bola Ade',
+      }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(
       within(dialog).getByText(/Bola Ade · LOW · OPEN/),

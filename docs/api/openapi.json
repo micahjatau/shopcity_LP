@@ -30346,6 +30346,7 @@
                         "scopeKey",
                         "branchId",
                         "items",
+                        "summary",
                         "nextCursor",
                         "hasMore"
                       ],
@@ -30364,7 +30365,48 @@
                         "items": {
                           "type": "array",
                           "items": {
-                            "type": "object"
+                            "type": "object",
+                            "properties": {
+                              "branchName": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "cashierName": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "customerName": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "receiptNumber": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "amountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              }
+                            }
+                          }
+                        },
+                        "summary": {
+                          "type": "object",
+                          "required": [
+                            "needReviewCount",
+                            "highPriorityCount",
+                            "underReviewCount"
+                          ],
+                          "properties": {
+                            "needReviewCount": {
+                              "type": "integer"
+                            },
+                            "highPriorityCount": {
+                              "type": "integer"
+                            },
+                            "underReviewCount": {
+                              "type": "integer"
+                            }
                           }
                         },
                         "nextCursor": {

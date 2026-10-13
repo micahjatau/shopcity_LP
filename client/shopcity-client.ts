@@ -13197,7 +13197,22 @@ export const FraudControllerListFraudFlagsV1200DataScope = {
 } as const;
 
 export type FraudControllerListFraudFlagsV1200DataItemsItem = {
-  [key: string]: unknown;
+  /** @nullable */
+  branchName?: string | null;
+  /** @nullable */
+  cashierName?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  receiptNumber?: string | null;
+  /** @nullable */
+  amountKobo?: number | null;
+};
+
+export type FraudControllerListFraudFlagsV1200DataSummary = {
+  needReviewCount: number;
+  highPriorityCount: number;
+  underReviewCount: number;
 };
 
 export type FraudControllerListFraudFlagsV1200Data = {
@@ -13206,6 +13221,7 @@ export type FraudControllerListFraudFlagsV1200Data = {
   /** @nullable */
   branchId: string | null;
   items: FraudControllerListFraudFlagsV1200DataItemsItem[];
+  summary: FraudControllerListFraudFlagsV1200DataSummary;
   /** @nullable */
   nextCursor: string | null;
   hasMore: boolean;

@@ -56,6 +56,125 @@ describe('FraudReviewService', () => {
     });
     expect(result.nextCursor).toBeTruthy();
     expect(result.items).toHaveLength(1);
+    expect(result.summary).toEqual({
+      needReviewCount: 0,
+      highPriorityCount: 0,
+      underReviewCount: 0,
+    });
+  });
+
+  it('enriches list items from tenant-scoped related display records', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      flag({
+        ruleCode: 'FR-HV-003',
+        evidence: { requestedAmountKobo: '750000' },
+      }),
+    ]);
+    const branchFindMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'branch-1', name: 'Wuse' }]);
+    const userFindMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'cashier-1', username: 'jane.a' }]);
+    const customerFindMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'customer-1', fullName: 'Amina Bello' }]);
+    const receiptFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'receipt-1',
+        posReceiptNumber: 'POS-1042',
+        purchaseAmountKobo: 125000n,
+      },
+    ]);
+    const service = new FraudReviewService(
+      prismaStub({
+        findMany,
+        branchFindMany,
+        userFindMany,
+        customerFindMany,
+        receiptFindMany,
+      }),
+      auditStub().service,
+    );
+
+    const result = await service.listFraudFlags(
+      'tenant-1',
+      supervisorContext(),
+    );
+
+    expect(result.items[0]).toMatchObject({
+      branchName: 'Wuse',
+      cashierName: 'jane.a',
+      customerName: 'Amina Bello',
+      receiptNumber: 'POS-1042',
+      amountKobo: 750000,
+    });
+    expect(branchFindMany).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1', id: { in: ['branch-1'] } },
+      select: { id: true, name: true },
+    });
+    expect(userFindMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        branchId: 'branch-1',
+        id: { in: ['cashier-1'] },
+      },
+      select: { id: true, username: true },
+    });
+    expect(customerFindMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        branchId: 'branch-1',
+        id: { in: ['customer-1'] },
+      },
+      select: { id: true, fullName: true },
+    });
+    expect(receiptFindMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        branchId: 'branch-1',
+        id: { in: ['receipt-1'] },
+      },
+      select: {
+        id: true,
+        posReceiptNumber: true,
+        purchaseAmountKobo: true,
+      },
+    });
+  });
+
+  it('counts summary values over the authorized scope rather than list filters', async () => {
+    const count = jest.fn(({ where }: { where: Record<string, unknown> }) =>
+      Promise.resolve(
+        where.status === 'OPEN' ? 12 : where.severity === 'HIGH' ? 4 : 6,
+      ),
+    );
+    const service = new FraudReviewService(
+      prismaStub({ count }),
+      auditStub().service,
+    );
+
+    const result = await service.listFraudFlags(
+      'tenant-1',
+      supervisorContext(),
+      { severity: 'LOW' },
+    );
+
+    expect(result.summary).toEqual({
+      needReviewCount: 12,
+      highPriorityCount: 4,
+      underReviewCount: 6,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-1', branchId: 'branch-1', status: 'OPEN' },
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-1',
+        branchId: 'branch-1',
+        severity: 'HIGH',
+      },
+    });
   });
 
   it('blocks cross-branch fraud detail lookups', async () => {
@@ -163,6 +282,11 @@ function prismaStub(overrides: {
   findMany?: jest.Mock;
   findFirst?: jest.Mock;
   update?: jest.Mock;
+  count?: jest.Mock;
+  branchFindMany?: jest.Mock;
+  userFindMany?: jest.Mock;
+  customerFindMany?: jest.Mock;
+  receiptFindMany?: jest.Mock;
 }) {
   const idempotencyRecord = {
     findUnique: jest.fn().mockResolvedValue(null),
@@ -174,9 +298,23 @@ function prismaStub(overrides: {
       findFirst: jest.fn().mockResolvedValue({ id: 'branch-1' }),
     },
     fraudFlag: {
-      findMany: overrides.findMany ?? jest.fn(),
+      findMany: overrides.findMany ?? jest.fn().mockResolvedValue([]),
       findFirst: overrides.findFirst ?? jest.fn(),
       update: overrides.update ?? jest.fn(),
+      count: overrides.count ?? jest.fn().mockResolvedValue(0),
+    },
+    branch: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'branch-1' }),
+      findMany: overrides.branchFindMany ?? jest.fn().mockResolvedValue([]),
+    },
+    user: {
+      findMany: overrides.userFindMany ?? jest.fn().mockResolvedValue([]),
+    },
+    customer: {
+      findMany: overrides.customerFindMany ?? jest.fn().mockResolvedValue([]),
+    },
+    receipt: {
+      findMany: overrides.receiptFindMany ?? jest.fn().mockResolvedValue([]),
     },
   } as unknown as PrismaService;
 }

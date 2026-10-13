@@ -580,19 +580,33 @@ test.describe('contract-faithful frontend flows', () => {
         body: JSON.stringify({
           success: true,
           data: {
-            scope: 'TENANT',
-            scopeKey: 'tenant-1',
-            branchId: null,
+            scope: 'BRANCH',
+            scopeKey: 'branch-1',
+            branchId: 'branch-1',
             items: [
               {
                 id: 'fraud-1',
-                ruleCode: 'HIGH_VALUE',
+                ruleCode: 'FR-HV-001',
                 status: 'OPEN',
                 severity: 'HIGH',
                 branchId: 'branch-1',
-                customer: { fullName: 'Amina Bello' },
+                branchName: 'Wuse',
+                customerName: 'Amina Bello',
+                cashierName: 'jane.a',
+                receiptNumber: 'POS-1042',
+                amountKobo: 125000,
+                evidence: {
+                  purchaseAmountKobo: '125000',
+                  thresholdKobo: 100000,
+                  occurredAt: '2026-10-13T10:00:00.000Z',
+                },
               },
             ],
+            summary: {
+              needReviewCount: 1,
+              highPriorityCount: 1,
+              underReviewCount: 0,
+            },
             nextCursor: null,
             hasMore: false,
           },
@@ -761,10 +775,18 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.goto('/supervisor/fraud');
     await expect(
-      page.getByRole('region', { name: /fraud workspace/i }),
-    ).toContainText(/1 result/i);
+      page.getByRole('heading', { name: 'Flagged activity', level: 1 }),
+    ).toBeVisible();
     await expect(
-      page.getByRole('region', { name: /fraud flag list/i }).getByRole('table'),
+      page.getByRole('region', { name: /flagged activity workspace/i }),
+    ).toContainText(/1 shown/i);
+    await expect(
+      page
+        .getByRole('region', { name: /flagged activity results/i })
+        .getByRole('table'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Branch: All branches' }),
     ).toBeVisible();
     const fraudHeaderTypography = await page
       .locator('.fraud-flags__table thead th')
@@ -813,7 +835,7 @@ test.describe('contract-faithful frontend flows', () => {
             Math.round(filter.getBoundingClientRect().top),
           ),
         );
-      expect(new Set(filterTops).size).toBe(1);
+      expect(new Set(filterTops).size).toBe(width < 480 ? 2 : 1);
       const controlRow = await page
         .locator('.fraud-flags__control-row')
         .evaluate((row) => {
@@ -826,26 +848,57 @@ test.describe('contract-faithful frontend flows', () => {
               filtersBounds.bottom - refreshBounds.bottom,
             ),
             refreshIsRightOfFilters: refreshBounds.left >= filtersBounds.right,
+            refreshFollowsFilters: refreshBounds.top >= filtersBounds.bottom,
           };
         });
-      expect(controlRow.bottomDifference).toBeLessThanOrEqual(1);
-      expect(controlRow.refreshIsRightOfFilters).toBe(true);
+      if (width > 860) {
+        expect(controlRow.bottomDifference).toBeLessThanOrEqual(1);
+        expect(controlRow.refreshIsRightOfFilters).toBe(true);
+      } else {
+        expect(controlRow.refreshFollowsFilters).toBe(true);
+      }
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width);
+      for (const filter of [
+        { trigger: 'Category: All activity', listbox: 'Category' },
+        { trigger: 'Review status: All statuses', listbox: 'Review status' },
+        { trigger: 'Priority: All priorities', listbox: 'Priority' },
+        { trigger: 'Branch: All branches', listbox: 'Branch' },
+      ]) {
+        await page.getByRole('button', { name: filter.trigger }).click();
+        const menu = page.getByRole('listbox', { name: filter.listbox });
+        const menuBounds = await menu.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          const style = window.getComputedStyle(element);
+          return {
+            left: bounds.left,
+            right: bounds.right,
+            borderRadius: style.borderRadius,
+            backgroundColor: style.backgroundColor,
+          };
+        });
+        expect(menuBounds.left).toBeGreaterThanOrEqual(0);
+        expect(menuBounds.right).toBeLessThanOrEqual(width);
+        expect(menuBounds.borderRadius).toBe('12px');
+        expect(menuBounds.backgroundColor).toBe('rgb(255, 255, 255)');
+        await page.keyboard.press('Escape');
+      }
     }
     await page.setViewportSize({ width: 1280, height: 720 });
     await page
-      .getByRole('button', { name: /Review HIGH_VALUE for Amina Bello/i })
+      .getByRole('button', {
+        name: /Review case: Purchase above the review threshold for Customer Amina Bello/i,
+      })
       .click();
     const fraudDialog = page.getByRole('dialog', {
-      name: 'Review fraud case',
+      name: 'Review flagged activity',
     });
     await expect(fraudDialog).toBeVisible();
     await fraudDialog
-      .getByLabel('Fraud decision reason')
+      .getByLabel('Decision reason')
       .fill('supervisor shell review');
-    await fraudDialog.getByRole('button', { name: 'Submit decision' }).click();
+    await fraudDialog.getByRole('button', { name: 'Record decision' }).click();
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {
@@ -1015,6 +1068,11 @@ test.describe('contract-faithful frontend flows', () => {
             scopeKey: 'tenant-1',
             branchId: null,
             items: [],
+            summary: {
+              needReviewCount: 0,
+              highPriorityCount: 0,
+              underReviewCount: 0,
+            },
             nextCursor: null,
             hasMore: false,
           },
@@ -1050,7 +1108,9 @@ test.describe('contract-faithful frontend flows', () => {
     ).toBeVisible();
 
     await page.goto('/supervisor/fraud');
-    await expect(page.getByText(/No fraud flags/i)).toBeVisible();
+    await expect(
+      page.getByText(/No flagged activity is available/i),
+    ).toBeVisible();
     await page.goto('/supervisor/reports');
     await expect(page.getByText(/No report rows/i)).toBeVisible();
 
@@ -1117,6 +1177,7 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(
       page.getByRole('heading', { name: 'Fraud', exact: true }),
     ).toBeVisible();
+    await expect(page.getByLabel('Fraud branch filter')).toBeVisible();
     const adminFraudResults = page.getByRole('region', {
       name: /fraud flag list/i,
     });

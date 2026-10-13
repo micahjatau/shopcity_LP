@@ -1181,8 +1181,8 @@ test.describe('workflow route coverage', () => {
       ],
       [
         '/supervisor/fraud',
-        'Fraud',
-        'Review flagged activity and record an acknowledgment or resolution.',
+        'Flagged activity',
+        'Review patterns, check the context, and record the next step.',
       ],
       [
         '/supervisor/reports',
