@@ -1,6 +1,8 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-12
+Updated: 2026-10-13
+
+Latest session: [Cashier Capture Purchase Earn handoff](session-handoff-2026-10-13-cashier-capture-purchase.md).
 
 ## Current session — Cashier customer workflow
 
