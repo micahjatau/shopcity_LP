@@ -45,6 +45,7 @@ import {
 const MAX_DEVICE_ATTESTATION_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_SESSION_LIFETIME_MS = 1000 * 60 * 60 * 12;
 const SMOKE_SESSION_LIFETIME_MS = 15 * 60 * 1000;
+const LOCAL_CASHIER_TEST_SESSION_LIFETIME_MS = 60 * 60 * 1000;
 const deviceCredentialSessionSelect = {
   id: true,
   tenantId: true,
@@ -648,7 +649,7 @@ export class AuthService {
         user.tenantId,
         'auth.local_cashier_test_session',
         device.id,
-        SMOKE_SESSION_LIFETIME_MS,
+        LOCAL_CASHIER_TEST_SESSION_LIFETIME_MS,
         SessionPurpose.SMOKE,
       );
     });
@@ -865,11 +866,15 @@ export class AuthService {
     deviceCredentialId: string | null = null,
   ): Promise<IssuedSession> {
     const [sessionToken, csrfToken] = [randomUUID(), randomUUID()];
+    const maxSmokeSessionLifetimeMs =
+      action === 'auth.local_cashier_test_session'
+        ? LOCAL_CASHIER_TEST_SESSION_LIFETIME_MS
+        : SMOKE_SESSION_LIFETIME_MS;
     if (
       !Number.isSafeInteger(lifetimeMs) ||
       lifetimeMs <= 0 ||
       (purpose === SessionPurpose.SMOKE &&
-        lifetimeMs > SMOKE_SESSION_LIFETIME_MS)
+        lifetimeMs > maxSmokeSessionLifetimeMs)
     ) {
       throw new Error('Session lifetime exceeds the allowed maximum');
     }

@@ -1,6 +1,6 @@
 # Local cashier test session
 
-This opt-in lets developers exercise cashier earn/redeem workflows locally without pairing a physical POS. It issues a non-refreshable 15-minute smoke session bound to a clearly named `LOCAL DEV TEST POS` device that remains `UNPAIRED`.
+This opt-in lets developers exercise cashier earn/redeem workflows locally without pairing a physical POS. It issues a non-refreshable one-hour smoke session bound to a clearly named `LOCAL DEV TEST POS` device that remains `UNPAIRED`.
 
 ## Safety boundary
 
@@ -39,7 +39,7 @@ Transactions created with this session are local test data. Do not point the loc
 
 4. Restart the backend and web development servers so the flags are loaded.
 5. Enter an active, branch-assigned cashier email on the local login page and select **Start local cashier test session**. The backend creates or reuses the branch's active, unpaired local test POS and sets the session cookies.
-6. Work through earn/redeem using local test records. The session expires after 15 minutes and cannot be refreshed; start another local test session when needed.
+6. Work through earn/redeem using local test records. The session expires after one hour and cannot be refreshed; start another local test session when needed.
 
 ### Optional Tailscale-only access
 

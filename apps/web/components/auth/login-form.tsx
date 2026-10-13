@@ -283,8 +283,8 @@ export function LoginForm() {
             Start local cashier test session
           </Button>
           <small>
-            Local test data only; uses an unpaired test POS and expires after 15
-            minutes.
+            Local test data only; uses an unpaired test POS and expires after
+            one hour.
           </small>
         </div>
       )}

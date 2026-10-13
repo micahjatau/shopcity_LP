@@ -431,7 +431,7 @@ describe('AuthService', () => {
     );
   });
 
-  it('creates a short-lived cashier smoke session from the exact configured Tailscale origin', async () => {
+  it('creates a one-hour cashier smoke session from the exact configured Tailscale origin', async () => {
     const user = {
       id: 'cashier-id',
       tenantId: 'tenant-id',
@@ -523,9 +523,10 @@ describe('AuthService', () => {
       purpose: SessionPurpose.SMOKE,
     });
     expect(issued.context.session.id).toBe('smoke-session-id');
-    expect(
-      issued.context.session.expiresAt.getTime() - Date.now(),
-    ).toBeLessThanOrEqual(15 * 60 * 1000);
+    const sessionLifetimeMs =
+      issued.context.session.expiresAt.getTime() - Date.now();
+    expect(sessionLifetimeMs).toBeGreaterThan(59 * 60 * 1000);
+    expect(sessionLifetimeMs).toBeLessThanOrEqual(60 * 60 * 1000);
     expect(auditService.recordWithClient).toHaveBeenCalledWith(
       tx,
       expect.objectContaining({
@@ -564,7 +565,7 @@ describe('AuthService', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects smoke session lifetimes above the 15 minute maximum', async () => {
+  it('enforces the 15-minute smoke-bootstrap and one-hour local-cashier limits', async () => {
     const service = new AuthService(
       {} as never,
       {} as never,
@@ -591,6 +592,17 @@ describe('AuthService', () => {
         'auth.smoke_session_bootstrap',
         null,
         15 * 60 * 1000 + 1,
+        SessionPurpose.SMOKE,
+      ),
+    ).rejects.toThrow('Session lifetime exceeds the allowed maximum');
+    await expect(
+      issueSession(
+        {},
+        'user-id',
+        'tenant-id',
+        'auth.local_cashier_test_session',
+        'local-device-id',
+        60 * 60 * 1000 + 1,
         SessionPurpose.SMOKE,
       ),
     ).rejects.toThrow('Session lifetime exceeds the allowed maximum');
