@@ -11,6 +11,56 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-13 — Keep Supervisor report snapshots current on quiet days
+
+| Symbol                                  | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                              |
+| --------------------------------------- | ---: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `buildDailyFinancialSummaries`          |  LOW |        6 |      2 |         0 | Called by tenant and branch planning; include the as-of business date so closing balances do not stop on the last transaction/expiry date. Flow totals remain zero on quiet dates. |
+| `ReportMaterializerService.materialize` |  LOW |        4 |      3 |         0 | Shared by tenant, branch, and rebuild entrypoints; keep source calculation and scope authorization unchanged.                                                                      |
+
+```text
+npm run proposal:impact -- --file src/modules/reports/report-materializer.service.ts buildDailyFinancialSummaries
+gitnexus impact materialize --direction upstream --repo shopcity_LP --file src/modules/reports/report-materializer.service.ts
+```
+
+Both symbol-level results are LOW; no HIGH/CRITICAL risk was reported. The existing five-minute materialization worker remains responsible for producing refreshed snapshots; Supervisor dashboard refresh remains a read-only reload.
+
+### 2026-10-13 — Supervisor flagged-activity review redesign
+
+Proposal-time upstream impact with tests included:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/fraud-flags-panel.tsx FraudFlagsPanel
+npm run proposal:impact -- --file 'apps/web/app/(shell)/supervisor/fraud/page.tsx' SupervisorFraudPage
+npm run proposal:impact -- --file src/modules/fraud/fraud-review.service.ts FraudReviewService.listFraudFlags
+npm run proposal:impact -- --file src/modules/fraud/fraud.controller.ts listFraudFlags
+```
+
+| Symbol                              | Risk | Impacted symbols | Direct dependants | Affected processes                   |
+| ----------------------------------- | ---: | ---------------: | ----------------: | ------------------------------------ |
+| `FraudFlagsPanel`                   |  LOW |                3 |                 3 | SupervisorFraudPage, AdminFraudPage  |
+| `SupervisorFraudPage`               |  LOW |                0 |                 0 | 0                                    |
+| `FraudReviewService.listFraudFlags` |  LOW |                2 |                 2 | 1 (`FraudController.listFraudFlags`) |
+| `FraudController.listFraudFlags`    |  LOW |                0 |                 0 | 0                                    |
+
+No HIGH/CRITICAL result. Keep the neutral redesign isolated to the Supervisor variant; Admin presentation and behavior remain unchanged. The list-read additions are tenant/branch-scoped and additive; authorization and decision writes remain unchanged. `FR-HV-003` remains the canonical runtime/persisted redemption code; `FR-RED-001` is retained only as a presentation alias. Existing dirty worktree changes are preserved.
+
+### 2026-10-13 — Server-side pagination for Cashier Transactions
+
+| Symbol                               | Risk | Impacted | Direct | Processes | Notes                                                                                                                                             |
+| ------------------------------------ | ---: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ReportsService.listCashierToday`    |  LOW |        1 |      1 |         1 | The controller is the direct caller; preserve the existing cashier/tenant/branch/current-day bounds while adding page slicing and a scoped count. |
+| `ReportsController.listCashierToday` |  LOW |        0 |      0 |         0 | Query parsing and response schema are confined to this endpoint.                                                                                  |
+| `TransactionDashboard`               |  LOW |        1 |      1 |         1 | Used by `CashierTransactionsPage`; other Cashier Today consumers keep their existing default page and limit behavior.                             |
+
+```text
+gitnexus impact listCashierToday --direction upstream --repo shopcity_LP --file src/modules/reports/reports.service.ts
+gitnexus impact listCashierToday --direction upstream --repo shopcity_LP --file src/modules/reports/reports.controller.ts
+gitnexus impact TransactionDashboard --direction upstream --repo shopcity_LP
+```
+
+All results are LOW; no HIGH/CRITICAL risk was reported. Pagination remains within the authenticated cashier's branch-local current-day scope.
+
 ### 2026-10-13 — Atomic redemption settlement
 
 | Symbol                                    |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                       |
@@ -346,6 +396,26 @@ npm run proposal:impact -- --file apps/web/components/app-sidebar.tsx AppSidebar
 | `CustomerDetailsDialog` | LOW, exact |                5 |                 1 | 1 (`SupervisorCustomerProfilePage`)  |
 | `AppTopbar`             | LOW, exact |                4 |                 2 | 2 (`ShellLayout`, `AppShellContent`) |
 | `AppSidebar`            | LOW, exact |                4 |                 1 | 2 (`ShellLayout`, `AppShellContent`) |
+
+### 2026-10-13 — Supervisor branch-scoped operational report refresh
+
+| Symbol                              | Risk | Impacted | Direct | Processes | Notes                                                                                                                                         |
+| ----------------------------------- | ---: | -------: | -----: | --------: | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OperationalReportsDashboard`       |  LOW |        4 |      2 |         2 | Shared by Supervisor and Admin reports pages; retain existing Admin button behavior and enable enqueue/poll only for the Supervisor audience. |
+| `ReportsController`                 |  LOW |        5 |      3 |         0 | Add a separate Supervisor-only dashboard refresh route; leave the Admin refresh route role unchanged.                                         |
+| `ReportExportService`               |  LOW |        7 |      4 |         0 | Add scoped, audited, idempotent outbox enqueue; derive branch from session and verify it belongs to tenant.                                   |
+| `ReportExportService.refreshReport` |  LOW |        1 |      1 |         0 | Existing Admin refresh remains unchanged.                                                                                                     |
+| `ReportsController.refreshReport`   |  LOW |        0 |      0 |         0 | Existing Admin refresh remains unchanged.                                                                                                     |
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-operational-reports.tsx OperationalReportsDashboard
+npm run proposal:impact -- --file src/modules/reports/reports.controller.ts ReportsController
+npm run proposal:impact -- --file src/modules/reports/report-export.service.ts ReportExportService
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/reports/report-export.service.ts --include-tests refreshReport --summary-only
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/reports/reports.controller.ts --include-tests refreshReport --summary-only
+```
+
+All exact results are LOW; no HIGH/CRITICAL risk was reported. Supervisor refresh remains server-derived and branch-only; do not widen the existing Admin endpoint.
 
 No HIGH/CRITICAL risk was reported. Scope is CSS/type hierarchy plus the Annual Purchases label; no API, schema, authorization, or workflow behavior changes are planned. The current API has no annual-purchases total, so the card remains **Not provided** rather than deriving a value from partial activity.
 
@@ -1529,3 +1599,41 @@ node .gitnexus/run.cjs impact VerifiedCardLookupStep --file apps/web/components/
 | `VerifiedCardLookupStep` | HIGH, exact |                5 |                 1 | Cashier Lookup, Earn, Redeem |
 
 The change is confined to shared lookup messaging/placeholder, the Capture Purchase search icon/gradient, and Cashier stepper CSS; lookup state, protected card verification, financial logic, and API behavior remain unchanged.
+
+### 2026-10-13 — Apply Supervisor Cards styling to Fraud
+
+| Symbol                    | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------- | ---: | -------: | -----: | --------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FraudFlagsPanel`         |  LOW |        2 |      2 |         2 | Shared by Admin and Supervisor fraud routes; keep behavior intact, scope visual rules beneath `.supervisor-page`, align action-button dimensions and copy (`Refresh flags`, `Review case`), and scope Cards-style accessible filter popovers to Supervisor while retaining Admin native selects; keep option values in the menus and use filter names on closed triggers; remove the Supervisor branch filter while retaining Admin's branch query, and keep Supervisor filter/refresh controls compact. |
+| `SupervisorCardWorkflows` |  LOW |        1 |      1 |         1 | Cards route is the visual reference only; do not change its workflows or styles.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `SupervisorFraudPage`     |  LOW |        0 |      0 |         0 | Route receives an explicit Supervisor presentation prop; no upstream callers.                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/fraud-flags-panel.tsx FraudFlagsPanel
+gitnexus impact SupervisorCardWorkflows --direction upstream --repo shopcity_LP --file apps/web/components/workflows/supervisor-card-workflows.tsx
+gitnexus impact SupervisorFraudPage --direction upstream --repo shopcity_LP --file 'apps/web/app/(shell)/supervisor/fraud/page.tsx'
+```
+
+Both component results are LOW. No HIGH/CRITICAL risk was reported. The title-based target for the contract-flow browser test is not indexed (UNKNOWN, impactedCount 0); the test is updated to assert the revised narrow-screen layout and Cards-style menu geometry. Admin fraud presentation, fraud API behavior, and case decisions remain unchanged; refresh and review labels match their visible and accessible names; the filter-menu implementation is Supervisor-only and preserves Admin native selects.
+
+### 2026-10-13 — Separate and pace SMS delivery-report polling
+
+| Symbol                                    | Risk | Impacted | Direct | Processes | Notes                                                                                                                |
+| ----------------------------------------- | ---: | -------: | -----: | --------: | -------------------------------------------------------------------------------------------------------------------- |
+| `OutboxWorkerRuntime.pollDeliveryReports` |  LOW |        5 |      1 |         1 | Called by the recovery cycle; move DLR polling to a separate paced timer and make persisted due-time selection fair. |
+| `OutboxWorkerRuntime.runRecoveryCycle`    |  LOW |        6 |      2 |         1 | Keep outbox recovery independent from slow provider report lookups.                                                  |
+| `OutboxWorkerRuntime.start`               |  LOW |        4 |      2 |         1 | Start the DLR schedule without delaying worker readiness.                                                            |
+| `OutboxWorkerRuntime.stop`                |  LOW |        6 |      2 |         1 | Clear the DLR timer and await any active DLR batch before shutdown.                                                  |
+| `loadWorkerConfig`                        |  LOW |        6 |      3 |         1 | Add validated polling interval and bounded batch configuration.                                                      |
+| `envValidationSchema`                     |  LOW |        0 |      0 |         0 | Configuration schema has no indexed upstream dependants.                                                             |
+
+```text
+node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Method:src/jobs/outbox-worker.runtime.ts:OutboxWorkerRuntime.pollDeliveryReports#0' --direction upstream --include-tests
+node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Method:src/jobs/outbox-worker.runtime.ts:OutboxWorkerRuntime.runRecoveryCycle#0' --direction upstream --include-tests --summary-only
+node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Method:src/jobs/outbox-worker.runtime.ts:OutboxWorkerRuntime.start#0' --direction upstream --include-tests --summary-only
+node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Method:src/jobs/outbox-worker.runtime.ts:OutboxWorkerRuntime.stop#0' --direction upstream --include-tests --summary-only
+node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Function:src/jobs/outbox-worker.runtime.ts:loadWorkerConfig' --direction upstream --include-tests --summary-only
+node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Const:src/config/env.validation.ts:envValidationSchema' --direction upstream --include-tests --summary-only
+```
+
+All symbol-level results are LOW; no HIGH/CRITICAL risk was reported. `SmsMessage` is a Prisma schema model not indexed as a GitNexus symbol; its schema and query consumers are reviewed directly. No real provider request or shared-database migration is authorized by this code change.
