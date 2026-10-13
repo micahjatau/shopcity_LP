@@ -1,6 +1,5 @@
 'use client';
 
-import { CircleCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, Input, Table } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
@@ -9,11 +8,14 @@ import {
   type EarnPolicyContext,
   type EarnLookupContext,
 } from './use-earn-transaction-controller';
+import { EarnTransactionSuccess } from './earn-transaction-success';
 
 type EarnTransactionFormProps = {
   lookupContext?: EarnLookupContext;
+  currentWalletBalanceKobo?: number | null;
   policyContext?: EarnPolicyContext | null;
   cashierId?: string | null;
+  cashierDisplayName?: string | null;
   deviceId?: string | null;
   branchId?: string | null;
   branchTimezone?: string | null;
@@ -23,8 +25,10 @@ type EarnTransactionFormProps = {
 };
 export function EarnTransactionForm({
   lookupContext,
+  currentWalletBalanceKobo,
   policyContext,
   cashierId,
+  cashierDisplayName,
   deviceId,
   branchId,
   branchTimezone,
@@ -62,7 +66,7 @@ export function EarnTransactionForm({
   useEffect(() => {
     if (!onFlowStepChange) return;
     onFlowStepChange(
-      status === 'confirmed' || status === 'pending' || reviewing ? 3 : 2,
+      status === 'confirmed' ? 4 : status === 'pending' || reviewing ? 3 : 2,
     );
   }, [onFlowStepChange, reviewing, status]);
 
@@ -76,7 +80,10 @@ export function EarnTransactionForm({
         hourCycle: 'h23',
       }).format(new Date(occurredAt))
     : '—';
-  const balanceBeforeKobo = lookupContext?.availableBalanceKobo;
+  const balanceBeforeKobo =
+    currentWalletBalanceKobo !== undefined
+      ? currentWalletBalanceKobo
+      : lookupContext?.availableBalanceKobo;
   const canShowBalanceBefore =
     typeof balanceBeforeKobo === 'number' &&
     Number.isSafeInteger(balanceBeforeKobo);
@@ -87,11 +94,13 @@ export function EarnTransactionForm({
     Number.isSafeInteger(balanceBeforeKobo + expectedCreditKobo)
       ? balanceBeforeKobo + expectedCreditKobo
       : null;
+  // The Earn API records the full receipt total; it has no separate item-level eligible amount.
+  const eligibleAmountKobo = purchaseAmount;
   const cashbackRateBps = policyContext?.defaultEarnRateBps;
   const cashbackRateLabel =
     typeof cashbackRateBps === 'number' && Number.isFinite(cashbackRateBps)
       ? `${(cashbackRateBps / 100).toLocaleString('en-GB', {
-          minimumFractionDigits: 1,
+          minimumFractionDigits: 0,
           maximumFractionDigits: 2,
         })}%`
       : 'Set by ShopCity';
@@ -257,8 +266,8 @@ export function EarnTransactionForm({
               <div>
                 <span>Eligible amount</span>
                 <strong>
-                  {purchaseAmount !== null ? (
-                    <Money amountKobo={purchaseAmount} />
+                  {eligibleAmountKobo !== null ? (
+                    <Money amountKobo={eligibleAmountKobo} />
                   ) : (
                     '—'
                   )}
@@ -376,7 +385,19 @@ export function EarnTransactionForm({
           <p className="cashier-form-status__message">{message}</p>
         </section>
       ) : null}
-      {responseData ? (
+      {responseData && status === 'confirmed' ? (
+        <EarnTransactionSuccess
+          responseData={responseData}
+          lookupContext={lookupContext}
+          cashierDisplayName={cashierDisplayName}
+          cashbackRateLabel={cashbackRateLabel}
+          branchTimezone={branchTimezone}
+          onCaptureAnother={() => {
+            setReviewing(false);
+            resetDraft();
+          }}
+        />
+      ) : responseData ? (
         <section
           className={`capture-result-card cashier-workflow-stage capture-result-card--${status}`}
           data-od-id="capture-success"
@@ -386,42 +407,23 @@ export function EarnTransactionForm({
           <div className="cashier-stage-heading">
             <span className="cashier-stage-kicker">Result</span>
             <h2 className="cashier-stage-heading-title">
-              {status === 'confirmed'
-                ? 'Purchase captured'
-                : 'Purchase pending approval'}
+              Purchase pending approval
             </h2>
             <p className="cashier-stage-heading-description">
-              The authoritative transaction status is shown below; pending
-              approval is not a completed credit.
+              The transaction was recorded and will complete after supervisor
+              review.
             </p>
           </div>
           <div className="capture-result-card__hero">
-            {status === 'confirmed' ? (
-              <CircleCheck aria-hidden="true" size={30} strokeWidth={1.8} />
-            ) : (
-              <span aria-hidden="true">…</span>
-            )}
-            <span>
-              {status === 'confirmed'
-                ? 'ShopCity Credit earned'
-                : 'Awaiting supervisor approval'}
-            </span>
+            <span aria-hidden="true">…</span>
+            <span>Awaiting supervisor approval</span>
           </div>
           <div>
-            <p className="capture-result-card__eyebrow">
-              {status === 'confirmed'
-                ? 'Transaction complete'
-                : 'Approval required'}
-            </p>
-            <h3>
-              {status === 'confirmed'
-                ? 'Purchase captured successfully'
-                : 'Purchase is awaiting approval'}
-            </h3>
+            <p className="capture-result-card__eyebrow">Approval required</p>
+            <h3>Purchase is awaiting approval</h3>
             <p>
-              {status === 'confirmed'
-                ? 'ShopCity Credit has been issued to the customer wallet.'
-                : 'The transaction was recorded and will complete after supervisor review.'}
+              The transaction was recorded and will complete after supervisor
+              review.
             </p>
           </div>
           <Table>

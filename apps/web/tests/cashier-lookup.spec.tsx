@@ -637,24 +637,18 @@ describe('Cashier lookup workflow', () => {
     expect(confirmationDetails).toHaveTextContent('Wallet Balance');
     expect(confirmationDetails).toHaveTextContent('₦55.00');
     expect(confirmationDetails).toHaveTextContent('+234280* *** 5799');
-    expect(
-      screen
-        .getByRole('img', {
-          name: 'ShopCity loyalty card preview for Ada Shopper, number CARD-001, status Active',
-        })
-        .querySelector('.cashier-capture-confirm__status'),
-    ).toHaveTextContent('Active');
-    expect(
-      screen.getByText('Active').closest('.cashier-capture-confirm__status'),
-    ).toHaveClass('cashier-capture-confirm__status--active');
+    const cardPreview = screen.getByRole('img', {
+      name: 'ShopCity card preview for Ada Shopper; card number CARD-001; status Active',
+    });
+    expect(cardPreview.querySelector('img')?.getAttribute('src')).toContain(
+      '/brand/supervisor/IMG-20260802-WA0001.jpg',
+    );
+    expect(cardPreview).toHaveTextContent('ADA SHOPPER');
+    expect(cardPreview).toHaveTextContent('CARD-001');
+    expect(screen.getByText('Status: Active')).toBeInTheDocument();
     expect(confirmationDetails).not.toHaveTextContent(
       /Earn eligibility|Expiring credit/,
     );
-    expect(
-      screen.getByRole('img', {
-        name: 'ShopCity loyalty card preview for Ada Shopper, number CARD-001, status Active',
-      }),
-    ).toBeInTheDocument();
     const backButton = screen.getByRole('button', {
       name: 'Go back to find customer',
     });

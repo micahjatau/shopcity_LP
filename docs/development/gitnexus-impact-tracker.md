@@ -1416,3 +1416,49 @@ node .gitnexus/run.cjs impact --uid 'Function:apps/web/components/workflows/cust
 ### 2026-10-13 — Cashier profile metric, card, tab, and ledger refinement
 
 `CustomerDetailsDialog` and `ProfileWalletLedger` both reported LOW exact impact within the shared profile chain. The wallet-ledger diagnosis found the frontend request was correct but the controller role guard excluded Cashiers; adding Cashier to the existing branch-scoped ledger read fixes the authorization mismatch without changing ledger writes or query scope. Cashier presentation now uses Last purchase amount, Total monthly Earn (the confirmed EARN/CREDIT ledger sum for the branch-local month), and Last amount redeemed; omits the Cashier Redemptions tab because Wallet Ledger captures both earn and redemption entries; omits Consent, duplicate transaction outcome badges, missing member/status fallback copy, and extra virtual-card explanation; and reuses the Supervisor card image with the verified card number rendered on it and only status shown outside it. The profile typography remains shared, while the virtual-card customer/card-number text is larger. Cashier Overview now maps the authorized activity rows into Recent activity, derives the latest purchase/redeem values from those rows, requests up to ten rows while displaying only three in Transactions, and omits the credit-expiry card. The cashier-safe customer summary now returns a card number, masked email, and explicit birthday-month field; Cashier Customer details omits Registered, Transactions, and Redemptions rows.
+
+### 2026-10-13 — Align Earn amount semantics and TRD default rate
+
+| Symbol                   |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                                                                              |
+| ------------------------ | -------: | -------: | -----: | --------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EarnTransactionForm`    | **HIGH** |        4 |      1 |         3 | Review display remains Earn-scoped, uses server policy context (TRD default 200 bps / 2%), and treats the recorded full purchase amount as eligible because the API has no item-level eligible field. No payload or calculation authority changes. |
+| `EarnTransactionSuccess` |  UNKNOWN |        0 |      0 |         0 | New symbol is not yet indexed. Source confirms it is rendered only by the confirmed Earn branch in `EarnTransactionForm`; the success receipt/eligible values both use authoritative `purchaseAmountKobo`.                                         |
+
+```text
+node .gitnexus/run.cjs impact EarnTransactionForm --file apps/web/components/workflows/earn-transaction-form.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact EarnTransactionSuccess --file apps/web/components/workflows/earn-transaction-success.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+The HIGH result is acknowledged; changes are limited to Earn presentation and tests. Shared Lookup/Redeem behavior and financial/API contracts are unchanged.
+
+### 2026-10-13 — Figma Capture Purchase confirmed Earn success result
+
+| Symbol                 |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                  |
+| ---------------------- | -------: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EarnTransactionForm`  | **HIGH** |        7 |      3 |         3 | The confirmed-result branch is replaced with an Earn-only card; pending approval and receipt/review stages remain separate. API and financial authority are unchanged. |
+| `CashierWorkflowRoute` | **HIGH** |        4 |      4 |         3 | Passes the session display label and completes the final step only after confirmed Earn; Lookup and Redeem composition/step mapping are preserved.                     |
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/earn-transaction-form.tsx EarnTransactionForm
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
+```
+
+GitNexus reports affected processes for Cashier Earn, Redeem, and Lookup because these route consumers share workflow symbols. The implementation remains restricted to the Earn success branch and confirmed-state step completion.
+
+### 2026-10-13 — Cashier verified-card lookup and progress presentation
+
+Proposal-time GitNexus impact was run before refining the active Cashier layout specification:
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
+npm run proposal:impact -- --file apps/web/components/workflows/verified-card-lookup-step.tsx VerifiedCardLookupStep
+node .gitnexus/run.cjs impact CashierWorkflowRoute --file apps/web/components/workflows/cashier-transaction-route.tsx --direction upstream --repo shopcity_LP --include-tests
+node .gitnexus/run.cjs impact VerifiedCardLookupStep --file apps/web/components/workflows/verified-card-lookup-step.tsx --direction upstream --repo shopcity_LP --include-tests
+```
+
+| Symbol                   | Risk        | Impacted symbols | Direct dependants | Affected processes           |
+| ------------------------ | ----------- | ---------------: | ----------------: | ---------------------------- |
+| `CashierWorkflowRoute`   | HIGH, exact |                4 |                 4 | Cashier Lookup, Earn, Redeem |
+| `VerifiedCardLookupStep` | HIGH, exact |                5 |                 1 | Cashier Lookup, Earn, Redeem |
+
+The change is confined to shared lookup messaging/placeholder, the Capture Purchase search icon/gradient, and Cashier stepper CSS; lookup state, protected card verification, financial logic, and API behavior remain unchanged.

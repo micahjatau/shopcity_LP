@@ -168,12 +168,34 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **AND** the Earn confirmation stage uses the compact light ShopCity card preview with dynamic verified customer/card identity; the customer profile retains its own artwork
 - **AND** Back is an outlined text pill with an accessible `Back` name
 
+#### Scenario: Step 4 review shows current and projected wallet balances
+
+- **GIVEN** the verified lookup or matching cashier-safe customer summary provides the customer's current wallet balance and receipt inputs produce an estimated earn credit
+- **WHEN** a Cashier opens Step 4 — Review
+- **THEN** `Balance before` shows that current wallet balance using integer-kobo formatting
+- **AND** `Estimated new balance` equals the current wallet balance plus the estimated earn credit
+- **AND** the projected balance remains advisory until backend confirmation and opening Review does not submit a financial request
+- **AND** if no authoritative current balance is available, the UI does not fabricate a balance
+
 #### Scenario: Capture Purchase protected outcomes
 
 - **GIVEN** Capture Purchase reaches confirmation or a failure condition
 - **WHEN** the backend returns success, approval-required, offline, retryable, or error behavior
 - **THEN** the layout renders the truthful corresponding state
 - **AND** existing financial authority, integer-kobo validation, idempotency, and approval safeguards remain unchanged
+
+#### Scenario: Confirmed Earn result follows the supplied Figma reference
+
+- **GIVEN** the Earn endpoint returns a confirmed 201 response
+- **WHEN** the Cashier sees the result state
+- **THEN** an Earn-scoped success card follows Figma nodes `413:4294` and `413:4348`
+- **AND** the earned credit and resulting balance use only the backend response's `creditKobo` and `availableBalanceKobo`; advisory review estimates are never presented as confirmed values
+- **AND** receipt number, purchase amount (also used as eligible amount until the API exposes a separate item-level eligible amount), capture time, and review status use the authoritative result, while the displayed cashier label comes only from the authenticated session
+- **AND** the cashback rate uses the existing server-provided policy context; the TRD default is 200 basis points (2%), while configured policy overrides remain respected
+- **AND** the card offers Capture another, Redeem Now, and View Customer actions without bypassing existing lookup verification or customer-profile authorization
+- **AND** copying the cashier label copies only that displayed value and announces the outcome accessibly
+- **AND** the final Review step is marked complete only after confirmed success; pending approval and error states do not show the completion tick
+- **AND** no API payload, backend validation, financial calculation, idempotency, or approval behavior changes
 
 #### Scenario: Capture Purchase confirmation card matches Figma node 412:2478
 
@@ -185,8 +207,8 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **AND** the card serial has a keyboard-accessible copy action that copies only the displayed serial and announces success or failure without changing workflow state
 - **AND** wallet balance uses the verified lookup or matching cashier-safe customer summary's available balance in integer-kobo formatting
 - **AND** while the existing cashier-safe customer-summary request is unresolved, only the optional email value shows an accessible reduced-motion-safe skeleton; no additional request or Proceed gate is added
-- **AND** a compact light ShopCity virtual-card preview sits alongside the details on desktop and stacks below them at narrow widths, showing the dynamic customer name, card serial, and status
-- **AND** the preview's barcode is decorative only and is not treated as customer data or a scannable/authoritative identifier
+- **AND** the existing customer-profile virtual-card artwork is reused alongside the details on desktop and stacked below them at narrow widths, showing the dynamic verified customer name and card serial
+- **AND** card status remains visible outside the artwork, matching the customer-profile presentation; no placeholder barcode or scannable identifier is introduced
 - **AND** Back and Proceed remain approximately 160px by 32px, retain accessible names and visible keyboard focus, and preserve the existing transitions
 - **AND** the layout has no horizontal overflow at 1366, 1280, 1440, 1920, 768, and 390px viewports
 - **AND** non-active-card and customer-eligibility behavior stays on the existing lookup/server paths; no new Proceed-blocking rule, retry, or submission state is introduced
@@ -215,6 +237,35 @@ Redeem Credit SHALL use an approximately 720px flow-panel variant that reuses Ca
 - **WHEN** the summary collapses and the workflow state changes
 - **THEN** content remains readable, ordered, and within the viewport
 - **AND** verified-card authority, approval, idempotency, balance, money, and financial-gating rules remain unchanged
+
+### Requirement: Cashier verified-card lookup and progression stay concise
+
+The shared verified-card lookup used by Capture Purchase and Redeem SHALL use the placeholder `Scan card or Search card number`; an empty submission SHALL show `Enter a customer name, phone number, or card number.`; its `Find customer` heading SHALL be 22px and bold. It SHALL NOT show an idle `Ready to continue` alert or the generic `Scan or type a card serial.` prompt. Actionable lookup results, policy notices, and errors SHALL remain visible. The Capture Purchase Search button SHALL include a search icon and use the Cashier sidebar's red-to-orange gradient. The Capture Purchase progress indicator SHALL be left aligned, no wider than 712px, and shrink to available content width on narrow screens while remaining in normal document flow. It SHALL align its right edge with the 712px content card, be 44px high, and retain a 16px inter-stage gap, 16px horizontal padding, 16px corner radius, full opacity, and no rotation. Redeem SHALL retain its existing progress-indicator geometry. Capture stage labels SHALL remain on one line; when needed, horizontal overflow SHALL stay contained within the bar. Active/completed stage changes SHALL animate through restrained transitions and honor `prefers-reduced-motion`.
+
+#### Scenario: Empty lookup is uncluttered
+
+- **WHEN** a Cashier opens the Find customer stage before entering a query
+- **THEN** the field shows `Scan card or Search card number`
+- **AND** the `Find customer` heading is 22px and bold
+- **AND** no idle readiness alert or generic scan/type prompt is displayed
+- **AND** an empty search prompts `Enter a customer name, phone number, or card number.`
+- **AND** actionable lookup, policy, and error messages remain visible when present
+
+#### Scenario: Progress and search action presentation
+
+- **WHEN** a Cashier advances through Capture Purchase or Redeem stages
+- **THEN** the Capture Purchase progress indicator is at most 712px wide and shrinks to available width on narrow screens
+- **AND** its right edge aligns with the 712px content card
+- **AND** the Capture Purchase bar is 44px high with 16px gap/padding, a 16px radius, and full opacity
+- **AND** all stage labels remain on one line within the progress bar
+- **AND** active/completed stages transition smoothly unless reduced motion is requested
+- **AND** the Capture Purchase Search action shows a search icon on the sidebar-matched red-to-orange gradient
+
+#### Scenario: Find Customer recent captures reflect outcome
+
+- **WHEN** the Find customer step shows recent capture activity
+- **THEN** the Recently captured heading follows the Step 1 Figma typography at 16px/700
+- **AND** each captured loyalty amount uses the semantic color of its outcome: success, warning, or danger
 
 ### Requirement: Capture Purchase Step 1 matches the supplied Figma reference
 

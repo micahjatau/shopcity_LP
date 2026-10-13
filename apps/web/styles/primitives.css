@@ -129,6 +129,36 @@
   text-decoration: underline;
 }
 
+.sc-button--cashier-confirm-action {
+  min-height: 2.75rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.sc-button--cashier-confirm-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, #be1313 35%, transparent);
+  outline-offset: 2px;
+}
+
+.sc-button--cashier-confirm-back {
+  border-color: #e9eaeb;
+  color: #414141;
+}
+
+.sc-button--cashier-confirm-back:hover:not(:disabled) {
+  background: #f6f4f5;
+}
+
+.sc-button--cashier-confirm-proceed {
+  border-color: transparent;
+  background: linear-gradient(110deg, #c9151c 0%, #d96800 100%);
+  color: #fff;
+}
+
+.sc-button--cashier-confirm-proceed:hover:not(:disabled) {
+  background: linear-gradient(110deg, #ba1017 0%, #c65e00 100%);
+}
+
 .sc-button__spinner {
   width: 0.95em;
   height: 0.95em;

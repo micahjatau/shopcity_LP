@@ -12,6 +12,7 @@
 }
 
 .cashier-route-page--earn {
+  grid-template-columns: minmax(0, 1fr);
   gap: 34px;
 }
 
@@ -131,12 +132,14 @@
   color: white;
 }
 
-/* Capture Purchase follows the 562px by 36px Figma step-path reference. */
+/* Capture Purchase progress follows the 712px by 44px layout contract. */
 .cashier-flow-steps--capture {
   display: block;
   box-sizing: border-box;
-  width: min(562px, 100%);
-  height: 36px;
+  width: min(712px, 100%);
+  min-width: 0;
+  max-width: 100%;
+  height: 44px;
   padding: 0 16px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -162,9 +165,9 @@
   display: flex;
   width: max-content;
   min-width: 100%;
-  height: 36px;
+  height: 44px;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 0;
 }
 
@@ -912,38 +915,17 @@
 }
 
 .cashier-capture-card-preview {
+  display: grid;
   justify-self: end;
   width: min(248px, 100%);
-  aspect-ratio: 248 / 165;
+  gap: var(--sc-spacing-3);
+}
+
+.cashier-capture-card-preview > figure {
+  justify-self: end;
+  width: 100%;
+  max-width: 248px;
   margin: 0;
-}
-
-.cashier-capture-card-preview__brand,
-.cashier-capture-card-preview__identity,
-.cashier-capture-card-preview__status,
-.cashier-capture-card-preview__barcode {
-  position: absolute;
-  z-index: 1;
-}
-
-.cashier-capture-card-preview__brand {
-  top: 10%;
-  left: 10%;
-}
-
-.cashier-capture-card-preview__identity {
-  top: 35%;
-  left: 10%;
-}
-
-.cashier-capture-card-preview__status {
-  top: 33%;
-  right: 11%;
-}
-
-.cashier-capture-card-preview__barcode {
-  bottom: 12%;
-  left: 10%;
 }
 
 .cashier-confirm-stage .cashier-stage-actions {
@@ -960,6 +942,10 @@
   }
 
   .cashier-capture-card-preview {
+    justify-self: start;
+  }
+
+  .cashier-capture-card-preview > figure {
     justify-self: start;
   }
 }
@@ -1417,6 +1403,116 @@
 .capture-result-card__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.capture-result-card--confirmed {
+  width: min(100%, 590px);
+  margin-inline: auto;
+  gap: 24px;
+  padding: 16px 24px;
+  border: 1px solid var(--sc-prototype-border);
+  border-radius: 16px;
+  background: var(--sc-prototype-surface);
+}
+
+.capture-result-card--confirmed .capture-result-card__hero {
+  min-height: 121px;
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.capture-result-card--confirmed .capture-result-card__hero-title {
+  margin: 0;
+  color: var(--sc-prototype-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.capture-result-card--confirmed .capture-result-card__hero-credit {
+  color: var(--sc-color-success-strong);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.capture-result-card--confirmed .capture-result-card__hero-balance {
+  margin: 0;
+  color: var(--sc-prototype-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.capture-result-card--confirmed .capture-result-card__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  row-gap: 16px;
+  margin: 0;
+}
+
+.capture-result-card--confirmed .capture-result-card__details > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  align-content: start;
+}
+
+.capture-result-card--confirmed .capture-result-card__details dt {
+  color: var(--sc-prototype-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.capture-result-card--confirmed .capture-result-card__details dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.capture-result-card--confirmed .capture-result-card__cashier {
+  justify-content: flex-start;
+}
+
+.capture-result-card--confirmed .capture-result-card__copy {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+}
+
+.capture-result-card--confirmed .capture-result-card__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 160px));
+  justify-content: center;
+  gap: 16px;
+}
+
+.capture-result-card--confirmed .capture-result-card__action {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  white-space: nowrap;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .capture-result-card--confirmed {
+    padding: 16px;
+  }
+
+  .capture-result-card--confirmed .capture-result-card__details,
+  .capture-result-card--confirmed .capture-result-card__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @keyframes cashier-result-enter {

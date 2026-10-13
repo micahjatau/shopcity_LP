@@ -58,9 +58,16 @@
 - [x] 5.3 Keep the outer panel alignment and dimensions stable as inner workflow stages change; preserve accessible stage announcements and focus targets.
 - [x] 5.4 Preserve receipt validation, integer-kobo/money grammar, idempotency, approval, offline, error, retry, card verification, and financial gating behavior.
 - [x] 5.5 Add paired workflow tests for lookup-to-confirmation-to-review-to-success and regression tests for protected transitions, without changing controller/API authority.
+- [x] 5.6 Keep the existing shared confirmation presentation for Redeem; for Capture Purchase step 2 only, remove the `Step 2` kicker and earn-eligibility row, show cashier-safe details and wallet balance, use the profile virtual-card artwork, and keep Back/Proceed transitions unchanged.
+- [x] 5.7 Match the Find customer recent-captures heading typography to Confirm customer, color-code capture amounts by outcome, and use clear empty-search wording without changing lookup behavior.
+- [x] 5.8 Redesign only Capture Purchase's Confirm customer card with responsive customer-first hierarchy, semantic details/status/balance, unchanged card artwork, read-back note, and accessible footer actions; verify six target viewport widths and exact masked-phone display.
 - [x] 5.9 Match Capture Purchase Step 1 to Figma node `408:513` with scoped search/list geometry, copy, icons, and controls while preserving API-backed activity, privacy, card verification, and shared Lookup/Redeem presentation. Verified with targeted Jest and Playwright coverage, computed geometry checks, mobile overflow, and unchanged Redeem lookup defaults.
 - [x] 5.10 Map documented Earn 400 responses to actionable messages, surface unknown error codes for support, and verify server rejections are not queued as offline earns. Verified by six targeted 400-response cases in the transaction-form suite.
 - [x] 5.11 Update only Capture Purchase Step 2 to Figma node `412:2478`, including the dynamic light card preview and accessible card-serial copy action; preserve cashier-safe data, Earn workflow transitions, and Lookup/Redeem presentation. Verified at six POS/mobile viewport widths, with serial-copy coverage, relevant Jest suites, typecheck, design-system check, and strict OpenSpec validation.
+- [x] 5.12 Replace the Step 2 placeholder artwork with the existing customer-profile virtual-card presentation and external status text; preserve dynamic cashier-safe identity and Earn-only scope. Verified with targeted Cashier/profile Jest specs, six-viewport Playwright coverage, the Earn/Redeem workflow Playwright test, typecheck, lint, design-system checks, and strict OpenSpec validation.
+- [x] 5.13 Show Step 4 Balance before from the verified current wallet balance and calculate Estimated new balance as current balance plus expected earn; retain integer-kobo safety, advisory labeling, and Earn-only scope. Verified with `transaction-forms.spec.tsx` (22 tests) and authoritative workflow assertions for the ₦55.00 balance before, ₦0.20 estimate, and ₦55.20 projection without submitting an Earn.
+- [x] 5.14 Match the confirmed Earn result card to Figma nodes `413:4294` and `413:4348`, using backend-confirmed values, authenticated cashier context, existing workflow actions, and an accessible copy affordance. Display the server-policy rate (TRD default 200 bps / 2%) and use authoritative `purchaseAmountKobo` for receipt and eligible amounts because the API has no separate item-level eligible amount. Verified with transaction-form Jest and the focused success-result Playwright test.
+- [x] 5.15 Mark the final Review step complete only after a confirmed Earn response; preserve pending/error semantics and verify Earn-only scope. Verified with confirmed-stepper browser coverage and pending-state transaction-form coverage.
 
 ## 6. Adapt Redeem Credit
 
@@ -69,6 +76,7 @@
 - [x] 6.3 Implement the two-column desktop credit summary and one-column smaller-viewport behavior with accessible reading order.
 - [x] 6.4 Preserve available-credit checks, integer-kobo money handling, approval requirements, idempotency, offline/error states, and authoritative verified-card gating.
 - [x] 6.5 Add paired style/workflow evidence proving shared lookup geometry and no regression across all Redeem transitions.
+- [x] 6.6 Refine shared Earn/Redeem lookup copy and placeholder, style the 22px bold lookup heading, size the left-aligned Capture Purchase progress bar to 712px by 44px with 16px gaps/padding and a 16px radius, keep stage labels single-line, animate transitions, and style Search with the sidebar gradient/icon.
 
 ## 7. Adapt Transactions and detail dialog
 

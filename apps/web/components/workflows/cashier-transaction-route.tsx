@@ -74,6 +74,7 @@ export function CashierWorkflowRoute({
   const {
     userId,
     deviceId,
+    sessionLabel,
     publicConfig,
     configMessage: policyMessage,
   } = useSessionBootstrapState();
@@ -323,7 +324,7 @@ export function CashierWorkflowRoute({
       ) : kind === 'earn' ? (
         <CashierFlowPanel
           flow="earn"
-          state={`step-${currentFlowStep + 1}`}
+          state={`step-${Math.min(currentFlowStep + 1, flowSteps.length)}`}
           className="cashier-flow-panel cashier-earn-workflow-panel"
           dataOdId="capture-flow"
         >
@@ -405,8 +406,13 @@ export function CashierWorkflowRoute({
             >
               <EarnTransactionForm
                 lookupContext={lookupContext}
+                currentWalletBalanceKobo={walletBalanceKobo ?? null}
                 policyContext={policyContext}
                 cashierId={userId}
+                cashierDisplayName={
+                  sessionLabel?.split(' · ').slice(1).join(' · ').trim() ||
+                  'Cashier'
+                }
                 deviceId={deviceId}
                 branchId={policyConfig?.branch?.id ?? null}
                 branchTimezone={branchContext?.timezone ?? null}
@@ -639,84 +645,18 @@ function CaptureCustomerConfirmationCard({
           </div>
         </dl>
       </div>
-      <CashierCaptureVirtualCardPreview
-        customerName={displayName}
-        serialNumber={serialNumber}
-        statusLabel={cardStatusDisplay.label}
-        statusTone={cardStatusDisplay.tone}
-      />
-    </div>
-  );
-}
-
-function CashierCaptureVirtualCardPreview({
-  customerName,
-  serialNumber,
-  statusLabel,
-  statusTone,
-}: Readonly<{
-  customerName: string;
-  serialNumber: string;
-  statusLabel: string;
-  statusTone: 'active' | 'blocked' | 'lost' | 'inactive';
-}>) {
-  return (
-    <figure
-      className="cashier-capture-card-preview"
-      role="img"
-      aria-label={`ShopCity loyalty card preview for ${customerName}, number ${serialNumber}, status ${statusLabel}`}
-    >
-      <Image
-        src="/brand/cashier/cashier-confirmation-card-texture.jpg"
-        alt=""
-        aria-hidden="true"
-        width={3000}
-        height={2000}
-        sizes="248px"
-        className="cashier-capture-card-preview__texture"
-      />
-      <span className="cashier-capture-card-preview__wash" aria-hidden="true" />
-      <div className="cashier-capture-card-preview__brand" aria-hidden="true">
-        <Image
-          src="/brand/cashier/cashier-confirmation-brand-mark.svg"
-          alt=""
-          width={15.1762}
-          height={15.4568}
+      <div className="cashier-capture-card-preview">
+        <SupervisorVirtualCardPreview
+          confirmation
+          customerName={displayName}
+          serialNumber={serialNumber}
+          status={cardStatusDisplay.label}
         />
-        <span>
-          <strong>SHOPCITY</strong>
-          <small>SUPERMARKET</small>
-        </span>
+        <p className="cashier-capture-card-preview__status">
+          Status: {cardStatusDisplay.label}
+        </p>
       </div>
-      <div className="cashier-capture-card-preview__identity">
-        <span>{customerName}</span>
-        <strong>{serialNumber}</strong>
-      </div>
-      <span
-        className={`cashier-capture-card-preview__status cashier-capture-confirm__status cashier-capture-confirm__status--${statusTone}`}
-      >
-        {statusTone === 'active' ? (
-          <Image
-            src="/brand/cashier/cashier-confirmation-status-dot.svg"
-            alt=""
-            aria-hidden="true"
-            width={4.52174}
-            height={4.52174}
-          />
-        ) : (
-          <span aria-hidden="true" />
-        )}
-        <span>{statusLabel}</span>
-      </span>
-      <Image
-        src="/brand/cashier/cashier-confirmation-barcode.svg"
-        alt=""
-        aria-hidden="true"
-        width={96}
-        height={37}
-        className="cashier-capture-card-preview__barcode"
-      />
-    </figure>
+    </div>
   );
 }
 
