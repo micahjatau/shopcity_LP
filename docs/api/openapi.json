@@ -34291,10 +34291,19 @@
             }
           },
           {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "One-based page number within today’s cashier activity",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",
-            "description": "Maximum number of recent rows to return, capped at 10",
+            "description": "Maximum number of rows per page, capped at 10",
             "schema": {
               "type": "number"
             }
@@ -34319,6 +34328,9 @@
                         "branchId",
                         "timezone",
                         "monthlyEarnKobo",
+                        "page",
+                        "limit",
+                        "totalCount",
                         "items"
                       ],
                       "properties": {
@@ -34332,6 +34344,19 @@
                         "monthlyEarnKobo": {
                           "type": "integer",
                           "nullable": true
+                        },
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "limit": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10
+                        },
+                        "totalCount": {
+                          "type": "integer",
+                          "minimum": 0
                         },
                         "items": {
                           "type": "array",

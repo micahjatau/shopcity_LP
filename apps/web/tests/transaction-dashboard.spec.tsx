@@ -41,10 +41,10 @@ const activityItems = [
   },
 ];
 
-function mockActivity(items = activityItems) {
+function mockActivity(items = activityItems, totalCount = items.length) {
   jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
     status: 200,
-    data: { data: { items } },
+    data: { data: { items, page: 1, limit: 5, totalCount } },
   } as never);
 }
 
@@ -121,7 +121,9 @@ describe('TransactionDashboard', () => {
     expect(heading).not.toBeNull();
     expect(filters).not.toBeNull();
     expect(tableCard).not.toBeNull();
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh transactions',
+    });
     expect(refreshButton.querySelector('svg')).not.toBeNull();
     expect(heading).toContainElement(refreshButton);
     expect(heading!.compareDocumentPosition(tableCard!)).toBe(
@@ -180,6 +182,63 @@ describe('TransactionDashboard', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('loads requested server pages and presents the shell table pagination', async () => {
+    mockActivity(activityItems, 12);
+    const secondPageItem = {
+      ...activityItems[0],
+      id: 'txn-page-2',
+      receiptNumber: 'R-006',
+    };
+    jest
+      .mocked(reportsControllerListCashierTodayV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: { items: activityItems, page: 1, limit: 5, totalCount: 12 },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: { items: [secondPageItem], page: 2, limit: 5, totalCount: 12 },
+        },
+      } as never);
+
+    render(<TransactionDashboard />);
+    await waitFor(() => expect(screen.getByText('R-001')).toBeInTheDocument());
+    expect(reportsControllerListCashierTodayV1).toHaveBeenNthCalledWith(
+      1,
+      { page: 1, limit: 5 },
+      expect.anything(),
+    );
+    expect(
+      screen.getByText('Page 1 · 12 transactions today'),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next transaction page' }),
+    );
+    expect(await screen.findByText('R-006')).toBeInTheDocument();
+    expect(reportsControllerListCashierTodayV1).toHaveBeenNthCalledWith(
+      2,
+      { page: 2, limit: 5 },
+      expect.anything(),
+    );
+    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Filter by operation'), {
+      target: { value: 'EARN' },
+    });
+    await waitFor(() =>
+      expect(reportsControllerListCashierTodayV1).toHaveBeenNthCalledWith(
+        3,
+        { page: 1, limit: 5 },
+        expect.anything(),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument(),
+    );
+  });
+
   it('preserves the table composition for an empty bounded report', async () => {
     mockActivity([]);
 
@@ -206,9 +265,11 @@ describe('TransactionDashboard', () => {
         'Adjust the filters or refresh the bounded cashier activity feed.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('contentinfo')).toHaveTextContent(
-      '0 loaded transactions · bounded report scope',
-    );
+    expect(
+      screen.queryByRole('navigation', {
+        name: 'Transaction results pagination',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('contains focus and ignores stale detail responses', async () => {

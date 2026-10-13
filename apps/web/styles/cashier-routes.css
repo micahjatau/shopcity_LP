@@ -3078,14 +3078,49 @@
   gap: 16px;
   padding-top: 10px;
 }
-.transaction-table-footer .cashier-workflow-hint {
+.transaction-table-count {
   margin: 0;
+  color: var(--sc-color-semantic-textSecondary);
+  font-size: 11px;
 }
 .transaction-pagination {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
+  white-space: nowrap;
+}
+.transaction-pagination-button {
+  display: inline-flex;
+  width: 34px;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #ded9da;
+  border-radius: 8px;
+  background: #fff;
+  color: #424242;
+  font: inherit;
+  cursor: pointer;
+}
+.transaction-pagination-button:hover:not(:disabled) {
+  border-color: #c9151c;
+  color: #9e1015;
+}
+.transaction-pagination-button:disabled {
+  color: #858585;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.transaction-pagination-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
+  outline-offset: 3px;
+}
+.transaction-pagination-status {
+  margin: 0;
+  color: #555;
+  font-size: 11px;
   white-space: nowrap;
 }
 .transaction-detail-modal {
@@ -3259,11 +3294,11 @@
     padding: 12px;
   }
   .transaction-table-footer {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
   }
   .transaction-pagination {
-    justify-content: space-between;
+    justify-content: center;
     width: 100%;
   }
   .transaction-detail-modal {
@@ -3285,10 +3320,6 @@
   }
 }
 
-/* The cashier report is intentionally bounded to the server's single result page. */
-.transaction-pagination {
-  display: none;
-}
 .cashier-today-card:has(.cashier-empty) .cashier-table thead {
   display: none;
 }

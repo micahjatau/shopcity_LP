@@ -1,8 +1,8 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   loyaltyControllerGetTransactionV1,
   reportsControllerListCashierTodayV1,
@@ -22,6 +22,8 @@ type DetailState =
   | { status: 'error' };
 
 type DisplayStatus = 'approved' | 'failed' | 'pending' | 'reversed' | 'unknown';
+
+const TRANSACTION_PAGE_SIZE = 5;
 
 function normalizeStatus(status: string | null | undefined): DisplayStatus {
   const normalized = String(status ?? '')
@@ -114,6 +116,7 @@ export function TransactionDashboard() {
   const [operationFilter, setOperationFilter] = useState('');
   const [minimumAmount, setMinimumAmount] = useState('');
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [message, setMessage] = useState('Loading today’s cashier activity…');
   const [loadError, setLoadError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -124,38 +127,52 @@ export function TransactionDashboard() {
   });
   const [copyNotice, setCopyNotice] = useState('');
   const requestGeneration = useRef(0);
+  const listRequestGeneration = useRef(0);
   const triggerRef = useRef<HTMLTableRowElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
   useDialogLifecycle(Boolean(selected), closeDetail, modalRef);
 
-  async function load() {
+  const load = useCallback(async (requestedPage = 1) => {
+    const generation = listRequestGeneration.current + 1;
+    listRequestGeneration.current = generation;
     setBusy(true);
     setLoadError(false);
     setMessage('Loading today’s cashier activity…');
     try {
       const response = await reportsControllerListCashierTodayV1(
-        undefined,
+        { page: requestedPage, limit: TRANSACTION_PAGE_SIZE },
         createApiRequest({ csrf: true }),
       );
+      if (listRequestGeneration.current !== generation) return;
       if (response.status !== 200) throw new Error('activity unavailable');
-      setItems(response.data.data.items);
-      setReportTimeZone(response.data.data.timezone || 'Africa/Lagos');
-      setPage(1);
+      const data = response.data.data;
+      const count = data.totalCount ?? data.items.length;
+      const pageCount = Math.max(1, Math.ceil(count / TRANSACTION_PAGE_SIZE));
+      if (count > 0 && requestedPage > pageCount) {
+        void load(pageCount);
+        return;
+      }
+      setItems(data.items);
+      setTotalCount(count);
+      setReportTimeZone(data.timezone || 'Africa/Lagos');
+      setPage(count === 0 ? 1 : (data.page ?? requestedPage));
       setMessage(
-        `${response.data.data.items.length} bounded live receipt${response.data.data.items.length === 1 ? '' : 's'} loaded.`,
+        `${count} bounded live receipt${count === 1 ? '' : 's'} available today.`,
       );
     } catch {
+      if (listRequestGeneration.current !== generation) return;
       setItems([]);
+      setTotalCount(0);
       setLoadError(true);
       setMessage('Today’s cashier activity is temporarily unavailable.');
     } finally {
-      setBusy(false);
+      if (listRequestGeneration.current === generation) setBusy(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, []);
+    void load(1);
+  }, [load]);
 
   function closeDetail() {
     requestGeneration.current += 1;
@@ -224,16 +241,12 @@ export function TransactionDashboard() {
     });
   }, [items, minimumAmount, operationFilter, query, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(visibleItems.length / 10));
-  const pagedItems = visibleItems.slice((page - 1) * 10, page * 10);
-
-  useEffect(() => {
-    setPage((current) => Math.min(current, totalPages));
-  }, [totalPages]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / TRANSACTION_PAGE_SIZE));
+  const pagedItems = visibleItems;
 
   function updateFilter(setter: (value: string) => void, value: string) {
     setter(value);
-    setPage(1);
+    if (page !== 1) void load(1);
   }
 
   return (
@@ -254,11 +267,11 @@ export function TransactionDashboard() {
           type="button"
           variant="secondary"
           size="compact"
-          onClick={() => void load()}
+          onClick={() => void load(page)}
           loading={busy}
         >
           <RefreshCw aria-hidden="true" size={16} strokeWidth={1.8} />
-          Refresh
+          Refresh transactions
         </Button>
       </header>
       <p className="sr-only" role="status">
@@ -484,40 +497,39 @@ export function TransactionDashboard() {
             </tbody>
           </Table>
         </div>
-        <footer className="transaction-table-footer">
-          <p className="cashier-workflow-hint">
-            {visibleItems.length} loaded transaction
-            {visibleItems.length === 1 ? '' : 's'} · bounded report scope
-          </p>
-          <div
-            className="transaction-pagination"
-            aria-label="Transaction pages"
-          >
-            <Button
-              type="button"
-              variant="ghost"
-              size="compact"
-              disabled={page === 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
+        {totalCount > 0 ? (
+          <footer className="transaction-table-footer">
+            <p className="transaction-table-count" aria-live="polite">
+              Page {page} · {totalCount} transactions today
+            </p>
+            <nav
+              className="transaction-pagination"
+              aria-label="Transaction results pagination"
             >
-              Previous
-            </Button>
-            <span aria-live="polite">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="compact"
-              disabled={page === totalPages}
-              onClick={() =>
-                setPage((current) => Math.min(totalPages, current + 1))
-              }
-            >
-              Next
-            </Button>
-          </div>
-        </footer>
+              <button
+                className="transaction-pagination-button"
+                type="button"
+                onClick={() => void load(page - 1)}
+                disabled={page <= 1 || busy}
+                aria-label="Previous transaction page"
+              >
+                <ChevronLeft aria-hidden="true" size={16} />
+              </button>
+              <p className="transaction-pagination-status" aria-live="polite">
+                Page {page} of {totalPages}
+              </p>
+              <button
+                className="transaction-pagination-button"
+                type="button"
+                onClick={() => void load(page + 1)}
+                disabled={page >= totalPages || busy}
+                aria-label="Next transaction page"
+              >
+                <ChevronRight aria-hidden="true" size={16} />
+              </button>
+            </nav>
+          </footer>
+        ) : null}
       </ShopCityCard>
       {selected ? (
         <div

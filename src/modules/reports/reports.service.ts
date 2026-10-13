@@ -227,10 +227,14 @@ export class ReportsService {
     context: AuthContext,
     customerId?: string,
     limit = 10,
+    page = 1,
   ): Promise<{
     branchId: string;
     timezone: string;
     monthlyEarnKobo: number | null;
+    page: number;
+    limit: number;
+    totalCount: number;
     items: Array<{
       id: string;
       transactionId: string | null;
@@ -271,6 +275,16 @@ export class ReportsService {
       new Date(),
       branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
     );
+    const pageLimit = Math.min(Math.max(Math.floor(limit), 1), 10);
+    const currentPage = Math.min(Math.max(Math.floor(page), 1), 1_000_000);
+    const where = {
+      tenantId,
+      branchId: branch.id,
+      capturedByTenantId: tenantId,
+      capturedBy: context.user.id,
+      ...(customerId ? { customerId } : {}),
+      occurredAt: { gte: windowStart, lt: windowEnd },
+    };
     const monthlyEarnPromise = customerId
       ? this.prisma.loyaltyLedgerEntry
           ?.aggregate({
@@ -290,44 +304,44 @@ export class ReportsService {
           })
           .catch(() => null)
       : Promise.resolve(null);
-    const receipts = await this.prisma.receipt.findMany({
-      where: {
-        tenantId,
-        branchId: branch.id,
-        capturedByTenantId: tenantId,
-        capturedBy: context.user.id,
-        ...(customerId ? { customerId } : {}),
-        occurredAt: { gte: windowStart, lt: windowEnd },
-      },
-      orderBy: { occurredAt: 'desc' },
-      take: Math.min(Math.max(limit, 1), 10),
-      include: {
-        redemption: {
-          select: {
-            requestedAmountKobo: true,
-            confirmedAmountKobo: true,
-            status: true,
+    const [receipts, totalCount, monthlyEarn] = await Promise.all([
+      this.prisma.receipt.findMany({
+        where,
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        skip: (currentPage - 1) * pageLimit,
+        take: pageLimit,
+        include: {
+          redemption: {
+            select: {
+              requestedAmountKobo: true,
+              confirmedAmountKobo: true,
+              status: true,
+            },
           },
-        },
-        ledgerEntries: {
-          select: {
-            id: true,
-            type: true,
-            amountKobo: true,
-            status: true,
+          ledgerEntries: {
+            select: {
+              id: true,
+              type: true,
+              amountKobo: true,
+              status: true,
+            },
+            orderBy: { effectiveAt: 'desc' },
+            take: 2,
           },
-          orderBy: { effectiveAt: 'desc' },
-          take: 2,
+          customer: { select: { fullName: true } },
         },
-        customer: { select: { fullName: true } },
-      },
-    });
+      }),
+      this.prisma.receipt.count({ where }),
+      monthlyEarnPromise,
+    ]);
 
-    const monthlyEarn = await monthlyEarnPromise;
     const monthlyEarnKobo = monthlyEarn?._sum.amountKobo;
     return {
       branchId: branch.id,
       timezone: branch.timezone ?? DEFAULT_REPORT_TIME_ZONE,
+      page: currentPage,
+      limit: pageLimit,
+      totalCount,
       monthlyEarnKobo:
         typeof monthlyEarnKobo === 'bigint' && monthlyEarnKobo >= 0n
           ? Number(monthlyEarnKobo)

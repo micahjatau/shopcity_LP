@@ -18,6 +18,7 @@
 - [x] 3.3 Implement the authoritative transaction-detail request through the generated client and map nullable/unsupported fields to truthful view-model copy; verify no raw DTO, fabricated audit event, customer name, receipt image, or outcome is rendered.
 - [x] 3.4 Implement the transaction detail as an accessible modal with backdrop, initial focus, focus containment, Escape, close control, scroll handling, loading/error/empty states, and stale-response protection; verify keyboard, race, and modal lifecycle tests.
 - [x] 3.5 Preserve Supervisor/Admin reversal behavior and exclude reversal controls from Cashier detail; verify role-boundary and authorization tests.
+- [x] 3.6 Add server-side page/limit and cashier-scoped total count to the Cashier Today contract; regenerate API artifacts and retain existing defaults for other endpoint consumers.
 
 ## 4. Search and Sync Queue
 
@@ -40,3 +41,4 @@
 - [x] 6.2 Run frontend lint, typecheck, build, Semgrep, OpenSpec validation, and applicable integration/security checks; record exact commands and outcomes.
 - [x] 6.3 Run GitNexus detect_changes and inspect the working-tree diff, affected flows, residual risks, and unrelated dirty files; record the expected-scope exception because pre-existing dirty files are mixed into the repository. No staging or commit was performed.
 - [x] 6.4 Produce the deliverables: changed-file rationale, before/after route/sidebar map, search matrix, list/modal parity comparison, Sync Queue state/copy matrix, final desktop/mobile screenshots, exact final SHA test results, and intentional deviations/unsupported capabilities.
+- [x] 6.5 Verify server-page navigation, accurate page/total presentation, filter reset behavior, and regression safety for other Cashier Today consumers.

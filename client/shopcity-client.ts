@@ -14950,7 +14950,11 @@ export type ReportsControllerListCashierTodayV1Params = {
    */
   customerId?: string;
   /**
-   * Maximum number of recent rows to return, capped at 10
+   * One-based page number within today’s cashier activity
+   */
+  page?: number;
+  /**
+   * Maximum number of rows per page, capped at 10
    */
   limit?: number;
 };
@@ -14989,6 +14993,15 @@ export type ReportsControllerListCashierTodayV1200Data = {
   timezone: string;
   /** @nullable */
   monthlyEarnKobo: number | null;
+  /** @minimum 1 */
+  page: number;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  limit: number;
+  /** @minimum 0 */
+  totalCount: number;
   /** @maxItems 10 */
   items: ReportsControllerListCashierTodayV1200DataItemsItem[];
 };

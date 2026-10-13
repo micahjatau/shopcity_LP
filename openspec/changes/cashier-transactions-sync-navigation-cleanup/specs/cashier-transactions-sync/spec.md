@@ -23,7 +23,7 @@ The Cashier navigation SHALL contain Overview, Find Customer, Capture Purchase, 
 
 ### Requirement: Transactions present truthful bounded activity and authoritative detail
 
-The Transactions surface SHALL render the approved list hierarchy and a genuine accessible modal for selected transaction details. It SHALL use generated API-client data, preserve tenant/branch/role scope, and describe the bounded activity feed without implying complete history.
+The Transactions surface SHALL render the approved list hierarchy, server-side pagination for the current cashier-day activity feed, and a genuine accessible modal for selected transaction details. It SHALL use generated API-client data, preserve tenant/branch/role scope, and describe the bounded activity feed without implying complete history.
 
 #### Scenario: Cashier views bounded transactions
 
@@ -31,7 +31,17 @@ The Transactions surface SHALL render the approved list hierarchy and a genuine 
 - **WHEN** `/cashier/transactions` renders
 - **THEN** the page shows the approved heading, copy, refresh action, search/filter toolbar, table, result count, and appropriate loading/empty/error state
 - **AND** copy identifies the bounded activity scope
-- **AND** pagination is not presented as complete history unless the contract supplies it
+- **AND** page navigation and the displayed row range use the server-provided current-day total
+- **AND** pagination remains limited to the authenticated cashier's branch-local current day and never implies complete transaction history
+
+#### Scenario: Cashier navigates the bounded transaction pages
+
+- **GIVEN** the Cashier Today endpoint contains more rows than one page
+- **WHEN** the Cashier selects another page
+- **THEN** the page number is sent to the backend and the table renders that server page
+- **AND** the response total count is scoped to the authenticated tenant, branch, cashier, and branch-local current day
+- **AND** the range, current page, and previous/next availability reflect the server response
+- **AND** page navigation does not expand the report date scope
 
 #### Scenario: Cashier opens transaction detail
 

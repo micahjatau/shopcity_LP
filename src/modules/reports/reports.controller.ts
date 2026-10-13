@@ -50,11 +50,22 @@ const reportCollectionSchema = {
 
 const cashierTodaySchema = {
   type: 'object',
-  required: ['branchId', 'timezone', 'monthlyEarnKobo', 'items'],
+  required: [
+    'branchId',
+    'timezone',
+    'monthlyEarnKobo',
+    'page',
+    'limit',
+    'totalCount',
+    'items',
+  ],
   properties: {
     branchId: { type: 'string', format: 'uuid' },
     timezone: { type: 'string' },
     monthlyEarnKobo: { type: 'integer', nullable: true },
+    page: { type: 'integer', minimum: 1 },
+    limit: { type: 'integer', minimum: 1, maximum: 10 },
+    totalCount: { type: 'integer', minimum: 0 },
     items: {
       type: 'array',
       maxItems: 10,
@@ -315,10 +326,16 @@ export class ReportsController {
     description: 'Optional stable customer ID filter within the cashier scope',
   })
   @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'One-based page number within today’s cashier activity',
+  })
+  @ApiQuery({
     name: 'limit',
     required: false,
     type: Number,
-    description: 'Maximum number of recent rows to return, capped at 10',
+    description: 'Maximum number of rows per page, capped at 10',
   })
   @apiSuccessEnvelopeResponse({
     description: "Today's cashier transaction summary",
@@ -328,8 +345,13 @@ export class ReportsController {
   listCashierToday(
     @CurrentSession() context: AuthContext,
     @Query('customerId') customerId?: string,
+    @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const parsedPage = Number.parseInt(page ?? '', 10);
+    const boundedPage = Number.isSafeInteger(parsedPage)
+      ? Math.min(Math.max(parsedPage, 1), 1_000_000)
+      : 1;
     const parsedLimit = Number.parseInt(limit ?? '', 10);
     const boundedLimit = Number.isFinite(parsedLimit)
       ? Math.min(Math.max(parsedLimit, 1), 10)
@@ -339,6 +361,7 @@ export class ReportsController {
       context,
       customerId?.trim() || undefined,
       boundedLimit,
+      boundedPage,
     );
   }
 

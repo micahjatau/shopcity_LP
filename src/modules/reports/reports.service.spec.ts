@@ -341,6 +341,40 @@ describe('ReportsService', () => {
     );
   });
 
+  it('returns a server page and scoped total for cashier activity', async () => {
+    const prisma = prismaStub({ totalCount: 12 });
+    const findMany = jest.spyOn(prisma.receipt, 'findMany');
+    const count = jest.spyOn(prisma.receipt, 'count');
+    const service = new ReportsService(prisma, configService());
+
+    await expect(
+      service.listCashierToday('tenant-1', cashierContext(), undefined, 5, 3),
+    ).resolves.toMatchObject({ page: 3, limit: 5, totalCount: 12, items: [] });
+
+    const expectedWhere = {
+      tenantId: 'tenant-1',
+      branchId: 'branch-1',
+      capturedByTenantId: 'tenant-1',
+      capturedBy: 'cashier-1',
+    };
+    const findManyQuery = findMany.mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+      skip: number;
+      take: number;
+      orderBy: unknown;
+    };
+    expect(findManyQuery).toMatchObject({
+      where: expectedWhere,
+      skip: 10,
+      take: 5,
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+    });
+    const countQuery = count.mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(countQuery.where).toMatchObject(expectedWhere);
+  });
+
   it('does not represent a pending Earn purchase amount as loyalty credit', async () => {
     const prisma = prismaStub({
       receipts: [
@@ -646,6 +680,7 @@ function prismaStub(
     customers?: Array<{ id: string; fullName: string }>;
     cashierUsers?: Array<{ id: string; username: string }>;
     receipts?: Array<Record<string, unknown>>;
+    totalCount?: number;
     monthlyEarnKobo?: bigint | null;
   } = {},
 ): PrismaService {
@@ -681,6 +716,9 @@ function prismaStub(
     },
     receipt: {
       findMany: jest.fn().mockResolvedValue(options.receipts ?? []),
+      count: jest
+        .fn()
+        .mockResolvedValue(options.totalCount ?? options.receipts?.length ?? 0),
     },
     loyaltyLedgerEntry: {
       aggregate: jest.fn().mockResolvedValue({
