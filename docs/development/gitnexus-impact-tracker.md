@@ -11,6 +11,82 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-13 — Atomic redemption settlement
+
+| Symbol                                    |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                       |
+| ----------------------------------------- | -------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RedemptionsService.redeem`               |      LOW |        2 |      2 |         0 | Creates the immediate settlement; request/controller and integration test are direct dependants.                                                                                            |
+| `LoyaltyService.decideRedemptionApproval` | **HIGH** |       10 |      1 |         3 | Approval execution path; the affected approval flows include decision, approve-receipt, and reject-receipt. Keep pending effects absent and execute debit+earn atomically only on approval. |
+| `LoyaltyService.earn`                     |   MEDIUM |       12 |      8 |         1 | Shared earn calculation has many callers, including offline sync. Preserve normal Earn/offline behavior; reuse only the existing integer formula/policy semantics.                          |
+| `calculateCreditKobo`                     | **HIGH** |       19 |      2 |         4 | Direct callers span Earn, approvals, receipts, and offline sync; arithmetic reuse must preserve exact integer rounding and legacy behavior.                                                 |
+| `addMonths`                               | **HIGH** |       19 |      2 |         4 | UTC expiry month-clamp feeds Earn, approvals, and offline sync; shared extraction must preserve leap-day/month-end behavior exactly.                                                        |
+| `resolveCaptureStatus`                    | **HIGH** |       16 |      2 |         4 | Used by Earn approval/capture and offline sync; settlement-specific policy decisions must not change those existing paths.                                                                  |
+| `getApprovalPolicyVersion`                | **HIGH** |       16 |      2 |         4 | Approval policy version reaches approval, receipt, and offline-sync execution; preserve existing fingerprint semantics.                                                                     |
+| `buildRedemptionConfirmedSmsPayload`      | **HIGH** |       10 |      3 |         3 | Used by immediate redemption and redemption approval plus provider tests. Preserve legacy queued payload compatibility while sending one settlement notification for new confirmations.     |
+| `ReversalsService.reverse`                |      LOW |        3 |      2 |         0 | Inspect paired-effect reversal safety; never allow one settlement leg to be reversed silently.                                                                                              |
+| `ReportsService.listCashierToday`         |      LOW |        2 |      2 |         1 | Cashier report row is receipt-based today; must represent both settlement effects without losing cashier scope/bounds.                                                                      |
+| `LoyaltyService.getTransaction`           |      LOW |        4 |      4 |         0 | Transaction detail should expose both effects for the shared receipt while preserving each ledger entry's identity.                                                                         |
+
+```text
+npm run proposal:impact -- --file src/modules/redemptions/redemptions.service.ts redeem
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts decideRedemptionApproval
+npm run proposal:impact -- --file src/modules/loyalty/loyalty.service.ts earn
+npm run proposal:impact -- --file src/jobs/sms.templates.ts buildRedemptionConfirmedSmsPayload
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/reversals/reversals.service.ts --include-tests reverse --summary-only
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/reports/reports.service.ts --include-tests listCashierToday --summary-only
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/loyalty/loyalty.service.ts --include-tests getTransaction --summary-only
+```
+
+The HIGH results are acknowledged. Keep the change bounded to redemption settlement/approval, its truthful transaction read models and SMS, with normal Earn and offline sync semantics unchanged. No remote database mutation is in scope.
+
+### 2026-10-13 — Figma Redeem workflow redesign
+
+| Symbol                         |         Risk | Impacted | Direct | Processes | Notes                                                                                                                                      |
+| ------------------------------ | -----------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CashierWorkflowRoute`         |     **HIGH** |        4 |      4 |         3 | Shared by Earn, Lookup, and Redeem. Only Redeem presentation and transitions will change; validate all three route consumers.              |
+| `RedeemTransactionForm`        |          LOW |        2 |      2 |         0 | Exact form callers only; controller, request payload, and server authority remain unchanged.                                               |
+| `CustomerConfirmationSummary`  |     **HIGH** |        4 |      1 |         3 | Redeem-only use in the route; removing the redundant stage still touches the shared route.                                                 |
+| `RedeemLookupContext`          |      UNKNOWN |        0 |      0 |         0 | Type symbol is not indexed; direct usages will be inspected and covered by TypeScript/unit tests.                                          |
+| `SupervisorVirtualCardPreview` | **CRITICAL** |       11 |      3 |         6 | Shared by Cashier/Supervisor profiles and workflow consumers. Do not modify this component; any Redeem card composition must remain local. |
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
+npm run proposal:impact -- --file apps/web/components/workflows/redeem-transaction-form.tsx RedeemTransactionForm
+node .gitnexus/run.cjs impact CustomerConfirmationSummary --repo shopcity_LP --file apps/web/components/workflows/cashier-transaction-route.tsx --direction upstream --summary-only
+node .gitnexus/run.cjs impact RedeemLookupContext --repo shopcity_LP --file apps/web/components/workflows/use-redeem-transaction-controller.ts --direction upstream --summary-only
+node .gitnexus/run.cjs impact SupervisorVirtualCardPreview --repo shopcity_LP --file apps/web/components/workflows/supervisor-virtual-card-preview.tsx --direction upstream --summary-only
+```
+
+HIGH/CRITICAL findings are acknowledged. Do not edit `SupervisorVirtualCardPreview`; keep all changed markup and styles Redeem-scoped and retain regression coverage for Earn and Lookup.
+
+### 2026-10-13 — Align Earn amount semantics and TRD default rate
+
+| Symbol                   |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                                                                              |
+| ------------------------ | -------: | -------: | -----: | --------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EarnTransactionForm`    | **HIGH** |        4 |      1 |         3 | Review display remains Earn-scoped, uses server policy context (TRD default 200 bps / 2%), and treats the recorded full purchase amount as eligible because the API has no item-level eligible field. No payload or calculation authority changes. |
+| `EarnTransactionSuccess` |  UNKNOWN |        0 |      0 |         0 | New symbol is not yet indexed. Source confirms it is rendered only by the confirmed Earn branch in `EarnTransactionForm`; the success receipt/eligible values both use authoritative `purchaseAmountKobo`.                                         |
+
+```text
+node .gitnexus/run.cjs impact EarnTransactionForm --file apps/web/components/workflows/earn-transaction-form.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact EarnTransactionSuccess --file apps/web/components/workflows/earn-transaction-success.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+The HIGH result is acknowledged; changes are limited to Earn presentation and tests. Shared Lookup/Redeem behavior and financial/API contracts are unchanged.
+
+### 2026-10-13 — Figma Capture Purchase confirmed Earn success result
+
+| Symbol                 |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                  |
+| ---------------------- | -------: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EarnTransactionForm`  | **HIGH** |        7 |      3 |         3 | The confirmed-result branch is replaced with an Earn-only card; pending approval and receipt/review stages remain separate. API and financial authority are unchanged. |
+| `CashierWorkflowRoute` | **HIGH** |        4 |      4 |         3 | Passes the session display label and completes the final step only after confirmed Earn; Lookup and Redeem composition/step mapping are preserved.                     |
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/earn-transaction-form.tsx EarnTransactionForm
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
+```
+
+GitNexus reports affected processes for Cashier Earn, Redeem, and Lookup because these route consumers share workflow symbols. The implementation remains restricted to the Earn success branch and confirmed-state step completion.
+
 ### 2026-10-13 — Figma Step 2 Capture Purchase confirmation card
 
 | Symbol                 |    Risk | Impacted | Direct | Processes | Notes                                                                                                                       |
@@ -1417,33 +1493,24 @@ node .gitnexus/run.cjs impact --uid 'Function:apps/web/components/workflows/cust
 
 `CustomerDetailsDialog` and `ProfileWalletLedger` both reported LOW exact impact within the shared profile chain. The wallet-ledger diagnosis found the frontend request was correct but the controller role guard excluded Cashiers; adding Cashier to the existing branch-scoped ledger read fixes the authorization mismatch without changing ledger writes or query scope. Cashier presentation now uses Last purchase amount, Total monthly Earn (the confirmed EARN/CREDIT ledger sum for the branch-local month), and Last amount redeemed; omits the Cashier Redemptions tab because Wallet Ledger captures both earn and redemption entries; omits Consent, duplicate transaction outcome badges, missing member/status fallback copy, and extra virtual-card explanation; and reuses the Supervisor card image with the verified card number rendered on it and only status shown outside it. The profile typography remains shared, while the virtual-card customer/card-number text is larger. Cashier Overview now maps the authorized activity rows into Recent activity, derives the latest purchase/redeem values from those rows, requests up to ten rows while displaying only three in Transactions, and omits the credit-expiry card. The cashier-safe customer summary now returns a card number, masked email, and explicit birthday-month field; Cashier Customer details omits Registered, Transactions, and Redemptions rows.
 
-### 2026-10-13 — Align Earn amount semantics and TRD default rate
+### 2026-10-13 — Local cashier test-session one-hour lifetime
 
-| Symbol                   |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                                                                              |
-| ------------------------ | -------: | -------: | -----: | --------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EarnTransactionForm`    | **HIGH** |        4 |      1 |         3 | Review display remains Earn-scoped, uses server policy context (TRD default 200 bps / 2%), and treats the recorded full purchase amount as eligible because the API has no item-level eligible field. No payload or calculation authority changes. |
-| `EarnTransactionSuccess` |  UNKNOWN |        0 |      0 |         0 | New symbol is not yet indexed. Source confirms it is rendered only by the confirmed Earn branch in `EarnTransactionForm`; the success receipt/eligible values both use authoritative `purchaseAmountKobo`.                                         |
+Proposal-time impact was run before updating the active POS WebAuthn specification and session implementation:
 
 ```text
-node .gitnexus/run.cjs impact EarnTransactionForm --file apps/web/components/workflows/earn-transaction-form.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
-node .gitnexus/run.cjs impact EarnTransactionSuccess --file apps/web/components/workflows/earn-transaction-success.tsx --kind Function --repo shopcity_LP --direction upstream --summary-only
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts createLocalCashierTestSession
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts issueSession
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginForm
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/modules/auth/auth.service.ts --kind Method createLocalCashierTestSession --direction upstream --depth 3 --include-tests
+node .gitnexus/run.cjs impact issueSession --repo shopcity_LP --direction upstream --depth 3 --include-tests
 ```
 
-The HIGH result is acknowledged; changes are limited to Earn presentation and tests. Shared Lookup/Redeem behavior and financial/API contracts are unchanged.
-
-### 2026-10-13 — Figma Capture Purchase confirmed Earn success result
-
-| Symbol                 |     Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                  |
-| ---------------------- | -------: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EarnTransactionForm`  | **HIGH** |        7 |      3 |         3 | The confirmed-result branch is replaced with an Earn-only card; pending approval and receipt/review stages remain separate. API and financial authority are unchanged. |
-| `CashierWorkflowRoute` | **HIGH** |        4 |      4 |         3 | Passes the session display label and completes the final step only after confirmed Earn; Lookup and Redeem composition/step mapping are preserved.                     |
-
-```text
-npm run proposal:impact -- --file apps/web/components/workflows/earn-transaction-form.tsx EarnTransactionForm
-npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
-```
-
-GitNexus reports affected processes for Cashier Earn, Redeem, and Lookup because these route consumers share workflow symbols. The implementation remains restricted to the Earn success branch and confirmed-state step completion.
+| Symbol                                                                                                                                                                                                                                                                                                                                                               | Risk          | Impacted symbols | Direct dependants | Affected processes / modules                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ---------------: | ----------------: | ------------------------------------------------ |
+| `AuthService.createLocalCashierTestSession`                                                                                                                                                                                                                                                                                                                          | LOW, exact    |                4 |                 2 | Auth; caller, service spec, and controller tests |
+| `AuthService.issueSession`                                                                                                                                                                                                                                                                                                                                           | MEDIUM, exact |               15 |                 5 | `smokeSession` and `refresh`; Auth               |
+| `LoginForm`                                                                                                                                                                                                                                                                                                                                                          | LOW, exact    |                2 |                 2 | `LoginPage`; Shopcity                            |
+| The issueSession blast radius is controlled by keeping its 15-minute default cap for all smoke sessions except the already-gated `auth.local_cashier_test_session` action. The public smoke-bootstrap session remains capped at 15 minutes; ordinary session expiry, refresh behavior, local-only eligibility/origin gates, and non-refreshability remain unchanged. |
 
 ### 2026-10-13 — Cashier verified-card lookup and progress presentation
 
