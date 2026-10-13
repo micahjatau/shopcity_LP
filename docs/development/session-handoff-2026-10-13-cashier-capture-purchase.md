@@ -22,7 +22,8 @@ Updated: 2026-10-13
 - Focused Jest: 1 suite, 22 tests passed. Four focused Playwright scenarios passed, including paired Earn/Redeem lookup behavior, Earn review/outcomes, and responsive geometry; financial requests were intercepted.
 - Web typecheck, scoped ESLint, Prettier, Cashier style-ownership check, strict OpenSpec validation, and `git diff --check` passed.
 - GitNexus staged `detect_changes` reported HIGH risk (31 symbols, 12 affected flows) because `CashierWorkflowRoute` is shared by Earn, Lookup, and Redeem. The committed changes remain scoped to Cashier presentation and tests.
-- Production build remains unverified: Next’s worker was SIGKILLed after the kernel OOM-killed Node at about 2.4 GB RSS, with critically low disk space. Do not retry until memory and disk are adequate.
+- Production build remains unverified: Next’s worker was SIGKILLed after the kernel OOM-killed Node at about 2.4 GB RSS. Recheck found only 548 MB free on `/`, 2.1 GiB available memory, and 3.9/4 GiB swap used. Existing untracked `apps/web/.next-*` outputs occupy about 1.6 GB; they were preserved. Do not retry until adequate capacity is provisioned or specific cleanup is authorized.
+- Rechecked the workflow blocker: the responsive Capture/Redeem 700px breakpoint Playwright test passed (1 test), and Earn transaction-form Jest passed (22 tests).
 - Full web lint traverses generated `.next*` output and reports generated `no-assign-module-variable` findings; scoped source lint passes.
 
 ## Financial request diagnosis
@@ -38,6 +39,6 @@ Session/CSRF credentials and local Kong configuration/key material previously pa
 
 ## Next steps
 
-1. Recheck available memory and disk. Retry the production build only after resources are sufficient; keep the build blocker open until it passes.
+1. Provision an isolated build worker/additional capacity, or obtain authorization to remove specifically reviewed generated outputs. Then retry the production build and keep the blocker open until it passes.
 2. Preserve and review the residual dirty worktree before any further staging.
 3. Keep Cashier layout work Earn-specific and avoid changing backend validation or financial authority without a separately reviewed requirement.
