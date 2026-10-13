@@ -790,39 +790,40 @@ model OutboxEvent {
 }
 
 model SmsMessage {
-  id                String              @id @default(uuid())
-  tenantId          String
-  receiptId         String?
-  outboxEventId     String
-  ledgerEntryId     String?
-  redemptionId      String?
-  adjustmentId      String?
-  cardId            String?
-  phoneE164         String
-  template          String
-  payload           Json
-  status            SmsMessageStatus    @default(QUEUED)
-  attempts          Int                 @default(0)
-  providerMessageId String?
-  lastError         String?
-  queuedAt          DateTime            @default(now())
-  lastAttemptAt     DateTime?
-  nextAttemptAt     DateTime?
-  deadLetteredAt    DateTime?
-  failureCategory   String?
-  sentAt            DateTime?
-  deliveredAt       DateTime?
-  failedAt          DateTime?
-  suppressedAt      DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  receipt           Receipt?            @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
-  outboxEvent       OutboxEvent         @relation(fields: [tenantId, outboxEventId], references: [tenantId, id], onDelete: Restrict)
-  ledgerEntry       LoyaltyLedgerEntry? @relation(fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
-  redemption        Redemption?         @relation(fields: [tenantId, redemptionId], references: [tenantId, id], onDelete: Restrict)
-  adjustment        Adjustment?         @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Restrict)
-  card              Card?               @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
+  id                       String              @id @default(uuid())
+  tenantId                 String
+  receiptId                String?
+  outboxEventId            String
+  ledgerEntryId            String?
+  redemptionId             String?
+  adjustmentId             String?
+  cardId                   String?
+  phoneE164                String
+  template                 String
+  payload                  Json
+  status                   SmsMessageStatus    @default(QUEUED)
+  attempts                 Int                 @default(0)
+  providerMessageId        String?
+  lastError                String?
+  queuedAt                 DateTime            @default(now())
+  lastAttemptAt            DateTime?
+  nextAttemptAt            DateTime?
+  deadLetteredAt           DateTime?
+  failureCategory          String?
+  sentAt                   DateTime?
+  nextDeliveryReportPollAt DateTime?
+  deliveredAt              DateTime?
+  failedAt                 DateTime?
+  suppressedAt             DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  tenant                   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  receipt                  Receipt?            @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  outboxEvent              OutboxEvent         @relation(fields: [tenantId, outboxEventId], references: [tenantId, id], onDelete: Restrict)
+  ledgerEntry              LoyaltyLedgerEntry? @relation(fields: [tenantId, ledgerEntryId], references: [tenantId, id], onDelete: Restrict)
+  redemption               Redemption?         @relation(fields: [tenantId, redemptionId], references: [tenantId, id], onDelete: Restrict)
+  adjustment               Adjustment?         @relation(fields: [tenantId, adjustmentId], references: [tenantId, id], onDelete: Restrict)
+  card                     Card?               @relation(fields: [tenantId, cardId], references: [tenantId, id], onDelete: Restrict)
 
   @@unique([tenantId, outboxEventId])
   @@index([tenantId, status, queuedAt])
@@ -831,6 +832,7 @@ model SmsMessage {
   @@index([tenantId, redemptionId])
   @@index([tenantId, adjustmentId])
   @@index([tenantId, cardId])
+  @@index([status, nextDeliveryReportPollAt, sentAt])
 }
 
 model CreditExpiryReminder {

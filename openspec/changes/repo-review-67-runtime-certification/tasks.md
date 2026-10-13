@@ -30,6 +30,17 @@
 - [x] Update deployment runbooks and release checklists with the real-SMS requirements.
 - [x] Define secret-store verification requirements without recording secret values in repository evidence; execution remains remote-operator gated.
 
+## P1 — SMS delivery-report polling reliability
+
+- [x] Add an additive `SmsMessage.nextDeliveryReportPollAt` field and an index supporting due-message selection; do not rewrite existing delivery history.
+- [x] Add validated worker settings for DLR polling interval (default five minutes) and bounded batch size (default ten).
+- [x] Run DLR polling on its own timer so provider latency cannot stall outbox publication; stop cleanly and await active polls during worker shutdown.
+- [x] Persist the next poll time for every attempted lookup, including `SENT`, no-report, and provider-error outcomes; prioritize unpolled/due messages to prevent starvation.
+- [x] Reject mismatched provider message IDs and preserve monotonic `SENT` → `DELIVERED`/`FAILED` transitions.
+- [x] Add unit and migration/integration regression coverage for fairness, retry scheduling, ID mismatch, and shutdown.
+- [x] Update the SMS operations runbook to describe implemented DLR polling and its limits.
+- [x] Keep real-provider execution operator-gated; no SMS is sent without an approved destination and explicit authorization.
+
 ## P1 — Performance fixture validity
 
 - [x] Make `K6_REPORT_BRANCH_ID` explicit for report-isolation runs; remove the nonexistent UUID fallback.

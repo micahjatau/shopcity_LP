@@ -3,15 +3,39 @@ import { OutboxWorkerRuntime } from './outbox-worker.runtime';
 import type { OutboxJobPayload } from './outbox.worker';
 
 describe('OutboxWorkerRuntime', () => {
+  it('keeps provider DLR lookups off the outbox recovery path', async () => {
+    const findMany = jest.fn();
+    const runtime = runtimeWithRecovery(
+      new OutboxWorkerRuntime(
+        { smsMessage: { findMany } } as never,
+        runtimeConfig(),
+        {
+          send: jest.fn(),
+          getDeliveryReport: jest.fn(),
+        },
+      ),
+    );
+    const recover = jest
+      .spyOn(runtime, 'recoverAndPublishOnce')
+      .mockResolvedValue(undefined);
+
+    await runtime.runRecoveryCycle();
+
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
   it('polls SMS DLRs and applies monotonic delivery updates', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       smsMessage: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { id: 'sms-1', providerMessageId: 'provider-1' },
-          ]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
         updateMany,
       },
     };
@@ -31,6 +55,24 @@ describe('OutboxWorkerRuntime', () => {
 
     await runtimeWithRecovery(runtime).pollDeliveryReports();
 
+    expect(prisma.smsMessage.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({
+          OR: [
+            { nextDeliveryReportPollAt: null },
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            { nextDeliveryReportPollAt: { lte: expect.any(Date) } },
+          ],
+        }),
+        orderBy: [
+          { nextDeliveryReportPollAt: { sort: 'asc', nulls: 'first' } },
+          { sentAt: 'asc' },
+          { id: 'asc' },
+        ],
+        take: 10,
+      }),
+    );
     expect(smsProvider.getDeliveryReport).toHaveBeenCalledWith('provider-1');
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -41,6 +83,114 @@ describe('OutboxWorkerRuntime', () => {
         data: expect.objectContaining({ status: 'DELIVERED' }),
       }),
     );
+  });
+
+  it('schedules a later DLR poll when the provider has no report or throws', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest
+        .fn()
+        .mockRejectedValue(new Error('provider response contains secrets')),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        where: expect.objectContaining({
+          id: 'sms-1',
+          providerMessageId: 'provider-1',
+          status: 'SENT',
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: { nextDeliveryReportPollAt: expect.any(Date) },
+      }),
+    );
+  });
+
+  it('does not apply a DLR whose provider message ID does not match', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest.fn().mockResolvedValue({
+        status: 'DELIVERED',
+        providerMessageId: 'provider-other',
+      }),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: { nextDeliveryReportPollAt: expect.any(Date) },
+      }),
+    );
+  });
+
+  it('skips a DLR row another worker has already claimed', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const prisma = {
+      smsMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'sms-1',
+            providerMessageId: 'provider-1',
+            nextDeliveryReportPollAt: null,
+          },
+        ]),
+        updateMany,
+      },
+    };
+    const smsProvider = {
+      send: jest.fn(),
+      getDeliveryReport: jest.fn(),
+    };
+    const runtime = new OutboxWorkerRuntime(
+      prisma as never,
+      runtimeConfig(),
+      smsProvider,
+    );
+
+    await runtimeWithRecovery(runtime).pollDeliveryReports();
+
+    expect(smsProvider.getDeliveryReport).not.toHaveBeenCalled();
   });
 
   it('stops retrying when an SMS row is already dead-lettered', async () => {
@@ -769,6 +919,26 @@ describe('OutboxWorkerRuntime', () => {
     expect(allSql).toContain("'SENT', 'DELIVERED', 'SUPPRESSED'");
   });
 
+  it('waits for an active DLR poll before closing the worker', async () => {
+    const runtime = runtimeWithInternals(
+      new OutboxWorkerRuntime({} as never, runtimeConfig(), {
+        send: jest.fn(),
+      }),
+    );
+    const poll = deferred<void>();
+    const workerClose = jest.fn().mockResolvedValue(undefined);
+    runtime.activeDeliveryReportPoll = poll.promise;
+    runtime.worker = { close: workerClose };
+
+    const stopPromise = runtime.stop();
+    await Promise.resolve();
+    expect(workerClose).not.toHaveBeenCalled();
+
+    poll.resolve();
+    await stopPromise;
+    expect(workerClose).toHaveBeenCalledTimes(1);
+  });
+
   it('waits for active recovery before disconnecting during shutdown', async () => {
     const prisma = prismaStub({
       outboxEvent: {
@@ -811,6 +981,7 @@ type RuntimeWithHandleJob = {
 
 type RuntimeWithRecovery = {
   recoverAndPublishOnce(): Promise<void>;
+  runRecoveryCycle(): Promise<void>;
   pollDeliveryReports(): Promise<void>;
 };
 
@@ -825,6 +996,8 @@ type RecoveryTx = {
 
 type RuntimeWithInternals = {
   activeRecovery?: Promise<void>;
+  activeDeliveryReportPoll?: Promise<void>;
+  worker?: unknown;
   stop(): Promise<void>;
 };
 
@@ -870,6 +1043,8 @@ function runtimeConfig() {
     redisUrl: 'redis://localhost:6379',
     publishBatchSize: 10,
     publishIntervalMs: 5_000,
+    deliveryReportPollIntervalMs: 300_000,
+    deliveryReportPollBatchSize: 10,
     retryDelayMs: 30_000,
     recoveryThresholdMs: 60_000,
   };

@@ -21,6 +21,23 @@ describe('envValidationSchema', () => {
     ).toBe(false);
   });
 
+  it('defaults DLR polling to a five-minute interval and bounded batch', () => {
+    const result = envValidationSchema.validate({});
+    expect(result.error).toBeUndefined();
+    expect(result.value).toMatchObject({
+      SMS_DLR_POLL_INTERVAL_MS: 300000,
+      SMS_DLR_POLL_BATCH_SIZE: 10,
+    });
+
+    expect(
+      envValidationSchema.validate({ SMS_DLR_POLL_INTERVAL_MS: 86400001 })
+        .error,
+    ).toBeDefined();
+    expect(
+      envValidationSchema.validate({ SMS_DLR_POLL_BATCH_SIZE: 101 }).error,
+    ).toBeDefined();
+  });
+
   it('allows local cashier test sessions only with local DB and deterministic SMS', () => {
     const local = envValidationSchema.validate({
       NODE_ENV: 'development',

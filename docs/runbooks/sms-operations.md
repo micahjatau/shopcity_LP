@@ -2,13 +2,19 @@
 
 ## Lifecycle semantics
 
-The eBulkSMS integration currently certifies provider submission only. A successful
-provider response is recorded as `SENT`; it is not evidence that the handset
-received the message. eBulkSMS publishes a delivery-report polling API keyed by
-the per-recipient message ID, but its published JSON API does not document an
-authenticated callback/webhook contract. `DELIVERED` is therefore reserved for
-providers that explicitly return a trusted delivery result (the deterministic
-local provider does this for tests) until DLR polling is implemented.
+A successful eBulkSMS submission is recorded as `SENT`; it means the provider
+accepted the request, not that a handset received it. The worker polls eBulkSMS
+XML delivery reports by provider message ID and changes a still-`SENT` message
+to `DELIVERED` or `FAILED` only when a matching provider report supplies that
+terminal status. An absent, unknown, failed, or mismatched report leaves the
+message `SENT`; raw provider responses are not stored or logged.
+
+DLR polling has its own timer and does not run on every outbox recovery tick. The
+default interval is five minutes (`SMS_DLR_POLL_INTERVAL_MS=300000`) and the
+default batch is ten (`SMS_DLR_POLL_BATCH_SIZE=10`). The worker schedules each
+attempt's next eligible poll time and prioritizes never-polled/due messages so
+an unresolved message cannot occupy every batch. These values are validated at
+startup; interval is bounded to 1 second–24 hours and batch size to 1–100.
 
 ## Connectivity
 
@@ -30,11 +36,11 @@ application environment.
 Provider payloads, credentials, message bodies, raw phone numbers, and unmasked
 errors must not be copied into logs, tickets, or evidence.
 
-The documented follow-up is a bounded polling worker using eBulkSMS `msgid`
-values and the documented `getdlr.xml` endpoint. The published JSON API does
-not define a JSON DLR response contract. It must authenticate with server-side credentials,
-be idempotent, enforce monotonic status transitions, and persist only the
-normalized status/timestamp/provider ID—not the raw provider response.
+The DLR API is an XML endpoint; do not infer a JSON response contract. The
+adapter authenticates with server-side credentials and passes the provider
+message ID. Polling is read-only and idempotent; database updates are conditional
+on the message still being `SENT` and the report ID matching. Only normalized
+status/timestamp/provider ID are retained—not the raw provider response.
 
 ## Cost reporting
 

@@ -227,6 +227,12 @@ export const envValidationSchema = Joi.object({
   OUTBOX_PUBLISH_INTERVAL_MS: Joi.number().integer().min(100).default(5000),
   OUTBOX_RETRY_DELAY_MS: Joi.number().integer().min(1000).default(30000),
   OUTBOX_RECOVERY_THRESHOLD_MS: Joi.number().integer().min(1000).default(60000),
+  SMS_DLR_POLL_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(86400000)
+    .default(300000),
+  SMS_DLR_POLL_BATCH_SIZE: Joi.number().integer().min(1).max(100).default(10),
   CREDIT_EXPIRY_SWEEP_INTERVAL_MS: Joi.number()
     .integer()
     .min(1000)

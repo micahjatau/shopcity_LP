@@ -138,3 +138,10 @@ Use these buckets in each migration row so local deploy checks, CI proof, shared
 - Prisma already reported all 54 migrations applied/up to date. The linked development database has the same 54 active unique migration names; two checksums differ from current files but match historical Git versions (`03275c00d991` and `daf5af6890b7`). No migration files or migration ledger entries were changed for this target.
 - A public-schema-only rehearsal preserved 362 audit rows, 48 sessions, 3 customers, 5 cards, and 3 users while applying the generated local-to-remote Prisma schema diff. The target was then reconciled; the missing `ReceiptLegacyIdentityQuarantine` table was added, the out-of-schema `ReceiptQuarantineClaim` table was retained, and RLS was enabled on all 39 public tables, matching the remote RLS inventory. Existing local integrity triggers were preserved.
 - Postflight: 54 migrations remain up to date; Prisma validate passes; the Prisma-managed schema matches the linked development schema. Comparing with `prisma/schema.prisma` requests only removal of the two intentionally preserved quarantine tables, which was not performed. Data counts are unchanged; `/health/ready` returns 200. No remote data was dumped or modified.
+
+## 2026-10-13 SMS delivery-report poll scheduling
+
+- Migration: `prisma/migrations/20261013_sms_dlr_poll_schedule/migration.sql` adds nullable `SmsMessage.nextDeliveryReportPollAt` and a due-selection index. The change is additive; no backfill or financial records are involved.
+- Local/CI verification: `npx jest --config ./test/jest-int.json test/outbox-worker-recovery.int-spec.ts --runInBand` passed. The integration test deploys the full migration chain to an ephemeral PostgreSQL 16 Testcontainers database, including this migration.
+- Shared staging/production: not applied or verified. No shared database was changed.
+- Backup/restore: not run for this additive migration; no destructive operation or data rewrite is included.

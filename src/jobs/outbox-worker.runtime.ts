@@ -9,7 +9,7 @@ import { ReportMaterializerService } from '../modules/reports/report-materialize
 import { OUTBOX_RETRY_ATTEMPTS } from './outbox.constants';
 import { createOutboxQueue, publishOutboxEvent } from './outbox.publisher';
 import { createOutboxWorker, type OutboxJobPayload } from './outbox.worker';
-import type { SmsProvider } from './sms.provider';
+import type { SmsDeliveryReport, SmsProvider } from './sms.provider';
 import {
   SmsPayloadError,
   validateSmsIntent,
@@ -20,6 +20,8 @@ export interface WorkerConfig {
   redisUrl: string;
   publishBatchSize: number;
   publishIntervalMs: number;
+  deliveryReportPollIntervalMs: number;
+  deliveryReportPollBatchSize: number;
   retryDelayMs: number;
   recoveryThresholdMs: number;
 }
@@ -40,6 +42,8 @@ export function loadWorkerConfig(env = process.env): WorkerConfig {
     redisUrl: String(values.REDIS_URL),
     publishBatchSize: Number(values.OUTBOX_PUBLISH_BATCH_SIZE),
     publishIntervalMs: Number(values.OUTBOX_PUBLISH_INTERVAL_MS),
+    deliveryReportPollIntervalMs: Number(values.SMS_DLR_POLL_INTERVAL_MS),
+    deliveryReportPollBatchSize: Number(values.SMS_DLR_POLL_BATCH_SIZE),
     retryDelayMs: Number(values.OUTBOX_RETRY_DELAY_MS),
     recoveryThresholdMs: Number(values.OUTBOX_RECOVERY_THRESHOLD_MS),
   };
@@ -77,7 +81,9 @@ export class OutboxWorkerRuntime {
   private queue?: Queue;
   private worker?: Worker<OutboxJobPayload>;
   private publisherTimer?: NodeJS.Timeout;
+  private deliveryReportTimer?: NodeJS.Timeout;
   private activeRecovery?: Promise<void>;
+  private activeDeliveryReportPoll?: Promise<void>;
   private started = false;
   private stopping = false;
   private readonly fraudBehaviorService: FraudBehaviorRuntime;
@@ -134,7 +140,12 @@ export class OutboxWorkerRuntime {
     }, this.config.publishIntervalMs);
 
     this.publisherTimer.unref?.();
+    this.deliveryReportTimer = setInterval(() => {
+      this.scheduleDeliveryReportPoll();
+    }, this.config.deliveryReportPollIntervalMs);
+    this.deliveryReportTimer.unref?.();
     this.started = true;
+    this.scheduleDeliveryReportPoll();
   }
 
   async stop(): Promise<void> {
@@ -147,8 +158,15 @@ export class OutboxWorkerRuntime {
       clearInterval(this.publisherTimer);
       this.publisherTimer = undefined;
     }
+    if (this.deliveryReportTimer) {
+      clearInterval(this.deliveryReportTimer);
+      this.deliveryReportTimer = undefined;
+    }
 
-    await this.activeRecovery?.catch(() => undefined);
+    await Promise.all([
+      this.activeRecovery?.catch(() => undefined),
+      this.activeDeliveryReportPoll?.catch(() => undefined),
+    ]);
 
     if (this.worker) {
       await this.worker.close().catch((error) => {
@@ -169,6 +187,7 @@ export class OutboxWorkerRuntime {
     this.queue = undefined;
     this.worker = undefined;
     this.activeRecovery = undefined;
+    this.activeDeliveryReportPoll = undefined;
     this.started = false;
     this.stopping = false;
   }
@@ -205,12 +224,36 @@ export class OutboxWorkerRuntime {
     }
 
     await this.recoverAndPublishOnce();
-    await this.pollDeliveryReports();
+  }
+
+  private scheduleDeliveryReportPoll(): void {
+    if (
+      this.stopping ||
+      !this.smsProvider.getDeliveryReport ||
+      this.activeDeliveryReportPoll
+    ) {
+      return;
+    }
+
+    const poll = this.pollDeliveryReports();
+    this.activeDeliveryReportPoll = poll;
+    void poll
+      .catch(() => {
+        if (!this.stopping) {
+          this.logger.warn('SMS delivery-report poll cycle failed');
+        }
+      })
+      .finally(() => {
+        if (this.activeDeliveryReportPoll === poll) {
+          this.activeDeliveryReportPoll = undefined;
+        }
+      });
   }
 
   private async pollDeliveryReports(): Promise<void> {
-    if (!this.smsProvider.getDeliveryReport) return;
+    if (!this.smsProvider.getDeliveryReport || this.stopping) return;
 
+    const now = new Date();
     const messages = await this.prisma.smsMessage.findMany({
       where: {
         providerMessageId: { not: null },
@@ -218,45 +261,82 @@ export class OutboxWorkerRuntime {
         deliveredAt: null,
         failedAt: null,
         deadLetteredAt: null,
+        OR: [
+          { nextDeliveryReportPollAt: null },
+          { nextDeliveryReportPollAt: { lte: now } },
+        ],
       },
-      select: { id: true, providerMessageId: true },
-      orderBy: { lastAttemptAt: 'asc' },
-      take: Math.min(this.config.publishBatchSize, 100),
+      select: {
+        id: true,
+        providerMessageId: true,
+        nextDeliveryReportPollAt: true,
+      },
+      orderBy: [
+        { nextDeliveryReportPollAt: { sort: 'asc', nulls: 'first' } },
+        { sentAt: 'asc' },
+        { id: 'asc' },
+      ],
+      take: this.config.deliveryReportPollBatchSize,
     });
 
     for (const message of messages) {
-      if (!message.providerMessageId) continue;
-      const report = await this.smsProvider.getDeliveryReport(
-        message.providerMessageId,
+      if (this.stopping || !message.providerMessageId) continue;
+
+      const nextPollAt = new Date(
+        Date.now() + this.config.deliveryReportPollIntervalMs,
       );
-      if (!report) continue;
+      const eligibleWhere = {
+        id: message.id,
+        providerMessageId: message.providerMessageId,
+        status: 'SENT' as const,
+        deliveredAt: null,
+        failedAt: null,
+        deadLetteredAt: null,
+      };
+      const claim = await this.prisma.smsMessage.updateMany({
+        where: {
+          ...eligibleWhere,
+          nextDeliveryReportPollAt: message.nextDeliveryReportPollAt,
+        },
+        data: { nextDeliveryReportPollAt: nextPollAt },
+      });
+      if (claim.count !== 1) continue;
+
+      let report: SmsDeliveryReport | null = null;
+      try {
+        report = await this.smsProvider.getDeliveryReport(
+          message.providerMessageId,
+        );
+      } catch {
+        // The persisted next poll time bounds retries without exposing provider errors.
+      }
+
+      const claimedWhere = {
+        ...eligibleWhere,
+        nextDeliveryReportPollAt: nextPollAt,
+      };
+      if (!report || report.providerMessageId !== message.providerMessageId) {
+        continue;
+      }
 
       if (report.status === 'DELIVERED') {
         await this.prisma.smsMessage.updateMany({
-          where: {
-            id: message.id,
-            status: 'SENT',
-            deliveredAt: null,
-            failedAt: null,
-          },
+          where: claimedWhere,
           data: {
             status: 'DELIVERED',
             deliveredAt: report.occurredAt ?? new Date(),
+            nextDeliveryReportPollAt: null,
           },
         });
       } else if (report.status === 'FAILED') {
         await this.prisma.smsMessage.updateMany({
-          where: {
-            id: message.id,
-            status: 'SENT',
-            deliveredAt: null,
-            failedAt: null,
-          },
+          where: claimedWhere,
           data: {
             status: 'FAILED',
             failedAt: report.occurredAt ?? new Date(),
             failureCategory: 'terminal',
             lastError: 'Provider delivery report marked message failed',
+            nextDeliveryReportPollAt: null,
           },
         });
       }

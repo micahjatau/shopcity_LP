@@ -35,7 +35,15 @@ The worker smoke should use a dedicated tenant/device and a deterministic test p
 
 Checked-in Vercel configuration must not set deterministic SMS or `ALLOW_FAKE_SMS_IN_PRODUCTION=true`. Environment validation and provider-factory tests should enforce that production cannot start with a fake provider. The deployment checklist should require `SMS_PROVIDER_MODE=real` and `ALLOW_FAKE_SMS_IN_PRODUCTION=false` or unset, plus the required real-provider credentials in the secret store.
 
-## 5. Failure and rollback behavior
+## 5. SMS delivery-report polling
+
+The provider submission path remains separate from the asynchronous delivery-report lookup: submission success is `SENT`, not handset delivery. DLR polling runs on an independent, validated worker timer so a slow provider lookup cannot block outbox publication. Each `SENT` message stores a nullable `nextDeliveryReportPollAt`; null means it has not yet been polled. The worker selects unpolled/due rows first, in stable due-time/sent-time/ID order, then compare-and-set claims each row by advancing its next poll time before the provider request. This also prevents duplicate polls when more than one worker instance is running. No-report and provider-error outcomes retain that scheduled next poll time. The default interval is five minutes and the default batch is ten, both bounded by environment validation.
+
+A provider report can change state only while the row is still `SENT`, and only when any returned provider message ID matches the stored ID. Unknown/mismatched reports leave the row `SENT` and schedule another poll. The worker persists only normalized outcome and timestamps; raw XML/JSON is never logged or stored. Shutdown clears the dedicated timer and awaits an active DLR batch.
+
+The additive schema migration introduces no backfill or financial-data mutation. Existing `SENT` messages with no next-poll timestamp are immediately eligible after deployment. The migration must be applied only through the normal reviewed migration path and recorded in the migration tracker.
+
+## 6. Failure and rollback behavior
 
 - If duplicate evidence persistence fails after a duplicate was detected, return a non-success error and emit an operationally visible failure; never report a successful earn.
 - If the worker is absent, not ready, or SHA-mismatched, release certification stops and no SMS/outbox claim is made.
