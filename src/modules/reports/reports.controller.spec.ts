@@ -85,6 +85,24 @@ describe('ReportsController', () => {
     );
   });
 
+  it('schedules a Supervisor branch dashboard refresh', async () => {
+    const exportService = exportServiceStub();
+    const controller = new ReportsController(
+      reportsServiceStub().service,
+      exportService.service,
+    );
+    const context = supervisorContext();
+
+    await expect(
+      controller.refreshSupervisorDashboard(context, 'supervisor-key-1'),
+    ).resolves.toEqual({ status: 'accepted' });
+    expect(exportService.refreshSupervisorDashboard).toHaveBeenCalledWith(
+      'tenant-1',
+      context,
+      'supervisor-key-1',
+    );
+  });
+
   it('schedules report refresh', async () => {
     const exportService = exportServiceStub();
     const controller = new ReportsController(
@@ -109,6 +127,18 @@ describe('ReportsController', () => {
     );
   });
 });
+
+function supervisorContext() {
+  return {
+    session: {} as never,
+    user: {
+      id: 'supervisor-1',
+      tenantId: 'tenant-1',
+      role: UserRole.SUPERVISOR,
+      branchId: 'branch-1',
+    } as never,
+  };
+}
 
 function adminContext() {
   return {
@@ -174,14 +204,17 @@ function exportServiceStub() {
     rowCount: 1,
   });
   const refreshReport = jest.fn().mockResolvedValue(undefined);
+  const refreshSupervisorDashboard = jest.fn().mockResolvedValue(undefined);
 
   return {
     service: {
       exportCsv,
       refreshReport,
+      refreshSupervisorDashboard,
     } as unknown as ReportExportService,
     exportCsv,
     refreshReport,
+    refreshSupervisorDashboard,
   };
 }
 

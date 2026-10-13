@@ -17467,6 +17467,222 @@ export type ReportsControllerRefreshReportV1503 = {
   meta: ReportsControllerRefreshReportV1503Meta;
 };
 
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1400ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1400 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1400Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1401ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1401 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1401Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1403ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1403 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1403Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1404ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1404 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1404Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1409ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1409 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1409Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1422ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1422 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1422Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1429ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1429 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1429Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type ReportsControllerRefreshSupervisorDashboardV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type ReportsControllerRefreshSupervisorDashboardV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: ReportsControllerRefreshSupervisorDashboardV1503ErrorDetails;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type ReportsControllerRefreshSupervisorDashboardV1503 = {
+  success: boolean;
+  error: ReportsControllerRefreshSupervisorDashboardV1503Error;
+  meta: ReportsControllerRefreshSupervisorDashboardV1503Meta;
+};
+
 export type NotificationsControllerListTransactionSmsV1Params = {
   /**
    * @minimum 1
@@ -25520,6 +25736,102 @@ export const reportsControllerRefreshReportV1 = async (
     status: res.status,
     headers: res.headers,
   } as reportsControllerRefreshReportV1Response;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response202 = {
+  data: void;
+  status: 202;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response400 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1400;
+  status: 400;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response401 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1401;
+  status: 401;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response403 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1403;
+  status: 403;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response404 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1404;
+  status: 404;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response409 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1409;
+  status: 409;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response422 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1422;
+  status: 422;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response429 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1429;
+  status: 429;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response503 = {
+  data: ReportsControllerRefreshSupervisorDashboardV1503;
+  status: 503;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1ResponseSuccess =
+  reportsControllerRefreshSupervisorDashboardV1Response202 & {
+    headers: Headers;
+  };
+export type reportsControllerRefreshSupervisorDashboardV1ResponseError = (
+  | reportsControllerRefreshSupervisorDashboardV1Response400
+  | reportsControllerRefreshSupervisorDashboardV1Response401
+  | reportsControllerRefreshSupervisorDashboardV1Response403
+  | reportsControllerRefreshSupervisorDashboardV1Response404
+  | reportsControllerRefreshSupervisorDashboardV1Response409
+  | reportsControllerRefreshSupervisorDashboardV1Response422
+  | reportsControllerRefreshSupervisorDashboardV1Response429
+  | reportsControllerRefreshSupervisorDashboardV1Response503
+) & {
+  headers: Headers;
+};
+
+export type reportsControllerRefreshSupervisorDashboardV1Response =
+  | reportsControllerRefreshSupervisorDashboardV1ResponseSuccess
+  | reportsControllerRefreshSupervisorDashboardV1ResponseError;
+
+export const getReportsControllerRefreshSupervisorDashboardV1Url = () => {
+  return `/api/v1/reports/dashboard/supervisor/refresh`;
+};
+
+/**
+ * Schedule a branch-scoped Supervisor dashboard refresh
+ * @summary Schedule a branch-scoped Supervisor dashboard refresh
+ */
+export const reportsControllerRefreshSupervisorDashboardV1 = async (
+  options?: RequestInit,
+): Promise<reportsControllerRefreshSupervisorDashboardV1Response> => {
+  const res = await fetch(
+    getReportsControllerRefreshSupervisorDashboardV1Url(),
+    {
+      ...options,
+      method: 'POST',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reportsControllerRefreshSupervisorDashboardV1Response['data'] =
+    body ? JSON.parse(body) : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as reportsControllerRefreshSupervisorDashboardV1Response;
 };
 
 export type notificationsControllerListTransactionSmsV1Response200 = {

@@ -3,8 +3,10 @@ import { SupervisorOperationalReports } from '../components/workflows/supervisor
 import {
   reportsControllerListCashierActivityV1,
   reportsControllerListExecutiveSummaryV1,
+  reportsControllerListMaterializationStateV1,
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
+  reportsControllerRefreshSupervisorDashboardV1,
 } from '../lib/api/generated-client';
 import { recentReportPeriod } from '../lib/reports/supervisor-report-metrics';
 
@@ -19,8 +21,10 @@ jest.mock('../components/session-bootstrap', () => ({
 jest.mock('../lib/api/generated-client', () => ({
   reportsControllerListCashierActivityV1: jest.fn(),
   reportsControllerListExecutiveSummaryV1: jest.fn(),
+  reportsControllerListMaterializationStateV1: jest.fn(),
   reportsControllerListRedemptionSummaryV1: jest.fn(),
   reportsControllerListSmsOperationsV1: jest.fn(),
+  reportsControllerRefreshSupervisorDashboardV1: jest.fn(),
 }));
 
 jest.mock('../components/workflows/reports-workspace', () => ({
@@ -129,6 +133,57 @@ describe('SupervisorOperationalReports', () => {
     expect(screen.getByTestId('report-builder')).toHaveTextContent(period.from);
     expect(screen.getByTestId('report-builder')).toHaveTextContent(
       'branch-scoped',
+    );
+  });
+
+  it('queues a branch refresh and reloads after materialization completes', async () => {
+    const stateResponse = (updatedAt: string) =>
+      ({
+        status: 200,
+        data: {
+          data: {
+            scope: 'BRANCH',
+            scopeKey: 'supervisor-branch',
+            branchId: 'supervisor-branch',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                scope: 'BRANCH',
+                scopeKey: 'supervisor-branch',
+                status: 'COMPLETED',
+                updatedAt,
+              },
+            ],
+          },
+        },
+      }) as never;
+    jest
+      .mocked(reportsControllerListMaterializationStateV1)
+      .mockResolvedValueOnce(stateResponse('2026-09-30T08:00:00.000Z'))
+      .mockResolvedValueOnce(stateResponse('2099-01-01T00:00:00.000Z'));
+    jest
+      .mocked(reportsControllerRefreshSupervisorDashboardV1)
+      .mockResolvedValue({ status: 202 } as never);
+    render(<SupervisorOperationalReports />);
+
+    const refreshButton = await screen.findByRole('button', {
+      name: 'Refresh dashboard data',
+    });
+    await waitFor(() => expect(refreshButton).toBeEnabled());
+    fireEvent.click(refreshButton);
+
+    expect(
+      await screen.findByText('Branch snapshot updated. Reloading reports…'),
+    ).toBeInTheDocument();
+    expect(reportsControllerRefreshSupervisorDashboardV1).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'idempotency-key': expect.any(String),
+        }),
+      }),
+    );
+    await waitFor(() =>
+      expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(2),
     );
   });
 

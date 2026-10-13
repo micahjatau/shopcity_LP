@@ -24,8 +24,10 @@ import {
 import {
   reportsControllerListCashierActivityV1,
   reportsControllerListExecutiveSummaryV1,
+  reportsControllerListMaterializationStateV1,
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
+  reportsControllerRefreshSupervisorDashboardV1,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import {
@@ -306,6 +308,31 @@ function isValidTimeZone(value: string): boolean {
   }
 }
 
+function readRefreshState(
+  response: unknown,
+  branchId?: string,
+): { status: string; updatedAt: string } | null {
+  const result = response as {
+    status?: number;
+    data?: { data?: { items?: unknown } };
+  };
+  const items = result.data?.data?.items;
+  if (result.status !== 200 || !Array.isArray(items)) return null;
+  const row = items.find((item): item is Record<string, unknown> => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    const candidate = item as Record<string, unknown>;
+    return (
+      candidate.scope === 'BRANCH' &&
+      (!branchId || candidate.scopeKey === branchId)
+    );
+  });
+  if (!row || typeof row.status !== 'string') return null;
+  return {
+    status: row.status,
+    updatedAt: typeof row.updatedAt === 'string' ? row.updatedAt : '',
+  };
+}
+
 function readScope(
   response: PromiseSettledResult<unknown>,
 ): ReportScope | null {
@@ -352,6 +379,9 @@ export function OperationalReportsDashboard({
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
   const [revision, setRevision] = useState(0);
+  const [refreshingMaterialization, setRefreshingMaterialization] =
+    useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
   const [trendMetric, setTrendMetric] = useState<TrendMetric>(
     'loyaltyPurchaseValueKobo',
   );
@@ -563,6 +593,69 @@ export function OperationalReportsDashboard({
     });
   }
 
+  async function refreshDashboardData() {
+    if (isAdmin) {
+      setRevision((revisionValue) => revisionValue + 1);
+      return;
+    }
+    if (loading || refreshingMaterialization || rateLimitSeconds > 0) return;
+
+    setRefreshingMaterialization(true);
+    setRefreshMessage('Requesting a branch report refresh…');
+    try {
+      const stateRequest = createApiRequest({ csrf: true });
+      const previousState = await reportsControllerListMaterializationStateV1(
+        undefined,
+        stateRequest,
+      );
+      const previousUpdatedAt = readRefreshState(
+        previousState,
+        publicConfig?.branch?.id,
+      )?.updatedAt;
+      const response = await reportsControllerRefreshSupervisorDashboardV1(
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      );
+      if (response.status !== 202) {
+        if (response.status === 429) {
+          setRateLimitUntil(Date.now() + 60_000);
+          setRefreshMessage('Refresh rate limited. Try again in 60 seconds.');
+        } else {
+          setRefreshMessage('Could not queue the report refresh. Try again.');
+        }
+        return;
+      }
+
+      setRefreshMessage('Refresh queued. Waiting for the branch snapshot…');
+      const baseline = Date.parse(previousUpdatedAt ?? '') || 0;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const state = await reportsControllerListMaterializationStateV1(
+          undefined,
+          stateRequest,
+        );
+        const nextState = readRefreshState(state, publicConfig?.branch?.id);
+        if (
+          nextState?.status === 'COMPLETED' &&
+          Date.parse(nextState.updatedAt) > baseline
+        ) {
+          setRevision((revisionValue) => revisionValue + 1);
+          setRefreshMessage('Branch snapshot updated. Reloading reports…');
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+      setRefreshMessage(
+        'Refresh is still processing. Reload the dashboard again shortly.',
+      );
+    } catch {
+      setRefreshMessage('Could not refresh report data. Try again.');
+    } finally {
+      setRefreshingMaterialization(false);
+    }
+  }
+
   const trendRows = useMemo(() => {
     return [...(sources.financial ?? [])]
       .filter((row) => typeof row.reportDate === 'string')
@@ -752,9 +845,9 @@ export function OperationalReportsDashboard({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setRevision((revisionValue) => revisionValue + 1)}
-            loading={loading}
-            disabled={rateLimitSeconds > 0}
+            onClick={() => void refreshDashboardData()}
+            loading={loading || refreshingMaterialization}
+            disabled={rateLimitSeconds > 0 || refreshingMaterialization}
             aria-label="Refresh dashboard data"
           >
             <RefreshCw size={16} aria-hidden="true" /> Refresh
@@ -770,6 +863,11 @@ export function OperationalReportsDashboard({
                 ? 'Updating report…'
                 : 'Update time unavailable'}
           </span>
+          {refreshMessage ? (
+            <span className="supervisor-reports-refresh-status" role="status">
+              {refreshMessage}
+            </span>
+          ) : null}
           <span className="supervisor-reports-branch-name">
             ·{' '}
             {branchName ||

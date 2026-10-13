@@ -26,7 +26,7 @@ The `/supervisor/reports` route MUST offer Last 7 days, Last 30 days, and custom
 
 ### Requirement: Financial flow totals and outstanding snapshots remain distinct
 
-The dashboard MUST sum daily loyalty purchase value, credit issued, and credit redeemed across available report dates in the selected period. Outstanding credit MUST use the latest available outstanding-liability snapshot in that period and MUST NOT be summed across dates. Values that are unavailable, invalid, or unsafe to aggregate MUST NOT be presented as zero.
+The dashboard MUST sum daily loyalty purchase value, credit issued, and credit redeemed across available report dates in the selected period. Outstanding credit MUST use the latest available outstanding-liability snapshot in that period and MUST NOT be summed across dates. Every materialization MUST include the current as-of business date in daily financial summaries, even when that day has no reportable activity, so the closing-balance snapshot stays current. Values that are unavailable, invalid, or unsafe to aggregate MUST NOT be presented as zero.
 
 #### Scenario: Supervisor reviews financial KPIs
 
@@ -34,6 +34,14 @@ The dashboard MUST sum daily loyalty purchase value, credit issued, and credit r
 - **THEN** the three flow KPIs show the sum of their respective daily values
 - **AND** outstanding credit shows the value from the latest report date only
 - **AND** the outstanding-credit label identifies it as a closing balance and indicates its snapshot date when available
+
+#### Scenario: A quiet day still receives a current closing-balance snapshot
+
+- **GIVEN** a branch has prior loyalty activity but no reportable activity on the current business date
+- **WHEN** the periodic report materialization completes
+- **THEN** the current business date is present in the daily financial summaries
+- **AND** its activity-flow values are zero while its outstanding-credit value reflects the current as-of balance
+- **AND** its materialization timestamp identifies the completed refresh
 
 ### Requirement: Dashboard requests preserve role-authorized scope
 
@@ -155,15 +163,27 @@ The `/admin/reports` route MUST render the same operational overview and detaile
 - **AND** any selected branch scope is reflected consistently in branch-capable dashboard and detailed-report responses
 - **AND** tenant-wide reports retain and label their server-defined tenant scope
 
-### Requirement: Admin-only reports and refresh remain protected by existing RBAC
+### Requirement: Report refresh actions follow role-authorized scope
 
-The Admin presentation SHALL expose audit and pilot-operations reports and the existing materialization refresh action. The Supervisor presentation SHALL continue to hide those Admin-only reports/actions. The UI MUST NOT change backend roles, endpoints, or authorization behavior.
+The Admin presentation SHALL expose audit and pilot-operations reports and the existing Admin materialization refresh action. The Supervisor presentation SHALL continue to hide Admin-only reports and the Admin refresh action. Supervisors MAY request dashboard materialization only for the branch assigned to their authenticated session. The backend MUST derive the branch from that session, reject missing or invalid branch scope, and MUST NOT accept a client-selected branch or tenant-wide refresh scope. Supervisor refresh requests SHALL use the existing durable outbox/materializer pipeline, be audited, idempotent, and rate limited. After acceptance, the dashboard SHALL communicate progress and reload report data when branch materialization completes.
 
 #### Scenario: Admin uses a role-authorized report action
 
 - **WHEN** an Admin selects an audit or pilot-operations report, or requests materialization refresh
-- **THEN** the UI invokes the corresponding existing report endpoint
-- **AND** existing server authorization, auditing, idempotency, and rate limits remain authoritative
+- **THEN** the UI invokes the corresponding Admin report endpoint
+- **AND** existing Admin authorization, auditing, idempotency, and refresh behavior remain authoritative
+
+#### Scenario: Supervisor refreshes dashboard reports for the assigned branch
+
+- **WHEN** a Supervisor selects Refresh dashboard data
+- **THEN** the UI requests a Supervisor dashboard refresh and displays that the refresh is queued or processing
+- **AND** the backend derives the branch only from the authenticated Supervisor session and enqueues an audited, idempotent branch-scoped materialization request
+- **AND** the dashboard reloads its report data after that branch materialization completes
+
+#### Scenario: Supervisor cannot widen refresh scope
+
+- **WHEN** a Supervisor has no valid assigned branch or attempts to use an Admin refresh/report action
+- **THEN** the refresh is rejected without creating a tenant-wide or client-selected branch materialization request
 
 ### Requirement: Report loading, empty, and error states are explicit
 

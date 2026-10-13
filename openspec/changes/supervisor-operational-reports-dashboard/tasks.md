@@ -10,6 +10,7 @@
 - [x] 2.2 Add the daily activity chart and overall, cashier, redemption, and SMS category summaries.
 - [x] 2.3 Preserve the Supervisor report-generation/export workspace and shared period; keep Admin Operations defaults unchanged.
 - [x] 2.4 Add operational-reports-content-scoped responsive styling and accessible labels/empty states.
+- [x] 2.5 Include the current as-of business date in daily financial snapshots even when no activity occurred, preserving zero flows and the current outstanding balance.
 
 ## 3. Verification and acceptance
 
@@ -18,6 +19,7 @@
 - [x] 3.3 Run focused web tests, typecheck, lint, formatting, diff checks, and strict OpenSpec validation.
 - [ ] 3.4 Visually review desktop, tablet, and mobile using an authorized Supervisor session and populated real branch-scoped report data; document any access blockers or defects.
   - Blocked: no authorized Supervisor session or populated live branch data was available. Deterministic Supervisor fixtures were visually reviewed at 1440, 1024, 768, and 390 px; screenshots are in `/tmp/shopcity-supervisor-reports-{desktop-top,desktop-bottom,mobile-top}.png`.
+- [x] 3.5 Add a quiet-day regression test proving that materialization emits a current dated outstanding-balance snapshot without fabricating activity.
 
 ## 4. Report presentation and states
 
@@ -36,3 +38,10 @@
 - [x] 5.5 Keep CSV export responses outside the global JSON envelope and cover the raw API and browser download paths.
 - [x] 5.6 Resolve branch-scoped customer names and cashier emails in detailed reports, and display readable identities in tables and row details.
 - [x] 5.7 Remove the combined current-report freshness/cadence badge while retaining materialization metadata.
+
+## 6. Supervisor dashboard refresh
+
+- [x] 6.1 Add a throttled Supervisor-only API action that derives the branch from the authenticated session and queues audited, idempotent materialization through the existing outbox.
+- [x] 6.2 Keep the Admin refresh route and its authorization behavior unchanged; add backend tests for Supervisor branch scope and invalid/missing branch rejection.
+- [x] 6.3 Wire the Supervisor dashboard refresh button to enqueue branch materialization, show progress, and reload report data after completion; leave Admin dashboard refresh behavior unchanged.
+- [x] 6.4 Add focused UI/API tests, regenerate OpenAPI/client artifacts, and run strict OpenSpec validation.

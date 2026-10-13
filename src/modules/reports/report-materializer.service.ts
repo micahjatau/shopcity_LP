@@ -732,7 +732,7 @@ function buildDailyFinancialSummaries(
     source,
     scope,
   );
-  const reportDates = new Set<string>();
+  const reportDates = new Set<string>([toReportDate(asOf, scope.timezone)]);
   for (const expiry of source.creditExpiries) {
     if (expiry.expiredAt <= asOf) {
       reportDates.add(toReportDate(expiry.expiredAt, scope.timezone));

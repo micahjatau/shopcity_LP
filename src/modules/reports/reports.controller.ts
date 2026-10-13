@@ -662,4 +662,30 @@ export class ReportsController {
     );
     return { status: 'accepted' };
   }
+
+  @Post('dashboard/supervisor/refresh')
+  @Version('1')
+  @HttpCode(202)
+  @Roles(UserRole.SUPERVISOR)
+  @Throttle({
+    bucket: 'reports.supervisor-dashboard-refresh',
+    limit: 3,
+    windowMs: 60_000,
+  })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiAcceptedResponse({ description: 'Branch report refresh scheduled' })
+  @ApiOperation({
+    summary: 'Schedule a branch-scoped Supervisor dashboard refresh',
+  })
+  async refreshSupervisorDashboard(
+    @CurrentSession() context: AuthContext,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    await this.reportExportService.refreshSupervisorDashboard(
+      context.user.tenantId,
+      context,
+      idempotencyKey,
+    );
+    return { status: 'accepted' };
+  }
 }
