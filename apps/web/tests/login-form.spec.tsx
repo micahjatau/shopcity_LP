@@ -40,6 +40,7 @@ describe('LoginForm WebAuthn flow', () => {
 
     try {
       render(<LoginForm />);
+      expect(screen.getByText(/expires after one hour/i)).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText('Email Address'), {
         target: { value: 'cashier@example.test' },
       });

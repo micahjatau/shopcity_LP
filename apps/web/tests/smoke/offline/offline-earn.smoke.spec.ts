@@ -150,19 +150,23 @@ test('staging Offline Earn persists locally and keeps Redeem conservative', asyn
     await page.goto(
       `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
     );
-    await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible();
     await page.route('**/api/v1/transactions/redeem', (route) =>
       route.abort('internetdisconnected'),
     );
     await page.getByLabel('POS receipt number').fill(offlineRedeemReceipt);
-    await page.getByLabel('Basket amount').fill('100');
-    await page.getByLabel('Basket amount').blur();
-    await page.getByLabel('Requested redemption').fill('1');
-    await page.getByLabel('Requested redemption').blur();
+    await page.getByLabel('Basket subtotal (₦)').fill('100');
+    await page.getByLabel('Basket subtotal (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await page.getByLabel('Redemption amount (₦)').fill('1');
+    await page.getByLabel('Redemption amount (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
     const offlineCountBeforeRedeem = await offlineEarnCount(page);
-    await page.getByRole('button', { name: /submit redemption/i }).click();
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(
-      page.getByText(/offline redeem|cannot|unavailable|error/i),
+      page.getByText(/offline redeem|cannot|could not|unavailable|error/i),
     ).toBeVisible();
     await expect
       .poll(() => offlineEarnCount(page))

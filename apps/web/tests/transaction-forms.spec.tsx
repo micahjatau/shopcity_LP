@@ -41,6 +41,23 @@ const policyContext = {
   offlineRedemptionDisabled: false,
 };
 
+function advanceRedeemToAmount(basketSubtotal = '100', receipt = 'R-001') {
+  const basket = screen.getByLabelText('Basket subtotal (₦)');
+  fireEvent.change(basket, { target: { value: basketSubtotal } });
+  fireEvent.blur(basket);
+  fireEvent.change(screen.getByLabelText('POS receipt number'), {
+    target: { value: receipt },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Proceed', exact: true }));
+}
+
+function advanceRedeemToConfirmation(redemptionAmount = '10') {
+  const requested = screen.getByLabelText('Redemption amount (₦)');
+  fireEvent.change(requested, { target: { value: redemptionAmount } });
+  fireEvent.blur(requested);
+  fireEvent.click(screen.getByRole('button', { name: 'Proceed', exact: true }));
+}
+
 describe('cashier transaction forms', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -79,7 +96,18 @@ describe('cashier transaction forms', () => {
     } as never);
     jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
       status: 201,
-      data: { data: { transactionId: 'redeem-1' } },
+      data: {
+        data: {
+          redemptionId: 'redeem-1',
+          transactionId: 'redeem-1',
+          state: 'CONFIRMED',
+          posReceiptNumber: 'R-001',
+          basketAmountKobo: 10000,
+          redeemedAmountKobo: 1000,
+          remainingBalanceKobo: 4500,
+          smsStatus: 'QUEUED',
+        },
+      },
     } as never);
   });
 
@@ -526,7 +554,7 @@ describe('cashier transaction forms', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows remaining payable amount in the distinct redemption flow', () => {
+  it('shows the basket and customer-payable amount across the redemption stages', () => {
     render(
       <RedeemTransactionForm
         lookupContext={lookupContext}
@@ -534,23 +562,30 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Basket amount'), {
-      target: { value: '100' },
-    });
-    fireEvent.change(screen.getByLabelText('Requested redemption'), {
-      target: { value: '10' },
-    });
-    fireEvent.blur(screen.getByLabelText('Basket amount'));
-    fireEvent.blur(screen.getByLabelText('Requested redemption'));
-
-    expect(screen.getByText('Remaining payable amount')).toBeInTheDocument();
-    expect(screen.getAllByText('₦90.00').length).toBeGreaterThanOrEqual(1);
+    advanceRedeemToAmount();
+    expect(
+      screen.getByRole('heading', { name: 'Step 3 — Redemption amount' }),
+    ).toBeInTheDocument();
+    advanceRedeemToConfirmation();
+    expect(screen.getByText('Customer pays')).toBeInTheDocument();
+    expect(screen.getByText('₦90.00')).toBeInTheDocument();
+    expect(screen.queryByLabelText('4-digit OTP')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirm redemption' }),
+    ).toBeInTheDocument();
   });
 
   it('keeps a pending redemption outcome distinct from a completed debit', async () => {
     jest.mocked(redemptionsControllerRedeemV1).mockResolvedValue({
       status: 202,
-      data: { data: { transactionId: 'redeem-pending' } },
+      data: {
+        data: {
+          transactionId: 'redeem-pending',
+          state: 'PENDING_APPROVAL',
+          posReceiptNumber: 'R-001',
+          basketAmountKobo: 10000,
+        },
+      },
     } as never);
     render(
       <RedeemTransactionForm
@@ -559,26 +594,17 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Basket amount'), {
-      target: { value: '100' },
-    });
-    fireEvent.change(screen.getByLabelText('Requested redemption'), {
-      target: { value: '10' },
-    });
-    fireEvent.blur(screen.getByLabelText('Basket amount'));
-    fireEvent.blur(screen.getByLabelText('Requested redemption'));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Proceed to confirmation' }),
-    );
+    advanceRedeemToAmount();
+    advanceRedeemToConfirmation();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm redemption' }));
 
     await waitFor(() => {
       expect(
-        screen.getByText('Redemption submitted and waiting for approval.'),
+        screen.getByRole('heading', { name: 'Redemption pending approval' }),
       ).toBeInTheDocument();
     });
     expect(
-      screen.getByRole('heading', { name: 'Redemption pending approval' }),
+      screen.getByText('Pending approval', { selector: 'strong' }),
     ).toBeInTheDocument();
     expect(screen.queryByText('Redemption completed')).not.toBeInTheDocument();
   });
@@ -591,19 +617,14 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Basket amount'), {
-      target: { value: '100' },
+    const basket = screen.getByLabelText('Basket subtotal (₦)');
+    fireEvent.change(basket, { target: { value: '100' } });
+    fireEvent.blur(basket);
+    fireEvent.change(screen.getByLabelText('POS receipt number'), {
+      target: { value: 'R-NO-CARD' },
     });
-    fireEvent.change(screen.getByLabelText('Requested redemption'), {
-      target: { value: '10' },
-    });
-    fireEvent.blur(screen.getByLabelText('Basket amount'));
-    fireEvent.blur(screen.getByLabelText('Requested redemption'));
 
-    expect(
-      screen.getByRole('button', { name: 'Proceed to confirmation' }),
-    ).toBeDisabled();
-    expect(screen.getByText('Awaiting lookup')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Proceed' })).toBeDisabled();
   });
 
   it('maps insufficient redemption balance to an actionable message', async () => {
@@ -617,17 +638,9 @@ describe('cashier transaction forms', () => {
         policyContext={policyContext}
       />,
     );
-    fireEvent.change(screen.getByLabelText('Basket amount'), {
-      target: { value: '400' },
-    });
-    fireEvent.change(screen.getByLabelText('Requested redemption'), {
-      target: { value: '120' },
-    });
-    fireEvent.blur(screen.getByLabelText('Basket amount'));
-    fireEvent.blur(screen.getByLabelText('Requested redemption'));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Proceed to confirmation' }),
-    );
+
+    advanceRedeemToAmount('400');
+    advanceRedeemToConfirmation('120');
     fireEvent.click(screen.getByRole('button', { name: 'Confirm redemption' }));
 
     await waitFor(() => {
@@ -654,17 +667,8 @@ describe('cashier transaction forms', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Basket amount'), {
-      target: { value: '100' },
-    });
-    const requested = screen.getByLabelText('Requested redemption');
-    fireEvent.change(requested, { target: { value: '10' } });
-    fireEvent.blur(screen.getByLabelText('Basket amount'));
-    fireEvent.blur(requested);
-    const submit = screen.getByRole('button', {
-      name: 'Proceed to confirmation',
-    });
-    fireEvent.click(submit);
+    advanceRedeemToAmount();
+    advanceRedeemToConfirmation();
     const confirm = screen.getByRole('button', { name: 'Confirm redemption' });
     fireEvent.click(confirm);
     fireEvent.click(confirm);
@@ -687,7 +691,7 @@ describe('cashier transaction forms', () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByText('Credit redeemed successfully.'),
+        screen.getByRole('heading', { name: 'Redemption successful' }),
       ).toBeInTheDocument();
     });
   });

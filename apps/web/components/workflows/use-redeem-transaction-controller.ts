@@ -33,7 +33,11 @@ export type RedeemPolicyContext = {
 
 export type RedeemLookupContext = {
   cardSerialNumber?: string;
+  customerId?: string;
   customerName?: string;
+  maskedEmail?: string;
+  maskedPhone?: string;
+  cardStatus?: string;
   availableBalanceKobo?: number | null;
   expiringCreditKobo?: number | null;
   receiptNumber?: string;

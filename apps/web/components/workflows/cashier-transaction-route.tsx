@@ -1,9 +1,9 @@
 'use client';
 
-import { ArrowLeft, ArrowRight, Search, ScanLine } from 'lucide-react';
+import { Search, ScanLine } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Fragment, type FormEvent, type ReactNode } from 'react';
+import { Fragment, type FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   customersControllerGetCustomerV1,
@@ -13,12 +13,7 @@ import { createApiRequest } from '../../lib/api/request';
 import { useSessionBootstrapState } from '../session-bootstrap';
 import { ScannerContextScope } from '../scanner-context-scope';
 import { Button, Input } from '../ui';
-import {
-  CashierFlowPanel,
-  CashierPageHeader,
-  Money,
-  StatusBadge,
-} from '../shopcity';
+import { CashierFlowPanel, CashierPageHeader, Money } from '../shopcity';
 import { EarnTransactionForm, RedeemTransactionForm } from './index';
 import {
   useCashierLookupController,
@@ -28,6 +23,8 @@ import {
 import { VerifiedCardLookupStep } from './verified-card-lookup-step';
 import { RecentCashierCaptures } from './recent-cashier-captures';
 import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
+
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- the progress track is horizontally scrollable on narrow screens. */
 
 type CashierPolicyConfig = {
   tenant?: { id?: string; name?: string };
@@ -81,7 +78,6 @@ export function CashierWorkflowRoute({
   const policyConfig = publicConfig as CashierPolicyConfig | null;
   const [flowStep, setFlowStep] = useState(0);
   const [earnConfirmed, setEarnConfirmed] = useState(false);
-  const [redeemConfirmed, setRedeemConfirmed] = useState(false);
   const [lookupEmailSummary, setLookupEmailSummary] = useState<{
     customerId: string;
     email: string | null;
@@ -132,7 +128,6 @@ export function CashierWorkflowRoute({
   }, [lookupCustomerId]);
 
   const cardStatus = lookupRecord?.status ?? lookupRecord?.cardStatus ?? '';
-  const cardStatusPresentation = getCardStatusPresentation(cardStatus);
   const email =
     lookupCustomerId && lookupEmailSummary?.customerId === lookupCustomerId
       ? (lookupEmailSummary?.email ?? 'Not provided')
@@ -145,34 +140,6 @@ export function CashierWorkflowRoute({
     (lookupCustomerId && lookupEmailSummary?.customerId === lookupCustomerId
       ? lookupEmailSummary?.availableBalanceKobo
       : null);
-  const lookupSummary: Array<[string, ReactNode]> = lookupRecord
-    ? [
-        [
-          'Customer',
-          lookupRecord.customer?.fullName ?? lookupRecord.customerName ?? '—',
-        ],
-        ['Phone', lookupRecord.customer?.maskedPhone ?? '—'],
-        ['Email', email],
-        [
-          'Card status',
-          <StatusBadge
-            key="card-status"
-            className="cashier-confirm-card-status"
-            label={cardStatusPresentation.label}
-            tone={cardStatusPresentation.tone}
-          />,
-        ],
-        [
-          'Wallet balance',
-          typeof walletBalanceKobo === 'number' ? (
-            <Money amountKobo={walletBalanceKobo} />
-          ) : (
-            'Not provided'
-          ),
-        ],
-      ]
-    : [];
-
   const policyContext = policyConfig?.policies ?? null;
   const branchContext = policyConfig?.branch ?? null;
   const branchReceiptWeekStartDay =
@@ -204,15 +171,21 @@ export function CashierWorkflowRoute({
         : !earnConfirmed
           ? 1
           : flowStep
-      : !lookupRecord
-        ? 0
-        : !redeemConfirmed
-          ? 1
-          : flowStep;
+      : kind === 'redeem'
+        ? !lookupRecord
+          ? 0
+          : flowStep
+        : 0;
   const flowSteps =
     kind === 'earn'
       ? ['Find Customer', 'Confirm Customer', 'Receipt Details', 'Review']
-      : ['Find customer', 'Basket subtotal', 'Redemption amount', 'Confirm'];
+      : [
+          'Find Customer',
+          'Basket Total',
+          'Redemption amount',
+          'Confirm Redemption',
+        ];
+  const usesCaptureProgress = kind === 'earn' || kind === 'redeem';
   const routeHeader = (
     <CashierPageHeader
       className="cashier-route-header"
@@ -236,15 +209,16 @@ export function CashierWorkflowRoute({
       <ScannerContextScope context="lookup" />
       {routeHeader}
       {kind !== 'lookup' ? (
-        <nav
+        <div
+          role="region"
           className={`cashier-flow-steps ${
-            kind === 'earn' ? 'cashier-flow-steps--capture' : ''
+            usesCaptureProgress ? 'cashier-flow-steps--capture' : ''
           }`}
           aria-label={`${title} steps`}
-          tabIndex={kind === 'earn' ? 0 : undefined}
+          tabIndex={usesCaptureProgress ? 0 : undefined}
           data-od-id={kind === 'earn' ? 'capture-stages' : 'redeem-stages'}
         >
-          {kind === 'earn' ? (
+          {usesCaptureProgress ? (
             <div className="cashier-flow-steps__track">
               {flowSteps.map((step, index) => (
                 <Fragment key={step}>
@@ -307,7 +281,7 @@ export function CashierWorkflowRoute({
               </span>
             ))
           )}
-        </nav>
+        </div>
       ) : null}
       {kind === 'lookup' ? (
         <FindCustomerView
@@ -426,7 +400,7 @@ export function CashierWorkflowRoute({
       ) : (
         <CashierFlowPanel
           flow="redeem"
-          state={`step-${currentFlowStep + 1}`}
+          state={`step-${Math.min(currentFlowStep + 1, flowSteps.length)}`}
           className="cashier-flow-panel cashier-redeem-flow-panel"
           dataOdId="redeem-flow"
         >
@@ -438,79 +412,39 @@ export function CashierWorkflowRoute({
               policyMessage={policyMessage}
               onLookup={(event) => void handleLookup(event)}
               onQueryChange={setLookupValue}
+              captureLayout
             />
-          ) : !redeemConfirmed ? (
-            <div
-              className="cashier-stage-content"
-              aria-label="Confirm customer"
-            >
-              <div className="cashier-stage-heading">
-                <h2 className="cashier-stage-heading-title">
-                  Confirm customer
-                </h2>
-                <p className="cashier-stage-heading-description">
-                  Verify the customer and card before entering the redemption.
-                </p>
-              </div>
-              <CustomerConfirmationSummary
-                lookupSummary={lookupSummary}
-                cardSerialNumber={lookupContext?.cardSerialNumber}
-                customerName={lookupContext?.customerName ?? 'Customer'}
-                cardStatus={
-                  lookupRecord.status ??
-                  lookupRecord.cardStatus ??
-                  'Not provided'
-                }
-              />
-              <div className="cashier-stage-actions">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  aria-label="Back"
-                  className="cashier-stage-back-button"
-                  onClick={() => {
-                    clearLookup();
-                    setRedeemConfirmed(false);
-                  }}
-                >
-                  <ArrowLeft aria-hidden="true" size={18} />
-                </Button>
-                <Button type="button" onClick={() => setRedeemConfirmed(true)}>
-                  Continue to redemption
-                </Button>
-              </div>
-            </div>
           ) : (
             <RedeemTransactionForm
-              lookupContext={lookupContext}
+              lookupContext={
+                lookupContext
+                  ? {
+                      ...lookupContext,
+                      maskedPhone: lookupRecord.customer?.maskedPhone,
+                      maskedEmail: email === 'Loading…' ? undefined : email,
+                      cardStatus,
+                      availableBalanceKobo: walletBalanceKobo,
+                    }
+                  : undefined
+              }
               policyContext={policyContext}
               cashierId={userId}
+              cashierDisplayName={
+                sessionLabel?.split(' · ').slice(1).join(' · ').trim() ||
+                'Cashier'
+              }
               branchId={policyConfig?.branch?.id ?? null}
               onFlowStepChange={setFlowStep}
+              onBackToLookup={() => {
+                clearLookup();
+                setFlowStep(0);
+              }}
             />
           )}
         </CashierFlowPanel>
       )}
     </section>
   );
-}
-
-function getCardStatusPresentation(status: string) {
-  const normalized = status.trim().toUpperCase();
-  if (normalized === 'ACTIVE')
-    return { label: 'Active', tone: 'success' as const };
-  if (normalized === 'PENDING')
-    return { label: 'Pending', tone: 'warning' as const };
-  if (['BLOCKED', 'INACTIVE', 'SUSPENDED', 'EXPIRED'].includes(normalized)) {
-    return {
-      label: normalized[0] + normalized.slice(1).toLowerCase(),
-      tone: 'danger' as const,
-    };
-  }
-  return {
-    label: status || 'Not provided',
-    tone: 'neutral' as const,
-  };
 }
 
 function getCaptureCardStatus(status: string) {
@@ -656,41 +590,6 @@ function CaptureCustomerConfirmationCard({
           Status: {cardStatusDisplay.label}
         </p>
       </div>
-    </div>
-  );
-}
-
-function CustomerConfirmationSummary({
-  lookupSummary,
-  cardSerialNumber,
-  customerName,
-  cardStatus,
-}: Readonly<{
-  lookupSummary: Array<[string, ReactNode]>;
-  cardSerialNumber?: string;
-  customerName: string;
-  cardStatus: string;
-}>) {
-  return (
-    <div
-      className="cashier-confirm-layout"
-      role="region"
-      aria-label="Lookup and status"
-    >
-      <div className="cashier-confirm-details">
-        {lookupSummary.map(([label, value]) => (
-          <div key={label} className="cashier-detail-row">
-            <span>{label}</span>
-            {label === 'Card status' ? value : <strong>{value}</strong>}
-          </div>
-        ))}
-      </div>
-      <SupervisorVirtualCardPreview
-        compact
-        customerName={customerName}
-        serialNumber={cardSerialNumber ?? 'Not provided'}
-        status={cardStatus}
-      />
     </div>
   );
 }

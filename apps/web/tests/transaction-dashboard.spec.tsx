@@ -10,99 +10,167 @@ jest.mock('../lib/api/generated-client', () => ({
   reportsControllerListCashierTodayV1: jest.fn(),
 }));
 
+const activityItems = [
+  {
+    id: 'txn-1',
+    transactionId: 'txn-1',
+    redeemedAmountKobo: null,
+    netPaidAmountKobo: null,
+    earnedAmountKobo: 500,
+    receiptNumber: 'R-001',
+    operation: 'EARN',
+    status: 'APPROVED',
+    customerName: 'Ada Akin',
+    purchaseAmountKobo: 10000,
+    loyaltyAmountKobo: 500,
+    occurredAt: '2026-01-01T10:00:00.000Z',
+  },
+  {
+    id: 'txn-2',
+    transactionId: 'ledger-redeem-2',
+    redeemedAmountKobo: 200,
+    netPaidAmountKobo: 29800,
+    earnedAmountKobo: 100,
+    receiptNumber: 'R-002',
+    operation: 'REDEEM',
+    status: 'CONFIRMED',
+    customerName: 'Kelechi Okafor',
+    purchaseAmountKobo: 30000,
+    loyaltyAmountKobo: 200,
+    occurredAt: '2026-01-01T11:00:00.000Z',
+  },
+];
+
+function mockActivity(items = activityItems) {
+  jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
+    status: 200,
+    data: { data: { items } },
+  } as never);
+}
+
+function detailRecord(transactionId: string, state = 'POSTED') {
+  return {
+    id: transactionId,
+    transactionId,
+    type: 'EARN',
+    direction: 'CREDIT',
+    tenantId: 'tenant-1',
+    branchId: 'branch-1',
+    customerId: 'customer-1',
+    deviceId: null,
+    cardSerialNumber: 'SC-2670-7376',
+    posReceiptNumber: 'R-001',
+    purchaseAmountKobo: 10000,
+    occurredAt: '2026-01-01T10:00:00.000Z',
+    capturedAt: '2026-01-01T10:01:00.000Z',
+    state,
+    captureStatus: null,
+    reviewStatus: null,
+    approvalId: null,
+    approvalStatus: null,
+    ledgerEntryId: 'ledger-1',
+    creditKobo: 500,
+    redeemedAmountKobo: null,
+    netPaidAmountKobo: null,
+    redemptionId: null,
+    availableBalanceKobo: 0,
+    expiresAt: null,
+    smsStatus: null,
+    ledger: {},
+    settlementEffects: [
+      {
+        transactionId: 'ledger-1',
+        type: 'EARN',
+        direction: 'CREDIT',
+        amountKobo: 500,
+        status: 'CONFIRMED',
+      },
+    ],
+  };
+}
+
 describe('TransactionDashboard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('filters bounded activity and loads authoritative detail', async () => {
-    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          items: [
-            {
-              id: 'txn-1',
-              receiptNumber: 'R-001',
-              operation: 'EARN',
-              status: 'APPROVED',
-              loyaltyAmountKobo: 500,
-              occurredAt: '2026-01-01T10:00:00.000Z',
-            },
-            {
-              id: 'txn-2',
-              receiptNumber: 'R-002',
-              operation: 'REDEEM',
-              status: 'PENDING',
-              loyaltyAmountKobo: 200,
-              occurredAt: '2026-01-01T11:00:00.000Z',
-            },
-          ],
-        },
-      },
-    } as never);
+  it('filters the bounded cashier report and opens authoritative detail', async () => {
+    mockActivity();
     jest.mocked(loyaltyControllerGetTransactionV1).mockResolvedValue({
       status: 200,
-      data: {
-        data: {
-          transactionId: 'txn-1',
-          state: 'POSTED',
-          customerId: 'customer-1',
-          amountKobo: 1000,
-        },
-      },
+      data: { data: detailRecord('txn-1') },
     } as never);
 
     const { container } = render(<TransactionDashboard />);
     await waitFor(() => expect(screen.getByText('R-001')).toBeInTheDocument());
-    expect(screen.queryByText('Today’s cashier activity')).toBeNull();
     expect(
-      screen.getByText(
-        'Review purchases, redemptions and their current status.',
-      ),
+      screen.getByText('Captured receipts and the credit issued against them.'),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Operations · Live ledger')).toBeNull();
+    expect(screen.queryByText('Today’s cashier activity')).toBeNull();
+
     const heading = container.querySelector(
       '[data-od-id="transactions-heading"]',
     );
     const filters = container.querySelector(
       '[data-od-id="transaction-filters"]',
     );
-    const table = container.querySelector('[data-od-id="transactions-table"]');
+    const tableCard = container.querySelector(
+      '[data-od-id="transactions-table"]',
+    );
     expect(heading).not.toBeNull();
     expect(filters).not.toBeNull();
-    expect(table).not.toBeNull();
+    expect(tableCard).not.toBeNull();
     const refreshButton = screen.getByRole('button', { name: 'Refresh' });
     expect(refreshButton.querySelector('svg')).not.toBeNull();
     expect(heading).toContainElement(refreshButton);
-    expect(filters).not.toContainElement(refreshButton);
-    expect(heading!.compareDocumentPosition(filters!)).toBe(
+    expect(heading!.compareDocumentPosition(tableCard!)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(filters!.compareDocumentPosition(table!)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
+    expect(filters!.closest('[data-od-id="transactions-table"]')).toBe(
+      tableCard,
     );
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search receipt, customer name, or transaction ID',
+    });
+    fireEvent.change(search, { target: { value: 'Ada' } });
+    expect(screen.getByText('R-001')).toBeInTheDocument();
+    expect(screen.queryByText('R-002')).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: '' } });
+
     fireEvent.change(screen.getByLabelText('Filter by operation'), {
       target: { value: 'REDEEM' },
     });
     expect(screen.queryByText('R-001')).not.toBeInTheDocument();
     expect(screen.getByText('R-002')).toBeInTheDocument();
-
     fireEvent.change(screen.getByLabelText('Filter by operation'), {
       target: { value: '' },
     });
+
+    const minimumAmount = screen.getByLabelText(
+      'Minimum purchase amount in naira',
+    );
+    fireEvent.change(minimumAmount, { target: { value: '200' } });
+    expect(screen.queryByText('R-001')).not.toBeInTheDocument();
+    expect(screen.getByText('R-002')).toBeInTheDocument();
+    fireEvent.change(minimumAmount, { target: { value: '' } });
+
     expect(screen.getByRole('contentinfo')).toHaveTextContent('Page 1 of 1');
     fireEvent.click(screen.getByText('R-001'));
-    await waitFor(() =>
-      expect(screen.getByRole('dialog', { name: 'R-001' })).toBeInTheDocument(),
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Transaction R-001',
+    });
+    expect(dialog).toHaveTextContent('txn-1');
+    expect(dialog).toHaveTextContent('Ada Akin');
+    expect(dialog).toHaveTextContent('SC-2670-7376');
+    expect(dialog).toHaveTextContent(
+      'Receipt image not provided by the Cashier transaction service.',
     );
-    expect(screen.getByRole('dialog')).toHaveTextContent('txn-1');
-    expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Receipt images are not included in this activity report.',
+    expect(dialog).toHaveTextContent(
+      'Audit events are not included in the Cashier transaction response.',
     );
-    expect(screen.getByRole('dialog')).toHaveTextContent(
-      'Not included in cashier report',
-    );
-    expect(screen.queryByText('customer-1')).not.toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent('customer-1');
     expect(loyaltyControllerGetTransactionV1).toHaveBeenCalledWith(
       'txn-1',
       expect.anything(),
@@ -113,10 +181,7 @@ describe('TransactionDashboard', () => {
   });
 
   it('preserves the table composition for an empty bounded report', async () => {
-    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
-      status: 200,
-      data: { data: { items: [] } },
-    } as never);
+    mockActivity([]);
 
     render(<TransactionDashboard />);
 
@@ -124,59 +189,30 @@ describe('TransactionDashboard', () => {
       await screen.findByText('No transactions found'),
     ).toBeInTheDocument();
     expect(screen.getByRole('table')).toBeInTheDocument();
+    for (const column of [
+      'Receipt No.',
+      'Name',
+      'Receipt amount',
+      'Credit',
+      'Date & Time',
+      'Outcome',
+    ]) {
+      expect(
+        screen.getByRole('columnheader', { name: column }),
+      ).toBeInTheDocument();
+    }
     expect(
-      screen.getByRole('columnheader', { name: 'Receipt no.' }),
+      screen.getByText(
+        'Adjust the filters or refresh the bounded cashier activity feed.',
+      ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'Operation' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'Credit' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'Status' }),
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText(
-          'Adjust the filters or refresh the bounded cashier activity feed.',
-        )
-        .closest('[role="status"]'),
-    ).toHaveTextContent(
-      'Adjust the filters or refresh the bounded cashier activity feed.',
-    );
     expect(screen.getByRole('contentinfo')).toHaveTextContent(
       '0 loaded transactions · bounded report scope',
     );
   });
 
   it('contains focus and ignores stale detail responses', async () => {
-    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValue({
-      status: 200,
-      data: {
-        data: {
-          items: [
-            {
-              id: 'txn-1',
-              receiptNumber: 'R-001',
-              operation: 'EARN',
-              status: 'APPROVED',
-              loyaltyAmountKobo: 500,
-              occurredAt: '2026-01-01T10:00:00.000Z',
-            },
-            {
-              id: 'txn-2',
-              receiptNumber: 'R-002',
-              operation: 'REDEEM',
-              status: 'PENDING',
-              loyaltyAmountKobo: null,
-              occurredAt: '2026-01-01T11:00:00.000Z',
-            },
-          ],
-        },
-      },
-    } as never);
-
+    mockActivity();
     let resolveFirst!: (value: unknown) => void;
     let resolveSecond!: (value: unknown) => void;
     const firstDetail = new Promise((resolve) => {
@@ -206,17 +242,18 @@ describe('TransactionDashboard', () => {
     fireEvent.click(secondRow!);
     resolveFirst({
       status: 200,
-      data: { data: { transactionId: 'txn-1', state: 'POSTED' } },
+      data: { data: detailRecord('txn-1') },
     });
     resolveSecond({
       status: 200,
-      data: { data: { transactionId: 'txn-2', state: 'PENDING' } },
+      data: { data: detailRecord('txn-2', 'PENDING') },
     });
 
-    await waitFor(() =>
-      expect(screen.getByRole('dialog')).toHaveTextContent('txn-2'),
-    );
-    expect(screen.getByRole('dialog')).not.toHaveTextContent('txn-1');
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Transaction R-002',
+    });
+    await waitFor(() => expect(dialog).toHaveTextContent('txn-2'));
+    expect(dialog).not.toHaveTextContent('txn-1');
     fireEvent.keyDown(document, { key: 'Tab' });
     expect(document.activeElement).toHaveAccessibleName(
       'Close transaction detail',

@@ -1055,8 +1055,9 @@ function isPrivilegedCustomerRead(actor: AuthContext): boolean {
 function maskEmail(email: string | null): string | null {
   if (!email) return null;
   const [localPart, domainPart] = email.split('@');
-  if (!domainPart) return `${localPart.slice(0, 1)}***`;
-  return `${localPart.slice(0, 1)}***@${domainPart}`;
+  const visibleLocalPart = localPart.slice(0, 3);
+  if (!domainPart) return `${visibleLocalPart}***`;
+  return `${visibleLocalPart}***@${domainPart}`;
 }
 
 function toCashierCustomerSummary(

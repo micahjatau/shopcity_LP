@@ -509,17 +509,16 @@ test.describe('contract-faithful frontend flows', () => {
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
     await page.getByRole('button', { name: 'Search customer' }).click();
     await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Continue to redemption' }).click();
-    const redeem = page.getByRole('article', { name: /redeem transaction/i });
+    const redeem = page.locator('[data-od-id="redeem-form"]');
     await redeem.getByLabel('POS receipt number').fill('RCPT-124');
-    await redeem.getByLabel('Basket amount').fill('1,000.00');
-    await redeem.getByLabel('Basket amount').blur();
-    await redeem.getByLabel('Requested redemption').fill('50.00');
-    await redeem.getByLabel('Requested redemption').blur();
+    await redeem.getByLabel('Basket subtotal (₦)').fill('1,000.00');
+    await redeem.getByLabel('Basket subtotal (₦)').blur();
+    await redeem.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await redeem.getByLabel('Redemption amount (₦)').fill('50.00');
+    await redeem.getByLabel('Redemption amount (₦)').blur();
+    await redeem.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await redeem.getByText('Transaction time').click();
     await redeem.getByLabel('Occurred at').fill('2030-01-01T12:00');
-    await redeem
-      .getByRole('button', { name: 'Proceed to confirmation' })
-      .click();
     await redeem.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(redeem).toContainText(
       /redemption submitted and waiting for approval/i,

@@ -225,7 +225,7 @@ describe('CustomersService', () => {
           customerId: 'customer-id',
           fullName: 'Ada Customer',
           maskedPhone: '+234801* *** 5678',
-          email: 'c***@example.com',
+          email: 'cus***@example.com',
           birthdayMonth: null,
           cardNumber: 'CARD-001',
           cardStatus: CardStatus.ACTIVE,

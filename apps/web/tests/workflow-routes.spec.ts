@@ -772,10 +772,11 @@ test.describe('workflow route coverage', () => {
       await page.getByRole('button', { name: 'Search customer' }).click();
       const confirmationHeading = page.getByRole('heading', {
         name:
-          kind === 'earn' ? 'Step 2 — Confirm customer' : 'Confirm customer',
+          kind === 'earn'
+            ? 'Step 2 — Confirm customer'
+            : 'Step 2 — Basket subtotal',
       });
       await expect(confirmationHeading).toBeVisible();
-      await expect(page.getByText('Step 2', { exact: true })).toHaveCount(0);
       if (kind === 'earn') {
         await expect(
           page.locator('.cashier-capture-confirm__details'),
@@ -795,15 +796,12 @@ test.describe('workflow route coverage', () => {
         await expect(backButton).toHaveText('Back');
         await expect(backButton.locator('svg')).toHaveCount(0);
       } else {
-        await expect(page.locator('.cashier-confirm-details')).toContainText(
-          'Wallet balance',
-        );
         await expect(
-          page.locator('.cashier-confirm-details'),
-        ).not.toContainText(/Earn eligibility|Expiring credit/);
+          page.locator('.cashier-redeem-customer-details'),
+        ).toContainText('Available Credit');
         await expect(
           page.getByRole('img', {
-            name: /ShopCity card preview for Ada Shopper/,
+            name: /ShopCity virtual card for Ada Shopper/,
           }),
         ).toBeVisible();
         const backButton = page.getByRole('button', { name: 'Back' });
@@ -816,23 +814,28 @@ test.describe('workflow route coverage', () => {
           maxDiffPixelRatio: 0.08,
         },
       );
-      await page
-        .getByRole('button', {
-          name: kind === 'earn' ? 'Proceed' : 'Continue to redemption',
-        })
-        .click();
-      await expect(
-        page.getByRole('article', { name: `${kind} transaction` }),
-      ).toBeVisible();
-      await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
-        0,
-      );
-      await expect(page).toHaveScreenshot(
-        `financial-lookup-${kind}-confirmation.png`,
-        {
-          maxDiffPixelRatio: 0.08,
-        },
-      );
+      if (kind === 'earn') {
+        await page.getByRole('button', { name: 'Proceed' }).click();
+        await expect(
+          page.getByRole('article', { name: 'earn transaction' }),
+        ).toBeVisible();
+        await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
+          0,
+        );
+        await expect(page).toHaveScreenshot(
+          `financial-lookup-${kind}-confirmation.png`,
+          {
+            maxDiffPixelRatio: 0.08,
+          },
+        );
+      } else {
+        await expect(
+          page.locator('[data-od-id="redeem-basket"]'),
+        ).toBeVisible();
+        await expect(page.locator('.cashier-verified-card-lookup')).toHaveCount(
+          0,
+        );
+      }
     }
   });
 
@@ -840,6 +843,7 @@ test.describe('workflow route coverage', () => {
     page,
   }) => {
     await mockShell(page, 'CASHIER');
+    await page.setViewportSize({ width: 1440, height: 924 });
     await page.route('**/api/v1/reports/cashier-today', (route) =>
       route.fulfill(
         json({
@@ -852,6 +856,8 @@ test.describe('workflow route coverage', () => {
                 id: 'txn-1',
                 occurredAt: '2030-01-01T10:00:00.000Z',
                 operation: 'EARN',
+                customerName: 'Michael Adeyemi',
+                purchaseAmountKobo: 50000,
                 loyaltyAmountKobo: 500,
                 receiptNumber: 'R-001',
                 status: 'APPROVED',
@@ -882,9 +888,9 @@ test.describe('workflow route coverage', () => {
             branchId: 'branch-1',
             customerId: 'customer-1',
             deviceId: null,
-            cardSerialNumber: null,
+            cardSerialNumber: 'SC-2670-7376',
             posReceiptNumber: 'R-001',
-            purchaseAmountKobo: null,
+            purchaseAmountKobo: 50000,
             occurredAt: '2030-01-01T10:00:00.000Z',
             capturedAt: '2030-01-01T10:01:00.000Z',
             state: 'POSTED',
@@ -907,14 +913,18 @@ test.describe('workflow route coverage', () => {
       );
     });
     await page.goto(`${baseUrl}/cashier/transactions`);
-    await expect(page.locator('main')).toHaveScreenshot(
-      'cashier-transactions-list.png',
-      { maxDiffPixelRatio: 0.08 },
-    );
+    await expect(
+      page.getByLabel('Minimum purchase amount in naira'),
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot('cashier-transactions-list.png', {
+      maxDiffPixelRatio: 0.08,
+    });
 
     const trigger = page.getByRole('row', { name: /open transaction R-001/i });
     await trigger.click();
-    const dialog = page.getByRole('dialog', { name: 'R-001' });
+    const dialog = page.getByRole('dialog', {
+      name: 'Transaction R-001',
+    });
     await expect(dialog).toBeVisible();
     await expect(page.locator('.transaction-detail-modal')).toHaveCSS(
       'width',
@@ -923,12 +933,26 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('button', { name: 'Close transaction detail' }),
     ).toBeFocused();
+    await expect(dialog).toContainText('SC-2670-7376');
+    await page.keyboard.press('Tab');
+    await expect(
+      page.getByRole('button', { name: 'Copy virtual card number' }),
+    ).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(
       page.getByRole('button', { name: 'Close transaction detail' }),
     ).toBeFocused();
     await expect(dialog).toContainText('txn-1');
     await expect(dialog).not.toContainText('customer-1');
+    await expect(dialog).toContainText('Michael Adeyemi');
+    await expect(dialog).toContainText(
+      'Audit events are not included in the Cashier transaction response.',
+    );
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
     await expect(page).toHaveScreenshot('cashier-transactions-detail.png', {
       maxDiffPixelRatio: 0.08,
     });
@@ -937,17 +961,40 @@ test.describe('workflow route coverage', () => {
     await expect(trigger).toBeFocused();
 
     detailMode = 'error';
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.reload();
+    await expect(
+      page.getByLabel('Minimum purchase amount in naira'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Transaction results' }),
+    ).toHaveCSS('overflow-x', 'auto');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(1024);
+
     await page.setViewportSize({ width: 375, height: 812 });
     await page.reload();
+    await expect(
+      page.getByLabel('Minimum purchase amount in naira'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Transaction results' }),
+    ).toHaveCSS('overflow-x', 'auto');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
     const mobileTrigger = page.getByRole('row', {
       name: /open transaction R-001/i,
     });
     await mobileTrigger.click();
-    await expect(page.getByRole('dialog', { name: 'R-001' })).toContainText(
-      'Transaction detail unavailable',
-    );
+    await expect(
+      page.getByRole('dialog', { name: 'Transaction R-001' }),
+    ).toContainText('Transaction detail unavailable');
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog', { name: 'R-001' })).not.toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Transaction R-001' }),
+    ).not.toBeVisible();
   });
 
   test('covers cashier earn, redeem, customers and sync routes', async ({
@@ -2546,6 +2593,197 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
   });
 
+  test('reuses the Capture Purchase lookup and journey bar for Redeem', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await mockCashierOperationalConfig(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/redeem`);
+
+    await expect(
+      page.getByRole('heading', { name: 'Step 1 — Find customer' }),
+    ).toBeVisible();
+    const flow = page.locator('[data-od-id="redeem-flow"]');
+    const stages = page.locator('[data-od-id="redeem-stages"]');
+    await expect(flow).toBeVisible();
+    await expect(stages).toHaveClass(/cashier-flow-steps--capture/);
+    await expect(stages).toHaveCSS('width', '712px');
+    await expect(stages).toHaveCSS('height', '44px');
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step1.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await expect(stages.locator('.cashier-flow-step.is-active')).toHaveText(
+      'Find Customer',
+    );
+    await expect(page.getByRole('textbox', { name: 'Lookup' })).toHaveAttribute(
+      'placeholder',
+      'Search',
+    );
+
+    await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-001');
+    await page.getByRole('button', { name: 'Search customer' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Confirm customer' }),
+    ).toHaveCount(0);
+    await expect(stages.locator('.cashier-flow-step.is-active')).toHaveText(
+      'Basket Total',
+    );
+  });
+
+  test('runs Redeem from verified card through the authoritative result', async ({
+    page,
+  }) => {
+    await mockShell(page, 'CASHIER');
+    await mockCashierOperationalConfig(page);
+    await page.route('**/api/v1/transactions/redeem', async (route) =>
+      route.fulfill({
+        ...json({
+          success: true,
+          data: {
+            redemptionId: 'redemption-1',
+            transactionId: 'transaction-redeem-1',
+            state: 'CONFIRMED',
+            posReceiptNumber: 'REDEEM-001',
+            basketAmountKobo: 10000,
+            redeemedAmountKobo: 1000,
+            remainingBalanceKobo: 4500,
+            smsStatus: 'QUEUED',
+          },
+          meta: meta('/api/v1/transactions/redeem'),
+        }),
+        status: 201,
+      }),
+    );
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
+    const redeemFlow = page.locator('[data-od-id="redeem-flow"]');
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step2.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    const redeemStages = page.locator('[data-od-id="redeem-stages"]');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(redeemStages).toHaveCSS('height', '44px');
+    expect(
+      await redeemStages.evaluate((element) =>
+        Math.round(element.getBoundingClientRect().width),
+      ),
+    ).toBeLessThanOrEqual(390);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    expect(
+      await page
+        .locator('.cashier-redeem-customer-layout')
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+              .length,
+        ),
+    ).toBe(1);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(
+      redeemStages.locator('.cashier-flow-step.is-active'),
+    ).toHaveText('Basket Total');
+    await expect(
+      page.getByRole('img', { name: /ShopCity virtual card for Ada Shopper/ }),
+    ).toBeVisible();
+
+    await page.getByLabel('POS receipt number').fill('REDEEM-001');
+    const basket = page.getByLabel('Basket subtotal (₦)');
+    await basket.fill('100');
+    await basket.blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 3 — Redemption amount' }),
+    ).toBeVisible();
+    const redemption = page.getByLabel('Redemption amount (₦)');
+    await redemption.fill('10');
+    await redemption.blur();
+    await expect(
+      page.getByText('Customer pays', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('₦90.00')).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step3.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page
+        .locator('.cashier-redeem-amount-controls')
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+              .length,
+        ),
+    ).toBe(1);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 4 — Confirm redemption' }),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-step4.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page
+        .locator('.cashier-redeem-review-grid')
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/)
+              .length,
+        ),
+    ).toBe(1);
+    expect(
+      await page.locator('body').evaluate((body) => body.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    const redeemResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/transactions/redeem') &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Redemption successful' }),
+    ).toBeVisible();
+    await expect(page.locator('main')).toHaveScreenshot(
+      'cashier-redeem-success.png',
+      { maxDiffPixelRatio: 0.08 },
+    );
+    await expect(page.getByText('Credit redeemed successfully.')).toBeVisible();
+    await expect(page.getByText('₦10.00')).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'View customer' }),
+    ).toHaveAttribute('href', '/cashier/customers?id=customer-1');
+    const request = (await redeemResponse).request();
+    const payload = request.postDataJSON() as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      cardSerialNumber: 'CARD-001',
+      posReceiptNumber: 'REDEEM-001',
+      basketAmountKobo: 10000,
+      requestedRedemptionKobo: 1000,
+    });
+    expect(payload).not.toHaveProperty('availableBalanceKobo');
+    await expect(redeemFlow).toBeVisible();
+  });
+
   test('covers authoritative Earn and Redeem outcomes', async ({ page }) => {
     await mockShell(page, 'CASHIER');
     await page.route('**/api/v1/config/operational', async (route) =>
@@ -2704,8 +2942,9 @@ test.describe('workflow route coverage', () => {
     expect(
       await page.locator('body').evaluate((body) => body.scrollWidth),
     ).toBeLessThanOrEqual(1440);
-    await page.getByRole('button', { name: 'Continue to redemption' }).click();
-    await expect(redeemFlow).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(redeemFlow).toBeVisible();
     expect(
@@ -2713,18 +2952,28 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(390);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByLabel('POS receipt number').fill('WORKFLOW-REDEEM-001');
-    const basket = page.getByLabel('Basket amount');
-    const requested = page.getByLabel('Requested redemption');
+    const basket = page.getByLabel('Basket subtotal (₦)');
     await basket.fill('100');
     await basket.blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 3 — Redemption amount' }),
+    ).toBeVisible();
+    const requested = page.getByLabel('Redemption amount (₦)');
     await requested.fill('10');
     await requested.blur();
-    await page.getByRole('button', { name: 'Proceed to confirmation' }).click();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Step 4 — Confirm redemption' }),
+    ).toBeVisible();
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-redeem-review.png',
       { maxDiffPixelRatio: 0.08 },
     );
     await page.getByRole('button', { name: 'Confirm redemption' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Redemption successful' }),
+    ).toBeVisible();
     await expect(page.getByText('Credit redeemed successfully.')).toBeVisible();
     await expect(page.locator('main')).toHaveScreenshot(
       'cashier-redeem-outcome.png',
@@ -2743,8 +2992,7 @@ test.describe('workflow route coverage', () => {
     ] as const) {
       const stepsId =
         route.landmark === 'capture-flow' ? 'capture-stages' : 'redeem-stages';
-      const viewports =
-        route.landmark === 'capture-flow' ? [701, 700, 390] : [701, 700];
+      const viewports = [701, 700, 390];
       for (const width of viewports) {
         await page.setViewportSize({ width, height: 844 });
         await page.goto(`${baseUrl}${route.path}`);
@@ -2754,9 +3002,9 @@ test.describe('workflow route coverage', () => {
         const customerContext =
           route.landmark === 'capture-flow'
             ? page.getByLabel('Verified customer details')
-            : page.getByLabel('Lookup and status');
+            : page.locator('[data-od-id="redeem-basket"]');
         await expect(
-          customerContext.getByText('Ada Shopper', { exact: true }),
+          customerContext.getByText('Ada Shopper', { exact: true }).first(),
         ).toBeVisible({ timeout: 30000 });
         const flow = page.locator(`[data-od-id="${route.landmark}"]`);
         const steps = page.locator(`[data-od-id="${stepsId}"]`);
@@ -2798,13 +3046,33 @@ test.describe('workflow route coverage', () => {
             expect(stepContentWidth).toBeLessThanOrEqual(stepViewportWidth);
           }
         } else {
-          const columns = await steps.evaluate(
-            (element) => getComputedStyle(element).gridTemplateColumns,
-          );
+          await expect(steps).toHaveClass(/cashier-flow-steps--capture/);
+          const stepSize = await steps.evaluate((element) => {
+            const { width, height } = element.getBoundingClientRect();
+            return { width, height, clientWidth: element.clientWidth };
+          });
+          const availableWidth = await page
+            .locator('.cashier-route-page--redeem')
+            .evaluate((element) => element.clientWidth);
+          expect(stepSize.width).toBeCloseTo(Math.min(712, availableWidth), 0);
+          expect(stepSize.height).toBeCloseTo(44, 0);
           expect(
-            columns.trim().split(/\s+/),
-            `${route.path} at ${width}px`,
-          ).toHaveLength(width > 700 ? 4 : 1);
+            await steps
+              .locator('.cashier-flow-step')
+              .evaluateAll((labels) =>
+                labels.every(
+                  (label) => getComputedStyle(label).whiteSpace === 'nowrap',
+                ),
+              ),
+          ).toBe(true);
+          const stepContentWidth = await steps.evaluate(
+            (element) => element.scrollWidth,
+          );
+          if (width === 390) {
+            expect(stepContentWidth).toBeGreaterThan(stepSize.clientWidth);
+          } else {
+            expect(stepContentWidth).toBeLessThanOrEqual(stepSize.clientWidth);
+          }
         }
         expect(
           await page.locator('body').evaluate((body) => body.scrollWidth),
@@ -2872,15 +3140,15 @@ test.describe('workflow route coverage', () => {
     ).toBeVisible();
 
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
-    await page.getByRole('button', { name: 'Continue to redemption' }).click();
     await page
       .getByLabel('POS receipt number')
       .fill('WORKFLOW-INSUFFICIENT-001');
-    await page.getByLabel('Basket amount').fill('100');
-    await page.getByLabel('Basket amount').blur();
-    await page.getByLabel('Requested redemption').fill('10');
-    await page.getByLabel('Requested redemption').blur();
-    await page.getByRole('button', { name: 'Proceed to confirmation' }).click();
+    await page.getByLabel('Basket subtotal (₦)').fill('100');
+    await page.getByLabel('Basket subtotal (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
+    await page.getByLabel('Redemption amount (₦)').fill('10');
+    await page.getByLabel('Redemption amount (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(
       page.getByText('Available credit is lower than this redemption.'),
@@ -3688,11 +3956,6 @@ test.describe('workflow route coverage', () => {
       await page.goto(`${baseUrl}${route}`);
       if (landmark === 'capture-flow') {
         await page.getByRole('button', { name: 'Proceed' }).click();
-      }
-      if (landmark === 'redeem-flow') {
-        await page
-          .getByRole('button', { name: 'Continue to redemption' })
-          .click();
       }
       const element =
         routeName === 'register-customer'
@@ -4897,6 +5160,36 @@ async function expectRoutesAvailable(
   for (const [index, response] of responses.entries()) {
     expect(response.status(), hrefs[index]).toBe(200);
   }
+}
+
+async function mockCashierOperationalConfig(page: Page) {
+  const pathname = '/api/v1/config/operational';
+  await page.route('**/api/v1/config/operational', (route) =>
+    route.fulfill(
+      json({
+        success: true,
+        data: {
+          tenant: { id: 'tenant-1', name: 'ShopCity' },
+          branch: {
+            id: 'branch-1',
+            name: 'Main branch',
+            timezone: 'Africa/Lagos',
+            receiptWeekStartDay: 1,
+          },
+          policies: {
+            defaultEarnRateBps: 500,
+            minRedemptionKobo: 1000,
+            maxRedemptionBasketPercent: 50,
+            purchaseFlagThresholdKobo: 100000,
+            purchaseApprovalThresholdKobo: 200000,
+            redemptionApprovalThresholdKobo: 100000,
+            offlineRedemptionDisabled: false,
+          },
+        },
+        meta: meta(pathname),
+      }),
+    ),
+  );
 }
 
 async function mockShell(

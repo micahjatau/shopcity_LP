@@ -28,20 +28,24 @@ test('Cashier Redeem is a cross-role financial scenario', async ({ page }) => {
     await page.goto(
       `/cashier/redeem?card=${encodeURIComponent(config.activeCardSerial)}`,
     );
-    await expect(page.getByText(/lookup resolved/i)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeVisible();
     await page.getByLabel('POS receipt number').fill(receipt);
-    await page.getByLabel('Basket amount').fill('2000');
-    await page.getByLabel('Basket amount').blur();
+    await page.getByLabel('Basket subtotal (₦)').fill('2000');
+    await page.getByLabel('Basket subtotal (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
     await page
-      .getByLabel('Requested redemption')
+      .getByLabel('Redemption amount (₦)')
       .fill(String(requestedAmountNaira));
-    await page.getByLabel('Requested redemption').blur();
+    await page.getByLabel('Redemption amount (₦)').blur();
+    await page.getByRole('button', { name: 'Proceed', exact: true }).click();
     const redeemResponse = page.waitForResponse(
       (response) =>
         response.url().includes('/api/v1/transactions/redeem') &&
         response.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: /submit redemption/i }).click();
+    await page.getByRole('button', { name: 'Confirm redemption' }).click();
     await expect(
       page
         .getByText(

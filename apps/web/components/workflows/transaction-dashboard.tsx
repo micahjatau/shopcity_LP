@@ -1,6 +1,7 @@
 'use client';
 
-import { RefreshCw, X } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   loyaltyControllerGetTransactionV1,
@@ -10,7 +11,7 @@ import {
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Select, Table, useDialogLifecycle } from '../ui';
-import { Money, ShopCityCard, StatusBadge } from '../shopcity';
+import { Money, parseNaira, ShopCityCard, StatusBadge } from '../shopcity';
 
 type ActivityItem = ReportsControllerListCashierTodayV1200DataItemsItem;
 type DetailRecord = LoyaltyControllerGetTransactionV1200Data;
@@ -35,7 +36,11 @@ function normalizeStatus(status: string | null | undefined): DisplayStatus {
   if (['REVERSED', 'VOIDED'].includes(normalized)) {
     return 'reversed';
   }
-  if (['PENDING', 'PROCESSING', 'AWAITING_APPROVAL'].includes(normalized)) {
+  if (
+    ['PENDING', 'PENDING_APPROVAL', 'PROCESSING', 'AWAITING_APPROVAL'].includes(
+      normalized,
+    )
+  ) {
     return 'pending';
   }
   return 'unknown';
@@ -43,6 +48,14 @@ function normalizeStatus(status: string | null | undefined): DisplayStatus {
 
 function statusLabel(status: DisplayStatus) {
   return status[0].toUpperCase() + status.slice(1);
+}
+
+function statusTone(status: DisplayStatus) {
+  if (status === 'approved') return 'success';
+  if (status === 'failed') return 'danger';
+  if (status === 'pending') return 'warning';
+  if (status === 'reversed') return 'info';
+  return 'neutral';
 }
 
 function formatDate(value: string | null | undefined) {
@@ -53,21 +66,63 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
+function formatCashierDate(
+  value: string | null | undefined,
+  timeZone: string,
+  format: 'table' | 'detail',
+) {
+  if (!value || !timeZone) return formatDate(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'Not available';
+
+  if (format === 'table') {
+    const datePart = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone,
+    })
+      .format(date)
+      .replaceAll('/', '-');
+    const timePart = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone,
+    })
+      .format(date)
+      .replace(/\s/g, '')
+      .toLowerCase();
+    return `${datePart}, ${timePart}`;
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(date);
+}
+
 export function TransactionDashboard() {
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [operationFilter, setOperationFilter] = useState('');
-  const [creditFilter, setCreditFilter] = useState('');
   const [minimumAmount, setMinimumAmount] = useState('');
   const [page, setPage] = useState(1);
   const [message, setMessage] = useState('Loading today’s cashier activity…');
   const [loadError, setLoadError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reportTimeZone, setReportTimeZone] = useState('Africa/Lagos');
   const [selected, setSelected] = useState<ActivityItem | null>(null);
   const [detailState, setDetailState] = useState<DetailState>({
     status: 'idle',
   });
+  const [copyNotice, setCopyNotice] = useState('');
   const requestGeneration = useRef(0);
   const triggerRef = useRef<HTMLTableRowElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -84,6 +139,7 @@ export function TransactionDashboard() {
       );
       if (response.status !== 200) throw new Error('activity unavailable');
       setItems(response.data.data.items);
+      setReportTimeZone(response.data.data.timezone || 'Africa/Lagos');
       setPage(1);
       setMessage(
         `${response.data.data.items.length} bounded live receipt${response.data.data.items.length === 1 ? '' : 's'} loaded.`,
@@ -105,6 +161,7 @@ export function TransactionDashboard() {
     requestGeneration.current += 1;
     setSelected(null);
     setDetailState({ status: 'idle' });
+    setCopyNotice('');
     requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
@@ -112,12 +169,13 @@ export function TransactionDashboard() {
     const generation = requestGeneration.current + 1;
     requestGeneration.current = generation;
     triggerRef.current = trigger;
+    setCopyNotice('');
     setSelected(item);
     setDetailState({ status: 'loading' });
 
     try {
       const response = await loyaltyControllerGetTransactionV1(
-        item.id,
+        item.transactionId ?? item.id,
         createApiRequest({ csrf: true }),
       );
       if (requestGeneration.current !== generation) return;
@@ -133,43 +191,38 @@ export function TransactionDashboard() {
     }
   }
 
+  async function copyCardSerialNumber(cardSerialNumber: string) {
+    try {
+      await navigator.clipboard.writeText(cardSerialNumber);
+      setCopyNotice('Virtual card number copied.');
+    } catch {
+      setCopyNotice('Unable to copy the virtual card number.');
+    }
+  }
+
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const minimumAmountKobo = Number(minimumAmount || 0) * 100;
+    const minimumAmountKobo = minimumAmount.trim()
+      ? parseNaira(minimumAmount)
+      : null;
     return items.filter((item) => {
       const matchesQuery =
         !normalized ||
-        [item.receiptNumber, item.id].some((value) =>
+        [item.receiptNumber, item.customerName, item.id].some((value) =>
           value.trim().toLowerCase().includes(normalized),
         );
       const displayStatus = normalizeStatus(item.status);
       const matchesStatus = !statusFilter || displayStatus === statusFilter;
       const matchesOperation =
         !operationFilter || item.operation === operationFilter;
-      const matchesCredit =
-        !creditFilter ||
-        (creditFilter === 'issued'
-          ? item.loyaltyAmountKobo !== null
-          : item.loyaltyAmountKobo === null);
       const matchesMinimum =
-        !minimumAmountKobo ||
-        (item.loyaltyAmountKobo ?? 0) >= minimumAmountKobo;
+        minimumAmountKobo === null ||
+        (item.purchaseAmountKobo ?? 0) >= minimumAmountKobo;
       return (
-        matchesQuery &&
-        matchesStatus &&
-        matchesOperation &&
-        matchesCredit &&
-        matchesMinimum
+        matchesQuery && matchesStatus && matchesOperation && matchesMinimum
       );
     });
-  }, [
-    creditFilter,
-    items,
-    minimumAmount,
-    operationFilter,
-    query,
-    statusFilter,
-  ]);
+  }, [items, minimumAmount, operationFilter, query, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(visibleItems.length / 10));
   const pagedItems = visibleItems.slice((page - 1) * 10, page * 10);
@@ -195,7 +248,7 @@ export function TransactionDashboard() {
       >
         <div>
           <h1 id="cashier-transactions-title">Transactions</h1>
-          <p>Review purchases, redemptions and their current status.</p>
+          <p>Captured receipts and the credit issued against them.</p>
         </div>
         <Button
           type="button"
@@ -208,66 +261,9 @@ export function TransactionDashboard() {
           Refresh
         </Button>
       </header>
-      <p className="cashier-workflow-notice" role="status">
+      <p className="sr-only" role="status">
         {message}
       </p>
-      <div className="transaction-toolbar" data-od-id="transaction-filters">
-        <Input
-          aria-label="Search receipt number or transaction ID"
-          placeholder="Search receipt number"
-          value={query}
-          onChange={(event) => updateFilter(setQuery, event.target.value)}
-        />
-        <Select
-          aria-label="Filter by status"
-          value={statusFilter}
-          onChange={(event) =>
-            updateFilter(setStatusFilter, event.target.value)
-          }
-          options={[
-            { value: '', label: 'All statuses' },
-            { value: 'approved', label: 'Approved' },
-            { value: 'failed', label: 'Failed' },
-            { value: 'pending', label: 'Pending' },
-            { value: 'reversed', label: 'Reversed' },
-            { value: 'unknown', label: 'Unknown' },
-          ]}
-        />
-        <Select
-          aria-label="Filter by operation"
-          value={operationFilter}
-          onChange={(event) =>
-            updateFilter(setOperationFilter, event.target.value)
-          }
-          options={[
-            { value: '', label: 'All operations' },
-            { value: 'EARN', label: 'Earn' },
-            { value: 'REDEEM', label: 'Redeem' },
-          ]}
-        />
-        <Select
-          aria-label="Filter by credit"
-          value={creditFilter}
-          onChange={(event) =>
-            updateFilter(setCreditFilter, event.target.value)
-          }
-          options={[
-            { value: '', label: 'All credit states' },
-            { value: 'issued', label: 'Credit recorded' },
-            { value: 'pending', label: 'Credit pending' },
-          ]}
-        />
-        <Input
-          aria-label="Minimum amount in naira"
-          type="number"
-          min="0"
-          placeholder="Min amount"
-          value={minimumAmount}
-          onChange={(event) =>
-            updateFilter(setMinimumAmount, event.target.value)
-          }
-        />
-      </div>
       <ShopCityCard
         as="section"
         variant="table"
@@ -275,101 +271,219 @@ export function TransactionDashboard() {
         data-od-id="transactions-table"
         aria-label="Cashier today transactions"
       >
-        <Table>
-          <thead>
-            <tr>
-              <th>Receipt no.</th>
-              <th>Operation</th>
-              <th>Credit</th>
-              <th>Transaction ID</th>
-              <th>Date &amp; time</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleItems.length ? (
-              pagedItems.map((item) => {
-                const displayStatus = normalizeStatus(item.status);
-                return (
-                  <tr
-                    key={item.id}
-                    ref={(element) => {
-                      if (selected?.id === item.id && element) {
-                        triggerRef.current = element;
-                      }
-                    }}
-                    tabIndex={0}
-                    aria-label={`Open transaction ${item.receiptNumber}`}
-                    onClick={(event) =>
-                      void openDetail(item, event.currentTarget)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void openDetail(item, event.currentTarget);
-                      }
-                    }}
-                  >
-                    <td>{item.receiptNumber}</td>
-                    <td>{item.operation}</td>
-                    <td>
-                      {item.loyaltyAmountKobo == null ? (
-                        'Not recorded'
-                      ) : (
-                        <Money amountKobo={item.loyaltyAmountKobo} />
-                      )}
-                    </td>
-                    <td>{item.id}</td>
-                    <td>{formatDate(item.occurredAt)}</td>
-                    <td>
-                      <StatusBadge
-                        label={statusLabel(displayStatus)}
-                        tone={
-                          displayStatus === 'approved'
-                            ? 'success'
-                            : displayStatus === 'failed'
-                              ? 'danger'
-                              : displayStatus === 'pending'
-                                ? 'warning'
-                                : 'neutral'
-                        }
-                      />
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
+        <div className="transaction-toolbar" data-od-id="transaction-filters">
+          <label
+            className="transaction-search-control"
+            htmlFor="cashier-transactions-search"
+          >
+            <Image
+              src="/brand/cashier/cashier-transactions-search.png"
+              alt=""
+              aria-hidden="true"
+              width={15}
+              height={15}
+            />
+            <Input
+              id="cashier-transactions-search"
+              type="search"
+              aria-label="Search receipt, customer name, or transaction ID"
+              className="transaction-search-control__input"
+              placeholder="Search"
+              value={query}
+              onChange={(event) => updateFilter(setQuery, event.target.value)}
+            />
+          </label>
+          <div className="transaction-filter-group">
+            <Select
+              className="transaction-filter-select"
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(event) =>
+                updateFilter(setStatusFilter, event.target.value)
+              }
+              options={[
+                { value: '', label: 'All Statuses' },
+                { value: 'approved', label: 'Approved' },
+                { value: 'failed', label: 'Failed' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'reversed', label: 'Reversed' },
+                { value: 'unknown', label: 'Unknown' },
+              ]}
+            />
+            <Select
+              className="transaction-filter-select"
+              aria-label="Filter by operation"
+              value={operationFilter}
+              onChange={(event) =>
+                updateFilter(setOperationFilter, event.target.value)
+              }
+              options={[
+                { value: '', label: 'All operations' },
+                { value: 'EARN', label: 'Earn' },
+                { value: 'REDEEM', label: 'Redeem' },
+              ]}
+            />
+            <Input
+              className="transaction-filter-input"
+              aria-label="Minimum purchase amount in naira"
+              type="number"
+              min="0"
+              placeholder="Min. Amount"
+              value={minimumAmount}
+              onChange={(event) =>
+                updateFilter(setMinimumAmount, event.target.value)
+              }
+            />
+          </div>
+        </div>
+        <div
+          className="transaction-table-scroll"
+          role="region"
+          aria-label="Transaction results"
+          /* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */
+          tabIndex={0}
+        >
+          <Table>
+            <thead>
               <tr>
-                <td colSpan={6}>
-                  <div
-                    className="transaction-empty-state"
-                    role={loadError ? 'alert' : 'status'}
-                  >
-                    <strong>
-                      {loadError
-                        ? 'Transactions unavailable'
-                        : 'No transactions found'}
-                    </strong>
-                    <p>
-                      {loadError
-                        ? 'The bounded cashier activity feed could not be loaded.'
-                        : 'Adjust the filters or refresh the bounded cashier activity feed.'}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="compact"
-                      onClick={() => void load()}
-                      loading={busy}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                </td>
+                <th scope="col">Receipt No.</th>
+                <th scope="col">Name</th>
+                <th scope="col">Receipt amount</th>
+                <th scope="col">Credit</th>
+                <th scope="col">Date &amp; Time</th>
+                <th scope="col">Outcome</th>
               </tr>
-            )}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {visibleItems.length ? (
+                pagedItems.map((item) => {
+                  const displayStatus = normalizeStatus(item.status);
+                  return (
+                    <tr
+                      key={item.id}
+                      ref={(element) => {
+                        if (selected?.id === item.id && element) {
+                          triggerRef.current = element;
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-label={`Open transaction ${item.receiptNumber}`}
+                      onClick={(event) =>
+                        void openDetail(item, event.currentTarget)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          void openDetail(item, event.currentTarget);
+                        }
+                      }}
+                    >
+                      <td className="transaction-table-receipt-number">
+                        {item.receiptNumber}
+                      </td>
+                      <td className="transaction-table-customer-name">
+                        {item.customerName || 'Not provided'}
+                      </td>
+                      <td>
+                        {item.purchaseAmountKobo == null ? (
+                          'Not provided'
+                        ) : (
+                          <Money amountKobo={item.purchaseAmountKobo} />
+                        )}
+                      </td>
+                      <td>
+                        {item.operation === 'REDEEM' ? (
+                          <div className="transaction-table-credit-breakdown">
+                            <div>
+                              <span>Redeemed</span>
+                              {item.redeemedAmountKobo == null ? (
+                                displayStatus === 'pending' ? (
+                                  'Awaiting approval'
+                                ) : (
+                                  'Not recorded'
+                                )
+                              ) : (
+                                <Money
+                                  amountKobo={item.redeemedAmountKobo}
+                                  className={`transaction-table-credit transaction-table-credit--${displayStatus}`}
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <span>Earned</span>
+                              {item.earnedAmountKobo == null ? (
+                                displayStatus === 'pending' ? (
+                                  'Awaiting approval'
+                                ) : (
+                                  'Not recorded'
+                                )
+                              ) : (
+                                <Money
+                                  amountKobo={item.earnedAmountKobo}
+                                  className="transaction-table-credit transaction-table-credit--approved"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        ) : item.loyaltyAmountKobo == null ? (
+                          'Not recorded'
+                        ) : (
+                          <Money
+                            amountKobo={item.loyaltyAmountKobo}
+                            className={`transaction-table-credit transaction-table-credit--${displayStatus}`}
+                          />
+                        )}
+                      </td>
+                      <td>
+                        {formatCashierDate(
+                          item.occurredAt,
+                          reportTimeZone,
+                          'table',
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge
+                          className="transaction-table-status"
+                          label={statusLabel(displayStatus)}
+                          tone={statusTone(displayStatus)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6}>
+                    <div
+                      className="transaction-empty-state"
+                      role={loadError ? 'alert' : 'status'}
+                    >
+                      <strong>
+                        {loadError
+                          ? 'Transactions unavailable'
+                          : 'No transactions found'}
+                      </strong>
+                      <p>
+                        {loadError
+                          ? 'The bounded cashier activity feed could not be loaded.'
+                          : 'Adjust the filters or refresh the bounded cashier activity feed.'}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="compact"
+                        onClick={() => void load()}
+                        loading={busy}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+        </div>
         <footer className="transaction-table-footer">
           <p className="cashier-workflow-hint">
             {visibleItems.length} loaded transaction
@@ -422,23 +536,29 @@ export function TransactionDashboard() {
           >
             <div className="transaction-detail-modal__head">
               <div>
-                <p className="section-label">Transaction detail</p>
                 <h2 id="transaction-detail-title">
-                  {selected.receiptNumber || 'Transaction'}
+                  Transaction {selected.receiptNumber || '—'}
                 </h2>
                 <p className="transaction-detail-modal__note">
-                  Detail fields are limited to the authoritative transaction
-                  response.
+                  Details for transaction{' '}
+                  {selected.receiptNumber || selected.id}
                 </p>
               </div>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
+                size="compact"
+                className="transaction-detail-close-button"
                 aria-label="Close transaction detail"
                 onClick={closeDetail}
               >
-                <X aria-hidden="true" size={16} />
-                Close
+                <Image
+                  src="/brand/cashier/cashier-transaction-detail-close.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={16}
+                  height={16}
+                />
               </Button>
             </div>
             {detailState.status === 'loading' ? (
@@ -453,13 +573,17 @@ export function TransactionDashboard() {
                 <dl className="transaction-detail-list">
                   <div>
                     <dt>Customer</dt>
-                    <dd>Not included in cashier report</dd>
+                    <dd>{selected.customerName || 'Not provided'}</dd>
                   </div>
                   <div>
                     <dt>Receipt amount</dt>
                     <dd>
                       {detailState.record.purchaseAmountKobo == null ? (
-                        'Not provided'
+                        selected.purchaseAmountKobo == null ? (
+                          'Not provided'
+                        ) : (
+                          <Money amountKobo={selected.purchaseAmountKobo} />
+                        )
                       ) : (
                         <Money
                           amountKobo={detailState.record.purchaseAmountKobo}
@@ -468,9 +592,46 @@ export function TransactionDashboard() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Credit amount</dt>
+                    <dt>Credit redeemed</dt>
                     <dd>
-                      <Money amountKobo={detailState.record.creditKobo} />
+                      {detailState.record.redeemedAmountKobo == null ? (
+                        'Not recorded'
+                      ) : (
+                        <Money
+                          amountKobo={detailState.record.redeemedAmountKobo}
+                        />
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Credit earned</dt>
+                    <dd>
+                      {(() => {
+                        const earnedKobo =
+                          detailState.record.settlementEffects?.find(
+                            (effect) => effect.type === 'EARN',
+                          )?.amountKobo ??
+                          (detailState.record.type === 'EARN'
+                            ? detailState.record.creditKobo
+                            : null);
+                        return earnedKobo === null ? (
+                          'Not recorded'
+                        ) : (
+                          <Money amountKobo={earnedKobo} />
+                        );
+                      })()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Amount paid after redemption</dt>
+                    <dd>
+                      {detailState.record.netPaidAmountKobo == null ? (
+                        'Not available'
+                      ) : (
+                        <Money
+                          amountKobo={detailState.record.netPaidAmountKobo}
+                        />
+                      )}
                     </dd>
                   </div>
                   <div>
@@ -482,41 +643,98 @@ export function TransactionDashboard() {
                     <dd>{detailState.record.transactionId}</dd>
                   </div>
                   <div>
-                    <dt>Status</dt>
-                    <dd>{detailState.record.state || 'Not provided'}</dd>
+                    <dt>Virtual Card Number</dt>
+                    <dd className="transaction-detail-card-number">
+                      {detailState.record.cardSerialNumber ? (
+                        <>
+                          <span>{detailState.record.cardSerialNumber}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="compact"
+                            className="transaction-detail-copy-button"
+                            aria-label="Copy virtual card number"
+                            onClick={() =>
+                              void copyCardSerialNumber(
+                                detailState.record.cardSerialNumber ?? '',
+                              )
+                            }
+                          >
+                            <Image
+                              src="/brand/cashier/cashier-confirmation-copy.svg"
+                              alt=""
+                              aria-hidden="true"
+                              width={16}
+                              height={16}
+                            />
+                          </Button>
+                        </>
+                      ) : (
+                        'Not provided'
+                      )}
+                    </dd>
+                    {copyNotice ? (
+                      <dd
+                        className="transaction-detail-copy-notice"
+                        role="status"
+                      >
+                        {copyNotice}
+                      </dd>
+                    ) : null}
                   </div>
                   <div>
-                    <dt>Captured at</dt>
-                    <dd>{formatDate(detailState.record.capturedAt)}</dd>
+                    <dt>Status</dt>
+                    <dd>
+                      <StatusBadge
+                        className="transaction-detail-status"
+                        label={statusLabel(
+                          normalizeStatus(detailState.record.state),
+                        )}
+                        tone={statusTone(
+                          normalizeStatus(detailState.record.state),
+                        )}
+                      />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Occurred at</dt>
+                    <dd>
+                      {formatCashierDate(
+                        detailState.record.occurredAt,
+                        reportTimeZone,
+                        'detail',
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Date/Time</dt>
+                    <dd>
+                      {formatCashierDate(
+                        detailState.record.capturedAt,
+                        reportTimeZone,
+                        'detail',
+                      )}
+                    </dd>
                   </div>
                 </dl>
                 <div className="transaction-detail-context">
-                  <p className="cashier-workflow-hint">
-                    Receipt images are not included in this activity report.
-                  </p>
+                  <div
+                    className="transaction-receipt-preview"
+                    role="status"
+                    aria-label="Receipt image unavailable"
+                  >
+                    Receipt image not provided by the Cashier transaction
+                    service.
+                  </div>
                   <section
                     className="transaction-audit"
                     aria-labelledby="transaction-audit-title"
                   >
-                    <h3 id="transaction-audit-title">Audit trail</h3>
-                    <div className="transaction-audit-list">
-                      <div>
-                        <strong>Created</strong>
-                        <span>{formatDate(detailState.record.occurredAt)}</span>
-                      </div>
-                      <div>
-                        <strong>Captured by</strong>
-                        <span>
-                          {detailState.record.deviceId ?? 'Not provided'}
-                        </span>
-                      </div>
-                      <div>
-                        <strong>Outcome</strong>
-                        <span>
-                          {detailState.record.state || 'Not provided'}
-                        </span>
-                      </div>
-                    </div>
+                    <h3 id="transaction-audit-title">Audit Trail</h3>
+                    <p className="transaction-audit-unavailable">
+                      Audit events are not included in the Cashier transaction
+                      response.
+                    </p>
                   </section>
                 </div>
               </div>

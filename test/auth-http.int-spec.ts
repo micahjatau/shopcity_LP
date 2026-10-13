@@ -592,11 +592,14 @@ describe('auth and readiness flows (int)', () => {
       customerId: fixture.customer.id,
       fullName: fixture.customer.fullName,
       maskedPhone: maskPhone(fixture.customer.phoneE164),
+      email: 'rea***@shopcity.local',
+      birthdayMonth: null,
+      cardNumber: fixture.card.barcodeValue,
       cardStatus: CardStatus.ACTIVE,
       availableBalanceKobo: 1_500,
     });
     expect(listItem).not.toHaveProperty('phoneE164');
-    expect(listItem).not.toHaveProperty('email');
+    expect(listItem.email).not.toBe(fixture.customer.email);
     expect(listItem).not.toHaveProperty('creditLots');
 
     const detailResponse = await request(httpServer)
@@ -607,7 +610,8 @@ describe('auth and readiness flows (int)', () => {
     const detail = (detailResponse.body as CustomerDetailResponseBody).data;
     expect(detail.availableBalanceKobo).toBe(1_500);
     expect(detail).not.toHaveProperty('phoneE164');
-    expect(detail).not.toHaveProperty('email');
+    expect(detail.email).toBe('rea***@shopcity.local');
+    expect(detail.email).not.toBe(fixture.customer.email);
     expect(detail).not.toHaveProperty('creditLots');
   }, 120000);
 
@@ -847,6 +851,7 @@ describe('auth and readiness flows (int)', () => {
       seedData,
       'issued-card-directory-http',
     );
+    const scopedSearch = `q=${encodeURIComponent(fixture.customer.fullName)}`;
     const adminCookie = await loginSessionCookie(seedData.user.username);
     const supervisorCookie = await loginSessionCookie(supervisorUser.username);
     const cashierCookie = await loginSessionCookie(cashierUser.username);
@@ -876,7 +881,7 @@ describe('auth and readiness flows (int)', () => {
     });
 
     const firstResponse = await request(httpServer)
-      .get('/api/v1/cards/management/issued?limit=1')
+      .get(`/api/v1/cards/management/issued?${scopedSearch}&limit=1`)
       .set('Cookie', supervisorCookie)
       .expect(200);
     const firstPage = (
@@ -914,7 +919,7 @@ describe('auth and readiness flows (int)', () => {
 
     const secondResponse = await request(httpServer)
       .get(
-        `/api/v1/cards/management/issued?limit=1&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
+        `/api/v1/cards/management/issued?${scopedSearch}&limit=1&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
       )
       .set('Cookie', adminCookie)
       .expect(200);
@@ -943,7 +948,7 @@ describe('auth and readiness flows (int)', () => {
 
     const thirdResponse = await request(httpServer)
       .get(
-        `/api/v1/cards/management/issued?limit=1&cursor=${encodeURIComponent(secondPage.nextCursor!)}`,
+        `/api/v1/cards/management/issued?${scopedSearch}&limit=1&cursor=${encodeURIComponent(secondPage.nextCursor!)}`,
       )
       .set('Cookie', supervisorCookie)
       .expect(200);

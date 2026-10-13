@@ -77,6 +77,9 @@
 - [x] 6.4 Preserve available-credit checks, integer-kobo money handling, approval requirements, idempotency, offline/error states, and authoritative verified-card gating.
 - [x] 6.5 Add paired style/workflow evidence proving shared lookup geometry and no regression across all Redeem transitions.
 - [x] 6.6 Refine shared Earn/Redeem lookup copy and placeholder, style the 22px bold lookup heading, size the left-aligned Capture Purchase progress bar to 712px by 44px with 16px gaps/padding and a 16px radius, keep stage labels single-line, animate transitions, and style Search with the sidebar gradient/icon.
+- [x] 6.7 Match Redeem Find customer and journey bar to Capture Purchase; remove the redundant customer-confirmation stage after exact card verification and make basket subtotal the next stage. Redeem now reuses `VerifiedCardLookupStep` with `captureLayout` and the Capture progress-step variant, then opens basket subtotal directly after active-card verification.
+- [x] 6.8 Recompose Redeem basket, redemption amount, confirmation, and success/approval states to the supplied Figma frames with responsive, accessible layout and server-confirmed values only. Redeem-local card preview, policy breakdown, review/submit, backend-driven success/pending receipt, and responsive styles are covered by five route snapshots and focused browser/Jest tests.
+- [x] 6.9 Preserve existing policy limits, integer-kobo handling, idempotency, approval, offline/error, and exact-card gating. Do not simulate Figma's OTP/demo/resend behavior without a backend OTP contract; record the intentional deviation and add regression tests. The current API has no OTP issuance/verification/resend contract; the UI uses an explicit authoritative review-and-confirm step and leaves pending approvals visibly pending.
 
 ## 7. Adapt Transactions and detail dialog
 
@@ -85,6 +88,8 @@
 - [x] 7.3 Implement the approximately 600px detail dialog and two-column internal composition where supported, with backdrop, close, focus trap, Escape, and focus return.
 - [x] 7.4 Render only supported customer, receipt, amount, credit, status, and evidence/history fields; explicitly omit or label unavailable data instead of inventing it.
 - [x] 7.5 Add responsive, accessibility, masking, bounded-list, and truthful-data tests for list and detail states.
+- [x] 7.6 Refine the Cashier Transactions table and detail dialog to Figma file `7ijCPWMSg7W3PIK1wewgaN` nodes `411:958` and `411:1943`. Use only the existing cashier-authorized report and transaction-detail fields; keep unsupported staff filtering, eligibility amounts, cashback-rate claims, receipt imagery, and fabricated audit events out of the UI. Completed with the existing cashier-scoped report/detail APIs and documented in `evidence.md`.
+- [x] 7.7 Add focused table/dialog regression coverage for field mapping, filters, responsive geometry, modal keyboard/focus behavior, and truthful unsupported-data copy; review snapshots against both Figma frames before updating them. Focused Jest and Playwright coverage passed; desktop snapshots were reviewed and intentionally updated.
 
 ## 8. Compose Sync Queue
 

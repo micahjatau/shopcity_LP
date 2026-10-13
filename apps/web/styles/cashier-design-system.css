@@ -828,3 +828,666 @@
     flex: 1 1 auto;
   }
 }
+
+.cashier-route-page--redeem .cashier-flow-panel[data-state='step-1'] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cashier-route-page--redeem .cashier-verified-card-lookup {
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.cashier-route-page--redeem
+  .cashier-verified-card-lookup
+  .cashier-stage-heading {
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.cashier-route-page--redeem
+  .cashier-verified-card-lookup
+  .cashier-stage-kicker {
+  display: none;
+}
+
+.cashier-route-page--redeem
+  .cashier-verified-card-lookup
+  .cashier-stage-heading-title {
+  color: #414141;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
+}
+
+.cashier-route-page--redeem
+  .cashier-verified-card-lookup
+  .cashier-stage-heading-description {
+  color: #414141;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-field {
+  display: grid;
+  width: 100%;
+  height: 32px;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 0.5px solid #ecebeb;
+  border-radius: 40px;
+  background: #f4f4f4;
+  box-sizing: border-box;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-field:focus-within {
+  outline: 2px solid #be1313;
+  outline-offset: 2px;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-field > img {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-field > input {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #414141;
+  font-size: 12px;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-field > input::placeholder {
+  color: #bababa;
+  opacity: 1;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-action {
+  display: inline-flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-action > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-action img {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-primary {
+  border: 0.5px solid #bf1713;
+  background: #fff;
+  color: #be1313;
+}
+
+.cashier-route-page--redeem
+  .cashier-capture-search-primary:hover:not(:disabled) {
+  border-color: #bf1713;
+  background: #fff;
+  color: #be1313;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-action--scan {
+  border: 0.5px solid #dadada;
+  background: #fff;
+  color: #414141;
+}
+
+.cashier-route-page--redeem
+  .cashier-capture-search-action--scan:hover:not(:disabled) {
+  border-color: #dadada;
+  background: #fff;
+  color: #414141;
+}
+
+.cashier-route-page--redeem .cashier-capture-search-hint {
+  margin: 0;
+  color: #676767;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.cashier-redeem-form {
+  gap: 12px;
+}
+
+.cashier-redeem-stage {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.cashier-redeem-stage .cashier-stage-heading {
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.cashier-redeem-stage .cashier-stage-heading-title {
+  color: #414141;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
+}
+
+.cashier-redeem-stage .cashier-stage-heading-description {
+  color: #414141;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cashier-redeem-customer-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 247px);
+  align-items: start;
+  gap: 24px;
+}
+
+.cashier-redeem-customer-details {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  margin: 0;
+}
+
+.cashier-redeem-customer-field {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.cashier-redeem-customer-field dt,
+.cashier-redeem-breakdown dt,
+.cashier-redeem-outcome__details dt {
+  color: #676767;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.cashier-redeem-customer-field dd,
+.cashier-redeem-outcome__details dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: #414141;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.cashier-redeem-form .sc-money-input,
+.cashier-redeem-field {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.cashier-redeem-form .sc-money-input > label,
+.cashier-redeem-field > label {
+  color: #414141;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.cashier-redeem-form .sc-money-input__hint {
+  margin: 0;
+  color: #676767;
+  font-size: 10px;
+}
+
+.cashier-redeem-form .sc-money-input input,
+.cashier-redeem-form .cashier-redeem-receipt-number {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  padding: 6px 16px;
+  border: 1px solid #f4f4f4;
+  border-radius: 16px;
+  background: #f6f6f6;
+  color: #414141;
+  font-size: 12px;
+}
+
+.cashier-redeem-form .sc-money-input input::placeholder,
+.cashier-redeem-form .cashier-redeem-receipt-number::placeholder {
+  color: #8b8b8b;
+  opacity: 1;
+}
+
+.cashier-redeem-copy-button {
+  display: inline-grid;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  color: #414141;
+}
+
+.cashier-redeem-card-preview {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 1.5;
+  min-height: 150px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  background: #f7f7f7;
+}
+
+.cashier-redeem-card-preview__texture {
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.36;
+}
+
+.cashier-redeem-card-preview__brand,
+.cashier-redeem-card-preview__name,
+.cashier-redeem-card-preview__serial,
+.cashier-redeem-card-preview__status,
+.cashier-redeem-card-preview__barcode {
+  position: absolute;
+  z-index: 1;
+}
+
+.cashier-redeem-card-preview__brand {
+  top: 10px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #be1313;
+}
+
+.cashier-redeem-card-preview__brand span {
+  display: grid;
+  gap: 1px;
+  font-size: 7px;
+  line-height: 1;
+}
+
+.cashier-redeem-card-preview__brand small {
+  font-size: 4px;
+  font-weight: 500;
+}
+
+.cashier-redeem-card-preview__name,
+.cashier-redeem-card-preview__serial {
+  left: 16px;
+  max-width: 70%;
+  overflow: hidden;
+  color: #414141;
+  font-size: 8px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashier-redeem-card-preview__name {
+  top: 56px;
+}
+
+.cashier-redeem-card-preview__serial {
+  top: 68px;
+  color: #be1313;
+  font-weight: 700;
+}
+
+.cashier-redeem-card-preview__status {
+  top: 42px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  border-radius: 16px;
+  background: #d1fae2;
+  color: #027a48;
+  font-size: 6px;
+  line-height: 1;
+}
+
+.cashier-redeem-card-preview__barcode {
+  bottom: 12px;
+  left: 14px;
+  display: block;
+  width: 96px;
+  height: 37px;
+}
+
+.cashier-redeem-copy-status {
+  min-height: 1em;
+  margin: -8px 0 0;
+  color: #027a48;
+  font-size: 11px;
+}
+
+.cashier-redeem-limit-card {
+  display: grid;
+  gap: 2px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ecfdf3;
+}
+
+.cashier-redeem-limit-card > span {
+  color: #818898;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cashier-redeem-limit-card > strong {
+  color: #027948;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+}
+
+.cashier-redeem-limit-card > p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+  color: #818898;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.cashier-redeem-amount-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) 160px;
+  align-items: end;
+  gap: 16px;
+}
+
+.cashier-redeem-maximum-button {
+  min-height: 32px;
+  border: 1px solid #bf1713;
+  border-radius: 16px;
+  background: #fff;
+  color: #be1313;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cashier-redeem-breakdown {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.cashier-redeem-breakdown > div {
+  display: flex;
+  min-height: 33px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.cashier-redeem-breakdown dt {
+  font-size: 15px;
+}
+
+.cashier-redeem-breakdown dd {
+  margin: 0;
+  color: #414141;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.cashier-redeem-breakdown__credit dd,
+.cashier-redeem-breakdown dd.cashier-redeem-breakdown__credit {
+  color: #027948;
+}
+
+.cashier-redeem-breakdown > .cashier-redeem-breakdown__total {
+  border-bottom: 0;
+  border-top: 1px solid #e5e5e5;
+}
+
+.cashier-redeem-breakdown__total dt,
+.cashier-redeem-breakdown__total dd {
+  font-weight: 700;
+}
+
+.cashier-redeem-review-grid,
+.cashier-redeem-outcome__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.cashier-redeem-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cashier-redeem-actions > button,
+.cashier-redeem-actions > a,
+.cashier-redeem-primary-link,
+.cashier-redeem-secondary-link {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid #dadada;
+  border-radius: 16px;
+  background: #fff;
+  color: #414141;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+}
+
+.cashier-redeem-actions > button > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.cashier-redeem-actions > button[type='submit'],
+.cashier-redeem-primary-button {
+  border-color: transparent;
+  background: linear-gradient(100deg, #be1313 0%, #cf6900 100%);
+  color: #fff;
+}
+
+.cashier-redeem-primary-button:disabled {
+  background: linear-gradient(
+    100deg,
+    rgba(190, 19, 19, 0.4),
+    rgba(207, 105, 0, 0.4)
+  );
+  color: #fff;
+  opacity: 1;
+}
+
+.cashier-redeem-secondary-link {
+  border-color: #dadada;
+  color: #414141;
+}
+
+.cashier-redeem-outcome {
+  display: grid;
+  min-width: 0;
+  gap: 24px;
+}
+
+.cashier-redeem-outcome__header {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e5e5;
+  text-align: center;
+}
+
+.cashier-redeem-outcome__header > img {
+  display: block;
+  max-width: 100%;
+}
+
+.cashier-redeem-outcome__header h2,
+.cashier-redeem-outcome__header p {
+  margin: 0;
+}
+
+.cashier-redeem-outcome__header h2 {
+  color: #187b61;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
+}
+
+.cashier-redeem-outcome__header p {
+  color: #414141;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cashier-redeem-outcome__pending-icon {
+  display: grid;
+  width: 112px;
+  height: 112px;
+  place-items: center;
+  border: 2px solid #d89a2b;
+  border-radius: 50%;
+  color: #a66b00;
+  font-size: 48px;
+  line-height: 1;
+}
+
+.cashier-redeem-outcome__amount {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ecfdf3;
+  text-align: center;
+}
+
+.cashier-redeem-outcome__amount > span {
+  color: #818898;
+  font-size: 12px;
+}
+
+.cashier-redeem-outcome__amount > strong {
+  color: #027948;
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cashier-redeem-outcome__amount.is-pending {
+  background: #fff7e6;
+}
+
+.cashier-redeem-outcome__amount.is-pending > strong {
+  color: #8a5a00;
+  font-size: 20px;
+}
+
+.cashier-redeem-outcome__details dd code {
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+
+.cashier-redeem-outcome__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  justify-content: center;
+  gap: 16px;
+}
+
+.cashier-redeem-outcome__actions .cashier-redeem-primary-button,
+.cashier-redeem-outcome__actions .cashier-redeem-secondary-link {
+  min-height: 32px;
+}
+
+.cashier-redeem-form-message {
+  margin: 0;
+  color: #676767;
+  font-size: 12px;
+}
+
+.cashier-redeem-time-details {
+  display: grid;
+  gap: 8px;
+  color: #676767;
+  font-size: 12px;
+}
+
+.cashier-redeem-time-details summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.cashier-redeem-time-details label {
+  display: grid;
+  gap: 4px;
+  color: #414141;
+  font-size: 12px;
+}
+
+.cashier-redeem-time-details input {
+  max-width: 280px;
+}
+
+.cashier-redeem-form :is(button, a, input):focus-visible {
+  outline: 2px solid #be1313;
+  outline-offset: 2px;
+}
