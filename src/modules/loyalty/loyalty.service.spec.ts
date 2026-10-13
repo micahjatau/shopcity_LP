@@ -8,6 +8,10 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import type { AuthContext } from '../../common/auth/session.types';
+import {
+  buildSettlementPolicyVersion,
+  getEarnApprovalPolicyVersion,
+} from '../../common/balance/earn-policy';
 import { LoyaltyService } from './loyalty.service';
 
 const FIXED_OCCURRED_AT = '2026-07-26T12:00:00.000Z';
@@ -480,6 +484,45 @@ describe('LoyaltyService redemption approvals', () => {
       }),
     );
     expect(tx.$queryRaw).toHaveBeenCalled();
+  });
+
+  it('keeps legacy redemption-only approvals executable after deployment', async () => {
+    const tx = redemptionApprovalTransactionClient(true);
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const service = new LoyaltyService(
+      prismaService({ transaction }),
+      auditService(),
+      redemptionConfigService(),
+      activeBalanceService(100_000n),
+      {
+        allocateDebit: jest.fn().mockResolvedValue([
+          {
+            creditLotId: 'lot-1',
+            amountKobo: 6_000n,
+            allocationOrder: 1,
+            expiresAt: new Date('2027-07-26T12:00:00.000Z'),
+          },
+        ]),
+      } as never,
+    );
+
+    const response = await service.decideApproval(
+      'tenant-1',
+      supervisorAuthContext(),
+      'approval-1',
+      'APPROVED',
+      'legacy pending approval',
+      'legacy-approval-key',
+    );
+
+    expect(response).toMatchObject({
+      status: ApprovalStatus.EXECUTED,
+      netPaidAmountKobo: 24_000,
+      earnedKobo: 480,
+    });
+    expect(tx.loyaltyLedgerEntry.create).toHaveBeenCalledTimes(2);
   });
 
   it('treats approval policy changes as terminal rejection outcomes', async () => {
@@ -1794,8 +1837,14 @@ function stableStringify(value: unknown): string {
     .join(',')}}`;
 }
 
-function redemptionApprovalTransactionClient() {
+function redemptionApprovalTransactionClient(legacyPolicyVersion = false) {
   const now = new Date('2026-07-26T12:00:00.000Z');
+  const approvalPolicyVersion = legacyPolicyVersion
+    ? redemptionPolicyVersion()
+    : buildSettlementPolicyVersion(
+        redemptionPolicyVersion(),
+        getEarnApprovalPolicyVersion(redemptionConfigService()),
+      );
   const approvalUpdateMany = jest
     .fn()
     .mockResolvedValueOnce({ count: 1 })
@@ -1812,7 +1861,8 @@ function redemptionApprovalTransactionClient() {
         status: ApprovalStatus.PENDING,
         requestedByTenantId: 'tenant-1',
         requestedBy: 'cashier-1',
-        policyVersion: redemptionPolicyVersion(),
+        policyVersion: approvalPolicyVersion,
+        reasonCode: 'REDEMPTION_ABOVE_APPROVAL_THRESHOLD',
         expiresAt: new Date('2127-07-30T12:00:00.000Z'),
         redemption: {
           id: 'redemption-1',
@@ -1866,13 +1916,19 @@ function redemptionApprovalTransactionClient() {
       update: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
     },
     loyaltyLedgerEntry: {
-      create: jest.fn().mockResolvedValue({ id: 'ledger-1' }),
+      create: jest
+        .fn()
+        .mockResolvedValueOnce({ id: 'ledger-1' })
+        .mockResolvedValueOnce({ id: 'earn-ledger-1' }),
+    },
+    creditLot: {
+      create: jest.fn().mockResolvedValue({ id: 'settlement-lot-1' }),
     },
     outboxEvent: {
       create: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
     },
     smsMessage: {
-      create: jest.fn().mockResolvedValue({ id: 'sms-1' }),
+      create: jest.fn().mockResolvedValue({ id: 'sms-1', status: 'QUEUED' }),
     },
   };
 }

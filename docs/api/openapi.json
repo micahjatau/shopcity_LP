@@ -23365,6 +23365,23 @@
                           "type": "integer",
                           "nullable": true
                         },
+                        "netPaidAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "earnedKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "earnTransactionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "remainingBalanceKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
                         "reason": {
                           "type": "string",
                           "nullable": true
@@ -25539,11 +25556,13 @@
                         "ledgerEntryId",
                         "creditKobo",
                         "redeemedAmountKobo",
+                        "netPaidAmountKobo",
                         "redemptionId",
                         "availableBalanceKobo",
                         "expiresAt",
                         "smsStatus",
-                        "ledger"
+                        "ledger",
+                        "settlementEffects"
                       ],
                       "properties": {
                         "id": {
@@ -25636,6 +25655,10 @@
                           "type": "integer"
                         },
                         "redeemedAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "netPaidAmountKobo": {
                           "type": "integer",
                           "nullable": true
                         },
@@ -25845,6 +25868,40 @@
                                     "format": "uuid"
                                   }
                                 }
+                              }
+                            }
+                          }
+                        },
+                        "settlementEffects": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "transactionId",
+                              "type",
+                              "direction",
+                              "amountKobo",
+                              "status"
+                            ],
+                            "properties": {
+                              "transactionId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": ["EARN", "REDEEM"]
+                              },
+                              "direction": {
+                                "type": "string",
+                                "enum": ["CREDIT", "DEBIT"]
+                              },
+                              "amountKobo": {
+                                "type": "integer"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": ["CONFIRMED"]
                               }
                             }
                           }
@@ -27260,6 +27317,9 @@
                         "basketAmountKobo",
                         "requestedRedemptionKobo",
                         "redeemedAmountKobo",
+                        "netPaidAmountKobo",
+                        "earnedKobo",
+                        "earnTransactionId",
                         "maximumAllowedKobo",
                         "remainingBalanceKobo",
                         "allocations",
@@ -27325,6 +27385,19 @@
                         },
                         "redeemedAmountKobo": {
                           "type": "integer",
+                          "nullable": true
+                        },
+                        "netPaidAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "earnedKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "earnTransactionId": {
+                          "type": "string",
+                          "format": "uuid",
                           "nullable": true
                         },
                         "maximumAllowedKobo": {
@@ -27432,6 +27505,9 @@
                         "basketAmountKobo",
                         "requestedRedemptionKobo",
                         "redeemedAmountKobo",
+                        "netPaidAmountKobo",
+                        "earnedKobo",
+                        "earnTransactionId",
                         "maximumAllowedKobo",
                         "remainingBalanceKobo",
                         "allocations",
@@ -27497,6 +27573,19 @@
                         },
                         "redeemedAmountKobo": {
                           "type": "integer",
+                          "nullable": true
+                        },
+                        "netPaidAmountKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "earnedKobo": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "earnTransactionId": {
+                          "type": "string",
+                          "format": "uuid",
                           "nullable": true
                         },
                         "maximumAllowedKobo": {
@@ -34251,11 +34340,15 @@
                             "type": "object",
                             "required": [
                               "id",
+                              "transactionId",
                               "occurredAt",
                               "operation",
                               "customerName",
                               "purchaseAmountKobo",
                               "loyaltyAmountKobo",
+                              "redeemedAmountKobo",
+                              "netPaidAmountKobo",
+                              "earnedAmountKobo",
                               "receiptNumber",
                               "status"
                             ],
@@ -34263,6 +34356,11 @@
                               "id": {
                                 "type": "string",
                                 "format": "uuid"
+                              },
+                              "transactionId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
                               },
                               "occurredAt": {
                                 "type": "string",
@@ -34280,6 +34378,18 @@
                                 "nullable": true
                               },
                               "loyaltyAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "redeemedAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "netPaidAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "earnedAmountKobo": {
                                 "type": "integer",
                                 "nullable": true
                               },

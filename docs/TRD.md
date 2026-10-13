@@ -437,9 +437,11 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 - Earn orchestration owns receipt reservation, ledger write, credit-lot creation, audit event and outbox event in one database transaction.
 
-- Redeem orchestration locks required credit lots, validates policy, creates allocations and ledger debit in one transaction.
+- Redeem orchestration validates policy and locks required prior credit lots. A combined redemption settlement creates the redemption debit, FIFO allocations, net-paid Earn entry/lot when positive, closing balance, and one outbox notification in one transaction. Allocation happens before the new Earn lot is created, so credit earned on this receipt can never fund its own redemption.
 
-- Approval records do not create financial effects until the approved use case executes with a fresh policy and balance validation.
+- Either redemption policy or basket-level Earn policy approval gates the entire combined settlement. Approval records create no financial effects until approval execution rechecks current policy and balance; rejection, expiry, or policy change leaves both effects absent.
+
+- A physical receipt may have at most one EARN and one REDEEM ledger effect. Database partial unique indexes enforce that typed pair. A paired settlement is reversed as a group; single-leg reversal fails closed for review.
 
 - Notification failure never rolls back a valid loyalty transaction; the outbox guarantees retry and traceability.
 
@@ -647,12 +649,16 @@ Request:
     "transactionId": "uuid",
     "status": "CONFIRMED",
     "redeemedKobo": 500000,
-    "remainingBalanceKobo": 930000,
+    "netPaidAmountKobo": 1500000,
+    "earnedKobo": 30000,
+    "earnTransactionId": "uuid",
+    "remainingBalanceKobo": 960000,
     "maximumAllowedKobo": 600000,
     "smsStatus": "QUEUED"
   },
   "meta": { ... }
 }
+202 Pending approval: netPaidAmountKobo, earnedKobo, earnTransactionId, and remainingBalanceKobo are null; neither settlement effect exists until approval executes.
 ```
 
 - Backend re-fetches confirmed balance and available lots inside the transaction.
@@ -661,7 +667,7 @@ Request:
 
 - Lots are consumed in earliest-expiry order and allocations are stored.
 
-- No credit earned on the referenced purchase can be consumed in the same transaction.
+- Only credit lots that existed before this receipt can fund redemption. If redemption is confirmed, Earn is calculated on basket amount minus the confirmed redemption and is recorded after the prior-lot allocations.
 
 ### **12.4 POST /api/v1/offline-sync/earn-batch**
 
@@ -1252,7 +1258,7 @@ ShopCity Loyalty Platform | Backend Technical Architecture | Radar Solutions | C
 
 - Credit balance is derived from immutable ledger and expiry-aware lots.
 
-- Redemption enforces balance, minimum, basket cap, same-purchase prohibition and approval threshold.
+- Redemption enforces balance, minimum, basket cap, and approval policy; when combined with Earn, only pre-existing credit funds the redemption and Earn applies to the remaining paid amount.
 
 - Supervisor can approve/reject and reverse through compensating entries.
 

@@ -10440,6 +10440,14 @@ export type ApprovalsControllerDecideApprovalV1200Data = {
   /** @nullable */
   redeemedAmountKobo?: number | null;
   /** @nullable */
+  netPaidAmountKobo?: number | null;
+  /** @nullable */
+  earnedKobo?: number | null;
+  /** @nullable */
+  earnTransactionId?: string | null;
+  /** @nullable */
+  remainingBalanceKobo?: number | null;
+  /** @nullable */
   reason?: string | null;
   decidedAt: string;
   /** @nullable */
@@ -11379,6 +11387,40 @@ export type LoyaltyControllerGetTransactionV1200DataLedger = {
   restorations: LoyaltyControllerGetTransactionV1200DataLedgerRestorationsItem[];
 };
 
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType =
+  (typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType)[keyof typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType];
+
+export const LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection =
+  (typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection)[keyof typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection];
+
+export const LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection =
+  {
+    CREDIT: 'CREDIT',
+    DEBIT: 'DEBIT',
+  } as const;
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus =
+  (typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus)[keyof typeof LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus];
+
+export const LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus =
+  {
+    CONFIRMED: 'CONFIRMED',
+  } as const;
+
+export type LoyaltyControllerGetTransactionV1200DataSettlementEffectsItem = {
+  transactionId: string;
+  type: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemType;
+  direction: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemDirection;
+  amountKobo: number;
+  status: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItemStatus;
+};
+
 export type LoyaltyControllerGetTransactionV1200DataAdjustmentKind =
   (typeof LoyaltyControllerGetTransactionV1200DataAdjustmentKind)[keyof typeof LoyaltyControllerGetTransactionV1200DataAdjustmentKind];
 
@@ -11450,6 +11492,8 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   /** @nullable */
   redeemedAmountKobo: number | null;
   /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
   redemptionId: string | null;
   availableBalanceKobo: number;
   /** @nullable */
@@ -11457,6 +11501,7 @@ export type LoyaltyControllerGetTransactionV1200Data = {
   /** @nullable */
   smsStatus: string | null;
   ledger: LoyaltyControllerGetTransactionV1200DataLedger;
+  settlementEffects: LoyaltyControllerGetTransactionV1200DataSettlementEffectsItem[];
   /** @nullable */
   adjustment?: LoyaltyControllerGetTransactionV1200DataAdjustment;
   /** @nullable */
@@ -12051,6 +12096,12 @@ export type RedemptionsControllerRedeemV1201Data = {
   requestedRedemptionKobo: number;
   /** @nullable */
   redeemedAmountKobo: number | null;
+  /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
+  earnedKobo: number | null;
+  /** @nullable */
+  earnTransactionId: string | null;
   maximumAllowedKobo: number;
   /** @nullable */
   remainingBalanceKobo: number | null;
@@ -12108,6 +12159,12 @@ export type RedemptionsControllerRedeemV1202Data = {
   requestedRedemptionKobo: number;
   /** @nullable */
   redeemedAmountKobo: number | null;
+  /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
+  earnedKobo: number | null;
+  /** @nullable */
+  earnTransactionId: string | null;
   maximumAllowedKobo: number;
   /** @nullable */
   remainingBalanceKobo: number | null;
@@ -14908,6 +14965,8 @@ export const ReportsControllerListCashierTodayV1200DataItemsItemOperation = {
 
 export type ReportsControllerListCashierTodayV1200DataItemsItem = {
   id: string;
+  /** @nullable */
+  transactionId: string | null;
   occurredAt: string;
   operation: ReportsControllerListCashierTodayV1200DataItemsItemOperation;
   customerName: string;
@@ -14915,6 +14974,12 @@ export type ReportsControllerListCashierTodayV1200DataItemsItem = {
   purchaseAmountKobo: number | null;
   /** @nullable */
   loyaltyAmountKobo: number | null;
+  /** @nullable */
+  redeemedAmountKobo: number | null;
+  /** @nullable */
+  netPaidAmountKobo: number | null;
+  /** @nullable */
+  earnedAmountKobo: number | null;
   receiptNumber: string;
   status: string;
 };

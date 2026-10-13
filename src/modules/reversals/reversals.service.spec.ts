@@ -83,6 +83,67 @@ describe('ReversalsService', () => {
     });
   });
 
+  it('fails closed when reversing one leg of a paired settlement', async () => {
+    const original = {
+      id: 'earn-1',
+      tenantId: 'tenant-1',
+      customerId: 'customer-1',
+      receiptId: 'receipt-1',
+      type: LedgerEntryType.EARN,
+      direction: LedgerEntryDirection.CREDIT,
+      amountKobo: 4_000n,
+      status: LedgerEntryStatus.CONFIRMED,
+      customer: { branchId: 'branch-1' },
+      receipt: {
+        ledgerEntries: [
+          { id: 'earn-1', type: LedgerEntryType.EARN },
+          { id: 'redeem-1', type: LedgerEntryType.REDEEM },
+        ],
+      },
+      redemption: null,
+      creditLot: null,
+      adjustment: null,
+      redemptionAllocations: [],
+      reversedByEntries: [],
+    };
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(0),
+      loyaltyLedgerEntry: {
+        findFirst: jest.fn().mockResolvedValue(original),
+        create: jest.fn(),
+      },
+      idempotencyRecord: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+    };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      $transaction: jest.fn(
+        async (callback: (client: never) => Promise<unknown>) =>
+          callback(tx as never),
+      ),
+    };
+    const service = new ReversalsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.reverse('tenant-1', actor(), 'earn-1', 'idem-paired', {
+        reason: 'Customer refund',
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'REVERSAL_REVIEW_REQUIRED' },
+    });
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
   it('returns a specific conflict for transactions that already have reversals', async () => {
     const tx = {
       $executeRaw: jest.fn().mockResolvedValue(0),

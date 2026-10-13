@@ -233,11 +233,15 @@ export class ReportsService {
     monthlyEarnKobo: number | null;
     items: Array<{
       id: string;
+      transactionId: string | null;
       occurredAt: string;
       operation: 'EARN' | 'REDEEM';
       customerName: string;
       purchaseAmountKobo: number | null;
       loyaltyAmountKobo: number | null;
+      redeemedAmountKobo: number | null;
+      netPaidAmountKobo: number | null;
+      earnedAmountKobo: number | null;
       receiptNumber: string;
       status: string;
     }>;
@@ -307,12 +311,13 @@ export class ReportsService {
         },
         ledgerEntries: {
           select: {
+            id: true,
             type: true,
             amountKobo: true,
             status: true,
           },
           orderBy: { effectiveAt: 'desc' },
-          take: 1,
+          take: 2,
         },
         customer: { select: { fullName: true } },
       },
@@ -329,11 +334,26 @@ export class ReportsService {
           : null,
       items: receipts.map((receipt) => {
         const redemption = receipt.redemption;
-        const ledger = receipt.ledgerEntries[0];
+        const redeemLedger = receipt.ledgerEntries.find(
+          (entry) => entry.type === 'REDEEM',
+        );
+        const earnLedger = receipt.ledgerEntries.find(
+          (entry) => entry.type === 'EARN',
+        );
         const isRedeem = Boolean(redemption);
         const purchaseAmountKobo = Number(receipt.purchaseAmountKobo);
+        const redeemedAmountKobo =
+          redemption?.status === 'CONFIRMED' &&
+          redemption.confirmedAmountKobo !== null
+            ? Number(redemption.confirmedAmountKobo)
+            : null;
+        const earnedAmountKobo =
+          earnLedger?.status === 'CONFIRMED'
+            ? Number(earnLedger.amountKobo)
+            : null;
         return {
           id: receipt.id,
+          transactionId: redeemLedger?.id ?? earnLedger?.id ?? null,
           occurredAt: receipt.occurredAt.toISOString(),
           operation: isRedeem ? 'REDEEM' : 'EARN',
           customerName: receipt.customer.fullName,
@@ -347,13 +367,19 @@ export class ReportsService {
                   redemption?.requestedAmountKobo ??
                   0n,
               )
-            : ledger
-              ? Number(ledger.amountKobo)
-              : null,
+            : earnedAmountKobo,
+          redeemedAmountKobo,
+          netPaidAmountKobo:
+            redeemedAmountKobo === null
+              ? null
+              : purchaseAmountKobo - redeemedAmountKobo,
+          earnedAmountKobo,
           receiptNumber: receipt.posReceiptNumber,
           status: isRedeem
-            ? (redemption?.status ?? receipt.reviewStatus)
-            : (ledger?.status ?? receipt.reviewStatus),
+            ? (redemption?.status ??
+              redeemLedger?.status ??
+              receipt.reviewStatus)
+            : (earnLedger?.status ?? receipt.reviewStatus),
         };
       }),
     };

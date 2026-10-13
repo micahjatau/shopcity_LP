@@ -56,6 +56,54 @@ describe('RedemptionsService', () => {
     expect(tx.smsMessage.create).not.toHaveBeenCalled();
   });
 
+  it('holds Earn when basket-level purchase policy requires approval', async () => {
+    const tx = transactionClient();
+    const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
+      callback(tx),
+    );
+    const earnApprovalConfig = {
+      get: (key: string) =>
+        ({
+          MIN_REDEMPTION_KOBO: 500,
+          MAX_REDEMPTION_BASKET_PERCENT: 30,
+          REDEMPTION_APPROVAL_THRESHOLD_KOBO: 5_000,
+          DEFAULT_EARN_RATE_BPS: 200,
+          PURCHASE_FLAG_THRESHOLD_KOBO: 10_000,
+          PURCHASE_APPROVAL_THRESHOLD_KOBO: 20_000,
+          PURCHASE_AMOUNT_CEILING_KOBO: 100_000_000,
+        })[key],
+    };
+    const service = serviceWith({
+      transaction,
+      config: earnApprovalConfig,
+    });
+
+    const response = await service.redeem(
+      'tenant-1',
+      authContext(),
+      'earn-policy-approval-key',
+      {
+        cardSerialNumber: 'CARD-1',
+        posReceiptNumber: 'POS-EARN-APPROVAL',
+        basketAmountKobo: 30_000,
+        requestedRedemptionKobo: 1_000,
+        occurredAt: REQUEST_OCCURRED_AT,
+      },
+    );
+
+    expect(response.state).toBe('PENDING_APPROVAL');
+    expect(response.netPaidAmountKobo).toBeNull();
+    expect(response.earnedKobo).toBeNull();
+    expect(tx.approval.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reasonCode: 'PURCHASE_ABOVE_APPROVAL_THRESHOLD',
+      }) as Record<string, unknown>,
+    });
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(tx.creditLot.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+  });
+
   it('normalizes redemption card serials before lookup', async () => {
     const tx = transactionClient();
     const transaction = jest.fn((callback: (client: typeof tx) => unknown) =>
@@ -416,12 +464,15 @@ function serviceWith({
   replay,
   replayRequestHash,
   activeBalanceKobo = 100_000n,
+  config,
 }: {
   transaction: jest.Mock;
   replay?: unknown;
   replayRequestHash?: string;
   activeBalanceKobo?: bigint;
+  config?: { get: (key: string) => unknown };
 }) {
+  const effectiveConfig = config ?? configService();
   const prisma = {
     $transaction: transaction,
     idempotencyRecord: {
@@ -454,8 +505,9 @@ function serviceWith({
         },
       ]),
     } as never,
-    new RedemptionPolicyService(configService()),
+    new RedemptionPolicyService(effectiveConfig as never),
     { recordWithClient: jest.fn().mockResolvedValue(undefined) } as never,
+    effectiveConfig as never,
   );
 }
 
@@ -531,6 +583,7 @@ function transactionClient() {
     },
     $queryRaw: jest.fn().mockResolvedValue([]),
     creditLot: {
+      create: jest.fn().mockResolvedValue({ id: 'earn-lot-1' }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       aggregate: jest
         .fn()

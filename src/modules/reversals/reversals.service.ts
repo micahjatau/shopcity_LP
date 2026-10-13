@@ -200,6 +200,15 @@ async function runReverseTransaction(input: {
                 branch: true,
                 card: true,
                 device: true,
+                ledgerEntries: {
+                  where: {
+                    type: {
+                      in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM],
+                    },
+                    status: LedgerEntryStatus.CONFIRMED,
+                  },
+                  select: { id: true, type: true },
+                },
               },
             },
             creditLot: true,
@@ -210,6 +219,15 @@ async function runReverseTransaction(input: {
                     branch: true,
                     card: true,
                     device: true,
+                    ledgerEntries: {
+                      where: {
+                        type: {
+                          in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM],
+                        },
+                        status: LedgerEntryStatus.CONFIRMED,
+                      },
+                      select: { id: true, type: true },
+                    },
                   },
                 },
                 approval: true,
@@ -245,6 +263,19 @@ async function runReverseTransaction(input: {
             HttpStatus.NOT_FOUND,
             'TRANSACTION_NOT_FOUND',
             'Transaction not found',
+          );
+        }
+
+        const receiptLedgerEntries =
+          original.receipt?.ledgerEntries ??
+          original.redemption?.receipt.ledgerEntries ??
+          [];
+        if (
+          original.receiptId &&
+          receiptLedgerEntries.some((entry) => entry.id !== original.id)
+        ) {
+          throw reviewRequired(
+            'A receipt with multiple settlement effects requires grouped reversal review',
           );
         }
 

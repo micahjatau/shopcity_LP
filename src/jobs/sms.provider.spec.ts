@@ -16,6 +16,7 @@ import {
   buildEarnConfirmedSmsPayload,
   buildRedemptionConfirmedSmsPayload,
   buildTransactionReversedSmsPayload,
+  renderSmsMessage,
 } from './sms.templates';
 
 describe('sms provider selection', () => {
@@ -141,6 +142,31 @@ describe('sms provider selection', () => {
     } finally {
       await server.close();
     }
+  });
+
+  it('renders one combined redemption settlement SMS', () => {
+    const payload = buildRedemptionConfirmedSmsPayload({
+      receiptId: 'receipt-1',
+      transactionId: 'redeem-ledger-1',
+      redemptionId: 'redemption-1',
+      customerId: 'customer-1',
+      phoneE164: '+2348000000000',
+      redeemedKobo: 3_000n,
+      netPaidKobo: 7_000n,
+      earnedKobo: 140n,
+      earnTransactionId: 'earn-ledger-1',
+      remainingBalanceKobo: 2_140n,
+    });
+
+    expect(
+      renderSmsMessage({
+        receiptId: 'receipt-1',
+        template: 'redemption-confirmed',
+        payload,
+      }),
+    ).toBe(
+      'ShopCity: Receipt receipt-1 redeemed NGN 30.00; paid NGN 70.00 and earned NGN 1.40. Available credit NGN 21.40.',
+    );
   });
 
   it('renders transaction-reversed SMS messages without a receipt id', async () => {

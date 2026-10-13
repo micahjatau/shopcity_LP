@@ -548,7 +548,7 @@ model LoyaltyLedgerEntry {
   id                     String                  @id @default(uuid())
   tenantId               String
   customerId             String
-  receiptId              String?                 @unique
+  receiptId              String?
   type                   LedgerEntryType
   direction              LedgerEntryDirection
   amountKobo             BigInt
@@ -576,6 +576,7 @@ model LoyaltyLedgerEntry {
 
   @@unique([tenantId, id])
   @@index([tenantId, customerId, effectiveAt])
+  @@index([tenantId, receiptId])
   @@index([tenantId, createdAt])
   @@index([createdByTenantId, createdBy])
 }

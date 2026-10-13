@@ -220,8 +220,12 @@ describe('immutable earn ledger (int)', () => {
       'late receipt verified',
       'earn-leap-day-approval-key',
     );
-    const ledgerEntry = await prisma.loyaltyLedgerEntry.findUniqueOrThrow({
-      where: { receiptId: response.receiptId },
+    const ledgerEntry = await prisma.loyaltyLedgerEntry.findFirstOrThrow({
+      where: {
+        tenantId: tenant.id,
+        receiptId: response.receiptId,
+        type: LedgerEntryType.EARN,
+      },
     });
     const creditLot = await prisma.creditLot.findUniqueOrThrow({
       where: { earnLedgerEntryId: ledgerEntry.id },

@@ -55,6 +55,7 @@ describe('redemption approval lifecycle (int)', () => {
       lotAllocationService,
       new RedemptionPolicyService(configService),
       auditService,
+      configService,
     );
     adjustmentsService = new AdjustmentsService(
       prisma,
@@ -98,7 +99,30 @@ describe('redemption approval lifecycle (int)', () => {
     );
 
     expect(pending.state).toBe('PENDING_APPROVAL');
+    expect(pending.netPaidAmountKobo).toBeNull();
+    expect(pending.earnedKobo).toBeNull();
     expect(pending.approvalId).toBeDefined();
+    expect(
+      await prisma.loyaltyLedgerEntry.count({
+        where: { tenantId: fixture.tenantId, receiptId: pending.receiptId },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.redemptionAllocation.count({
+        where: {
+          tenantId: fixture.tenantId,
+          redemptionId: pending.redemptionId,
+        },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.smsMessage.count({
+        where: {
+          tenantId: fixture.tenantId,
+          redemptionId: pending.redemptionId,
+        },
+      }),
+    ).toBe(0);
 
     const approvalRecord = await prisma.approval.findUniqueOrThrow({
       where: { id: pending.approvalId! },
@@ -142,7 +166,11 @@ describe('redemption approval lifecycle (int)', () => {
       receiptId: pending.receiptId,
       redemptionId: pending.redemptionId,
       redeemedAmountKobo: 6_000,
+      netPaidAmountKobo: 24_000,
+      earnedKobo: 480,
+      remainingBalanceKobo: 14_480,
     });
+    expect(typeof decision.earnTransactionId).toBe('string');
 
     const [redemption, allocationCount, smsCount, remainingBalance] =
       await Promise.all([
@@ -171,7 +199,7 @@ describe('redemption approval lifecycle (int)', () => {
     expect(redemption.confirmedAmountKobo).toBe(6_000n);
     expect(allocationCount).toBe(1);
     expect(smsCount).toBe(1);
-    expect(remainingBalance._sum.remainingAmountKobo).toBe(14_000n);
+    expect(remainingBalance._sum.remainingAmountKobo).toBe(14_480n);
 
     const smsMessage = await prisma.smsMessage.findFirstOrThrow({
       where: {
@@ -186,8 +214,9 @@ describe('redemption approval lifecycle (int)', () => {
       payload: smsMessage.payload as Record<string, unknown>,
     });
 
-    expect(renderedSms).toContain('Redeemed NGN 60.00');
-    expect(renderedSms).toContain('Remaining balance NGN 140.00');
+    expect(renderedSms).toContain('redeemed NGN 60.00');
+    expect(renderedSms).toContain('paid NGN 240.00 and earned NGN 4.80');
+    expect(renderedSms).toContain('Available credit NGN 144.80');
 
     const transaction = await loyaltyService.getTransaction(
       fixture.tenantId,
@@ -207,7 +236,9 @@ describe('redemption approval lifecycle (int)', () => {
       makeContext(fixture.supervisor, fixture.deviceId),
       fixture.customerId,
     );
-    expect(ledger.items[0]).toMatchObject({
+    expect(
+      ledger.items.find((item) => item.redemptionId === pending.redemptionId),
+    ).toMatchObject({
       redemptionId: pending.redemptionId,
       allocations: [
         expect.objectContaining({
@@ -216,6 +247,107 @@ describe('redemption approval lifecycle (int)', () => {
         }),
       ],
     });
+  }, 120000);
+
+  it('atomically redeems prior credit and earns on the paid remainder', async () => {
+    const localFixture = await createFixture(prisma, 5_000n);
+    const priorLot = await prisma.creditLot.findFirstOrThrow({
+      where: {
+        tenantId: localFixture.tenantId,
+        customerId: localFixture.customerId,
+      },
+      orderBy: { earnedAt: 'asc' },
+    });
+    const context = makeContext(localFixture.cashier, localFixture.deviceId);
+    const request = {
+      cardSerialNumber: localFixture.cardSerial,
+      posReceiptNumber: 'POS-ATOMIC-SETTLEMENT',
+      basketAmountKobo: 10_000,
+      requestedRedemptionKobo: 3_000,
+      occurredAt: new Date(Date.now() - 60_000).toISOString(),
+    };
+
+    const response = await redemptionsService.redeem(
+      localFixture.tenantId,
+      context,
+      'atomic-settlement-key',
+      request,
+    );
+
+    expect(response).toMatchObject({
+      state: 'CONFIRMED',
+      redeemedAmountKobo: 3_000,
+      netPaidAmountKobo: 7_000,
+      earnedKobo: 140,
+      remainingBalanceKobo: 2_140,
+    });
+    const effects = await prisma.loyaltyLedgerEntry.findMany({
+      where: { tenantId: localFixture.tenantId, receiptId: response.receiptId },
+      orderBy: { type: 'asc' },
+    });
+    expect(effects.map(({ type, amountKobo }) => [type, amountKobo])).toEqual([
+      ['EARN', 140n],
+      ['REDEEM', 3_000n],
+    ]);
+    expect(response.earnTransactionId).toBe(
+      effects.find((entry) => entry.type === LedgerEntryType.EARN)?.id,
+    );
+    const duplicateEffect = (type: LedgerEntryType) =>
+      prisma.loyaltyLedgerEntry.create({
+        data: {
+          tenantId: localFixture.tenantId,
+          customerId: localFixture.customerId,
+          receiptId: response.receiptId,
+          type,
+          direction:
+            type === LedgerEntryType.EARN
+              ? LedgerEntryDirection.CREDIT
+              : LedgerEntryDirection.DEBIT,
+          amountKobo: 1n,
+          status: LedgerEntryStatus.CONFIRMED,
+          correlationId: `duplicate-${type}-${randomUUID()}`,
+          createdByTenantId: localFixture.tenantId,
+          createdBy: localFixture.cashier.id,
+          effectiveAt: new Date(request.occurredAt),
+        },
+      });
+    await expect(duplicateEffect(LedgerEntryType.EARN)).rejects.toMatchObject({
+      code: 'P2002',
+    });
+    await expect(duplicateEffect(LedgerEntryType.REDEEM)).rejects.toMatchObject(
+      {
+        code: 'P2002',
+      },
+    );
+
+    const allocation = await prisma.redemptionAllocation.findFirstOrThrow({
+      where: {
+        tenantId: localFixture.tenantId,
+        redemptionId: response.redemptionId,
+      },
+    });
+    const earnLot = await prisma.creditLot.findUniqueOrThrow({
+      where: { earnLedgerEntryId: response.earnTransactionId! },
+    });
+    expect(allocation.creditLotId).toBe(priorLot.id);
+    expect(allocation.creditLotId).not.toBe(earnLot.id);
+    expect(
+      await prisma.smsMessage.count({
+        where: {
+          tenantId: localFixture.tenantId,
+          redemptionId: response.redemptionId,
+        },
+      }),
+    ).toBe(1);
+
+    await expect(
+      redemptionsService.redeem(
+        localFixture.tenantId,
+        context,
+        'atomic-settlement-key',
+        request,
+      ),
+    ).resolves.toEqual(response);
   }, 120000);
 
   it('returns the same response for concurrent same-key redemption requests', async () => {
@@ -354,7 +486,7 @@ describe('redemption approval lifecycle (int)', () => {
       },
       _sum: { remainingAmountKobo: true },
     });
-    expect(remaining._sum.remainingAmountKobo).toBe(2_000n);
+    expect(remaining._sum.remainingAmountKobo).toBe(2_320n);
   }, 120000);
 
   it('allows only one supervisor to execute a redemption approval', async () => {
@@ -468,7 +600,7 @@ describe('redemption approval lifecycle (int)', () => {
     });
     expect(
       remaining._sum.remainingAmountKobo === 3_000n ||
-        remaining._sum.remainingAmountKobo === 15_500n,
+        remaining._sum.remainingAmountKobo === 15_710n,
     ).toBe(true);
   }, 120000);
 
@@ -521,8 +653,8 @@ describe('redemption approval lifecycle (int)', () => {
       _sum: { remainingAmountKobo: true },
     });
     expect(
-      remaining._sum.remainingAmountKobo === 3_000n ||
-        remaining._sum.remainingAmountKobo === 16_000n,
+      remaining._sum.remainingAmountKobo === 3_860n ||
+        remaining._sum.remainingAmountKobo === 16_320n,
     ).toBe(true);
   }, 120000);
 });
