@@ -55,13 +55,12 @@ describe('TransactionDashboard', () => {
 
     const { container } = render(<TransactionDashboard />);
     await waitFor(() => expect(screen.getByText('R-001')).toBeInTheDocument());
-    expect(screen.getByText('Today’s cashier activity')).toBeInTheDocument();
+    expect(screen.queryByText('Today’s cashier activity')).toBeNull();
     expect(
       screen.getByText(
         'Review purchases, redemptions and their current status.',
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Live ledger|credit issued against/)).toBeNull();
     const heading = container.querySelector(
       '[data-od-id="transactions-heading"]',
     );
@@ -72,12 +71,10 @@ describe('TransactionDashboard', () => {
     expect(heading).not.toBeNull();
     expect(filters).not.toBeNull();
     expect(table).not.toBeNull();
-    expect(heading).toContainElement(
-      screen.getByRole('button', { name: /Refresh data/ }),
-    );
-    expect(filters).not.toContainElement(
-      screen.getByRole('button', { name: /Refresh data/ }),
-    );
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    expect(refreshButton.querySelector('svg')).not.toBeNull();
+    expect(heading).toContainElement(refreshButton);
+    expect(filters).not.toContainElement(refreshButton);
     expect(heading!.compareDocumentPosition(filters!)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );

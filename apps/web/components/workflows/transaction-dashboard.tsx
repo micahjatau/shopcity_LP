@@ -194,9 +194,6 @@ export function TransactionDashboard() {
         data-od-id="transactions-heading"
       >
         <div>
-          <p className="cashier-transactions-page__eyebrow">
-            Today’s cashier activity
-          </p>
           <h1 id="cashier-transactions-title">Transactions</h1>
           <p>Review purchases, redemptions and their current status.</p>
         </div>
@@ -208,7 +205,7 @@ export function TransactionDashboard() {
           loading={busy}
         >
           <RefreshCw aria-hidden="true" size={16} strokeWidth={1.8} />
-          Refresh data
+          Refresh
         </Button>
       </header>
       <p className="cashier-workflow-notice" role="status">
