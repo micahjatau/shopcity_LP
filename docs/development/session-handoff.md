@@ -1,10 +1,10 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-13
+Updated: 2026-10-14
 
-Latest session: [Cashier Capture Purchase Earn handoff](session-handoff-2026-10-13-cashier-capture-purchase.md).
+Latest session: [SMS Providers and WebAuthn / Device Attestation KEK handoff](session-handoff-2026-10-14-sms-webauthn-kek.md).
 
-## Current session — Cashier customer workflow
+## Previous session — Cashier customer workflow (2026-10-13)
 
 - Branch: `workflow-states-implementation`
 - Scope committed in this session: Cashier customer directory/profile alignment, cashier-safe profile and ledger authorization, monthly earned-credit metric, Cashier Overview activity/metric population, virtual-card presentation, masked customer details, and generated API/OpenSpec/test updates.
