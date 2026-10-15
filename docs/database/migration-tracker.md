@@ -145,3 +145,11 @@ Use these buckets in each migration row so local deploy checks, CI proof, shared
 - Local/CI verification: `npx jest --config ./test/jest-int.json test/outbox-worker-recovery.int-spec.ts --runInBand` passed. The integration test deploys the full migration chain to an ephemeral PostgreSQL 16 Testcontainers database, including this migration.
 - Shared staging/production: not applied or verified. No shared database was changed.
 - Backup/restore: not run for this additive migration; no destructive operation or data rewrite is included.
+
+## 2026-10-14 active local cashier database migration catch-up
+
+- Target: local Supabase PostgreSQL database `shopcity_profiles_local_20260929` at `127.0.0.1:55422`, confirmed from the active API environment. No linked/shared or production database was targeted.
+- Pre-apply full custom-format backup: `/tmp/shopcity-cashier-earn-pre-migration-20261014T0902Z.dump` (mode `0600`, 285813 bytes, SHA-256 `c1c27245d475da3debeef3516fea600148f6a2cbb8901b4423d064438be7d099`); archive listing validated.
+- Preflight: Prisma reported `20261013_atomic_redeem_settlement` and `20261013_sms_dlr_poll_schedule` pending. Duplicate typed EARN/REDEEM effects grouped by tenant, receipt, and type: 0.
+- Applied both pending migrations locally with `prisma migrate deploy`. Postflight `prisma migrate status` reports all 56 migrations up to date; `SmsMessage.nextDeliveryReportPollAt` and its due-selection index are present; duplicate typed effects remain 0; `/health/ready` returns HTTP 200.
+- This repaired the local API/schema mismatch behind cashier Earn's `SmsMessage.nextDeliveryReportPollAt` database error. No linked/shared database was changed; the local backup was not restored.
