@@ -12,6 +12,36 @@ const requiredString = (fallback: string) =>
 const requiredKek = (fallback: string) =>
   isTest ? Joi.string().default(fallback) : Joi.string().min(32).required();
 
+const twilioCredential = (pattern?: RegExp) => {
+  const credential = pattern
+    ? Joi.string().trim().pattern(pattern)
+    : Joi.string().trim().min(1);
+  return credential.empty('').when('SMS_PROVIDER_VENDOR', {
+    is: 'twilio',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: credential.required(),
+      otherwise: Joi.optional(),
+    }),
+    otherwise: Joi.optional(),
+  });
+};
+
+const africaTalkingCredential = (sandbox: boolean) =>
+  Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'africastalking',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.when('AFRICASTALKING_SANDBOX', {
+        is: sandbox,
+        then: Joi.string().trim().min(1).required(),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+    otherwise: Joi.optional(),
+  });
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production', 'staging')
@@ -252,29 +282,108 @@ export const envValidationSchema = Joi.object({
     .min(1)
     .max(1000)
     .default(100),
+  SMS_PROVIDER_VENDOR: Joi.string()
+    .valid('ebulksms', 'arkesel', 'africastalking', 'twilio')
+    .default('ebulksms'),
   SMS_PROVIDER_MODE: Joi.string()
     .valid('deterministic', 'sandbox', 'real')
     .default('deterministic'),
-  SMS_PROVIDER_URL: Joi.string().uri().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.required(),
+  SMS_PROVIDER_URL: Joi.string()
+    .uri()
+    .when('SMS_PROVIDER_VENDOR', {
+      is: 'ebulksms',
+      then: Joi.when('SMS_PROVIDER_MODE', {
+        is: 'real',
+        then: Joi.required(),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+  SMS_PROVIDER_USERNAME: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'ebulksms',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_USERNAME: Joi.string().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.string().min(1).required(),
+  SMS_PROVIDER_API_KEY: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'ebulksms',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_API_KEY: Joi.string().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.string().min(1).required(),
+  SMS_PROVIDER_SENDER_ID: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'ebulksms',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
-  SMS_PROVIDER_SENDER_ID: Joi.string().when('SMS_PROVIDER_MODE', {
-    is: 'real',
-    then: Joi.string().min(1).required(),
+  AFRICASTALKING_SANDBOX: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  AFRICASTALKING_LIVE_USERNAME: africaTalkingCredential(false),
+  AFRICASTALKING_LIVE_API_KEY: africaTalkingCredential(false),
+  AFRICASTALKING_SANDBOX_API_KEY: africaTalkingCredential(true),
+  AFRICASTALKING_SENDER_ID: Joi.string()
+    .trim()
+    .max(11)
+    .when('SMS_PROVIDER_VENDOR', {
+      is: 'africastalking',
+      then: Joi.when('SMS_PROVIDER_MODE', {
+        is: 'real',
+        then: Joi.when('AFRICASTALKING_SANDBOX', {
+          is: false,
+          then: Joi.string().min(1).required(),
+          otherwise: Joi.optional(),
+        }),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
+  TWILIO_ACCOUNT_SID: twilioCredential(/^AC[0-9a-f]{32}$/i),
+  TWILIO_API_KEY: twilioCredential(/^SK[0-9a-f]{32}$/i),
+  TWILIO_API_SECRET: twilioCredential(),
+  TWILIO_FROM_NUMBER: Joi.string()
+    .trim()
+    .pattern(/^\+[1-9]\d{7,14}$/)
+    .empty('')
+    .optional(),
+  TWILIO_MESSAGING_SERVICE_SID: Joi.string()
+    .trim()
+    .pattern(/^MG[0-9a-f]{32}$/i)
+    .empty('')
+    .optional(),
+  ARKESEL_API_KEY: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'arkesel',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
     otherwise: Joi.optional(),
   }),
+  ARKESEL_SENDER_ID: Joi.string().when('SMS_PROVIDER_VENDOR', {
+    is: 'arkesel',
+    then: Joi.when('SMS_PROVIDER_MODE', {
+      is: 'real',
+      then: Joi.string().min(1).required(),
+      otherwise: Joi.optional(),
+    }),
+    otherwise: Joi.optional(),
+  }),
+  ARKESEL_API_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .default('https://sms.arkesel.com/api/v2'),
+  ARKESEL_SANDBOX: Joi.boolean().truthy('true').falsy('false').default(false),
   SMS_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
   ALLOW_FAKE_SMS_IN_PRODUCTION: Joi.boolean()
     .truthy('true')
@@ -337,6 +446,10 @@ export const envValidationSchema = Joi.object({
       env.SMS_PROVIDER_USERNAME,
       env.SMS_PROVIDER_API_KEY,
       env.SMS_PROVIDER_SENDER_ID,
+      env.ARKESEL_API_KEY,
+      env.AFRICASTALKING_LIVE_API_KEY,
+      env.AFRICASTALKING_SANDBOX_API_KEY,
+      env.TWILIO_API_SECRET,
     ]
       .filter((secret) => typeof secret === 'string')
       .map((secret) => String(secret));
@@ -363,6 +476,31 @@ export const envValidationSchema = Joi.object({
       envFlags.WEBAUTHN_DEVICE_QUALIFICATION_APPROVED === true;
     const localCashierTestSessionRequested =
       envFlags.DEV_CASHIER_TEST_SESSION_ENABLED === true;
+    const twilioRealRequested =
+      envFlags.SMS_PROVIDER_VENDOR === 'twilio' &&
+      envFlags.SMS_PROVIDER_MODE === 'real';
+    const twilioFromConfigured =
+      typeof envFlags.TWILIO_FROM_NUMBER === 'string' &&
+      envFlags.TWILIO_FROM_NUMBER.trim().length > 0;
+    const twilioMessagingServiceConfigured =
+      typeof envFlags.TWILIO_MESSAGING_SERVICE_SID === 'string' &&
+      envFlags.TWILIO_MESSAGING_SERVICE_SID.trim().length > 0;
+    const twilioSenderConfigurationInvalid =
+      twilioRealRequested &&
+      twilioFromConfigured === twilioMessagingServiceConfigured;
+    const arkeselSandboxRequested = envFlags.ARKESEL_SANDBOX === true;
+    const africastalkingSandboxRequested =
+      envFlags.AFRICASTALKING_SANDBOX === true;
+    const africastalkingSandboxInvalid =
+      africastalkingSandboxRequested &&
+      (nodeEnv === 'production' ||
+        envFlags.SMS_PROVIDER_VENDOR !== 'africastalking' ||
+        envFlags.SMS_PROVIDER_MODE !== 'real');
+    const arkeselSandboxInvalid =
+      arkeselSandboxRequested &&
+      (nodeEnv === 'production' ||
+        envFlags.SMS_PROVIDER_VENDOR !== 'arkesel' ||
+        envFlags.SMS_PROVIDER_MODE !== 'real');
     const localCashierTestSessionEnvironment = {
       NODE_ENV: nodeEnv,
       VERCEL_ENV: env.VERCEL_ENV,
@@ -398,6 +536,9 @@ export const envValidationSchema = Joi.object({
       previewOriginInvalid ||
       localCashierTestSessionInvalid ||
       tailscaleCashierOriginInvalid ||
+      africastalkingSandboxInvalid ||
+      arkeselSandboxInvalid ||
+      twilioSenderConfigurationInvalid ||
       ((developmentEnrollmentEnabled ||
         previewEnrollmentEnabled ||
         qualificationApproved) &&

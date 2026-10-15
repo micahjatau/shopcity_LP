@@ -1,5 +1,8 @@
 import { envValidationSchema } from './env.validation';
 
+const testTwilioAccountSid = `AC${'a'.repeat(32)}`;
+const testTwilioApiKey = `SK${'b'.repeat(32)}`;
+
 describe('envValidationSchema', () => {
   it('defaults WebAuthn qualification and development enrollment to disabled', () => {
     const result = envValidationSchema.validate({});
@@ -36,6 +39,178 @@ describe('envValidationSchema', () => {
     expect(
       envValidationSchema.validate({ SMS_DLR_POLL_BATCH_SIZE: 101 }).error,
     ).toBeDefined();
+  });
+
+  it('validates Arkesel credentials, defaults, and non-production sandbox gating', () => {
+    const defaults = envValidationSchema.validate({});
+    expect(defaults.error).toBeUndefined();
+    expect(defaults.value).toMatchObject({
+      SMS_PROVIDER_VENDOR: 'ebulksms',
+      ARKESEL_SANDBOX: false,
+    });
+
+    const sandbox = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'arkesel',
+      ARKESEL_API_KEY: 'arkesel-key',
+      ARKESEL_SENDER_ID: 'ShopCity',
+      ARKESEL_SANDBOX: 'true',
+    });
+    expect(sandbox.error).toBeUndefined();
+
+    expect(
+      envValidationSchema.validate({
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'arkesel',
+        ARKESEL_SENDER_ID: 'ShopCity',
+      }).error,
+    ).toBeDefined();
+    expect(
+      envValidationSchema.validate({
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'arkesel',
+        ARKESEL_API_KEY: 'arkesel-key',
+        ARKESEL_SENDER_ID: 'ShopCity',
+        ARKESEL_SANDBOX: true,
+      }).error,
+    ).toBeDefined();
+    expect(
+      envValidationSchema.validate({
+        NODE_ENV: 'development',
+        SMS_PROVIDER_VENDOR: 'ebulksms',
+        ARKESEL_SANDBOX: true,
+      }).error,
+    ).toBeDefined();
+    expect(
+      envValidationSchema.validate({
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'arkesel',
+        ARKESEL_API_KEY: 'arkesel-key',
+        ARKESEL_SENDER_ID: 'ShopCity',
+        ARKESEL_API_URL: 'http://sms.arkesel.com/api/v2',
+      }).error,
+    ).toBeDefined();
+  });
+
+  it("validates Africa's Talking live/sandbox credentials and sender safety", () => {
+    expect(envValidationSchema.validate({}).value).toMatchObject({
+      AFRICASTALKING_SANDBOX: false,
+    });
+
+    const live = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'africastalking',
+      AFRICASTALKING_LIVE_USERNAME: 'shopcity',
+      AFRICASTALKING_LIVE_API_KEY: 'live-key',
+      AFRICASTALKING_SENDER_ID: 'ShopCity',
+    });
+    expect(live.error).toBeUndefined();
+
+    const sandbox = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'africastalking',
+      AFRICASTALKING_SANDBOX: 'true',
+      AFRICASTALKING_SANDBOX_API_KEY: 'sandbox-key',
+    });
+    expect(sandbox.error).toBeUndefined();
+
+    const invalidCases = [
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'africastalking',
+        AFRICASTALKING_LIVE_USERNAME: 'shopcity',
+        AFRICASTALKING_SENDER_ID: 'ShopCity',
+      },
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'africastalking',
+        AFRICASTALKING_LIVE_API_KEY: 'live-key',
+        AFRICASTALKING_SENDER_ID: 'ShopCity',
+      },
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'africastalking',
+        AFRICASTALKING_LIVE_USERNAME: 'shopcity',
+        AFRICASTALKING_LIVE_API_KEY: 'live-key',
+        AFRICASTALKING_SENDER_ID: 'sender-id-too-long',
+      },
+      {
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'africastalking',
+        AFRICASTALKING_SANDBOX: true,
+        AFRICASTALKING_SANDBOX_API_KEY: 'sandbox-key',
+      },
+      {
+        NODE_ENV: 'development',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'ebulksms',
+        AFRICASTALKING_SANDBOX: true,
+      },
+    ];
+
+    for (const environment of invalidCases) {
+      expect(envValidationSchema.validate(environment).error).toBeDefined();
+    }
+  });
+
+  it('validates Twilio API-key credentials and requires exactly one sender', () => {
+    expect(envValidationSchema.validate({}).value).toMatchObject({
+      SMS_PROVIDER_VENDOR: 'ebulksms',
+    });
+
+    const base = {
+      NODE_ENV: 'development',
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'twilio',
+      TWILIO_ACCOUNT_SID: testTwilioAccountSid,
+      TWILIO_API_KEY: testTwilioApiKey,
+      TWILIO_API_SECRET: 'twilio-api-secret',
+    };
+    expect(
+      envValidationSchema.validate({
+        ...base,
+        TWILIO_FROM_NUMBER: '+15017122661',
+      }).error,
+    ).toBeUndefined();
+    expect(
+      envValidationSchema.validate({
+        ...base,
+        TWILIO_MESSAGING_SERVICE_SID: 'MG1234567890abcdef1234567890abcdef',
+      }).error,
+    ).toBeUndefined();
+
+    const invalidCases = [
+      base,
+      {
+        ...base,
+        TWILIO_FROM_NUMBER: '+15017122661',
+        TWILIO_MESSAGING_SERVICE_SID: 'MG1234567890abcdef1234567890abcdef',
+      },
+      {
+        ...base,
+        TWILIO_ACCOUNT_SID: 'invalid',
+        TWILIO_FROM_NUMBER: '+15017122661',
+      },
+      {
+        ...base,
+        TWILIO_API_KEY: 'invalid',
+        TWILIO_FROM_NUMBER: '+15017122661',
+      },
+      { ...base, TWILIO_API_SECRET: '', TWILIO_FROM_NUMBER: '+15017122661' },
+    ];
+    for (const environment of invalidCases) {
+      expect(envValidationSchema.validate(environment).error).toBeDefined();
+    }
   });
 
   it('allows local cashier test sessions only with local DB and deterministic SMS', () => {

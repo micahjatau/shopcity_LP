@@ -561,6 +561,31 @@ export class OutboxWorkerRuntime {
     }
 
     if (
+      this.smsProvider.requiresLocalSubmissionReservation &&
+      resolvedSmsMessage.failureCategory === 'provider-submission-in-progress'
+    ) {
+      const reservationAgeMs = resolvedSmsMessage.lastAttemptAt
+        ? Date.now() - resolvedSmsMessage.lastAttemptAt.getTime()
+        : Number.POSITIVE_INFINITY;
+      const reservationWindowMs = Math.max(
+        this.config.recoveryThresholdMs,
+        this.smsProvider.submissionReservationWindowMs ?? 0,
+      );
+      if (reservationAgeMs < reservationWindowMs) {
+        job.discard();
+        return;
+      }
+
+      await this.markSmsSubmissionOutcomeUnknown(
+        resolvedSmsMessage,
+        outboxEvent,
+        new Date(),
+      );
+      job.discard();
+      return;
+    }
+
+    if (
       resolvedSmsMessage.deadLetteredAt ||
       resolvedSmsMessage.attempts >= OUTBOX_RETRY_ATTEMPTS
     ) {
@@ -592,6 +617,29 @@ export class OutboxWorkerRuntime {
       }
 
       throw error;
+    }
+
+    const reservationClaimed =
+      this.smsProvider.requiresLocalSubmissionReservation === true;
+    if (reservationClaimed) {
+      const claim = await this.prisma.smsMessage.updateMany({
+        where: {
+          tenantId: resolvedSmsMessage.tenantId,
+          outboxEventId: resolvedSmsMessage.outboxEventId,
+          status: resolvedSmsMessage.status,
+          attempts: resolvedSmsMessage.attempts,
+          deadLetteredAt: null,
+          failureCategory: resolvedSmsMessage.failureCategory ?? null,
+        },
+        data: {
+          failureCategory: 'provider-submission-in-progress',
+          lastAttemptAt: now,
+        },
+      });
+      if (claim.count !== 1) {
+        job.discard();
+        return;
+      }
     }
 
     try {
@@ -663,6 +711,16 @@ export class OutboxWorkerRuntime {
         data: mapSmsDispatchResult(result, now),
       });
     } catch (error) {
+      if (reservationClaimed) {
+        await this.markSmsSubmissionOutcomeUnknown(
+          resolvedSmsMessage,
+          outboxEvent,
+          now,
+        );
+        job.discard();
+        return;
+      }
+
       const deadLetteredAt =
         resolvedSmsMessage.attempts + 1 >= OUTBOX_RETRY_ATTEMPTS ? now : null;
 
@@ -705,6 +763,38 @@ export class OutboxWorkerRuntime {
 
       throw error;
     }
+  }
+
+  private async markSmsSubmissionOutcomeUnknown(
+    smsMessage: { tenantId: string; outboxEventId: string },
+    outboxEvent: { tenantId: string; id: string },
+    now: Date,
+  ): Promise<void> {
+    const diagnostic =
+      'Twilio submission outcome is unknown; verify provider history before manual replay';
+    await this.prisma.smsMessage.update({
+      where: {
+        tenantId_outboxEventId: {
+          tenantId: smsMessage.tenantId,
+          outboxEventId: smsMessage.outboxEventId,
+        },
+      },
+      data: {
+        status: 'FAILED',
+        attempts: { increment: 1 },
+        failedAt: now,
+        lastAttemptAt: now,
+        nextAttemptAt: null,
+        deadLetteredAt: now,
+        failureCategory: 'dead-lettered',
+        lastError: diagnostic,
+      },
+    });
+    await this.markOutboxEventDeadLettered(
+      outboxEvent,
+      'provider-outcome-unknown',
+      diagnostic,
+    );
   }
 
   private async createSmsMessageFromOutboxEvent(outboxEvent: {

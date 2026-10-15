@@ -19,6 +19,18 @@ Production deployment configuration MUST use the real SMS provider and MUST NOT 
 - **THEN** startup fails closed with an actionable configuration error
 - **AND** no fake provider is started
 
+### Requirement: Standalone SMS smoke is operator-gated and narrowly configured
+
+A standalone real-provider SMS smoke MUST require explicit approval, real-provider mode, and an exact destination allowlist match. It MUST validate only the provider-specific configuration it uses and MUST NOT require unrelated application secrets or database configuration. Invalid provider endpoints MUST be rejected before any provider request.
+
+#### Scenario: Approved provider smoke with minimal SMS configuration
+
+- **GIVEN** real eBulkSMS credentials and an approved, allowlisted test destination are configured
+- **AND** unrelated application configuration is absent
+- **WHEN** the standalone smoke runner initializes its provider
+- **THEN** it validates the eBulkSMS endpoint and required SMS settings without loading the application-wide configuration schema
+- **AND** it may send only to the exact allowlisted destination
+
 ### Requirement: Delivery-report polling is paced and fair
 
 When the selected provider supports delivery reports, the worker MUST poll on a dedicated schedule rather than on every outbox recovery tick. The worker MUST persist each message's next eligible poll time and select unpolled/due messages before deferred messages, so a provider response that remains `SENT`, is unavailable, or contains no report cannot monopolize the batch. Poll batch size and interval MUST be bounded by validated configuration. Before contacting the provider, the worker MUST claim a due row with a compare-and-set update so multiple worker instances do not poll the same message concurrently. A report that includes a provider message ID MUST match the ID stored for that SMS before it can change status. Only an authorized report may move a message from `SENT` to `DELIVERED` or `FAILED`; missing/unknown reports MUST leave it `SENT`.

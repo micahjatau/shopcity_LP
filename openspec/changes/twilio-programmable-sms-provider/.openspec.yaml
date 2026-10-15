@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-10-14
+goal: Add Twilio Programmable Messaging as a selectable plain-SMS provider while preserving the SMS outbox's no-duplicate safety and truthful SENT status.

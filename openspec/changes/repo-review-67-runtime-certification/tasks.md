@@ -40,6 +40,7 @@
 - [x] Add unit and migration/integration regression coverage for fairness, retry scheduling, ID mismatch, and shutdown.
 - [x] Update the SMS operations runbook to describe implemented DLR polling and its limits.
 - [x] Keep real-provider execution operator-gated; no SMS is sent without an approved destination and explicit authorization.
+- [x] Make the standalone eBulkSMS smoke validate only provider-specific configuration while retaining approval, real-mode, HTTPS endpoint, and exact allowlist guards.
 
 ## P1 — Performance fixture validity
 

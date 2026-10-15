@@ -1637,3 +1637,67 @@ node .gitnexus/run.cjs impact -r shopcity_LP --uid 'Const:src/config/env.validat
 ```
 
 All symbol-level results are LOW; no HIGH/CRITICAL risk was reported. `SmsMessage` is a Prisma schema model not indexed as a GitNexus symbol; its schema and query consumers are reviewed directly. No real provider request or shared-database migration is authorized by this code change.
+
+### 2026-10-14 — Add Arkesel V2 sandbox provider
+
+| Symbol                |                Risk | Impacted | Direct | Processes | Notes                                                                                                                                          |
+| --------------------- | ------------------: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSmsProvider`   |          LOW, exact |        6 |      3 |         1 | Worker bootstrap selects the provider; preserve the default eBulkSMS path and fake-provider production guard.                                  |
+| `envValidationSchema` |          LOW, exact |        0 |      0 |         0 | Schema constant has no indexed upstream dependants; validate its new vendor-specific settings with config tests.                               |
+| `SmsProvider`         | MEDIUM, lower-bound |       21 |     10 |         1 | Interface has multiple implementations and dynamic dispatch is not fully traced; leave the interface unchanged and add an implementation only. |
+
+```text
+npm run proposal:impact -- --file src/jobs/sms.provider.factory.ts createSmsProvider
+npm run proposal:impact -- --file src/config/env.validation.ts envValidationSchema
+npm run proposal:impact -- --file src/jobs/sms.provider.ts SmsProvider
+```
+
+No HIGH/CRITICAL risk was reported. The interface result is MEDIUM because its consumers and implementations are lower-bound; implementation will not alter its contract. The relevant worker flow is provider bootstrap → outbox send and delivery-report polling.
+
+### 2026-10-14 — Diagnose Arkesel V2 validation response
+
+| Symbol                    |               Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                       |
+| ------------------------- | -----------------: | -------: | -----: | --------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ArkeselSmsProvider.send` | UNKNOWN, unindexed |        0 |      0 |         0 | The adapter was added after the indexed commit; preserve the `SmsProvider` contract and limit this correction to the Arkesel recipient request shape plus its focused test. |
+
+```text
+npm run proposal:impact -- --file src/jobs/sms.provider.ts ArkeselSmsProvider.send
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/jobs/sms.provider.ts --kind Method ArkeselSmsProvider.send --direction upstream --include-tests --summary-only
+```
+
+The UNKNOWN result reflects an absent graph symbol, not proof of no runtime usage. Factory selection and worker dispatch were inspected directly; no provider interface, worker, or business-event changes are planned.
+
+### 2026-10-14 — Add Africa's Talking SMS provider
+
+| Symbol                |                Risk | Impacted | Direct | Processes | Notes                                                                                                                                                |
+| --------------------- | ------------------: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSmsProvider`   |          LOW, exact |        6 |      3 |         1 | Factory selection feeds worker bootstrap; keep eBulkSMS as the default and gate the new provider on explicit vendor selection and valid credentials. |
+| `envValidationSchema` |          LOW, exact |        0 |      0 |         0 | Joi schema is not represented as an upstream symbol in the graph; cover vendor-specific settings and sandbox safety with config tests.               |
+| `SmsProvider`         | MEDIUM, lower-bound |       21 |     10 |         1 | Existing abstraction has multiple implementations and dynamic dispatch is not fully traced; do not modify the interface.                             |
+
+```text
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/jobs/sms.provider.factory.ts --kind Function createSmsProvider --direction upstream --include-tests --summary-only
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/config/env.validation.ts envValidationSchema --direction upstream --include-tests --summary-only
+node .gitnexus/run.cjs impact -r shopcity_LP -f src/jobs/sms.provider.ts --kind Interface SmsProvider --direction upstream --include-tests --summary-only
+```
+
+No HIGH/CRITICAL risk was reported. The new provider class is not indexed yet; implementation will preserve `SmsProvider` and worker contracts. Africa's Talking DLRs arrive by callback, while the current worker only polls; this proposal scopes the adapter to truthful `SENT` acceptance and defers callback ingestion rather than adding an unauthenticated delivery-state mutation path.
+
+### 2026-10-14 — Add Twilio Programmable Messaging provider
+
+| Symbol                |                Risk | Impacted | Direct | Processes | Notes                                                                                                                                       |
+| --------------------- | ------------------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSmsProvider`   |          LOW, exact |        6 |      3 |         1 | Worker bootstrap selects the provider; preserve eBulkSMS as the default and require explicit Twilio selection with complete credentials.    |
+| `envValidationSchema` |          LOW, exact |        0 |      0 |         0 | Schema constant has no indexed upstream dependants; cover sender XOR, credential validation, and production behavior with config tests.     |
+| `OutboxWorkerRuntime` |       MEDIUM, exact |        8 |      6 |         1 | Provider dispatch participates in worker bootstrap; add a local pre-send reservation for Twilio where provider idempotency is undocumented. |
+| `SmsProvider`         | MEDIUM, lower-bound |       21 |     10 |         1 | Add only an optional send-safety capability; preserve the `send` contract and existing provider implementations.                            |
+
+```text
+npm run proposal:impact -- --file src/jobs/sms.provider.factory.ts createSmsProvider
+npm run proposal:impact -- --file src/config/env.validation.ts envValidationSchema
+npm run proposal:impact -- --file src/jobs/outbox-worker.runtime.ts OutboxWorkerRuntime.handleJob
+npm run proposal:impact -- --file src/jobs/outbox-worker.runtime.ts OutboxWorkerRuntime
+npm run proposal:impact -- --file src/jobs/sms.provider.ts SmsProvider
+```
+
+`OutboxWorkerRuntime.handleJob` was not resolved as a standalone target; class impact is MEDIUM/exact. The interface risk is MEDIUM/lower-bound because dynamic dispatch may hide consumers. No HIGH/CRITICAL risk was reported. Twilio does not document idempotency for Messages creation, so the implementation will reserve each local outbox event before submission, stop on stale/ambiguous reservations, retry only explicit HTTP 429 rejections, and require provider-history review before manual replay.

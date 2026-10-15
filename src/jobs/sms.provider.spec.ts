@@ -5,9 +5,12 @@ import {
   type ServerResponse,
 } from 'node:http';
 import {
+  AfricaTalkingSmsProvider,
+  ArkeselSmsProvider,
   DeterministicSmsProvider,
   EbulkSmsProvider,
   SandboxSmsProvider,
+  TwilioSmsProvider,
 } from './sms.provider';
 import { createSmsProvider } from './sms.provider.factory';
 import {
@@ -18,6 +21,9 @@ import {
   buildTransactionReversedSmsPayload,
   renderSmsMessage,
 } from './sms.templates';
+
+const testTwilioAccountSid = `AC${'a'.repeat(32)}`;
+const testTwilioApiKey = `SK${'b'.repeat(32)}`;
 
 describe('sms provider selection', () => {
   it('maps deterministic mode to a fake delivery id for tests', async () => {
@@ -93,6 +99,514 @@ describe('sms provider selection', () => {
           },
         },
       ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('sends the Arkesel V2 sandbox JSON contract and captures the recipient ID', async () => {
+    const requests: CapturedRequest[] = [];
+    const server = await startSmsServer((request) => {
+      requests.push(request);
+      return {
+        statusCode: 200,
+        body: {
+          status: 'success',
+          data: [{ recipient: '2348000000000', id: 'arkesel-message-1' }],
+        },
+      };
+    });
+    const provider = new ArkeselSmsProvider({
+      baseUrl: `${server.url}/api/v2`,
+      apiKey: 'arkesel-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+      sandbox: true,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'arkesel-message-1',
+      });
+      expect(requests).toEqual([
+        {
+          method: 'POST',
+          url: '/api/v2/sms/send',
+          headers: expect.objectContaining({
+            'api-key': 'arkesel-key',
+            'idempotency-key': 'outbox-1',
+          }) as Record<string, string>,
+          body: {
+            sender: 'ShopCity',
+            recipients: [['2348000000000']],
+            message: 'ShopCity: Your receipt receipt-1 earned NGN 1250.50.',
+            use_case: 'transactional',
+            sandbox: true,
+          },
+        },
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("sends Africa's Talking plain SMS form contract and retains the matching ID", async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          SMSMessageData: {
+            Recipients: [
+              {
+                statusCode: 101,
+                number: '+2348000000000',
+                status: 'Success',
+                messageId: 'at-message-1',
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const provider = new AfricaTalkingSmsProvider({
+      endpoint: 'https://api.example.test/version1/messaging',
+      username: 'shopcity',
+      apiKey: 'at-test-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+        providerMessageId: 'at-message-1',
+      });
+
+      const [url, init] = fetchSpy.mock.calls[0] ?? [];
+      expect(url).toBe('https://api.example.test/version1/messaging');
+      expect(init).toMatchObject({
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/x-www-form-urlencoded',
+          apiKey: 'at-test-key',
+        },
+      });
+      expect(init?.body).toBe(
+        new URLSearchParams({
+          username: 'shopcity',
+          to: '+2348000000000',
+          message: 'ShopCity: Your receipt receipt-1 earned NGN 1250.50.',
+          from: 'ShopCity',
+        }).toString(),
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it.each([100, 101, 102])(
+    "keeps Africa's Talking accepted status %s as SENT",
+    async (statusCode) => {
+      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            SMSMessageData: {
+              Recipients: [
+                {
+                  statusCode,
+                  number: '2348000000000',
+                  messageId: 'at-message-accepted',
+                },
+              ],
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+      const provider = new AfricaTalkingSmsProvider({
+        endpoint: 'https://api.example.test/version1/messaging',
+        username: 'shopcity',
+        apiKey: 'at-test-key',
+        timeoutMs: 1000,
+      });
+
+      try {
+        await expect(provider.send(smsInput())).resolves.toEqual({
+          status: 'SENT',
+          providerMessageId: 'at-message-accepted',
+        });
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    },
+  );
+
+  it.each([
+    [402, 'terminal'],
+    [407, 'terminal'],
+    [409, 'terminal'],
+    [500, 'terminal'],
+  ] as const)(
+    "classifies Africa's Talking recipient status %s as %s",
+    async (statusCode, failureCategory) => {
+      const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            SMSMessageData: {
+              Recipients: [
+                {
+                  statusCode,
+                  number: '+2348000000000',
+                  status: 'Failure',
+                },
+              ],
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+      const provider = new AfricaTalkingSmsProvider({
+        endpoint: 'https://api.example.test/version1/messaging',
+        username: 'shopcity',
+        apiKey: 'at-test-key',
+        timeoutMs: 1000,
+      });
+
+      try {
+        await expect(provider.send(smsInput())).resolves.toMatchObject({
+          status: 'FAILED',
+          failureCategory,
+          errorMessage: `Africa's Talking rejected SMS with status ${statusCode}`,
+        });
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    },
+  );
+
+  it("does not retry an ambiguous Africa's Talking transport failure", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new TypeError('connection reset'));
+    const provider = new AfricaTalkingSmsProvider({
+      endpoint: 'https://api.example.test/version1/messaging',
+      username: 'shopcity',
+      apiKey: 'at-test-key',
+      timeoutMs: 1000,
+    });
+
+    try {
+      const result = await provider.send(smsInput());
+      expect(result).toMatchObject({
+        status: 'FAILED',
+        failureCategory: 'terminal',
+      });
+      expect(result.errorMessage).toContain(
+        'verify provider history before retry',
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("keeps an explicit Africa's Talking HTTP 429 retryable", async () => {
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('', { status: 429 }));
+    const provider = new AfricaTalkingSmsProvider({
+      endpoint: 'https://api.example.test/version1/messaging',
+      username: 'shopcity',
+      apiKey: 'at-test-key',
+      timeoutMs: 1000,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toMatchObject({
+        status: 'FAILED',
+        failureCategory: 'retryable',
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("does not accept a successful status for an unrelated Africa's Talking recipient", async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          SMSMessageData: {
+            Recipients: [
+              {
+                statusCode: 101,
+                number: '+2348000000001',
+                messageId: 'unrelated-message',
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new AfricaTalkingSmsProvider({
+      endpoint: 'https://api.example.test/version1/messaging',
+      username: 'shopcity',
+      apiKey: 'at-test-key',
+      timeoutMs: 1000,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toMatchObject({
+        status: 'FAILED',
+        failureCategory: 'terminal',
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('submits Twilio SMS through the configured sender and retains its SID', async () => {
+    const create = jest.fn().mockResolvedValue({
+      sid: 'SM1234567890abcdef1234567890abcdef',
+      status: 'queued',
+    });
+    const provider = new TwilioSmsProvider(
+      {
+        accountSid: testTwilioAccountSid,
+        apiKey: testTwilioApiKey,
+        apiSecret: 'twilio-api-secret',
+        fromNumber: '+15017122661',
+        timeoutMs: 1000,
+      },
+      { messages: { create } },
+    );
+
+    await expect(provider.send(smsInput())).resolves.toEqual({
+      status: 'SENT',
+      providerMessageId: 'SM1234567890abcdef1234567890abcdef',
+    });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith({
+      to: '+2348000000000',
+      body: 'ShopCity: Your receipt receipt-1 earned NGN 1250.50.',
+      from: '+15017122661',
+    });
+    expect(provider.requiresLocalSubmissionReservation).toBe(true);
+    expect(provider.submissionReservationWindowMs).toBe(6000);
+  });
+
+  it('submits Twilio SMS through a Messaging Service without a From number', async () => {
+    const create = jest
+      .fn()
+      .mockResolvedValue({ sid: 'SM1234567890abcdef1234567890abcdef' });
+    const provider = new TwilioSmsProvider(
+      {
+        accountSid: testTwilioAccountSid,
+        apiKey: testTwilioApiKey,
+        apiSecret: 'twilio-api-secret',
+        messagingServiceSid: 'MG1234567890abcdef1234567890abcdef',
+        timeoutMs: 1000,
+      },
+      { messages: { create } },
+    );
+
+    await expect(provider.send(smsInput())).resolves.toMatchObject({
+      status: 'SENT',
+      providerMessageId: 'SM1234567890abcdef1234567890abcdef',
+    });
+    expect(create).toHaveBeenCalledWith({
+      to: '+2348000000000',
+      body: 'ShopCity: Your receipt receipt-1 earned NGN 1250.50.',
+      messagingServiceSid: 'MG1234567890abcdef1234567890abcdef',
+    });
+  });
+
+  it.each([
+    [{ status: 429, code: 20429 }, 'retryable', 'rate limited'],
+    [{ status: 400, code: 21614 }, 'terminal', 'rejected'],
+    [{ status: 500, code: 20500 }, 'terminal', 'outcome is unknown'],
+    [new Error('sensitive response details'), 'terminal', 'outcome is unknown'],
+  ] as const)(
+    'handles Twilio failure category without logging raw errors (%s)',
+    async (providerError, failureCategory, messageFragment) => {
+      const create = jest.fn().mockRejectedValue(providerError);
+      const provider = new TwilioSmsProvider(
+        {
+          accountSid: testTwilioAccountSid,
+          apiKey: testTwilioApiKey,
+          apiSecret: 'twilio-api-secret',
+          fromNumber: '+15017122661',
+          timeoutMs: 1000,
+        },
+        { messages: { create } },
+      );
+
+      const result = await provider.send(smsInput());
+      expect(result).toMatchObject({
+        status: 'FAILED',
+        failureCategory,
+      });
+      expect(result.errorMessage).toContain(messageFragment);
+      expect(result.errorMessage).not.toContain('sensitive response details');
+      expect(create).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('treats a Twilio success without a message SID as terminal', async () => {
+    const create = jest.fn().mockResolvedValue({ status: 'queued' });
+    const provider = new TwilioSmsProvider(
+      {
+        accountSid: testTwilioAccountSid,
+        apiKey: testTwilioApiKey,
+        apiSecret: 'twilio-api-secret',
+        fromNumber: '+15017122661',
+        timeoutMs: 1000,
+      },
+      { messages: { create } },
+    );
+
+    await expect(provider.send(smsInput())).resolves.toMatchObject({
+      status: 'FAILED',
+      failureCategory: 'terminal',
+      errorMessage:
+        'Twilio returned no message SID; verify provider history before retry',
+    });
+  });
+
+  it('keeps an accepted Arkesel send as SENT when the response has no ID', async () => {
+    const server = await startSmsServer(() => ({
+      statusCode: 200,
+      body: {
+        status: 'success',
+        data: [{ recipient: '2348000000000' }],
+      },
+    }));
+    const provider = new ArkeselSmsProvider({
+      baseUrl: server.url,
+      apiKey: 'arkesel-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+      sandbox: true,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('does not associate an Arkesel message ID for a different recipient', async () => {
+    const server = await startSmsServer(() => ({
+      statusCode: 200,
+      body: {
+        status: 'success',
+        data: [{ recipient: '2348000000001', id: 'unrelated-message' }],
+      },
+    }));
+    const provider = new ArkeselSmsProvider({
+      baseUrl: server.url,
+      apiKey: 'arkesel-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+      sandbox: true,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    ['DELIVERED', 'DELIVERED'],
+    ['SUBMITTED', 'SENT'],
+    ['QUEUED', 'SENT'],
+    ['NOT_DELIVERED', 'FAILED'],
+    ['PROHIBITED', 'FAILED'],
+    ['EXPIRED', 'FAILED'],
+  ] as const)(
+    'maps Arkesel DLR %s to %s',
+    async (providerStatus: string, status: 'DELIVERED' | 'SENT' | 'FAILED') => {
+      const requests: CapturedRequest[] = [];
+      const server = await startSmsServer((request) => {
+        requests.push(request);
+        return {
+          statusCode: 200,
+          body: {
+            status: 'success',
+            data: {
+              'arkesel-message-2': { status: providerStatus },
+            },
+          },
+        };
+      });
+      const provider = new ArkeselSmsProvider({
+        baseUrl: server.url,
+        apiKey: 'arkesel-key',
+        senderId: 'ShopCity',
+        timeoutMs: 1000,
+        sandbox: true,
+      });
+
+      try {
+        await expect(
+          provider.getDeliveryReport('arkesel-message-2'),
+        ).resolves.toEqual({
+          status,
+          providerMessageId: 'arkesel-message-2',
+        });
+        expect(requests[0]).toMatchObject({
+          method: 'POST',
+          url: '/sms/message-reports',
+          headers: expect.objectContaining({
+            'api-key': 'arkesel-key',
+          }) as Record<string, string>,
+          body: { msg_ids: ['arkesel-message-2'] },
+        });
+      } finally {
+        await server.close();
+      }
+    },
+  );
+
+  it('leaves missing, unknown, and mismatched Arkesel reports unresolved', async () => {
+    const server = await startSmsServer(() => ({
+      statusCode: 200,
+      body: {
+        status: 'success',
+        data: {
+          'another-message': { status: 'DELIVERED' },
+          'arkesel-message-3': { id: 'different-id', status: 'DELIVERED' },
+          'unknown-status-message': { status: 'PROCESSING' },
+        },
+      },
+    }));
+    const provider = new ArkeselSmsProvider({
+      baseUrl: server.url,
+      apiKey: 'arkesel-key',
+      senderId: 'ShopCity',
+      timeoutMs: 1000,
+      sandbox: true,
+    });
+
+    try {
+      await expect(
+        provider.getDeliveryReport('arkesel-message-3'),
+      ).resolves.toBeNull();
+      await expect(
+        provider.getDeliveryReport('absent-message'),
+      ).resolves.toBeNull();
+      await expect(
+        provider.getDeliveryReport('unknown-status-message'),
+      ).resolves.toBeNull();
     } finally {
       await server.close();
     }
@@ -503,6 +1017,120 @@ describe('sms provider selection', () => {
     });
 
     expect(provider).toBeInstanceOf(EbulkSmsProvider);
+  });
+
+  it('selects the Arkesel adapter with provider-specific sandbox configuration', () => {
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'arkesel',
+      ARKESEL_API_KEY: 'arkesel-key',
+      ARKESEL_SENDER_ID: 'ShopCity',
+      ARKESEL_SANDBOX: 'true',
+    });
+
+    expect(provider).toBeInstanceOf(ArkeselSmsProvider);
+  });
+
+  it("selects Africa's Talking with its live credentials and never claims polling support", () => {
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'africastalking',
+      AFRICASTALKING_LIVE_USERNAME: 'shopcity',
+      AFRICASTALKING_LIVE_API_KEY: 'at-live-key',
+      AFRICASTALKING_SENDER_ID: 'ShopCity',
+    });
+
+    expect(provider).toBeInstanceOf(AfricaTalkingSmsProvider);
+    expect(typeof provider.getDeliveryReport).toBe('undefined');
+  });
+
+  it("selects Africa's Talking sandbox with its separate key and sandbox username", async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          SMSMessageData: {
+            Recipients: [
+              {
+                statusCode: 101,
+                number: '+2348000000000',
+                messageId: 'at-sandbox-message',
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'africastalking',
+      AFRICASTALKING_SANDBOX: 'true',
+      AFRICASTALKING_SANDBOX_API_KEY: 'at-sandbox-key',
+    });
+
+    try {
+      expect(provider).toBeInstanceOf(AfricaTalkingSmsProvider);
+      await expect(provider.send(smsInput())).resolves.toMatchObject({
+        status: 'SENT',
+      });
+      const [url, init] = fetchSpy.mock.calls[0] ?? [];
+      expect(url).toBe(
+        'https://api.sandbox.africastalking.com/version1/messaging',
+      );
+      expect(init?.headers).toMatchObject({ apiKey: 'at-sandbox-key' });
+      expect(typeof init?.body).toBe('string');
+      expect(new URLSearchParams(init?.body as string).get('username')).toBe(
+        'sandbox',
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('selects Twilio only with the explicit vendor and sender configuration', () => {
+    const provider = createSmsProvider({
+      ...baseEnv(),
+      SMS_PROVIDER_MODE: 'real',
+      SMS_PROVIDER_VENDOR: 'twilio',
+      TWILIO_ACCOUNT_SID: testTwilioAccountSid,
+      TWILIO_API_KEY: testTwilioApiKey,
+      TWILIO_API_SECRET: 'twilio-api-secret',
+      TWILIO_FROM_NUMBER: '+15017122661',
+    });
+
+    expect(provider).toBeInstanceOf(TwilioSmsProvider);
+    expect(provider.requiresLocalSubmissionReservation).toBe(true);
+    expect(typeof provider.getDeliveryReport).toBe('undefined');
+  });
+
+  it("rejects Africa's Talking sandbox configuration in production", () => {
+    expect(() =>
+      createSmsProvider({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'africastalking',
+        AFRICASTALKING_SANDBOX: 'true',
+        AFRICASTALKING_SANDBOX_API_KEY: 'at-sandbox-key',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects Arkesel sandbox configuration in production', () => {
+    expect(() =>
+      createSmsProvider({
+        ...baseEnv(),
+        NODE_ENV: 'production',
+        SMS_PROVIDER_MODE: 'real',
+        SMS_PROVIDER_VENDOR: 'arkesel',
+        ARKESEL_API_KEY: 'arkesel-key',
+        ARKESEL_SENDER_ID: 'ShopCity',
+        ARKESEL_SANDBOX: 'true',
+      }),
+    ).toThrow();
   });
 
   it('requires a provider URL for real mode', () => {
