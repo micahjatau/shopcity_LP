@@ -3877,12 +3877,12 @@
 
   .supervisor-profile-overview-grid {
     grid-template-columns: minmax(0, 1fr);
-}
+  }
 
   .supervisor-profile-activity__row {
     grid-template-columns: 1fr;
     gap: var(--sc-spacing-1);
-}
+  }
 
   .supervisor-profile-consent-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3890,91 +3890,91 @@
 }
 
 @media (max-width: 480px) {
-.supervisor-profile-summary {
+  .supervisor-profile-summary {
     grid-template-columns: minmax(0, 1fr);
-}
+  }
 
   .supervisor-profile-tabs {
     width: 100%;
-}
+  }
 
   .supervisor-profile-actions {
-  display: grid;
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-}
+  }
 
   .supervisor-profile-actions a {
     padding-inline: var(--sc-spacing-2);
     font-size: var(--sc-font-size-profile-sm);
-}
+  }
 
   .supervisor-profile-consent-grid {
     grid-template-columns: minmax(0, 1fr);
-}
+  }
 
   .supervisor-profile-details-grid {
     grid-template-columns: minmax(0, 1fr);
-}
+  }
 
   .supervisor-profile-recent-activity {
     padding: var(--sc-spacing-4);
-}
+  }
 
   .supervisor-profile-recent-activity__entry {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--sc-spacing-2);
-}
+  }
 
   .supervisor-profile-recent-activity__amount {
     justify-self: start;
     padding-top: 0;
-}
+  }
 }
 
 @media (max-width: 620px) {
   .fraud-flags__control-row {
     gap: var(--sc-spacing-2);
-}
+  }
 
   .fraud-flags__filters {
-  gap: var(--sc-spacing-2);
-}
+    gap: var(--sc-spacing-2);
+  }
 
   .fraud-flags__refresh {
     width: var(--sc-size-control);
     min-width: var(--sc-size-control);
-  justify-content: center;
+    justify-content: center;
     padding-inline: 0;
-}
+  }
 
   .fraud-flags__refresh-label {
     display: none;
-}
+  }
 
   .fraud-flags__filter {
     font-size: var(--sc-font-size-caption);
-}
+  }
 
   .fraud-flags__filter > .sc-control {
     padding-inline: var(--sc-spacing-2);
     font-size: var(--sc-font-size-caption);
-}
+  }
 
   .fraud-flags__dialog-actions {
     flex-direction: column-reverse;
-}
+  }
 
   .fraud-flags__dialog-actions > .sc-button {
     width: 100%;
-}
+  }
 
   .approval-queue__results {
     padding: var(--sc-spacing-3);
-}
+  }
 
   .approval-queue__dialog-actions {
     flex-direction: column-reverse;
-}
+  }
 
   .approval-queue__dialog-actions > .sc-button {
     width: 100%;
@@ -4387,17 +4387,17 @@
   cursor: pointer;
   font-size: 11px;
   font-weight: 550;
-  }
+}
 
 .fraud-review__technical-reference code {
   font-size: 10px;
   user-select: all;
-  }
+}
 
 .fraud-review__decision {
   display: grid;
   gap: 10px;
-  }
+}
 
 @media (max-width: 860px) {
   .supervisor-page .fraud-review__toolbar {
@@ -4419,7 +4419,7 @@
   .supervisor-page .fraud-review__toolbar .fraud-flags__refresh-label {
     display: inline;
   }
-  }
+}
 
 @media (max-width: 760px) {
   .supervisor-page .fraud-review__summary-item {
@@ -4431,7 +4431,7 @@
   .supervisor-page .fraud-review__summary-item strong {
     grid-row: auto;
     font-size: 19px;
-}
+  }
 
   .supervisor-page .fraud-review__table-wrap {
     overflow: visible;
@@ -4496,7 +4496,7 @@
     color: #777;
     font-size: 10px;
     font-weight: 500;
-}
+  }
 
   .supervisor-page
     .fraud-review__table
@@ -4529,7 +4529,7 @@
     padding: 20px 10px !important;
     border: 0;
   }
-  }
+}
 
 @media (max-width: 480px) {
   .supervisor-page .fraud-review__summary {
@@ -4566,7 +4566,7 @@
     .fraud-flags__dropdown-trigger.sc-button {
     justify-content: space-between;
     width: 100%;
-}
+  }
 
   .supervisor-page
     .fraud-review__filters
@@ -4574,15 +4574,15 @@
     .fraud-flags__dropdown-menu {
     right: 0;
     left: auto;
-}
+  }
 
   .fraud-review__dialog-heading {
     display: grid;
-}
+  }
 
   .fraud-review__dialog-pills {
     justify-content: flex-start;
-}
+  }
 
   .fraud-review__evidence-list,
   .fraud-review__technical-reference dl {
