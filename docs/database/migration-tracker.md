@@ -146,6 +146,15 @@ Use these buckets in each migration row so local deploy checks, CI proof, shared
 - Shared staging/production: not applied or verified. No shared database was changed.
 - Backup/restore: not run for this additive migration; no destructive operation or data rewrite is included.
 
+## 2026-10-15 pilot POS device-token authentication (pending)
+
+- Migration: `prisma/migrations/20261015_pilot_pos_device_token_auth/migration.sql` adds the DEVICE_TOKEN enum value and a new keyed-credential table with a partial one-active-credential-per-device index. It does not modify existing HMAC_LEGACY/WEBAUTHN rows or fields.
+- Local fresh/upgrade: verified by `npx jest --config ./test/jest-int.json test/auth-http.int-spec.ts --runInBand` on a fresh throwaway PostgreSQL 16 Testcontainers database; the suite applied the full migration chain including this additive migration and passed. The persistent local Supabase database was not targeted.
+- CI: pending.
+- Shared staging/production: not applied and not authorized by this task.
+- Backup/restore: no backup/restore was run because the only migration application was to an empty, disposable Testcontainers database. No destructive operation/data rewrite is included; rollback/outage/key replacement behavior is documented in `docs/runbooks/pos-device-token-credentials.md`.
+- Key rotation is intentionally invalidating: no overlapping key versions or fallback; token credentials/sessions require supervised re-pairing after approved secret replacement.
+
 ## 2026-10-14 active local cashier database migration catch-up
 
 - Target: local Supabase PostgreSQL database `shopcity_profiles_local_20260929` at `127.0.0.1:55422`, confirmed from the active API environment. No linked/shared or production database was targeted.

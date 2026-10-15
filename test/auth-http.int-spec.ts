@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   PrismaClient,
   BranchStatus,
@@ -20,6 +20,7 @@ import {
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import request from 'supertest';
 import { seedFoundation } from '../prisma/seed';
+import { hashDeviceToken } from '../src/common/auth/device-token';
 import type { CardsControllerLookupManagementCardV1200Data } from '../client/shopcity-client';
 import {
   createRedisTestEnvironment,
@@ -80,6 +81,9 @@ describe('auth and readiness flows (int)', () => {
     process.env.SUPABASE_URL = 'http://127.0.0.1:54321';
     process.env.SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    process.env.POS_DEVICE_TOKEN_HMAC_KEY =
+      randomBytes(32).toString('base64url');
+    process.env.POS_DEVICE_TOKEN_HMAC_KEY_VERSION = '1';
 
     jest.resetModules();
     const supabaseModule = jest.requireActual<
@@ -179,6 +183,7 @@ describe('auth and readiness flows (int)', () => {
   it('logs in, rotates, rejects stale sessions, and logs out over HTTP', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -276,9 +281,152 @@ describe('auth and readiness flows (int)', () => {
       .expect(401);
   }, 120000);
 
+  it('pairs a target browser, authenticates a cashier from its token cookie, then atomically resets sessions', async () => {
+    const device = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-device-token-e2e',
+        fingerprintHash: null,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+        attestationSecretCiphertext: null,
+        attestationSecretVersion: 0,
+        attestationSecretRotatedAt: null,
+      },
+    });
+    const adminLogin = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+    const adminSessionCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const adminCsrfCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const adminCookieHeader = `${adminSessionCookie}; ${adminCsrfCookie}`;
+    const adminCsrfToken = cookieToken(adminCsrfCookie);
+
+    const pairing = await request(httpServer)
+      .post(`/api/v1/devices/${device.id}/token/pair`)
+      .set('origin', 'http://localhost:3000')
+      .set('cookie', adminCookieHeader)
+      .set('x-csrf-token', adminCsrfToken)
+      .expect(200);
+    const tokenCookieHeader = pairing.headers['set-cookie'] as string[];
+    const rawTokenCookie = cookieValue(
+      tokenCookieHeader,
+      '__Host-shopcity_pos_device',
+    );
+    const rawDeviceToken = cookieToken(rawTokenCookie);
+    const tokenCookieDetails = tokenCookieHeader.find((cookie) =>
+      cookie.startsWith('__Host-shopcity_pos_device='),
+    );
+    expect(tokenCookieDetails).toContain('Secure');
+    expect(tokenCookieDetails).toContain('HttpOnly');
+    expect(tokenCookieDetails).toContain('SameSite=Strict');
+    expect(tokenCookieDetails).toContain('Max-Age=31536000');
+    expect(JSON.stringify(pairing.body)).not.toContain(rawDeviceToken);
+
+    const key = process.env.POS_DEVICE_TOKEN_HMAC_KEY!;
+    const credential = await prisma.deviceTokenCredential.findFirstOrThrow({
+      where: { tenantId: seedData.tenant.id, deviceId: device.id },
+    });
+    expect(credential.tokenHash).toBe(hashDeviceToken(rawDeviceToken, key));
+    expect(credential.tokenHash).not.toBe(rawDeviceToken);
+    expect(credential.keyVersion).toBe(1);
+
+    const cashierLogin = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', device.id)
+      .set('cookie', rawTokenCookie)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(200);
+    const cashierLoginBody = cashierLogin.body as AuthLoginResponseBody;
+    expect(cashierLoginBody.data.session.deviceId).toBe(device.id);
+    const cashierSessionCookie = cookieValue(
+      cashierLogin.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const cashierCsrfCookie = cookieValue(
+      cashierLogin.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const cashierSession = await prisma.session.findFirstOrThrow({
+      where: {
+        userId: cashierUser.id,
+        deviceId: device.id,
+        status: SessionStatus.ACTIVE,
+      },
+    });
+    expect(cashierSession.deviceId).toBe(device.id);
+
+    const refreshResponse = await request(httpServer)
+      .post('/api/v1/auth/refresh')
+      .set('origin', 'http://localhost:3000')
+      .set(
+        'cookie',
+        `${cashierSessionCookie}; ${cashierCsrfCookie}; ${rawTokenCookie}`,
+      )
+      .set('x-csrf-token', cookieToken(cashierCsrfCookie))
+      .expect(200);
+    const refreshSetCookies = refreshResponse.headers['set-cookie'] as string[];
+    expect(
+      refreshSetCookies.some((cookie) =>
+        cookie.startsWith('__Host-shopcity_pos_device='),
+      ),
+    ).toBe(false);
+    const refreshedSession = await prisma.session.findFirstOrThrow({
+      where: {
+        userId: cashierUser.id,
+        deviceId: device.id,
+        status: SessionStatus.ACTIVE,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(
+      await prisma.session.findUniqueOrThrow({
+        where: { id: cashierSession.id },
+      }),
+    ).toMatchObject({ status: SessionStatus.REVOKED });
+
+    const reset = await request(httpServer)
+      .post(`/api/v1/devices/${device.id}/token/reset`)
+      .set('origin', 'http://localhost:3000')
+      .set('cookie', adminCookieHeader)
+      .set('x-csrf-token', adminCsrfToken)
+      .expect(200);
+    const resetCookie = (reset.headers['set-cookie'] as string[]).find(
+      (cookie) => cookie.startsWith('__Host-shopcity_pos_device='),
+    );
+    expect(resetCookie).toContain('Max-Age=0');
+    expect(
+      await prisma.deviceTokenCredential.findUniqueOrThrow({
+        where: { id: credential.id },
+      }),
+    ).toMatchObject({ status: 'REVOKED' });
+    expect(
+      await prisma.session.findUniqueOrThrow({
+        where: { id: refreshedSession.id },
+      }),
+    ).toMatchObject({ status: SessionStatus.REVOKED });
+    await request(httpServer)
+      .get('/api/v1/auth/me')
+      .set('cookie', cashierSessionCookie)
+      .expect(401);
+  }, 120000);
+
   it('returns truthful reversal and receiptless transaction boundaries over HTTP', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -354,6 +502,7 @@ describe('auth and readiness flows (int)', () => {
   it('replays concurrent same-key adjustment requests with the same response', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -408,6 +557,7 @@ describe('auth and readiness flows (int)', () => {
   it('replays concurrent same-key reversal requests with the same response', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -467,6 +617,7 @@ describe('auth and readiness flows (int)', () => {
 
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', device.id)
       .set(
         'x-device-attestation',
@@ -502,6 +653,7 @@ describe('auth and readiness flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', device.id)
       .send({
         username: seedData.user.username,
@@ -511,6 +663,7 @@ describe('auth and readiness flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', device.id)
       .set(
         'x-device-attestation',
@@ -526,6 +679,7 @@ describe('auth and readiness flows (int)', () => {
   it('allows bearer-authenticated unsafe requests without CSRF', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -546,6 +700,7 @@ describe('auth and readiness flows (int)', () => {
   it('writes ip, account, and pair buckets for login throttling', async () => {
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: seedData.user.username,
         password: seedData.adminPassword,
@@ -1125,6 +1280,7 @@ describe('auth and readiness flows (int)', () => {
   it('rejects protected requests when the tenant or branch is inactive', async () => {
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({ username: seedData.username, password: seedData.adminPassword })
       .expect(200);
 
@@ -1221,7 +1377,9 @@ describe('auth and readiness flows (int)', () => {
   }, 120000);
 
   async function loginSessionCookie(username: string): Promise<string> {
-    const loginRequest = request(httpServer).post('/api/v1/auth/login');
+    const loginRequest = request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000');
     if (username === cashierUser.username) {
       loginRequest
         .set('x-device-id', cashierLoginDevice.id)
@@ -1246,6 +1404,7 @@ describe('auth and readiness flows (int)', () => {
   ): Promise<string> {
     const response = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', deviceId)
       .set(
         'x-device-attestation',
@@ -1274,6 +1433,7 @@ type AuthLoginResponseBody = {
     };
     session: {
       expiresAt: string;
+      deviceId: string | null;
     };
   };
 };

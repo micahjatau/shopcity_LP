@@ -1701,3 +1701,35 @@ npm run proposal:impact -- --file src/jobs/sms.provider.ts SmsProvider
 ```
 
 `OutboxWorkerRuntime.handleJob` was not resolved as a standalone target; class impact is MEDIUM/exact. The interface risk is MEDIUM/lower-bound because dynamic dispatch may hide consumers. No HIGH/CRITICAL risk was reported. Twilio does not document idempotency for Messages creation, so the implementation will reserve each local outbox event before submission, stop on stale/ambiguous reservations, retry only explicit HTTP 429 rejections, and require provider-history review before manual replay.
+
+### 2026-10-15 — Simplify pilot POS device authentication
+
+| Symbol                         |       Risk | Impacted | Direct | Processes | Notes                                                                                                                                                        |
+| ------------------------------ | ---------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AuthService.login`            | LOW, exact |        4 |      4 |         0 | Direct callers are the auth controller plus focused/integration tests. Add DEVICE_TOKEN as an exclusive branch; preserve HMAC/WebAuthn fail-closed behavior. |
+| `BranchesService.updateDevice` | LOW, exact |        3 |      3 |         0 | Direct callers are controller and device provisioning tests. Pair/reset/deactivation must preserve branch authorization and revoke sessions atomically.      |
+| `AuthController.login`         | LOW, exact |        1 |      1 |         0 | Auth service test is direct dependant; cookie transport contract and generated OpenAPI/client require additional endpoint/browser verification.              |
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.service.ts login
+npm run proposal:impact -- --file src/modules/branches/branches.service.ts updateDevice
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts login
+```
+
+The equivalent direct GitNexus impacts resolved exactly with the counts above. No HIGH/CRITICAL impact was reported. This is a security-critical authentication and session change despite LOW graph counts; validate exclusive device modes, cookie/CSRF behavior, immediate revocation under concurrent login/refresh, and authoritative session.deviceId attribution. `AuthService.login` has four direct callers; the controller login method is tested directly. Do not downgrade existing HMAC_LEGACY or WEBAUTHN devices.
+
+Supplemental upstream impact analysis before editing additional existing symbols:
+
+| Symbol                                   |       Risk | Impacted | Direct | Processes | Notes                                                                                                                           |
+| ---------------------------------------- | ---------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------- |
+| `AuthService.refresh`                    | LOW, exact |        4 |      4 |         1 | Preserve credential cookie independently of ShopCity session rotation; revalidate active DEVICE_TOKEN credential/device/branch. |
+| `BranchesService.revokeDeviceCredential` | LOW, exact |        3 |      3 |         0 | Extend device reset/revoke flow with transactionally revoked sessions and non-enumerating scope.                                |
+| `DeviceManagement`                       | LOW, exact |        3 |      3 |         2 | Minimal UI changes affect Admin and Supervisor device management routes.                                                        |
+
+```text
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/auth/auth.service.ts refresh --summary-only --include-tests
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/branches/branches.service.ts revokeDeviceCredential --summary-only --include-tests
+node scripts/gitnexus.cjs impact -r shopcity_LP --file apps/web/components/devices/device-management.tsx DeviceManagement --summary-only --include-tests
+```
+
+All supplemental results are LOW/exact; no HIGH/CRITICAL result was reported. New endpoint/helper symbols are not indexed yet. Existing `loadAuthContext` and `CsrfGuard` scope will be kept unchanged except for adding a public-login Origin gate; endpoint-level and focused tests will cover that change. The working tree was already dirty; generated outputs and all unrelated changes remain preserved.

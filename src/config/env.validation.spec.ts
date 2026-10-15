@@ -4,6 +4,22 @@ const testTwilioAccountSid = `AC${'a'.repeat(32)}`;
 const testTwilioApiKey = `SK${'b'.repeat(32)}`;
 
 describe('envValidationSchema', () => {
+  it('accepts only a 32-byte base64url POS token HMAC key', () => {
+    const validKey = Buffer.alloc(32, 42).toString('base64url');
+    expect(
+      envValidationSchema.validate({ POS_DEVICE_TOKEN_HMAC_KEY: validKey })
+        .error,
+    ).toBeUndefined();
+    expect(
+      envValidationSchema.validate({ POS_DEVICE_TOKEN_HMAC_KEY: 'invalid' })
+        .error,
+    ).toBeDefined();
+    expect(
+      envValidationSchema.validate({
+        POS_DEVICE_TOKEN_HMAC_KEY: Buffer.alloc(31).toString('base64url'),
+      }).error,
+    ).toBeDefined();
+  });
   it('defaults WebAuthn qualification and development enrollment to disabled', () => {
     const result = envValidationSchema.validate({});
     expect(result.error).toBeUndefined();

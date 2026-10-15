@@ -27,6 +27,12 @@ enum DeviceAuthBindingMode {
   UNPAIRED
   HMAC_LEGACY
   WEBAUTHN
+  DEVICE_TOKEN
+}
+
+enum DeviceTokenCredentialStatus {
+  ACTIVE
+  REVOKED
 }
 
 enum DeviceWebAuthnCredentialStatus {
@@ -259,6 +265,7 @@ model Device {
   branch                      Branch                      @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
   sessions                    Session[]
   webAuthnCredentials         DeviceWebAuthnCredential[]
+  deviceTokenCredentials      DeviceTokenCredential[]
   enrollmentChallenges        DeviceEnrollmentChallenge[]
   cashierLoginAttempts        CashierLoginAttempt[]
   attestationNonces           DeviceAttestation[]
@@ -353,6 +360,24 @@ model DeviceWebAuthnCredential {
 
   @@unique([tenantId, deviceId, id])
   @@unique([deviceId, id])
+  @@index([tenantId, deviceId, status])
+}
+
+model DeviceTokenCredential {
+  id         String                      @id @default(uuid())
+  tenantId   String
+  deviceId   String
+  tokenHash  String                      @unique
+  keyVersion Int
+  status     DeviceTokenCredentialStatus @default(ACTIVE)
+  pairedAt   DateTime                    @default(now())
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime                    @default(now())
+  updatedAt  DateTime                    @updatedAt
+  device     Device                      @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, deviceId, id])
   @@index([tenantId, deviceId, status])
 }
 

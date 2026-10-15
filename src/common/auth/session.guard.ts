@@ -8,6 +8,8 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import {
   BranchStatus,
+  DeviceAuthBindingMode,
+  DeviceTokenCredentialStatus,
   SessionPurpose,
   TenantStatus,
   UserStatus,
@@ -15,6 +17,11 @@ import {
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { SESSION_COOKIE_NAME } from '../../config/app.constants';
+import {
+  configuredDeviceTokenKeyVersion,
+  DEVICE_TOKEN_COOKIE_NAME,
+  matchesDeviceTokenHash,
+} from './device-token';
 import { isLocalCashierTestSessionEnabledFromConfig } from '../../config/local-cashier-test-session';
 import { PUBLIC_ROUTE_KEY } from './auth.constants';
 import { parseCookies } from './cookie';
@@ -84,7 +91,15 @@ export async function loadAuthContext(
     where: { sessionTokenHash },
     include: {
       user: { include: { tenant: true, branch: true } },
-      device: { include: { branch: true } },
+      device: {
+        include: {
+          branch: true,
+          deviceTokenCredentials: {
+            where: { status: DeviceTokenCredentialStatus.ACTIVE },
+            select: { tokenHash: true, keyVersion: true },
+          },
+        },
+      },
       deviceCredential: {
         select: {
           id: true,
@@ -126,6 +141,28 @@ export async function loadAuthContext(
     )
   ) {
     return null;
+  }
+  if (session.device?.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN) {
+    const token = parseCookies(request.headers.cookie)[
+      DEVICE_TOKEN_COOKIE_NAME
+    ];
+    const activeCredentials = session.device.deviceTokenCredentials;
+    if (
+      session.user.role !== 'CASHIER' ||
+      activeCredentials.length !== 1 ||
+      activeCredentials[0]?.keyVersion !==
+        configuredDeviceTokenKeyVersion(
+          configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+        ) ||
+      !token ||
+      !matchesDeviceTokenHash(
+        token,
+        activeCredentials[0].tokenHash,
+        configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY'),
+      )
+    ) {
+      return null;
+    }
   }
 
   // Device-bound users may not have a persisted branch assignment. In that
@@ -281,7 +318,8 @@ export function isSessionDeviceEligible(
   if (isCashier) {
     return (
       (session.purpose === SessionPurpose.USER || isSmokeSession) &&
-      session.device.authBindingMode === 'HMAC_LEGACY'
+      (session.device.authBindingMode === 'HMAC_LEGACY' ||
+        session.device.authBindingMode === 'DEVICE_TOKEN')
     );
   }
   return true;

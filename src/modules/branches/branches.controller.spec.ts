@@ -3,6 +3,56 @@ import { THROTTLE_KEY } from '../../common/throttle/throttle.constants';
 import { BranchesController } from './branches.controller';
 
 describe('BranchesController', () => {
+  it('sets only the HttpOnly host-scoped token cookie after pairing succeeds', async () => {
+    const service = {
+      assertDeviceTokenBrowserOrigin: jest.fn(),
+      pairDeviceToken: jest.fn().mockResolvedValue({
+        token: 'one-time-token-value',
+        pairedAt: new Date('2026-10-15T00:00:00.000Z'),
+      }),
+    };
+    const controller = new BranchesController(service as never);
+    const reply = { header: jest.fn() };
+    const response = await controller.pairDeviceToken(
+      { authContext: { user: { tenantId: 'tenant-id' } } } as never,
+      'device-id',
+      'https://pos.example.test',
+      reply as never,
+    );
+
+    expect(service.assertDeviceTokenBrowserOrigin).toHaveBeenCalledWith(
+      'https://pos.example.test',
+    );
+    expect(reply.header).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.stringContaining(
+        '__Host-shopcity_pos_device=one-time-token-value; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly; Secure',
+      ),
+    );
+    expect(JSON.stringify(response)).not.toContain('one-time-token-value');
+  });
+
+  it('clears only the POS device token cookie after a successful reset', async () => {
+    const service = {
+      assertDeviceTokenBrowserOrigin: jest.fn(),
+      resetDeviceToken: jest.fn().mockResolvedValue(undefined),
+    };
+    const controller = new BranchesController(service as never);
+    const reply = { header: jest.fn() };
+    await controller.resetDeviceToken(
+      { authContext: { user: { tenantId: 'tenant-id' } } } as never,
+      'device-id',
+      'https://pos.example.test',
+      reply as never,
+    );
+    expect(reply.header).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.stringContaining(
+        '__Host-shopcity_pos_device=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly; Secure',
+      ),
+    );
+  });
+
   it('returns the documented HTTP 200 status for enrollment completion', () => {
     const descriptor = Object.getOwnPropertyDescriptor(
       BranchesController.prototype,

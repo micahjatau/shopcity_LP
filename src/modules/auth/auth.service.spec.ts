@@ -14,6 +14,7 @@ import {
 } from './auth.controller';
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { encryptDeviceAttestationSecret } from '../../common/auth/device-attestation-secret';
+import { hashDeviceToken } from '../../common/auth/device-token';
 
 jest.mock('@simplewebauthn/server', () => ({
   generateAuthenticationOptions: jest.fn().mockResolvedValue({
@@ -323,6 +324,35 @@ function makeWebAuthnRefreshFixture(
 }
 
 describe('AuthService', () => {
+  it('requires an allowlisted public login origin, using Referer only as fallback', () => {
+    const service = new AuthService(
+      {} as never,
+      {} as never,
+      {
+        get: (name: string) =>
+          name === 'CORS_ORIGIN_ALLOWLIST'
+            ? 'https://pos.shopcity.test,http://localhost:3000'
+            : undefined,
+      } as never,
+      {} as never,
+    );
+    expect(() =>
+      service.assertPublicLoginOrigin('https://pos.shopcity.test', undefined),
+    ).not.toThrow();
+    expect(() =>
+      service.assertPublicLoginOrigin(
+        undefined,
+        'https://pos.shopcity.test/login',
+      ),
+    ).not.toThrow();
+    expect(() =>
+      service.assertPublicLoginOrigin(undefined, undefined),
+    ).toThrow();
+    expect(() =>
+      service.assertPublicLoginOrigin('https://evil.test', undefined),
+    ).toThrow();
+  });
+
   it('marks smoke sessions and keeps login sessions ordinary', async () => {
     const createdSessions: Array<Record<string, unknown>> = [];
     const tx = {
@@ -1478,6 +1508,7 @@ describe('AuthService', () => {
       session: { expiresAt: new Date(Date.now() + 60_000) },
     };
     const authService = {
+      assertPublicLoginOrigin: jest.fn(),
       login: jest.fn().mockResolvedValue({
         statusCode: 202,
         code: 'DEVICE_ASSERTION_REQUIRED',
@@ -1496,6 +1527,9 @@ describe('AuthService', () => {
     const pending = await controller.login(
       { username: 'cashier@example.test', password: 'secret' },
       'device-id',
+      undefined,
+      undefined,
+      'http://localhost:3000',
       undefined,
       reply as never,
     );
@@ -2303,6 +2337,109 @@ describe('AuthService', () => {
     });
     expect(createAttempt).toHaveBeenCalledTimes(1);
     expect(sessionCreate).not.toHaveBeenCalled();
+  });
+
+  it('authenticates DEVICE_TOKEN cashiers and binds the issued session to the persisted device', async () => {
+    const token = randomBytes(32).toString('base64url');
+    const key = randomBytes(32).toString('base64url');
+    const credential = {
+      id: 'device-token-row',
+      tenantId: 'tenant-id',
+      deviceId: 'device-id',
+      tokenHash: hashDeviceToken(token, key),
+      keyVersion: 1,
+      status: 'ACTIVE',
+    };
+    const user = {
+      id: 'cashier-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: UserStatus.ACTIVE,
+      role: UserRole.CASHIER,
+      tenant: { status: 'ACTIVE' },
+      branch: { status: 'ACTIVE' },
+    };
+    const device = {
+      ...buildDevice('', 'device-id', 'DEVICE_TOKEN'),
+      branch: { status: 'ACTIVE', tenant: { status: 'ACTIVE' } },
+      deviceTokenCredentials: [credential],
+    };
+    const sessionCreate = jest.fn(
+      (args: { data: Record<string, unknown> }) => ({
+        ...args.data,
+        id: 'session-id',
+      }),
+    );
+    const tokenCredentialUpdate = jest.fn(
+      (args: { data: { lastUsedAt: Date } }) =>
+        Promise.resolve({ count: 1, args }),
+    );
+    const tx = {
+      $queryRaw: jest.fn(),
+      user: { findUnique: jest.fn().mockResolvedValue(user) },
+      device: { findFirst: jest.fn().mockResolvedValue(device) },
+      deviceTokenCredential: {
+        findFirst: jest.fn().mockResolvedValue(credential),
+        updateMany: tokenCredentialUpdate,
+      },
+      session: { create: sessionCreate },
+    };
+    const service = new AuthService(
+      {
+        user: {
+          findFirst: jest.fn().mockResolvedValue(user),
+          findUnique: jest.fn().mockResolvedValue(user),
+        },
+        device: { findFirst: jest.fn().mockResolvedValue(device) },
+        $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+          callback(tx),
+        ),
+      } as never,
+      {
+        publicClient: {
+          auth: {
+            signInWithPassword: jest.fn().mockResolvedValue({
+              data: { user: { id: 'supabase-id' } },
+              error: null,
+            }),
+          },
+        },
+      } as never,
+      {
+        get: (name: string) =>
+          name === 'POS_DEVICE_TOKEN_HMAC_KEY'
+            ? key
+            : name === 'POS_DEVICE_TOKEN_HMAC_KEY_VERSION'
+              ? 1
+              : 'test-secret',
+      } as never,
+      { recordWithClient: jest.fn() } as never,
+    );
+
+    await expect(
+      service.login(
+        'cashier@shopcity.local',
+        'password',
+        'device-id',
+        undefined,
+        randomBytes(32).toString('base64url'),
+      ),
+    ).rejects.toMatchObject({ response: { code: 'DEVICE_AUTH_FAILED' } });
+    await expect(
+      service.login(
+        'cashier@shopcity.local',
+        'password',
+        'device-id',
+        undefined,
+        token,
+      ),
+    ).resolves.toMatchObject({
+      context: { session: { deviceId: 'device-id' } },
+    });
+    const createdSessionArgs = sessionCreate.mock.calls[0]?.[0];
+    expect(createdSessionArgs?.data.deviceId).toBe('device-id');
+    const lastUsedArgs = tokenCredentialUpdate.mock.calls[0]?.[0];
+    expect(lastUsedArgs?.data.lastUsedAt).toBeInstanceOf(Date);
   });
 
   it('preserves the cashier HMAC_LEGACY proof path during the bounded migration', async () => {

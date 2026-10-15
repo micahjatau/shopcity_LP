@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   BranchStatus,
   DeviceAttestationTrustResult,
@@ -74,6 +74,133 @@ describe('BranchesService', () => {
     expect(callArgs?.select.pairedAt).toBe(true);
     expect(callArgs?.select.branch).toEqual({ select: { name: true } });
     expect(callArgs?.select.webAuthnCredentials).toBeDefined();
+  });
+
+  it('pairs an active same-tenant device with an opaque keyed token and atomically revokes sessions', async () => {
+    const key = randomBytes(32).toString('base64url');
+    const device = {
+      id: 'device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: DeviceStatus.ACTIVE,
+      authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+      branch: {
+        status: BranchStatus.ACTIVE,
+        tenant: { status: TenantStatus.ACTIVE },
+      },
+    };
+    const credentialCreate = jest.fn(
+      (args: { data: Record<string, unknown> }) => args.data,
+    );
+    const tx = {
+      $queryRaw: jest.fn(),
+      device: {
+        findFirst: jest.fn().mockResolvedValue(device),
+        update: jest.fn().mockResolvedValue(device),
+      },
+      deviceTokenCredential: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: credentialCreate,
+      },
+      session: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+    };
+    const audit = { recordWithClient: jest.fn() };
+    const service = new BranchesService(
+      {
+        device: { findFirst: jest.fn().mockResolvedValue(device) },
+        $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+          callback(tx),
+        ),
+      } as never,
+      audit as never,
+      {
+        get: (name: string) =>
+          name === 'POS_DEVICE_TOKEN_HMAC_KEY' ? key : undefined,
+      } as never,
+    );
+
+    const result = await service.pairDeviceToken(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+    );
+    expect(result.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const createdCredential = credentialCreate.mock.calls[0]?.[0].data;
+    expect(createdCredential).toMatchObject({
+      tenantId: 'tenant-id',
+      deviceId: 'device-id',
+      keyVersion: 1,
+      status: 'ACTIVE',
+    });
+    expect(createdCredential.tokenHash).not.toBe(result.token);
+    expect(tx.session.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deviceId: 'device-id', status: 'ACTIVE' },
+      }),
+    );
+    expect(audit.recordWithClient).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        action: 'device.token.pair',
+        actorId: 'user-id',
+      }),
+    );
+  });
+
+  it('preserves Supervisor branch scope and non-enumerating lookup for token pairing', async () => {
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const actor = actorStub();
+    actor.user.role = UserRole.SUPERVISOR;
+    const service = new BranchesService(
+      { device: { findFirst } } as never,
+      { recordWithClient: jest.fn() } as never,
+      {
+        get: (name: string) =>
+          name === 'POS_DEVICE_TOKEN_HMAC_KEY'
+            ? randomBytes(32).toString('base64url')
+            : undefined,
+      } as never,
+    );
+
+    await expect(
+      service.pairDeviceToken('tenant-id', actor, 'out-of-branch-device'),
+    ).rejects.toMatchObject({ response: { code: 'DEVICE_NOT_AVAILABLE' } });
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'out-of-branch-device',
+          tenantId: 'tenant-id',
+          branchId: 'branch-id',
+        },
+      }),
+    );
+  });
+
+  it('does not pair a DEVICE_TOKEN over a WebAuthn binding', async () => {
+    const device = {
+      id: 'device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: DeviceStatus.ACTIVE,
+      authBindingMode: DeviceAuthBindingMode.WEBAUTHN,
+      branch: {
+        status: BranchStatus.ACTIVE,
+        tenant: { status: TenantStatus.ACTIVE },
+      },
+    };
+    const service = new BranchesService(
+      { device: { findFirst: jest.fn().mockResolvedValue(device) } } as never,
+      { recordWithClient: jest.fn() } as never,
+      {
+        get: (name: string) =>
+          name === 'POS_DEVICE_TOKEN_HMAC_KEY'
+            ? randomBytes(32).toString('base64url')
+            : undefined,
+      } as never,
+    );
+    await expect(
+      service.pairDeviceToken('tenant-id', actorStub(), 'device-id'),
+    ).rejects.toMatchObject({ response: { code: 'DEVICE_NOT_AVAILABLE' } });
   });
 
   it('fails pairing closed until qualification or local development is explicitly enabled', async () => {
@@ -855,6 +982,9 @@ describe('BranchesService', () => {
           attestationSecretRotatedAt: null,
           attestationSecretCiphertext: 'ciphertext',
         }),
+      },
+      deviceTokenCredential: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       session: {
         updateMany: jest.fn().mockResolvedValue({ count: 2 }),

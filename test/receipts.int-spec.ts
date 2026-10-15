@@ -523,6 +523,7 @@ describe('receipt capture flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', otherBranchDevice.id)
       .send({
         username: seedData.user.username,
@@ -552,6 +553,7 @@ describe('receipt capture flows (int)', () => {
 
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', inactiveDevice.id)
       .send({
         username: seedData.user.username,
@@ -1017,6 +1019,7 @@ async function loginAs(username: string, deviceId?: string) {
 
   const loginRequest = request(httpServer)
     .post('/api/v1/auth/login')
+    .set('origin', 'http://localhost:3000')
     .set('x-device-id', deviceId ?? '')
     .send({
       username,

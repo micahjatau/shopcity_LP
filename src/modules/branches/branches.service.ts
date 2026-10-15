@@ -12,6 +12,7 @@ import {
   DeviceAuthBindingMode,
   DeviceEnrollmentPurpose,
   DeviceStatus,
+  DeviceTokenCredentialStatus,
   DeviceWebAuthnCredentialStatus,
   DeviceAttestationTrustResult,
   IdempotencyRecordStatus,
@@ -24,7 +25,7 @@ import {
   MetadataService,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../../common/auth/session.types';
@@ -33,6 +34,11 @@ import {
   generateDeviceAttestationSecret,
 } from '../../common/auth/device-attestation-secret';
 import { DomainHttpException } from '../../common/errors/domain.exception';
+import {
+  createDeviceToken,
+  configuredDeviceTokenKeyVersion,
+  hashDeviceToken,
+} from '../../common/auth/device-token';
 type DeviceManagementScope =
   | { tenantWide: true; branchId: null }
   | { tenantWide: false; branchId: string };
@@ -51,6 +57,31 @@ export class BranchesService {
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
   ) {}
+
+  assertDeviceTokenBrowserOrigin(origin: string | undefined): void {
+    if (!origin) throw new ForbiddenException('Request origin is invalid');
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new ForbiddenException('Request origin is invalid');
+    }
+    const deployed =
+      ['production', 'staging'].includes(process.env.NODE_ENV ?? '') ||
+      ['production', 'preview'].includes(process.env.VERCEL_ENV ?? '');
+    if (
+      parsed.origin !== origin ||
+      parsed.username ||
+      parsed.password ||
+      (deployed && parsed.protocol !== 'https:') ||
+      !(this.configService.get<string>('CORS_ORIGIN_ALLOWLIST') ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .includes(origin)
+    ) {
+      throw new ForbiddenException('Request origin is invalid');
+    }
+  }
 
   listBranches(tenantId: string) {
     return this.prismaService.branch.findMany({ where: { tenantId } });
@@ -132,6 +163,17 @@ export class BranchesService {
         authBindingMode: true,
         pairedAt: true,
         branch: { select: { name: true } },
+        deviceTokenCredentials: {
+          where: { status: DeviceTokenCredentialStatus.ACTIVE },
+          select: {
+            id: true,
+            status: true,
+            pairedAt: true,
+            revokedAt: true,
+            lastUsedAt: true,
+            keyVersion: true,
+          },
+        },
         webAuthnCredentials: {
           select: {
             id: true,
@@ -148,6 +190,178 @@ export class BranchesService {
         createdAt: true,
         updatedAt: true,
       },
+    });
+  }
+
+  async pairDeviceToken(
+    tenantId: string,
+    actor: AuthContext,
+    deviceId: string,
+  ): Promise<{ token: string; pairedAt: Date }> {
+    const token = createDeviceToken();
+    const keyVersion = configuredDeviceTokenKeyVersion(
+      this.configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+    );
+    const tokenHash = hashDeviceToken(
+      token,
+      this.configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY'),
+    );
+    const scope = resolveDeviceManagementScope(actor);
+    const device = await this.prismaService.device.findFirst({
+      where: scope.tenantWide
+        ? { id: deviceId, tenantId }
+        : { id: deviceId, tenantId, branchId: scope.branchId },
+      include: { branch: { include: { tenant: true } } },
+    });
+    if (
+      !device ||
+      device.status !== DeviceStatus.ACTIVE ||
+      device.branch.status !== BranchStatus.ACTIVE ||
+      device.branch.tenant.status !== TenantStatus.ACTIVE ||
+      (device.authBindingMode !== DeviceAuthBindingMode.UNPAIRED &&
+        device.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN)
+    ) {
+      throw deviceNotAvailable();
+    }
+
+    const pairedAt = new Date();
+    await this.prismaService.$transaction(async (prisma) => {
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id" FROM "Device" WHERE "id" = ${deviceId} AND "tenantId" = ${tenantId} FOR UPDATE
+      `);
+      const current = await prisma.device.findFirst({
+        where: scope.tenantWide
+          ? { id: deviceId, tenantId }
+          : { id: deviceId, tenantId, branchId: scope.branchId },
+        include: { branch: { include: { tenant: true } } },
+      });
+      if (
+        !current ||
+        current.status !== DeviceStatus.ACTIVE ||
+        current.branch.status !== BranchStatus.ACTIVE ||
+        current.branch.tenant.status !== TenantStatus.ACTIVE ||
+        (current.authBindingMode !== DeviceAuthBindingMode.UNPAIRED &&
+          current.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN)
+      ) {
+        throw deviceNotAvailable();
+      }
+      await prisma.deviceTokenCredential.updateMany({
+        where: {
+          tenantId,
+          deviceId,
+          status: DeviceTokenCredentialStatus.ACTIVE,
+        },
+        data: {
+          status: DeviceTokenCredentialStatus.REVOKED,
+          revokedAt: pairedAt,
+        },
+      });
+      await prisma.session.updateMany({
+        where: { deviceId, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: pairedAt },
+      });
+      await prisma.device.update({
+        where: { id: deviceId },
+        data: { authBindingMode: DeviceAuthBindingMode.DEVICE_TOKEN, pairedAt },
+      });
+      await prisma.deviceTokenCredential.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          deviceId,
+          tokenHash,
+          keyVersion,
+          status: DeviceTokenCredentialStatus.ACTIVE,
+          pairedAt,
+        },
+      });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'device.token.pair',
+        entityType: 'device',
+        entityId: deviceId,
+        metadata: { keyVersion, pairedAt },
+      });
+    });
+    return { token, pairedAt };
+  }
+
+  async resetDeviceToken(
+    tenantId: string,
+    actor: AuthContext,
+    deviceId: string,
+  ): Promise<void> {
+    const scope = resolveDeviceManagementScope(actor);
+    const device = await this.prismaService.device.findFirst({
+      where: scope.tenantWide
+        ? { id: deviceId, tenantId }
+        : { id: deviceId, tenantId, branchId: scope.branchId },
+      include: { branch: { include: { tenant: true } } },
+    });
+    if (
+      !device ||
+      device.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN ||
+      device.status !== DeviceStatus.ACTIVE ||
+      device.branch.status !== BranchStatus.ACTIVE ||
+      device.branch.tenant.status !== TenantStatus.ACTIVE
+    ) {
+      throw deviceNotAvailable();
+    }
+    const now = new Date();
+    await this.prismaService.$transaction(async (prisma) => {
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT "id" FROM "Device" WHERE "id" = ${deviceId} AND "tenantId" = ${tenantId} FOR UPDATE
+      `);
+      const current = await prisma.device.findFirst({
+        where: scope.tenantWide
+          ? { id: deviceId, tenantId }
+          : { id: deviceId, tenantId, branchId: scope.branchId },
+        include: { branch: { include: { tenant: true } } },
+      });
+      if (
+        !current ||
+        current.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN ||
+        current.status !== DeviceStatus.ACTIVE ||
+        current.branch.status !== BranchStatus.ACTIVE ||
+        current.branch.tenant.status !== TenantStatus.ACTIVE
+      ) {
+        throw deviceNotAvailable();
+      }
+      const transition = await prisma.device.updateMany({
+        where: {
+          id: deviceId,
+          tenantId,
+          branchId: current.branchId,
+          status: DeviceStatus.ACTIVE,
+          authBindingMode: DeviceAuthBindingMode.DEVICE_TOKEN,
+        },
+        data: {
+          authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          pairedAt: null,
+        },
+      });
+      if (transition.count !== 1) throw deviceNotAvailable();
+      await prisma.deviceTokenCredential.updateMany({
+        where: {
+          tenantId,
+          deviceId,
+          status: DeviceTokenCredentialStatus.ACTIVE,
+        },
+        data: { status: DeviceTokenCredentialStatus.REVOKED, revokedAt: now },
+      });
+      const sessions = await prisma.session.updateMany({
+        where: { deviceId, status: 'ACTIVE' },
+        data: { status: 'REVOKED', revokedAt: now },
+      });
+      await this.auditService.recordWithClient(prisma, {
+        tenantId,
+        actorId: actor.user.id,
+        action: 'device.token.reset',
+        entityType: 'device',
+        entityId: deviceId,
+        metadata: { resetAt: now, revokedSessionCount: sessions.count },
+      });
     });
   }
 
@@ -281,7 +495,8 @@ export class BranchesService {
       !device ||
       device.status !== DeviceStatus.ACTIVE ||
       device.branch.status !== BranchStatus.ACTIVE ||
-      device.branch.tenant.status !== TenantStatus.ACTIVE
+      device.branch.tenant.status !== TenantStatus.ACTIVE ||
+      device.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN
     ) {
       throw deviceNotAvailable();
     }
@@ -423,7 +638,8 @@ export class BranchesService {
           !actor ||
           !actorMayManageDevice(actor, device.branchId) ||
           (challenge.purpose === DeviceEnrollmentPurpose.PAIRING &&
-            device.authBindingMode === DeviceAuthBindingMode.WEBAUTHN) ||
+            (device.authBindingMode === DeviceAuthBindingMode.WEBAUTHN ||
+              device.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN)) ||
           (challenge.purpose === DeviceEnrollmentPurpose.REPAIR &&
             device.authBindingMode !== DeviceAuthBindingMode.WEBAUTHN)
         ) {
@@ -832,9 +1048,23 @@ export class BranchesService {
         : 'device_status_ineligible';
 
       if (shouldRevokeSessions) {
+        const revokedAt = new Date();
+        if (data.status && data.status !== DeviceStatus.ACTIVE) {
+          await prisma.deviceTokenCredential.updateMany({
+            where: {
+              tenantId,
+              deviceId,
+              status: DeviceTokenCredentialStatus.ACTIVE,
+            },
+            data: {
+              status: DeviceTokenCredentialStatus.REVOKED,
+              revokedAt,
+            },
+          });
+        }
         const revoked = await prisma.session.updateMany({
           where: { deviceId, status: 'ACTIVE' },
-          data: { status: 'REVOKED', revokedAt: new Date() },
+          data: { status: 'REVOKED', revokedAt },
         });
 
         if (revoked.count > 0) {

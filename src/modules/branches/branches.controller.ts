@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   Version,
   Headers,
 } from '@nestjs/common';
@@ -18,11 +19,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import type { FastifyReply } from 'fastify';
 import type { AuthenticatedRequest } from '../../common/auth/session.types';
 import { Roles } from '../../common/auth/roles.decorator';
 import { PublicRoute } from '../../common/auth/public-route.decorator';
 import { Throttle } from '../../common/throttle/throttle.decorator';
 import { BranchesService } from './branches.service';
+import {
+  buildPosDeviceTokenCookie,
+  clearPosDeviceTokenCookie,
+} from '../../common/auth/cookie';
 import {
   CreateBranchDto,
   CreateDeviceDto,
@@ -117,6 +123,52 @@ export class BranchesController {
       request.authContext!.user.tenantId,
       request.authContext!,
     );
+  }
+
+  @Post('devices/:id/token/pair')
+  @Version('1')
+  @HttpCode(200)
+  @ApiHeader({ name: 'origin', required: true })
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @apiSuccessEnvelopeResponse({ description: 'POS browser paired' })
+  @ApiOperation({ summary: 'Pair this authorized browser to a POS device' })
+  async pairDeviceToken(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Headers('origin') origin: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    this.branchesService.assertDeviceTokenBrowserOrigin(origin);
+    const paired = await this.branchesService.pairDeviceToken(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      id,
+    );
+    reply.header('Set-Cookie', buildPosDeviceTokenCookie(paired.token));
+    return { status: 'paired', pairedAt: paired.pairedAt };
+  }
+
+  @Post('devices/:id/token/reset')
+  @Version('1')
+  @HttpCode(200)
+  @ApiHeader({ name: 'origin', required: true })
+  @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
+  @apiSuccessEnvelopeResponse({ description: 'POS device token reset' })
+  @ApiOperation({ summary: 'Reset and unpair a POS browser credential' })
+  async resetDeviceToken(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Headers('origin') origin: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    this.branchesService.assertDeviceTokenBrowserOrigin(origin);
+    await this.branchesService.resetDeviceToken(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      id,
+    );
+    reply.header('Set-Cookie', clearPosDeviceTokenCookie());
+    return { status: 'reset' };
   }
 
   @Post('devices')
@@ -242,18 +294,23 @@ export class BranchesController {
   @Roles(UserRole.ADMIN, UserRole.SUPERVISOR)
   @apiSuccessEnvelopeResponse({ dataSchema: { type: 'object' } })
   @ApiHeader({ name: 'Idempotency-Key', required: true })
-  updateDevice(
+  async updateDevice(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateDeviceDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.branchesService.updateDevice(
+    const updated = await this.branchesService.updateDevice(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
       dto,
       idempotencyKey,
     );
+    if (dto.status === 'INACTIVE') {
+      reply.header('Set-Cookie', clearPosDeviceTokenCookie());
+    }
+    return updated;
   }
 }

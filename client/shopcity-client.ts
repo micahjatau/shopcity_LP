@@ -5108,6 +5108,470 @@ export type BranchesControllerCreateDeviceV1503 = {
   meta: BranchesControllerCreateDeviceV1503Meta;
 };
 
+export type BranchesControllerPairDeviceTokenV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerPairDeviceTokenV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1200 = {
+  success: boolean;
+  data: BranchesControllerPairDeviceTokenV1200Data;
+  meta: BranchesControllerPairDeviceTokenV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1400ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1400 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1400Error;
+  meta: BranchesControllerPairDeviceTokenV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1401ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1401 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1401Error;
+  meta: BranchesControllerPairDeviceTokenV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1403ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1403 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1403Error;
+  meta: BranchesControllerPairDeviceTokenV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1404ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1404 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1404Error;
+  meta: BranchesControllerPairDeviceTokenV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1409ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1409 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1409Error;
+  meta: BranchesControllerPairDeviceTokenV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1422ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1422 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1422Error;
+  meta: BranchesControllerPairDeviceTokenV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1429ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1429 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1429Error;
+  meta: BranchesControllerPairDeviceTokenV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerPairDeviceTokenV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerPairDeviceTokenV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerPairDeviceTokenV1503ErrorDetails;
+};
+
+export type BranchesControllerPairDeviceTokenV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerPairDeviceTokenV1503 = {
+  success: boolean;
+  error: BranchesControllerPairDeviceTokenV1503Error;
+  meta: BranchesControllerPairDeviceTokenV1503Meta;
+};
+
+export type BranchesControllerResetDeviceTokenV1200Data = {
+  [key: string]: unknown;
+};
+
+export type BranchesControllerResetDeviceTokenV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1200 = {
+  success: boolean;
+  data: BranchesControllerResetDeviceTokenV1200Data;
+  meta: BranchesControllerResetDeviceTokenV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1400ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1400 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1400Error;
+  meta: BranchesControllerResetDeviceTokenV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1401ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1401 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1401Error;
+  meta: BranchesControllerResetDeviceTokenV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1403ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1403 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1403Error;
+  meta: BranchesControllerResetDeviceTokenV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1404ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1404 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1404Error;
+  meta: BranchesControllerResetDeviceTokenV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1409ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1409 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1409Error;
+  meta: BranchesControllerResetDeviceTokenV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1422ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1422 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1422Error;
+  meta: BranchesControllerResetDeviceTokenV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1429ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1429 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1429Error;
+  meta: BranchesControllerResetDeviceTokenV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type BranchesControllerResetDeviceTokenV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type BranchesControllerResetDeviceTokenV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: BranchesControllerResetDeviceTokenV1503ErrorDetails;
+};
+
+export type BranchesControllerResetDeviceTokenV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type BranchesControllerResetDeviceTokenV1503 = {
+  success: boolean;
+  error: BranchesControllerResetDeviceTokenV1503Error;
+  meta: BranchesControllerResetDeviceTokenV1503Meta;
+};
+
 export type BranchesControllerCreateDeviceEnrollmentV1201Data = {
   [key: string]: unknown;
 };
@@ -20684,6 +21148,196 @@ export const branchesControllerCreateDeviceV1 = async (
     status: res.status,
     headers: res.headers,
   } as branchesControllerCreateDeviceV1Response;
+};
+
+export type branchesControllerPairDeviceTokenV1Response200 = {
+  data: BranchesControllerPairDeviceTokenV1200;
+  status: 200;
+};
+
+export type branchesControllerPairDeviceTokenV1Response400 = {
+  data: BranchesControllerPairDeviceTokenV1400;
+  status: 400;
+};
+
+export type branchesControllerPairDeviceTokenV1Response401 = {
+  data: BranchesControllerPairDeviceTokenV1401;
+  status: 401;
+};
+
+export type branchesControllerPairDeviceTokenV1Response403 = {
+  data: BranchesControllerPairDeviceTokenV1403;
+  status: 403;
+};
+
+export type branchesControllerPairDeviceTokenV1Response404 = {
+  data: BranchesControllerPairDeviceTokenV1404;
+  status: 404;
+};
+
+export type branchesControllerPairDeviceTokenV1Response409 = {
+  data: BranchesControllerPairDeviceTokenV1409;
+  status: 409;
+};
+
+export type branchesControllerPairDeviceTokenV1Response422 = {
+  data: BranchesControllerPairDeviceTokenV1422;
+  status: 422;
+};
+
+export type branchesControllerPairDeviceTokenV1Response429 = {
+  data: BranchesControllerPairDeviceTokenV1429;
+  status: 429;
+};
+
+export type branchesControllerPairDeviceTokenV1Response503 = {
+  data: BranchesControllerPairDeviceTokenV1503;
+  status: 503;
+};
+
+export type branchesControllerPairDeviceTokenV1ResponseSuccess =
+  branchesControllerPairDeviceTokenV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerPairDeviceTokenV1ResponseError = (
+  | branchesControllerPairDeviceTokenV1Response400
+  | branchesControllerPairDeviceTokenV1Response401
+  | branchesControllerPairDeviceTokenV1Response403
+  | branchesControllerPairDeviceTokenV1Response404
+  | branchesControllerPairDeviceTokenV1Response409
+  | branchesControllerPairDeviceTokenV1Response422
+  | branchesControllerPairDeviceTokenV1Response429
+  | branchesControllerPairDeviceTokenV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerPairDeviceTokenV1Response =
+  | branchesControllerPairDeviceTokenV1ResponseSuccess
+  | branchesControllerPairDeviceTokenV1ResponseError;
+
+export const getBranchesControllerPairDeviceTokenV1Url = (id: string) => {
+  return `/api/v1/devices/${id}/token/pair`;
+};
+
+/**
+ * Pair this authorized browser to a POS device
+ * @summary Pair this authorized browser to a POS device
+ */
+export const branchesControllerPairDeviceTokenV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerPairDeviceTokenV1Response> => {
+  const res = await fetch(getBranchesControllerPairDeviceTokenV1Url(id), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerPairDeviceTokenV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerPairDeviceTokenV1Response;
+};
+
+export type branchesControllerResetDeviceTokenV1Response200 = {
+  data: BranchesControllerResetDeviceTokenV1200;
+  status: 200;
+};
+
+export type branchesControllerResetDeviceTokenV1Response400 = {
+  data: BranchesControllerResetDeviceTokenV1400;
+  status: 400;
+};
+
+export type branchesControllerResetDeviceTokenV1Response401 = {
+  data: BranchesControllerResetDeviceTokenV1401;
+  status: 401;
+};
+
+export type branchesControllerResetDeviceTokenV1Response403 = {
+  data: BranchesControllerResetDeviceTokenV1403;
+  status: 403;
+};
+
+export type branchesControllerResetDeviceTokenV1Response404 = {
+  data: BranchesControllerResetDeviceTokenV1404;
+  status: 404;
+};
+
+export type branchesControllerResetDeviceTokenV1Response409 = {
+  data: BranchesControllerResetDeviceTokenV1409;
+  status: 409;
+};
+
+export type branchesControllerResetDeviceTokenV1Response422 = {
+  data: BranchesControllerResetDeviceTokenV1422;
+  status: 422;
+};
+
+export type branchesControllerResetDeviceTokenV1Response429 = {
+  data: BranchesControllerResetDeviceTokenV1429;
+  status: 429;
+};
+
+export type branchesControllerResetDeviceTokenV1Response503 = {
+  data: BranchesControllerResetDeviceTokenV1503;
+  status: 503;
+};
+
+export type branchesControllerResetDeviceTokenV1ResponseSuccess =
+  branchesControllerResetDeviceTokenV1Response200 & {
+    headers: Headers;
+  };
+export type branchesControllerResetDeviceTokenV1ResponseError = (
+  | branchesControllerResetDeviceTokenV1Response400
+  | branchesControllerResetDeviceTokenV1Response401
+  | branchesControllerResetDeviceTokenV1Response403
+  | branchesControllerResetDeviceTokenV1Response404
+  | branchesControllerResetDeviceTokenV1Response409
+  | branchesControllerResetDeviceTokenV1Response422
+  | branchesControllerResetDeviceTokenV1Response429
+  | branchesControllerResetDeviceTokenV1Response503
+) & {
+  headers: Headers;
+};
+
+export type branchesControllerResetDeviceTokenV1Response =
+  | branchesControllerResetDeviceTokenV1ResponseSuccess
+  | branchesControllerResetDeviceTokenV1ResponseError;
+
+export const getBranchesControllerResetDeviceTokenV1Url = (id: string) => {
+  return `/api/v1/devices/${id}/token/reset`;
+};
+
+/**
+ * Reset and unpair a POS browser credential
+ * @summary Reset and unpair a POS browser credential
+ */
+export const branchesControllerResetDeviceTokenV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<branchesControllerResetDeviceTokenV1Response> => {
+  const res = await fetch(getBranchesControllerResetDeviceTokenV1Url(id), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: branchesControllerResetDeviceTokenV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as branchesControllerResetDeviceTokenV1Response;
 };
 
 export type branchesControllerCreateDeviceEnrollmentV1Response201 = {

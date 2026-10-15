@@ -4,6 +4,8 @@ import { Check, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
+  branchesControllerPairDeviceTokenV1,
+  branchesControllerResetDeviceTokenV1,
   branchesControllerCompleteDeviceEnrollmentV1,
   branchesControllerCreateDeviceEnrollmentV1,
   branchesControllerCreateDeviceV1,
@@ -32,15 +34,25 @@ type DeviceCredential = {
   transports?: string[];
 };
 
+type DeviceTokenCredential = {
+  id: string;
+  status?: string;
+  pairedAt?: string | null;
+  lastUsedAt?: string | null;
+  keyVersion?: number;
+};
+
 type Device = {
   id: string;
   name?: string;
   status?: 'ACTIVE' | 'INACTIVE' | string;
   branchId?: string;
   branch?: { name?: string };
-  authBindingMode?: 'UNPAIRED' | 'HMAC_LEGACY' | 'WEBAUTHN' | string;
+  authBindingMode?:
+    'UNPAIRED' | 'HMAC_LEGACY' | 'WEBAUTHN' | 'DEVICE_TOKEN' | string;
   pairedAt?: string | null;
   webAuthnCredentials?: DeviceCredential[];
+  deviceTokenCredentials?: DeviceTokenCredential[];
 };
 
 type Branch = { id: string; name?: string };
@@ -212,6 +224,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Loading device management…');
   const [pairingConfirmationFor, setPairingConfirmationFor] = useState('');
+  const [pairingMethod, setPairingMethod] = useState<
+    'DEVICE_TOKEN' | 'WEBAUTHN'
+  >('DEVICE_TOKEN');
   const [targetBrowserConfirmed, setTargetBrowserConfirmed] = useState(false);
   const [pairingFeedback, setPairingFeedback] =
     useState<PairingFeedback | null>(null);
@@ -225,6 +240,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
 
   const selected = devices.find((device) => device.id === selectedId);
   const credentials = selected?.webAuthnCredentials ?? [];
+  const tokenCredentials = selected?.deviceTokenCredentials ?? [];
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -319,10 +335,13 @@ export function DeviceManagement({ supervisor = false }: Props) {
     }
   }
 
-  function requestPairingConfirmation() {
+  function requestPairingConfirmation(
+    method: 'DEVICE_TOKEN' | 'WEBAUTHN' = 'DEVICE_TOKEN',
+  ) {
     if (!selected?.id) return;
     setTargetBrowserConfirmed(false);
     setPairingFeedback(null);
+    setPairingMethod(method);
     setPairingConfirmationFor(selected.id);
   }
 
@@ -384,17 +403,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
       setPairingFeedback({
         tone: 'warning',
         title: 'Confirmation required',
-        message: 'Confirm that this is the target POS browser before pairing.',
-        retryable: true,
-      });
-      return;
-    }
-    if (!navigator.credentials?.create) {
-      setPairingFeedback({
-        tone: 'danger',
-        title: 'Browser not supported',
         message:
-          'This browser does not support WebAuthn. Open device management on the target POS browser.',
+          'Confirm that this is the authorized target POS browser before pairing.',
         retryable: true,
       });
       return;
@@ -402,75 +412,112 @@ export function DeviceManagement({ supervisor = false }: Props) {
 
     setBusy(true);
     try {
-      const authorization = await branchesControllerCreateDeviceEnrollmentV1(
-        selected.id,
-        createApiRequest({ csrf: true }),
-      );
-      if (authorization.status !== 201) {
-        throw new Error('Pairing authorization unavailable');
-      }
-      const payload = responseData(authorization.data);
-      const token = payload.authorizationToken;
-      const options = (payload.options ?? payload.registrationOptions) as
-        Record<string, unknown> | undefined;
-      if (typeof token !== 'string' || !options) {
-        throw new Error('Invalid pairing response');
-      }
-
-      // The single-use authorization stays in this call's memory and is sent only
-      // in the completion POST body. It is never placed in state, storage, or URL.
-      const credential = await navigator.credentials.create({
-        publicKey: toCredentialCreationOptions(options),
-      });
-      if (!credential) throw new Error('Registration cancelled');
-
-      const completion = await branchesControllerCompleteDeviceEnrollmentV1(
-        selected.id,
-        {
-          authorizationToken: token,
-          response: serializeCredential(credential as PublicKeyCredential),
-        },
-        createApiRequest(),
-      );
-      if (completion.status !== 200)
-        throw new Error('Pairing completion failed');
-
-      try {
-        // This is a non-secret device locator only; WebAuthn remains the proof.
+      if (pairingMethod === 'WEBAUTHN') {
+        if (!navigator.credentials?.create) {
+          throw new Error('WebAuthn is not supported by this browser');
+        }
+        const authorization = await branchesControllerCreateDeviceEnrollmentV1(
+          selected.id,
+          createApiRequest({ csrf: true }),
+        );
+        if (authorization.status !== 201)
+          throw new Error('Pairing unavailable');
+        const payload = responseData(authorization.data);
+        const token = payload.authorizationToken;
+        const options = (payload.options ?? payload.registrationOptions) as
+          Record<string, unknown> | undefined;
+        if (typeof token !== 'string' || !options) {
+          throw new Error('Invalid pairing response');
+        }
+        const credential = await navigator.credentials.create({
+          publicKey: toCredentialCreationOptions(options),
+        });
+        if (!credential) throw new Error('Registration cancelled');
+        const completion = await branchesControllerCompleteDeviceEnrollmentV1(
+          selected.id,
+          {
+            authorizationToken: token,
+            response: serializeCredential(credential as PublicKeyCredential),
+          },
+          createApiRequest(),
+        );
+        if (completion.status !== 200)
+          throw new Error('Pairing completion failed');
         window.localStorage.setItem(PAIRED_DEVICE_LOCATOR_KEY, selected.id);
-      } catch {
         setPairingFeedback({
-          tone: 'warning',
-          title: 'Pairing completed, browser setup incomplete',
+          tone: 'success',
+          title: 'WebAuthn pairing complete',
           message:
-            'The credential was paired, but this browser could not save its non-secret device locator. Ask an Admin to configure the POS browser.',
+            'The existing WebAuthn device-binding flow completed on this target browser.',
           retryable: false,
         });
         await refresh();
         return;
       }
 
+      const paired = await branchesControllerPairDeviceTokenV1(
+        selected.id,
+        createApiRequest({ csrf: true }),
+      );
+      if (paired.status !== 200) throw new Error('Pairing failed');
+      try {
+        window.localStorage.setItem(PAIRED_DEVICE_LOCATOR_KEY, selected.id);
+      } catch {
+        setPairingFeedback({
+          tone: 'warning',
+          title: 'Pairing completed; device locator unavailable',
+          message:
+            'The HttpOnly credential was issued, but this browser could not save the non-secret device ID needed at login. Ask an administrator to configure this POS browser before cashier sign-in.',
+          retryable: false,
+        });
+        await refresh();
+        return;
+      }
       setPairingFeedback({
         tone: 'success',
-        title: 'Pairing complete',
+        title: 'POS browser paired',
         message:
-          'Credential paired on this browser. The browser cannot independently prove physical register identity; follow the approved POS qualification process.',
+          'This target browser now has its HttpOnly device credential. The server binds cashier sessions to the selected ShopCity device.',
         retryable: false,
       });
       await refresh();
-    } catch (error) {
-      const cancelled =
-        error instanceof Error && error.name === 'NotAllowedError';
+    } catch {
       setPairingFeedback({
         tone: 'danger',
-        title: cancelled
-          ? 'Registration cancelled or timed out'
-          : 'Pairing failed',
-        message: cancelled
-          ? 'Retry on the target POS browser.'
-          : 'Pairing failed, expired, or is blocked by the server qualification gate. Retry on the target POS browser or contact an administrator.',
+        title: 'Pairing failed',
+        message:
+          'Pairing failed. Confirm the authorized account, active device and branch, and retry from the target POS browser.',
         retryable: true,
       });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetDeviceToken() {
+    if (
+      !selected?.id ||
+      !window.confirm(
+        'Reset this POS browser credential? All device sessions will be invalidated.',
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const reset = await branchesControllerResetDeviceTokenV1(
+        selected.id,
+        createApiRequest({ csrf: true }),
+      );
+      if (reset.status !== 200) throw new Error('Reset failed');
+      window.localStorage.removeItem(PAIRED_DEVICE_LOCATOR_KEY);
+      setMessage(
+        'Device credential reset; all device sessions were invalidated.',
+      );
+      await refresh();
+    } catch {
+      setMessage(
+        'Device credential could not be reset. Check permissions and retry.',
+      );
     } finally {
       setBusy(false);
     }
@@ -832,15 +879,66 @@ export function DeviceManagement({ supervisor = false }: Props) {
                     </section>
                   ) : null}
 
+                  {selected.authBindingMode === 'DEVICE_TOKEN' ? (
+                    <section
+                      className="device-management__credentials"
+                      aria-label="POS device token credential"
+                    >
+                      <h3>POS browser credential</h3>
+                      {tokenCredentials[0]?.lastUsedAt ? (
+                        <p>
+                          Last used{' '}
+                          {new Date(
+                            tokenCredentials[0].lastUsedAt,
+                          ).toLocaleString()}
+                        </p>
+                      ) : (
+                        <p>
+                          Credential is active; no cashier login has used it
+                          yet.
+                        </p>
+                      )}
+                      <Button
+                        variant="danger"
+                        disabled={busy || loading}
+                        onClick={() => void resetDeviceToken()}
+                      >
+                        Reset browser credential
+                      </Button>
+                    </section>
+                  ) : null}
+
                   <div className="device-management__actions">
                     <Button
-                      onClick={requestPairingConfirmation}
-                      disabled={busy || loading || selected.status !== 'ACTIVE'}
+                      onClick={() => requestPairingConfirmation()}
+                      disabled={
+                        busy ||
+                        loading ||
+                        selected.status !== 'ACTIVE' ||
+                        !['UNPAIRED', 'DEVICE_TOKEN'].includes(
+                          selected.authBindingMode ?? 'UNPAIRED',
+                        )
+                      }
                     >
-                      {selected.pairedAt
-                        ? 'Replace credential / re-pair'
-                        : 'Pair on target POS browser'}
+                      {selected.authBindingMode === 'DEVICE_TOKEN'
+                        ? 'Replace browser credential'
+                        : 'Pair this target POS browser'}
                     </Button>
+                    {['HMAC_LEGACY', 'WEBAUTHN'].includes(
+                      selected.authBindingMode ?? '',
+                    ) ? (
+                      <Button
+                        variant="secondary"
+                        onClick={() => requestPairingConfirmation('WEBAUTHN')}
+                        disabled={
+                          busy || loading || selected.status !== 'ACTIVE'
+                        }
+                      >
+                        {selected.authBindingMode === 'WEBAUTHN'
+                          ? 'Rotate WebAuthn credential'
+                          : 'Migrate legacy device with WebAuthn'}
+                      </Button>
+                    ) : null}
                     {selected.status === 'ACTIVE' ? (
                       <Button
                         variant="danger"
@@ -882,12 +980,22 @@ export function DeviceManagement({ supervisor = false }: Props) {
       >
         <div className="device-management__pairing-dialog">
           <p>
-            Registration creates a credential in this browser&apos;s platform
-            authenticator. Complete this only on the target POS browser for{' '}
-            {selected?.name ?? 'the selected device'}; do not use a separate
-            administrator workstation. This software cannot independently prove
-            physical register identity. Production pairing remains controlled by
-            the server qualification gate.
+            {pairingMethod === 'DEVICE_TOKEN' ? (
+              <>
+                Pairing creates a random device credential held only in this
+                browser&apos;s Secure, HttpOnly cookie. Complete this only on
+                the authorized target POS browser for{' '}
+                {selected?.name ?? 'the selected device'}. The raw credential is
+                never shown or stored in script-readable browser storage.
+                Re-pairing immediately invalidates existing device sessions.
+              </>
+            ) : (
+              <>
+                WebAuthn enrollment uses the existing platform-authenticator
+                flow for {selected?.name ?? 'the selected device'} and retains
+                its qualification and verification gates.
+              </>
+            )}
           </p>
           {pairingFeedback ? (
             <Alert tone={pairingFeedback.tone} title={pairingFeedback.title}>
@@ -903,7 +1011,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
                   setTargetBrowserConfirmed(event.target.checked)
                 }
               />{' '}
-              I confirm this is the target POS browser for the selected device.
+              I confirm this is the authorized target POS browser for the
+              selected device.
             </label>
           )}
           <div className="device-management__pairing-actions">

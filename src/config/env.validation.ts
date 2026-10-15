@@ -85,6 +85,17 @@ export const envValidationSchema = Joi.object({
     'test-device-attestation-kek-test-device-attestation-kek',
   ),
   DEVICE_ATTESTATION_KEK_VERSION: Joi.number().integer().min(1).default(1),
+  POS_DEVICE_TOKEN_HMAC_KEY_VERSION: Joi.number().integer().min(1).default(1),
+  POS_DEVICE_TOKEN_HMAC_KEY: Joi.string()
+    .pattern(/^[A-Za-z0-9_-]{43}$/)
+    .custom((value: string, helpers) => {
+      const decoded = Buffer.from(value, 'base64url');
+      if (decoded.length !== 32 || decoded.toString('base64url') !== value) {
+        return helpers.error('any.invalid');
+      }
+      return value;
+    })
+    .optional(),
   WEBAUTHN_RP_ID: Joi.string()
     .trim()
     .hostname()

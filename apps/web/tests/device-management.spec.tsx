@@ -6,6 +6,8 @@ import {
   branchesControllerCreateDeviceV1,
   branchesControllerListBranchesV1,
   branchesControllerListDevicesV1,
+  branchesControllerPairDeviceTokenV1,
+  branchesControllerResetDeviceTokenV1,
   branchesControllerRevokeDeviceCredentialV1,
   branchesControllerUpdateDeviceV1,
 } from '../lib/api/generated-client';
@@ -17,6 +19,8 @@ jest.mock('../lib/api/generated-client', () => ({
   branchesControllerCreateDeviceV1: jest.fn(),
   branchesControllerListBranchesV1: jest.fn(),
   branchesControllerListDevicesV1: jest.fn(),
+  branchesControllerPairDeviceTokenV1: jest.fn(),
+  branchesControllerResetDeviceTokenV1: jest.fn(),
   branchesControllerRevokeDeviceCredentialV1: jest.fn(),
   branchesControllerUpdateDeviceV1: jest.fn(),
 }));
@@ -61,6 +65,8 @@ describe('DeviceManagement', () => {
     jest.mocked(branchesControllerCreateDeviceV1).mockReset();
     jest.mocked(branchesControllerListBranchesV1).mockReset();
     jest.mocked(branchesControllerListDevicesV1).mockReset();
+    jest.mocked(branchesControllerPairDeviceTokenV1).mockReset();
+    jest.mocked(branchesControllerResetDeviceTokenV1).mockReset();
     jest.mocked(branchesControllerRevokeDeviceCredentialV1).mockReset();
     jest.mocked(branchesControllerUpdateDeviceV1).mockReset();
     jest.mocked(getCurrentSession).mockReset();
@@ -85,53 +91,21 @@ describe('DeviceManagement', () => {
     jest.restoreAllMocks();
   });
 
-  it('requires explicit target-POS confirmation before requesting pairing authorization', async () => {
-    const createEnrollment = jest
-      .mocked(branchesControllerCreateDeviceEnrollmentV1)
-      .mockResolvedValue({
-        status: 201,
-        data: {
-          success: true,
-          data: {
-            authorizationToken: 'one-time-pairing-token',
-            options: {
-              challenge: 'AQID',
-              rp: { id: 'localhost', name: 'ShopCity POS' },
-              user: { id: 'BAUG', name: 'pos', displayName: 'POS' },
-              pubKeyCredParams: [],
-            },
-          },
-        },
-      } as never);
-    const createCredential = jest.fn().mockResolvedValue({
-      id: 'credential-public-id',
-      rawId: new Uint8Array([1, 2]).buffer,
-      type: 'public-key',
-      authenticatorAttachment: 'platform',
-      response: {
-        clientDataJSON: new Uint8Array([3]).buffer,
-        attestationObject: new Uint8Array([4]).buffer,
-        getTransports: () => ['internal'],
-      },
-      getClientExtensionResults: () => ({}),
-    });
-    Object.defineProperty(navigator, 'credentials', {
-      configurable: true,
-      value: { create: createCredential },
-    });
-    jest
-      .mocked(branchesControllerCompleteDeviceEnrollmentV1)
+  it('requires target-browser confirmation and stores only the non-secret device locator', async () => {
+    const pair = jest
+      .mocked(branchesControllerPairDeviceTokenV1)
       .mockResolvedValue({
         status: 200,
-        data: { success: true, data: { status: 'ACTIVE' } },
+        data: { data: { status: 'paired' } },
       } as never);
 
     render(<DeviceManagement />);
-    await screen.findByRole('button', { name: 'Pair on target POS browser' });
     fireEvent.click(
-      screen.getByRole('button', { name: 'Pair on target POS browser' }),
+      await screen.findByRole('button', {
+        name: 'Pair this target POS browser',
+      }),
     );
-    expect(createEnrollment).not.toHaveBeenCalled();
+    expect(pair).not.toHaveBeenCalled();
     expect(
       screen.getByRole('dialog', { name: 'Before pairing this register' }),
     ).toBeVisible();
@@ -139,20 +113,11 @@ describe('DeviceManagement', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Pair on target POS browser' }),
+      screen.getByRole('button', { name: 'Pair this target POS browser' }),
     );
-    expect(
-      screen.getByRole('dialog', { name: 'Before pairing this register' }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(
-        /software cannot independently prove physical register identity/i,
-      ),
-    ).toBeVisible();
-
     fireEvent.click(
       screen.getByRole('checkbox', {
-        name: /i confirm this is the target POS browser/i,
+        name: /i confirm this is the authorized target POS browser/i,
       }),
     );
     fireEvent.click(
@@ -160,47 +125,68 @@ describe('DeviceManagement', () => {
     );
 
     await waitFor(() => {
-      expect(branchesControllerCompleteDeviceEnrollmentV1).toHaveBeenCalledWith(
-        'device-1',
-        expect.objectContaining({
-          authorizationToken: 'one-time-pairing-token',
-          response: expect.objectContaining({
-            authenticatorAttachment: 'platform',
-          }),
-        }),
-        expect.any(Object),
-      );
+      expect(pair).toHaveBeenCalledWith('device-1', expect.any(Object));
     });
     expect(window.localStorage.getItem('shopcity:paired-device-id')).toBe(
       'device-1',
     );
     expect(window.localStorage.length).toBe(1);
-    expect(
-      screen.getByRole('dialog', { name: 'Before pairing this register' }),
-    ).toBeVisible();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /credential paired on this browser/i,
+      /now has its HttpOnly device credential/i,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows DEVICE_TOKEN last-use state and resets through the CSRF-protected API', async () => {
+    const tokenDevice = {
+      ...activeUnpairedDevice,
+      authBindingMode: 'DEVICE_TOKEN',
+      pairedAt: '2026-10-15T00:00:00.000Z',
+      deviceTokenCredentials: [
+        {
+          id: 'token-row-id',
+          status: 'ACTIVE',
+          lastUsedAt: '2026-10-15T00:05:00.000Z',
+          keyVersion: 1,
+        },
+      ],
+    };
+    jest
+      .mocked(branchesControllerListDevicesV1)
+      .mockResolvedValue(deviceListResponse(tokenDevice) as never);
+    const reset = jest
+      .mocked(branchesControllerResetDeviceTokenV1)
+      .mockResolvedValue({
+        status: 200,
+        data: { data: { status: 'reset' } },
+      } as never);
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-1');
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<DeviceManagement />);
+    expect(await screen.findByText(/Last used/)).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reset browser credential' }),
+    );
+    await waitFor(() =>
+      expect(reset).toHaveBeenCalledWith('device-1', expect.any(Object)),
+    );
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBeNull();
   });
 
   it('shows pairing errors inside the confirmation dialog until dismissed', async () => {
-    Object.defineProperty(navigator, 'credentials', {
-      configurable: true,
-      value: { create: jest.fn() },
-    });
     jest
-      .mocked(branchesControllerCreateDeviceEnrollmentV1)
+      .mocked(branchesControllerPairDeviceTokenV1)
       .mockResolvedValue({ status: 403, data: {} } as never);
 
     render(<DeviceManagement />);
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Pair on target POS browser' }),
+      await screen.findByRole('button', {
+        name: 'Pair this target POS browser',
+      }),
     );
     fireEvent.click(
       screen.getByRole('checkbox', {
-        name: /i confirm this is the target POS browser/i,
+        name: /i confirm this is the authorized target POS browser/i,
       }),
     );
     fireEvent.click(
@@ -208,7 +194,7 @@ describe('DeviceManagement', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      /pairing failed, expired, or is blocked by the server qualification gate/i,
+      /pairing failed\. confirm the authorized account/i,
     );
     expect(
       screen.getByRole('dialog', { name: 'Before pairing this register' }),
@@ -319,7 +305,7 @@ describe('DeviceManagement', () => {
     } as never);
 
     render(<DeviceManagement supervisor />);
-    await screen.findByRole('button', { name: 'Pair on target POS browser' });
+    await screen.findByRole('button', { name: 'Pair this target POS browser' });
     const createPanel = screen.getByRole('region', { name: 'Create device' });
     const listPanel = screen.getByRole('region', { name: 'Device list' });
     expect(createPanel.parentElement).toHaveClass(

@@ -100,6 +100,7 @@ describe('redis throttling fail-closed (int)', () => {
   it('returns service unavailable when Redis cannot be reached', async () => {
     await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .send({
         username: 'admin@shopcity.local',
         password: 'password',

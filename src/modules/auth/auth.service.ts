@@ -6,13 +6,16 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  BranchStatus,
   CashierLoginAttemptPurpose,
   DeviceAuthBindingMode,
   DeviceAttestationTrustResult,
   DeviceStatus,
+  DeviceTokenCredentialStatus,
   DeviceWebAuthnCredentialStatus,
   Prisma,
   SessionPurpose,
+  TenantStatus,
   UserRole,
 } from '@prisma/client';
 import {
@@ -30,6 +33,10 @@ import { PrismaService } from '../../database/prisma.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainHttpException } from '../../common/errors/domain.exception';
+import {
+  configuredDeviceTokenKeyVersion,
+  matchesDeviceTokenHash,
+} from '../../common/auth/device-token';
 import { AuthContext } from '../../common/auth/session.types';
 import {
   hashToken,
@@ -86,6 +93,7 @@ export class AuthService {
     password: string,
     deviceId?: string,
     deviceAttestation?: string,
+    deviceToken?: string,
   ): Promise<LoginResult> {
     const normalizedUsername = normalizeUsername(username);
     const candidate = await this.prismaService.user.findFirst({
@@ -140,6 +148,9 @@ export class AuthService {
             webAuthnCredentials: {
               where: { status: DeviceWebAuthnCredentialStatus.ACTIVE },
             },
+            deviceTokenCredentials: {
+              where: { status: DeviceTokenCredentialStatus.ACTIVE },
+            },
           },
         })
       : null;
@@ -164,6 +175,11 @@ export class AuthService {
       }
       if (sessionDevice.authBindingMode === DeviceAuthBindingMode.WEBAUTHN) {
         return this.beginCashierWebAuthnLogin(user, sessionDevice);
+      }
+      if (
+        sessionDevice.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN
+      ) {
+        return this.loginWithDeviceToken(user, sessionDevice.id, deviceToken);
       }
       if (sessionDevice.authBindingMode !== DeviceAuthBindingMode.HMAC_LEGACY) {
         throw deviceAuthFailed();
@@ -769,6 +785,148 @@ export class AuthService {
 
   me(context: AuthContext): AuthContext {
     return context;
+  }
+
+  assertPublicLoginOrigin(
+    origin: string | undefined,
+    referer: string | undefined,
+  ): void {
+    const candidate = origin ?? referer;
+    if (!candidate) throw new UnauthorizedException('Invalid credentials');
+
+    let requestOrigin: string;
+    try {
+      const parsed = new URL(candidate);
+      requestOrigin = parsed.origin;
+      if (
+        parsed.username ||
+        parsed.password ||
+        (origin && parsed.origin !== origin) ||
+        ((process.env.NODE_ENV === 'production' ||
+          process.env.NODE_ENV === 'staging' ||
+          process.env.VERCEL_ENV === 'production' ||
+          process.env.VERCEL_ENV === 'preview') &&
+          parsed.protocol !== 'https:')
+      ) {
+        throw new Error('Invalid origin');
+      }
+    } catch {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const configured =
+      this.configService.get<string>('CORS_ORIGIN_ALLOWLIST') ??
+      'http://localhost:3000,http://127.0.0.1:3000';
+    const allowedOrigins = configured.split(',').map((value) => value.trim());
+    if (!allowedOrigins.includes(requestOrigin)) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
+
+  private async loginWithDeviceToken(
+    user: { id: string; tenantId: string; branchId: string | null },
+    deviceId: string,
+    token: string | undefined,
+  ): Promise<IssuedSession> {
+    if (!token) throw deviceAuthFailed();
+    const candidate = await this.prismaService.device.findFirst({
+      where: { id: deviceId, tenantId: user.tenantId },
+      include: {
+        branch: { include: { tenant: true } },
+        deviceTokenCredentials: {
+          where: { status: DeviceTokenCredentialStatus.ACTIVE },
+        },
+      },
+    });
+    const credential = candidate?.deviceTokenCredentials[0];
+    const key = this.configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY');
+    if (
+      !candidate ||
+      candidate.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN ||
+      candidate.deviceTokenCredentials.length !== 1 ||
+      !credential ||
+      credential.keyVersion !==
+        configuredDeviceTokenKeyVersion(
+          this.configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+        ) ||
+      !matchesDeviceTokenHash(token, credential.tokenHash, key)
+    ) {
+      throw deviceAuthFailed();
+    }
+
+    try {
+      return await this.prismaService.$transaction(async (prisma) => {
+        await prisma.$queryRaw(Prisma.sql`
+          SELECT "id" FROM "Device" WHERE "id" = ${deviceId} FOR UPDATE
+        `);
+        await prisma.$queryRaw(Prisma.sql`
+          SELECT "id" FROM "DeviceTokenCredential"
+          WHERE "id" = ${credential.id} AND "deviceId" = ${deviceId}
+          FOR UPDATE
+        `);
+        const [currentDevice, currentUser] = await Promise.all([
+          prisma.device.findFirst({
+            where: { id: deviceId, tenantId: user.tenantId },
+            include: { branch: { include: { tenant: true } } },
+          }),
+          prisma.user.findUnique({
+            where: { id: user.id },
+            include: { tenant: true, branch: true },
+          }),
+        ]);
+        const currentCredential = await prisma.deviceTokenCredential.findFirst({
+          where: {
+            id: credential.id,
+            tenantId: user.tenantId,
+            deviceId,
+            status: DeviceTokenCredentialStatus.ACTIVE,
+            keyVersion: configuredDeviceTokenKeyVersion(
+              this.configService.get<number>(
+                'POS_DEVICE_TOKEN_HMAC_KEY_VERSION',
+              ),
+            ),
+          },
+        });
+        if (
+          !currentDevice ||
+          !currentUser ||
+          !isAuthUserEligible(currentUser) ||
+          currentUser.role !== UserRole.CASHIER ||
+          currentUser.branchId !== currentDevice.branchId ||
+          currentDevice.status !== DeviceStatus.ACTIVE ||
+          currentDevice.branch.status !== BranchStatus.ACTIVE ||
+          currentDevice.branch.tenant.status !== TenantStatus.ACTIVE ||
+          currentDevice.authBindingMode !==
+            DeviceAuthBindingMode.DEVICE_TOKEN ||
+          !currentCredential ||
+          !matchesDeviceTokenHash(token, currentCredential.tokenHash, key)
+        ) {
+          throw deviceAuthFailed();
+        }
+        const used = await prisma.deviceTokenCredential.updateMany({
+          where: {
+            id: currentCredential.id,
+            status: DeviceTokenCredentialStatus.ACTIVE,
+            keyVersion: configuredDeviceTokenKeyVersion(
+              this.configService.get<number>(
+                'POS_DEVICE_TOKEN_HMAC_KEY_VERSION',
+              ),
+            ),
+          },
+          data: { lastUsedAt: new Date() },
+        });
+        if (used.count !== 1) throw deviceAuthFailed();
+        return this.issueSession(
+          prisma,
+          currentUser.id,
+          currentUser.tenantId,
+          'auth.login',
+          currentDevice.id,
+        );
+      });
+    } catch {
+      throw deviceAuthFailed();
+    }
   }
 
   private async beginCashierWebAuthnLogin(

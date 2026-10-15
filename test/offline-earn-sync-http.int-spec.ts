@@ -134,6 +134,7 @@ describe('offline earn sync HTTP (int)', () => {
 
     const loginResponse = await request(httpServer)
       .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
       .set('x-device-id', fixture.device.id)
       .set(
         'x-device-attestation',

@@ -17,6 +17,7 @@ import {
 import type { FastifyReply } from 'fastify';
 import { createHash } from 'node:crypto';
 import { AuthService } from './auth.service';
+import { DEVICE_TOKEN_COOKIE_NAME } from '../../common/auth/device-token';
 import {
   CashierLoginCompleteDto,
   LoginDto,
@@ -38,6 +39,7 @@ import {
   clearCookie,
   buildCookie,
   buildCsrfCookie,
+  parseCookies,
 } from '../../common/auth/cookie';
 import {
   apiErrorEnvelopeResponses,
@@ -97,6 +99,14 @@ export class AuthController {
   })
   @ApiHeader({ name: 'x-device-id', required: false })
   @ApiHeader({ name: 'x-device-attestation', required: false })
+  @ApiHeader({ name: 'origin', required: false })
+  @ApiHeader({ name: 'referer', required: false })
+  @ApiHeader({
+    name: 'cookie',
+    required: false,
+    description:
+      'Browser-managed __Host-shopcity_pos_device cookie for DEVICE_TOKEN cashier login',
+  })
   @Version('1')
   @HttpCode(200)
   @apiSuccessEnvelopeResponse({
@@ -138,13 +148,19 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Headers('x-device-id') deviceId: string | undefined,
     @Headers('x-device-attestation') deviceAttestation: string | undefined,
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Headers('origin') origin: string | undefined,
+    @Headers('referer') referer: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
+    this.authService.assertPublicLoginOrigin(origin, referer);
+    const deviceToken = parseCookies(cookieHeader)[DEVICE_TOKEN_COOKIE_NAME];
     const result = await this.authService.login(
       dto.username,
       dto.password,
       deviceId,
       deviceAttestation,
+      deviceToken,
     );
     if (!('sessionToken' in result)) {
       reply.code(202);
