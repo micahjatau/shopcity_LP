@@ -852,11 +852,18 @@ export function CustomerDetailsDialog({
       : null;
   const isCashierProfile =
     presentation === 'page' && profileAudience === 'cashier';
+  const cashierMaskedEmail =
+    typeof customer?.email === 'string' && customer.email.includes('*')
+      ? customer.email
+      : null;
+  const visibleEmail = isCashierProfile
+    ? cashierMaskedEmail
+    : profile.email || customer?.email;
   const cardStatus =
     customer?.activeCardStatus ?? customer?.cardStatus ?? activeCard?.status;
   const cardNumber = resolveCustomerCardNumber(customer);
   const actionCardNumber = isCashierProfile
-    ? (cardNumber ?? cashierCardHint)
+    ? (cashierCardHint ?? cardNumber)
     : cardNumber;
   const lastPurchaseAmountKobo = cashierTransactions.find(
     (transaction) => transaction.operation === 'EARN',
@@ -1613,13 +1620,9 @@ export function CustomerDetailsDialog({
                     <div>
                       <dt>Email</dt>
                       <dd
-                        className={`supervisor-profile-details-grid__email${profileValue(isCashierProfile ? customer.email : profile.email || customer.email) === 'Not provided' ? ' is-not-provided' : ''}`}
+                        className={`supervisor-profile-details-grid__email${profileValue(visibleEmail) === 'Not provided' ? ' is-not-provided' : ''}`}
                       >
-                        {profileValue(
-                          isCashierProfile
-                            ? customer.email
-                            : profile.email || customer.email,
-                        )}
+                        {profileValue(visibleEmail)}
                       </dd>
                     </div>
                     <div>

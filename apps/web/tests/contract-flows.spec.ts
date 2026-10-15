@@ -494,12 +494,15 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Proceed' }).click();
     const earn = page.getByRole('article', { name: /earn transaction/i });
-    await earn.getByLabel('POS receipt number').fill('RCPT-123');
-    await earn.getByLabel('Purchase amount').fill('1,234.50');
-    await earn.getByLabel('Occurred at').fill('2030-01-01T12:00');
+    await earn.getByLabel(/Receipt number/).fill('RCPT-123');
+    await earn.getByLabel(/Receipt amount/).fill('1,234.50');
+    await earn.getByLabel(/Receipt date & time/).fill('2030-01-01T12:00');
     await earn.getByRole('button', { name: 'Proceed to review' }).click();
     await earn.getByRole('button', { name: 'Confirm & add credit' }).click();
-    await expect(earn).toContainText(/purchase captured and credit added/i);
+    await expect(
+      earn.getByRole('region', { name: 'ShopCity Credit earned' }),
+    ).toBeVisible();
+    await expect(earn).toContainText('StatusConfirmed');
 
     await page.goto('/cashier/redeem');
     await expect(
@@ -508,7 +511,9 @@ test.describe('contract-faithful frontend flows', () => {
 
     await page.getByRole('textbox', { name: 'Lookup' }).fill('CARD-123');
     await page.getByRole('button', { name: 'Search customer' }).click();
-    await expect(page.getByText('Ada Shopper', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Ada Shopper', { exact: true }).first(),
+    ).toBeVisible();
     const redeem = page.locator('[data-od-id="redeem-form"]');
     await redeem.getByLabel('POS receipt number').fill('RCPT-124');
     await redeem.getByLabel('Basket subtotal (₦)').fill('1,000.00');
@@ -520,9 +525,10 @@ test.describe('contract-faithful frontend flows', () => {
     await redeem.getByText('Transaction time').click();
     await redeem.getByLabel('Occurred at').fill('2030-01-01T12:00');
     await redeem.getByRole('button', { name: 'Confirm redemption' }).click();
-    await expect(redeem).toContainText(
-      /redemption submitted and waiting for approval/i,
-    );
+    await expect(
+      redeem.getByRole('region', { name: 'Redemption pending approval' }),
+    ).toBeVisible();
+    await expect(redeem).toContainText('no completed debit is claimed');
   });
 
   test('loads supervisor approvals and admin reports from contract-shaped responses', async ({
@@ -836,7 +842,7 @@ test.describe('contract-faithful frontend flows', () => {
             Math.round(filter.getBoundingClientRect().top),
           ),
         );
-      expect(new Set(filterTops).size).toBe(width < 480 ? 2 : 1);
+      expect(new Set(filterTops).size).toBe(width > 860 ? 1 : 2);
       const controlRow = await page
         .locator('.fraud-flags__control-row')
         .evaluate((row) => {
@@ -1101,9 +1107,14 @@ test.describe('contract-faithful frontend flows', () => {
     });
 
     await page.goto('/supervisor/approvals');
-    await expect(page.getByText(/No approvals/i)).toBeVisible();
+    await expect(
+      page.getByText('No requests in this category on the loaded page.'),
+    ).toBeVisible();
     approvalsFailure = true;
-    await page.getByRole('button', { name: /refresh approvals/i }).click();
+    await page
+      .getByRole('region', { name: 'Approval requests' })
+      .getByRole('button', { name: 'Refresh' })
+      .click();
     await expect(
       page.getByText(/approvals unavailable \(503\)/i),
     ).toBeVisible();
@@ -1113,7 +1124,16 @@ test.describe('contract-faithful frontend flows', () => {
       page.getByText(/No flagged activity is available/i),
     ).toBeVisible();
     await page.goto('/supervisor/reports');
-    await expect(page.getByText(/No report rows/i)).toBeVisible();
+    const reportingError = page
+      .getByRole('region', { name: 'Operational reports' })
+      .getByRole('alert')
+      .first();
+    await expect(reportingError).toContainText(
+      'The report could not be loaded. Try again.',
+    );
+    await expect(
+      reportingError.getByRole('button', { name: 'Try again' }),
+    ).toBeVisible();
 
     await page.unroute('**/api/v1/auth/me');
     await page.route('**/api/v1/auth/me', async (route) => {

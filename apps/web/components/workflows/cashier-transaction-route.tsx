@@ -720,9 +720,10 @@ function FindCustomerView({
       searchTimerRef.current = null;
     }
     const term = lookupValue.trim();
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
     if (term.length >= 2) {
-      triggeredSearchRef.current = term;
-      setDirectoryPending(true);
+      triggeredSearchRef.current = offline ? '' : term;
+      setDirectoryPending(!offline);
     }
     lookupHandlerRef.current(event);
   }

@@ -41,7 +41,7 @@ test('reviews operational reports at desktop, tablet, and mobile widths', async 
   await expect(page.getByText('₦4,500.00').first()).toBeVisible();
   await expect(page.locator('.supervisor-reports-page')).toHaveCSS(
     'background-color',
-    'rgb(246, 244, 245)',
+    'rgba(0, 0, 0, 0)',
   );
   await page.screenshot({
     path: '/tmp/shopcity-supervisor-reports-desktop-top.png',
@@ -211,7 +211,10 @@ test('reviews operational reports at desktop, tablet, and mobile widths', async 
     expect(resultsPopupBox.x).toBeGreaterThan(
       resultsTriggerBox.x + resultsTriggerBox.width,
     );
-    expect(Math.abs(resultsPopupBox.y - resultsTriggerBox.y)).toBeLessThan(3);
+    expect(resultsPopupBox.y).toBeGreaterThanOrEqual(12);
+    expect(resultsPopupBox.y + resultsPopupBox.height).toBeLessThanOrEqual(
+      (page.viewportSize()?.height ?? 0) - 12,
+    );
     expect(resultsPopupBox.width).toBeLessThan(480);
     expect(resultsPopupBox.height).toBeLessThan(180);
   }

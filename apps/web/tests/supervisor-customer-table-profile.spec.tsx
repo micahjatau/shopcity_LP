@@ -340,7 +340,7 @@ describe('table-first customer workflow', () => {
     );
     expect(
       screen.getByRole('link', { name: 'Capture Purchase' }),
-    ).toHaveAttribute('href', '/cashier/earn?card=PRIVATE-CARD-001');
+    ).toHaveAttribute('href', '/cashier/earn?card=CARD-HINT-001');
     fireEvent.click(screen.getByRole('button', { name: 'Transactions' }));
     expect(
       screen.getByRole('table', { name: 'Customer transactions' }),
@@ -356,7 +356,7 @@ describe('table-first customer workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Virtual Card' }));
     expect(
       screen.getByRole('img', {
-        name: /ShopCity card preview.*card number PRIVATE-CARD-001/,
+        name: /ShopCity card preview.*card number CARD-HINT-001/,
       }),
     ).toBeVisible();
     expect(screen.getByText('Status: ACTIVE')).toBeVisible();

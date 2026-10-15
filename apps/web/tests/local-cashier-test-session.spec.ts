@@ -7,6 +7,11 @@ test.use({
 test('local test cashier session signs in without a paired device', async ({
   page,
 }) => {
+  test.skip(
+    process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === 'true',
+    'The local cashier test session is available only on the development server.',
+  );
+
   let requestedUsername: string | undefined;
 
   await page.route('**/api/v1/auth/dev/cashier-test-session', async (route) => {
