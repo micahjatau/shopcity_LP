@@ -818,6 +818,7 @@ test.describe('contract-faithful frontend flows', () => {
         };
       });
     expect(fraudCellTypography.textAlign).toBe('left');
+    await page.setViewportSize({ width: 1440, height: 900 });
     expect(
       await page
         .locator('.fraud-flags__table tbody tr:last-child > *')

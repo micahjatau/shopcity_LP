@@ -844,7 +844,7 @@ test.describe('workflow route coverage', () => {
   }) => {
     await mockShell(page, 'CASHIER');
     await page.setViewportSize({ width: 1440, height: 924 });
-    await page.route('**/api/v1/reports/cashier-today', (route) =>
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
       route.fulfill(
         json({
           success: true,
@@ -1820,7 +1820,7 @@ test.describe('workflow route coverage', () => {
       page.getByText('No transactions recorded today.'),
     ).toBeVisible();
 
-    await page.route('**/api/v1/reports/cashier-today', (route) =>
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
       route.fulfill({
         ...json({ success: false, error: { statusCode: 503 } }),
         status: 503,
@@ -1841,7 +1841,7 @@ test.describe('workflow route coverage', () => {
     const requestPending = new Promise<void>((resolve) => {
       releaseRequest = resolve;
     });
-    await page.route('**/api/v1/reports/cashier-today', async (route) => {
+    await page.route('**/api/v1/reports/cashier-today**', async (route) => {
       await requestPending;
       await route.fulfill(
         json({
@@ -1871,7 +1871,7 @@ test.describe('workflow route coverage', () => {
     page,
   }) => {
     await mockShell(page, 'CASHIER');
-    await page.route('**/api/v1/reports/cashier-today', (route) =>
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
       route.fulfill(
         json({
           success: true,
@@ -2229,7 +2229,7 @@ test.describe('workflow route coverage', () => {
         }),
       ),
     );
-    await page.route('**/api/v1/reports/cashier-today', (route) =>
+    await page.route('**/api/v1/reports/cashier-today**', (route) =>
       route.fulfill(
         json({
           success: true,
@@ -3938,9 +3938,9 @@ test.describe('workflow route coverage', () => {
       ],
       [
         '/supervisor/customers',
-        'register-flow',
+        'customer-results',
         'SUPERVISOR',
-        'register-customer',
+        'customer-directory',
       ],
       [
         '/supervisor/transactions',
@@ -3958,8 +3958,8 @@ test.describe('workflow route coverage', () => {
         await page.getByRole('button', { name: 'Proceed' }).click();
       }
       const element =
-        routeName === 'register-customer'
-          ? page.getByRole('tabpanel', { name: 'Register customer' })
+        routeName === 'customer-directory'
+          ? page.getByRole('region', { name: 'Customer results' })
           : page.locator(`[data-od-id="${landmark}"]`);
       await expect(page.locator('.shell-loading-screen')).toBeHidden();
       await expect(element).toBeVisible();
@@ -3974,11 +3974,11 @@ test.describe('workflow route coverage', () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(1440);
       expect(box!.width).toBeGreaterThan(0);
       expect(box!.height).toBeGreaterThan(0);
-      // The Supervisor customer tab replaces the former prototype workspace;
-      // keep its geometry covered without comparing it to the obsolete snapshot.
+      // The Supervisor customer directory has no approved prototype reference;
+      // keep its geometry covered without comparing it to an obsolete screenshot.
       if (
         routeName !== 'transaction-workspace' &&
-        routeName !== 'register-customer'
+        routeName !== 'customer-directory'
       ) {
         await expect(element).toHaveScreenshot(`prototype-${landmark}.png`, {
           maxDiffPixelRatio: 0.08,
@@ -4030,7 +4030,9 @@ test.describe('workflow route coverage', () => {
         expect(['flex', 'inline-flex', 'grid'], button.className).toContain(
           button.display,
         );
-        expect(button.whiteSpace, button.className).toBe('nowrap');
+        if (button.hasIconAndLabel) {
+          expect(button.whiteSpace, button.className).toBe('nowrap');
+        }
       }
     }
   });

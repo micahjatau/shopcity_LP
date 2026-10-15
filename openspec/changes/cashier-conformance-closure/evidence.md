@@ -120,3 +120,13 @@ Workflow routes: 20 passed, 0 failed, 0 skipped
 ```
 
 ```
+
+### 2026-10-14 — Overview snapshot and conformance closure
+
+- Confirmed the overview landmark was 1064px wide while the active layout contract specifies a 1120px maximum. Updated `.cashier-overview` to 1120px and capped its search control at the specified 300px.
+- Compared the old snapshots with current rendered pages and the approved Cashier design tasks. Six stale screenshots represented superseded Overview search, customer lookup, Capture Purchase, and Redeem presentations. Updated only those six snapshots; retained the current customer-or-receipt search and truthful bounded-activity copy.
+- Updated the paginated cashier-today test stubs to match URLs with query parameters. The detail test and all nine tests in `npm run conformance:test` pass.
+- Corrected the route fixture for `/supervisor/customers` to cover the actual Customer results region rather than a nonexistent Register customer tab panel. The directory has no approved prototype screenshot. Scoped the no-wrap assertion to buttons that contain both an icon and a text label; icon-only pagination buttons may use normal whitespace.
+- Corrected the fraud contract test to evaluate the desktop-only last-row border at 1440px after earlier responsive assertions changed the viewport. Its Supervisor Fraud contract flow passes.
+- Verification: cashier conformance 9/9; `cashier-lookup.spec.tsx` 22/22; Supervisor Fraud contract flow 1/1; Prettier and `git diff --check` pass.
+- Residual: `design-system:check` reports an existing `white-space` property ownership violation in `cashier-routes.css`; this change did not add or modify any `white-space` declarations. The targeted ESLint invocation is not applicable to Playwright specs because the web TypeScript config excludes `tests/**/*.ts`.
