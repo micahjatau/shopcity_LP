@@ -1,12 +1,16 @@
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { firstValueFrom, of } from 'rxjs';
-import { ReportsController } from '../../modules/reports/reports.controller';
 import { ResponseEnvelopeInterceptor } from './response-envelope.interceptor';
+import { SkipResponseEnvelope } from './skip-response-envelope.decorator';
 
 describe('ResponseEnvelopeInterceptor', () => {
   it('leaves explicitly raw CSV responses unwrapped', async () => {
+    class RawCsvResponseHandler {
+      @SkipResponseEnvelope()
+      exportReport() {}
+    }
     const exportHandler: unknown = Object.getOwnPropertyDescriptor(
-      ReportsController.prototype,
+      RawCsvResponseHandler.prototype,
       'exportReport',
     )?.value;
     if (typeof exportHandler !== 'function') {
