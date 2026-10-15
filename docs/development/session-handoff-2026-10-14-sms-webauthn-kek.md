@@ -6,8 +6,10 @@ Updated: 2026-10-14
 
 - Repository: `/root/github-repos/micahjatau/shopcity_LP`
 - Branch: `workflow-states-implementation`
-- Working tree: heavily dirty, including substantial unrelated frontend, generated, documentation, provider, and OpenSpec changes. Preserve all existing changes; do not reset, clean, stage broadly, or commit without reviewing the exact scope.
-- No database migration was made for the SMS work. The only external SMS action was the separately authorized one-recipient Twilio test described below.
+- Working tree: still dirty. Remaining unstaged items include generated Next/test outputs, a local environment swap file, and the nested `ai/` repository; preserve them and do not clean/reset them as part of this work.
+- Session commits are local; none were pushed. Recent isolated commits: `6af908f` (SMS providers), `758358e` (cashier/web conformance), `c9c57f5` (local migration tracker), and `953b7e6` (this handoff).
+- The provider implementation itself did not apply a database migration. Separately, two pending migrations were applied to the local database after a backup; no shared/production database was changed. See `docs/database/migration-tracker.md`.
+- The only external SMS action was the separately authorized one-recipient Twilio test described below.
 - `.env.local` is git-ignored. Never copy credentials, full numbers, message bodies, ciphertexts, or provider payloads into this handoff, logs, or chat.
 
 ## SMS work and current operational state
@@ -18,21 +20,21 @@ Updated: 2026-10-14
 - Twilio configuration requires API-key authentication and exactly one sender: an E.164 `From` number or a Messaging Service SID.
 - Twilio acceptance is stored as `SENT`; delivery callbacks are not ingested. No delivery claim should be made from the create response.
 - Because Messages creation has no documented provider idempotency key, Twilio dispatch claims a local tenant/outbox reservation before submission. Fresh reservations prevent duplicate dispatch; stale/ambiguous attempts dead-letter for provider-history review. Only explicit HTTP 429 is automatically retryable.
-- OpenSpec change `twilio-programmable-sms-provider` is complete and strict validation passed. Focused SMS/config/worker Jest, targeted ESLint, build, Semgrep, Prettier, and `git diff --check` passed. The implementation changes remain uncommitted in the dirty worktree.
+- OpenSpec change `twilio-programmable-sms-provider` is complete and strict validation passed. Focused SMS/config/worker Jest, targeted ESLint, build, Semgrep, Prettier, and `git diff --check` passed. The implementation is committed as `6af908f feat(sms): add guarded multi-provider delivery`; focused SMS Jest tests passed again after commit.
 
 ### One-off Twilio test and current state
 
 - The full worker was **not** started. The outbox was inspected in a remote Supabase read-only transaction: at that snapshot there were no unprocessed outbox events or eligible SMS sends. Worker startup also runs a credit-expiry sweep that can enqueue new reminder messages, so an empty snapshot alone does not authorize starting it.
 - After the user approved the exact test and configured sender, one direct, recipient-scoped Twilio API request was made with automatic SDK retries disabled. Twilio returned initial status `accepted`; the user confirmed receipt. The message was not written to ShopCity's outbox/SMS table, and its SID was not retained here.
 - The user reported Truecaller marked the sender as scam, then later reported that issue sorted. Treat the Truecaller issue as user-reported resolved; do not send more tests unless separately approved.
-- At the last local check, `.env.local` selected Twilio in real mode with exactly one Messaging Service sender configured. Values are not recorded here. Full application environment validation still fails because `DEVICE_ATTESTATION_KEK` is missing. **Do not start the worker until the KEK dependency is safely resolved and the outbox/send scope is reviewed.**
+- At the last local check, `.env.local` explicitly selected Twilio in real mode with exactly one Messaging Service sender configured. Values are not recorded here. Twilio is the selected provider for current operational work; the code-level default remains eBulkSMS to preserve existing deployment behavior. Full application environment validation still fails because `DEVICE_ATTESTATION_KEK` is missing. **Do not start the worker until the KEK dependency is safely resolved and the outbox/send scope is reviewed.**
 
-### Other SMS-provider blockers — do not retry
+### Other SMS-provider history — deferred while Twilio is selected
 
-- **eBulkSMS (#22; blocks #17):** two prior authorized attempts returned failure without provider message IDs or DLRs; the user reported no dashboard logs. Confirm acceptance/charge/history and diagnose account/API/sender/endpoint configuration before retry. Existing attempt correlation IDs are tracked in the related SMS notes/todos.
-- **Arkesel (#27; blocks #24):** previous live/sandbox attempts returned 422/500 without provider IDs or DLRs. Check provider history, credits, and request diagnostics before any further request.
-- **Africa's Talking (#32 → #30 → #29):** two sandbox requests returned HTTP 401 without provider IDs. Resolve sandbox-key/account authorization with provider support before any retry.
-- No credentials or destination numbers should be copied into support tickets. Do not treat missing provider IDs or dashboard evidence as proof that a send was not processed.
+- **eBulkSMS (#22; blocks #17):** two prior authorized attempts returned failure without provider message IDs or DLRs; the user reported no dashboard logs. This history remains unresolved, but diagnosis and smoke work are deferred unless eBulkSMS is selected again. Do not retry the uncertain attempts.
+- **Arkesel (#27; blocks #24):** previous live/sandbox attempts returned 422/500 without provider IDs or DLRs. Diagnosis and smoke work are deferred unless Arkesel is selected again. Do not retry the uncertain attempts.
+- **Africa's Talking (#32 → #30 → #29):** two sandbox requests returned HTTP 401 without provider IDs. Authorization and sandbox work are deferred unless Africa's Talking is selected again. Do not retry.
+- These are deferred, not resolved. Do not copy credentials or destination numbers into support tickets, and do not treat missing provider IDs/dashboard evidence as proof that an attempt was not processed.
 
 ## Why `DEVICE_ATTESTATION_KEK` still exists after moving to WebAuthn
 
@@ -73,11 +75,11 @@ The phase-2 contract documents development-project evidence of 10 devices defaul
 
 ## Open work items
 
-- SMS attempt diagnosis remains pending in todos #17/#22 (eBulkSMS), #24/#27 (Arkesel), and #29/#30/#32 (Africa's Talking). Keep them open until provider history/support resolves uncertainty.
-- Todo #34 now tracks KEK dependency scoping; the user reports the Truecaller issue resolved.
-- Todo #35 tracks this handoff and should be completed after the handoff/index update is verified.
-- Twilio implementation todo #33 is complete; provider integration does not imply approval for additional sends.
+- Twilio is the chosen provider for current work; no additional live send is authorized by that choice. The user reports the earlier Truecaller issue resolved.
+- Todos #17/#22 (eBulkSMS), #24/#27 (Arkesel), and #29/#30/#32 (Africa's Talking) are deferred while Twilio is selected. Historical uncertain attempts must not be retried unless the provider is reselected and the outcome is diagnosed.
+- Todo #34 (scope `DEVICE_ATTESTATION_KEK` validation) remains outstanding and is independent of provider selection; it blocks full worker startup until safely resolved.
+- Twilio implementation (#33), handoff (#35), Graphiti memory save (#36), and isolated commit review (#37) are complete. The Graphiti memories were saved and verified searchable.
 
 ## Safe continuation
 
-Start the next session by reading this file, checking `git status` and the current local provider configuration without printing secrets, reviewing the OpenSpec WebAuthn migration gate, and doing the KEK/data inventory read-only. Preserve the existing worktree and do not start the worker or retry any provider attempt until its specific gates are satisfied.
+Start the next session by reading this file, checking `git status` and the current local provider selection without printing secrets, reviewing the OpenSpec WebAuthn migration gate, and doing the KEK/data inventory read-only. Focus on Twilio for provider work; keep other providers deferred. Preserve generated/local worktree artifacts. Do not start the worker or make another provider request until the KEK/startup and explicit-send gates are satisfied.
