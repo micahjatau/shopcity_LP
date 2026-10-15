@@ -294,9 +294,6 @@ function prismaStub(overrides: {
   };
   return {
     idempotencyRecord,
-    branch: {
-      findFirst: jest.fn().mockResolvedValue({ id: 'branch-1' }),
-    },
     fraudFlag: {
       findMany: overrides.findMany ?? jest.fn().mockResolvedValue([]),
       findFirst: overrides.findFirst ?? jest.fn(),
