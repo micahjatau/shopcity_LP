@@ -1733,3 +1733,21 @@ node scripts/gitnexus.cjs impact -r shopcity_LP --file apps/web/components/devic
 ```
 
 All supplemental results are LOW/exact; no HIGH/CRITICAL result was reported. New endpoint/helper symbols are not indexed yet. Existing `loadAuthContext` and `CsrfGuard` scope will be kept unchanged except for adding a public-login Origin gate; endpoint-level and focused tests will cover that change. The working tree was already dirty; generated outputs and all unrelated changes remain preserved.
+
+### 2026-10-16 — Close POS lifecycle, fraud pagination, and SMS tracking findings
+
+| Symbol                              |       Risk | Impacted | Direct | Processes | Notes                                                                                                                                                         |
+| ----------------------------------- | ---------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DeviceManagement.createDevice`     | LOW, exact |        3 |      1 |         2 | Same-payload retries reuse the server-supported idempotency key; successful/new payload operations get fresh keys.                                            |
+| `DeviceManagement.updateDevice`     | LOW, exact |        3 |      1 |         2 | Same target/payload retry identity is retained across uncertain outcomes; the existing device idempotency service remains unchanged.                          |
+| `SupervisorFlaggedActivity.refresh` | LOW, exact |        5 |      2 |         2 | Shared component feeds Admin/Supervisor flows in the graph; implementation stays in the Supervisor presentation and preserves scope-level summaries.          |
+| `mapArkeselSmsResponse`             | LOW, exact |        1 |      1 |         0 | Arkesel acceptance without a matching non-empty ID is terminal/uncertain; Africa's Talking `SENT` behavior without an ID and no DLR polling remain unchanged. |
+
+```text
+npm run proposal:impact -- --file apps/web/components/devices/device-management.tsx createDevice
+npm run proposal:impact -- --file apps/web/components/devices/device-management.tsx updateDevice
+npm run proposal:impact -- --file apps/web/components/workflows/supervisor-flagged-activity.tsx refresh
+npm run proposal:impact -- --file src/jobs/sms.provider.ts mapArkeselSmsResponse
+```
+
+No HIGH/CRITICAL result was reported. The POS cookie/lifecycle changes remain scoped to DEVICE_TOKEN; fraud status/severity/branch filters use the existing scoped API and cursor pagination; Arkesel's uncertain accepted send is not automatically retried. Existing unrelated dirty/untracked checkout content is preserved.
