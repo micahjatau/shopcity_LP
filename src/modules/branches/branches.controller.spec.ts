@@ -35,15 +35,25 @@ describe('BranchesController', () => {
   it('clears only the POS device token cookie after a successful reset', async () => {
     const service = {
       assertDeviceTokenBrowserOrigin: jest.fn(),
-      resetDeviceToken: jest.fn().mockResolvedValue(undefined),
+      resetDeviceToken: jest.fn().mockResolvedValue(true),
     };
     const controller = new BranchesController(service as never);
     const reply = { header: jest.fn() };
+    const request = {
+      authContext: { user: { tenantId: 'tenant-id' } },
+      headers: { cookie: `__Host-shopcity_pos_device=${'a'.repeat(43)}` },
+    };
     await controller.resetDeviceToken(
-      { authContext: { user: { tenantId: 'tenant-id' } } } as never,
+      request as never,
       'device-id',
       'https://pos.example.test',
       reply as never,
+    );
+    expect(service.resetDeviceToken).toHaveBeenCalledWith(
+      'tenant-id',
+      request.authContext,
+      'device-id',
+      'a'.repeat(43),
     );
     expect(reply.header).toHaveBeenCalledWith(
       'Set-Cookie',
@@ -51,6 +61,66 @@ describe('BranchesController', () => {
         '__Host-shopcity_pos_device=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly; Secure',
       ),
     );
+  });
+
+  it('does not clear a different device token when reset from another browser', async () => {
+    const service = {
+      assertDeviceTokenBrowserOrigin: jest.fn(),
+      resetDeviceToken: jest.fn().mockResolvedValue(false),
+    };
+    const controller = new BranchesController(service as never);
+    const reply = { header: jest.fn() };
+
+    await controller.resetDeviceToken(
+      {
+        authContext: { user: { tenantId: 'tenant-id' } },
+        headers: { cookie: `__Host-shopcity_pos_device=${'b'.repeat(43)}` },
+      } as never,
+      'other-device-id',
+      'https://pos.example.test',
+      reply as never,
+    );
+
+    expect(reply.header).not.toHaveBeenCalled();
+  });
+
+  it('clears a deactivated device cookie only when the matching credential was present', async () => {
+    const token = 'c'.repeat(43);
+    const service = {
+      updateDevice: jest.fn().mockResolvedValue({
+        id: 'device-id',
+        status: 'INACTIVE',
+        clearDeviceTokenCookie: true,
+      }),
+    };
+    const controller = new BranchesController(service as never);
+    const reply = { header: jest.fn() };
+    const request = {
+      authContext: { user: { tenantId: 'tenant-id' } },
+      headers: { cookie: `__Host-shopcity_pos_device=${token}` },
+    };
+
+    const response = await controller.updateDevice(
+      request as never,
+      'device-id',
+      { status: 'INACTIVE' } as never,
+      'idempotency-key',
+      reply as never,
+    );
+
+    expect(service.updateDevice).toHaveBeenCalledWith(
+      'tenant-id',
+      request.authContext,
+      'device-id',
+      { status: 'INACTIVE' },
+      'idempotency-key',
+      token,
+    );
+    expect(reply.header).toHaveBeenCalledWith(
+      'Set-Cookie',
+      expect.stringContaining('__Host-shopcity_pos_device=; Path=/; Max-Age=0'),
+    );
+    expect(response).not.toHaveProperty('clearDeviceTokenCookie');
   });
 
   it('returns the documented HTTP 200 status for enrollment completion', () => {

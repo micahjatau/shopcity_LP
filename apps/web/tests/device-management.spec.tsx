@@ -131,9 +131,9 @@ describe('DeviceManagement', () => {
       'device-1',
     );
     expect(window.localStorage.length).toBe(1);
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      /now has its HttpOnly device credential/i,
-    );
+    expect(
+      screen.getByText(/now has its HttpOnly device credential/i),
+    ).toBeVisible();
   });
 
   it('shows DEVICE_TOKEN last-use state and resets through the CSRF-protected API', async () => {
@@ -173,6 +173,155 @@ describe('DeviceManagement', () => {
     expect(window.localStorage.getItem('shopcity:paired-device-id')).toBeNull();
   });
 
+  it('shows Pairing required when a DEVICE_TOKEN device has no active credential', async () => {
+    const uncredentialedDevice = {
+      ...activeUnpairedDevice,
+      authBindingMode: 'DEVICE_TOKEN',
+      pairedAt: '2026-10-15T00:00:00.000Z',
+      deviceTokenCredentials: [],
+    };
+    jest
+      .mocked(branchesControllerListDevicesV1)
+      .mockResolvedValue(deviceListResponse(uncredentialedDevice) as never);
+
+    render(<DeviceManagement />);
+
+    expect(
+      await screen.findByText(/Pairing required\. This device has no active/i),
+    ).toBeVisible();
+    expect(screen.getByText(/no active browser credential/i)).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Pair this target POS browser' }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByText(/credential is active; no cashier login/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('preserves another device locator when resetting the selected device', async () => {
+    const tokenDevice = {
+      ...activeUnpairedDevice,
+      id: 'device-2',
+      name: 'Back register',
+      authBindingMode: 'DEVICE_TOKEN',
+      deviceTokenCredentials: [{ id: 'token-row-2', status: 'ACTIVE' }],
+    };
+    jest
+      .mocked(branchesControllerListDevicesV1)
+      .mockResolvedValue(deviceListResponse(tokenDevice) as never);
+    jest.mocked(branchesControllerResetDeviceTokenV1).mockResolvedValue({
+      status: 200,
+      data: { data: { status: 'reset' } },
+    } as never);
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-1');
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<DeviceManagement />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Reset browser credential' }),
+    );
+
+    await waitFor(() =>
+      expect(branchesControllerResetDeviceTokenV1).toHaveBeenCalledWith(
+        'device-2',
+        expect.any(Object),
+      ),
+    );
+    expect(window.localStorage.getItem('shopcity:paired-device-id')).toBe(
+      'device-1',
+    );
+  });
+
+  it('locks device selection while a pairing request is pending', async () => {
+    const secondDevice = {
+      ...activeUnpairedDevice,
+      id: 'device-2',
+      name: 'Back register',
+    };
+    jest.mocked(branchesControllerListDevicesV1).mockResolvedValue({
+      status: 200,
+      data: { success: true, data: [activeUnpairedDevice, secondDevice] },
+    } as never);
+    let resolvePair!: (response: unknown) => void;
+    const pendingPair = new Promise<unknown>((resolve) => {
+      resolvePair = resolve;
+    });
+    jest
+      .mocked(branchesControllerPairDeviceTokenV1)
+      .mockReturnValue(pendingPair as never);
+
+    render(<DeviceManagement />);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Pair this target POS browser',
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /i confirm this is the authorized target POS browser/i,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Start pairing on this browser' }),
+    );
+
+    await waitFor(() =>
+      expect(branchesControllerPairDeviceTokenV1).toHaveBeenCalledWith(
+        'device-1',
+        expect.any(Object),
+      ),
+    );
+    const selector = screen.getByRole('button', {
+      name: 'Device: Front register',
+    });
+    expect(selector).toBeDisabled();
+    fireEvent.click(selector);
+    expect(selector).toHaveAttribute('aria-expanded', 'false');
+    resolvePair({ status: 200, data: { data: { status: 'paired' } } });
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('shopcity:paired-device-id')).toBe(
+        'device-1',
+      );
+    });
+    expect(
+      screen.getByRole('button', { name: 'Device: Front register' }),
+    ).toBeVisible();
+  });
+
+  it('disables stale device actions after refresh failure and re-enables after recovery', async () => {
+    const listDevices = jest.mocked(branchesControllerListDevicesV1);
+    listDevices
+      .mockResolvedValueOnce(deviceListResponse() as never)
+      .mockRejectedValueOnce(new Error('temporary list failure'))
+      .mockResolvedValue(deviceListResponse() as never);
+
+    render(<DeviceManagement />);
+    await screen.findByRole('button', { name: 'Pair this target POS browser' });
+    const refresh = screen.getByRole('button', { name: 'Refresh devices' });
+    fireEvent.click(refresh);
+
+    expect(
+      await screen.findByText(/unavailable in this account or branch/i),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Device: Front register' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Pair this target POS browser' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Deactivate device' }),
+    ).toBeDisabled();
+
+    fireEvent.click(refresh);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Pair this target POS browser' }),
+      ).toBeEnabled(),
+    );
+  });
+
   it('shows pairing errors inside the confirmation dialog until dismissed', async () => {
     jest
       .mocked(branchesControllerPairDeviceTokenV1)
@@ -193,9 +342,11 @@ describe('DeviceManagement', () => {
       screen.getByRole('button', { name: 'Start pairing on this browser' }),
     );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /pairing failed\. confirm the authorized account/i,
-    );
+    expect(
+      await screen.findByText(
+        /pairing failed\. confirm the authorized account/i,
+      ),
+    ).toBeVisible();
     expect(
       screen.getByRole('dialog', { name: 'Before pairing this register' }),
     ).toBeVisible();
@@ -317,8 +468,8 @@ describe('DeviceManagement', () => {
       screen.queryByText(/branch is locked to your assigned branch/i),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Refresh devices' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'Refresh devices' }),
+    ).toBeEnabled();
     expect(
       screen.queryByRole('combobox', { name: 'Branch' }),
     ).not.toBeInTheDocument();
@@ -391,6 +542,149 @@ describe('DeviceManagement', () => {
       ),
     ).toBeVisible();
     expect(branchesControllerCreateDeviceV1).toHaveBeenCalled();
+  });
+
+  it('reuses create idempotency identity on retry and rotates it for a new device', async () => {
+    const create = jest
+      .mocked(branchesControllerCreateDeviceV1)
+      .mockResolvedValueOnce({
+        status: 503,
+        data: { success: false, error: { code: 'TEMPORARY_FAILURE' } },
+      } as never)
+      .mockResolvedValue({
+        status: 201,
+        data: { success: true, data: {} },
+      } as never);
+    render(<DeviceManagement />);
+
+    fireEvent.change(
+      await screen.findByRole('textbox', { name: 'Device name' }),
+      { target: { value: 'Retry register' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Create device' }));
+    expect(
+      await screen.findByText(
+        /server's device security schema may not support/i,
+      ),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh devices' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Create device' }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Create device' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+
+    const firstRetryRequest = create.mock.calls[0]?.[1] as {
+      headers?: Record<string, string>;
+    };
+    const secondRetryRequest = create.mock.calls[1]?.[1] as {
+      headers?: Record<string, string>;
+    };
+    const firstKey = firstRetryRequest.headers?.['idempotency-key'];
+    expect(firstKey).toBeTruthy();
+    expect(secondRetryRequest.headers?.['idempotency-key']).toBe(firstKey);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Device name' }), {
+      target: { value: 'Another register' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create device' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(3));
+    const newOperationRequest = create.mock.calls[2]?.[1] as {
+      headers?: Record<string, string>;
+    };
+    expect(newOperationRequest.headers?.['idempotency-key']).not.toBe(firstKey);
+  });
+
+  it('reuses device update idempotency identity after an uncertain result', async () => {
+    const inactiveDevice = { ...activeUnpairedDevice, status: 'INACTIVE' };
+    jest
+      .mocked(branchesControllerListDevicesV1)
+      .mockResolvedValue(deviceListResponse(inactiveDevice) as never);
+    const update = jest
+      .mocked(branchesControllerUpdateDeviceV1)
+      .mockResolvedValueOnce({
+        status: 503,
+        data: { success: false, error: { code: 'TEMPORARY_FAILURE' } },
+      } as never)
+      .mockResolvedValue({
+        status: 200,
+        data: { success: true, data: { status: 'ACTIVE' } },
+      } as never);
+    render(<DeviceManagement />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Reactivate device' }),
+    );
+    expect(
+      await screen.findByText(/device security schema may be incompatible/i),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh devices' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Reactivate device' }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reactivate device' }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+
+    const firstRequest = update.mock.calls[0]?.[2] as {
+      headers?: Record<string, string>;
+    };
+    const retryRequest = update.mock.calls[1]?.[2] as {
+      headers?: Record<string, string>;
+    };
+    const firstKey = firstRequest.headers?.['idempotency-key'];
+    expect(firstKey).toBeTruthy();
+    expect(retryRequest.headers?.['idempotency-key']).toBe(firstKey);
+  });
+
+  it('shows Pairing required after a token device is reactivated', async () => {
+    const inactiveTokenDevice = {
+      ...activeUnpairedDevice,
+      status: 'INACTIVE',
+      authBindingMode: 'DEVICE_TOKEN',
+      pairedAt: '2026-10-15T00:00:00.000Z',
+      deviceTokenCredentials: [],
+    };
+    const reactivatedUnpairedDevice = {
+      ...activeUnpairedDevice,
+      status: 'ACTIVE',
+      authBindingMode: 'UNPAIRED',
+      pairedAt: null,
+    };
+    jest
+      .mocked(branchesControllerListDevicesV1)
+      .mockResolvedValueOnce(deviceListResponse(inactiveTokenDevice) as never)
+      .mockResolvedValue(
+        deviceListResponse(reactivatedUnpairedDevice) as never,
+      );
+    jest.mocked(branchesControllerUpdateDeviceV1).mockResolvedValue({
+      status: 200,
+      data: { success: true, data: { status: 'ACTIVE' } },
+    } as never);
+
+    render(<DeviceManagement />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Reactivate device' }),
+    );
+
+    await waitFor(() =>
+      expect(branchesControllerUpdateDeviceV1).toHaveBeenCalledWith(
+        'device-1',
+        expect.objectContaining({ status: 'ACTIVE' }),
+        expect.any(Object),
+      ),
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Pairing required',
+    );
+    expect(screen.getByText('UNPAIRED')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Pair this target POS browser' }),
+    ).toBeEnabled();
   });
 
   it('shows a schema-specific explanation when reactivation fails on the server', async () => {

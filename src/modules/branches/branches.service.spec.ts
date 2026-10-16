@@ -5,6 +5,7 @@ import {
   DeviceAuthBindingMode,
   DeviceEnrollmentPurpose,
   DeviceStatus,
+  DeviceTokenCredentialStatus,
   DeviceWebAuthnCredentialStatus,
   TenantStatus,
   SessionStatus,
@@ -18,6 +19,7 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import type { AuthContext } from '../../common/auth/session.types';
+import { hashDeviceToken } from '../../common/auth/device-token';
 import { BranchesService } from './branches.service';
 
 jest.mock('@simplewebauthn/server', () => {
@@ -145,6 +147,66 @@ describe('BranchesService', () => {
         actorId: 'user-id',
       }),
     );
+  });
+
+  it('clears a reset cookie only when its token belongs to the selected device', async () => {
+    const key = randomBytes(32).toString('base64url');
+    const token = randomBytes(32).toString('base64url');
+    const device = {
+      id: 'device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: DeviceStatus.ACTIVE,
+      authBindingMode: DeviceAuthBindingMode.DEVICE_TOKEN,
+      branch: {
+        status: BranchStatus.ACTIVE,
+        tenant: { status: TenantStatus.ACTIVE },
+      },
+    };
+    const tx = {
+      $queryRaw: jest.fn(),
+      device: {
+        findFirst: jest.fn().mockResolvedValue(device),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      deviceTokenCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          tokenHash: hashDeviceToken(token, key),
+          keyVersion: 1,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      session: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const service = new BranchesService(
+      {
+        device: { findFirst: jest.fn().mockResolvedValue(device) },
+        $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+          callback(tx),
+        ),
+      } as never,
+      { recordWithClient: jest.fn() } as never,
+      {
+        get: (name: string) =>
+          name === 'POS_DEVICE_TOKEN_HMAC_KEY'
+            ? key
+            : name === 'POS_DEVICE_TOKEN_HMAC_KEY_VERSION'
+              ? 1
+              : undefined,
+      } as never,
+    );
+
+    await expect(
+      service.resetDeviceToken('tenant-id', actorStub(), 'device-id', token),
+    ).resolves.toBe(true);
+    expect(tx.deviceTokenCredential.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-id',
+        deviceId: 'device-id',
+        status: 'ACTIVE',
+      },
+      select: { tokenHash: true, keyVersion: true },
+    });
   });
 
   it('preserves Supervisor branch scope and non-enumerating lookup for token pairing', async () => {
@@ -1345,6 +1407,161 @@ describe('BranchesService', () => {
     ).rejects.toMatchObject({ response: { code: 'DEVICE_NOT_AVAILABLE' } });
     expect(tx.device.updateMany).toHaveBeenCalled();
     expect(tx.session.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps a DEVICE_TOKEN device unpaired after reactivation', async () => {
+    const inactiveDevice = {
+      id: 'device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: DeviceStatus.INACTIVE,
+      authBindingMode: DeviceAuthBindingMode.DEVICE_TOKEN,
+      pairedAt: new Date('2026-10-15T00:00:00.000Z'),
+    };
+    const reactivatedDevice = {
+      ...inactiveDevice,
+      status: DeviceStatus.ACTIVE,
+      authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+      pairedAt: null,
+    };
+    const tx = {
+      $queryRaw: jest.fn(),
+      device: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(inactiveDevice)
+          .mockResolvedValue(reactivatedDevice),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      deviceTokenCredential: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      session: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    };
+    const prisma = {
+      device: { findFirst: jest.fn().mockResolvedValue(inactiveDevice) },
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const service = new BranchesService(
+      prisma as never,
+      { recordWithClient: jest.fn() } as never,
+      { get: () => undefined } as never,
+    );
+
+    const result = await service.updateDevice(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+      { status: DeviceStatus.ACTIVE },
+      'device-token-reactivate',
+    );
+
+    expect(tx.device.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: DeviceStatus.ACTIVE,
+          authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          pairedAt: null,
+        },
+      }),
+    );
+    expect(tx.deviceTokenCredential.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant-id',
+          deviceId: 'device-id',
+          status: DeviceTokenCredentialStatus.ACTIVE,
+        },
+        data: expect.objectContaining({
+          status: DeviceTokenCredentialStatus.REVOKED,
+        }) as never,
+      }),
+    );
+    expect(result).toMatchObject({
+      status: DeviceStatus.ACTIVE,
+      authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+      pairedAt: null,
+    });
+  });
+
+  it('deactivates a DEVICE_TOKEN device into an unpaired state', async () => {
+    const key = randomBytes(32).toString('base64url');
+    const presentedToken = randomBytes(32).toString('base64url');
+    const activeDevice = {
+      id: 'device-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: DeviceStatus.ACTIVE,
+      authBindingMode: DeviceAuthBindingMode.DEVICE_TOKEN,
+      pairedAt: new Date('2026-10-15T00:00:00.000Z'),
+    };
+    const inactiveDevice = {
+      ...activeDevice,
+      status: DeviceStatus.INACTIVE,
+      authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+      pairedAt: null,
+    };
+    const tx = {
+      $queryRaw: jest.fn(),
+      device: {
+        findFirst: jest.fn().mockResolvedValue(activeDevice),
+        update: jest.fn().mockResolvedValue(inactiveDevice),
+      },
+      deviceTokenCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          tokenHash: hashDeviceToken(presentedToken, key),
+          keyVersion: 1,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      session: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const prisma = {
+      device: { findFirst: jest.fn().mockResolvedValue(activeDevice) },
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const service = new BranchesService(
+      prisma as never,
+      { recordWithClient: jest.fn() } as never,
+      {
+        get: (name: string) =>
+          name === 'POS_DEVICE_TOKEN_HMAC_KEY'
+            ? key
+            : name === 'POS_DEVICE_TOKEN_HMAC_KEY_VERSION'
+              ? 1
+              : undefined,
+      } as never,
+    );
+
+    const result = await service.updateDevice(
+      'tenant-id',
+      actorStub(),
+      'device-id',
+      { status: DeviceStatus.INACTIVE },
+      'device-token-deactivate',
+      presentedToken,
+    );
+
+    expect(tx.device.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: DeviceStatus.INACTIVE,
+          authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+          pairedAt: null,
+        },
+      }),
+    );
+    expect(tx.deviceTokenCredential.updateMany).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: DeviceStatus.INACTIVE,
+      authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+      pairedAt: null,
+      clearDeviceTokenCookie: true,
+    });
   });
 
   it('allows UNPAIRED devices to reactivate without HMAC metadata', async () => {

@@ -38,6 +38,7 @@ import {
   createDeviceToken,
   configuredDeviceTokenKeyVersion,
   hashDeviceToken,
+  matchesDeviceTokenHash,
 } from '../../common/auth/device-token';
 type DeviceManagementScope =
   | { tenantWide: true; branchId: null }
@@ -291,7 +292,8 @@ export class BranchesService {
     tenantId: string,
     actor: AuthContext,
     deviceId: string,
-  ): Promise<void> {
+    presentedToken?: string,
+  ): Promise<boolean> {
     const scope = resolveDeviceManagementScope(actor);
     const device = await this.prismaService.device.findFirst({
       where: scope.tenantWide
@@ -309,7 +311,7 @@ export class BranchesService {
       throw deviceNotAvailable();
     }
     const now = new Date();
-    await this.prismaService.$transaction(async (prisma) => {
+    return this.prismaService.$transaction(async (prisma) => {
       await prisma.$queryRaw(Prisma.sql`
         SELECT "id" FROM "Device" WHERE "id" = ${deviceId} AND "tenantId" = ${tenantId} FOR UPDATE
       `);
@@ -328,6 +330,28 @@ export class BranchesService {
       ) {
         throw deviceNotAvailable();
       }
+      const activeCredential = presentedToken
+        ? await prisma.deviceTokenCredential.findFirst({
+            where: {
+              tenantId,
+              deviceId,
+              status: DeviceTokenCredentialStatus.ACTIVE,
+            },
+            select: { tokenHash: true, keyVersion: true },
+          })
+        : null;
+      const configuredKeyVersion = configuredDeviceTokenKeyVersion(
+        this.configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+      );
+      const clearDeviceTokenCookie = Boolean(
+        presentedToken &&
+        activeCredential?.keyVersion === configuredKeyVersion &&
+        matchesDeviceTokenHash(
+          presentedToken,
+          activeCredential.tokenHash,
+          this.configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY'),
+        ),
+      );
       const transition = await prisma.device.updateMany({
         where: {
           id: deviceId,
@@ -362,6 +386,7 @@ export class BranchesService {
         entityId: deviceId,
         metadata: { resetAt: now, revokedSessionCount: sessions.count },
       });
+      return clearDeviceTokenCookie;
     });
   }
 
@@ -861,6 +886,7 @@ export class BranchesService {
     deviceId: string,
     data: { name?: string; status?: string; rotateAttestationSecret?: boolean },
     idempotencyKey: string | undefined,
+    presentedToken?: string,
   ) {
     const normalizedKey = normalizeDeviceIdempotencyKey(idempotencyKey);
     const endpoint = 'devices.update';
@@ -915,7 +941,9 @@ export class BranchesService {
       );
     }
 
-    const response = await this.prismaService.$transaction(async (prisma) => {
+    const response: DeviceProvisioningResponse & {
+      clearDeviceTokenCookie?: boolean;
+    } = await this.prismaService.$transaction(async (prisma) => {
       await prisma.$queryRaw(Prisma.sql`
         SELECT "id"
         FROM "Device"
@@ -996,10 +1024,41 @@ export class BranchesService {
 
       let attestationSecret: string | null = null;
       let attestationSecretVersion: number | undefined;
-      const updateData = {
+      const updateData: Prisma.DeviceUpdateInput = {
         ...(data.name ? { name: data.name } : {}),
         ...(data.status ? { status: data.status as DeviceStatus } : {}),
       };
+      const deviceTokenModeTransition =
+        currentDevice.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN &&
+        data.status !== undefined &&
+        data.status !== currentDevice.status;
+      if (deviceTokenModeTransition) {
+        updateData.authBindingMode = DeviceAuthBindingMode.UNPAIRED;
+        updateData.pairedAt = null;
+      }
+      const activeTokenCredential =
+        deviceTokenModeTransition && presentedToken
+          ? await prisma.deviceTokenCredential.findFirst({
+              where: {
+                tenantId,
+                deviceId,
+                status: DeviceTokenCredentialStatus.ACTIVE,
+              },
+              select: { tokenHash: true, keyVersion: true },
+            })
+          : null;
+      const clearDeviceTokenCookie = Boolean(
+        presentedToken &&
+        activeTokenCredential?.keyVersion ===
+          configuredDeviceTokenKeyVersion(
+            this.configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+          ) &&
+        matchesDeviceTokenHash(
+          presentedToken,
+          activeTokenCredential.tokenHash,
+          this.configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY'),
+        ),
+      );
 
       if (data.rotateAttestationSecret) {
         attestationSecret = generateDeviceAttestationSecret();
@@ -1040,16 +1099,24 @@ export class BranchesService {
         });
       }
 
+      const deviceTokenReactivation =
+        deviceTokenModeTransition && data.status === DeviceStatus.ACTIVE;
       const shouldRevokeSessions =
         data.rotateAttestationSecret ||
-        (data.status ? data.status !== DeviceStatus.ACTIVE : false);
+        (data.status ? data.status !== DeviceStatus.ACTIVE : false) ||
+        deviceTokenModeTransition;
       const revokeReason = data.rotateAttestationSecret
         ? 'device_attestation_rotated'
-        : 'device_status_ineligible';
+        : deviceTokenReactivation
+          ? 'device_token_reactivation_requires_pairing'
+          : 'device_status_ineligible';
 
       if (shouldRevokeSessions) {
         const revokedAt = new Date();
-        if (data.status && data.status !== DeviceStatus.ACTIVE) {
+        if (
+          deviceTokenModeTransition ||
+          (data.status && data.status !== DeviceStatus.ACTIVE)
+        ) {
           await prisma.deviceTokenCredential.updateMany({
             where: {
               tenantId,
@@ -1110,16 +1177,24 @@ export class BranchesService {
         updated;
       void attestationSecretCiphertext;
       void fingerprintHash;
-      return attestationSecret
+      const result = attestationSecret
         ? { ...safeUpdated, attestationSecret }
         : safeUpdated;
+      return clearDeviceTokenCookie
+        ? { ...result, clearDeviceTokenCookie: true }
+        : result;
     });
 
     if (this.prismaService.idempotencyRecord?.update) {
       // HMAC credentials are one-time response data, never replayable from the
       // persistent idempotency record.
+      // Cookie clearing is a per-response hint; never replay it to a different browser.
+      const replayableResponse = {
+        ...response,
+        clearDeviceTokenCookie: undefined,
+      };
       const idempotencyResponse = JSON.parse(
-        JSON.stringify(response, (key, value: unknown) =>
+        JSON.stringify(replayableResponse, (key, value: unknown) =>
           key === 'attestationSecret' ? undefined : value,
         ) ?? '{}',
       ) as Prisma.InputJsonValue;

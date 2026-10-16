@@ -67,6 +67,13 @@ type Props = { supervisor?: boolean };
 const PAIRED_DEVICE_LOCATOR_KEY = 'shopcity:paired-device-id';
 const RFC_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const IDEMPOTENCY_RETRY_WINDOW_MS = 23 * 60 * 60 * 1000;
+
+type PendingIdempotencyKey = {
+  fingerprint: string;
+  key: string;
+  expiresAt: number;
+};
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
@@ -83,10 +90,12 @@ function DeviceSelector({
   devices,
   selectedId,
   onSelect,
+  disabled = false,
 }: Readonly<{
   devices: Device[];
   selectedId: string;
   onSelect: (deviceId: string) => void;
+  disabled?: boolean;
 }>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -160,6 +169,7 @@ function DeviceSelector({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
+        disabled={disabled}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
@@ -195,6 +205,7 @@ function DeviceSelector({
               aria-selected={device.id === selectedId}
               tabIndex={activeIndex === index ? 0 : -1}
               className="device-management__selector-option"
+              disabled={disabled}
               onKeyDown={(event) => handleOptionKeyDown(event, index)}
               onClick={() => {
                 onSelect(device.id);
@@ -220,7 +231,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
   const [branchId, setBranchId] = useState('');
   const [name, setName] = useState('');
   const [selectedId, setSelectedId] = useState('');
+  const selectedIdRef = useRef('');
   const [loading, setLoading] = useState(true);
+  const [dataFresh, setDataFresh] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Loading device management…');
   const [pairingConfirmationFor, setPairingConfirmationFor] = useState('');
@@ -234,6 +247,10 @@ export function DeviceManagement({ supervisor = false }: Props) {
     useState('');
   const [deviceLocatorBrowserConfirmed, setDeviceLocatorBrowserConfirmed] =
     useState(false);
+  const refreshSequenceRef = useRef(0);
+  const mutationIdempotencyKeysRef = useRef(
+    new Map<string, PendingIdempotencyKey>(),
+  );
   const [oneTimeHmacSecret, setOneTimeHmacSecret] = useState<string | null>(
     null,
   );
@@ -241,12 +258,46 @@ export function DeviceManagement({ supervisor = false }: Props) {
   const selected = devices.find((device) => device.id === selectedId);
   const credentials = selected?.webAuthnCredentials ?? [];
   const tokenCredentials = selected?.deviceTokenCredentials ?? [];
+  const activeTokenCredential = tokenCredentials.find(
+    (credential) => credential.status === 'ACTIVE',
+  );
+
+  function mutationIdempotencyKey(
+    operation: string,
+    payload: Record<string, unknown>,
+  ) {
+    const fingerprint = JSON.stringify(payload);
+    const pending = mutationIdempotencyKeysRef.current.get(operation);
+    if (
+      pending?.fingerprint === fingerprint &&
+      pending.expiresAt > Date.now()
+    ) {
+      return pending.key;
+    }
+
+    const key = crypto.randomUUID();
+    mutationIdempotencyKeysRef.current.set(operation, {
+      fingerprint,
+      key,
+      expiresAt: Date.now() + IDEMPOTENCY_RETRY_WINDOW_MS,
+    });
+    return key;
+  }
+
+  function completeMutationIdempotency(operation: string, key: string) {
+    if (mutationIdempotencyKeysRef.current.get(operation)?.key === key) {
+      mutationIdempotencyKeysRef.current.delete(operation);
+    }
+  }
 
   const refresh = useCallback(async () => {
+    const requestSequence = ++refreshSequenceRef.current;
     setLoading(true);
+    setDataFresh(false);
     try {
       if (supervisor) {
         const session = await getCurrentSession();
+        if (requestSequence !== refreshSequenceRef.current) return;
         const ownBranchId = session.user.branchId ?? '';
         if (session.user.role !== 'SUPERVISOR' || !ownBranchId) {
           throw new Error('Supervisor branch context unavailable');
@@ -256,6 +307,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
         const branchesResponse = await branchesControllerListBranchesV1(
           createApiRequest({ csrf: true }),
         );
+        if (requestSequence !== refreshSequenceRef.current) return;
         if (branchesResponse.status !== 200) {
           throw new Error('Branch list unavailable');
         }
@@ -267,21 +319,27 @@ export function DeviceManagement({ supervisor = false }: Props) {
       const response = await branchesControllerListDevicesV1(
         createApiRequest({ csrf: true }),
       );
+      if (requestSequence !== refreshSequenceRef.current) return;
       if (response.status !== 200) throw new Error('Device list unavailable');
       const nextDevices = response.data.data as Device[];
       setDevices(nextDevices);
-      setSelectedId((current) =>
-        nextDevices.some((device) => device.id === current)
-          ? current
-          : (nextDevices[0]?.id ?? ''),
-      );
+      const nextSelectedId = nextDevices.some(
+        (device) => device.id === selectedIdRef.current,
+      )
+        ? selectedIdRef.current
+        : (nextDevices[0]?.id ?? '');
+      selectedIdRef.current = nextSelectedId;
+      setSelectedId(nextSelectedId);
+      setDataFresh(true);
       setMessage('Device data loaded.');
     } catch {
-      setMessage(
-        'Device management is unavailable in this account or branch. Check your permissions and retry.',
-      );
+      if (requestSequence === refreshSequenceRef.current) {
+        setMessage(
+          'Device management is unavailable in this account or branch. Check your permissions and refresh to retry.',
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestSequence === refreshSequenceRef.current) setLoading(false);
     }
   }, [supervisor]);
 
@@ -296,6 +354,10 @@ export function DeviceManagement({ supervisor = false }: Props) {
   }, [selectedId]);
 
   async function createDevice() {
+    if (!dataFresh) {
+      setMessage('Refresh device data successfully before making changes.');
+      return;
+    }
     if (!branchId || !name.trim()) {
       setMessage('Choose a branch and enter a device name.');
       return;
@@ -307,18 +369,19 @@ export function DeviceManagement({ supervisor = false }: Props) {
       return;
     }
 
+    const payload = { branchId, name: name.trim() };
+    const idempotencyKey = mutationIdempotencyKey('devices.create', payload);
     let responseStatus: number | undefined;
+    setDataFresh(false);
     setBusy(true);
     try {
       const response = await branchesControllerCreateDeviceV1(
-        { branchId, name: name.trim() },
-        createApiRequest({
-          csrf: true,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+        payload,
+        createApiRequest({ csrf: true, idempotencyKey }),
       );
       responseStatus = response.status;
       if (response.status !== 201) throw new Error('Create unavailable');
+      completeMutationIdempotency('devices.create', idempotencyKey);
       setName('');
       setMessage(
         'Unpaired device created. It remains non-operational until pairing succeeds.',
@@ -338,7 +401,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
   function requestPairingConfirmation(
     method: 'DEVICE_TOKEN' | 'WEBAUTHN' = 'DEVICE_TOKEN',
   ) {
-    if (!selected?.id) return;
+    if (!selected?.id || !dataFresh || busy || loading) return;
     setTargetBrowserConfirmed(false);
     setPairingFeedback(null);
     setPairingMethod(method);
@@ -353,6 +416,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
 
   function requestDeviceLocatorConfirmation() {
     if (
+      !dataFresh ||
+      busy ||
+      loading ||
       !selected?.id ||
       selected.status !== 'ACTIVE' ||
       selected.authBindingMode !== 'WEBAUTHN' ||
@@ -371,6 +437,9 @@ export function DeviceManagement({ supervisor = false }: Props) {
 
   function useExistingCredentialOnThisBrowser() {
     if (
+      !dataFresh ||
+      busy ||
+      loading ||
       !selected?.id ||
       selected.status !== 'ACTIVE' ||
       deviceLocatorConfirmationFor !== selected.id ||
@@ -397,7 +466,15 @@ export function DeviceManagement({ supervisor = false }: Props) {
   }
 
   async function pairDevice() {
-    if (!selected?.id || pairingConfirmationFor !== selected.id) return;
+    const targetDeviceId = pairingConfirmationFor;
+    if (
+      !dataFresh ||
+      !targetDeviceId ||
+      selectedIdRef.current !== targetDeviceId ||
+      !devices.some((device) => device.id === targetDeviceId)
+    ) {
+      return;
+    }
     setPairingFeedback(null);
     if (!targetBrowserConfirmed) {
       setPairingFeedback({
@@ -410,6 +487,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
       return;
     }
 
+    setDataFresh(false);
     setBusy(true);
     try {
       if (pairingMethod === 'WEBAUTHN') {
@@ -417,7 +495,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
           throw new Error('WebAuthn is not supported by this browser');
         }
         const authorization = await branchesControllerCreateDeviceEnrollmentV1(
-          selected.id,
+          targetDeviceId,
           createApiRequest({ csrf: true }),
         );
         if (authorization.status !== 201)
@@ -434,7 +512,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
         });
         if (!credential) throw new Error('Registration cancelled');
         const completion = await branchesControllerCompleteDeviceEnrollmentV1(
-          selected.id,
+          targetDeviceId,
           {
             authorizationToken: token,
             response: serializeCredential(credential as PublicKeyCredential),
@@ -443,7 +521,12 @@ export function DeviceManagement({ supervisor = false }: Props) {
         );
         if (completion.status !== 200)
           throw new Error('Pairing completion failed');
-        window.localStorage.setItem(PAIRED_DEVICE_LOCATOR_KEY, selected.id);
+        if (selectedIdRef.current === targetDeviceId) {
+          window.localStorage.setItem(
+            PAIRED_DEVICE_LOCATOR_KEY,
+            targetDeviceId,
+          );
+        }
         setPairingFeedback({
           tone: 'success',
           title: 'WebAuthn pairing complete',
@@ -456,12 +539,17 @@ export function DeviceManagement({ supervisor = false }: Props) {
       }
 
       const paired = await branchesControllerPairDeviceTokenV1(
-        selected.id,
+        targetDeviceId,
         createApiRequest({ csrf: true }),
       );
       if (paired.status !== 200) throw new Error('Pairing failed');
       try {
-        window.localStorage.setItem(PAIRED_DEVICE_LOCATOR_KEY, selected.id);
+        if (selectedIdRef.current === targetDeviceId) {
+          window.localStorage.setItem(
+            PAIRED_DEVICE_LOCATOR_KEY,
+            targetDeviceId,
+          );
+        }
       } catch {
         setPairingFeedback({
           tone: 'warning',
@@ -482,11 +570,12 @@ export function DeviceManagement({ supervisor = false }: Props) {
       });
       await refresh();
     } catch {
+      await refresh();
       setPairingFeedback({
         tone: 'danger',
         title: 'Pairing failed',
         message:
-          'Pairing failed. Confirm the authorized account, active device and branch, and retry from the target POS browser.',
+          'Pairing failed. Confirm the authorized account, active device and branch, then verify the device list before retrying from the target POS browser.',
         retryable: true,
       });
     } finally {
@@ -495,28 +584,40 @@ export function DeviceManagement({ supervisor = false }: Props) {
   }
 
   async function resetDeviceToken() {
+    if (!dataFresh || !selected?.id) return;
+    const targetDeviceId = selected.id;
     if (
-      !selected?.id ||
       !window.confirm(
         'Reset this POS browser credential? All device sessions will be invalidated.',
       )
-    )
+    ) {
       return;
+    }
+    setDataFresh(false);
     setBusy(true);
     try {
       const reset = await branchesControllerResetDeviceTokenV1(
-        selected.id,
+        targetDeviceId,
         createApiRequest({ csrf: true }),
       );
       if (reset.status !== 200) throw new Error('Reset failed');
-      window.localStorage.removeItem(PAIRED_DEVICE_LOCATOR_KEY);
+      try {
+        if (
+          window.localStorage.getItem(PAIRED_DEVICE_LOCATOR_KEY) ===
+          targetDeviceId
+        ) {
+          window.localStorage.removeItem(PAIRED_DEVICE_LOCATOR_KEY);
+        }
+      } catch {
+        // Server-side revocation remains authoritative if storage is unavailable.
+      }
       setMessage(
         'Device credential reset; all device sessions were invalidated.',
       );
       await refresh();
     } catch {
       setMessage(
-        'Device credential could not be reset. Check permissions and retry.',
+        'Device credential could not be reset. Refresh the device list before retrying.',
       );
     } finally {
       setBusy(false);
@@ -524,7 +625,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
   }
 
   async function revokeCredential(credential: DeviceCredential) {
-    if (!selected?.id || credential.status !== 'ACTIVE') return;
+    if (!dataFresh || !selected?.id || credential.status !== 'ACTIVE') return;
     if (
       !window.confirm(
         'Revoke this credential? Cashier sessions bound to it will be invalidated. The credential cannot be recovered; the POS must be paired again.',
@@ -533,6 +634,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
       return;
     }
 
+    setDataFresh(false);
     setBusy(true);
     try {
       const response = await branchesControllerRevokeDeviceCredentialV1(
@@ -558,7 +660,8 @@ export function DeviceManagement({ supervisor = false }: Props) {
     status?: 'ACTIVE' | 'INACTIVE',
     rotateAttestationSecret = false,
   ) {
-    if (!selected) return;
+    if (!dataFresh || !selected) return;
+    const targetDeviceId = selected.id;
     if (
       status === 'INACTIVE' &&
       !window.confirm(
@@ -568,29 +671,42 @@ export function DeviceManagement({ supervisor = false }: Props) {
       return;
     }
 
+    const payload = {
+      name: selected.name ?? '',
+      status: (status ?? selected.status ?? 'ACTIVE') as 'ACTIVE' | 'INACTIVE',
+      rotateAttestationSecret,
+    };
+    const operation = `devices.update:${targetDeviceId}`;
+    const idempotencyKey = mutationIdempotencyKey(operation, payload);
     let responseStatus: number | undefined;
+    setDataFresh(false);
     setBusy(true);
     try {
       const response = await branchesControllerUpdateDeviceV1(
-        selected.id,
-        {
-          name: selected.name ?? '',
-          status: (status ?? selected.status ?? 'ACTIVE') as
-            'ACTIVE' | 'INACTIVE',
-          rotateAttestationSecret,
-        },
-        createApiRequest({
-          csrf: true,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+        targetDeviceId,
+        payload,
+        createApiRequest({ csrf: true, idempotencyKey }),
       );
       responseStatus = response.status;
       if (response.status !== 200) throw new Error('Update unavailable');
+      completeMutationIdempotency(operation, idempotencyKey);
       const data = responseData(response.data);
       const secret = data.attestationSecret;
       setOneTimeHmacSecret(
         rotateAttestationSecret && typeof secret === 'string' ? secret : null,
       );
+      if (status === 'INACTIVE') {
+        try {
+          if (
+            window.localStorage.getItem(PAIRED_DEVICE_LOCATOR_KEY) ===
+            targetDeviceId
+          ) {
+            window.localStorage.removeItem(PAIRED_DEVICE_LOCATOR_KEY);
+          }
+        } catch {
+          // Server-side device inactivation remains authoritative.
+        }
+      }
       setMessage(
         rotateAttestationSecret
           ? typeof secret === 'string'
@@ -681,7 +797,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
             </label>
             <Button
               onClick={() => void createDevice()}
-              disabled={busy || loading || !branchId}
+              disabled={busy || loading || !dataFresh || !branchId}
               loading={busy}
             >
               Create device
@@ -695,7 +811,18 @@ export function DeviceManagement({ supervisor = false }: Props) {
           className="device-management__panel device-management__list-panel"
           aria-label="Device list"
         >
-          <h2>Device list</h2>
+          <div className="device-management__list-heading">
+            <h2>Device list</h2>
+            <Button
+              variant="secondary"
+              aria-label="Refresh devices"
+              onClick={() => void refresh()}
+              disabled={loading || busy}
+              loading={loading}
+            >
+              Refresh devices
+            </Button>
+          </div>
           {devices.length === 0 ? (
             <Alert tone="warning" title="No devices">
               No devices are available in this authorized scope.
@@ -707,7 +834,10 @@ export function DeviceManagement({ supervisor = false }: Props) {
                 <DeviceSelector
                   devices={devices}
                   selectedId={selectedId}
+                  disabled={busy || loading || !dataFresh}
                   onSelect={(deviceId) => {
+                    if (busy || loading || !dataFresh) return;
+                    selectedIdRef.current = deviceId;
                     setSelectedId(deviceId);
                     setPairingConfirmationFor('');
                     setTargetBrowserConfirmed(false);
@@ -718,6 +848,13 @@ export function DeviceManagement({ supervisor = false }: Props) {
               </div>
               {selected ? (
                 <>
+                  {selected.status === 'ACTIVE' &&
+                  selected.authBindingMode === 'UNPAIRED' ? (
+                    <Alert tone="warning" title="Pairing required">
+                      Pair this target POS browser before cashier sign-in can
+                      use this device.
+                    </Alert>
+                  ) : null}
                   <Table className="device-management__summary-table">
                     <tbody>
                       <tr>
@@ -767,7 +904,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                           </p>
                           <Button
                             variant="secondary"
-                            disabled={busy || loading}
+                            disabled={busy || loading || !dataFresh}
                             onClick={requestDeviceLocatorConfirmation}
                           >
                             Use existing paired device on this browser
@@ -793,6 +930,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                                 disabled={
                                   busy ||
                                   loading ||
+                                  !dataFresh ||
                                   !deviceLocatorBrowserConfirmed
                                 }
                                 onClick={useExistingCredentialOnThisBrowser}
@@ -859,7 +997,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                                     {credential.status === 'ACTIVE' ? (
                                       <Button
                                         variant="danger"
-                                        disabled={busy}
+                                        disabled={busy || loading || !dataFresh}
                                         onClick={() =>
                                           void revokeCredential(credential)
                                         }
@@ -885,22 +1023,32 @@ export function DeviceManagement({ supervisor = false }: Props) {
                       aria-label="POS device token credential"
                     >
                       <h3>POS browser credential</h3>
-                      {tokenCredentials[0]?.lastUsedAt ? (
-                        <p>
-                          Last used{' '}
-                          {new Date(
-                            tokenCredentials[0].lastUsedAt,
-                          ).toLocaleString()}
-                        </p>
+                      {selected.status !== 'ACTIVE' ? (
+                        <p>Device inactive; cashier sign-in is unavailable.</p>
+                      ) : activeTokenCredential ? (
+                        activeTokenCredential.lastUsedAt ? (
+                          <p>
+                            Last used{' '}
+                            {new Date(
+                              activeTokenCredential.lastUsedAt,
+                            ).toLocaleString()}
+                          </p>
+                        ) : (
+                          <p>
+                            Credential is active; no cashier login has used it
+                            yet.
+                          </p>
+                        )
                       ) : (
                         <p>
-                          Credential is active; no cashier login has used it
-                          yet.
+                          Pairing required. This device has no active browser
+                          credential; pair this target POS before cashier
+                          sign-in.
                         </p>
                       )}
                       <Button
                         variant="danger"
-                        disabled={busy || loading}
+                        disabled={busy || loading || !dataFresh}
                         onClick={() => void resetDeviceToken()}
                       >
                         Reset browser credential
@@ -914,13 +1062,15 @@ export function DeviceManagement({ supervisor = false }: Props) {
                       disabled={
                         busy ||
                         loading ||
+                        !dataFresh ||
                         selected.status !== 'ACTIVE' ||
                         !['UNPAIRED', 'DEVICE_TOKEN'].includes(
                           selected.authBindingMode ?? 'UNPAIRED',
                         )
                       }
                     >
-                      {selected.authBindingMode === 'DEVICE_TOKEN'
+                      {selected.authBindingMode === 'DEVICE_TOKEN' &&
+                      activeTokenCredential
                         ? 'Replace browser credential'
                         : 'Pair this target POS browser'}
                     </Button>
@@ -931,7 +1081,10 @@ export function DeviceManagement({ supervisor = false }: Props) {
                         variant="secondary"
                         onClick={() => requestPairingConfirmation('WEBAUTHN')}
                         disabled={
-                          busy || loading || selected.status !== 'ACTIVE'
+                          busy ||
+                          loading ||
+                          !dataFresh ||
+                          selected.status !== 'ACTIVE'
                         }
                       >
                         {selected.authBindingMode === 'WEBAUTHN'
@@ -943,7 +1096,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                       <Button
                         variant="danger"
                         onClick={() => void updateDevice('INACTIVE')}
-                        disabled={busy}
+                        disabled={busy || loading || !dataFresh}
                       >
                         Deactivate device
                       </Button>
@@ -951,7 +1104,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                       <Button
                         variant="secondary"
                         onClick={() => void updateDevice('ACTIVE')}
-                        disabled={busy}
+                        disabled={busy || loading || !dataFresh}
                       >
                         Reactivate device
                       </Button>
@@ -960,7 +1113,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
                       <Button
                         variant="secondary"
                         onClick={() => void updateDevice(undefined, true)}
-                        disabled={busy}
+                        disabled={busy || loading || !dataFresh}
                       >
                         Rotate legacy HMAC secret
                       </Button>
@@ -1019,7 +1172,7 @@ export function DeviceManagement({ supervisor = false }: Props) {
             {pairingFeedback?.retryable === false ? null : (
               <Button
                 onClick={() => void pairDevice()}
-                disabled={busy || !targetBrowserConfirmed}
+                disabled={busy || !dataFresh || !targetBrowserConfirmed}
                 loading={busy}
               >
                 {pairingFeedback

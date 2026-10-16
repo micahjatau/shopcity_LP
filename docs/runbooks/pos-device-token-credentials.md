@@ -10,7 +10,7 @@ The API persists only `HMAC-SHA-256(POS_DEVICE_TOKEN_HMAC_KEY, token)`, keyVersi
 
 Only active same-tenant Admins (any tenant branch) and Supervisors (their assigned branch) may pair/reset. Pair on the actual target POS browser while the approved actor's session is active. The operation requires the existing session-bound double-submit CSRF cookie/header check and is audited with the actor and timestamp. Pairing makes prior credentials and device sessions unusable atomically; the token cookie is emitted only after the transaction commits. A lost response does not permit token recovery; perform a supervised reset/re-pair.
 
-Reset/revoke/deactivation revokes credentials and active device sessions in the same transaction. The response clears the cookie on the current target browser when reachable. Server-side revocation is authoritative if the browser is offline. Reactivating a device does not revive an old token; re-pair under supervision.
+Reset/revoke/deactivation revokes credentials and active device sessions in the same transaction. Reset/deactivation clears the POS cookie only when the request presents the active credential for the selected device; managing device B from a browser holding device A's cookie must not clear A. Server-side revocation is authoritative if the browser is offline. Deactivating a DEVICE_TOKEN device leaves it UNPAIRED; reactivation does not revive an old token, so re-pair it under supervision.
 
 ## Key replacement and outage/rollback
 

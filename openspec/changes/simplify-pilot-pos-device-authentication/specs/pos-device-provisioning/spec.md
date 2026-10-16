@@ -53,8 +53,24 @@ Only an active Supervisor or Admin in the device's tenant SHALL pair/reset/revok
 
 - **WHEN** an authorized actor resets/revokes a credential or deactivates the device
 - **THEN** the credential and device sessions SHALL be invalidated atomically and audited
-- **AND** the response SHALL clear the target-browser token cookie when it reaches that browser
+- **AND** a reset/deactivation response SHALL clear the POS token cookie only when the presented cookie is the active credential for the selected device
 - **AND** server-side revocation SHALL remain effective when cookie clearing cannot reach the browser
+
+#### Scenario: Reset a different device from this browser
+
+- **GIVEN** the current browser holds device A's credential
+- **WHEN** an authorized actor resets device B from that browser
+- **THEN** device B's credential and sessions SHALL be revoked
+- **AND** the response SHALL NOT clear device A's cookie or alter its browser locator
+- **AND** device A's credential SHALL remain usable
+
+#### Scenario: Deactivate and reactivate a device-token device
+
+- **WHEN** a DEVICE_TOKEN device is deactivated and later reactivated
+- **THEN** deactivation SHALL revoke the active token credential and sessions and transition the device to UNPAIRED with no pairedAt value
+- **AND** reactivation SHALL leave it UNPAIRED and require a new authorized target-browser pairing before cashier login
+- **AND** reactivation SHALL NOT restore or accept the revoked credential
+- **AND** HMAC_LEGACY and WEBAUTHN activation behavior SHALL remain unchanged
 
 ### Requirement: Token cookie and session lifecycle
 
@@ -65,6 +81,29 @@ The token cookie SHALL be host-only (`__Host-` prefix, no Domain), Secure, HttpO
 - **WHEN** cashier logs out or refreshes the ShopCity session
 - **THEN** only session/CSRF lifecycle SHALL change
 - **AND** the device token cookie and device credential last-use state SHALL not be cleared or renewed by those operations
+
+### Requirement: Device management uses fresh state and pins pending pairing
+
+The Admin and Supervisor device-management screens SHALL disable device mutations when the current list failed to load or refresh, while retaining stale information for context. During an in-flight pairing operation, device selection SHALL remain locked to the confirmed target; only that target's non-secret locator may be written after pairing succeeds. Reset/deactivation SHALL clear the local locator only when it names the selected device. For mutations backed by the device idempotency API, an uncertain retry of the same target and payload SHALL reuse the same Idempotency-Key within the server retention window; a changed payload, target, or completed new user intent SHALL receive a new key.
+
+#### Scenario: Device refresh fails
+
+- **WHEN** a device list refresh fails after previously loaded devices are displayed
+- **THEN** stale devices MAY remain visible for context
+- **AND** create, pair, reset, revoke, deactivate, and reactivate actions SHALL remain disabled until a successful refresh
+
+#### Scenario: A device mutation has an uncertain outcome
+
+- **WHEN** a create or update request may have committed but its response was not reliably received
+- **THEN** retrying the same operation with the same target and payload SHALL reuse its Idempotency-Key
+- **AND** changing the payload/target or beginning a new operation after success SHALL use a fresh key
+- **AND** no new device or repeated state-transition side effect SHALL result from a same-key retry
+
+#### Scenario: Pairing is pending
+
+- **WHEN** pairing is pending for a confirmed target device
+- **THEN** the device selector SHALL not change the selected target until the operation settles
+- **AND** a successful response SHALL write only the confirmed target's non-secret locator
 
 ### Requirement: Public login Origin integrity
 

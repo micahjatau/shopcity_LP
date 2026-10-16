@@ -29,6 +29,7 @@ import {
   buildPosDeviceTokenCookie,
   clearPosDeviceTokenCookie,
 } from '../../common/auth/cookie';
+import { DEVICE_TOKEN_COOKIE_NAME } from '../../common/auth/device-token';
 import {
   CreateBranchDto,
   CreateDeviceDto,
@@ -40,6 +41,23 @@ import {
   apiErrorEnvelopeResponses,
   apiSuccessEnvelopeResponse,
 } from '../../common/openapi-envelope';
+
+function readPosDeviceTokenCookie(
+  request: AuthenticatedRequest,
+): string | undefined {
+  const values = (request.headers.cookie ?? '')
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.startsWith(`${DEVICE_TOKEN_COOKIE_NAME}=`))
+    .map((entry) => entry.slice(DEVICE_TOKEN_COOKIE_NAME.length + 1));
+  if (values.length !== 1) return undefined;
+  try {
+    const token = decodeURIComponent(values[0]);
+    return /^[A-Za-z0-9_-]{43}$/.test(token) ? token : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function buildDeviceEnrollmentCompletionThrottleKey(
   request: AuthenticatedRequest,
@@ -162,12 +180,15 @@ export class BranchesController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     this.branchesService.assertDeviceTokenBrowserOrigin(origin);
-    await this.branchesService.resetDeviceToken(
+    const clearDeviceTokenCookie = await this.branchesService.resetDeviceToken(
       request.authContext!.user.tenantId,
       request.authContext!,
       id,
+      readPosDeviceTokenCookie(request),
     );
-    reply.header('Set-Cookie', clearPosDeviceTokenCookie());
+    if (clearDeviceTokenCookie) {
+      reply.header('Set-Cookie', clearPosDeviceTokenCookie());
+    }
     return { status: 'reset' };
   }
 
@@ -307,10 +328,15 @@ export class BranchesController {
       id,
       dto,
       idempotencyKey,
+      readPosDeviceTokenCookie(request),
     );
-    if (dto.status === 'INACTIVE') {
+    const updateResult = updated as typeof updated & {
+      clearDeviceTokenCookie?: boolean;
+    };
+    const { clearDeviceTokenCookie, ...safeUpdated } = updateResult;
+    if (clearDeviceTokenCookie) {
       reply.header('Set-Cookie', clearPosDeviceTokenCookie());
     }
-    return updated;
+    return safeUpdated;
   }
 }

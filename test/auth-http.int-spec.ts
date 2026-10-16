@@ -400,7 +400,7 @@ describe('auth and readiness flows (int)', () => {
     const reset = await request(httpServer)
       .post(`/api/v1/devices/${device.id}/token/reset`)
       .set('origin', 'http://localhost:3000')
-      .set('cookie', adminCookieHeader)
+      .set('cookie', `${adminCookieHeader}; ${rawTokenCookie}`)
       .set('x-csrf-token', adminCsrfToken)
       .expect(200);
     const resetCookie = (reset.headers['set-cookie'] as string[]).find(
@@ -420,6 +420,120 @@ describe('auth and readiness flows (int)', () => {
     await request(httpServer)
       .get('/api/v1/auth/me')
       .set('cookie', cashierSessionCookie)
+      .expect(401);
+  }, 120000);
+
+  it('preserves browser A when browser A resets device B', async () => {
+    const deviceA = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-device-token-browser-a',
+        fingerprintHash: null,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+        attestationSecretCiphertext: null,
+        attestationSecretVersion: 0,
+        attestationSecretRotatedAt: null,
+      },
+    });
+    const deviceB = await prisma.device.create({
+      data: {
+        tenantId: seedData.tenant.id,
+        branchId: seedData.branch.id,
+        name: 'POS-device-token-browser-b',
+        fingerprintHash: null,
+        authBindingMode: DeviceAuthBindingMode.UNPAIRED,
+        attestationSecretCiphertext: null,
+        attestationSecretVersion: 0,
+        attestationSecretRotatedAt: null,
+      },
+    });
+    const adminLogin = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .send({
+        username: seedData.user.username,
+        password: seedData.adminPassword,
+      })
+      .expect(200);
+    const adminSessionCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_session',
+    );
+    const adminCsrfCookie = cookieValue(
+      adminLogin.headers['set-cookie'],
+      'shopcity_csrf',
+    );
+    const adminCookieHeader = `${adminSessionCookie}; ${adminCsrfCookie}`;
+    const adminCsrfToken = cookieToken(adminCsrfCookie);
+    const pairDevice = async (deviceId: string) =>
+      request(httpServer)
+        .post(`/api/v1/devices/${deviceId}/token/pair`)
+        .set('origin', 'http://localhost:3000')
+        .set('cookie', adminCookieHeader)
+        .set('x-csrf-token', adminCsrfToken)
+        .expect(200);
+    const pairingA = await pairDevice(deviceA.id);
+    const tokenCookieA = cookieValue(
+      pairingA.headers['set-cookie'],
+      '__Host-shopcity_pos_device',
+    );
+    const pairingB = await pairDevice(deviceB.id);
+    const tokenCookieB = cookieValue(
+      pairingB.headers['set-cookie'],
+      '__Host-shopcity_pos_device',
+    );
+
+    const cashierLoginA = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', deviceA.id)
+      .set('cookie', tokenCookieA)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(200);
+    const cashierSessionCookieA = cookieValue(
+      cashierLoginA.headers['set-cookie'],
+      'shopcity_session',
+    );
+
+    const resetB = await request(httpServer)
+      .post(`/api/v1/devices/${deviceB.id}/token/reset`)
+      .set('origin', 'http://localhost:3000')
+      .set('cookie', `${adminCookieHeader}; ${tokenCookieA}`)
+      .set('x-csrf-token', adminCsrfToken)
+      .expect(200);
+    expect(
+      ((resetB.headers['set-cookie'] as string[] | undefined) ?? []).some(
+        (cookie) => cookie.startsWith('__Host-shopcity_pos_device='),
+      ),
+    ).toBe(false);
+    expect(
+      await prisma.deviceTokenCredential.findFirstOrThrow({
+        where: { deviceId: deviceA.id },
+      }),
+    ).toMatchObject({ status: 'ACTIVE' });
+    expect(
+      await prisma.deviceTokenCredential.findFirstOrThrow({
+        where: { deviceId: deviceB.id },
+      }),
+    ).toMatchObject({ status: 'REVOKED' });
+    await request(httpServer)
+      .get('/api/v1/auth/me')
+      .set('cookie', `${cashierSessionCookieA}; ${tokenCookieA}`)
+      .expect(200);
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', deviceA.id)
+      .set('cookie', tokenCookieA)
+      .send({ username: cashierUser.username, password: 'password' })
+      .expect(200);
+    await request(httpServer)
+      .post('/api/v1/auth/login')
+      .set('origin', 'http://localhost:3000')
+      .set('x-device-id', deviceB.id)
+      .set('cookie', tokenCookieB)
+      .send({ username: cashierUser.username, password: 'password' })
       .expect(401);
   }, 120000);
 

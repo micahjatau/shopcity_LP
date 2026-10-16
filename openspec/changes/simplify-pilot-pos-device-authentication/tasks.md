@@ -21,9 +21,13 @@
   - [x] 4.1 Add authorized current-browser token pairing/reset state while retaining the existing WebAuthn migration/rotation path; no token plaintext storage or JSON.
   - [x] 4.2 Update OpenAPI and regenerate the client with repository scripts.
   - [x] 4.3 Verify same-origin proxy forwards Cookie/Origin/Referer and preserves Set-Cookie attributes.
+  - [x] 4.4 Reuse the server-supported device idempotency identity for same-payload create/update retries; issue fresh keys for changed/new operations and cover both paths in UI tests.
 - [ ] 5. Verification and closure
   - [x] 5.1 Add focused backend/controller/security tests and frontend/device management tests.
   - [x] 5.2 Run Prisma validate/generate and verify the full migration chain on the empty disposable PostgreSQL Testcontainers target; do not apply shared databases.
   - [x] 5.3 Run focused and full Jest suites, web tests/typecheck, client typecheck, root/web lint and build, Semgrep on changed auth surfaces, and strict OpenSpec validation. All local verification gates pass after fixing the duplicate fraud-test stub property, removing a redundant route CSS declaration rejected by style ownership, and excluding generated `.next-*` build directories from ESLint.
   - [ ] 5.4 Run GitNexus detect_changes, inspect final diff, confirm no staged files and no unrelated dirty files changed.
   - [x] 5.5 Record actual staging POS pairing/E2E as incomplete unless approved staging access and hardware are available; do not claim pilot acceptance.
+  - [x] 5.6 Clear the POS cookie on reset/deactivation only when the request token matches the selected device; verify browser A remains usable when it resets device B.
+  - [x] 5.7 Transition DEVICE_TOKEN devices to UNPAIRED on deactivation/reactivation and require supervised re-pairing without changing HMAC_LEGACY or WEBAUTHN behavior.
+  - [x] 5.8 Pin the selected target while pairing is pending, gate mutations after list-refresh failure, and provide a manual refresh recovery path.
