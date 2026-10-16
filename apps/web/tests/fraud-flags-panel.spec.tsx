@@ -373,6 +373,21 @@ describe('FraudFlagsPanel', () => {
         name: 'Review case: Purchase above the review threshold for Customer Amina Bello',
       }),
     ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(fraudControllerListFraudFlagsV1).toHaveBeenLastCalledWith(
+        {
+          status: 'ACKNOWLEDGED',
+          severity: 'MEDIUM',
+          branchId: 'branch-2',
+          limit: '25',
+          cursor: '',
+        },
+        expect.any(Object),
+      );
+    });
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
   });
 
   it('reports a successful Supervisor decision from the accepted response', async () => {
@@ -473,6 +488,73 @@ describe('FraudFlagsPanel', () => {
     expect(within(dialog).getByText('Backend response')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('loads the next cursor page without changing scope-level summary counts', async () => {
+    const firstPageItems = Array.from({ length: 5 }, (_, index) => ({
+      ...fraudFlag,
+      id: `cursor-fraud-${index + 1}`,
+      ruleCode: `RULE_${index + 1}`,
+      customer: { fullName: `Customer ${index + 1}` },
+    }));
+    const secondPageItem = {
+      ...fraudFlag,
+      id: 'cursor-fraud-6',
+      ruleCode: 'RULE_6',
+      customerName: 'Customer 6',
+    };
+    jest
+      .mocked(fraudControllerListFraudFlagsV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: firstPageItems,
+            summary: {
+              needReviewCount: 12,
+              highPriorityCount: 4,
+              underReviewCount: 6,
+            },
+            nextCursor: 'cursor-page-two',
+            hasMore: true,
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [secondPageItem],
+            summary: {
+              needReviewCount: 12,
+              highPriorityCount: 4,
+              underReviewCount: 6,
+            },
+            nextCursor: null,
+            hasMore: false,
+          },
+        },
+      } as never);
+    render(<FraudFlagsPanel presentation="supervisor" />);
+
+    expect(await screen.findByText('5 shown')).toBeInTheDocument();
+    expect(screen.getByText(/5 loaded · more available/)).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Review case: Activity needs a closer look for Customer Customer 6',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Page 2')).toBeInTheDocument();
+    expect(fraudControllerListFraudFlagsV1).toHaveBeenLastCalledWith(
+      { limit: '25', cursor: 'cursor-page-two' },
+      expect.any(Object),
+    );
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
   });
 
   it('paginates five fraud results with accessible icon controls', async () => {

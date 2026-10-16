@@ -104,6 +104,14 @@ The result section SHALL retain a persistent loading/empty state, labeled column
 - **WHEN** the filters return no matching records
 - **THEN** the results heading, scope summary, labels, and helpful empty state remain visible
 
+#### Scenario: Supervisor continues beyond the current API page
+
+- **WHEN** the Supervisor advances past the five currently displayed records and another cursor page is available
+- **THEN** the UI requests the next backend cursor page with the selected status, severity, and branch filters
+- **AND** category filtering continues to apply across all loaded cursor pages without changing the authenticated server scope
+- **AND** the scope-level summary counts remain independent of filters and pagination
+- **AND** the result count distinguishes the current page's displayed rows from rows loaded so far and indicates when more results are available
+
 #### Scenario: Supervisor uses a narrow viewport
 
 - **WHEN** the route is displayed on a narrow screen

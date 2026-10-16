@@ -19,8 +19,6 @@ import { createApiRequest } from '../../lib/api/request';
 import { Button, Dialog, Input, RadioGroup, Table } from '../ui';
 import { Money } from '../shopcity';
 
-type CaseStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
-type Severity = 'HIGH' | 'MEDIUM' | 'LOW';
 type FraudCategory = 'transactions' | 'staff' | 'security' | 'other';
 
 type FlaggedActivity = {
@@ -50,6 +48,14 @@ type Summary = {
 type ListPayload = {
   items: FlaggedActivity[];
   summary?: Partial<Summary>;
+  nextCursor?: string | null;
+  hasMore?: boolean;
+};
+
+type QueueFilterState = {
+  statusFilter: string;
+  priorityFilter: string;
+  branchFilter: string;
 };
 
 type RulePresentation = {
@@ -61,11 +67,48 @@ type RulePresentation = {
 };
 
 const PAGE_SIZE = 5;
+const API_PAGE_SIZE = '25';
 const EMPTY_SUMMARY: Summary = {
   needReviewCount: 0,
   highPriorityCount: 0,
   underReviewCount: 0,
 };
+
+function filterQueueItems(
+  items: FlaggedActivity[],
+  categoryFilter: string,
+  statusFilter: string,
+  priorityFilter: string,
+  branchFilter: string,
+) {
+  return items.filter((item) => {
+    if (
+      categoryFilter !== 'ALL' &&
+      getRulePresentation(item.ruleCode).category !== categoryFilter
+    ) {
+      return false;
+    }
+    if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
+    if (priorityFilter !== 'ALL' && item.severity !== priorityFilter)
+      return false;
+    if (branchFilter !== 'ALL' && item.branchId !== branchFilter) return false;
+    return true;
+  });
+}
+
+function buildQueueQuery(filters: QueueFilterState, cursor = '') {
+  return {
+    ...(filters.statusFilter !== 'ALL' ? { status: filters.statusFilter } : {}),
+    ...(filters.priorityFilter !== 'ALL'
+      ? { severity: filters.priorityFilter }
+      : {}),
+    ...(filters.branchFilter !== 'ALL'
+      ? { branchId: filters.branchFilter }
+      : {}),
+    limit: API_PAGE_SIZE,
+    cursor,
+  };
+}
 
 const CATEGORY_LABELS: Record<FraudCategory, string> = {
   transactions: 'Transactions',
@@ -450,6 +493,10 @@ export function SupervisorFlaggedActivity() {
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [branchFilter, setBranchFilter] = useState('ALL');
   const [pageIndex, setPageIndex] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [branchNames, setBranchNames] = useState<Record<string, string>>({});
+  const requestSequenceRef = useRef(0);
   const [reviewItem, setReviewItem] = useState<FlaggedActivity | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [decision, setDecision] = useState<FraudFlagDecision>(
@@ -457,38 +504,25 @@ export function SupervisorFlaggedActivity() {
   );
   const [reason, setReason] = useState('');
 
-  const branchOptions = useMemo<FilterOption[]>(() => {
-    const branches = new Map<string, string>();
-    for (const item of items) {
-      if (item.branchId && item.branchName) {
-        branches.set(item.branchId, item.branchName);
-      }
-    }
-    return [
+  const branchOptions = useMemo<FilterOption[]>(
+    () => [
       { value: 'ALL', label: 'All branches' },
-      ...[...branches.entries()]
+      ...Object.entries(branchNames)
         .sort((a, b) => a[1].localeCompare(b[1]))
         .map(([id, name]) => ({ value: id, label: name })),
-    ];
-  }, [items]);
+    ],
+    [branchNames],
+  );
 
   const filteredItems = useMemo(
     () =>
-      items.filter((item) => {
-        if (
-          categoryFilter !== 'ALL' &&
-          getRulePresentation(item.ruleCode).category !== categoryFilter
-        ) {
-          return false;
-        }
-        if (statusFilter !== 'ALL' && item.status !== statusFilter)
-          return false;
-        if (priorityFilter !== 'ALL' && item.severity !== priorityFilter)
-          return false;
-        if (branchFilter !== 'ALL' && item.branchId !== branchFilter)
-          return false;
-        return true;
-      }),
+      filterQueueItems(
+        items,
+        categoryFilter,
+        statusFilter,
+        priorityFilter,
+        branchFilter,
+      ),
     [branchFilter, categoryFilter, items, priorityFilter, statusFilter],
   );
   const pageItems = filteredItems.slice(
@@ -510,16 +544,40 @@ export function SupervisorFlaggedActivity() {
     if (pageIndex * PAGE_SIZE >= filteredItems.length) setPageIndex(0);
   }, [filteredItems.length, pageIndex]);
 
-  async function refresh(preserveMessage = false) {
+  function rememberBranches(nextItems: FlaggedActivity[]) {
+    const discovered = Object.fromEntries(
+      nextItems.flatMap((item) =>
+        item.branchId && item.branchName
+          ? [[item.branchId, item.branchName]]
+          : [],
+      ),
+    );
+    if (Object.keys(discovered).length > 0) {
+      setBranchNames((current) => ({ ...current, ...discovered }));
+    }
+  }
+
+  async function refresh(
+    preserveMessage = false,
+    filters: QueueFilterState = { statusFilter, priorityFilter, branchFilter },
+  ) {
+    const requestSequence = ++requestSequenceRef.current;
     setLoading(true);
+    setNextCursor(null);
+    setHasMore(false);
     try {
       const response = await fraudControllerListFraudFlagsV1(
-        { limit: '25', cursor: '' },
+        buildQueueQuery(filters),
         createApiRequest({ csrf: true }),
       );
+      if (requestSequence !== requestSequenceRef.current) return;
       if (response.status === 200) {
         const payload = response.data.data as unknown as ListPayload;
-        setItems(Array.isArray(payload.items) ? payload.items : []);
+        const nextItems = Array.isArray(payload.items) ? payload.items : [];
+        setItems(nextItems);
+        rememberBranches(nextItems);
+        setNextCursor(payload.nextCursor ?? null);
+        setHasMore(payload.hasMore === true && Boolean(payload.nextCursor));
         setSummary({
           needReviewCount: payload.summary?.needReviewCount ?? 0,
           highPriorityCount: payload.summary?.highPriorityCount ?? 0,
@@ -533,15 +591,96 @@ export function SupervisorFlaggedActivity() {
         );
       }
     } catch {
-      setMessage('Flagged activity could not be loaded. Try again.');
+      if (requestSequence === requestSequenceRef.current) {
+        setMessage('Flagged activity could not be loaded. Try again.');
+      }
     } finally {
-      setLoading(false);
+      if (requestSequence === requestSequenceRef.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     void refresh();
   }, []);
+
+  async function goToNextPage() {
+    const nextPageStart = (pageIndex + 1) * PAGE_SIZE;
+    if (filteredItems.length > nextPageStart) {
+      setPageIndex((current) => current + 1);
+      return;
+    }
+    if (!hasMore || !nextCursor || loading) return;
+
+    const requestSequence = requestSequenceRef.current;
+    let cursor: string | null = nextCursor;
+    let more: boolean = hasMore;
+    let accumulatedItems = items;
+    setLoading(true);
+    try {
+      while (
+        more &&
+        filterQueueItems(
+          accumulatedItems,
+          categoryFilter,
+          statusFilter,
+          priorityFilter,
+          branchFilter,
+        ).length <= nextPageStart &&
+        cursor
+      ) {
+        const previousCursor: string = cursor;
+        const response = await fraudControllerListFraudFlagsV1(
+          buildQueueQuery(
+            { statusFilter, priorityFilter, branchFilter },
+            cursor,
+          ),
+          createApiRequest({ csrf: true }),
+        );
+        if (requestSequence !== requestSequenceRef.current) return;
+        if (response.status !== 200) {
+          setMessage(
+            `More flagged activity could not be loaded (${response.status}).`,
+          );
+          return;
+        }
+        const payload = response.data.data as unknown as ListPayload;
+        const pageItems = Array.isArray(payload.items) ? payload.items : [];
+        accumulatedItems = [...accumulatedItems, ...pageItems];
+        rememberBranches(pageItems);
+        cursor = payload.nextCursor ?? null;
+        more = payload.hasMore === true && Boolean(cursor);
+        if (more && cursor === previousCursor) {
+          more = false;
+          setMessage(
+            'More flagged activity could not be loaded. Refresh and try again.',
+          );
+        }
+      }
+
+      if (requestSequence !== requestSequenceRef.current) return;
+      setItems(accumulatedItems);
+      setNextCursor(cursor);
+      setHasMore(more);
+      const nextFilteredItems = filterQueueItems(
+        accumulatedItems,
+        categoryFilter,
+        statusFilter,
+        priorityFilter,
+        branchFilter,
+      );
+      if (nextFilteredItems.length > nextPageStart) {
+        setPageIndex((current) => current + 1);
+      } else if (!more) {
+        setMessage('No more activity matches these filters.');
+      }
+    } catch {
+      if (requestSequence === requestSequenceRef.current) {
+        setMessage('More flagged activity could not be loaded. Try again.');
+      }
+    } finally {
+      if (requestSequence === requestSequenceRef.current) setLoading(false);
+    }
+  }
 
   async function handleDecision() {
     if (!reviewItem?.id || !reason.trim()) {
@@ -645,6 +784,11 @@ export function SupervisorFlaggedActivity() {
               onChange={(value) => {
                 setStatusFilter(value);
                 setPageIndex(0);
+                void refresh(false, {
+                  statusFilter: value,
+                  priorityFilter,
+                  branchFilter,
+                });
               }}
             />
           </div>
@@ -657,6 +801,11 @@ export function SupervisorFlaggedActivity() {
               onChange={(value) => {
                 setPriorityFilter(value);
                 setPageIndex(0);
+                void refresh(false, {
+                  statusFilter,
+                  priorityFilter: value,
+                  branchFilter,
+                });
               }}
             />
           </div>
@@ -669,6 +818,11 @@ export function SupervisorFlaggedActivity() {
               onChange={(value) => {
                 setBranchFilter(value);
                 setPageIndex(0);
+                void refresh(false, {
+                  statusFilter,
+                  priorityFilter,
+                  branchFilter: value,
+                });
               }}
             />
           </div>
@@ -717,7 +871,12 @@ export function SupervisorFlaggedActivity() {
             </p>
           </div>
           <span className="fraud-review__result-count">
-            {filteredItems.length} shown
+            <span>{pageItems.length} shown</span>
+            <span>
+              {' · '}
+              {filteredItems.length} loaded
+              {hasMore ? ' · more available' : ''}
+            </span>
           </span>
         </header>
         <div className="fraud-flags__table-wrap">
@@ -837,7 +996,7 @@ export function SupervisorFlaggedActivity() {
             aria-label="Previous page"
             title="Previous page"
             onClick={() => setPageIndex((current) => Math.max(current - 1, 0))}
-            disabled={pageIndex === 0}
+            disabled={pageIndex === 0 || loading}
           >
             <ChevronLeft aria-hidden="true" size={18} strokeWidth={2} />
           </Button>
@@ -847,14 +1006,11 @@ export function SupervisorFlaggedActivity() {
             variant="secondary"
             aria-label="Next page"
             title="Next page"
-            onClick={() =>
-              setPageIndex((current) =>
-                (current + 1) * PAGE_SIZE >= filteredItems.length
-                  ? current
-                  : current + 1,
-              )
+            onClick={() => void goToNextPage()}
+            disabled={
+              loading ||
+              ((pageIndex + 1) * PAGE_SIZE >= filteredItems.length && !hasMore)
             }
-            disabled={(pageIndex + 1) * PAGE_SIZE >= filteredItems.length}
           >
             <ChevronRight aria-hidden="true" size={18} strokeWidth={2} />
           </Button>

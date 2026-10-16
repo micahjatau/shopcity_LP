@@ -16,6 +16,9 @@
 - [x] 3.3 Redesign the case dialog with the four review questions, allowlisted evidence, suggested steps, and collapsed technical references.
 - [x] 3.4 Handle successful/failed decisions truthfully; refresh authoritative state and announce successful status changes.
 - [x] 3.5 Add focused accessibility, responsiveness, mapping, filtering, summary, decision, and Admin-regression tests.
+- [x] 3.6 Pass supported status, severity, and branch filters to the scoped list endpoint while retaining category filtering across loaded results.
+- [x] 3.7 Continue through cursor pages without changing the five-item UI page size; preserve scope-level summary counts and label displayed versus loaded rows.
+- [x] 3.8 Add regressions for cursor continuation, server-filter parameters, and summary independence from queue filters and pagination.
 
 ## 4. Reconcile terminology and verify
 
