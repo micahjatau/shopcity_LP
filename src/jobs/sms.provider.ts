@@ -490,11 +490,16 @@ function mapArkeselSmsResponse(
       : undefined;
   const recipientReport = matchingReport ?? singleReportWithoutRecipient;
   const providerMessageId = readResponseString(recipientReport, 'id');
+  if (!providerMessageId) {
+    return {
+      status: 'FAILED',
+      errorMessage:
+        'Arkesel accepted the send without a trackable message ID; verify provider history before retry',
+      failureCategory: 'terminal',
+    };
+  }
 
-  return {
-    status: 'SENT',
-    ...(providerMessageId ? { providerMessageId } : {}),
-  };
+  return { status: 'SENT', providerMessageId };
 }
 
 function mapArkeselDeliveryReport(

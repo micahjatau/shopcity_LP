@@ -243,6 +243,34 @@ describe('sms provider selection', () => {
     },
   );
 
+  it("keeps an Africa's Talking accepted send as SENT when no message ID is returned", async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          SMSMessageData: {
+            Recipients: [{ statusCode: 101, number: '+2348000000000' }],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const provider = new AfricaTalkingSmsProvider({
+      endpoint: 'https://api.example.test/version1/messaging',
+      username: 'shopcity',
+      apiKey: 'at-test-key',
+      timeoutMs: 1000,
+    });
+
+    try {
+      await expect(provider.send(smsInput())).resolves.toEqual({
+        status: 'SENT',
+      });
+      expect(Reflect.get(provider, 'getDeliveryReport')).toBeUndefined();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it.each([
     [402, 'terminal'],
     [407, 'terminal'],
@@ -475,7 +503,7 @@ describe('sms provider selection', () => {
     });
   });
 
-  it('keeps an accepted Arkesel send as SENT when the response has no ID', async () => {
+  it('fails closed when Arkesel accepts a send without a trackable ID', async () => {
     const server = await startSmsServer(() => ({
       statusCode: 200,
       body: {
@@ -493,7 +521,10 @@ describe('sms provider selection', () => {
 
     try {
       await expect(provider.send(smsInput())).resolves.toEqual({
-        status: 'SENT',
+        status: 'FAILED',
+        errorMessage:
+          'Arkesel accepted the send without a trackable message ID; verify provider history before retry',
+        failureCategory: 'terminal',
       });
     } finally {
       await server.close();
@@ -518,7 +549,10 @@ describe('sms provider selection', () => {
 
     try {
       await expect(provider.send(smsInput())).resolves.toEqual({
-        status: 'SENT',
+        status: 'FAILED',
+        errorMessage:
+          'Arkesel accepted the send without a trackable message ID; verify provider history before retry',
+        failureCategory: 'terminal',
       });
     } finally {
       await server.close();
