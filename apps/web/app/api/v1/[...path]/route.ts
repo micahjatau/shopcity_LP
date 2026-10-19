@@ -34,6 +34,7 @@ export const runtime = 'nodejs';
 async function proxyRequest(request: NextRequest) {
   const method = request.method.toUpperCase();
   const path = request.nextUrl.pathname;
+  const requestId = randomUUID();
   const backendBaseUrl = resolveShopcityBackendBaseUrl(process.env);
   if (!backendBaseUrl) {
     return proxyFailure(
@@ -41,6 +42,7 @@ async function proxyRequest(request: NextRequest) {
       503,
       'BACKEND_UNAVAILABLE',
       'The ShopCity API is temporarily unavailable.',
+      requestId,
     );
   }
 
@@ -58,6 +60,7 @@ async function proxyRequest(request: NextRequest) {
       403,
       'AUTH_ORIGIN_REJECTED',
       'Unable to sign in. Check your credentials or contact your administrator.',
+      requestId,
     );
   }
 
@@ -70,6 +73,7 @@ async function proxyRequest(request: NextRequest) {
       503,
       'BFF_CONFIGURATION_INVALID',
       'The ShopCity sign-in service is temporarily unavailable.',
+      requestId,
     );
   }
 
@@ -91,6 +95,7 @@ async function proxyRequest(request: NextRequest) {
   for (const [name, value] of Object.entries(bffHeaders ?? {})) {
     headers.set(name, value);
   }
+  headers.set('x-request-id', requestId);
   headers.set('accept', headers.get('accept') ?? 'application/json');
 
   const transport =
@@ -147,7 +152,6 @@ async function proxyRequest(request: NextRequest) {
       error && typeof error === 'object' && 'code' in error
         ? String(error.code)
         : 'BACKEND_PROXY_ERROR';
-    const requestId = randomUUID();
     console.error('ShopCity backend proxy failed', {
       requestId,
       code,
@@ -173,6 +177,7 @@ async function proxyRequest(request: NextRequest) {
         headers: {
           'content-type': 'application/json',
           'cache-control': 'no-store',
+          'x-request-id': requestId,
         },
       },
     );
@@ -196,6 +201,7 @@ async function proxyRequest(request: NextRequest) {
   // API resources include mutable tenant state; prevent Vercel rewrite caching
   // from serving stale customer, balance, or transaction data after a mutation.
   responseHeaders.set('cache-control', 'no-store, no-cache, max-age=0');
+  responseHeaders.set('x-request-id', requestId);
 
   return new Response(new Uint8Array(response.body), {
     status: response.status,
@@ -208,8 +214,8 @@ function proxyFailure(
   statusCode: number,
   code: string,
   message: string,
+  requestId: string,
 ): Response {
-  const requestId = randomUUID();
   console.warn('ShopCity BFF request rejected', {
     requestId,
     statusCode,

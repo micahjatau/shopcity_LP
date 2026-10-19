@@ -10,8 +10,9 @@ describe('BFF identity credential', () => {
     expect(isBffSecretValid(`${secret}=`)).toBe(false);
   });
 
-  it('compares valid credentials without accepting malformed or different values', () => {
+  it('rejects missing, malformed, or mismatched gateway credentials', () => {
     expect(matchesBffCredential(secret, secret)).toBe(true);
+    expect(matchesBffCredential(undefined, secret)).toBe(false);
     expect(
       matchesBffCredential(Buffer.alloc(32, 18).toString('base64url'), secret),
     ).toBe(false);

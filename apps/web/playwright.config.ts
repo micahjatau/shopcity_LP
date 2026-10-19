@@ -39,11 +39,21 @@ export default defineConfig({
         webServer: {
           command: webServerCommand,
           url: baseURL,
-          reuseExistingServer:
-            process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === 'true',
+          reuseExistingServer: false,
           timeout: 120000,
           env: {
-            NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED: 'true',
+            SHOPCITY_WEB_DIST_DIR:
+              process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === 'true'
+                ? '.next-playwright-production'
+                : '.next-playwright-dev',
+            NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED:
+              process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === 'true'
+                ? 'false'
+                : 'true',
+            NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED:
+              process.env.PLAYWRIGHT_USE_PRODUCTION_SERVER === 'true'
+                ? 'false'
+                : 'true',
           },
         },
       }),

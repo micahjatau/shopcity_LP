@@ -2,6 +2,9 @@ node_modules/
 dist/
 coverage/
 apps/web/.next/
+apps/web/.next-playwright-dev/
+apps/web/.next-playwright-production/
+apps/web/.next-live-e2e-*/
 apps/web/.turbo/
 apps/web/node_modules/
 .env

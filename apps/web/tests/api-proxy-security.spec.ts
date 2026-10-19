@@ -114,22 +114,24 @@ describe('API proxy security configuration', () => {
     }
   });
 
-  it('requires a 32-byte environment-specific BFF secret outside local/test/CI', () => {
+  it('fails closed when the environment-specific Preview BFF secret is missing or malformed', () => {
+    const previewEnvironment = {
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'preview',
+      VERCEL_TARGET_ENV: 'preview',
+      SHOPCITY_DEPLOYMENT_ENV: 'preview',
+    };
+    expect(resolveShopcityBffHeaders(previewEnvironment)).toBeNull();
     expect(
       resolveShopcityBffHeaders({
-        NODE_ENV: 'production',
-        VERCEL_ENV: 'preview',
-        VERCEL_TARGET_ENV: 'preview',
-        SHOPCITY_DEPLOYMENT_ENV: 'preview',
+        ...previewEnvironment,
+        SHOPCITY_BFF_SHARED_SECRET: 'not-a-valid-gateway-secret',
       }),
     ).toBeNull();
 
     expect(
       resolveShopcityBffHeaders({
-        NODE_ENV: 'production',
-        VERCEL_ENV: 'preview',
-        VERCEL_TARGET_ENV: 'preview',
-        SHOPCITY_DEPLOYMENT_ENV: 'preview',
+        ...previewEnvironment,
         SHOPCITY_BFF_SHARED_SECRET: testSecret,
       }),
     ).toEqual({

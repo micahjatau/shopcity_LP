@@ -42,10 +42,13 @@ class TestResponse {
 
   constructor(
     _body: Uint8Array | string,
-    init: { status: number; headers: TestHeaders },
+    init: { status: number; headers: TestHeaders | Record<string, string> },
   ) {
     this.status = init.status;
-    this.headers = init.headers;
+    this.headers =
+      init.headers instanceof TestHeaders
+        ? init.headers
+        : new TestHeaders(init.headers);
   }
 }
 
@@ -60,7 +63,7 @@ jest.mock('node:http', () => ({
 }));
 
 describe('same-origin API proxy device-cookie forwarding', () => {
-  it('forwards request cookies/origin and preserves the upstream Set-Cookie attributes', async () => {
+  it('replaces untrusted request IDs while forwarding cookies/origin and preserving upstream Set-Cookie attributes', async () => {
     const setCookie =
       '__Host-shopcity_pos_device=opaque-token; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly; Secure';
     let forwardedHeaders: Record<string, string> | undefined;
@@ -96,6 +99,7 @@ describe('same-origin API proxy device-cookie forwarding', () => {
         referer: 'http://localhost:3000/login',
         'x-csrf-token': 'csrf',
         'content-type': 'application/json',
+        'x-request-id': 'browser-selected-request-id',
       }),
       arrayBuffer: async () => Uint8Array.from(Buffer.from('{}')).buffer,
     } as unknown as NextRequest;
@@ -109,6 +113,12 @@ describe('same-origin API proxy device-cookie forwarding', () => {
       'x-shopcity-deployment-environment': 'test',
     });
     expect(forwardedHeaders?.['x-shopcity-bff-token']).toBeUndefined();
+    const requestId = forwardedHeaders?.['x-request-id'];
+    expect(requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(requestId).not.toBe('browser-selected-request-id');
+    expect(response.headers.get('x-request-id')).toBe(requestId);
     expect(response.headers.get('set-cookie')).toContain(setCookie);
   });
 
@@ -184,6 +194,9 @@ describe('same-origin API proxy device-cookie forwarding', () => {
       expect(forwardedHeaders?.['x-shopcity-deployment-environment']).toBe(
         'test',
       );
+      expect(forwardedHeaders?.['x-request-id']).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
     } finally {
       for (const key of environmentKeys) {
         const value = originalEnvironment.get(key);
@@ -205,6 +218,9 @@ describe('same-origin API proxy device-cookie forwarding', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(403);
+    expect(response.headers.get('x-request-id')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
     expect(jest.mocked(httpRequest)).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,10 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import disposableTargetModule from '../../../scripts/e2e/assert-disposable-target.cjs';
+
+const { assertDisposableTarget } = disposableTargetModule as {
+  assertDisposableTarget: (env?: NodeJS.ProcessEnv) => unknown;
+};
 
 const liveEnabled = process.env.SHOPCITY_LIVE_E2E === '1';
 const backendBaseUrl =
@@ -21,6 +26,7 @@ function requireLive() {
     'Set SHOPCITY_LIVE_E2E=1 to run the backend-connected E2E suite.',
   );
 
+  assertDisposableTarget(process.env);
   if (!adminPassword) {
     throw new Error('SHOPCITY_LIVE_ADMIN_PASSWORD is required for live E2E.');
   }
@@ -319,13 +325,11 @@ test.describe('backend-connected frontend flows', () => {
 });
 
 async function ensureSeeded(page: Page) {
-  const response = await page.request.get(`${backendBaseUrl}/api/v1/auth/me`);
-  if (response.status() === 200 || response.status() === 401) {
-    return;
-  }
+  const response = await page.request.get(`${backendBaseUrl}/health/ready`);
+  if (response.status() === 200) return;
 
   throw new Error(
-    `Live backend is not ready at ${backendBaseUrl}; run the backend and seed it before enabling SHOPCITY_LIVE_E2E.`,
+    `Live backend readiness failed with HTTP ${response.status()}; the disposable database or Redis service is not ready.`,
   );
 }
 
@@ -374,15 +378,29 @@ async function login(
     );
   }
 
+  const frontendOrigin = new URL(frontendBaseUrl).origin;
   const response = await page.request.post(
-    `${backendBaseUrl}/api/v1/auth/login`,
+    `${frontendOrigin}/api/v1/auth/login`,
     {
       data: JSON.stringify({ username, password }),
-      headers,
+      headers: {
+        ...headers,
+        Origin: frontendOrigin,
+        Referer: `${frontendOrigin}/login`,
+      },
     },
   );
 
   expect(response.status()).toBe(expectedStatus);
+  const responseHeaders = response.headers();
+  const requestId = responseHeaders['x-request-id'];
+  expect(requestId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  );
+  const responseEnvelope = (await response.json()) as {
+    meta?: { requestId?: string };
+  };
+  expect(responseEnvelope.meta?.requestId).toBe(requestId);
 
   const setCookieHeaders =
     response.status() === 200
