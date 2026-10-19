@@ -1023,8 +1023,11 @@ test.describe('workflow route coverage', () => {
           /login-bgrd\.webp/,
         );
         await expect(
-          page.locator('[data-od-id="role-selector"] input'),
-        ).toHaveCount(3);
+          page.locator('[data-od-id="login-form"] input[type="radio"]'),
+        ).toHaveCount(0);
+        await expect(
+          page.getByText(/your shopcity account determines your workspace/i),
+        ).toBeVisible();
         expect(
           await page.locator('body').evaluate((body) => body.scrollWidth),
           `${route.path} ${viewport.name}`,
@@ -3912,9 +3915,9 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('heading', { name: 'Staff sign in' }),
     ).toBeVisible();
-    await expect(
-      page.getByText(/Cashiers sign in with a paired POS security key/),
-    ).toBeVisible();
+    await expect(page.locator('.login-notice')).toHaveText(
+      /Sign in with your ShopCity staff credentials/,
+    );
     await expect(page.getByRole('textbox', { name: 'Device ID' })).toHaveCount(
       0,
     );

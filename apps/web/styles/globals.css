@@ -194,32 +194,6 @@ main {
   color: rgba(255, 255, 255, 0.76) !important;
 }
 
-.login-role-list {
-  display: grid;
-  gap: var(--sc-spacing-2);
-  margin: 0;
-  padding: var(--sc-spacing-3) var(--sc-spacing-4);
-  border: 0;
-  border-radius: var(--sc-radius-full);
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.login-role-list legend,
-.login-role-list small {
-  color: rgba(255, 255, 255, 0.76);
-  font-size: var(--sc-font-size-xs);
-}
-
-.login-role-list label {
-  display: flex;
-  gap: var(--sc-spacing-2);
-  align-items: center;
-}
-
-.login-role-list input {
-  accent-color: white;
-}
-
 .login-forgot {
   display: inline-flex;
   align-items: center;
@@ -233,19 +207,6 @@ main {
   font-size: var(--sc-font-size-xs);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-/* Keep the role-group name accessible even when utility CSS is absent. */
-.login-role-list > legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .login-page__shell {
@@ -308,50 +269,10 @@ main {
   gap: 13px;
 }
 
-.login-role-list {
-  display: grid;
-  gap: 0;
-  margin: 0 0 12px;
-  padding: 11px 15px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.login-role-option {
-  display: grid;
-  grid-template-columns: 17px 1fr;
-  gap: 9px;
-  align-items: start;
-  padding: 6px 0;
-  color: white;
-}
-
-.login-role-option.is-unavailable {
-  opacity: 0.72;
-}
-
-.login-role-option input {
-  width: 14px;
-  height: 14px;
-  margin: 3px 0 0;
-  accent-color: white;
-}
-
-.login-role-option strong,
-.login-role-option small {
-  display: block;
-}
-
-.login-role-option strong {
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.login-role-option small {
-  margin-top: 1px;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 10px;
-  line-height: 1.18;
+.login-role-guidance {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .login-field {

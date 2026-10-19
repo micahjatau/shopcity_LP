@@ -1,18 +1,15 @@
+import { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { Buffer } from 'node:buffer';
-import type { IncomingMessage } from 'node:http';
 import type { NextRequest } from 'next/server';
-
-const STAGING_BACKEND_URL =
-  'https://shopcity-api-git-staging-micahjatau.vercel.app';
-const IS_STAGING_BRANCH = process.env.VERCEL_GIT_COMMIT_REF === 'staging';
-
-const BACKEND_BASE_URL = IS_STAGING_BRANCH
-  ? STAGING_BACKEND_URL
-  : (process.env.SHOPCITY_BACKEND_URL ??
-    process.env.SHOPCITY_API_BASE_URL ??
-    'http://127.0.0.1:3000');
+import {
+  isTrustedShopcityBrowserOrigin,
+  requiresShopcityBffIdentity,
+  resolveShopcityBackendBaseUrl,
+  resolveShopcityBffHeaders,
+} from '../../../../lib/api-proxy-security';
 
 const BACKEND_REQUEST_TIMEOUT_MS = 10000;
 
@@ -35,11 +32,51 @@ const FORWARDED_HEADERS = new Set([
 export const runtime = 'nodejs';
 
 async function proxyRequest(request: NextRequest) {
+  const method = request.method.toUpperCase();
+  const path = request.nextUrl.pathname;
+  const backendBaseUrl = resolveShopcityBackendBaseUrl(process.env);
+  if (!backendBaseUrl) {
+    return proxyFailure(
+      request,
+      503,
+      'BACKEND_UNAVAILABLE',
+      'The ShopCity API is temporarily unavailable.',
+    );
+  }
+
+  const requiresBff = requiresShopcityBffIdentity(path, method);
+  if (
+    requiresBff &&
+    !isTrustedShopcityBrowserOrigin(
+      request.headers.get('origin'),
+      request.headers.get('referer'),
+      process.env,
+    )
+  ) {
+    return proxyFailure(
+      request,
+      403,
+      'AUTH_ORIGIN_REJECTED',
+      'Unable to sign in. Check your credentials or contact your administrator.',
+    );
+  }
+
+  const bffHeaders = requiresBff
+    ? resolveShopcityBffHeaders(process.env)
+    : null;
+  if (requiresBff && !bffHeaders) {
+    return proxyFailure(
+      request,
+      503,
+      'BFF_CONFIGURATION_INVALID',
+      'The ShopCity sign-in service is temporarily unavailable.',
+    );
+  }
+
   const backendUrl = new URL(
     request.nextUrl.pathname + request.nextUrl.search,
-    BACKEND_BASE_URL,
+    backendBaseUrl,
   );
-  const method = request.method.toUpperCase();
   const body =
     method === 'GET' || method === 'HEAD'
       ? undefined
@@ -51,6 +88,9 @@ async function proxyRequest(request: NextRequest) {
       headers.set(key, value);
     }
   });
+  for (const [name, value] of Object.entries(bffHeaders ?? {})) {
+    headers.set(name, value);
+  }
   headers.set('accept', headers.get('accept') ?? 'application/json');
 
   const transport =
@@ -107,20 +147,33 @@ async function proxyRequest(request: NextRequest) {
       error && typeof error === 'object' && 'code' in error
         ? String(error.code)
         : 'BACKEND_PROXY_ERROR';
+    const requestId = randomUUID();
     console.error('ShopCity backend proxy failed', {
+      requestId,
       code,
       method,
       path: request.nextUrl.pathname,
     });
     return new Response(
       JSON.stringify({
-        status: 'error',
-        code: 'BACKEND_UNAVAILABLE',
-        message: 'The ShopCity API is temporarily unavailable.',
+        success: false,
+        error: {
+          statusCode: 502,
+          code: 'BACKEND_UNAVAILABLE',
+          message: 'The ShopCity API is temporarily unavailable.',
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          path: request.nextUrl.pathname,
+          requestId,
+        },
       }),
       {
         status: 502,
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'cache-control': 'no-store',
+        },
       },
     );
   }
@@ -148,6 +201,40 @@ async function proxyRequest(request: NextRequest) {
     status: response.status,
     headers: responseHeaders,
   });
+}
+
+function proxyFailure(
+  request: NextRequest,
+  statusCode: number,
+  code: string,
+  message: string,
+): Response {
+  const requestId = randomUUID();
+  console.warn('ShopCity BFF request rejected', {
+    requestId,
+    statusCode,
+    code,
+    path: request.nextUrl.pathname,
+  });
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: { statusCode, code, message },
+      meta: {
+        timestamp: new Date().toISOString(),
+        path: request.nextUrl.pathname,
+        requestId,
+      },
+    }),
+    {
+      status: statusCode,
+      headers: {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+        'x-request-id': requestId,
+      },
+    },
+  );
 }
 
 export async function GET(request: NextRequest) {

@@ -324,7 +324,7 @@ function makeWebAuthnRefreshFixture(
 }
 
 describe('AuthService', () => {
-  it('requires an allowlisted public login origin, using Referer only as fallback', () => {
+  it('requires an allowlisted local login origin, using Referer only as fallback', () => {
     const service = new AuthService(
       {} as never,
       {} as never,
@@ -350,6 +350,53 @@ describe('AuthService', () => {
     ).toThrow();
     expect(() =>
       service.assertPublicLoginOrigin('https://evil.test', undefined),
+    ).toThrow();
+
+    const bffSecret = Buffer.alloc(32, 23).toString('base64url');
+    const deployedService = new AuthService(
+      {} as never,
+      {} as never,
+      {
+        get: (name: string) =>
+          name === 'SHOPCITY_DEPLOYMENT_ENV'
+            ? 'preview'
+            : name === 'SHOPCITY_BFF_SHARED_SECRET'
+              ? bffSecret
+              : undefined,
+      } as never,
+      {} as never,
+    );
+    expect(() =>
+      deployedService.assertPublicLoginOrigin(
+        'https://feature-shopcity.vercel.app',
+        undefined,
+        bffSecret,
+        'preview',
+      ),
+    ).not.toThrow();
+    expect(() =>
+      deployedService.assertPublicLoginOrigin(
+        'https://feature-shopcity.vercel.app',
+        undefined,
+        undefined,
+        'preview',
+      ),
+    ).toThrow();
+    expect(() =>
+      deployedService.assertPublicLoginOrigin(
+        'http://feature-shopcity.vercel.app',
+        undefined,
+        bffSecret,
+        'preview',
+      ),
+    ).toThrow();
+    expect(() =>
+      deployedService.assertPublicLoginOrigin(
+        'https://feature-shopcity.vercel.app',
+        undefined,
+        bffSecret,
+        'production',
+      ),
     ).toThrow();
   });
 
@@ -875,7 +922,7 @@ describe('AuthService', () => {
             },
           },
         } as never,
-        {} as never,
+        { get: jest.fn().mockReturnValue(undefined) } as never,
         {} as never,
       );
 
@@ -1531,6 +1578,8 @@ describe('AuthService', () => {
       undefined,
       'http://localhost:3000',
       undefined,
+      undefined,
+      undefined,
       reply as never,
     );
     expect(pending).toMatchObject({
@@ -1545,6 +1594,10 @@ describe('AuthService', () => {
         attemptToken: TEST_ATTEMPT_TOKEN,
         assertion: { id: 'credential-assertion-id' },
       },
+      'http://localhost:3000',
+      undefined,
+      undefined,
+      undefined,
       reply as never,
     );
     expect(completed).toEqual({ user: {}, session: {} });
@@ -1608,7 +1661,18 @@ describe('AuthService', () => {
 
     await expect(
       service.login('admin@shopcity.local', 'password'),
-    ).rejects.toThrow('User is not active');
+    ).rejects.toThrow('Invalid credentials');
+  });
+
+  it('does not issue a human login session to an internal System role', async () => {
+    const service = buildLoginService({
+      device: buildDevice('unused'),
+      userRole: UserRole.SYSTEM,
+    });
+
+    await expect(
+      service.login('system@shopcity.local', 'password'),
+    ).rejects.toThrow('Invalid credentials');
   });
 
   it('rejects inactive users when resolving the current session', async () => {
@@ -2391,6 +2455,9 @@ describe('AuthService', () => {
           findUnique: jest.fn().mockResolvedValue(user),
         },
         device: { findFirst: jest.fn().mockResolvedValue(device) },
+        deviceTokenCredential: {
+          findUnique: jest.fn().mockResolvedValue({ ...credential, device }),
+        },
         $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
           callback(tx),
         ),
@@ -2429,7 +2496,7 @@ describe('AuthService', () => {
       service.login(
         'cashier@shopcity.local',
         'password',
-        'device-id',
+        'attacker-controlled-device-id',
         undefined,
         token,
       ),
@@ -2440,6 +2507,51 @@ describe('AuthService', () => {
     expect(createdSessionArgs?.data.deviceId).toBe('device-id');
     const lastUsedArgs = tokenCredentialUpdate.mock.calls[0]?.[0];
     expect(lastUsedArgs?.data.lastUsedAt).toBeInstanceOf(Date);
+  });
+
+  it('fails closed on WebAuthn cashier login when the pilot token-only policy is enabled', async () => {
+    const user = {
+      id: 'cashier-id',
+      tenantId: 'tenant-id',
+      branchId: 'branch-id',
+      status: UserStatus.ACTIVE,
+      role: UserRole.CASHIER,
+      tenant: { status: 'ACTIVE' },
+      branch: { status: 'ACTIVE' },
+    };
+    const deviceLookup = jest.fn();
+    const service = new AuthService(
+      {
+        user: {
+          findFirst: jest.fn().mockResolvedValue(user),
+          findUnique: jest.fn().mockResolvedValue(user),
+        },
+        device: { findFirst: deviceLookup },
+      } as never,
+      {
+        publicClient: {
+          auth: {
+            signInWithPassword: jest.fn().mockResolvedValue({
+              data: { user: { id: 'supabase-id' } },
+              error: null,
+            }),
+          },
+        },
+      } as never,
+      {
+        get: (name: string) =>
+          name === 'PILOT_CASHIER_DEVICE_TOKEN_ONLY' ? true : undefined,
+      } as never,
+      { recordWithClient: jest.fn() } as never,
+    );
+
+    await expect(
+      service.login('cashier@shopcity.local', 'password'),
+    ).rejects.toMatchObject({ response: { code: 'DEVICE_AUTH_FAILED' } });
+    await expect(
+      service.completeCashierLogin('attempt-token', {}),
+    ).rejects.toMatchObject({ response: { code: 'DEVICE_AUTH_FAILED' } });
+    expect(deviceLookup).not.toHaveBeenCalled();
   });
 
   it('preserves the cashier HMAC_LEGACY proof path during the bounded migration', async () => {

@@ -50,7 +50,7 @@ export default function LoginPage() {
               Staff sign in
             </h1>
             <p className="login-page__intro">
-              Choose a staff account to open the workspace for that role.
+              Sign in with your ShopCity staff credentials.
             </p>
             <LoginForm />
           </section>

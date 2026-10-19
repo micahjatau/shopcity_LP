@@ -20,8 +20,6 @@ test.describe('ShopCity flow coverage', () => {
       page.getByRole('link', { name: /shopcity supermarket home/i }),
     ).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('radio', { name: /cashier/i })).toBeFocused();
-    await page.keyboard.press('Tab');
     await expect(page.getByLabel('Email Address')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(

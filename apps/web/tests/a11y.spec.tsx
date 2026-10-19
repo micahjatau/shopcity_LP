@@ -213,8 +213,6 @@ describe('frontend accessibility gates', () => {
       screen.getByRole('link', { name: /shopcity supermarket home/i }),
     ).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('radio', { name: /cashier/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByLabelText(/email address/i)).toHaveFocus();
     await user.tab();
     expect(screen.getByLabelText(/^Password$/i)).toHaveFocus();

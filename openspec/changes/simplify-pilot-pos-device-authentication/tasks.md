@@ -10,10 +10,10 @@
   - [x] 2.2 Add scoped Admin/Supervisor pair/reset/revoke routes requiring existing session CSRF; write audit actor/time.
   - [x] 2.3 Pair/reset/revoke/deactivate atomically revoke prior credential(s) and all active device sessions; enforce non-enumerating tenant/branch scope and active device/branch status.
   - [x] 2.4 Set/clear the exact `__Host-shopcity_pos_device` cookie only on the target-browser response; never expose raw token through API JSON.
-  - [x] 2.5 Keep HMAC_LEGACY and WEBAUTHN behavior exclusive, unchanged, and fail-closed.
+  - [x] 2.5 Keep HMAC_LEGACY and WEBAUTHN implementation/data for compatibility; deployed Preview/Staging/Production require explicit DEVICE_TOKEN-only policy and reject those modes for Cashier sessions. No alternate proof or silent migration is allowed.
 - [x] 3. Cashier login and session binding
-  - [x] 3.1 Require exact allowlisted Origin for public login; Referer fallback only when Origin is absent; reject missing/invalid origin.
-  - [x] 3.2 Keep Supabase password verification and existing rate limits/generic failures, then validate device token, active account/tenant/device/branch, exact branch compatibility, and mode before session creation.
+  - [x] 3.1 Use same-origin BFF origin validation plus server-only BFF credential and deployment-environment identity for deployed login; exact CORS origin fallback remains local/test only. Referer is used only when Origin is absent; missing/invalid origin fails closed.
+  - [x] 3.2 Keep Supabase password verification and existing rate limits/generic failures, then validate device token, active account/tenant/device/branch, exact branch compatibility, and mode before session creation. The deployed pilot token-only policy is environment-validated; actual secret/API/origin values remain deployment-owner configuration.
   - [x] 3.3 Lock/recheck device and active credential during login; update last-use metadata and issue only session bound to persisted deviceId.
   - [x] 3.4 Preserve device token cookie on cashier logout/session refresh; refresh must revalidate session/device eligibility and not renew/change credential.
   - [x] 3.5 Verify pairing/reset/revoke/deactivation atomically invalidate sessions, including focused HTTP integration coverage for pairing, cashier session binding, reset, and session rejection.
@@ -25,7 +25,7 @@
 - [ ] 5. Verification and closure
   - [x] 5.1 Add focused backend/controller/security tests and frontend/device management tests.
   - [x] 5.2 Run Prisma validate/generate and verify the full migration chain on the empty disposable PostgreSQL Testcontainers target; do not apply shared databases.
-  - [x] 5.3 Run focused and full Jest suites, web tests/typecheck, client typecheck, root/web lint and build, Semgrep on changed auth surfaces, and strict OpenSpec validation. All local verification gates pass after fixing the duplicate fraud-test stub property, removing a redundant route CSS declaration rejected by style ownership, and excluding generated `.next-*` build directories from ESLint.
+  - [ ] 5.3 Re-run focused and full Jest suites, web tests/typecheck, client typecheck, root/web lint and build, Semgrep on changed auth surfaces, and strict OpenSpec validation after the staff-authentication/BFF implementation; only the focused auth and web proxy/login suites have passed so far.
   - [ ] 5.4 Run GitNexus detect_changes, inspect final diff, confirm no staged files and no unrelated dirty files changed.
   - [x] 5.5 Record actual staging POS pairing/E2E as incomplete unless approved staging access and hardware are available; do not claim pilot acceptance.
   - [x] 5.6 Clear the POS cookie on reset/deactivation only when the request token matches the selected device; verify browser A remains usable when it resets device B.

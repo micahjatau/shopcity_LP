@@ -8,25 +8,18 @@ test.describe('visual regression gallery', () => {
     await page.setViewportSize({ width: 1440, height: 923 });
     await page.goto('/login', { waitUntil: 'networkidle' });
     await page.locator('[data-od-id="login-page"]').waitFor();
-    // The group name stays accessible without occupying visual layout space.
     await expect(
-      page.getByRole('group', { name: 'Choose a staff account' }),
+      page.getByText(
+        'Your ShopCity account determines your workspace and access.',
+      ),
     ).toBeVisible();
-    await expect(page.locator('.login-role-list > legend')).toHaveCSS(
-      'position',
-      'absolute',
-    );
-    await expect(page.locator('.login-role-list > legend')).toHaveCSS(
-      'height',
-      '1px',
-    );
     await expect(page.locator('[data-od-id="login-heading"]')).toHaveText(
       'Staff sign in',
     );
     await expect(page.locator('[data-od-id="brand-link"]')).toBeVisible();
     await expect(
-      page.locator('[data-od-id="role-selector"] input'),
-    ).toHaveCount(3);
+      page.locator('[data-od-id="login-form"] input[type="radio"]'),
+    ).toHaveCount(0);
     expect(page.viewportSize()).toEqual({ width: 1440, height: 923 });
     const loginGeometry = await page
       .locator('[data-od-id="login-page"]')

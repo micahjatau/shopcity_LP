@@ -3,6 +3,7 @@ import {
   isLocalCashierTestSessionEnabled,
   isValidTailscaleHttpsOrigin,
 } from './local-cashier-test-session';
+import { isBffSecretValid } from '../common/auth/bff-identity';
 
 const isTest = process.env.NODE_ENV === 'test';
 
@@ -49,6 +50,23 @@ export const envValidationSchema = Joi.object({
   VERCEL_ENV: Joi.string()
     .valid('development', 'preview', 'production')
     .optional(),
+  VERCEL_TARGET_ENV: Joi.string()
+    .valid('development', 'preview', 'staging', 'production')
+    .optional(),
+  SHOPCITY_DEPLOYMENT_ENV: Joi.string()
+    .valid('local', 'test', 'ci', 'preview', 'staging', 'production')
+    .optional(),
+  SHOPCITY_BFF_SHARED_SECRET: Joi.string()
+    .empty('')
+    .custom((value: string | undefined, helpers) => {
+      if (value === undefined || isBffSecretValid(value)) return value;
+      return helpers.error('any.invalid');
+    })
+    .optional(),
+  PILOT_CASHIER_DEVICE_TOKEN_ONLY: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: requiredString(
     'postgresql://shopcity:shopcity@127.0.0.1:5432/shopcity_test?schema=public',
@@ -441,7 +459,7 @@ export const envValidationSchema = Joi.object({
     '00000000-0000-4000-8000-000000000002',
   ),
   CORS_ORIGIN_ALLOWLIST: requiredString(
-    'http://localhost:3000,http://127.0.0.1:3000',
+    'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100',
   ),
   SUPABASE_URL: requiredString('http://127.0.0.1:54321'),
   SUPABASE_ANON_KEY: requiredString('test-anon-key'),
@@ -450,20 +468,22 @@ export const envValidationSchema = Joi.object({
   .custom((value: unknown, helpers) => {
     const env = value as Record<string, number>;
     const envFlags = value as Record<string, unknown>;
-    const attestationKek = String(env.DEVICE_ATTESTATION_KEK ?? '');
+    const attestationKek =
+      typeof envFlags.DEVICE_ATTESTATION_KEK === 'string'
+        ? envFlags.DEVICE_ATTESTATION_KEK
+        : '';
     const secretValues = [
-      env.SESSION_SECRET,
-      env.CSRF_SECRET,
-      env.SMS_PROVIDER_USERNAME,
-      env.SMS_PROVIDER_API_KEY,
-      env.SMS_PROVIDER_SENDER_ID,
-      env.ARKESEL_API_KEY,
-      env.AFRICASTALKING_LIVE_API_KEY,
-      env.AFRICASTALKING_SANDBOX_API_KEY,
-      env.TWILIO_API_SECRET,
-    ]
-      .filter((secret) => typeof secret === 'string')
-      .map((secret) => String(secret));
+      envFlags.SESSION_SECRET,
+      envFlags.CSRF_SECRET,
+      envFlags.SMS_PROVIDER_USERNAME,
+      envFlags.SMS_PROVIDER_API_KEY,
+      envFlags.SMS_PROVIDER_SENDER_ID,
+      envFlags.ARKESEL_API_KEY,
+      envFlags.AFRICASTALKING_LIVE_API_KEY,
+      envFlags.AFRICASTALKING_SANDBOX_API_KEY,
+      envFlags.TWILIO_API_SECRET,
+      envFlags.SHOPCITY_BFF_SHARED_SECRET,
+    ].filter((secret): secret is string => typeof secret === 'string');
 
     if (attestationKek.trim().length < 32) {
       return helpers.error('any.invalid');
@@ -473,12 +493,64 @@ export const envValidationSchema = Joi.object({
       return helpers.error('any.invalid');
     }
 
-    const nodeEnv = String(env.NODE_ENV ?? '');
-    const webAuthnOrigins = String(env.WEBAUTHN_ALLOWED_ORIGINS ?? '')
+    const nodeEnv =
+      typeof envFlags.NODE_ENV === 'string' ? envFlags.NODE_ENV : '';
+    const deploymentEnvironment =
+      typeof envFlags.SHOPCITY_DEPLOYMENT_ENV === 'string'
+        ? envFlags.SHOPCITY_DEPLOYMENT_ENV
+        : '';
+    const vercelEnvironment =
+      typeof envFlags.VERCEL_ENV === 'string' ? envFlags.VERCEL_ENV : '';
+    const vercelTargetEnvironment =
+      typeof envFlags.VERCEL_TARGET_ENV === 'string'
+        ? envFlags.VERCEL_TARGET_ENV
+        : '';
+    const deployedRuntime =
+      nodeEnv === 'production' ||
+      nodeEnv === 'staging' ||
+      vercelEnvironment === 'preview' ||
+      vercelEnvironment === 'production' ||
+      ['preview', 'staging', 'production'].includes(deploymentEnvironment);
+    const deploymentIdentityValidationApplies =
+      !isTest ||
+      deploymentEnvironment !== '' ||
+      vercelEnvironment !== '' ||
+      vercelTargetEnvironment !== '' ||
+      envFlags.SHOPCITY_BFF_SHARED_SECRET !== undefined ||
+      envFlags.PILOT_CASHIER_DEVICE_TOKEN_ONLY === true;
+    const deploymentIdentityInvalid =
+      deploymentIdentityValidationApplies &&
+      ((deployedRuntime &&
+        (!['preview', 'staging', 'production'].includes(
+          deploymentEnvironment,
+        ) ||
+          !isBffSecretValid(
+            typeof envFlags.SHOPCITY_BFF_SHARED_SECRET === 'string'
+              ? envFlags.SHOPCITY_BFF_SHARED_SECRET
+              : undefined,
+          ) ||
+          envFlags.PILOT_CASHIER_DEVICE_TOKEN_ONLY !== true)) ||
+        (vercelTargetEnvironment !== '' &&
+          vercelTargetEnvironment !== deploymentEnvironment) ||
+        (vercelEnvironment === 'production' &&
+          deploymentEnvironment !== 'production') ||
+        (vercelEnvironment === 'preview' &&
+          deploymentEnvironment !== 'preview' &&
+          deploymentEnvironment !== 'staging') ||
+        (vercelEnvironment === 'development' &&
+          deploymentEnvironment !== 'local'));
+    const webAuthnOrigins = (
+      typeof envFlags.WEBAUTHN_ALLOWED_ORIGINS === 'string'
+        ? envFlags.WEBAUTHN_ALLOWED_ORIGINS
+        : ''
+    )
       .split(',')
       .map((origin) => origin.trim())
       .filter(Boolean);
-    const rpId = String(env.WEBAUTHN_RP_ID ?? '').toLowerCase();
+    const rpId =
+      typeof envFlags.WEBAUTHN_RP_ID === 'string'
+        ? envFlags.WEBAUTHN_RP_ID.toLowerCase()
+        : '';
     const developmentEnrollmentEnabled =
       envFlags.WEBAUTHN_DEV_ENROLLMENT_ENABLED === true;
     const previewEnrollmentEnabled =
@@ -514,9 +586,9 @@ export const envValidationSchema = Joi.object({
         envFlags.SMS_PROVIDER_MODE !== 'real');
     const localCashierTestSessionEnvironment = {
       NODE_ENV: nodeEnv,
-      VERCEL_ENV: env.VERCEL_ENV,
-      DATABASE_URL: env.DATABASE_URL,
-      SMS_PROVIDER_MODE: env.SMS_PROVIDER_MODE ?? 'deterministic',
+      VERCEL_ENV: envFlags.VERCEL_ENV,
+      DATABASE_URL: envFlags.DATABASE_URL,
+      SMS_PROVIDER_MODE: envFlags.SMS_PROVIDER_MODE ?? 'deterministic',
       DEV_CASHIER_TEST_SESSION_ENABLED: localCashierTestSessionRequested,
     };
     const localCashierTestSessionEnabled = isLocalCashierTestSessionEnabled(
@@ -541,9 +613,9 @@ export const envValidationSchema = Joi.object({
         }
       });
     if (
+      deploymentIdentityInvalid ||
       (developmentEnrollmentEnabled && nodeEnv !== 'development') ||
-      (previewEnrollmentEnabled &&
-        String(env.VERCEL_ENV ?? '') !== 'preview') ||
+      (previewEnrollmentEnabled && vercelEnvironment !== 'preview') ||
       previewOriginInvalid ||
       localCashierTestSessionInvalid ||
       tailscaleCashierOriginInvalid ||

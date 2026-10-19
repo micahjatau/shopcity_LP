@@ -18,7 +18,7 @@ jest.mock('../lib/api/generated-client', () => ({
   authControllerCompleteCashierLoginV1: jest.fn(),
 }));
 
-describe('LoginForm WebAuthn flow', () => {
+describe('LoginForm', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockReplace.mockReset();
@@ -89,6 +89,38 @@ describe('LoginForm WebAuthn flow', () => {
     }
   });
 
+  it('keeps WebAuthn compatibility opt-in and local-development-only', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag =
+      process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED;
+    process.env.NODE_ENV = 'development';
+    process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED = 'true';
+    window.localStorage.setItem('shopcity:paired-device-id', 'legacy-device');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'ADMIN' } } },
+    } as never);
+
+    try {
+      render(<LoginForm />);
+      fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+      await waitFor(() =>
+        expect(loginWithCredentials).toHaveBeenCalledWith(
+          { username: '', password: '' },
+          { headers: { 'x-device-id': 'legacy-device' } },
+        ),
+      );
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) {
+        delete process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED;
+      } else {
+        process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED =
+          previousFlag;
+      }
+    }
+  });
+
   it('completes the assertion before navigating to an authenticated route', async () => {
     window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
     jest.mocked(loginWithCredentials).mockResolvedValue({
@@ -149,24 +181,24 @@ describe('LoginForm WebAuthn flow', () => {
     expect(window.localStorage.getItem('private-password')).toBeNull();
   });
 
-  it('shows pairing guidance instead of sending a cashier request when locator is missing', async () => {
+  it('uses role-neutral sign-in without requiring or presenting a device locator', async () => {
+    window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'SUPERVISOR' } } },
+    } as never);
     render(<LoginForm />);
+
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-    expect(await screen.findByText(/not paired to a register/i)).toBeVisible();
-    expect(loginWithCredentials).not.toHaveBeenCalled();
-  });
 
-  it('clears the cashier pairing warning when staff selects Supervisor', async () => {
-    render(<LoginForm />);
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-    expect(await screen.findByText(/not paired to a register/i)).toBeVisible();
-
-    fireEvent.click(screen.getByRole('radio', { name: 'Supervisor' }));
-
-    expect(
-      screen.queryByText(/not paired to a register/i),
-    ).not.toBeInTheDocument();
-    expect(loginWithCredentials).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('/supervisor'),
+    );
+    expect(loginWithCredentials).toHaveBeenCalledWith(
+      { username: '', password: '' },
+      { headers: {} },
+    );
   });
 
   it('does not navigate when assertion completion fails', async () => {
@@ -198,7 +230,7 @@ describe('LoginForm WebAuthn flow', () => {
     expect(window.localStorage.getItem('short-lived')).toBeNull();
   });
 
-  it('sends only the incidental cashier locator when the authenticated role is Admin', async () => {
+  it('does not send a client-supplied device locator when the backend role is Admin', async () => {
     window.localStorage.setItem('shopcity:paired-device-id', 'device-locator');
     jest.mocked(loginWithCredentials).mockResolvedValue({
       status: 200,
@@ -209,20 +241,37 @@ describe('LoginForm WebAuthn flow', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
     expect(loginWithCredentials).toHaveBeenCalledWith(
       { username: '', password: '' },
-      { headers: { 'x-device-id': 'device-locator' } },
+      { headers: {} },
     );
   });
 
-  it('preserves Admin and Supervisor password login navigation from the backend role', async () => {
+  it('shows a support reference for rejected credentials without revealing account state', async () => {
     jest.mocked(loginWithCredentials).mockResolvedValue({
-      status: 200,
-      data: { data: { user: { role: 'SUPERVISOR' } } },
+      status: 401,
+      data: {
+        success: false,
+        error: { code: 'DEVICE_AUTH_FAILED', statusCode: 401 },
+        meta: { requestId: 'req-login-123' },
+      },
     } as never);
     render(<LoginForm />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Supervisor' }));
     fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith('/supervisor'),
-    );
+
+    expect(await screen.findByText(/Reference: req-login-123/i)).toBeVisible();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('does not route unknown or internal roles to the cashier workspace', async () => {
+    jest.mocked(loginWithCredentials).mockResolvedValue({
+      status: 200,
+      data: { data: { user: { role: 'SYSTEM' } } },
+    } as never);
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    expect(
+      await screen.findByText(/contact your administrator/i),
+    ).toBeVisible();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

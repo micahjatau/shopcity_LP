@@ -35,8 +35,10 @@ import { AuditService } from '../audit/audit.service';
 import { DomainHttpException } from '../../common/errors/domain.exception';
 import {
   configuredDeviceTokenKeyVersion,
+  hashDeviceToken,
   matchesDeviceTokenHash,
 } from '../../common/auth/device-token';
+import { matchesBffCredential } from '../../common/auth/bff-identity';
 import { AuthContext } from '../../common/auth/session.types';
 import {
   hashToken,
@@ -133,8 +135,19 @@ export class AuthService {
       },
     });
 
-    if (!user || !isAuthUserEligible(user)) {
-      throw new UnauthorizedException('User is not active');
+    if (!user || !isAuthUserEligible(user) || user.role === UserRole.SYSTEM) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.role === UserRole.CASHIER && deviceToken) {
+      return this.loginWithDeviceToken(user, deviceToken);
+    }
+    if (
+      user.role === UserRole.CASHIER &&
+      this.configService.get<boolean>('PILOT_CASHIER_DEVICE_TOKEN_ONLY') ===
+        true
+    ) {
+      throw deviceAuthFailed();
     }
 
     const usesDeviceProof = Boolean(
@@ -179,7 +192,7 @@ export class AuthService {
       if (
         sessionDevice.authBindingMode === DeviceAuthBindingMode.DEVICE_TOKEN
       ) {
-        return this.loginWithDeviceToken(user, sessionDevice.id, deviceToken);
+        throw deviceAuthFailed();
       }
       if (sessionDevice.authBindingMode !== DeviceAuthBindingMode.HMAC_LEGACY) {
         throw deviceAuthFailed();
@@ -246,6 +259,12 @@ export class AuthService {
     attemptToken: unknown,
     assertion: unknown,
   ): Promise<IssuedSession> {
+    if (
+      this.configService.get<boolean>('PILOT_CASHIER_DEVICE_TOKEN_ONLY') ===
+      true
+    ) {
+      throw deviceAuthFailed();
+    }
     if (
       typeof attemptToken !== 'string' ||
       !isCashierAttemptToken(attemptToken) ||
@@ -790,7 +809,21 @@ export class AuthService {
   assertPublicLoginOrigin(
     origin: string | undefined,
     referer: string | undefined,
+    bffCredential?: string,
+    bffDeploymentEnvironment?: string,
   ): void {
+    const deploymentEnvironment =
+      this.configService.get<string>('SHOPCITY_DEPLOYMENT_ENV') ??
+      (process.env.NODE_ENV === 'test' ? 'test' : 'local');
+    const expectedBffCredential = this.configService.get<string>(
+      'SHOPCITY_BFF_SHARED_SECRET',
+    );
+    const localOnly =
+      ['local', 'test', 'ci'].includes(deploymentEnvironment) &&
+      process.env.NODE_ENV !== 'production' &&
+      process.env.NODE_ENV !== 'staging' &&
+      process.env.VERCEL_ENV !== 'preview' &&
+      process.env.VERCEL_ENV !== 'production';
     const candidate = origin ?? referer;
     if (!candidate) throw new UnauthorizedException('Invalid credentials');
 
@@ -798,15 +831,12 @@ export class AuthService {
     try {
       const parsed = new URL(candidate);
       requestOrigin = parsed.origin;
+      const deployed = !localOnly;
       if (
         parsed.username ||
         parsed.password ||
-        (origin && parsed.origin !== origin) ||
-        ((process.env.NODE_ENV === 'production' ||
-          process.env.NODE_ENV === 'staging' ||
-          process.env.VERCEL_ENV === 'production' ||
-          process.env.VERCEL_ENV === 'preview') &&
-          parsed.protocol !== 'https:')
+        (origin !== undefined && parsed.origin !== origin) ||
+        (deployed && parsed.protocol !== 'https:')
       ) {
         throw new Error('Invalid origin');
       }
@@ -814,9 +844,21 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (expectedBffCredential || !localOnly) {
+      if (
+        !matchesBffCredential(bffCredential, expectedBffCredential) ||
+        bffDeploymentEnvironment !== deploymentEnvironment
+      ) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      return;
+    }
+
+    // Local/test fallback remains restricted to the exact local CORS origins.
+    // Deployed login never uses this allowlist as its BFF trust boundary.
     const configured =
       this.configService.get<string>('CORS_ORIGIN_ALLOWLIST') ??
-      'http://localhost:3000,http://127.0.0.1:3000';
+      'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100';
     const allowedOrigins = configured.split(',').map((value) => value.trim());
     if (!allowedOrigins.includes(requestOrigin)) {
       throw new UnauthorizedException('Invalid credentials');
@@ -825,30 +867,40 @@ export class AuthService {
 
   private async loginWithDeviceToken(
     user: { id: string; tenantId: string; branchId: string | null },
-    deviceId: string,
     token: string | undefined,
   ): Promise<IssuedSession> {
     if (!token) throw deviceAuthFailed();
-    const candidate = await this.prismaService.device.findFirst({
-      where: { id: deviceId, tenantId: user.tenantId },
-      include: {
-        branch: { include: { tenant: true } },
-        deviceTokenCredentials: {
-          where: { status: DeviceTokenCredentialStatus.ACTIVE },
-        },
-      },
-    });
-    const credential = candidate?.deviceTokenCredentials[0];
     const key = this.configService.get<string>('POS_DEVICE_TOKEN_HMAC_KEY');
+    const keyVersion = configuredDeviceTokenKeyVersion(
+      this.configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
+    );
+    let presentedHash: string;
+    try {
+      presentedHash = hashDeviceToken(token, key);
+    } catch {
+      throw deviceAuthFailed();
+    }
+    const credential =
+      await this.prismaService.deviceTokenCredential.findUnique({
+        where: { tokenHash: presentedHash },
+        include: {
+          device: { include: { branch: { include: { tenant: true } } } },
+        },
+      });
+    const candidate = credential?.device;
+    const deviceId = candidate?.id;
     if (
       !candidate ||
-      candidate.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN ||
-      candidate.deviceTokenCredentials.length !== 1 ||
+      !deviceId ||
       !credential ||
-      credential.keyVersion !==
-        configuredDeviceTokenKeyVersion(
-          this.configService.get<number>('POS_DEVICE_TOKEN_HMAC_KEY_VERSION'),
-        ) ||
+      credential.tenantId !== user.tenantId ||
+      credential.status !== DeviceTokenCredentialStatus.ACTIVE ||
+      credential.keyVersion !== keyVersion ||
+      candidate.authBindingMode !== DeviceAuthBindingMode.DEVICE_TOKEN ||
+      candidate.status !== DeviceStatus.ACTIVE ||
+      candidate.branch.status !== BranchStatus.ACTIVE ||
+      candidate.branch.tenant.status !== TenantStatus.ACTIVE ||
+      candidate.branchId !== user.branchId ||
       !matchesDeviceTokenHash(token, credential.tokenHash, key)
     ) {
       throw deviceAuthFailed();

@@ -2,7 +2,7 @@
 
 ### Requirement: Exclusive device authentication binding modes
 
-Each device SHALL accept exactly one cashier authentication proof according to its persisted binding mode. `UNPAIRED` SHALL accept no proof, `HMAC_LEGACY` SHALL accept only the existing HMAC proof, `WEBAUTHN` SHALL accept only an active WebAuthn credential, and `DEVICE_TOKEN` SHALL accept only its active keyed device-token cookie credential. No mode SHALL fall back or downgrade to another proof. Existing HMAC_LEGACY and WEBAUTHN devices SHALL remain unchanged unless separately migrated through their existing approved flows.
+Each device SHALL accept exactly one cashier authentication proof according to its persisted binding mode. `UNPAIRED` SHALL accept no proof, `HMAC_LEGACY` SHALL accept only the existing HMAC proof, `WEBAUTHN` SHALL accept only an active WebAuthn credential, and `DEVICE_TOKEN` SHALL accept only its active keyed device-token cookie credential. No mode SHALL fall back or downgrade to another proof. Deployed Preview, Staging, and Production runtimes SHALL require the explicit `PILOT_CASHIER_DEVICE_TOKEN_ONLY=true` policy and SHALL issue Cashier sessions only from DEVICE_TOKEN credentials. Local/test compatibility code and legacy data remain intact; they do not authorize a deployed pilot runtime to accept HMAC_LEGACY or WEBAUTHN.
 
 #### Scenario: Device token login is exclusive
 
@@ -11,11 +11,19 @@ Each device SHALL accept exactly one cashier authentication proof according to i
 - **AND** missing/invalid token, disabled credential, inactive device/branch/user/tenant, tenant mismatch, or branch mismatch SHALL fail closed with generic device authentication failure
 - **AND** HMAC or WebAuthn proof SHALL not be accepted for that DEVICE_TOKEN device
 
-#### Scenario: Existing binding modes do not downgrade
+#### Scenario: Deployed pilot rejects legacy cashier proof
 
-- **WHEN** a login is attempted on an UNPAIRED, HMAC_LEGACY, or WEBAUTHN device
-- **THEN** the existing mode-specific behavior SHALL remain exclusive and unchanged
-- **AND** DEVICE_TOKEN SHALL not become a fallback for any existing proof mode
+- **GIVEN** the runtime is deployed to Preview, Staging, or Production with the required DEVICE_TOKEN-only policy
+- **WHEN** login is attempted on an UNPAIRED, HMAC_LEGACY, or WEBAUTHN device without an active DEVICE_TOKEN credential
+- **THEN** the Cashier SHALL receive no ShopCity session
+- **AND** no alternate proof SHALL be accepted or silently migrated
+
+#### Scenario: Local compatibility mode does not downgrade
+
+- **GIVEN** a local/test compatibility runtime is explicitly used outside the deployed pilot
+- **WHEN** login is attempted on a device
+- **THEN** only the proof matching its persisted binding mode MAY be accepted
+- **AND** DEVICE_TOKEN SHALL not become a fallback for HMAC_LEGACY or WEBAUTHN
 
 ### Requirement: Keyed device-token credential storage
 
@@ -107,12 +115,13 @@ The Admin and Supervisor device-management screens SHALL disable device mutation
 
 ### Requirement: Public login Origin integrity
 
-Public login SHALL enforce exact canonical Origin allowlist validation. Referer origin MAY be used only when Origin is absent. Missing, malformed, or non-allowlisted origin SHALL be rejected. The login endpoint SHALL not require a pre-login session-bound CSRF pair, but SHALL preserve Origin integrity, current rate limiting, generic errors, and Supabase password verification.
+Browser-facing public login SHALL use the same-origin web/BFF route. The BFF SHALL derive trusted browser origins from explicit `SHOPCITY_WEB_ORIGINS` plus approved Vercel deployment metadata for generated Preview hosts; it SHALL NOT infer API targets from Git refs or trust client-supplied Host/Forwarded/X-Forwarded-* metadata. The BFF SHALL require an explicit environment-to-API mapping outside Local/test and SHALL require HTTPS targets in deployed environments. Deployed API login SHALL require the configured server-only `SHOPCITY_BFF_SHARED_SECRET` and a matching `SHOPCITY_DEPLOYMENT_ENV` header; the API SHALL not treat Origin/Referer alone as BFF identity. Origin SHALL be canonical and Referer origin MAY be used only when Origin is absent. Local/test without a BFF secret remains restricted to exact `CORS_ORIGIN_ALLOWLIST` origins. Public login does not require a pre-login session-bound CSRF pair and SHALL preserve rate limiting, generic failures, and Supabase password verification.
 
-#### Scenario: Login Origin rejected
+#### Scenario: Login Origin or BFF identity rejected
 
-- **WHEN** Origin is missing and Referer is absent, or the selected origin is not allowlisted
+- **WHEN** Origin is missing and Referer is absent, malformed or untrusted, or the BFF credential/environment does not match the API target
 - **THEN** login SHALL fail before creating a ShopCity session
+- **AND** the response SHALL not disclose the BFF credential or user/account existence
 
 #### Scenario: Valid cashier token login
 
@@ -122,7 +131,7 @@ Public login SHALL enforce exact canonical Origin allowlist validation. Referer 
 
 ### Requirement: Same-origin proxy preserves token cookie transport
 
-The web same-origin proxy SHALL forward incoming Cookie, Origin, and Referer headers and preserve upstream Set-Cookie headers without exposing HttpOnly token contents to frontend code.
+The web same-origin proxy SHALL preserve Cookie, validated Origin/Referer, request body, status, timeout behavior, and upstream Set-Cookie attributes. It SHALL discard browser-supplied BFF identity and attach the server-configured `x-shopcity-bff-token` plus `x-shopcity-deployment-environment` only for the public login and cashier-login completion upstream requests. These headers SHALL never be exposed to browser code, responses, logs, or analytics.
 
 #### Scenario: Pair and login through proxy
 

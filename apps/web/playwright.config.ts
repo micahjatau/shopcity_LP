@@ -11,7 +11,7 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts$/,
   testIgnore: [
     /tests\/smoke\/(roles|scenarios|guardrails|offline)\//,
-    /tests\/(api-proxy-device-cookie|customer-card-number|report-errors|supervisor-report-metrics|webauthn-json)\.spec\.ts$/,
+    /tests\/(api-proxy-device-cookie|api-proxy-security|customer-card-number|report-errors|supervisor-report-metrics|webauthn-json)\.spec\.ts$/,
   ],
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
@@ -42,6 +42,9 @@ export default defineConfig({
           reuseExistingServer:
             process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === 'true',
           timeout: 120000,
+          env: {
+            NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED: 'true',
+          },
         },
       }),
 });

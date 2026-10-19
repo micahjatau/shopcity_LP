@@ -20,6 +20,34 @@ describe('envValidationSchema', () => {
       }).error,
     ).toBeDefined();
   });
+  it('requires explicit BFF, deployment, and device-token policy for deployed runtimes', () => {
+    const validPreview = {
+      NODE_ENV: 'production',
+      VERCEL_ENV: 'preview',
+      VERCEL_TARGET_ENV: 'preview',
+      SHOPCITY_DEPLOYMENT_ENV: 'preview',
+      SHOPCITY_BFF_SHARED_SECRET: Buffer.alloc(32, 9).toString('base64url'),
+      PILOT_CASHIER_DEVICE_TOKEN_ONLY: true,
+      WEBAUTHN_RP_ID: 'shopcity.example',
+      WEBAUTHN_ALLOWED_ORIGINS: 'https://shopcity.example',
+    };
+    expect(envValidationSchema.validate(validPreview).error).toBeUndefined();
+
+    const invalidCases = [
+      { ...validPreview, SHOPCITY_BFF_SHARED_SECRET: undefined },
+      { ...validPreview, PILOT_CASHIER_DEVICE_TOKEN_ONLY: false },
+      { ...validPreview, VERCEL_TARGET_ENV: 'staging' },
+      { ...validPreview, SHOPCITY_DEPLOYMENT_ENV: 'production' },
+      { ...validPreview, SHOPCITY_BFF_SHARED_SECRET: 'invalid' },
+    ];
+    for (const [index, environment] of invalidCases.entries()) {
+      const result = envValidationSchema.validate(environment);
+      if (!result.error) {
+        throw new Error(`Invalid deployed environment case ${index} passed`);
+      }
+    }
+  });
+
   it('defaults WebAuthn qualification and development enrollment to disabled', () => {
     const result = envValidationSchema.validate({});
     expect(result.error).toBeUndefined();
@@ -357,6 +385,10 @@ describe('envValidationSchema', () => {
     const preview = envValidationSchema.validate({
       NODE_ENV: 'production',
       VERCEL_ENV: 'preview',
+      VERCEL_TARGET_ENV: 'preview',
+      SHOPCITY_DEPLOYMENT_ENV: 'preview',
+      SHOPCITY_BFF_SHARED_SECRET: Buffer.alloc(32, 10).toString('base64url'),
+      PILOT_CASHIER_DEVICE_TOKEN_ONLY: true,
       WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
       WEBAUTHN_RP_ID: 'pos-preview.example.com',
       WEBAUTHN_ALLOWED_ORIGINS: 'https://pos-preview.example.com',
@@ -384,6 +416,10 @@ describe('envValidationSchema', () => {
       const disallowed = envValidationSchema.validate({
         NODE_ENV: 'production',
         VERCEL_ENV: 'preview',
+        VERCEL_TARGET_ENV: 'preview',
+        SHOPCITY_DEPLOYMENT_ENV: 'preview',
+        SHOPCITY_BFF_SHARED_SECRET: Buffer.alloc(32, 10).toString('base64url'),
+        PILOT_CASHIER_DEVICE_TOKEN_ONLY: true,
         WEBAUTHN_PREVIEW_ENROLLMENT_ENABLED: true,
         WEBAUTHN_RP_ID: invalidPair.rpId,
         WEBAUTHN_ALLOWED_ORIGINS: invalidPair.origin,

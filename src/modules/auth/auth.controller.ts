@@ -151,9 +151,17 @@ export class AuthController {
     @Headers('cookie') cookieHeader: string | undefined,
     @Headers('origin') origin: string | undefined,
     @Headers('referer') referer: string | undefined,
+    @Headers('x-shopcity-bff-token') bffCredential: string | undefined,
+    @Headers('x-shopcity-deployment-environment')
+    bffDeploymentEnvironment: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    this.authService.assertPublicLoginOrigin(origin, referer);
+    this.authService.assertPublicLoginOrigin(
+      origin,
+      referer,
+      bffCredential,
+      bffDeploymentEnvironment,
+    );
     const deviceToken = parseCookies(cookieHeader)[DEVICE_TOKEN_COOKIE_NAME];
     const result = await this.authService.login(
       dto.username,
@@ -222,8 +230,19 @@ export class AuthController {
   @ApiOperation({ summary: 'Complete cashier WebAuthn login' })
   async completeCashierLogin(
     @Body() dto: CashierLoginCompleteDto,
+    @Headers('origin') origin: string | undefined,
+    @Headers('referer') referer: string | undefined,
+    @Headers('x-shopcity-bff-token') bffCredential: string | undefined,
+    @Headers('x-shopcity-deployment-environment')
+    bffDeploymentEnvironment: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
+    this.authService.assertPublicLoginOrigin(
+      origin,
+      referer,
+      bffCredential,
+      bffDeploymentEnvironment,
+    );
     const issued = await this.authService.completeCashierLogin(
       dto.attemptToken,
       dto.assertion,

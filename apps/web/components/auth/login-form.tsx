@@ -21,24 +21,51 @@ const routeByRole = {
   SUPERVISOR: '/supervisor',
   ADMIN: '/admin',
 } as const;
-const loginRoles = [
-  [
-    'CASHIER',
-    'Cashier / Loyalty Staff',
-    'Register, capture receipts and redeem credit at the till.',
-  ],
-  [
-    'SUPERVISOR',
-    'Supervisor',
-    'Approve high-value receipts, late claims and OTP overrides.',
-  ],
-  [
-    'ADMIN',
-    'Administrator',
-    'Programme configuration, wallet, campaigns and audit.',
-  ],
-] as const;
 const pairedDeviceKey = 'shopcity:paired-device-id';
+
+function readLoginFailure(value: unknown): {
+  code?: string;
+  requestId?: string;
+} {
+  if (!value || typeof value !== 'object') return {};
+  const root = value as Record<string, unknown>;
+  const response =
+    root.response && typeof root.response === 'object'
+      ? (root.response as Record<string, unknown>)
+      : undefined;
+  const body =
+    root.data && typeof root.data === 'object'
+      ? (root.data as Record<string, unknown>)
+      : root;
+  const responseBody =
+    response?.data && typeof response.data === 'object'
+      ? (response.data as Record<string, unknown>)
+      : undefined;
+  const envelope = responseBody ?? body;
+  const error =
+    envelope.error && typeof envelope.error === 'object'
+      ? (envelope.error as Record<string, unknown>)
+      : undefined;
+  const meta =
+    envelope.meta && typeof envelope.meta === 'object'
+      ? (envelope.meta as Record<string, unknown>)
+      : undefined;
+  return {
+    code: typeof error?.code === 'string' ? error.code : undefined,
+    requestId: typeof meta?.requestId === 'string' ? meta.requestId : undefined,
+  };
+}
+
+function loginFailureMessage(value: unknown, statusCode?: number): string {
+  const { code, requestId } = readLoginFailure(value);
+  const message =
+    code === 'RATE_LIMITED' || statusCode === 429
+      ? 'Too many sign-in attempts. Wait a moment and try again.'
+      : statusCode === 0
+        ? 'The sign-in service could not be reached. Try again shortly.'
+        : 'Sign in failed. Check your credentials and contact your administrator if the problem continues.';
+  return requestId ? `${message} Reference: ${requestId}.` : message;
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -46,7 +73,6 @@ export function LoginForm() {
   const passwordId = useId();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState('CASHIER');
   const [status, setStatus] = useState<
     'idle' | 'submitting' | 'success' | 'error'
   >('idle');
@@ -55,6 +81,9 @@ export function LoginForm() {
   const localCashierTestSessionVisible =
     process.env.NODE_ENV === 'development' &&
     process.env.NEXT_PUBLIC_DEV_CASHIER_TEST_SESSION_ENABLED === 'true';
+  const legacyDeviceAuthEnabled =
+    process.env.NODE_ENV === 'development' &&
+    process.env.NEXT_PUBLIC_SHOPCITY_LEGACY_DEVICE_AUTH_ENABLED === 'true';
 
   async function handleLocalCashierTestSession() {
     if (!username.trim()) {
@@ -88,20 +117,14 @@ export function LoginForm() {
     setStatus('submitting');
     setMessage(null);
     try {
-      const deviceId =
-        selectedRole === 'CASHIER'
-          ? window.localStorage.getItem(pairedDeviceKey)
-          : null;
-      if (selectedRole === 'CASHIER' && !deviceId) {
-        setStatus('error');
-        setMessage(
-          'This browser is not paired to a register. Ask a Supervisor or Admin to pair this POS, then try again.',
-        );
-        return;
-      }
+      const legacyDeviceId = legacyDeviceAuthEnabled
+        ? window.localStorage.getItem(pairedDeviceKey)
+        : null;
       const response = await loginWithCredentials(
         { username, password },
-        { headers: deviceId ? { 'x-device-id': deviceId } : {} },
+        {
+          headers: legacyDeviceId ? { 'x-device-id': legacyDeviceId } : {},
+        },
       );
       let authenticated = response.status === 200 ? response.data : null;
       if (response.status === 202) {
@@ -141,22 +164,22 @@ export function LoginForm() {
         );
         if (completion.status !== 200) {
           setStatus('error');
-          setMessage(
-            'Register sign-in expired or is no longer valid. Ask your Supervisor to check the pairing and try again.',
-          );
+          setMessage(loginFailureMessage(completion.data, completion.status));
           return;
         }
         authenticated = completion.data;
       }
       if (response.status !== 200 && response.status !== 202) {
         setStatus('error');
-        setMessage(
-          'Sign in failed. Check your credentials and register pairing, then try again.',
-        );
+        setMessage(loginFailureMessage(response.data, response.status));
         return;
       }
       const role = authenticated?.data?.user?.role;
-      if (!role || role === 'SYSTEM') {
+      const destination =
+        typeof role === 'string'
+          ? routeByRole[role as keyof typeof routeByRole]
+          : undefined;
+      if (!destination) {
         setStatus('error');
         setMessage(
           'Sign in could not be completed. Contact your administrator.',
@@ -164,14 +187,14 @@ export function LoginForm() {
         return;
       }
       setStatus('success');
-      router.replace(routeByRole[role] ?? '/cashier');
+      router.replace(destination);
       router.refresh();
     } catch (error) {
       setStatus('error');
       setMessage(
         error instanceof Error && error.name === 'NotAllowedError'
           ? 'Security-key sign-in was cancelled or timed out. Try again, or ask your Supervisor to re-pair this POS.'
-          : 'Sign in failed. The session service is unavailable or the register pairing expired.',
+          : loginFailureMessage(error),
       );
     } finally {
       setPassword('');
@@ -184,37 +207,9 @@ export function LoginForm() {
       className="login-form"
       data-od-id="login-form"
     >
-      <fieldset className="login-role-list" data-od-id="role-selector">
-        <legend className="sr-only">Choose a staff account</legend>
-        {loginRoles.map(([value, label, detail], index) => {
-          const detailId = `role-${value.toLowerCase()}-detail`;
-          return (
-            <label
-              key={value}
-              className="login-role-option"
-              htmlFor={`role-${value.toLowerCase()}`}
-            >
-              <input
-                id={`role-${value.toLowerCase()}`}
-                type="radio"
-                name="role"
-                value={value}
-                aria-label={label}
-                aria-describedby={detailId}
-                defaultChecked={index === 0}
-                onChange={() => {
-                  setSelectedRole(value);
-                  setMessage(null);
-                }}
-              />
-              <span>
-                <strong>{label}</strong>
-                <small id={detailId}>{detail}</small>
-              </span>
-            </label>
-          );
-        })}
-      </fieldset>
+      <p className="login-role-guidance">
+        Your ShopCity account determines your workspace and access.
+      </p>
       <div className="login-field">
         <label htmlFor={usernameId}>Email Address</label>
         <Input
@@ -258,7 +253,7 @@ export function LoginForm() {
         className="login-forgot"
         onClick={() =>
           setMessage(
-            'Password reset is managed by your ShopCity administrator.',
+            'Need a password reset? Contact your ShopCity administrator for help.',
           )
         }
         data-od-id="forgot-password"
@@ -272,7 +267,7 @@ export function LoginForm() {
       >
         {status === 'submitting' ? 'Signing in…' : 'Sign In'}
       </Button>
-      {localCashierTestSessionVisible && selectedRole === 'CASHIER' && (
+      {localCashierTestSessionVisible && (
         <div className="login-dev-cashier-session">
           <Button
             type="button"
@@ -292,8 +287,7 @@ export function LoginForm() {
         className={`login-notice${status === 'error' ? ' is-error' : ''}`}
         aria-live="polite"
       >
-        {message ??
-          'Cashiers sign in with a paired POS security key. Use your ShopCity staff credentials.'}
+        {message ?? 'Sign in with your ShopCity staff credentials.'}
       </p>
     </form>
   );

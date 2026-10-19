@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-10-18
+goal: Simplify pilot staff sign-in while preserving Supabase identity verification, ShopCity-owned sessions and authorization, and server-bound DEVICE_TOKEN cashier access.

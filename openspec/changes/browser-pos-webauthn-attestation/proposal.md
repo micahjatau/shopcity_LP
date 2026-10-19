@@ -1,5 +1,7 @@
 # Change: Pair cashier registers with browser WebAuthn
 
+> **Pilot scope clarification (2026-10-17):** This proposal is not the authentication path for the current pilot. The pilot direction is `DEVICE_TOKEN`, defined by [Simplify pilot POS device authentication](../simplify-pilot-pos-device-authentication/proposal.md). This supersedes only the WebAuthn pilot requirement; it does not remove the exclusive `WEBAUTHN` mode or its separate security/qualification requirements for existing devices or a future explicitly approved rollout. Do not treat this proposal as a blocker to DEVICE_TOKEN pilot acceptance or as evidence that WebAuthn has been qualified for the pilot fleet.
+
 ## Why
 
 ShopCity's current cashier security already depends on device-bound sessions: Earn and Redeem reject cashier requests without an active, branch-compatible device, and refresh rechecks device/session eligibility. The browser proof currently relies on per-device HMAC secrets and a manually supplied `fingerprintHash`. That makes provisioning operationally awkward and the fingerprint name overstates what a browser can identify.

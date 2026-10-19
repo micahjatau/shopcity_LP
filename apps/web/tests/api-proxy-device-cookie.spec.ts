@@ -106,7 +106,105 @@ describe('same-origin API proxy device-cookie forwarding', () => {
       origin: 'http://localhost:3000',
       referer: 'http://localhost:3000/login',
       'x-csrf-token': 'csrf',
+      'x-shopcity-deployment-environment': 'test',
     });
+    expect(forwardedHeaders?.['x-shopcity-bff-token']).toBeUndefined();
     expect(response.headers.get('set-cookie')).toContain(setCookie);
+  });
+
+  it('replaces browser-supplied BFF identity with the server credential', async () => {
+    const environmentKeys = [
+      'NODE_ENV',
+      'VERCEL_ENV',
+      'VERCEL_TARGET_ENV',
+      'SHOPCITY_DEPLOYMENT_ENV',
+      'SHOPCITY_BFF_SHARED_SECRET',
+      'SHOPCITY_BACKEND_URL',
+      'SHOPCITY_API_BASE_URL',
+      'SHOPCITY_WEB_ORIGINS',
+    ] as const;
+    const originalEnvironment = new Map(
+      environmentKeys.map((key) => [key, process.env[key]]),
+    );
+    const serverSecret = Buffer.alloc(32, 31).toString('base64url');
+    process.env.NODE_ENV = 'test';
+    process.env.SHOPCITY_DEPLOYMENT_ENV = 'test';
+    process.env.SHOPCITY_BFF_SHARED_SECRET = serverSecret;
+    for (const key of [
+      'VERCEL_ENV',
+      'VERCEL_TARGET_ENV',
+      'SHOPCITY_BACKEND_URL',
+      'SHOPCITY_API_BASE_URL',
+      'SHOPCITY_WEB_ORIGINS',
+    ]) {
+      delete process.env[key];
+    }
+
+    let forwardedHeaders: Record<string, string> | undefined;
+    jest
+      .mocked(httpRequest)
+      .mockReset()
+      .mockImplementation(((_url, options, callback) => {
+        forwardedHeaders = options?.headers as Record<string, string>;
+        const backendRequest = new EventEmitter() as EventEmitter & {
+          setTimeout: jest.Mock;
+          write: jest.Mock;
+          end: jest.Mock;
+        };
+        backendRequest.setTimeout = jest.fn();
+        backendRequest.write = jest.fn();
+        backendRequest.end = jest.fn(() => {
+          const response = new EventEmitter() as EventEmitter & {
+            statusCode: number;
+            headers: Record<string, string | string[]>;
+          };
+          response.statusCode = 200;
+          response.headers = {};
+          callback?.(response as unknown as IncomingMessage);
+          response.emit('data', Buffer.from('{}'));
+          response.emit('end');
+        });
+        return backendRequest as never;
+      }) as never);
+
+    try {
+      const request = {
+        nextUrl: { pathname: '/api/v1/auth/login', search: '' },
+        method: 'POST',
+        headers: new TestHeaders({
+          origin: 'http://localhost:3000',
+          'x-shopcity-bff-token': 'forged-browser-value',
+          'x-shopcity-deployment-environment': 'production',
+        }),
+        arrayBuffer: async () => new Uint8Array().buffer,
+      } as unknown as NextRequest;
+      await POST(request);
+
+      expect(forwardedHeaders?.['x-shopcity-bff-token']).toBe(serverSecret);
+      expect(forwardedHeaders?.['x-shopcity-deployment-environment']).toBe(
+        'test',
+      );
+    } finally {
+      for (const key of environmentKeys) {
+        const value = originalEnvironment.get(key);
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  it('rejects untrusted auth origins before opening an upstream connection', async () => {
+    jest.mocked(httpRequest).mockClear();
+    const request = {
+      nextUrl: { pathname: '/api/v1/auth/login', search: '' },
+      method: 'POST',
+      headers: new TestHeaders({ origin: 'https://attacker.example' }),
+      arrayBuffer: async () => new Uint8Array().buffer,
+    } as unknown as NextRequest;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(403);
+    expect(jest.mocked(httpRequest)).not.toHaveBeenCalled();
   });
 });
