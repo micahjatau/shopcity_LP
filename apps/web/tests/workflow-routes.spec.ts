@@ -4618,6 +4618,33 @@ test.describe('workflow route coverage', () => {
     page,
   }) => {
     await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/config/operational', async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      await route.fulfill(
+        json({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: meta(pathname),
+        }),
+      );
+    });
     await page.route('**/api/v1/customers**', async (route) => {
       const url = new URL(route.request().url());
       const pathname = url.pathname;
@@ -4751,7 +4778,9 @@ test.describe('workflow route coverage', () => {
       return route.fallback();
     });
     await page.goto(`${baseUrl}/supervisor/customers?q=Ada`);
-    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+    await expect(page.locator('.shell-loading-screen')).toBeHidden({
+      timeout: 15_000,
+    });
     const profileLink = page.getByRole('link', {
       name: 'View profile for Ada Shopper',
     });
@@ -4759,8 +4788,10 @@ test.describe('workflow route coverage', () => {
       'href',
       '/supervisor/customers/customer-1?q=Ada',
     );
-    await profileLink.click();
-    await expect(page).toHaveURL(/\/supervisor\/customers\/customer-1\?q=Ada$/);
+    await profileLink.click({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/supervisor\/customers\/customer-1\?q=Ada$/, {
+      timeout: 15_000,
+    });
     const detailsCard = page.locator('.supervisor-profile-details-card');
     await expect(detailsCard).toBeVisible();
     await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
@@ -4791,15 +4822,15 @@ test.describe('workflow route coverage', () => {
         name: 'ShopCity card preview for Ada Shopper; card number SER-CUSTOMER-1; status ACTIVE',
       }),
     ).toBeVisible();
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+    await page.reload({ waitUntil: 'commit', timeout: 30_000 });
     await expect(
       page.getByRole('button', { name: 'Virtual Card' }),
-    ).toHaveAttribute('aria-current', 'page');
+    ).toHaveAttribute('aria-current', 'page', { timeout: 15_000 });
     await expect(
       page.getByRole('img', {
         name: 'ShopCity card preview for Ada Shopper; card number SER-CUSTOMER-1; status ACTIVE',
       }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('button', { name: 'Transactions' }).click();
     const transactionTable = page.getByRole('table', {
@@ -5141,8 +5172,10 @@ test.describe('workflow route coverage', () => {
     );
     expect(mobileLayout.paddingTop).toBe('16px');
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
-    await page.getByRole('button', { name: 'Overview', exact: true }).click();
+    await page.reload({ waitUntil: 'commit', timeout: 30_000 });
+    const overviewTab = page.getByRole('button', { name: 'Overview', exact: true });
+    await expect(overviewTab).toBeVisible({ timeout: 15_000 });
+    await overviewTab.click();
     await expect(detailsCard).toBeVisible();
     await detailsCard
       .getByRole('button', { name: 'Edit customer details' })

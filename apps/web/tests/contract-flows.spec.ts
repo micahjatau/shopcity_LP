@@ -1035,6 +1035,35 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
+    await page.route('**/api/v1/config/operational', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            tenant: { id: 'tenant-1', name: 'ShopCity' },
+            branch: {
+              id: 'branch-1',
+              name: 'Main branch',
+              timezone: 'Africa/Lagos',
+              receiptWeekStartDay: 1,
+            },
+            policies: {
+              defaultEarnRateBps: 500,
+              minRedemptionKobo: 1000,
+              maxRedemptionBasketPercent: 50,
+              purchaseFlagThresholdKobo: 100000,
+              purchaseApprovalThresholdKobo: 200000,
+              redemptionApprovalThresholdKobo: 100000,
+              offlineRedemptionDisabled: false,
+            },
+          },
+          meta: {},
+        }),
+      });
+    });
+
     await page.route('**/api/v1/approvals**', async (route) => {
       if (approvalsFailure) {
         await route.fulfill({
@@ -1088,19 +1117,38 @@ test.describe('contract-faithful frontend flows', () => {
       });
     });
 
-    await page.route('**/api/v1/reports/executive-summary', async (route) => {
+    const emptyReportResponse = JSON.stringify({
+      success: true,
+      data: {
+        scope: 'BRANCH',
+        scopeKey: 'branch-1',
+        branchId: 'branch-1',
+        timezone: 'Africa/Lagos',
+        items: [],
+      },
+      meta: {},
+    });
+    for (const report of [
+      'cashier-activity',
+      'redemption-summary',
+      'sms-operations',
+    ]) {
+      await page.route(`**/api/v1/reports/${report}**`, async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: emptyReportResponse,
+        });
+      });
+    }
+
+    await page.route('**/api/v1/reports/executive-summary**', async (route) => {
       await route.fulfill({
-        status: 200,
+        status: 503,
         contentType: 'application/json',
         body: JSON.stringify({
-          success: true,
-          data: {
-            scope: 'TENANT',
-            scopeKey: 'tenant-1',
-            branchId: null,
-            timezone: 'Africa/Lagos',
-            items: [],
-          },
+          success: false,
+          error: { statusCode: 503, code: 'UNAVAILABLE' },
           meta: {},
         }),
       });
