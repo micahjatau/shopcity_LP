@@ -1030,7 +1030,7 @@
     },
     "/health/ready": {
       "get": {
-        "description": "Returns ok when the application can reach Postgres and Redis.",
+        "description": "Returns ok when the application can reach Postgres and Redis and required POS device-token configuration is valid.",
         "operationId": "HealthController_ready",
         "parameters": [],
         "responses": {
