@@ -19379,7 +19379,7 @@ export const getHealthControllerReadyUrl = () => {
 };
 
 /**
- * Returns ok when the application can reach Postgres and Redis.
+ * Returns ok when the application can reach Postgres and Redis and required POS device-token configuration is valid.
  * @summary Check readiness
  */
 export const healthControllerReady = async (
