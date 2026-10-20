@@ -130,9 +130,9 @@ describe('SupervisorTransactionsDashboard', () => {
       name: 'Supervisor branch transactions',
     });
     const columns = table.querySelectorAll('col');
-    const resizers = screen.getAllByRole('separator');
+    const resizers = screen.getAllByRole('slider');
     expect(resizers).toHaveLength(5);
-    expect(resizers[0]).toHaveAttribute('aria-orientation', 'vertical');
+    expect(resizers[0]).toHaveAttribute('aria-orientation', 'horizontal');
     expect(columns[0]).toHaveStyle({ width: '136px' });
     expect(columns[1]).toHaveStyle({ width: '176px' });
 

@@ -868,9 +868,9 @@ export function SupervisorTransactionsDashboard() {
                         <button
                           type="button"
                           className="supervisor-transaction-table__column-resizer"
-                          role="separator"
+                          role="slider"
                           aria-label={`Resize between ${label} and ${TRANSACTION_COLUMN_LABELS[index + 1]}`}
-                          aria-orientation="vertical"
+                          aria-orientation="horizontal"
                           aria-valuemin={MIN_TRANSACTION_COLUMN_WIDTHS[index]}
                           aria-valuemax={
                             pairWidth - MIN_TRANSACTION_COLUMN_WIDTHS[index + 1]
