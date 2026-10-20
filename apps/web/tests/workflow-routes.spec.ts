@@ -4789,9 +4789,12 @@ test.describe('workflow route coverage', () => {
       '/supervisor/customers/customer-1?q=Ada',
     );
     await profileLink.click({ timeout: 15_000 });
-    await expect(page).toHaveURL(/\/supervisor\/customers\/customer-1\?q=Ada$/, {
-      timeout: 15_000,
-    });
+    await expect(page).toHaveURL(
+      /\/supervisor\/customers\/customer-1\?q=Ada$/,
+      {
+        timeout: 15_000,
+      },
+    );
     const detailsCard = page.locator('.supervisor-profile-details-card');
     await expect(detailsCard).toBeVisible();
     await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
@@ -5173,7 +5176,10 @@ test.describe('workflow route coverage', () => {
     expect(mobileLayout.paddingTop).toBe('16px');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.reload({ waitUntil: 'commit', timeout: 30_000 });
-    const overviewTab = page.getByRole('button', { name: 'Overview', exact: true });
+    const overviewTab = page.getByRole('button', {
+      name: 'Overview',
+      exact: true,
+    });
     await expect(overviewTab).toBeVisible({ timeout: 15_000 });
     await overviewTab.click();
     await expect(detailsCard).toBeVisible();
