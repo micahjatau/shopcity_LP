@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as axe from 'axe-core';
 import HomePage from '../app/page';
@@ -6,12 +6,16 @@ import LoginPage from '../app/(auth)/login/page';
 import CashierPage from '../app/(shell)/cashier/page';
 import SupervisorPage from '../app/(shell)/supervisor/page';
 import AdminPage from '../app/(shell)/admin/page';
+import AdminPoliciesPage from '../app/(shell)/admin/policies/page';
 import { MoneyInput } from '../components/shopcity';
 import { Button, Input } from '../components/ui';
 import {
   approvalsControllerListApprovalsV1,
   auditControllerListV1,
+  branchesControllerListBranchesV1,
   branchesControllerListDevicesV1,
+  configurationControllerGetPolicyConfigurationV1,
+  configurationControllerUpdatePolicyConfigurationV1,
   reportsControllerGetExecutiveSnapshotV1,
   reportsControllerListCashierTodayV1,
   usersControllerListUsersV1,
@@ -21,6 +25,9 @@ import { businessDateInTimezone } from '../lib/reports/supervisor-overview-data'
 jest.mock('../lib/api/generated-client', () => ({
   ...jest.requireActual('../lib/api/generated-client'),
   approvalsControllerListApprovalsV1: jest.fn(),
+  branchesControllerListBranchesV1: jest.fn(),
+  configurationControllerGetPolicyConfigurationV1: jest.fn(),
+  configurationControllerUpdatePolicyConfigurationV1: jest.fn(),
   auditControllerListV1: jest.fn(),
   branchesControllerListDevicesV1: jest.fn(),
   reportsControllerGetExecutiveSnapshotV1: jest.fn(),
@@ -125,6 +132,47 @@ describe('frontend accessibility gates', () => {
     );
 
     expect(await runAxe(container)).toHaveLength(0);
+  });
+
+  it('labels each policy editor field visibly and programmatically', async () => {
+    jest.mocked(branchesControllerListBranchesV1).mockResolvedValue({
+      status: 200,
+      data: { data: [{ id: 'branch-1', name: 'Main', status: 'ACTIVE' }] },
+    } as never);
+    jest
+      .mocked(configurationControllerGetPolicyConfigurationV1)
+      .mockResolvedValue({
+        status: 200,
+        data: {
+          data: {
+            branchId: 'branch-1',
+            branchName: 'Main',
+            version: 3,
+            defaultEarnRateBps: 200,
+            minRedemptionKobo: 1000,
+            maxRedemptionBasketPercent: 25,
+            purchaseFlagThresholdKobo: 50000,
+            purchaseApprovalThresholdKobo: 100000,
+            purchaseAmountCeilingKobo: 500000,
+            redemptionApprovalThresholdKobo: 200000,
+            offlineRedemptionDisabled: false,
+          },
+        },
+      } as never);
+
+    const { container } = render(<AdminPoliciesPage />);
+    await waitFor(() => {
+      expect(container.querySelectorAll('input[id^="policy-"]').length).toBe(7);
+    });
+
+    for (const input of Array.from(
+      container.querySelectorAll<HTMLInputElement>('input[id^="policy-"]'),
+    )) {
+      const label = container.querySelector(`label[for="${input.id}"]`);
+      expect(label).toBeVisible();
+      expect(label).toHaveTextContent(/\S/);
+      expect(input.labels).toContain(label);
+    }
   });
 
   it('renders the Supervisor overview as accessible cards and a live approvals table', async () => {

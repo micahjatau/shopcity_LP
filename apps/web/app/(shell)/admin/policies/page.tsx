@@ -200,13 +200,15 @@ export default function AdminPoliciesPage() {
           <>
             <div style={grid}>
               {policyFields.map(({ key, label }) => (
-                <Input
-                  key={key}
-                  aria-label={label}
-                  type="number"
-                  value={policy[key]}
-                  onChange={(event) => updateField(key, event.target.value)}
-                />
+                <label key={key} htmlFor={`policy-${key}`} style={policyField}>
+                  <span>{label}</span>
+                  <Input
+                    id={`policy-${key}`}
+                    type="number"
+                    value={policy[key]}
+                    onChange={(event) => updateField(key, event.target.value)}
+                  />
+                </label>
               ))}
             </div>
             <label style={checkbox}>
@@ -254,6 +256,11 @@ const field = {
   display: 'grid',
   gap: 'var(--sc-spacing-2)',
   minWidth: 280,
+} as const;
+const policyField = {
+  display: 'grid',
+  gap: 'var(--sc-spacing-2)',
+  minWidth: 0,
 } as const;
 const grid = {
   display: 'grid',

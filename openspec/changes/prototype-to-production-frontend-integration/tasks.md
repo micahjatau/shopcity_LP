@@ -76,6 +76,7 @@
 - [x] 8.2 Add Admin-only validated policy read/write endpoints, optimistic version checks, audit records, integer/bounds validation, OpenAPI, client generation, and integration tests.
 - [x] 8.3 Add stale-version conflict handling and Cashier/Supervisor rejection coverage for policy mutations.
 - [x] 8.4 Add the Admin configuration UI after the contract and audit behavior are complete.
+- [x] 8.5 Show visible, programmatically associated labels for every editable policy field and cover them with a UI test.
 
 ## 9. Repository hygiene and generated artifacts
 

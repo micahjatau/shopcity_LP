@@ -22,3 +22,13 @@ The product MUST provide validated Admin-only policy mutation with tenant/branch
 - **WHEN** a Cashier or Supervisor attempts an Admin policy mutation
 - **THEN** the backend rejects the request
 - **AND** the UI exposes no mutation control for that role
+
+### Requirement: Admin policy fields have visible labels
+
+The Admin policy editor MUST display a visible label for every editable policy field and associate each label with its input.
+
+#### Scenario: Admin edits policy values
+
+- **WHEN** an Admin opens the policy configuration editor
+- **THEN** every editable policy input has a visible label that describes the value and its units
+- **AND** the label programmatically identifies its associated input
