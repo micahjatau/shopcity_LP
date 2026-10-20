@@ -1921,31 +1921,71 @@
 }
 
 .supervisor-transaction-table-card .supervisor-transaction-table {
-  min-width: 760px;
+  width: max(100%, 882px);
+  min-width: 882px;
+  table-layout: fixed;
 }
 
-.supervisor-transaction-table th:first-child {
-  width: 16%;
+.supervisor-transaction-table__resizable-header {
+  position: relative;
+  padding-right: 22px !important;
 }
 
-.supervisor-transaction-table th:nth-child(2) {
-  width: 18%;
+.supervisor-transaction-table__column-resizer {
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-end: -7px;
+  display: grid;
+  width: 14px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  touch-action: none;
+  cursor: col-resize;
 }
 
-.supervisor-transaction-table th:nth-child(3) {
-  width: 17%;
+.supervisor-transaction-table__column-resizer::before {
+  width: 1px;
+  height: calc(100% - 12px);
+  border-radius: 2px;
+  background: #d1cdce;
+  content: '';
+  transition:
+    width 120ms ease,
+    background-color 120ms ease;
 }
 
-.supervisor-transaction-table th:nth-child(4) {
-  width: 14%;
+.supervisor-transaction-table__column-resizer:hover::before,
+.supervisor-transaction-table__column-resizer:focus-visible::before,
+.supervisor-transaction-table__column-resizer:active::before {
+  width: 2px;
+  background: #9e1015;
 }
 
-.supervisor-transaction-table th:nth-child(5) {
-  width: 21%;
+.supervisor-transaction-table__column-resizer:focus-visible {
+  outline: 2px solid color-mix(in srgb, #c9151c 45%, transparent);
+  outline-offset: -2px;
 }
 
-.supervisor-transaction-table th:last-child {
-  width: 14%;
+.supervisor-transaction-table td[data-label='Receipt No.'] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supervisor-transaction-table
+  td[data-label='Name']
+  .supervisor-customer-table__identity
+  strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .supervisor-transaction-table-card tbody tr:hover {
@@ -2171,7 +2211,14 @@
 
 @media (max-width: 767px) {
   .supervisor-transactions-dashboard .supervisor-transaction-table {
+    width: 100%;
     min-width: 0;
+    table-layout: auto;
+  }
+
+  .supervisor-transactions-dashboard
+    .supervisor-transaction-table__column-resizer {
+    display: none;
   }
 
   .supervisor-transactions-dashboard .supervisor-transaction-table-scroll {

@@ -57,7 +57,7 @@ The transaction-list endpoint MUST order results by ledger effective time descen
 
 The transaction table MUST offer status, staff, and minimum receipt amount filters. The endpoint MUST apply each submitted filter within the authenticated tenant and branch scope before cursor pagination. A minimum amount submitted in naira MUST be converted to integer kobo exactly; malformed, negative, or out-of-range values MUST fail validation. Filter changes MUST reset pagination to the first page. Status choices MUST be limited to outcomes the API can establish (`CONFIRMED` and `REVERSED`), and staff options MUST be limited to cashiers associated with branch receipts, narrowed to the exact receipt when a receipt filter is present.
 
-Status and Staff filters MUST use rounded button triggers and a matching accessible dropdown menu with selected-state indication and keyboard navigation. Applying their choices MUST preserve the existing explicit-submit flow. The table MUST display Receipt No., Name, Receipt amount, Credit, Date & Time, and Status using the Customers directory table typography, separators, and responsive labeled row-card layout. It MAY return the customer's name and receipt amount for this Supervisor-only, branch-scoped view, but MUST NOT return customer phone or email. Credit MUST be shown only for EARN transactions; it is not applicable to REDEEM rows. The table MUST omit an Eligible amount column because the TRD and current data model do not define an authoritative eligible amount.
+Status and Staff filters MUST use rounded button triggers and a matching accessible dropdown menu with selected-state indication and keyboard navigation. Applying their choices MUST preserve the existing explicit-submit flow. The table MUST display Receipt No., Name, Receipt amount, Credit, Date & Time, and Status using the Customers directory table typography, separators, and responsive labeled row-card layout. On desktop, each adjacent column separator MUST support pointer dragging and keyboard arrow resizing, keep both columns above their minimum widths, and constrain cell content to its column without overlap. Resizers MUST be omitted from the narrow-screen labeled row-card layout. It MAY return the customer's name and receipt amount for this Supervisor-only, branch-scoped view, but MUST NOT return customer phone or email. Credit MUST be shown only for EARN transactions; it is not applicable to REDEEM rows. The table MUST omit an Eligible amount column because the TRD and current data model do not define an authoritative eligible amount.
 
 #### Scenario: Apply filters across cursor pages
 
@@ -72,6 +72,14 @@ Status and Staff filters MUST use rounded button triggers and a matching accessi
 - **WHEN** filtered transaction results are rendered
 - **THEN** customer name, receipt amount, credit, date/time, and status reflect the authorized search response
 - **AND** no Eligible amount column is shown without an authoritative definition and source.
+
+#### Scenario: Resize adjacent desktop columns
+
+- **GIVEN** the desktop transaction table is visible
+- **WHEN** the Supervisor drags a column separator or focuses it and presses a horizontal arrow key
+- **THEN** the two adjacent columns resize while respecting their minimum widths
+- **AND** receipt numbers and customer names remain contained within their respective cells without overlapping neighboring data
+- **AND** the separators are absent from the narrow-screen labeled row-card layout.
 
 ### Requirement: Refresh current branch transaction results
 

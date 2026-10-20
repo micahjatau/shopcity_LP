@@ -57,6 +57,12 @@
 - [x] Run focused backend/frontend tests, changed-file and web lint, typechecks, OpenAPI validation, and OpenSpec validation.
 - [x] Clear repository-wide lint; `npm run lint` passes.
 
+## Column resizing follow-up
+
+- [x] Add desktop column separators with pointer dragging and keyboard resizing; transfer width between adjacent columns while enforcing minimums.
+- [x] Constrain receipt and customer text to its resized column and hide separators in the narrow-screen row-card layout.
+- [x] Test pointer and keyboard resizing plus minimum-width behavior; verify the mobile breakpoint hides the resizers.
+
 ## Customers-directory style alignment
 
 - [x] Reuse Customers directory table styles and responsive labeled row-card layout for Supervisor Transactions.

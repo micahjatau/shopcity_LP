@@ -55,6 +55,37 @@ async function waitForInitialListLoad() {
   await waitFor(() => expect(refreshButton).toBeEnabled());
 }
 
+class TestPointerEvent extends MouseEvent {
+  readonly pointerId: number;
+  readonly pointerType: string;
+
+  constructor(type: string, init: PointerEventInit = {}) {
+    super(type, init);
+    this.pointerId = init.pointerId ?? 1;
+    this.pointerType = init.pointerType ?? 'mouse';
+  }
+}
+
+const nativePointerEvent = window.PointerEvent;
+beforeAll(() => {
+  if (!window.PointerEvent) {
+    Object.defineProperty(window, 'PointerEvent', {
+      configurable: true,
+      value: TestPointerEvent,
+    });
+  }
+});
+afterAll(() => {
+  if (nativePointerEvent) {
+    Object.defineProperty(window, 'PointerEvent', {
+      configurable: true,
+      value: nativePointerEvent,
+    });
+  } else {
+    Reflect.deleteProperty(window, 'PointerEvent');
+  }
+});
+
 function detailResponse(overrides: Record<string, unknown> = {}) {
   return {
     status: 200,
@@ -85,6 +116,55 @@ describe('SupervisorTransactionsDashboard', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     document.cookie = 'shopcity_csrf=; Max-Age=0';
+  });
+
+  it('resizes adjacent transaction columns with pointer and keyboard input', async () => {
+    jest
+      .mocked(loyaltyControllerSearchTransactionsByReceiptV1)
+      .mockResolvedValue(searchResponse([firstItem]));
+
+    render(<SupervisorTransactionsDashboard />);
+    await waitForInitialListLoad();
+
+    const table = screen.getByRole('table', {
+      name: 'Supervisor branch transactions',
+    });
+    const columns = table.querySelectorAll('col');
+    const resizers = screen.getAllByRole('separator');
+    expect(resizers).toHaveLength(5);
+    expect(resizers[0]).toHaveAttribute('aria-orientation', 'vertical');
+    expect(columns[0]).toHaveStyle({ width: '136px' });
+    expect(columns[1]).toHaveStyle({ width: '176px' });
+
+    fireEvent.pointerDown(resizers[0], {
+      button: 0,
+      clientX: 100,
+      pointerId: 1,
+      pointerType: 'mouse',
+    });
+    fireEvent.pointerMove(resizers[0], {
+      clientX: 140,
+      pointerId: 1,
+      pointerType: 'mouse',
+    });
+    fireEvent.pointerUp(resizers[0], {
+      pointerId: 1,
+      pointerType: 'mouse',
+    });
+
+    await waitFor(() => {
+      expect(columns[0]).toHaveStyle({ width: '176px' });
+      expect(columns[1]).toHaveStyle({ width: '136px' });
+    });
+
+    fireEvent.keyDown(resizers[0], { key: 'Home' });
+    await waitFor(() => {
+      expect(resizers[0]).toHaveAttribute('aria-valuenow', '112');
+      expect(columns[0]).toHaveStyle({ width: '112px' });
+      expect(columns[1]).toHaveStyle({ width: '200px' });
+    });
+    fireEvent.keyDown(resizers[0], { key: 'ArrowLeft' });
+    expect(resizers[0]).toHaveAttribute('aria-valuenow', '112');
   });
 
   it('searches by receipt, loads verified detail, and submits a CSRF/idempotency-protected reversal', async () => {

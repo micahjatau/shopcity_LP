@@ -10,7 +10,11 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type {
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react';
 import {
   loyaltyControllerGetTransactionV1,
   loyaltyControllerSearchTransactionsByReceiptV1,
@@ -46,6 +50,47 @@ type DetailState =
   | { status: 'idle' | 'loading' | 'error' }
   | { status: 'loaded'; record: DetailRecord };
 type CursorStack = Array<string | undefined>;
+type TransactionColumnResize = Readonly<{
+  index: number;
+  startX: number;
+  startWidths: number[];
+}>;
+
+const TRANSACTION_COLUMN_LABELS = [
+  'Receipt No.',
+  'Name',
+  'Receipt amount',
+  'Credit',
+  'Date & time',
+  'Status',
+] as const;
+const DEFAULT_TRANSACTION_COLUMN_WIDTHS = [
+  136, 176, 146, 112, 196, 116,
+] as const;
+const MIN_TRANSACTION_COLUMN_WIDTHS = [112, 124, 126, 92, 150, 104] as const;
+
+function resizeAdjacentColumnWidths(
+  widths: number[],
+  index: number,
+  delta: number,
+) {
+  if (index < 0 || index >= widths.length - 1) return widths;
+  const pairWidth = widths[index] + widths[index + 1];
+  const nextWidth = Math.max(
+    MIN_TRANSACTION_COLUMN_WIDTHS[index],
+    Math.min(
+      pairWidth - MIN_TRANSACTION_COLUMN_WIDTHS[index + 1],
+      widths[index] + delta,
+    ),
+  );
+  return widths.map((width, columnIndex) =>
+    columnIndex === index
+      ? nextWidth
+      : columnIndex === index + 1
+        ? pairWidth - nextWidth
+        : width,
+  );
+}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return 'Not available';
@@ -250,6 +295,9 @@ function SupervisorTransactionFilterDropdown({
 }
 
 export function SupervisorTransactionsDashboard() {
+  const [columnWidths, setColumnWidths] = useState<number[]>(() => [
+    ...DEFAULT_TRANSACTION_COLUMN_WIDTHS,
+  ]);
   const [query, setQuery] = useState('');
   const [searchedReceipt, setSearchedReceipt] = useState('');
   const [items, setItems] = useState<SearchItem[]>([]);
@@ -283,6 +331,7 @@ export function SupervisorTransactionsDashboard() {
   const detailGeneration = useRef(0);
   const triggerRef = useRef<HTMLTableRowElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const columnResizeRef = useRef<TransactionColumnResize | null>(null);
   const reversalKeyRef = useRef<{
     transactionId: string;
     reason: string;
@@ -290,6 +339,67 @@ export function SupervisorTransactionsDashboard() {
   } | null>(null);
 
   useDialogLifecycle(Boolean(selected), closeDetail, modalRef);
+
+  function resizeColumnWithKeyboard(
+    index: number,
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+  ) {
+    let delta: number | undefined;
+    if (event.key === 'ArrowLeft') delta = -12;
+    if (event.key === 'ArrowRight') delta = 12;
+    if (event.key === 'Home')
+      delta = MIN_TRANSACTION_COLUMN_WIDTHS[index] - columnWidths[index];
+    if (event.key === 'End')
+      delta =
+        columnWidths[index] +
+        columnWidths[index + 1] -
+        MIN_TRANSACTION_COLUMN_WIDTHS[index + 1] -
+        columnWidths[index];
+    if (delta === undefined) return;
+    event.preventDefault();
+    const resizeDelta = delta;
+    setColumnWidths((current) =>
+      resizeAdjacentColumnWidths(current, index, resizeDelta),
+    );
+  }
+
+  function startColumnResize(
+    index: number,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (
+      event.button !== undefined &&
+      event.button !== 0 &&
+      event.pointerType !== 'touch'
+    )
+      return;
+    event.preventDefault();
+    columnResizeRef.current = {
+      index,
+      startX: event.clientX,
+      startWidths: [...columnWidths],
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveColumnResize(
+    index: number,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    const resize = columnResizeRef.current;
+    if (!resize || resize.index !== index) return;
+    setColumnWidths(
+      resizeAdjacentColumnWidths(
+        resize.startWidths,
+        index,
+        event.clientX - resize.startX,
+      ),
+    );
+  }
+
+  function endColumnResize() {
+    columnResizeRef.current = null;
+  }
 
   async function loadReceiptResults(
     receiptNumber: string,
@@ -728,14 +838,64 @@ export function SupervisorTransactionsDashboard() {
             <caption className="sr-only">
               Supervisor branch transactions
             </caption>
+            <colgroup>
+              {columnWidths.map((width, index) => (
+                <col key={TRANSACTION_COLUMN_LABELS[index]} style={{ width }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                <th scope="col">Receipt No.</th>
-                <th scope="col">Name</th>
-                <th scope="col">Receipt amount</th>
-                <th scope="col">Credit</th>
-                <th scope="col">Date &amp; time</th>
-                <th scope="col">Status</th>
+                {TRANSACTION_COLUMN_LABELS.map((label, index) => {
+                  const resizable =
+                    index < TRANSACTION_COLUMN_LABELS.length - 1;
+                  const pairWidth =
+                    columnWidths[index] + (columnWidths[index + 1] ?? 0);
+                  return (
+                    <th
+                      key={label}
+                      scope="col"
+                      aria-labelledby={`supervisor-transaction-column-${index}`}
+                      className={
+                        resizable
+                          ? 'supervisor-transaction-table__resizable-header'
+                          : undefined
+                      }
+                    >
+                      <span id={`supervisor-transaction-column-${index}`}>
+                        {label}
+                      </span>
+                      {resizable ? (
+                        <button
+                          type="button"
+                          className="supervisor-transaction-table__column-resizer"
+                          role="separator"
+                          aria-label={`Resize between ${label} and ${TRANSACTION_COLUMN_LABELS[index + 1]}`}
+                          aria-orientation="vertical"
+                          aria-valuemin={MIN_TRANSACTION_COLUMN_WIDTHS[index]}
+                          aria-valuemax={
+                            pairWidth - MIN_TRANSACTION_COLUMN_WIDTHS[index + 1]
+                          }
+                          aria-valuenow={columnWidths[index]}
+                          aria-valuetext={`${columnWidths[index]} pixels for ${label}`}
+                          tabIndex={0}
+                          title={`Resize between ${label} and ${TRANSACTION_COLUMN_LABELS[index + 1]}`}
+                          onKeyDown={(event) =>
+                            resizeColumnWithKeyboard(index, event)
+                          }
+                          onPointerDown={(event) =>
+                            startColumnResize(index, event)
+                          }
+                          onPointerMove={(event) =>
+                            moveColumnResize(index, event)
+                          }
+                          onPointerUp={endColumnResize}
+                          onPointerCancel={endColumnResize}
+                          onLostPointerCapture={endColumnResize}
+                        />
+                      ) : null}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -766,12 +926,15 @@ export function SupervisorTransactionsDashboard() {
                     <td
                       data-label="Receipt No."
                       className="supervisor-customer-table__card-number"
+                      title={item.receiptNumber}
                     >
                       {item.receiptNumber}
                     </td>
                     <td data-label="Name">
                       <div className="supervisor-customer-table__identity">
-                        <strong>{item.customerName ?? 'Not provided'}</strong>
+                        <strong title={item.customerName ?? undefined}>
+                          {item.customerName ?? 'Not provided'}
+                        </strong>
                       </div>
                     </td>
                     <td
