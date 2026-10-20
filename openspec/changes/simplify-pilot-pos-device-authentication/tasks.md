@@ -22,6 +22,7 @@
   - [x] 4.2 Update OpenAPI and regenerate the client with repository scripts.
   - [x] 4.3 Verify same-origin proxy forwards Cookie/Origin/Referer and preserves Set-Cookie attributes.
   - [x] 4.4 Reuse the server-supported device idempotency identity for same-payload create/update retries; issue fresh keys for changed/new operations and cover both paths in UI tests.
+  - [x] 4.5 Add an exact supplemental origin allowlist for token pairing only; keep reset origin checks and global CORS behavior unchanged and cover the boundary in tests.
 - [ ] 5. Verification and closure
   - [x] 5.1 Add focused backend/controller/security tests and frontend/device management tests.
   - [x] 5.2 Run Prisma validate/generate and verify the full migration chain on the empty disposable PostgreSQL Testcontainers target; do not apply shared databases.

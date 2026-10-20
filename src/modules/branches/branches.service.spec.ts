@@ -47,6 +47,37 @@ describe('BranchesService', () => {
         keyProtection: ['hardware'],
       } as unknown as MetadataStatement);
   });
+  it('accepts a supplemental pairing origin without widening reset origins', () => {
+    const service = new BranchesService(
+      {} as never,
+      {} as never,
+      {
+        get: (name: string) =>
+          name === 'CORS_ORIGIN_ALLOWLIST'
+            ? 'https://staging.example.test'
+            : name === 'POS_DEVICE_TOKEN_PAIRING_ORIGINS'
+              ? 'https://workflow-preview.example.test'
+              : undefined,
+      } as never,
+    );
+
+    expect(() =>
+      service.assertDeviceTokenPairingBrowserOrigin(
+        'https://workflow-preview.example.test',
+      ),
+    ).not.toThrow();
+    expect(() =>
+      service.assertDeviceTokenBrowserOrigin(
+        'https://workflow-preview.example.test',
+      ),
+    ).toThrow('Request origin is invalid');
+    expect(() =>
+      service.assertDeviceTokenPairingBrowserOrigin(
+        'https://workflow-preview.example.test/',
+      ),
+    ).toThrow('Request origin is invalid');
+  });
+
   it('lists safe device binding metadata without widening Supervisor branch scope', async () => {
     const findMany = jest.fn(
       (args: {

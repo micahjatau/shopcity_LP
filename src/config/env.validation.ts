@@ -461,6 +461,7 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGIN_ALLOWLIST: requiredString(
     'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100',
   ),
+  POS_DEVICE_TOKEN_PAIRING_ORIGINS: Joi.string().allow('').default(''),
   SUPABASE_URL: requiredString('http://127.0.0.1:54321'),
   SUPABASE_ANON_KEY: requiredString('test-anon-key'),
   SUPABASE_SERVICE_ROLE_KEY: requiredString('test-service-role-key'),

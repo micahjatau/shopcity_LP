@@ -5,7 +5,7 @@ import { BranchesController } from './branches.controller';
 describe('BranchesController', () => {
   it('sets only the HttpOnly host-scoped token cookie after pairing succeeds', async () => {
     const service = {
-      assertDeviceTokenBrowserOrigin: jest.fn(),
+      assertDeviceTokenPairingBrowserOrigin: jest.fn(),
       pairDeviceToken: jest.fn().mockResolvedValue({
         token: 'one-time-token-value',
         pairedAt: new Date('2026-10-15T00:00:00.000Z'),
@@ -20,7 +20,7 @@ describe('BranchesController', () => {
       reply as never,
     );
 
-    expect(service.assertDeviceTokenBrowserOrigin).toHaveBeenCalledWith(
+    expect(service.assertDeviceTokenPairingBrowserOrigin).toHaveBeenCalledWith(
       'https://pos.example.test',
     );
     expect(reply.header).toHaveBeenCalledWith(

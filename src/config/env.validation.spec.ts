@@ -51,6 +51,9 @@ describe('envValidationSchema', () => {
   it('defaults WebAuthn qualification and development enrollment to disabled', () => {
     const result = envValidationSchema.validate({});
     expect(result.error).toBeUndefined();
+    expect(result.value).toMatchObject({
+      POS_DEVICE_TOKEN_PAIRING_ORIGINS: '',
+    });
     expect(
       (result.value as Record<string, unknown>)
         .WEBAUTHN_DEVICE_QUALIFICATION_APPROVED,

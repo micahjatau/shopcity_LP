@@ -44,13 +44,20 @@ The system SHALL store only HMAC-SHA-256 of a random device token under dedicate
 
 ### Requirement: Authorized target-browser pairing and reset
 
-Only an active Supervisor or Admin in the device's tenant SHALL pair/reset/revoke DEVICE_TOKEN credentials. Supervisors SHALL be restricted to their assigned branch; Admins MAY manage any branch in their own tenant. Device and branch SHALL be active, and tenant/device/branch scope SHALL be checked without cross-tenant enumeration. Pair/reset SHALL require authenticated session-bound `shopcity_csrf` plus matching `x-csrf-token`, audit actor/time, and set/clear the token cookie only on the authorized actor's current target-browser response. Pair/reset/revoke/deactivate SHALL atomically invalidate credentials and all active device sessions.
+Only an active Supervisor or Admin in the device's tenant SHALL pair/reset/revoke DEVICE_TOKEN credentials. Supervisors SHALL be restricted to their assigned branch; Admins MAY manage any branch in their own tenant. Device and branch SHALL be active, and tenant/device/branch scope SHALL be checked without cross-tenant enumeration. Pair/reset SHALL require authenticated session-bound `shopcity_csrf` plus matching `x-csrf-token`, audit actor/time, and set/clear the token cookie only on the authorized actor's current target-browser response. Pair/reset/revoke/deactivate SHALL atomically invalidate credentials and all active device sessions. Pairing SHALL accept exact canonical origins from `CORS_ORIGIN_ALLOWLIST` plus optional comma-separated `POS_DEVICE_TOKEN_PAIRING_ORIGINS`; the supplemental list SHALL apply only to the pair endpoint, SHALL NOT change CORS headers or reset origin checks, and SHALL require HTTPS in deployed runtimes.
 
 #### Scenario: Authorized pairing
 
 - **WHEN** an eligible same-tenant Admin or in-branch Supervisor pairs an active device from the target browser
 - **THEN** the server SHALL atomically revoke prior device token credential(s) and active device sessions, create one active keyed credential, set DEVICE_TOKEN mode, and record the actor/time audit event
 - **AND** only after commit SHALL the response set `__Host-shopcity_pos_device` with Secure, HttpOnly, SameSite=Strict, Path=/, no Domain, and Max-Age=31536000
+
+#### Scenario: Preview origin may pair without widening global CORS
+
+- **GIVEN** the browser origin is an exact canonical HTTPS origin in `POS_DEVICE_TOKEN_PAIRING_ORIGINS` but not in `CORS_ORIGIN_ALLOWLIST`
+- **WHEN** an eligible same-tenant Admin or in-branch Supervisor pairs an active device
+- **THEN** pairing SHALL pass the origin check without changing API CORS headers
+- **AND** the supplemental origin SHALL NOT be accepted by the reset endpoint unless it is also in `CORS_ORIGIN_ALLOWLIST`
 
 #### Scenario: Unauthorized, inactive, or cross-tenant pairing
 

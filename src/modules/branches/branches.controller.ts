@@ -156,7 +156,7 @@ export class BranchesController {
     @Headers('origin') origin: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    this.branchesService.assertDeviceTokenBrowserOrigin(origin);
+    this.branchesService.assertDeviceTokenPairingBrowserOrigin(origin);
     const paired = await this.branchesService.pairDeviceToken(
       request.authContext!.user.tenantId,
       request.authContext!,

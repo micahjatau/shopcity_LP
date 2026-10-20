@@ -6,6 +6,8 @@
 
 The API persists only `HMAC-SHA-256(POS_DEVICE_TOKEN_HMAC_KEY, token)`, keyVersion and credential lifecycle metadata. `POS_DEVICE_TOKEN_HMAC_KEY_VERSION` starts at 1 and increases on every key replacement. The raw random token exists only in the authorized target browser's `__Host-shopcity_pos_device` Secure, HttpOnly, SameSite=Strict, Path=/, host-only cookie (Max-Age 31536000). Do not inspect, export, or log its value. Cashier logout and ordinary ShopCity session refresh preserve the device credential cookie.
 
+`POS_DEVICE_TOKEN_PAIRING_ORIGINS` is an optional comma-separated list of exact canonical origins added only to the token-pair endpoint's origin check. It does not change CORS response headers and does not widen reset origin checks; an empty value uses only `CORS_ORIGIN_ALLOWLIST`. In deployed environments, supplemental origins must use HTTPS. Configure branch Preview values as branch-scoped Preview variables; do not add Preview origins to Production configuration.
+
 ## Pair/reset/revoke
 
 Only active same-tenant Admins (any tenant branch) and Supervisors (their assigned branch) may pair/reset. Pair on the actual target POS browser while the approved actor's session is active. The operation requires the existing session-bound double-submit CSRF cookie/header check and is audited with the actor and timestamp. Pairing makes prior credentials and device sessions unusable atomically; the token cookie is emitted only after the transaction commits. A lost response does not permit token recovery; perform a supervised reset/re-pair.

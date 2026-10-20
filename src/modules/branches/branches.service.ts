@@ -60,6 +60,24 @@ export class BranchesService {
   ) {}
 
   assertDeviceTokenBrowserOrigin(origin: string | undefined): void {
+    this.assertBrowserOriginAllowed(
+      origin,
+      this.configService.get<string>('CORS_ORIGIN_ALLOWLIST') ?? '',
+    );
+  }
+
+  assertDeviceTokenPairingBrowserOrigin(origin: string | undefined): void {
+    const allowedOrigins = [
+      this.configService.get<string>('CORS_ORIGIN_ALLOWLIST') ?? '',
+      this.configService.get<string>('POS_DEVICE_TOKEN_PAIRING_ORIGINS') ?? '',
+    ].join(',');
+    this.assertBrowserOriginAllowed(origin, allowedOrigins);
+  }
+
+  private assertBrowserOriginAllowed(
+    origin: string | undefined,
+    allowlist: string,
+  ): void {
     if (!origin) throw new ForbiddenException('Request origin is invalid');
     let parsed: URL;
     try {
@@ -70,15 +88,18 @@ export class BranchesService {
     const deployed =
       ['production', 'staging'].includes(process.env.NODE_ENV ?? '') ||
       ['production', 'preview'].includes(process.env.VERCEL_ENV ?? '');
+    const allowedOrigins = new Set(
+      allowlist
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
     if (
       parsed.origin !== origin ||
       parsed.username ||
       parsed.password ||
       (deployed && parsed.protocol !== 'https:') ||
-      !(this.configService.get<string>('CORS_ORIGIN_ALLOWLIST') ?? '')
-        .split(',')
-        .map((value) => value.trim())
-        .includes(origin)
+      !allowedOrigins.has(origin)
     ) {
       throw new ForbiddenException('Request origin is invalid');
     }
