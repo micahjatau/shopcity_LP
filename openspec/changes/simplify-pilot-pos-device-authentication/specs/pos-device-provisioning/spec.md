@@ -27,13 +27,20 @@ Each device SHALL accept exactly one cashier authentication proof according to i
 
 ### Requirement: Keyed device-token credential storage
 
-The system SHALL store only HMAC-SHA-256 of a random device token under dedicated `POS_DEVICE_TOKEN_HMAC_KEY`, plus key version, tenant/device association, status, creation/pair/revoke timestamps, and last-use metadata. The key SHALL be a 32-byte base64url secret from approved server secret storage and SHALL never be `SESSION_SECRET` or `CSRF_SECRET`. MVP SHALL use one active key/version; missing or malformed configuration SHALL fail closed. Replacing the key SHALL increment the configured version and SHALL invalidate old credentials/sessions without fallback. At most one active credential SHALL exist per device.
+The system SHALL store only HMAC-SHA-256 of a random device token under dedicated `POS_DEVICE_TOKEN_HMAC_KEY`, plus key version, tenant/device association, status, creation/pair/revoke timestamps, and last-use metadata. The key SHALL be a 32-byte base64url secret from approved server secret storage and SHALL never be `SESSION_SECRET` or `CSRF_SECRET`. MVP SHALL use one active key/version; missing or malformed configuration SHALL fail closed. When `PILOT_CASHIER_DEVICE_TOKEN_ONLY=true`, `/health/ready` SHALL report not-ready if the key is missing or malformed, without exposing key material. Replacing the key SHALL increment the configured version and SHALL invalidate old credentials/sessions without fallback. At most one active credential SHALL exist per device.
 
 #### Scenario: Token is never stored or disclosed
 
 - **WHEN** a device token is paired
 - **THEN** only the keyed hash and key version SHALL be persisted
 - **AND** the raw token SHALL be returned only as the target browser's HttpOnly cookie and SHALL not appear in JSON, logs, URLs, analytics, or browser persistent script-readable storage
+
+#### Scenario: Missing key blocks token-only readiness
+
+- **GIVEN** `PILOT_CASHIER_DEVICE_TOKEN_ONLY=true`
+- **WHEN** `POS_DEVICE_TOKEN_HMAC_KEY` is missing or invalid
+- **THEN** `/health/ready` SHALL return a not-ready response with a non-secret configuration diagnostic
+- **AND** `/health/live` SHALL continue to report process liveness
 
 #### Scenario: Key replacement invalidates credentials
 

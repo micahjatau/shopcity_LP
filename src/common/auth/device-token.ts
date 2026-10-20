@@ -51,6 +51,17 @@ export function matchesDeviceTokenHash(
   }
 }
 
+export function isValidDeviceTokenHmacKey(
+  keyValue: string | undefined,
+): boolean {
+  try {
+    parseDeviceTokenKey(keyValue);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function parseDeviceTokenKey(keyValue: string | undefined): Buffer {
   if (!keyValue || !/^[A-Za-z0-9_-]{43}$/.test(keyValue)) {
     throw new Error('POS_DEVICE_TOKEN_HMAC_KEY is missing or invalid');

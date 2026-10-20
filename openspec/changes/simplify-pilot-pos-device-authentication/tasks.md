@@ -28,6 +28,7 @@
   - [x] 5.2 Run Prisma validate/generate and verify the full migration chain on the empty disposable PostgreSQL Testcontainers target; do not apply shared databases.
   - [ ] 5.3 Re-run focused and full Jest suites, web tests/typecheck, client typecheck, root/web lint and build, Semgrep on changed auth surfaces, and strict OpenSpec validation after the staff-authentication/BFF implementation; only the focused auth and web proxy/login suites have passed so far.
   - [ ] 5.4 Run GitNexus detect_changes, inspect final diff, confirm no staged files and no unrelated dirty files changed.
+  - [x] 5.9 Make `/health/ready` fail safely when token-only mode requires a missing or invalid POS HMAC key; cover safe diagnostics and liveness compatibility.
   - [x] 5.5 Record actual staging POS pairing/E2E as incomplete unless approved staging access and hardware are available; do not claim pilot acceptance.
   - [x] 5.6 Clear the POS cookie on reset/deactivation only when the request token matches the selected device; verify browser A remains usable when it resets device B.
   - [x] 5.7 Transition DEVICE_TOKEN devices to UNPAIRED on deactivation/reactivation and require supervised re-pairing without changing HMAC_LEGACY or WEBAUTHN behavior.

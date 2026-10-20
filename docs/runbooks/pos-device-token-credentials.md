@@ -8,6 +8,8 @@ The API persists only `HMAC-SHA-256(POS_DEVICE_TOKEN_HMAC_KEY, token)`, keyVersi
 
 `POS_DEVICE_TOKEN_PAIRING_ORIGINS` is an optional comma-separated list of exact canonical origins added only to the token-pair endpoint's origin check. It does not change CORS response headers and does not widen reset origin checks; an empty value uses only `CORS_ORIGIN_ALLOWLIST`. In deployed environments, supplemental origins must use HTTPS. Configure branch Preview values as branch-scoped Preview variables; do not add Preview origins to Production configuration.
 
+When `PILOT_CASHIER_DEVICE_TOKEN_ONLY=true`, `/health/ready` also checks that `POS_DEVICE_TOKEN_HMAC_KEY` is present and valid. Missing or malformed configuration returns not-ready with a static diagnostic that does not expose key material; `/health/live` remains a process-liveness check.
+
 ## Pair/reset/revoke
 
 Only active same-tenant Admins (any tenant branch) and Supervisors (their assigned branch) may pair/reset. Pair on the actual target POS browser while the approved actor's session is active. The operation requires the existing session-bound double-submit CSRF cookie/header check and is audited with the actor and timestamp. Pairing makes prior credentials and device sessions unusable atomically; the token cookie is emitted only after the transaction commits. A lost response does not permit token recovery; perform a supervised reset/re-pair.

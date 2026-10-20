@@ -1,6 +1,7 @@
 import {
   createDeviceToken,
   hashDeviceToken,
+  isValidDeviceTokenHmacKey,
   matchesDeviceTokenHash,
 } from './device-token';
 import { buildPosDeviceTokenCookie, clearPosDeviceTokenCookie } from './cookie';
@@ -16,6 +17,15 @@ describe('POS device token hashing and transport', () => {
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
     expect(hash).not.toContain(token);
     expect(matchesDeviceTokenHash(token, hash, key)).toBe(true);
+  });
+
+  it('validates HMAC key format without exposing key material', () => {
+    expect(isValidDeviceTokenHmacKey(key)).toBe(true);
+    expect(isValidDeviceTokenHmacKey(undefined)).toBe(false);
+    expect(isValidDeviceTokenHmacKey('invalid')).toBe(false);
+    expect(
+      isValidDeviceTokenHmacKey(Buffer.alloc(31).toString('base64url')),
+    ).toBe(false);
   });
 
   it('does not match another token or a token hashed with another key', () => {
