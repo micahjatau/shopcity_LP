@@ -3272,8 +3272,33 @@ test.describe('workflow route coverage', () => {
     await page.getByRole('button', { name: 'Proceed to review' }).click();
     await page.getByRole('button', { name: 'Confirm & add credit' }).click();
     await expect(
-      page.getByRole('heading', { name: 'Purchase pending approval' }),
+      page.getByRole('heading', { name: 'Awaiting approval' }),
     ).toBeVisible();
+    await expect(
+      page.getByText(
+        'A supervisor needs to review this purchase before rewards are added.',
+      ),
+    ).toBeVisible();
+    const pendingNotice = page.locator('.capture-result-card--pending');
+    await pendingNotice.evaluate((element) => {
+      element.getAnimations().forEach((animation) => animation.finish());
+    });
+    const noticeGeometry = await pendingNotice.evaluate((element) => {
+      const { width, height } = element.getBoundingClientRect();
+      const styles = getComputedStyle(element);
+      return {
+        width: Math.round(width),
+        height: Math.round(height),
+        background: styles.backgroundColor,
+        borderRadius: styles.borderRadius,
+      };
+    });
+    expect(noticeGeometry).toEqual({
+      width: 542,
+      height: 134,
+      background: 'rgb(255, 250, 235)',
+      borderRadius: '16px',
+    });
 
     await page.goto(`${baseUrl}/cashier/redeem?card=CARD-001`);
     await page

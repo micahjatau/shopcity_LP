@@ -521,15 +521,42 @@ describe('cashier transaction forms', () => {
     expect(jest.mocked(saveOfflineEarnRecord)).not.toHaveBeenCalled();
   });
 
-  it('renders an approval-pending Earn outcome from the backend', async () => {
+  it('renders one approval-pending Earn notice without exposing the backend payload', async () => {
     jest.mocked(loyaltyControllerEarnV1).mockResolvedValue({
       status: 202,
-      data: { data: { transactionId: 'earn-pending' } },
+      data: {
+        success: true,
+        data: {
+          id: 'receipt-pending',
+          transactionId: null,
+          state: 'PENDING_APPROVAL',
+          receiptId: 'receipt-pending',
+          approvalId: 'approval-pending',
+          tenantId: 'tenant-internal',
+          branchId: 'branch-internal',
+          deviceId: 'device-internal',
+          customerId: 'customer-internal',
+          cardSerialNumber: 'SC-PENDING',
+          posReceiptNumber: 'RC-PENDING',
+          purchaseAmountKobo: 8_000_000,
+          creditKobo: null,
+          captureStatus: 'PENDING_APPROVAL',
+          availableBalanceKobo: null,
+          reasonCode: 'LATE_RECEIPT_CLAIM',
+          occurredAt: '2026-10-14T09:03:00.000Z',
+          capturedAt: '2026-10-21T22:24:25.617Z',
+        },
+        meta: {
+          timestamp: '2026-10-21T22:24:25.648Z',
+          path: '/api/v1/transactions/earn',
+        },
+      },
     } as never);
     render(
       <EarnTransactionForm
         lookupContext={lookupContext}
         policyContext={policyContext}
+        branchTimezone="Africa/Lagos"
       />,
     );
     fireEvent.change(screen.getByLabelText('Receipt number *'), {
@@ -546,12 +573,35 @@ describe('cashier transaction forms', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Purchase pending approval' }),
+        screen.getByRole('heading', { name: 'Awaiting approval' }),
       ).toBeInTheDocument();
     });
+    const result = screen.getByRole('region', {
+      name: 'Capture purchase result',
+    });
+    expect(screen.getByText('Purchase recorded')).toBeVisible();
+    expect(
+      screen.getAllByText(
+        'A supervisor needs to review this purchase before rewards are added.',
+      ),
+    ).toHaveLength(1);
+    expect(result.querySelector('table')).toBeNull();
+    expect(result).toHaveTextContent('Ada Shopper');
+    expect(result).toHaveTextContent('CARD-001');
+    expect(result).toHaveTextContent('RC-PENDING');
+    expect(result).toHaveTextContent(/80,000\.00/);
+    expect(result).toHaveTextContent('14 Oct 2026, 10:03');
+    expect(result).toHaveTextContent('21 Oct 2026, 23:24');
+    expect(result).toHaveTextContent('Late receipt claim');
+    expect(result).not.toHaveTextContent(
+      /receipt-pending|approval-pending|tenant-internal|branch-internal|device-internal|customer-internal|SC-PENDING|success|PENDING_APPROVAL/i,
+    );
     expect(
       screen.queryByText('ShopCity Credit earned'),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Capture another' }),
+    ).toBeVisible();
   });
 
   it('shows the basket and customer-payable amount across the redemption stages', () => {

@@ -50,7 +50,7 @@ function searchResponse(
 
 async function waitForInitialListLoad() {
   const refreshButton = screen.getByRole('button', {
-    name: 'Refresh transactions',
+    name: 'Refresh',
   });
   await waitFor(() => expect(refreshButton).toBeEnabled());
 }
@@ -182,9 +182,9 @@ describe('SupervisorTransactionsDashboard', () => {
 
     render(<SupervisorTransactionsDashboard />);
     await waitForInitialListLoad();
-    expect(
-      screen.getByRole('button', { name: 'Refresh transactions' }),
-    ).toHaveClass('supervisor-customer-table__profile-link');
+    expect(screen.getByRole('button', { name: 'Refresh' })).toHaveClass(
+      'supervisor-overview__refresh',
+    );
     expect(await screen.findByText('R-001')).toBeInTheDocument();
     expect(loyaltyControllerSearchTransactionsByReceiptV1).toHaveBeenCalledWith(
       { limit: 10, cursor: undefined },
@@ -583,7 +583,7 @@ describe('SupervisorTransactionsDashboard', () => {
     render(<SupervisorTransactionsDashboard />);
     await waitForInitialListLoad();
     const refreshButton = screen.getByRole('button', {
-      name: 'Refresh transactions',
+      name: 'Refresh',
     });
     expect(refreshButton).toBeEnabled();
     fireEvent.change(screen.getByRole('textbox', { name: 'Receipt number' }), {

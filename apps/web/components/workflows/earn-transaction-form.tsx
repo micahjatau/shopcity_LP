@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button, Input, Table } from '../ui';
+import { Button, Input } from '../ui';
 import { MoneyInput, Money, StatusBadge } from '../shopcity';
 import {
   useEarnTransactionController,
@@ -104,6 +104,44 @@ export function EarnTransactionForm({
           maximumFractionDigits: 2,
         })}%`
       : 'Set by ShopCity';
+  const pendingEarnResult =
+    status === 'pending' && responseData
+      ? getPendingEarnResult(responseData)
+      : null;
+  const pendingCustomerName = lookupContext?.customerName?.trim();
+  const pendingCardSerial = lookupContext?.cardSerialNumber?.trim();
+  const pendingReceiptDate = pendingEarnResult?.occurredAt
+    ? formatPendingDateTime(pendingEarnResult.occurredAt, branchTimezone)
+    : null;
+  const pendingCapturedDate = pendingEarnResult?.capturedAt
+    ? formatPendingDateTime(pendingEarnResult.capturedAt, branchTimezone)
+    : null;
+  const pendingDetails = [
+    pendingCustomerName
+      ? { label: 'Customer', value: pendingCustomerName }
+      : null,
+    pendingCardSerial
+      ? { label: 'Card number', value: pendingCardSerial }
+      : null,
+    pendingEarnResult?.receiptNumber
+      ? { label: 'Receipt number', value: pendingEarnResult.receiptNumber }
+      : null,
+    typeof pendingEarnResult?.purchaseAmountKobo === 'number'
+      ? {
+          label: 'Purchase amount',
+          value: <Money amountKobo={pendingEarnResult.purchaseAmountKobo} />,
+        }
+      : null,
+    pendingReceiptDate
+      ? { label: 'Receipt date', value: pendingReceiptDate }
+      : null,
+    pendingCapturedDate
+      ? { label: 'Submitted at', value: pendingCapturedDate }
+      : null,
+    pendingEarnResult?.approvalReason
+      ? { label: 'Approval reason', value: pendingEarnResult.approvalReason }
+      : null,
+  ].flatMap((detail) => (detail ? [detail] : []));
 
   return (
     <form
@@ -399,45 +437,33 @@ export function EarnTransactionForm({
         />
       ) : responseData ? (
         <section
-          className={`capture-result-card cashier-workflow-stage capture-result-card--${status}`}
+          className="cashier-workflow-stage capture-pending-result"
           data-od-id="capture-success"
           aria-live="polite"
           aria-label="Capture purchase result"
         >
-          <div className="cashier-stage-heading">
-            <span className="cashier-stage-kicker">Result</span>
-            <h2 className="cashier-stage-heading-title">
-              Purchase pending approval
-            </h2>
-            <p className="cashier-stage-heading-description">
-              The transaction was recorded and will complete after supervisor
-              review.
-            </p>
+          <div className="capture-result-card capture-result-card--pending">
+            <div className="capture-result-card__pending-notice">
+              <p className="capture-result-card__pending-eyebrow">
+                Purchase recorded
+              </p>
+              <h2 id="earn-pending-result-title">Awaiting approval</h2>
+              <p>
+                A supervisor needs to review this purchase before rewards are
+                added.
+              </p>
+            </div>
           </div>
-          <div className="capture-result-card__hero">
-            <span aria-hidden="true">…</span>
-            <span>Awaiting supervisor approval</span>
-          </div>
-          <div>
-            <p className="capture-result-card__eyebrow">Approval required</p>
-            <h3>Purchase is awaiting approval</h3>
-            <p>
-              The transaction was recorded and will complete after supervisor
-              review.
-            </p>
-          </div>
-          <Table>
-            <tbody>
-              {Object.entries(responseData)
-                .slice(0, 8)
-                .map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td>{renderValue(value)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </Table>
+          {pendingDetails.length > 0 ? (
+            <dl className="capture-result-card__pending-details">
+              {pendingDetails.map(({ label, value }) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
           <div className="capture-result-card__actions">
             <button
               className="sc-button sc-button--primary"
@@ -465,10 +491,69 @@ function toDateTimeLocalValue(value: string) {
   return localDate.toISOString().slice(0, 16);
 }
 
-function renderValue(value: unknown) {
-  if (value === null || value === undefined) return '—';
-  if (typeof value === 'number') return <Money amountKobo={value} />;
-  if (typeof value === 'string' || typeof value === 'boolean')
-    return String(value);
-  return JSON.stringify(value);
+type PendingEarnResult = {
+  receiptNumber?: string;
+  purchaseAmountKobo?: number;
+  occurredAt?: string;
+  capturedAt?: string;
+  approvalReason?: string;
+};
+
+function getPendingEarnResult(
+  responseData: Record<string, unknown>,
+): PendingEarnResult {
+  let value: unknown = responseData;
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (!isRecord(value) || !isRecord(value.data)) break;
+    value = value.data;
+  }
+  if (!isRecord(value)) return {};
+
+  const amount = value.purchaseAmountKobo;
+  const reasonCode = value.reasonCode;
+  return {
+    ...(typeof value.posReceiptNumber === 'string' &&
+    value.posReceiptNumber.trim()
+      ? { receiptNumber: value.posReceiptNumber.trim() }
+      : {}),
+    ...(typeof amount === 'number' &&
+    Number.isSafeInteger(amount) &&
+    amount >= 0
+      ? { purchaseAmountKobo: amount }
+      : {}),
+    ...(typeof value.occurredAt === 'string'
+      ? { occurredAt: value.occurredAt }
+      : {}),
+    ...(typeof value.capturedAt === 'string'
+      ? { capturedAt: value.capturedAt }
+      : {}),
+    ...(reasonCode === 'LATE_RECEIPT_CLAIM'
+      ? { approvalReason: 'Late receipt claim' }
+      : {}),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function formatPendingDateTime(value: string, timezone?: string | null) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const options: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  };
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      ...options,
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en-GB', options).format(date);
+  }
 }

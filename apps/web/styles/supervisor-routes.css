@@ -2076,33 +2076,8 @@
   line-height: var(--sc-line-height-caption);
 }
 
-.supervisor-transactions-dashboard .supervisor-transaction-refresh {
-  min-height: 40px;
-  padding: 0 10px;
-  border: 1px solid #ded9da;
-  border-radius: 999px;
-  background: #f6f4f5;
-  color: #4a4a4a;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.supervisor-transactions-dashboard .supervisor-transaction-refresh-content {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-}
-
 .supervisor-transactions-dashboard
-  .supervisor-transaction-refresh:hover:not(:disabled) {
-  background: #ece9ea;
-  color: #9e1015;
-}
-
-.supervisor-transactions-dashboard
-  .supervisor-transaction-refresh:focus-visible,
-.supervisor-transaction-pagination-button:focus-visible {
+  .supervisor-transaction-pagination-button:focus-visible {
   outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
   outline-offset: 3px;
 }

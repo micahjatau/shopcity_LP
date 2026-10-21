@@ -198,6 +198,18 @@ Capture Purchase SHALL use an approximately 860px flow-panel variant with a shar
 - **AND** the final Review step is marked complete only after confirmed success; pending approval and error states do not show the completion tick
 - **AND** no API payload, backend validation, financial calculation, idempotency, or approval behavior changes
 
+#### Scenario: Pending Earn result shows an approval notice and transaction details
+
+- **GIVEN** the Earn endpoint returns a pending-approval response
+- **WHEN** the Cashier sees the result state
+- **THEN** one notice follows Figma node `413:4411`, with the heading `Purchase recorded`, the status `Awaiting approval`, and the copy `A supervisor needs to review this purchase before rewards are added.`
+- **AND** available verified customer and card details, receipt number, purchase amount, receipt time, submission time, and human-readable approval reason appear in a separate labeled summary
+- **AND** unavailable summary details are omitted, and no pending credit or current balance is implied
+- **AND** the notice does not repeat the pending status or explanatory copy
+- **AND** raw response fields, internal identifiers, and unformatted API payloads are not rendered
+- **AND** the existing `Capture another` action remains available
+- **AND** backend approval behavior remains unchanged
+
 #### Scenario: Capture Purchase confirmation card matches Figma node 412:2478
 
 - **WHEN** a verified customer reaches step 2 of `/cashier/earn`

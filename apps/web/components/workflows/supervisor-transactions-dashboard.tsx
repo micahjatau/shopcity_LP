@@ -695,26 +695,22 @@ export function SupervisorTransactionsDashboard() {
         title={<span id="supervisor-transactions-title">Transactions</span>}
         description="Review branch transactions and filter by receipt number."
         actions={
-          <Button
-            variant="secondary"
-            size="compact"
-            className="supervisor-customer-table__profile-link supervisor-transaction-refresh"
+          <button
+            className="supervisor-overview__refresh"
             type="button"
-            aria-label="Refresh transactions"
-            title="Refresh transactions"
+            onClick={refreshResults}
             disabled={
               listState === 'idle' ||
               listState === 'loading' ||
               searching ||
               filtersDirty
             }
-            onClick={refreshResults}
+            aria-label="Refresh"
+            title="Refresh"
           >
-            <span className="supervisor-transaction-refresh-content">
-              <RefreshCw aria-hidden="true" size={14} />
-              <span>Refresh</span>
-            </span>
-          </Button>
+            <RefreshCw aria-hidden="true" size={14} />
+            {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+          </button>
         }
       />
 
