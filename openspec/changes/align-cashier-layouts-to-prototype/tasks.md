@@ -50,6 +50,7 @@
 - [x] 4.17 Replace monthly transaction placeholder with authoritative monthly earned-credit total and verify card number rendering.
 - [x] 4.18 Remove the Cashier Redemptions tab because Wallet Ledger captures both earn and redemption entries; revert profile typography changes and enlarge virtual-card text.
 - [x] 4.19 Populate Cashier Overview activity and calculated metrics, remove the Cashier credit-expiry card, and expose only cashier-safe masked email, card number, and birthday-month details.
+- [x] 4.20 Map cashier-today's authoritative earned/redeemed credit movements into the shared profile Transactions table; verify combined settlements, pending approval, and unavailable values without substituting current balance.
 
 ## 5. Adapt Capture Purchase
 

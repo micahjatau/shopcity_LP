@@ -19,6 +19,7 @@ import { Button, Dialog, Input } from '../ui';
 import { SupervisorCustomerStatusBadge } from './supervisor-customer-status-badge';
 import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
 import { SupervisorCardManagement } from './supervisor-card-management';
+import { TransactionCreditBreakdown } from './transaction-credit-breakdown';
 
 function ProfileMetric({
   label,
@@ -275,6 +276,11 @@ function ProfileRows({
 type ProfileTransactionRow =
   CustomersControllerGetCustomerProfileProjectionV1200Data['transactions'][number] & {
     receiptNumber?: string;
+    operation?: 'EARN' | 'REDEEM';
+    status?: string | null;
+    loyaltyAmountKobo?: number | null;
+    redeemedAmountKobo?: number | null;
+    earnedAmountKobo?: number | null;
   };
 
 type CashierRecentTransaction =
@@ -290,6 +296,11 @@ function toProfileTransactionRow(
     purchaseAmountKobo: row.purchaseAmountKobo,
     captureStatus: row.status,
     reviewStatus: row.status,
+    operation: row.operation,
+    status: row.status,
+    loyaltyAmountKobo: row.loyaltyAmountKobo,
+    redeemedAmountKobo: row.redeemedAmountKobo,
+    earnedAmountKobo: row.earnedAmountKobo,
   };
 }
 
@@ -444,7 +455,19 @@ function ProfileTransactions({
                           profileValue(undefined)
                         )}
                       </td>
-                      <td>{profileValue(undefined)}</td>
+                      <td>
+                        {row.operation ? (
+                          <TransactionCreditBreakdown
+                            operation={row.operation}
+                            status={row.status ?? row.reviewStatus}
+                            loyaltyAmountKobo={row.loyaltyAmountKobo}
+                            redeemedAmountKobo={row.redeemedAmountKobo}
+                            earnedAmountKobo={row.earnedAmountKobo}
+                          />
+                        ) : (
+                          profileValue(undefined)
+                        )}
+                      </td>
                       <td>
                         <div className="supervisor-profile-transactions__outcome">
                           <span

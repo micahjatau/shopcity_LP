@@ -16149,7 +16149,12 @@
                               "occurredAt",
                               "purchaseAmountKobo",
                               "captureStatus",
-                              "reviewStatus"
+                              "reviewStatus",
+                              "operation",
+                              "status",
+                              "loyaltyAmountKobo",
+                              "redeemedAmountKobo",
+                              "earnedAmountKobo"
                             ],
                             "properties": {
                               "id": {
@@ -16168,6 +16173,25 @@
                               },
                               "reviewStatus": {
                                 "type": "string"
+                              },
+                              "operation": {
+                                "type": "string",
+                                "enum": ["EARN", "REDEEM"]
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "loyaltyAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "redeemedAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "earnedAmountKobo": {
+                                "type": "integer",
+                                "nullable": true
                               }
                             }
                           }

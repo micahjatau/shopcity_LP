@@ -86,7 +86,7 @@ Find Customer SHALL provide one full-content-width card with the Recent customer
 
 The Cashier customer profile at `/cashier/customers?id=...` SHALL mirror the Supervisor profile's page hierarchy, responsive layout, summary-card geometry, and Overview, Transactions, Wallet Ledger, and Virtual Card tabs, but SHALL omit the Consent and Redemptions tabs because Wallet Ledger contains both earn and redemption entries. It SHALL remain read-only and use only the existing cashier-authorized customer-detail and customer-ledger APIs. The detail response's `customerId` MUST equal the requested stable ID before profile values render. The profile MUST display only the API's masked phone, masked email, birthday-month field, and cashier-safe card number, and MUST NOT call the Supervisor/Admin-only profile-projection endpoint. The Customer details section MUST omit unsupported Registered, Transactions, and Redemptions rows. It MUST omit Edit details, customer-status changes, and card-management actions. Capture Purchase and Redeem Credit MAY remain visible, but MUST continue through exact active-card verification before any financial workflow.
 
-The Transactions tab SHALL reuse the Supervisor transaction table presentation and show up to the three newest rows returned by the cashier-authorized `cashier-today` endpoint filtered by the stable customer ID. It SHALL display the returned receipt number, date/time, purchase amount, and status; unsupported receipt credit remains explicitly not provided. The endpoint filter MUST preserve authenticated tenant, branch, and cashier scope.
+The Transactions tab SHALL reuse the Supervisor transaction table presentation and show up to the three newest rows returned by the cashier-authorized `cashier-today` endpoint filtered by the stable customer ID. It SHALL display the returned receipt number, date/time, purchase amount, and status, and SHALL map the row's authoritative `earnedAmountKobo` and `redeemedAmountKobo` movement fields. Combined settlements SHALL show both earned and redeemed effects. Pending transactions SHALL show **Awaiting approval** without presenting requested amounts as confirmed movement; current available balance SHALL NOT be substituted. The endpoint filter MUST preserve authenticated tenant, branch, and cashier scope.
 
 The Cashier summary cards SHALL be labelled Available balance, Last purchase amount, Total monthly Earn, and Last amount redeemed. Total monthly Earn MUST be the sum of confirmed EARN/CREDIT ledger entries for the verified customer in the branch-local calendar month; it MUST be explicitly unavailable when the authoritative value cannot be returned. Last purchase and redeemed amounts MAY use the latest returned cashier activity rows. Profile fields unavailable from the cashier-safe customer summary or cashier-today response—including pending approvals, lifetime earned, annual purchases, transaction history beyond the returned three rows, card identifier, consent, and expiry details—MUST be shown as explicitly unavailable/not provided, not fabricated or inferred. The Cashier profile MUST NOT widen API authorization or expose an unmasked phone number.
 
@@ -111,8 +111,9 @@ The Cashier summary cards SHALL be labelled Available balance, Last purchase amo
 - **WHEN** a Cashier opens the Transactions tab for a verified customer
 - **THEN** the profile renders the Supervisor transaction table with the newest returned customer-scoped cashier activity rows
 - **AND** no more than three rows are requested or displayed
-- **AND** receipt number, date/time, purchase amount, and status are shown from the authorized response
-- **AND** unavailable credit values remain explicitly not provided
+- **AND** receipt number, date/time, purchase amount, status, and earned/redeemed credit movement are shown from the authorized response
+- **AND** combined settlements show both effects, while pending requests are not presented as confirmed movement
+- **AND** current available balance is never substituted for transaction movement
 
 #### Scenario: Cashier virtual card stays concise
 

@@ -26,6 +26,7 @@
 - [x] 3.6 Add Capture purchase and Redeem Credit actions that enter the existing protected workflows with stable customer context where supported; verify no profile-level write bypasses existing authorization, CSRF, idempotency, verification, or approval safeguards.
 - [x] 3.7 Render the reference customer-details fields read-only from verified data, label unsupported birthday/count values as Not provided, and open the existing editor in an accessible modal; verify explicit dirty-edit keep/discard handling and that only a verified save closes the editor while remaining on the profile.
 - [x] 3.8 Replace the Next expiry summary card with Annual Purchases and show Not provided until an authoritative annual-purchases value is available; keep the expiry schedule separate.
+- [x] 3.9 Extend the authenticated Supervisor profile projection with each receipt's operation/status and confirmed earned/redeemed ledger movements; preserve combined settlement effects and keep pending requests distinct from confirmed movements.
 
 ## 4. Complete visual, responsive, and accessibility acceptance
 
@@ -33,7 +34,7 @@
 - [ ] 4.2 Implement desktop table density and narrow-screen stacked customer entries without page-level horizontal overflow; verify at desktop, tablet, mobile, 200% zoom, long names/phones, and shell light/dark modes where supported.
 - [ ] 4.3 Complete keyboard and assistive-technology states for toolbar, linked rows, registration, profile, statuses, errors, focus restoration, and reduced motion; verify accessible names, focus visibility, live-region behavior, and logical reading order.
 - [x] 4.4 Apply the rem-based profile typography tokens to the summary cards, details, activity, tabs, and requested shell text without changing layout/button/sidebar colors; verify hierarchy and wrapping at 1280px, 1440px, and 1920px.
-- [x] 4.5 Style the profile Transactions tab as a responsive table card matching the supplied reference and Overview tab; keep column headers visible in the empty state, render unavailable receipt number and transaction-level credit as Not provided, and preserve API/data behavior.
+- [x] 4.5 Style the profile Transactions tab as a responsive table card matching the supplied reference and Overview tab; keep column headers visible in the empty state, render unavailable receipt number as Not provided, and map credit movement only from authoritative API data.
 - [x] 4.6 Implement the Wallet Ledger reference as a responsive table card backed by the authenticated, cursor-paginated customer ledger endpoint; add receipt source and creator username to the read-only ledger contract, map supported values to columns, and show historical Balance After as Not provided unless the API supplies an authoritative snapshot.
 - [x] 4.7 Move the verified ShopCity card preview from Manage cards to the customer profile Virtual Card tab; retain authoritative profile data, verified management details, and all protected management actions.
 - [x] 4.8 Use the supplied `IMG-20260802-WA0001.jpg` as the Virtual Card preview background, preserve the asset unchanged, and verify it loads in the profile workflow.
@@ -45,4 +46,5 @@
 - [ ] 5.2 Add or update Playwright coverage for desktop and mobile directory/profile layouts, registration dialog, read-only customer-details card and edit dialog, verified-success animation/reduced-motion and failure states, search, row-to-profile navigation, direct profile reload, dirty-state handling, profile tabs, API-backed activity, expiry, virtual card, capture/redeem handoffs, and keyboard use; verify all affected workflows pass against the app.
 - [ ] 5.3 Regenerate the OpenAPI/client contract, then run web lint, typecheck, tests, and production build; run applicable Semgrep and OpenSpec validation; verify every acceptance criterion has passing evidence and `git diff --check` is clean.
 - [ ] 5.4 Review the final diff and worktree, preserve unrelated changes/reference assets, and report any unresolved visual or behavior decisions; verify only intended source, tests, and OpenSpec artifacts changed.
+- [x] 5.6 Add regression coverage for earned, redeemed, combined-settlement, pending, and unavailable profile credit movements; regenerate OpenAPI/client artifacts and run focused backend/web checks plus strict OpenSpec validation.
 - [x] 5.5 Verify Manage card opens a dialog with the verified serial prefilled, preserves the profile route/tab, and retains the existing lookup and action safeguards.

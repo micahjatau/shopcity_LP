@@ -499,6 +499,30 @@ describe('CustomersService', () => {
             occurredAt: effectiveAt,
             captureStatus: 'CAPTURED',
             reviewStatus: 'APPROVED',
+            redemption: { status: 'CONFIRMED' },
+            ledgerEntries: [
+              {
+                type: 'EARN',
+                direction: 'CREDIT',
+                amountKobo: 300n,
+                status: 'CONFIRMED',
+              },
+              {
+                type: 'REDEEM',
+                direction: 'DEBIT',
+                amountKobo: 600n,
+                status: 'CONFIRMED',
+              },
+            ],
+          },
+          {
+            id: 'receipt-pending',
+            purchaseAmountKobo: 1_500n,
+            occurredAt: new Date('2025-02-02T00:00:00.000Z'),
+            captureStatus: 'CAPTURED',
+            reviewStatus: 'PENDING',
+            redemption: { status: 'PENDING_APPROVAL' },
+            ledgerEntries: [],
           },
         ]),
       },
@@ -586,6 +610,24 @@ describe('CustomersService', () => {
       },
       consent: { loyaltyConsent: true, marketingOptIn: false },
     });
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        id: 'receipt-1',
+        operation: 'REDEEM',
+        status: 'CONFIRMED',
+        loyaltyAmountKobo: 600,
+        redeemedAmountKobo: 600,
+        earnedAmountKobo: 300,
+      }),
+      expect.objectContaining({
+        id: 'receipt-pending',
+        operation: 'REDEEM',
+        status: 'PENDING_APPROVAL',
+        loyaltyAmountKobo: null,
+        redeemedAmountKobo: null,
+        earnedAmountKobo: null,
+      }),
+    ]);
     expect(result.recentActivity).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

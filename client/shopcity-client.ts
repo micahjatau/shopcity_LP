@@ -7293,6 +7293,15 @@ export type CustomersControllerGetCustomerProfileProjectionV1200DataRecentActivi
     amountKobo: number | null;
   };
 
+export type CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation =
+  {
+    EARN: 'EARN',
+    REDEEM: 'REDEEM',
+  } as const;
+
 export type CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItem =
   {
     id: string;
@@ -7301,6 +7310,14 @@ export type CustomersControllerGetCustomerProfileProjectionV1200DataTransactions
     purchaseAmountKobo: number | null;
     captureStatus: string;
     reviewStatus: string;
+    operation: CustomersControllerGetCustomerProfileProjectionV1200DataTransactionsItemOperation;
+    status: string;
+    /** @nullable */
+    loyaltyAmountKobo: number | null;
+    /** @nullable */
+    redeemedAmountKobo: number | null;
+    /** @nullable */
+    earnedAmountKobo: number | null;
   };
 
 export type CustomersControllerGetCustomerProfileProjectionV1200DataRedemptionsItem =

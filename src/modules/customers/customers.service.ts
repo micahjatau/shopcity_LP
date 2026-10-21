@@ -348,6 +348,20 @@ export class CustomersService {
           occurredAt: true,
           captureStatus: true,
           reviewStatus: true,
+          redemption: { select: { status: true } },
+          ledgerEntries: {
+            where: {
+              type: { in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM] },
+            },
+            orderBy: [{ effectiveAt: 'desc' }, { id: 'desc' }],
+            take: 2,
+            select: {
+              type: true,
+              direction: true,
+              amountKobo: true,
+              status: true,
+            },
+          },
         },
       }),
       this.prismaService.redemption.findMany({
@@ -532,13 +546,44 @@ export class CustomersService {
       expiryScheduleIsUpcomingWindow: true,
       expiryScheduleLimit: 12,
       recentActivity: activity,
-      transactions: receipts.map((receipt) => ({
-        id: receipt.id,
-        occurredAt: receipt.occurredAt.toISOString(),
-        purchaseAmountKobo: safeKoboNumber(receipt.purchaseAmountKobo),
-        captureStatus: receipt.captureStatus,
-        reviewStatus: receipt.reviewStatus,
-      })),
+      transactions: receipts.map((receipt) => {
+        const ledgerEntries = receipt.ledgerEntries ?? [];
+        const earnedEntry = ledgerEntries.find(
+          (entry) =>
+            entry.type === LedgerEntryType.EARN &&
+            entry.direction === LedgerEntryDirection.CREDIT &&
+            entry.status === LedgerEntryStatus.CONFIRMED,
+        );
+        const redeemedEntry = ledgerEntries.find(
+          (entry) =>
+            entry.type === LedgerEntryType.REDEEM &&
+            entry.direction === LedgerEntryDirection.DEBIT &&
+            entry.status === LedgerEntryStatus.CONFIRMED,
+        );
+        const earnedAmountKobo = earnedEntry
+          ? safeKoboNumber(earnedEntry.amountKobo)
+          : null;
+        const redeemedAmountKobo = redeemedEntry
+          ? safeKoboNumber(redeemedEntry.amountKobo)
+          : null;
+        const operation = receipt.redemption
+          ? ('REDEEM' as const)
+          : ('EARN' as const);
+
+        return {
+          id: receipt.id,
+          occurredAt: receipt.occurredAt.toISOString(),
+          purchaseAmountKobo: safeKoboNumber(receipt.purchaseAmountKobo),
+          captureStatus: receipt.captureStatus,
+          reviewStatus: receipt.reviewStatus,
+          operation,
+          status: receipt.redemption?.status ?? receipt.reviewStatus,
+          loyaltyAmountKobo:
+            operation === 'REDEEM' ? redeemedAmountKobo : earnedAmountKobo,
+          redeemedAmountKobo,
+          earnedAmountKobo,
+        };
+      }),
       redemptions: redemptions.map((redemption) => ({
         id: redemption.id,
         occurredAt: (

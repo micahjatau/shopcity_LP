@@ -91,7 +91,9 @@ The profile MUST provide Overview, Transactions, Wallet Ledger, Redemptions, Vir
 - **WHEN** the profile transaction projection is rendered
 - **THEN** transactions appear in a responsive, read-only table card styled consistently with the Overview profile cards and the supplied transactions-card reference
 - **AND** returned date/time, purchase amount, capture status, and review status are shown without exposing internal receipt IDs
-- **AND** receipt number and transaction-level credit display **Not provided** because the current projection does not return them
+- **AND** the Credit cell shows the authoritative per-transaction earned and/or redeemed movement returned by the profile projection, with both effects shown for a combined settlement
+- **AND** pending transactions show **Awaiting approval** without presenting requested amounts as confirmed movement; unavailable movement is labeled honestly and current available balance is never substituted
+- **AND** receipt number displays **Not provided** when it is not returned
 - **AND** the column headers remain visible when there are no transactions, with the honest empty state shown in a full-width table row
 - **AND** the tab preserves its retryable error state
 

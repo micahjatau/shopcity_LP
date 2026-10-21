@@ -263,6 +263,8 @@ describe('table-first customer workflow', () => {
               customerName: 'Cashier Profile Owner',
               purchaseAmountKobo: 12500,
               loyaltyAmountKobo: 625,
+              redeemedAmountKobo: null,
+              earnedAmountKobo: 625,
               receiptNumber: 'R-001',
               status: 'APPROVED',
             },
@@ -273,6 +275,8 @@ describe('table-first customer workflow', () => {
               customerName: 'Cashier Profile Owner',
               purchaseAmountKobo: 5000,
               loyaltyAmountKobo: 1000,
+              redeemedAmountKobo: 1000,
+              earnedAmountKobo: 250,
               receiptNumber: 'R-002',
               status: 'CONFIRMED',
             },
@@ -347,6 +351,22 @@ describe('table-first customer workflow', () => {
     ).toBeVisible();
     expect(await screen.findByText('R-001')).toBeVisible();
     expect(await screen.findByText('R-002')).toBeVisible();
+    const cashierTransactionTable = screen.getByRole('table', {
+      name: 'Customer transactions',
+    });
+    const combinedCashierSettlementRow = within(
+      cashierTransactionTable,
+    ).getAllByRole('row')[2];
+    expect(
+      within(combinedCashierSettlementRow).getByLabelText(
+        'Credit redeemed: 1000 kobo',
+      ),
+    ).toBeVisible();
+    expect(
+      within(combinedCashierSettlementRow).getByLabelText(
+        'Credit earned: 250 kobo',
+      ),
+    ).toBeVisible();
     expect(
       await screen.findByLabelText('Capture status: Approved'),
     ).toBeVisible();
@@ -1180,6 +1200,11 @@ describe('table-first customer workflow', () => {
                 purchaseAmountKobo: 5400,
                 captureStatus: 'CAPTURED',
                 reviewStatus: 'APPROVED',
+                operation: 'REDEEM',
+                status: 'CONFIRMED',
+                loyaltyAmountKobo: 1800,
+                redeemedAmountKobo: 1800,
+                earnedAmountKobo: 1200,
               },
             ],
             redemptions: [
@@ -1274,8 +1299,18 @@ describe('table-first customer workflow', () => {
       name: 'Customer transactions',
     });
     expect(within(transactionTable).getAllByText('Not provided')).toHaveLength(
-      2,
+      1,
     );
+    const combinedSettlementRow =
+      within(transactionTable).getAllByRole('row')[1];
+    expect(
+      within(combinedSettlementRow).getByLabelText(
+        'Credit redeemed: 1800 kobo',
+      ),
+    ).toBeVisible();
+    expect(
+      within(combinedSettlementRow).getByLabelText('Credit earned: 1200 kobo'),
+    ).toBeVisible();
     expect(within(transactionTable).getByText(/2025/)).toBeVisible();
     expect(within(transactionTable).getByText(/54\.00/)).toBeVisible();
     expect(within(transactionTable).getByText('Captured')).toBeVisible();
@@ -1489,6 +1524,85 @@ describe('table-first customer workflow', () => {
     expect(
       screen.queryByRole('img', { name: /ShopCity card preview/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it('does not show requested or unavailable amounts as transaction credit', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'requested-id',
+          fullName: 'Verified Customer',
+          phoneE164: '+2348000000000',
+        },
+      },
+    } as never);
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            customerId: 'requested-id',
+            sourceErrors: [],
+            memberSince: '2025-01-01T00:00:00.000Z',
+            pendingApprovalsCount: 0,
+            lifetimeEarnedKobo: 0,
+            expirySchedule: [],
+            expiryScheduleIsUpcomingWindow: true,
+            expiryScheduleLimit: 12,
+            recentActivity: [],
+            transactions: [
+              {
+                id: 'pending-receipt',
+                occurredAt: '2025-02-02T00:00:00.000Z',
+                purchaseAmountKobo: 1500,
+                captureStatus: 'CAPTURED',
+                reviewStatus: 'PENDING',
+                operation: 'REDEEM',
+                status: 'PENDING_APPROVAL',
+                loyaltyAmountKobo: 1500,
+                redeemedAmountKobo: null,
+                earnedAmountKobo: null,
+              },
+              {
+                id: 'unrecorded-receipt',
+                occurredAt: '2025-02-01T00:00:00.000Z',
+                purchaseAmountKobo: 2000,
+                captureStatus: 'CAPTURED',
+                reviewStatus: 'APPROVED',
+                operation: 'EARN',
+                status: 'APPROVED',
+                loyaltyAmountKobo: null,
+                redeemedAmountKobo: null,
+                earnedAmountKobo: null,
+              },
+            ],
+            redemptions: [],
+            walletLedger: [],
+            approvals: [],
+            consent: null,
+            card: null,
+          },
+        },
+      } as never);
+    render(<SupervisorCustomerProfile customerId="requested-id" />);
+
+    await screen.findByRole('heading', {
+      level: 1,
+      name: 'Verified Customer',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Transactions' }));
+    await screen.findAllByText('Awaiting approval');
+
+    const rows = within(
+      screen.getByRole('table', { name: 'Customer transactions' }),
+    ).getAllByRole('row');
+    const pendingCreditCell = within(rows[1]).getAllByRole('cell')[3];
+    expect(pendingCreditCell).toHaveTextContent('Awaiting approval');
+    expect(pendingCreditCell).not.toHaveTextContent('₦15.00');
+    const unavailableCreditCell = within(rows[2]).getAllByRole('cell')[3];
+    expect(unavailableCreditCell).toHaveTextContent('Not recorded');
   });
 
   it('loads older wallet ledger rows with the returned cursor', async () => {
