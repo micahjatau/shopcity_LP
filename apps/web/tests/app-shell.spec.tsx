@@ -184,6 +184,54 @@ describe('AppShell', () => {
     );
   });
 
+  it('adds a Supervisor shell scope for role-specific styling', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u-supervisor',
+        username: 'supervisor',
+        role: 'SUPERVISOR',
+        branchId: 'branch-1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    const { container } = render(
+      <AppShell>
+        <p>Protected content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('.shell-root--supervisor'),
+      ).toBeInTheDocument();
+    });
+    expect(container.querySelector('.shell-root--cashier')).toBeNull();
+  });
+
+  it('keeps the Supervisor styling scope off Admin shells', async () => {
+    mockBootstrapSession.mockResolvedValueOnce({
+      user: {
+        id: 'u-admin',
+        username: 'admin',
+        role: 'ADMIN',
+        branchId: 'branch-1',
+      },
+      session: { expiresAt: '2030-01-01T00:00:00.000Z' },
+    });
+
+    const { container } = render(
+      <AppShell>
+        <p>Admin content</p>
+      </AppShell>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.shell-root')).toBeInTheDocument();
+    });
+    expect(container.querySelector('.shell-root--supervisor')).toBeNull();
+  });
+
   it('persists sidebar collapse state across reloads in the session', async () => {
     sessionStorage.setItem('shopcity:shell:sidebar-collapsed', 'true');
     mockBootstrapSession.mockResolvedValueOnce({

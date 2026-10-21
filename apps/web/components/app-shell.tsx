@@ -312,7 +312,7 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <div
-      className={`shell-root${role === 'CASHIER' ? ' shell-root--cashier' : ''}`}
+      className={`shell-root${role === 'CASHIER' ? ' shell-root--cashier' : ''}${role === 'SUPERVISOR' ? ' shell-root--supervisor' : ''}`}
     >
       <Link className="shell-skip-link" href="#shell-main-content">
         Skip to content

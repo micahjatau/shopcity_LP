@@ -16,6 +16,60 @@
   gap: var(--sc-spacing-5);
 }
 
+/* Supervisor actions echo the shell sidebar without changing other roles. */
+.shell-root--supervisor
+  .sc-button--primary:not(:disabled):not([aria-disabled='true']) {
+  border-color: transparent;
+  background: var(--sc-color-brand-700);
+  color: var(--sc-color-neutral-0);
+}
+
+.shell-root--supervisor
+  .sc-button--primary:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--sc-color-brand-800);
+}
+
+.shell-root--supervisor .supervisor-overview__action {
+  background: var(--sc-color-brand-700);
+}
+
+.shell-root--supervisor .supervisor-overview__action:hover {
+  background: var(--sc-color-brand-800);
+  filter: none;
+}
+
+.shell-root--supervisor .supervisor-profile-action--primary {
+  background: var(--sc-color-brand-700);
+  color: var(--sc-color-neutral-0);
+}
+
+.shell-root--supervisor .supervisor-profile-action--primary:hover {
+  background: var(--sc-color-brand-800);
+}
+
+.shell-root--supervisor .supervisor-profile-tabs button[aria-current='page'],
+.shell-root--supervisor .approval-queue__category[aria-selected='true'],
+.shell-root--supervisor
+  .supervisor-reports-tabs
+  [role='tab'][aria-selected='true'] {
+  background: var(--sc-color-brand-700);
+  color: var(--sc-color-neutral-0);
+}
+
+.shell-root--supervisor
+  .approval-queue__decision-actions
+  .approval-queue__approve {
+  border-color: transparent;
+  background: var(--sc-color-brand-700);
+  color: var(--sc-color-neutral-0);
+}
+
+.shell-root--supervisor
+  .approval-queue__decision-actions
+  .approval-queue__approve:hover {
+  background: var(--sc-color-brand-800);
+}
+
 .supervisor-customer-layout {
   display: grid;
   min-width: 0;

@@ -20,6 +20,15 @@ npm run proposal:impact -- --file apps/web/components/workflows/cashier-transact
 node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute --summary-only
 ```
 
+### 2026-10-21 — Supervisor sidebar-aligned action colors (pre-draft impact)
+
+Before drafting `supervisor-sidebar-action-colors`, upstream impact for `AppShellContent` was LOW, exact, with 3 impacted symbols: 1 direct caller (`AppShell`) and 2 depth-2 dependants (`ShellLayout` and `app-shell.spec.tsx`). No affected processes/modules or HIGH/CRITICAL result. The index is stale at `f99f79e` versus current HEAD `dbb8e0c`, so graph coverage may be incomplete. The implementation adds only a Supervisor role class; the shared `Button` component remains unchanged. A separate alternative-scope query for `SupervisorOperationalReports` returned LOW, 2 direct dependants (route and test), and no processes/modules; that component was not modified.
+
+```text
+gitnexus impact AppShellContent --file apps/web/components/app-shell.tsx --repo shopcity_LP --direction upstream --include-tests
+gitnexus impact SupervisorOperationalReports --file apps/web/components/workflows/supervisor-operational-reports.tsx --repo shopcity_LP --direction upstream --include-tests
+```
+
 ### 2026-10-13 — Keep Supervisor report snapshots current on quiet days
 
 | Symbol                                  | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                              |

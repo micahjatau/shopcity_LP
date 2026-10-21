@@ -1002,3 +1002,38 @@ function meta(path: string) {
     requestId: 'req-supervisor-report-visual',
   };
 }
+
+test('Supervisor primary actions and selected tabs match the sidebar color', async ({
+  page,
+}) => {
+  await mockSupervisorReports(page);
+  await page.goto('/supervisor/reports');
+
+  const shell = page.locator('.shell-root--supervisor');
+  await expect(shell).toHaveCount(1);
+
+  const selectedTab = page.locator(
+    '.supervisor-reports-tabs [role="tab"][aria-selected="true"]',
+  );
+  await expect(selectedTab).toHaveCSS('background-color', 'rgb(142, 1, 1)');
+  await expect(selectedTab).toHaveCSS('background-image', 'none');
+  await expect(
+    page
+      .locator('.supervisor-reports-tabs [role="tab"][aria-selected="false"]')
+      .first(),
+  ).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+
+  await shell.evaluate((element) => {
+    const button = document.createElement('button');
+    button.className = 'sc-button sc-button--primary';
+    button.dataset.testid = 'supervisor-primary-style-probe';
+    button.textContent = 'Style probe';
+    element.append(button);
+  });
+
+  const primaryAction = page.getByTestId('supervisor-primary-style-probe');
+  await expect(primaryAction).toHaveCSS('background-color', 'rgb(142, 1, 1)');
+  await expect(primaryAction).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await primaryAction.hover();
+  await expect(primaryAction).toHaveCSS('background-color', 'rgb(111, 1, 1)');
+});
