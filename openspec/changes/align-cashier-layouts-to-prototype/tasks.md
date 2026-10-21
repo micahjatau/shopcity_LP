@@ -124,3 +124,4 @@
 - [ ] 11.3 Run GitNexus `detect_changes()` and inspect the affected symbols/processes against the expected layout-only surface; refresh the index if required.
 - [ ] 11.4 Validate this OpenSpec change and map every acceptance criterion to passing evidence, accepted deviation, or explicit environmental blocker.
 - [ ] 11.5 Publish final evidence with candidate revision, reference/source lineage, visual reports, staging results, accepted deviations, residual risks, and rollback/branch-reconciliation instructions.
+- [ ] 11.6 Apply the sidebar-aligned gradient to all Cashier primary buttons and links through one Cashier-scoped style owner; preserve neutral secondary/disabled states and verify computed styles across Cashier routes without changing Admin/Supervisor presentation.

@@ -513,18 +513,6 @@
   flex: 0 0 auto;
 }
 
-.cashier-route-page--earn .cashier-capture-search-primary {
-  border: 0.5px solid #bf1713;
-  background: #fff;
-  color: #be1313;
-}
-
-.cashier-route-page--earn .cashier-capture-search-primary:hover:not(:disabled) {
-  border-color: #bf1713;
-  background: #fff;
-  color: #be1313;
-}
-
 .cashier-route-page--earn .cashier-capture-search-action--scan {
   border: 0.5px solid #dadada;
   background: #fff;
@@ -1404,16 +1392,6 @@
   color: #414141;
 }
 
-.cashier-earn-receipt-actions .cashier-earn-receipt-proceed {
-  border: 1px solid transparent;
-  background: linear-gradient(100deg, #be1313 0%, #a34800 100%);
-  color: #fff;
-}
-
-.cashier-earn-receipt-proceed:hover:not(:disabled) {
-  filter: brightness(0.92);
-}
-
 .cashier-earn-receipt-back:focus-visible,
 .cashier-earn-receipt-proceed:focus-visible {
   outline: 2px solid #be1313;
@@ -1588,12 +1566,6 @@
   border-radius: 16px;
   font-size: 12px;
   font-weight: 600;
-}
-
-.cashier-earn-receipt-form--review
-  .cashier-earn-receipt-actions
-  .cashier-earn-receipt-proceed {
-  background: linear-gradient(100.54deg, #be1313 0.73%, #cf6900 99.27%);
 }
 
 .cashier-workflow-steps {

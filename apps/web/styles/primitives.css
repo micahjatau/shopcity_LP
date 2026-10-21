@@ -149,16 +149,6 @@
   background: #f6f4f5;
 }
 
-.sc-button--cashier-confirm-proceed {
-  border-color: transparent;
-  background: linear-gradient(110deg, #c9151c 0%, #d96800 100%);
-  color: #fff;
-}
-
-.sc-button--cashier-confirm-proceed:hover:not(:disabled) {
-  background: linear-gradient(110deg, #ba1017 0%, #c65e00 100%);
-}
-
 .sc-button__spinner {
   width: 0.95em;
   height: 0.95em;

@@ -75,6 +75,9 @@ test.describe('workflow route coverage', () => {
     await expect(
       overview.getByRole('link', { name: 'Open Approvals' }),
     ).toHaveCSS('background-color', 'rgb(142, 1, 1)');
+    await expect(
+      overview.getByRole('link', { name: 'Open Approvals' }),
+    ).toHaveCSS('background-image', 'none');
     await expect(overview.locator('[data-metric-card]')).toHaveCount(4);
     await expect(overview.getByText('89', { exact: true })).toBeVisible();
     await expect(
@@ -706,6 +709,7 @@ test.describe('workflow route coverage', () => {
             borderStyle: style.borderStyle,
             borderColor: style.borderColor,
             backgroundColor: style.backgroundColor,
+            backgroundImage: style.backgroundImage,
             color: style.color,
             paddingInline: `${style.paddingLeft}|${style.paddingRight}`,
           };
@@ -714,8 +718,10 @@ test.describe('workflow route coverage', () => {
         expect(lookupButtonStyles).toMatchObject({
           minHeight: '32px',
           borderRadius: '16px',
-          backgroundColor: 'rgb(255, 255, 255)',
         });
+        expect(lookupButtonStyles.backgroundImage).toMatch(
+          /^linear-gradient\(100\.54deg/,
+        );
       } else if (canonicalLookupButtonStyles) {
         expect(lookupButtonStyles).toEqual(canonicalLookupButtonStyles);
       } else {
@@ -1061,8 +1067,33 @@ test.describe('workflow route coverage', () => {
           width: conformanceViewports[0].width,
           height: conformanceViewports[0].height,
         });
-        await page.goto(`${baseUrl}${route.path}`);
+        await page.goto(`${baseUrl}${route.path}`, {
+          waitUntil: 'domcontentloaded',
+        });
         await expect(page.locator('.shell-loading-screen')).toBeHidden();
+        if (role === 'CASHIER') {
+          const primaryActions = page.locator(
+            '.shell-root--cashier :is(.sc-button--primary, .cashier-primary-action, .cashier-earn-receipt-proceed, .cashier-redeem-actions > button[type="submit"])',
+          );
+          const primaryActionCount = await primaryActions.count();
+          if (route.path !== '/cashier/transactions') {
+            expect(primaryActionCount, route.path).toBeGreaterThan(0);
+          }
+          for (let index = 0; index < primaryActionCount; index += 1) {
+            const action = primaryActions.nth(index);
+            if (
+              (await action.isDisabled()) ||
+              (await action.getAttribute('aria-disabled')) === 'true'
+            ) {
+              continue;
+            }
+            await expect(action).toHaveCSS(
+              'background-image',
+              /^linear-gradient\(100\.54deg/,
+            );
+            await expect(action).toHaveCSS('color', 'rgb(255, 255, 255)');
+          }
+        }
         for (const viewport of conformanceViewports) {
           await page.setViewportSize({
             width: viewport.width,
@@ -1816,9 +1847,15 @@ test.describe('workflow route coverage', () => {
     await expect(
       page.getByRole('heading', { name: 'Hi, Cashier!' }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Find Customer' }).first(),
-    ).toBeVisible();
+    const findCustomerAction = page
+      .locator('main')
+      .getByRole('link', { name: 'Find Customer' })
+      .first();
+    await expect(findCustomerAction).toBeVisible();
+    await expect(findCustomerAction).toHaveCSS(
+      'background-image',
+      /^linear-gradient\(100\.54deg/,
+    );
     await expect(
       page.getByRole('heading', { name: "Today's Activity" }),
     ).toBeVisible();

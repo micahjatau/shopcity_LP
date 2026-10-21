@@ -1760,3 +1760,11 @@ npm run proposal:impact -- --file src/jobs/sms.provider.ts mapArkeselSmsResponse
 ```
 
 No HIGH/CRITICAL result was reported. The POS cookie/lifecycle changes remain scoped to DEVICE_TOKEN; fraud status/severity/branch filters use the existing scoped API and cursor pagination; Arkesel's uncertain accepted send is not automatically retried. Existing unrelated dirty/untracked checkout content is preserved.
+
+### 2026-10-20 — Cashier primary-action gradient
+
+Exact upstream impact for `Button` (`Function:apps/web/components/ui/button.tsx:Button`) is CRITICAL: 109 impacted symbols, 55 direct, with no indexed processes or modules. The index is stale. The shared React component is not changed; the visual override is scoped under `.shell-root--cashier` and covers primary buttons/links plus existing Cashier-specific primary selectors, leaving Admin/Supervisor styles outside scope.
+
+```text
+node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests 'Function:apps/web/components/ui/button.tsx:Button'
+```

@@ -376,16 +376,6 @@
   background: #f6f6f6;
 }
 
-.sc-button--cashier-confirm-proceed {
-  border-color: transparent;
-  background: linear-gradient(100.54deg, #be1313 0.73%, #cf6900 99.27%);
-  color: #fff;
-}
-
-.sc-button--cashier-confirm-proceed:hover:not(:disabled) {
-  background: linear-gradient(100.54deg, #ad1111 0.73%, #b95e00 99.27%);
-}
-
 .sc-status[data-tone='info'] {
   color: var(--sc-color-info-strong);
 }
@@ -484,9 +474,26 @@
   text-decoration: none;
 }
 
-.cashier-primary-action {
-  background: var(--sc-prototype-surface);
-  color: var(--sc-color-brand-700);
+.shell-root--cashier
+  :is(
+    .sc-button--primary,
+    .cashier-primary-action,
+    .cashier-earn-receipt-proceed,
+    .cashier-redeem-actions > button[type='submit']
+  ):not(:disabled):not([aria-disabled='true']) {
+  border-color: transparent;
+  background: linear-gradient(100.54deg, #be1313 0.73%, #b84f00 99.27%);
+  color: #fff;
+}
+
+.shell-root--cashier
+  :is(
+    .sc-button--primary,
+    .cashier-primary-action,
+    .cashier-earn-receipt-proceed,
+    .cashier-redeem-actions > button[type='submit']
+  ):hover:not(:disabled):not([aria-disabled='true']) {
+  background: linear-gradient(100.54deg, #ad1111 0.73%, #a34800 99.27%);
 }
 
 .cashier-secondary-action {
@@ -509,13 +516,6 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-}
-
-.cashier-overview-header .cashier-primary-action,
-.cashier-route-page--lookup .find-customer-search-action--primary {
-  border-color: #c9151c;
-  background: #c9151c;
-  color: #fff;
 }
 
 .cashier-overview-header .cashier-secondary-action--disabled,
@@ -802,12 +802,6 @@
   gap: 8px;
 }
 
-.cashier-customer-profile-actions .cashier-primary-action {
-  border-color: #c9151c;
-  background: #c9151c;
-  color: #fff;
-}
-
 .cashier-customer-profile-actions .cashier-secondary-action {
   border-color: #c9151c;
   background: #fff;
@@ -941,19 +935,6 @@
 .cashier-route-page--redeem .cashier-capture-search-action img {
   display: block;
   flex: 0 0 auto;
-}
-
-.cashier-route-page--redeem .cashier-capture-search-primary {
-  border: 0.5px solid #bf1713;
-  background: #fff;
-  color: #be1313;
-}
-
-.cashier-route-page--redeem
-  .cashier-capture-search-primary:hover:not(:disabled) {
-  border-color: #bf1713;
-  background: #fff;
-  color: #be1313;
 }
 
 .cashier-route-page--redeem .cashier-capture-search-action--scan {
@@ -1335,13 +1316,6 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-}
-
-.cashier-redeem-actions > button[type='submit'],
-.cashier-redeem-primary-button {
-  border-color: transparent;
-  background: linear-gradient(100deg, #be1313 0%, #cf6900 100%);
-  color: #fff;
 }
 
 .cashier-redeem-primary-button:disabled {

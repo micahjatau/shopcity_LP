@@ -267,9 +267,21 @@ The shared verified-card lookup used by Capture Purchase and Redeem SHALL use th
 - **THEN** the Recently captured heading follows the Step 1 Figma typography at 16px/700
 - **AND** each captured loyalty amount uses the semantic color of its outcome: success, warning, or danger
 
+### Requirement: Cashier primary actions use the sidebar gradient
+
+Every primary button or link inside the Cashier shell SHALL use one shared red-to-orange gradient aligned with the Cashier sidebar palette, including shared `Button` primary variants and route-specific primary actions. Hover styling SHALL use the corresponding darker gradient. White action text SHALL retain at least 4.5:1 contrast against both gradient endpoints. Secondary and disabled-state treatments, control dimensions, focus indicators, action labels, and behavior SHALL remain intact. The gradient SHALL be scoped to the Cashier shell; Admin, Supervisor, and public surfaces SHALL retain their current appearance.
+
+#### Scenario: Primary actions are visually uniform across Cashier routes
+
+- **WHEN** a primary action is rendered on a Cashier route or workflow state
+- **THEN** its background uses the shared Cashier red-to-orange gradient and its label is white
+- **AND** hover uses the shared darker gradient
+- **AND** a secondary action remains neutral
+- **AND** Admin and Supervisor primary actions remain unchanged
+
 ### Requirement: Capture Purchase Step 1 matches the supplied Figma reference
 
-The Earn-only Step 1 surface SHALL match Figma node `408:513` within the stable 712px Capture Purchase panel: a separate white search card above the Recent captures card, 16px/700 `Step 1 — Find customer` heading, 12px supporting copy, divider, 320px/32px search field with `Search` placeholder, adjacent 160px Search and Scan actions, and the reference helper copy. The recent-captures card SHALL retain the 399px minimum height, 16px heading, compact 40px rows with 8px spacing, and semantic outcome amounts/statuses. This newer Capture-only reference overrides the shared lookup placeholder, heading, and Search-button styling only when `captureLayout` is enabled; Lookup and Redeem SHALL retain their current presentations.
+The Earn-only Step 1 surface SHALL match Figma node `408:513` within the stable 712px Capture Purchase panel: a separate white search card above the Recent captures card, 16px/700 `Step 1 — Find customer` heading, 12px supporting copy, divider, 320px/32px search field with `Search` placeholder, adjacent 160px Search and Scan actions, and the reference helper copy. The primary Search action SHALL use the shared Cashier red-to-orange gradient; the secondary Scan action SHALL remain neutral. This is an intentional deviation from the reference's white red-outlined Search treatment in favor of the later shell-wide primary-action contract. The recent-captures card SHALL retain the 399px minimum height, 16px heading, compact 40px rows with 8px spacing, and semantic outcome amounts/statuses. This newer Capture-only reference overrides the shared lookup placeholder, heading, and Search-button sizing only when `captureLayout` is enabled; Lookup and Redeem SHALL retain their existing content and workflow behavior.
 
 Recent-capture rows MUST use only cashier-authorized API data. Because the cashier activity projection does not provide customer phone numbers, the UI MUST retain the supported receipt reference instead of displaying or fabricating the phone values shown in the Figma sample. Loading, empty, and error states MUST remain truthful and visually contained. Search, scanner focus, card verification, API calls, data masking, and financial safeguards MUST remain unchanged.
 
@@ -277,7 +289,7 @@ Recent-capture rows MUST use only cashier-authorized API data. Because the cashi
 
 - **WHEN** a cashier opens Capture Purchase at desktop width
 - **THEN** the Step 1 heading, search field, actions, helper, recent-captures card, and rows follow Figma node `408:513`
-- **AND** only Capture Purchase receives the new placeholder, title scale, and outlined Search/neutral Scan control treatment
+- **AND** only Capture Purchase receives the new placeholder and title scale; Search uses the shared Cashier gradient and Scan remains neutral
 - **AND** Lookup and Redeem retain their existing shared verified-card lookup presentation
 - **AND** no unmasked or unsupported customer phone data is rendered
 - **AND** the recent-captures panel remains API-backed in loading, empty, error, and populated states
