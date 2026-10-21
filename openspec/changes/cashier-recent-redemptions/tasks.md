@@ -5,10 +5,11 @@
 
 ## 2. Match the reference and verify
 
-- [ ] 2.1 Add Redeem-scoped responsive styles for the accessible table, customer/receipt, amount, and status hierarchy; verify narrow layouts remain readable and do not expose unsupported contact fields. Responsive styles are implemented and the component exposes only supported fields; narrow-layout visual verification is blocked by missing Playwright Chromium.
+- [x] 2.1 Add Redeem-scoped responsive styles for the accessible table, customer/receipt, amount, and status hierarchy; verify narrow layouts remain readable and do not expose unsupported contact fields. The CI viewport checks passed; the component exposes only supported fields.
 - [ ] 2.2 Run focused Jest, web lint/typecheck/build, and strict OpenSpec validation; run the affected Playwright workflow and GitNexus change detection when available, recording any environment blockers without claiming them as passes.
 
 ## Verification status
 
-- Passed: focused cashier lookup/redemption Jest suite (26 tests), web lint (no errors; one existing warning in `supervisor-flagged-activity.tsx`), web typecheck, Prettier, and strict OpenSpec validation.
-- Blocked: both Next production-build attempts ended with the build worker receiving `SIGKILL`, including an isolated output directory; no source diagnostic was produced. Playwright visual verification remains unavailable because Chromium is not installed. Retry these checks when host resources and browser provisioning permit.
+- Passed locally: focused cashier lookup/redemption Jest suite (26 tests), web lint (no errors; one existing warning in `supervisor-flagged-activity.tsx`), web typecheck, Prettier, and strict OpenSpec validation.
+- CI run `39597762930` at `143620c` passed token checks, lint, typecheck, accessibility tests, critical tests, and the production build. The visual workflow ran with Chromium: 97 tests passed; one screenshot assertion failed because `cashier-redeem-step1.png` still expected 1148×355 while the added panel renders 1148×762. The expected screenshot has been updated from the CI artifact; rerun the visual workflow before completing task 2.2.
+- Local production builds were SIGKILLed twice and local Chromium is unavailable; CI provided the build and browser verification environment.
