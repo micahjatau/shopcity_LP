@@ -1,11 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { SupervisorOperationalReports } from '../components/workflows/supervisor-operational-reports';
+import {
+  OperationalReportsDashboard,
+  SupervisorOperationalReports,
+} from '../components/workflows/supervisor-operational-reports';
 import {
   reportsControllerListCashierActivityV1,
   reportsControllerListExecutiveSummaryV1,
   reportsControllerListMaterializationStateV1,
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
+  reportsControllerRefreshReportV1,
   reportsControllerRefreshSupervisorDashboardV1,
 } from '../lib/api/generated-client';
 import { recentReportPeriod } from '../lib/reports/supervisor-report-metrics';
@@ -24,6 +28,7 @@ jest.mock('../lib/api/generated-client', () => ({
   reportsControllerListMaterializationStateV1: jest.fn(),
   reportsControllerListRedemptionSummaryV1: jest.fn(),
   reportsControllerListSmsOperationsV1: jest.fn(),
+  reportsControllerRefreshReportV1: jest.fn(),
   reportsControllerRefreshSupervisorDashboardV1: jest.fn(),
 }));
 
@@ -184,6 +189,357 @@ describe('SupervisorOperationalReports', () => {
     );
     await waitFor(() =>
       expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(2),
+    );
+  });
+
+  it('reanchors the preset range to today when refresh crosses the business-date boundary', async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-10-20T20:30:00.000Z'),
+      doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+    });
+    try {
+      const stateResponse = (updatedAt: string) =>
+        ({
+          status: 200,
+          data: {
+            data: {
+              scope: 'BRANCH',
+              scopeKey: 'supervisor-branch',
+              branchId: 'supervisor-branch',
+              timezone: 'Africa/Lagos',
+              items: [
+                {
+                  scope: 'BRANCH',
+                  scopeKey: 'supervisor-branch',
+                  status: 'COMPLETED',
+                  updatedAt,
+                },
+              ],
+            },
+          },
+        }) as never;
+      jest
+        .mocked(reportsControllerListMaterializationStateV1)
+        .mockResolvedValueOnce(stateResponse('2026-10-20T20:00:00.000Z'))
+        .mockResolvedValueOnce(stateResponse('2026-10-20T23:31:00.000Z'));
+      jest
+        .mocked(reportsControllerRefreshSupervisorDashboardV1)
+        .mockResolvedValue({ status: 202 } as never);
+      render(<SupervisorOperationalReports />);
+
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+          { from: '2026-10-14', to: '2026-10-20' },
+          expect.any(Object),
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+      jest.setSystemTime(new Date('2026-10-20T23:30:00.000Z'));
+      const refreshButton = screen.getByRole('button', {
+        name: 'Refresh dashboard data',
+      });
+      await waitFor(() => expect(refreshButton).toBeEnabled());
+      fireEvent.click(refreshButton);
+
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+          { from: '2026-10-15', to: '2026-10-21' },
+          expect.any(Object),
+        ),
+      );
+      expect(
+        await screen.findByText('Branch snapshot updated. Reloading reports…'),
+      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('preserves an explicitly selected custom range when refresh crosses midnight', async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-10-20T20:30:00.000Z'),
+      doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+    });
+    try {
+      const stateResponse = (updatedAt: string) =>
+        ({
+          status: 200,
+          data: {
+            data: {
+              scope: 'BRANCH',
+              scopeKey: 'supervisor-branch',
+              branchId: 'supervisor-branch',
+              timezone: 'Africa/Lagos',
+              items: [
+                {
+                  scope: 'BRANCH',
+                  scopeKey: 'supervisor-branch',
+                  status: 'COMPLETED',
+                  updatedAt,
+                },
+              ],
+            },
+          },
+        }) as never;
+      jest
+        .mocked(reportsControllerListMaterializationStateV1)
+        .mockResolvedValueOnce(stateResponse('2026-10-20T20:00:00.000Z'))
+        .mockResolvedValueOnce(stateResponse('2026-10-20T23:31:00.000Z'));
+      jest
+        .mocked(reportsControllerRefreshSupervisorDashboardV1)
+        .mockResolvedValue({ status: 202 } as never);
+      render(<SupervisorOperationalReports />);
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Custom dates' }));
+      fireEvent.change(screen.getByLabelText('Summary from date'), {
+        target: { value: '2026-08-01' },
+      });
+      fireEvent.change(screen.getByLabelText('Summary to date'), {
+        target: { value: '2026-08-31' },
+      });
+      fireEvent.click(screen.getByText('Apply dates'));
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+          { from: '2026-08-01', to: '2026-08-31' },
+          expect.any(Object),
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+
+      jest.setSystemTime(new Date('2026-10-20T23:30:00.000Z'));
+      const refreshButton = screen.getByRole('button', {
+        name: 'Refresh dashboard data',
+      });
+      await waitFor(() => expect(refreshButton).toBeEnabled());
+      fireEvent.click(refreshButton);
+
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(
+          3,
+        ),
+      );
+      expect(reportsControllerListExecutiveSummaryV1).toHaveBeenLastCalledWith(
+        { from: '2026-08-01', to: '2026-08-31' },
+        expect.any(Object),
+      );
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('queues tenant-wide Admin materialization and reloads reports when it completes', async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-10-20T20:30:00.000Z'),
+      doNotFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+    });
+    try {
+      const stateResponse = (updatedAt: string) =>
+        ({
+          status: 200,
+          data: {
+            data: {
+              scope: 'TENANT',
+              scopeKey: 'tenant-123',
+              timezone: 'Africa/Lagos',
+              items: [
+                {
+                  scope: 'TENANT',
+                  scopeKey: 'tenant-123',
+                  status: 'COMPLETED',
+                  updatedAt,
+                },
+              ],
+            },
+          },
+        }) as never;
+      jest
+        .mocked(reportsControllerListMaterializationStateV1)
+        .mockResolvedValueOnce(stateResponse('2026-10-20T08:00:00.000Z'))
+        .mockResolvedValueOnce(stateResponse('2026-10-20T08:05:00.000Z'));
+      jest
+        .mocked(reportsControllerRefreshReportV1)
+        .mockResolvedValue({ status: 202 } as never);
+      render(<OperationalReportsDashboard audience="admin" />);
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+          expect.objectContaining({
+            from: '2026-10-14',
+            to: '2026-10-20',
+          }),
+          expect.any(Object),
+        ),
+      );
+
+      jest.setSystemTime(new Date('2026-10-20T23:30:00.000Z'));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Refresh dashboard data' }),
+      );
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledWith(
+          expect.objectContaining({
+            from: '2026-10-15',
+            to: '2026-10-21',
+          }),
+          expect.any(Object),
+        ),
+      );
+      expect(
+        await screen.findByText('Tenant snapshot updated. Reloading reports…'),
+      ).toBeInTheDocument();
+      expect(reportsControllerRefreshReportV1).toHaveBeenCalledWith(
+        'executive-summary',
+        { branchId: undefined, timezone: 'Africa/Lagos' },
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'idempotency-key': expect.any(String),
+          }),
+        }),
+      );
+      expect(
+        reportsControllerListMaterializationStateV1,
+      ).toHaveBeenNthCalledWith(
+        1,
+        { branchId: undefined, timezone: 'Africa/Lagos' },
+        expect.any(Object),
+      );
+      await waitFor(() =>
+        expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(
+          3,
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps Admin materialization branch-scoped when a branch filter is selected', async () => {
+    const stateResponse = (updatedAt: string) =>
+      ({
+        status: 200,
+        data: {
+          data: {
+            scope: 'BRANCH',
+            scopeKey: 'branch-123',
+            branchId: 'branch-123',
+            timezone: 'Africa/Lagos',
+            items: [
+              {
+                scope: 'BRANCH',
+                scopeKey: 'branch-123',
+                status: 'COMPLETED',
+                updatedAt,
+              },
+            ],
+          },
+        },
+      }) as never;
+    jest
+      .mocked(reportsControllerListMaterializationStateV1)
+      .mockResolvedValueOnce(stateResponse('2026-10-20T08:00:00.000Z'))
+      .mockResolvedValueOnce(stateResponse('2026-10-20T08:05:00.000Z'));
+    jest
+      .mocked(reportsControllerRefreshReportV1)
+      .mockResolvedValue({ status: 202 } as never);
+    render(<OperationalReportsDashboard audience="admin" />);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+        'aria-busy',
+        'false',
+      ),
+    );
+
+    fireEvent.click(screen.getByText('Admin scope filters'));
+    fireEvent.change(screen.getByLabelText('Admin branch filter'), {
+      target: { value: 'branch-123' },
+    });
+    fireEvent.change(screen.getByLabelText('Admin timezone filter'), {
+      target: { value: 'Africa/Lagos' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply scope' }));
+    await waitFor(() =>
+      expect(reportsControllerListExecutiveSummaryV1).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          branchId: 'branch-123',
+          timezone: 'Africa/Lagos',
+        }),
+        expect.any(Object),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+        'aria-busy',
+        'false',
+      ),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refresh dashboard data' }),
+    );
+    expect(
+      await screen.findByText('Branch snapshot updated. Reloading reports…'),
+    ).toBeInTheDocument();
+    expect(reportsControllerRefreshReportV1).toHaveBeenCalledWith(
+      'executive-summary',
+      { branchId: 'branch-123', timezone: 'Africa/Lagos' },
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'idempotency-key': expect.any(String),
+        }),
+      }),
+    );
+    expect(reportsControllerListMaterializationStateV1).toHaveBeenNthCalledWith(
+      1,
+      { branchId: 'branch-123', timezone: 'Africa/Lagos' },
+      expect.any(Object),
+    );
+    await waitFor(() =>
+      expect(reportsControllerListExecutiveSummaryV1).toHaveBeenCalledTimes(3),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Operational reports')).toHaveAttribute(
+        'aria-busy',
+        'false',
+      ),
     );
   });
 

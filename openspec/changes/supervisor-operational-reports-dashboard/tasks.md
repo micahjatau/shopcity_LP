@@ -43,5 +43,7 @@
 
 - [x] 6.1 Add a throttled Supervisor-only API action that derives the branch from the authenticated session and queues audited, idempotent materialization through the existing outbox.
 - [x] 6.2 Keep the Admin refresh route and its authorization behavior unchanged; add backend tests for Supervisor branch scope and invalid/missing branch rejection.
-- [x] 6.3 Wire the Supervisor dashboard refresh button to enqueue branch materialization, show progress, and reload report data after completion; leave Admin dashboard refresh behavior unchanged.
+- [x] 6.3 Wire Admin and Supervisor dashboard refresh buttons to their role-authorized materialization endpoints, show progress, and reload report data after completion.
 - [x] 6.4 Add focused UI/API tests, regenerate OpenAPI/client artifacts, and run strict OpenSpec validation.
+- [x] 6.5 Re-anchor Admin and Supervisor preset periods to the current business date on refresh, preserve custom ranges, and add a date-rollover regression test.
+- [x] 6.6 Test Admin tenant-wide and selected-branch materialization refresh from the reports dashboard.

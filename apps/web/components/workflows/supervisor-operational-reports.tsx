@@ -27,6 +27,7 @@ import {
   reportsControllerListMaterializationStateV1,
   reportsControllerListRedemptionSummaryV1,
   reportsControllerListSmsOperationsV1,
+  reportsControllerRefreshReportV1,
   reportsControllerRefreshSupervisorDashboardV1,
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
@@ -310,7 +311,8 @@ function isValidTimeZone(value: string): boolean {
 
 function readRefreshState(
   response: unknown,
-  branchId?: string,
+  scope: 'BRANCH' | 'TENANT',
+  scopeKey?: string,
 ): { status: string; updatedAt: string } | null {
   const result = response as {
     status?: number;
@@ -322,8 +324,8 @@ function readRefreshState(
     if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
     const candidate = item as Record<string, unknown>;
     return (
-      candidate.scope === 'BRANCH' &&
-      (!branchId || candidate.scopeKey === branchId)
+      candidate.scope === scope &&
+      (!scopeKey || candidate.scopeKey === scopeKey)
     );
   });
   if (!row || typeof row.status !== 'string') return null;
@@ -594,30 +596,54 @@ export function OperationalReportsDashboard({
   }
 
   async function refreshDashboardData() {
-    if (isAdmin) {
-      setRevision((revisionValue) => revisionValue + 1);
-      return;
-    }
     if (loading || refreshingMaterialization || rateLimitSeconds > 0) return;
 
+    if (mode === 'week' || mode === 'month') {
+      selectPeriod(mode);
+    }
+
+    const stateQuery = isAdmin
+      ? {
+          branchId: appliedScope.branchId || undefined,
+          timezone: appliedScope.timezone || displayTimezone,
+        }
+      : undefined;
+    const targetScope: { scope: 'BRANCH' | 'TENANT'; scopeKey?: string } =
+      isAdmin
+        ? {
+            scope: appliedScope.branchId ? 'BRANCH' : 'TENANT',
+            scopeKey: appliedScope.branchId || undefined,
+          }
+        : { scope: 'BRANCH', scopeKey: publicConfig?.branch?.id };
+    const scopeLabel = targetScope.scope === 'BRANCH' ? 'branch' : 'tenant';
+
     setRefreshingMaterialization(true);
-    setRefreshMessage('Requesting a branch report refresh…');
+    setRefreshMessage(`Requesting a ${scopeLabel} report refresh…`);
     try {
       const stateRequest = createApiRequest({ csrf: true });
       const previousState = await reportsControllerListMaterializationStateV1(
-        undefined,
+        stateQuery,
         stateRequest,
       );
       const previousUpdatedAt = readRefreshState(
         previousState,
-        publicConfig?.branch?.id,
+        targetScope.scope,
+        targetScope.scopeKey,
       )?.updatedAt;
-      const response = await reportsControllerRefreshSupervisorDashboardV1(
-        createApiRequest({
-          csrf: true,
-          idempotencyKey: crypto.randomUUID(),
-        }),
-      );
+      const refreshRequest = createApiRequest({
+        csrf: true,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const response = isAdmin
+        ? await reportsControllerRefreshReportV1(
+            'executive-summary',
+            {
+              branchId: appliedScope.branchId || undefined,
+              timezone: appliedScope.timezone || displayTimezone,
+            },
+            refreshRequest,
+          )
+        : await reportsControllerRefreshSupervisorDashboardV1(refreshRequest);
       if (response.status !== 202) {
         if (response.status === 429) {
           setRateLimitUntil(Date.now() + 60_000);
@@ -628,20 +654,28 @@ export function OperationalReportsDashboard({
         return;
       }
 
-      setRefreshMessage('Refresh queued. Waiting for the branch snapshot…');
+      setRefreshMessage(
+        `Refresh queued. Waiting for the ${scopeLabel} snapshot…`,
+      );
       const baseline = Date.parse(previousUpdatedAt ?? '') || 0;
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const state = await reportsControllerListMaterializationStateV1(
-          undefined,
+          stateQuery,
           stateRequest,
         );
-        const nextState = readRefreshState(state, publicConfig?.branch?.id);
+        const nextState = readRefreshState(
+          state,
+          targetScope.scope,
+          targetScope.scopeKey,
+        );
         if (
           nextState?.status === 'COMPLETED' &&
           Date.parse(nextState.updatedAt) > baseline
         ) {
           setRevision((revisionValue) => revisionValue + 1);
-          setRefreshMessage('Branch snapshot updated. Reloading reports…');
+          setRefreshMessage(
+            `${scopeLabel[0].toUpperCase()}${scopeLabel.slice(1)} snapshot updated. Reloading reports…`,
+          );
           return;
         }
         await new Promise((resolve) => window.setTimeout(resolve, 1000));

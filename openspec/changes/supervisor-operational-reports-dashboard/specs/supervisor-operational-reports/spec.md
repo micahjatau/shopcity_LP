@@ -165,7 +165,7 @@ The `/admin/reports` route MUST render the same operational overview and detaile
 
 ### Requirement: Report refresh actions follow role-authorized scope
 
-The Admin presentation SHALL expose audit and pilot-operations reports and the existing Admin materialization refresh action. The Supervisor presentation SHALL continue to hide Admin-only reports and the Admin refresh action. Supervisors MAY request dashboard materialization only for the branch assigned to their authenticated session. The backend MUST derive the branch from that session, reject missing or invalid branch scope, and MUST NOT accept a client-selected branch or tenant-wide refresh scope. Supervisor refresh requests SHALL use the existing durable outbox/materializer pipeline, be audited, idempotent, and rate limited. After acceptance, the dashboard SHALL communicate progress and reload report data when branch materialization completes.
+The Admin presentation SHALL expose audit and pilot-operations reports and a dashboard refresh action that uses the existing Admin executive-summary refresh endpoint. Admin refresh requests SHALL use the selected branch scope when present and tenant scope otherwise, preserving existing authorization, auditing, and idempotency. The Supervisor presentation SHALL continue to hide Admin-only reports and actions. Supervisors MAY request dashboard materialization only for the branch assigned to their authenticated session. The backend MUST derive the branch from that session, reject missing or invalid branch scope, and MUST NOT accept a client-selected branch or tenant-wide refresh scope. Supervisor refresh requests SHALL use the existing durable outbox/materializer pipeline, be audited, idempotent, and rate limited. After acceptance, either dashboard SHALL communicate progress and reload report data when its requested materialization completes.
 
 #### Scenario: Admin uses a role-authorized report action
 
@@ -173,12 +173,25 @@ The Admin presentation SHALL expose audit and pilot-operations reports and the e
 - **THEN** the UI invokes the corresponding Admin report endpoint
 - **AND** existing Admin authorization, auditing, idempotency, and refresh behavior remain authoritative
 
+#### Scenario: Admin refreshes dashboard reports at the selected scope
+
+- **WHEN** an Admin selects Refresh dashboard data
+- **THEN** the UI queues the existing executive-summary materialization for the selected branch, or tenant-wide when no branch is selected
+- **AND** it communicates progress and reloads reports after the corresponding materialization state completes
+
 #### Scenario: Supervisor refreshes dashboard reports for the assigned branch
 
 - **WHEN** a Supervisor selects Refresh dashboard data
 - **THEN** the UI requests a Supervisor dashboard refresh and displays that the refresh is queued or processing
 - **AND** the backend derives the branch only from the authenticated Supervisor session and enqueues an audited, idempotent branch-scoped materialization request
 - **AND** the dashboard reloads its report data after that branch materialization completes
+
+#### Scenario: A preset period is refreshed after the business date advances
+
+- **GIVEN** the dashboard remains open while the Africa/Lagos business date advances
+- **WHEN** an Admin or Supervisor refreshes a Last 7 days or Last 30 days period
+- **THEN** the preset range is recalculated through the current business date for the refreshed data
+- **AND** an explicitly selected custom range remains unchanged
 
 #### Scenario: Supervisor cannot widen refresh scope
 
