@@ -12,6 +12,7 @@ import {
 import { createApiRequest } from '../../lib/api/request';
 import { Alert, Button, Input, Select, Table, useDialogLifecycle } from '../ui';
 import { Money, parseNaira, ShopCityCard, StatusBadge } from '../shopcity';
+import { TransactionCreditBreakdown } from './transaction-credit-breakdown';
 
 type ActivityItem = ReportsControllerListCashierTodayV1200DataItemsItem;
 type DetailRecord = LoyaltyControllerGetTransactionV1200Data;
@@ -231,7 +232,10 @@ export function TransactionDashboard() {
       const displayStatus = normalizeStatus(item.status);
       const matchesStatus = !statusFilter || displayStatus === statusFilter;
       const matchesOperation =
-        !operationFilter || item.operation === operationFilter;
+        !operationFilter ||
+        (operationFilter === 'EARN'
+          ? item.operation === 'EARN' || item.earnedAmountKobo != null
+          : item.operation === operationFilter);
       const matchesMinimum =
         minimumAmountKobo === null ||
         (item.purchaseAmountKobo ?? 0) >= minimumAmountKobo;
@@ -405,47 +409,13 @@ export function TransactionDashboard() {
                         )}
                       </td>
                       <td>
-                        {item.operation === 'REDEEM' ? (
-                          <div className="transaction-table-credit-breakdown">
-                            <div>
-                              <span>Redeemed</span>
-                              {item.redeemedAmountKobo == null ? (
-                                displayStatus === 'pending' ? (
-                                  'Awaiting approval'
-                                ) : (
-                                  'Not recorded'
-                                )
-                              ) : (
-                                <Money
-                                  amountKobo={item.redeemedAmountKobo}
-                                  className={`transaction-table-credit transaction-table-credit--${displayStatus}`}
-                                />
-                              )}
-                            </div>
-                            <div>
-                              <span>Earned</span>
-                              {item.earnedAmountKobo == null ? (
-                                displayStatus === 'pending' ? (
-                                  'Awaiting approval'
-                                ) : (
-                                  'Not recorded'
-                                )
-                              ) : (
-                                <Money
-                                  amountKobo={item.earnedAmountKobo}
-                                  className="transaction-table-credit transaction-table-credit--approved"
-                                />
-                              )}
-                            </div>
-                          </div>
-                        ) : item.loyaltyAmountKobo == null ? (
-                          'Not recorded'
-                        ) : (
-                          <Money
-                            amountKobo={item.loyaltyAmountKobo}
-                            className={`transaction-table-credit transaction-table-credit--${displayStatus}`}
-                          />
-                        )}
+                        <TransactionCreditBreakdown
+                          operation={item.operation}
+                          status={item.status}
+                          loyaltyAmountKobo={item.loyaltyAmountKobo}
+                          redeemedAmountKobo={item.redeemedAmountKobo}
+                          earnedAmountKobo={item.earnedAmountKobo}
+                        />
                       </td>
                       <td>
                         {formatCashierDate(

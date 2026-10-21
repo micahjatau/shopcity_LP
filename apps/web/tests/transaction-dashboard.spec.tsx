@@ -142,6 +142,15 @@ describe('TransactionDashboard', () => {
     fireEvent.change(search, { target: { value: '' } });
 
     fireEvent.change(screen.getByLabelText('Filter by operation'), {
+      target: { value: 'EARN' },
+    });
+    expect(screen.getByText('R-001')).toBeInTheDocument();
+    expect(screen.getByText('R-002')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Filter by operation'), {
+      target: { value: '' },
+    });
+
+    fireEvent.change(screen.getByLabelText('Filter by operation'), {
       target: { value: 'REDEEM' },
     });
     expect(screen.queryByText('R-001')).not.toBeInTheDocument();
@@ -180,6 +189,48 @@ describe('TransactionDashboard', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows both settlement effects in one receipt row', async () => {
+    mockActivity();
+
+    render(<TransactionDashboard />);
+
+    const receipt = await screen.findByText('R-002');
+    const row = receipt.closest('tr');
+    expect(row).toHaveTextContent('Redeemed');
+    expect(row).toHaveTextContent('₦2.00');
+    expect(row).toHaveTextContent('Earned');
+    expect(row).toHaveTextContent('₦1.00');
+    expect(screen.getAllByText('R-002')).toHaveLength(1);
+  });
+
+  it('does not show pending settlement amounts as completed effects', async () => {
+    mockActivity([
+      {
+        ...activityItems[1],
+        id: 'receipt-pending-settlement',
+        transactionId: null,
+        redeemedAmountKobo: null,
+        netPaidAmountKobo: null,
+        earnedAmountKobo: null,
+        loyaltyAmountKobo: 350,
+        receiptNumber: 'R-PENDING',
+        status: 'PENDING_APPROVAL',
+      },
+    ]);
+
+    render(<TransactionDashboard />);
+
+    const receipt = await screen.findByText('R-PENDING');
+    const row = receipt.closest('tr');
+    expect(row).toHaveTextContent('Redeemed');
+    expect(row).toHaveTextContent('Earned');
+    expect(
+      row?.querySelectorAll('.transaction-table-credit--pending'),
+    ).toHaveLength(2);
+    expect(row).toHaveTextContent('Awaiting approval');
+    expect(row).not.toHaveTextContent('₦3.50');
   });
 
   it('loads requested server pages and presents the shell table pagination', async () => {

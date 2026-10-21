@@ -3039,6 +3039,18 @@
 .transaction-table-credit--reversed {
   color: #155eef;
 }
+.transaction-table-credit-breakdown .transaction-table-credit--approved {
+  color: #00a344;
+}
+.transaction-table-credit-breakdown .transaction-table-credit--failed {
+  color: #e00000;
+}
+.transaction-table-credit-breakdown .transaction-table-credit--pending {
+  color: #c47a00;
+}
+.transaction-table-credit-breakdown .transaction-table-credit--reversed {
+  color: #155eef;
+}
 .transaction-table-card tbody tr {
   cursor: pointer;
 }

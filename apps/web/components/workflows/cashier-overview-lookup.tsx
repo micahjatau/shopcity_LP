@@ -8,6 +8,7 @@ import {
 } from '../../lib/api/generated-client';
 import { createApiRequest } from '../../lib/api/request';
 import { Money, CashierTableToolbar, ShopCityCard } from '../shopcity';
+import { TransactionCreditBreakdown } from './transaction-credit-breakdown';
 
 type TodayTransaction = ReportsControllerListCashierTodayV1200DataItemsItem;
 
@@ -98,16 +99,27 @@ export function CashierOverviewLookup() {
   const redeemTransactions = loadedTransactions.filter(
     (transaction) => transaction.operation === 'REDEEM',
   );
-  const creditIssuedKobo = earnTransactions.reduce(
-    (sum, transaction) => sum + Number(transaction.loyaltyAmountKobo ?? 0),
+  const creditIssuedKobo = loadedTransactions.reduce(
+    (sum, transaction) =>
+      sum +
+      Number(
+        transaction.earnedAmountKobo ??
+          (transaction.operation === 'EARN'
+            ? transaction.loyaltyAmountKobo
+            : 0) ??
+          0,
+      ),
     0,
   );
   const activityLoaded = todayTransactions !== null;
-  const creditIssuedAvailable =
-    activityLoaded &&
-    earnTransactions.every(
-      (transaction) => transaction.loyaltyAmountKobo !== null,
-    );
+  const hasPendingActivity = loadedTransactions.some((transaction) =>
+    ['PENDING', 'PENDING_APPROVAL', 'AWAITING_APPROVAL', 'PROCESSING'].includes(
+      String(transaction.status ?? '')
+        .trim()
+        .toUpperCase(),
+    ),
+  );
+  const creditIssuedAvailable = activityLoaded && !hasPendingActivity;
 
   return (
     <section
@@ -229,24 +241,14 @@ export function CashierOverviewLookup() {
                         <Money amountKobo={transaction.purchaseAmountKobo} />
                       )}
                     </td>
-                    <td
-                      className={`amount transaction-credit transaction-credit--${statusTone(transaction.status)}`}
-                      aria-label={
-                        transaction.loyaltyAmountKobo === null
-                          ? undefined
-                          : `${transaction.operation === 'EARN' ? 'Credit added' : 'Credit redeemed'}: ${transaction.loyaltyAmountKobo} kobo`
-                      }
-                    >
-                      {transaction.loyaltyAmountKobo === null ? (
-                        'Pending calculation'
-                      ) : (
-                        <>
-                          <span aria-hidden="true">
-                            {transaction.operation === 'EARN' ? '+' : '−'}
-                          </span>{' '}
-                          <Money amountKobo={transaction.loyaltyAmountKobo} />
-                        </>
-                      )}
+                    <td className="amount transaction-credit">
+                      <TransactionCreditBreakdown
+                        operation={transaction.operation}
+                        status={transaction.status}
+                        loyaltyAmountKobo={transaction.loyaltyAmountKobo}
+                        redeemedAmountKobo={transaction.redeemedAmountKobo}
+                        earnedAmountKobo={transaction.earnedAmountKobo}
+                      />
                     </td>
                     <td>
                       <span

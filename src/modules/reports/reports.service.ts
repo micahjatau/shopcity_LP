@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { resolveReleaseSha } from '../../config/release';
-import { OutboxEventStatus, SmsMessageStatus, UserRole } from '@prisma/client';
+import {
+  LedgerEntryType,
+  OutboxEventStatus,
+  SmsMessageStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { AuthContext } from '../../common/auth/session.types';
 import { branchDayWindow } from '../../jobs/branch-day-window';
@@ -319,6 +324,9 @@ export class ReportsService {
             },
           },
           ledgerEntries: {
+            where: {
+              type: { in: [LedgerEntryType.EARN, LedgerEntryType.REDEEM] },
+            },
             select: {
               id: true,
               type: true,

@@ -457,6 +457,7 @@ describe('ReportsService', () => {
         },
       ],
     });
+    const findMany = jest.spyOn(prisma.receipt, 'findMany');
     const service = new ReportsService(prisma, configService());
 
     await expect(
@@ -474,6 +475,20 @@ describe('ReportsService', () => {
         },
       ],
     });
+
+    const query = findMany.mock.calls[0]?.[0] as {
+      include?: {
+        ledgerEntries?: {
+          where?: { type?: { in?: string[] } };
+          take?: number;
+        };
+      };
+    };
+    expect(query.include?.ledgerEntries?.where?.type?.in).toEqual([
+      'EARN',
+      'REDEEM',
+    ]);
+    expect(query.include?.ledgerEntries?.take).toBe(2);
   });
 
   it('rejects cashier activity without a branch scope', async () => {

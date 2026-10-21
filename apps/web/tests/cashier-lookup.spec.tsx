@@ -272,7 +272,84 @@ describe('Cashier lookup workflow', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders pending Earn without a fabricated credit amount', async () => {
+  it('shows both effects for a confirmed redeem-and-earn receipt', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [
+            {
+              id: 'receipt-settlement',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'REDEEM',
+              loyaltyAmountKobo: 450,
+              redeemedAmountKobo: 450,
+              netPaidAmountKobo: 550,
+              earnedAmountKobo: 11,
+              receiptNumber: 'SETTLEMENT-1',
+              status: 'CONFIRMED',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+
+    const receipt = await screen.findByText('SETTLEMENT-1');
+    const row = receipt.closest('tr');
+    expect(row).toHaveTextContent('Redeemed');
+    expect(row).toHaveTextContent('₦4.50');
+    expect(row).toHaveTextContent('Earned');
+    expect(row).toHaveTextContent('₦0.11');
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('₦0.11');
+  });
+
+  it('does not present pending settlement amounts as completed effects', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [
+            {
+              id: 'receipt-pending-settlement',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'REDEEM',
+              loyaltyAmountKobo: 450,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'SETTLEMENT-PENDING',
+              status: 'PENDING_APPROVAL',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    render(<CashierOverviewLookup />);
+
+    const receipt = await screen.findByText('SETTLEMENT-PENDING');
+    const row = receipt.closest('tr');
+    expect(row).toHaveTextContent('Redeemed');
+    expect(row).toHaveTextContent('Earned');
+    expect(
+      row?.querySelectorAll('.transaction-table-credit--pending'),
+    ).toHaveLength(2);
+    expect(row).toHaveTextContent('Awaiting approval');
+    expect(row).not.toHaveTextContent('₦4.50');
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('—');
+  });
+
+  it('shows pending Earn as awaiting approval without a fabricated amount', async () => {
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
       status: 200,
       data: {
@@ -295,14 +372,14 @@ describe('Cashier lookup workflow', () => {
 
     render(<CashierOverviewLookup />);
 
-    expect(await screen.findByText('Pending calculation')).toBeInTheDocument();
+    expect(await screen.findByText('Awaiting approval')).toBeInTheDocument();
     expect(screen.queryByText('₦10,000.00')).not.toBeInTheDocument();
     expect(
       document.querySelector('[data-od-id="metric-issued"] .metric-value'),
     ).toHaveTextContent('—');
   });
 
-  it('renders pending Earn with an authoritative credit amount', async () => {
+  it('does not present pending Earn as issued credit when an amount is available', async () => {
     jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
       status: 200,
       data: {
@@ -326,8 +403,11 @@ describe('Cashier lookup workflow', () => {
     render(<CashierOverviewLookup />);
 
     expect(await screen.findByText('1831-AUTH')).toBeInTheDocument();
-    expect(screen.getByLabelText('Credit added: 42 kobo')).toBeInTheDocument();
-    expect(screen.queryByText('Pending calculation')).not.toBeInTheDocument();
+    expect(screen.getByText('Awaiting approval')).toBeInTheDocument();
+    expect(screen.queryByText('₦0.42')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-od-id="metric-issued"] .metric-value'),
+    ).toHaveTextContent('—');
   });
 
   it('reconstructs the committed Find Customer presentation landmarks', () => {
