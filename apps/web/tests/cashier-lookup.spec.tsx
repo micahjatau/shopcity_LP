@@ -603,6 +603,213 @@ describe('Cashier lookup workflow', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows recent redemption outcomes under Find Customer and removes them after verification', async () => {
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          monthlyEarnKobo: null,
+          page: 1,
+          limit: 10,
+          totalCount: 8,
+          items: [
+            {
+              id: 'earn-receipt',
+              transactionId: 'earn-transaction',
+              occurredAt: '2026-08-25T11:00:00.000Z',
+              operation: 'EARN',
+              customerName: 'Earn Customer',
+              purchaseAmountKobo: 100000,
+              loyaltyAmountKobo: 1000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: 1000,
+              receiptNumber: 'E-1',
+              status: 'CONFIRMED',
+            },
+            {
+              id: 'confirmed-redeem',
+              transactionId: 'confirmed-transaction',
+              occurredAt: '2026-08-25T10:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Ada Shopper',
+              purchaseAmountKobo: 1000000,
+              loyaltyAmountKobo: 451000,
+              redeemedAmountKobo: 451000,
+              netPaidAmountKobo: 549000,
+              earnedAmountKobo: 10980,
+              receiptNumber: 'R-1',
+              status: 'CONFIRMED',
+            },
+            {
+              id: 'pending-redeem',
+              transactionId: null,
+              occurredAt: '2026-08-25T09:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Sam Customer',
+              purchaseAmountKobo: 500000,
+              loyaltyAmountKobo: 250000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'R-2',
+              status: 'PENDING_APPROVAL',
+            },
+            {
+              id: 'reversed-redeem',
+              transactionId: 'reversed-transaction',
+              occurredAt: '2026-08-25T08:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Rae Customer',
+              purchaseAmountKobo: 200000,
+              loyaltyAmountKobo: 100000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'R-3',
+              status: 'REVERSED',
+            },
+            {
+              id: 'missing-amount-redeem',
+              transactionId: 'missing-amount-transaction',
+              occurredAt: '2026-08-25T07:00:00.000Z',
+              operation: 'REDEEM',
+              customerName: 'Lee Customer',
+              purchaseAmountKobo: 200000,
+              loyaltyAmountKobo: 120000,
+              redeemedAmountKobo: null,
+              netPaidAmountKobo: null,
+              earnedAmountKobo: null,
+              receiptNumber: 'R-4',
+              status: 'CONFIRMED',
+            },
+            ...Array.from({ length: 3 }, (_, index) => ({
+              id: `extra-redeem-${index + 1}`,
+              transactionId: `extra-transaction-${index + 1}`,
+              occurredAt: `2026-08-25T06:0${index}:00.000Z`,
+              operation: 'REDEEM',
+              customerName: `Extra Customer ${index + 1}`,
+              purchaseAmountKobo: 100000,
+              loyaltyAmountKobo: 10000,
+              redeemedAmountKobo: 10000,
+              netPaidAmountKobo: 90000,
+              earnedAmountKobo: 1800,
+              receiptNumber: `R-${index + 5}`,
+              status: 'CONFIRMED',
+            })),
+          ],
+        },
+      },
+    } as never);
+
+    render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+
+    const table = await screen.findByRole('table', {
+      name: /Recent redemption activity/,
+    });
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(6);
+    expect(table).not.toHaveTextContent('Earn Customer');
+    expect(table).not.toHaveTextContent('Extra Customer 3');
+
+    const confirmedRow = screen.getByRole('row', { name: /Ada Shopper/ });
+    expect(confirmedRow).toHaveTextContent('Receipt R-1');
+    expect(confirmedRow).toHaveTextContent('Redeemed');
+    expect(confirmedRow).toHaveTextContent('₦4,510');
+    expect(confirmedRow).toHaveTextContent('Approved');
+
+    const pendingRow = screen.getByRole('row', { name: /Sam Customer/ });
+    expect(pendingRow).toHaveTextContent('Requested');
+    expect(pendingRow).toHaveTextContent('₦2,500');
+    expect(pendingRow).toHaveTextContent('Pending');
+    expect(pendingRow).not.toHaveTextContent('Redeemed');
+
+    const reversedRow = screen.getByRole('row', { name: /Rae Customer/ });
+    expect(reversedRow).toHaveTextContent('Reversed');
+    expect(reversedRow).toHaveTextContent('₦1,000');
+
+    const unavailableAmountRow = screen.getByRole('row', {
+      name: /Lee Customer/,
+    });
+    expect(unavailableAmountRow).toHaveTextContent('Amount unavailable');
+    expect(unavailableAmountRow).not.toHaveTextContent('₦1,200');
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Lookup' }), {
+      target: { value: 'CARD-001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Search customer' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Step 2 — Basket subtotal' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: /Recent redemption activity/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows loading, empty, and unavailable states for recent redemptions', async () => {
+    jest
+      .mocked(reportsControllerListCashierTodayV1)
+      .mockReturnValueOnce(new Promise(() => {}) as never);
+
+    const { unmount } = render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Loading recent redemptions…',
+    );
+    unmount();
+
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          branchId: 'branch-1',
+          timezone: 'Africa/Lagos',
+          items: [],
+        },
+      },
+    } as never);
+    const emptyView = render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+    expect(
+      await screen.findByText('No recent redemptions found.'),
+    ).toBeInTheDocument();
+    emptyView.unmount();
+
+    jest.mocked(reportsControllerListCashierTodayV1).mockResolvedValueOnce({
+      status: 503,
+      data: { data: {} },
+    } as never);
+    render(
+      <CashierWorkflowRoute
+        kind="redeem"
+        title="Redeem credit"
+        description="Redeem eligible credit"
+      />,
+    );
+    expect(
+      await screen.findByText(
+        'Recent redemptions are temporarily unavailable.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('preserves the default Redeem lookup presentation outside Capture Purchase', () => {
     render(
       <VerifiedCardLookupStep

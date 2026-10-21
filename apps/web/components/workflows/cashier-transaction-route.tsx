@@ -22,6 +22,7 @@ import {
 } from './use-cashier-lookup-controller';
 import { VerifiedCardLookupStep } from './verified-card-lookup-step';
 import { RecentCashierCaptures } from './recent-cashier-captures';
+import { RecentCashierRedemptions } from './recent-cashier-redemptions';
 import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
 
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- the progress track is horizontally scrollable on narrow screens. */
@@ -405,15 +406,18 @@ export function CashierWorkflowRoute({
           dataOdId="redeem-flow"
         >
           {!lookupRecord ? (
-            <VerifiedCardLookupStep
-              lookupValue={lookupValue}
-              lookupMessage={lookupMessage}
-              lookupPending={lookupPending}
-              policyMessage={policyMessage}
-              onLookup={(event) => void handleLookup(event)}
-              onQueryChange={setLookupValue}
-              captureLayout
-            />
+            <>
+              <VerifiedCardLookupStep
+                lookupValue={lookupValue}
+                lookupMessage={lookupMessage}
+                lookupPending={lookupPending}
+                policyMessage={policyMessage}
+                onLookup={(event) => void handleLookup(event)}
+                onQueryChange={setLookupValue}
+                captureLayout
+              />
+              <RecentCashierRedemptions />
+            </>
           ) : (
             <RedeemTransactionForm
               lookupContext={

@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-10-21
+goal: Show recent redemption amounts and outcomes from the existing
+  cashier-today report, matching the supplied Figma activity panel without
+  changing financial or authorization behavior.

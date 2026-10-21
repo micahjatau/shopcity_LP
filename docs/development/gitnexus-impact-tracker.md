@@ -11,6 +11,15 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-21 — Cashier recent-redemptions table (pre-draft impact)
+
+Proposal-time impact ran with `npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute`. GitNexus reports LOW risk with 3 impacted symbols, all 3 direct dependants, and no affected processes/modules; no HIGH/CRITICAL result. The result comes from an index at `f99f79e` while HEAD is `daf7b21`. Refresh was attempted, but analysis failed because the local `file_fts` index is inconsistent (`document for node offset 1933 is missing during delete`). Preserve the stale index and treat this result as limited until it can be repaired. Planned scope is a Redeem-only presentation component using the existing cashier-today report; no backend, schema, or financial-write changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute --summary-only
+```
+
 ### 2026-10-13 — Keep Supervisor report snapshots current on quiet days
 
 | Symbol                                  | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                              |
