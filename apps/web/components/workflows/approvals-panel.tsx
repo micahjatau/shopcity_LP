@@ -940,9 +940,13 @@ function SupervisorApprovalCenter({
     )
       .then((response): CustomerMetric => {
         const customer = response.status === 200 ? response.data.data : null;
+        const responseCustomerId =
+          customer && 'id' in customer && typeof customer.id === 'string'
+            ? customer.id
+            : customer?.customerId;
         const value =
-          customer?.customerId === metricCustomerId
-            ? customer.availableBalanceKobo
+          responseCustomerId === metricCustomerId
+            ? customer?.availableBalanceKobo
             : undefined;
         return typeof value === 'number' && Number.isFinite(value)
           ? { status: 'loaded', value }

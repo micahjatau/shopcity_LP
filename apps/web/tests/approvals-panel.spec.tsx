@@ -102,7 +102,7 @@ describe('ApprovalsPanel', () => {
         ({
           status: 200,
           data: {
-            data: { customerId: id, availableBalanceKobo: 4_500_000 },
+            data: { id, availableBalanceKobo: 4_500_000 },
           },
         }) as never,
     );
@@ -314,7 +314,7 @@ describe('ApprovalsPanel', () => {
         : Promise.resolve({
             status: 200,
             data: {
-              data: { customerId: id, availableBalanceKobo: 6_000_000 },
+              data: { id, availableBalanceKobo: 6_000_000 },
             },
           } as never),
     );
@@ -339,7 +339,7 @@ describe('ApprovalsPanel', () => {
       walletForAda.resolve({
         status: 200,
         data: {
-          data: { customerId: 'customer-1', availableBalanceKobo: 1_000_000 },
+          data: { id: 'customer-1', availableBalanceKobo: 1_000_000 },
         },
       });
       earnedForAda.resolve({
@@ -387,7 +387,7 @@ describe('ApprovalsPanel', () => {
       async (id) =>
         ({
           status: 200,
-          data: { data: { customerId: id, availableBalanceKobo: 0 } },
+          data: { data: { id, availableBalanceKobo: 0 } },
         }) as never,
     );
     jest
