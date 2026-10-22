@@ -17,6 +17,8 @@ import {
 import {
   approvalsControllerDecideApprovalV1,
   approvalsControllerListApprovalsV1,
+  customersControllerGetCustomerProfileProjectionV1,
+  customersControllerGetCustomerV1,
   ApprovalsControllerListApprovalsV1Category,
   type ApprovalDecisionDtoDecision,
   type ApprovalsControllerListApprovalsV1200DataCategoryCounts,
@@ -293,10 +295,10 @@ export function ApprovalsPanel({
       setReason('');
       setNote('');
       if (variant === 'supervisor') setSearchTerm('');
-      setMessage(`Decision submitted for approval ${approvalId}.`);
+      setMessage('Decision submitted.');
       setCursorHistory(['']);
       await refresh('');
-      setMessage(`Decision submitted for approval ${approvalId}.`);
+      setMessage('Decision submitted.');
     } catch {
       setMessage(
         'Decision could not be confirmed. Refresh the queue before retrying.',
@@ -674,6 +676,31 @@ const approvalCategories: { id: ApprovalCategory; label: string }[] = [
 
 type SupervisorFilterOption = { value: string; label: string };
 
+type CustomerMetric = {
+  status: 'loading' | 'loaded' | 'unavailable';
+  value: number | null;
+};
+
+type CustomerMetrics = {
+  customerId: string;
+  walletBalance: CustomerMetric;
+  lifetimeEarned: CustomerMetric;
+};
+
+function customerMetricPresentation(
+  metric: CustomerMetric | undefined,
+  customerId: string | undefined,
+) {
+  if (!customerId) return { value: 'Not provided', isMissing: true };
+  if (!metric || metric.status === 'loading') {
+    return { value: 'Loading…', isMissing: true };
+  }
+  if (metric.status === 'unavailable' || metric.value === null) {
+    return { value: 'Unavailable', isMissing: true };
+  }
+  return { value: formatKobo(metric.value), isMissing: false };
+}
+
 function SupervisorFilterDropdown({
   id,
   label,
@@ -855,6 +882,8 @@ function SupervisorApprovalCenter({
   handleDecision,
 }: SupervisorApprovalCenterProps) {
   const [decisionReasonError, setDecisionReasonError] = useState('');
+  const [customerMetrics, setCustomerMetrics] =
+    useState<CustomerMetrics | null>(null);
 
   useEffect(() => {
     setDecisionReasonError('');
@@ -887,7 +916,90 @@ function SupervisorApprovalCenter({
   const customerRouteId =
     selectedItem?.customer?.id && selectedItem.customer.id !== selectedItem.id
       ? selectedItem.customer.id
-      : selectedItem?.customerId;
+      : selectedItem?.customerId && selectedItem.customerId !== selectedItem.id
+        ? selectedItem.customerId
+        : undefined;
+  const metricCustomerId = customerRouteId;
+
+  useEffect(() => {
+    if (!metricCustomerId) {
+      setCustomerMetrics(null);
+      return;
+    }
+
+    let active = true;
+    setCustomerMetrics({
+      customerId: metricCustomerId,
+      walletBalance: { status: 'loading', value: null },
+      lifetimeEarned: { status: 'loading', value: null },
+    });
+
+    const walletBalanceRequest = customersControllerGetCustomerV1(
+      metricCustomerId,
+      createApiRequest({ csrf: true }),
+    )
+      .then((response): CustomerMetric => {
+        const customer = response.status === 200 ? response.data.data : null;
+        const value =
+          customer?.customerId === metricCustomerId
+            ? customer.availableBalanceKobo
+            : undefined;
+        return typeof value === 'number' && Number.isFinite(value)
+          ? { status: 'loaded', value }
+          : { status: 'unavailable', value: null };
+      })
+      .catch((): CustomerMetric => ({ status: 'unavailable', value: null }));
+
+    const lifetimeEarnedRequest =
+      customersControllerGetCustomerProfileProjectionV1(
+        metricCustomerId,
+        createApiRequest({ csrf: true }),
+      )
+        .then((response): CustomerMetric => {
+          const projection =
+            response.status === 200 ? response.data.data : null;
+          const value =
+            projection?.customerId === metricCustomerId
+              ? projection.lifetimeEarnedKobo
+              : undefined;
+          return typeof value === 'number' && Number.isFinite(value)
+            ? { status: 'loaded', value }
+            : { status: 'unavailable', value: null };
+        })
+        .catch((): CustomerMetric => ({ status: 'unavailable', value: null }));
+
+    void walletBalanceRequest.then((walletBalance) => {
+      if (!active) return;
+      setCustomerMetrics((current) =>
+        current?.customerId === metricCustomerId
+          ? { ...current, walletBalance }
+          : current,
+      );
+    });
+    void lifetimeEarnedRequest.then((lifetimeEarned) => {
+      if (!active) return;
+      setCustomerMetrics((current) =>
+        current?.customerId === metricCustomerId
+          ? { ...current, lifetimeEarned }
+          : current,
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [metricCustomerId]);
+
+  const currentCustomerMetrics =
+    customerMetrics?.customerId === metricCustomerId ? customerMetrics : null;
+  const walletBalanceMetric = customerMetricPresentation(
+    currentCustomerMetrics?.walletBalance,
+    metricCustomerId,
+  );
+  const lifetimeEarnedMetric = customerMetricPresentation(
+    currentCustomerMetrics?.lifetimeEarned,
+    metricCustomerId,
+  );
 
   return (
     <section
@@ -1141,12 +1253,6 @@ function SupervisorApprovalCenter({
             <div className="approval-queue__decision-content">
               <dl className="approval-queue__evidence">
                 <div>
-                  <dt>Request</dt>
-                  <dd className={selectedItem.id ? '' : 'is-missing'}>
-                    {selectedItem.id ?? 'Not provided'}
-                  </dd>
-                </div>
-                <div>
                   <dt>Customer</dt>
                   <dd
                     className={
@@ -1170,11 +1276,23 @@ function SupervisorApprovalCenter({
                 </div>
                 <div>
                   <dt>Wallet Balance</dt>
-                  <dd className="is-missing">Not provided</dd>
+                  <dd
+                    className={
+                      walletBalanceMetric.isMissing ? 'is-missing' : ''
+                    }
+                  >
+                    {walletBalanceMetric.value}
+                  </dd>
                 </div>
                 <div>
                   <dt>Lifetime Earned</dt>
-                  <dd className="is-missing">Not provided</dd>
+                  <dd
+                    className={
+                      lifetimeEarnedMetric.isMissing ? 'is-missing' : ''
+                    }
+                  >
+                    {lifetimeEarnedMetric.value}
+                  </dd>
                 </div>
                 <div>
                   <dt>Date &amp; Time</dt>

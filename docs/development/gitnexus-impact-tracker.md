@@ -1778,6 +1778,10 @@ Exact upstream impact for `Button` (`Function:apps/web/components/ui/button.tsx:
 node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests 'Function:apps/web/components/ui/button.tsx:Button'
 ```
 
+### 2026-10-22 — Supervisor approval customer evidence
+
+Before drafting `approval-decision-customer-context`, `npm run proposal:impact -- --file apps/web/components/workflows/approvals-panel.tsx ApprovalsPanel` reported LOW risk/exact, 3 direct dependants, and 2 affected processes (Supervisor and Admin approval pages) in the Workflows module. Direct upstream impact for `SupervisorApprovalCenter` is LOW/exact with one direct dependant (`ApprovalsPanel`), three depth-2 dependants, and the same two approval-page processes. The implementation will be scoped to the Supervisor detail panel; it reuses role-authorized customer detail/profile-projection reads and leaves Admin presentation and approval/financial behavior unchanged. The GitNexus index was refreshed at HEAD `340c0ab` before analysis.
+
 ### 2026-10-22 — Supervisor transaction column divider hover
 
 Before drafting `supervisor-transaction-column-hover-demarcators`, `npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard` reported LOW risk/exact, 2 direct dependants (the Supervisor transactions route and focused dashboard test), and 1 affected process in the Workflows module. The change is limited to the Supervisor transaction-table divider indicator; existing pointer/keyboard resizing and narrow-screen behavior remain unchanged. The GitNexus index was refreshed at HEAD `340c0ab` before analysis.

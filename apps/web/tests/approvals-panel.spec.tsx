@@ -1,7 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {
   approvalsControllerDecideApprovalV1,
   approvalsControllerListApprovalsV1,
+  customersControllerGetCustomerProfileProjectionV1,
+  customersControllerGetCustomerV1,
 } from '../lib/api/generated-client';
 import { ApprovalsPanel } from '../components/workflows/approvals-panel';
 
@@ -12,6 +21,8 @@ jest.mock('../lib/api/generated-client', () => ({
   },
   approvalsControllerDecideApprovalV1: jest.fn(),
   approvalsControllerListApprovalsV1: jest.fn(),
+  customersControllerGetCustomerProfileProjectionV1: jest.fn(),
+  customersControllerGetCustomerV1: jest.fn(),
 }));
 
 const pendingApproval = {
@@ -66,6 +77,14 @@ function listResponse(
   } as never;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 async function waitForQueueLoad() {
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /^Refresh/ })).not.toBeDisabled(),
@@ -78,6 +97,24 @@ describe('ApprovalsPanel', () => {
     jest
       .mocked(approvalsControllerListApprovalsV1)
       .mockResolvedValue(listResponse());
+    jest.mocked(customersControllerGetCustomerV1).mockImplementation(
+      async (id) =>
+        ({
+          status: 200,
+          data: {
+            data: { customerId: id, availableBalanceKobo: 4_500_000 },
+          },
+        }) as never,
+    );
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockImplementation(
+        async (id) =>
+          ({
+            status: 200,
+            data: { data: { customerId: id, lifetimeEarnedKobo: 8_250_000 } },
+          }) as never,
+      );
   });
 
   it('shows clean results and opens a decision dialog with preset reasons', async () => {
@@ -220,10 +257,10 @@ describe('ApprovalsPanel', () => {
       name: /Ada Customer/,
     });
     expect(selectedRow).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByText('Not provided').length).toBeGreaterThanOrEqual(
-      3,
-    );
-    expect(screen.getByText('approval-1')).toBeInTheDocument();
+    expect(screen.getByText('Not provided')).toBeInTheDocument();
+    expect(screen.queryByText('approval-1')).not.toBeInTheDocument();
+    expect(await screen.findByText('₦45,000.00')).toBeInTheDocument();
+    expect(await screen.findByText('₦82,500.00')).toBeInTheDocument();
     expect(screen.getByText('cashier.one')).toBeInTheDocument();
     expect(screen.getByText('Date & Time')).toBeInTheDocument();
     expect(screen.getByText('Reason submitted')).toBeInTheDocument();
@@ -234,6 +271,153 @@ describe('ApprovalsPanel', () => {
       'href',
       '/supervisor/customers/customer-1',
     );
+  });
+
+  it('shows each metric as soon as its own customer read completes', async () => {
+    const lifetimeEarnedResponse = deferred<unknown>();
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockReturnValue(lifetimeEarnedResponse.promise as never);
+
+    render(<ApprovalsPanel variant="supervisor" />);
+    const walletBalance = await screen.findByText('₦45,000.00');
+    const evidence = walletBalance.closest('dl');
+    expect(evidence).not.toBeNull();
+    expect(within(evidence!).getByText('Loading…')).toBeInTheDocument();
+
+    await act(async () => {
+      lifetimeEarnedResponse.resolve({
+        status: 200,
+        data: {
+          data: { customerId: 'customer-1', lifetimeEarnedKobo: 8_250_000 },
+        },
+      });
+      await Promise.resolve();
+    });
+    expect(await screen.findByText('₦82,500.00')).toBeInTheDocument();
+  });
+
+  it('does not replace the selected customer metrics with late responses', async () => {
+    const walletForAda = deferred<unknown>();
+    const earnedForAda = deferred<unknown>();
+    const nextApproval = {
+      ...pendingApproval,
+      id: 'approval-2',
+      customer: { id: 'customer-2', fullName: 'Bea Customer' },
+    };
+    jest
+      .mocked(approvalsControllerListApprovalsV1)
+      .mockResolvedValue(listResponse([pendingApproval, nextApproval]));
+    jest.mocked(customersControllerGetCustomerV1).mockImplementation((id) =>
+      id === 'customer-1'
+        ? (walletForAda.promise as never)
+        : Promise.resolve({
+            status: 200,
+            data: {
+              data: { customerId: id, availableBalanceKobo: 6_000_000 },
+            },
+          } as never),
+    );
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockImplementation((id) =>
+        id === 'customer-1'
+          ? (earnedForAda.promise as never)
+          : Promise.resolve({
+              status: 200,
+              data: { data: { customerId: id, lifetimeEarnedKobo: 7_000_000 } },
+            } as never),
+      );
+
+    render(<ApprovalsPanel variant="supervisor" />);
+    await screen.findByRole('button', { name: /Ada Customer/ });
+    fireEvent.click(screen.getByRole('button', { name: /Bea Customer/ }));
+    expect(await screen.findByText('₦60,000.00')).toBeInTheDocument();
+    expect(await screen.findByText('₦70,000.00')).toBeInTheDocument();
+
+    await act(async () => {
+      walletForAda.resolve({
+        status: 200,
+        data: {
+          data: { customerId: 'customer-1', availableBalanceKobo: 1_000_000 },
+        },
+      });
+      earnedForAda.resolve({
+        status: 200,
+        data: {
+          data: { customerId: 'customer-1', lifetimeEarnedKobo: 2_000_000 },
+        },
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('₦60,000.00')).toBeInTheDocument();
+      expect(screen.getByText('₦70,000.00')).toBeInTheDocument();
+      expect(screen.queryByText('₦10,000.00')).not.toBeInTheDocument();
+      expect(screen.queryByText('₦20,000.00')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows independently unavailable customer metrics without exposing the request ID', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 503,
+      data: {},
+    } as never);
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockImplementation(
+        async (id) =>
+          ({
+            status: 200,
+            data: { data: { customerId: id, lifetimeEarnedKobo: 325_000 } },
+          }) as never,
+      );
+    render(<ApprovalsPanel variant="supervisor" />);
+    await screen.findByRole('heading', { name: 'Recent customers' });
+    await waitFor(() => {
+      expect(screen.getByText('Unavailable')).toBeInTheDocument();
+      expect(screen.getByText('₦3,250.00')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('approval-1')).not.toBeInTheDocument();
+  });
+
+  it('shows metrics as zero NGN when both authoritative customer values are zero', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockImplementation(
+      async (id) =>
+        ({
+          status: 200,
+          data: { data: { customerId: id, availableBalanceKobo: 0 } },
+        }) as never,
+    );
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockImplementation(
+        async (id) =>
+          ({
+            status: 200,
+            data: { data: { customerId: id, lifetimeEarnedKobo: 0 } },
+          }) as never,
+      );
+    render(<ApprovalsPanel variant="supervisor" />);
+    expect(await screen.findAllByText('₦0.00')).toHaveLength(2);
+  });
+
+  it('does not query metrics without a real customer ID', async () => {
+    jest
+      .mocked(approvalsControllerListApprovalsV1)
+      .mockResolvedValue(
+        listResponse([
+          { ...pendingApproval, customer: { fullName: 'Unlinked' } },
+        ]),
+      );
+    render(<ApprovalsPanel variant="supervisor" />);
+    await screen.findByRole('button', { name: /Unlinked/ });
+    expect(screen.getAllByText('Not provided')).toHaveLength(3);
+    expect(customersControllerGetCustomerV1).not.toHaveBeenCalled();
+    expect(
+      customersControllerGetCustomerProfileProjectionV1,
+    ).not.toHaveBeenCalled();
   });
 
   it('requests late receipt claims from the API and uses server category counts', async () => {
@@ -375,6 +559,8 @@ describe('ApprovalsPanel', () => {
         expect.objectContaining({ headers: expect.any(Object) }),
       );
     });
+    expect(await screen.findByText('Decision submitted.')).toBeInTheDocument();
+    expect(screen.queryByText('approval-1')).not.toBeInTheDocument();
   });
 
   it('submits rejection directly and auto-selects the next pending request', async () => {
