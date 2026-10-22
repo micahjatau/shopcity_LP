@@ -4137,14 +4137,22 @@
 .supervisor-page .fraud-review__filters > .fraud-flags__filter {
   display: block;
   width: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.supervisor-page .fraud-review__filters > .fraud-flags__filter:focus-within {
+  outline: 0;
 }
 
 .supervisor-page
   .fraud-review__filters
   .fraud-flags__dropdown-trigger.sc-button {
   min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid #e5e2e2;
+  padding: 0 20px;
+  border: 1px solid #ded9da;
   border-radius: 999px;
   background: #fff;
   color: #4b4b4b;

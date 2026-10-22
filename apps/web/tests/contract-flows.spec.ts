@@ -786,6 +786,32 @@ test.describe('contract-faithful frontend flows', () => {
     await expect(
       page.getByRole('region', { name: /flagged activity workspace/i }),
     ).toContainText(/1 shown/i);
+    const filterBorders = await page
+      .locator('.fraud-review__filters > .fraud-flags__filter')
+      .evaluateAll((filters) =>
+        filters.map((filter) => {
+          const button = filter.querySelector('button');
+          if (!button) throw new Error('Expected a filter trigger button.');
+          const wrapperStyle = window.getComputedStyle(filter);
+          const buttonStyle = window.getComputedStyle(button);
+          return {
+            wrapperBorderWidth: wrapperStyle.borderTopWidth,
+            buttonBorder: [
+              buttonStyle.borderTopWidth,
+              buttonStyle.borderTopStyle,
+              buttonStyle.borderTopColor,
+              buttonStyle.borderRadius,
+            ].join(' '),
+          };
+        }),
+      );
+    expect(filterBorders).toHaveLength(4);
+    expect(
+      filterBorders.map(({ wrapperBorderWidth }) => wrapperBorderWidth),
+    ).toEqual(Array(4).fill('0px'));
+    expect(
+      new Set(filterBorders.map(({ buttonBorder }) => buttonBorder)).size,
+    ).toBe(1);
     await expect(
       page
         .getByRole('region', { name: /flagged activity results/i })
