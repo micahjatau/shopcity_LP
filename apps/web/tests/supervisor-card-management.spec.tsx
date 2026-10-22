@@ -170,6 +170,16 @@ describe('Supervisor card management tabs', () => {
       'supervisor-issued-card-directory__assign-button',
     );
     const table = await screen.findByRole('table', { name: 'Issued cards' });
+    const pagination = screen.getByRole('navigation', {
+      name: 'Issued card pages',
+    });
+    expect(within(pagination).getByText('Page 1')).toBeInTheDocument();
+    expect(
+      within(pagination).getByRole('button', { name: 'Previous page' }),
+    ).toBeDisabled();
+    expect(
+      within(pagination).getByRole('button', { name: 'Next page' }),
+    ).toBeDisabled();
     const headers = within(table)
       .getAllByRole('columnheader')
       .map((header) => header.textContent?.trim());
@@ -276,7 +286,7 @@ describe('Supervisor card management tabs', () => {
     );
   });
 
-  it('preserves active filters when loading a cursor continuation', async () => {
+  it('preserves active filters across cursor pages and resets pagination after a filter change', async () => {
     jest.mocked(cardsControllerListIssuedManagementCardsV1).mockResolvedValue({
       status: 200,
       data: {
@@ -306,7 +316,8 @@ describe('Supervisor card management tabs', () => {
         expect.any(Object),
       ),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Load more cards' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() =>
       expect(
         cardsControllerListIssuedManagementCardsV1,
@@ -315,6 +326,22 @@ describe('Supervisor card management tabs', () => {
         expect.any(Object),
       ),
     );
+    expect(screen.getByText('Page 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter by status/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Active' }));
+    await waitFor(() =>
+      expect(
+        cardsControllerListIssuedManagementCardsV1,
+      ).toHaveBeenLastCalledWith(
+        { limit: '25', cursor: '', status: 'ACTIVE' },
+        expect.any(Object),
+      ),
+    );
+    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Previous page' }),
+    ).toBeDisabled();
   });
 
   it('applies and clears the selected issue-date range in API requests', async () => {
@@ -402,7 +429,7 @@ describe('Supervisor card management tabs', () => {
     expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenCalledTimes(2);
   });
 
-  it('loads further issued-card pages using the returned cursor', async () => {
+  it('navigates between issued-card cursor pages and updates the page indicator', async () => {
     jest
       .mocked(cardsControllerListIssuedManagementCardsV1)
       .mockResolvedValueOnce({
@@ -438,23 +465,59 @@ describe('Supervisor card management tabs', () => {
             hasMore: false,
           },
         },
+      } as never)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            items: [
+              {
+                cardNumber: 'FIRST-SERIAL',
+                status: 'ACTIVE',
+                issuedAt: '2026-01-01T00:00:00.000Z',
+                customer: { id: 'first-owner', fullName: 'First Owner' },
+              },
+            ],
+            nextCursor: 'cursor-page-two',
+            hasMore: true,
+          },
+        },
       } as never);
     render(<SupervisorCardWorkflows />);
 
     expect(await screen.findByText('FIRST-SERIAL')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Load more cards' }));
+    const previousButton = screen.getByRole('button', {
+      name: 'Previous page',
+    });
+    const nextButton = screen.getByRole('button', { name: 'Next page' });
+    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+
+    fireEvent.click(nextButton);
     expect(await screen.findByText('SECOND-SERIAL')).toBeVisible();
+    expect(screen.queryByText('FIRST-SERIAL')).toBeNull();
+    expect(screen.getByText('Page 2')).toBeInTheDocument();
+    expect(nextButton).toBeDisabled();
+    expect(previousButton).toBeEnabled();
     expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenNthCalledWith(
       2,
       { limit: '25', cursor: 'cursor-page-two' },
       expect.any(Object),
     );
-    expect(
-      screen.queryByRole('button', { name: 'Load more cards' }),
-    ).toBeNull();
+
+    fireEvent.click(previousButton);
+    expect(await screen.findByText('FIRST-SERIAL')).toBeVisible();
+    expect(screen.queryByText('SECOND-SERIAL')).toBeNull();
+    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(cardsControllerListIssuedManagementCardsV1).toHaveBeenNthCalledWith(
+      3,
+      { limit: '25', cursor: '' },
+      expect.any(Object),
+    );
   });
 
-  it('preserves current rows when loading more fails and retries the next page', async () => {
+  it('preserves the current page when navigation fails and retries the destination', async () => {
     jest
       .mocked(cardsControllerListIssuedManagementCardsV1)
       .mockResolvedValueOnce({
@@ -501,14 +564,16 @@ describe('Supervisor card management tabs', () => {
     render(<SupervisorCardWorkflows />);
 
     expect(await screen.findByText('PRESERVED-SERIAL')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Load more cards' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'More issued cards could not be loaded.',
+      'The requested issued-card page could not be loaded.',
     );
     expect(screen.getByText('PRESERVED-SERIAL')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry loading more' }));
+    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry page' }));
     expect(await screen.findByText('RECOVERED-SERIAL')).toBeVisible();
-    expect(screen.getByText('PRESERVED-SERIAL')).toBeVisible();
+    expect(screen.queryByText('PRESERVED-SERIAL')).toBeNull();
+    expect(screen.getByText('Page 2')).toBeInTheDocument();
   });
 
   it('maps legacy directory URLs to the issued-card table without an Issued cards button', async () => {

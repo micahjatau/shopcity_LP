@@ -1781,3 +1781,7 @@ node scripts/gitnexus.cjs impact -r shopcity_LP --summary-only --include-tests '
 ### 2026-10-22 — Supervisor transaction column divider hover
 
 Before drafting `supervisor-transaction-column-hover-demarcators`, `npm run proposal:impact -- --file apps/web/components/workflows/supervisor-transactions-dashboard.tsx SupervisorTransactionsDashboard` reported LOW risk/exact, 2 direct dependants (the Supervisor transactions route and focused dashboard test), and 1 affected process in the Workflows module. The change is limited to the Supervisor transaction-table divider indicator; existing pointer/keyboard resizing and narrow-screen behavior remain unchanged. The GitNexus index was refreshed at HEAD `340c0ab` before analysis.
+
+### 2026-10-22 — Supervisor issued-card directory page navigation
+
+Before drafting `supervisor-card-directory-page-navigation`, `npm run proposal:impact -- --file apps/web/components/workflows/supervisor-issued-card-directory.tsx SupervisorIssuedCardDirectory` reported LOW risk/exact, 1 direct dependant (`SupervisorCardWorkflows`), 1 affected process (`SupervisorCardsPage`), and the Workflows module. Including tests, GitNexus reported 4 impacted symbols with no HIGH/CRITICAL risk. The new navigation uses existing bounded cursor requests, preserves filters, and does not change API/data/card lifecycle behavior. The index was refreshed at HEAD `83e4229` before analysis.

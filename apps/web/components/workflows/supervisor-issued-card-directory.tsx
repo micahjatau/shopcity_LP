@@ -1,10 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import Link from 'next/link';
 import { format, isValid, parse } from 'date-fns';
-import { Check, ChevronDown, Filter, Search, X } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Search,
+  X,
+} from 'lucide-react';
 import {
   cardsControllerListIssuedManagementCardsV1,
   type CardsControllerListIssuedManagementCardsV1Params,
@@ -16,6 +24,7 @@ import { StatusBadge, type StatusTone } from '../shopcity';
 import { SupervisorIssueDateRangePicker } from './supervisor-issue-date-range-picker';
 
 const PAGE_LIMIT = '25';
+
 type IssuedCard = CardsControllerListIssuedManagementCardsV1200DataItemsItem;
 type StatusFilter = 'ALL' | 'ACTIVE' | 'BLOCKED' | 'REPLACED';
 const STATUS_FILTER_OPTIONS: ReadonlyArray<{
@@ -28,6 +37,7 @@ const STATUS_FILTER_OPTIONS: ReadonlyArray<{
   { value: 'REPLACED', label: 'Replaced' },
 ];
 type DateRangeValue = { startDate: string; endDate: string };
+type CardPageRequest = { cursor: string; pageIndex: number };
 
 function toApiDate(value: string): string {
   if (!value) return '';
@@ -212,10 +222,14 @@ export function SupervisorIssuedCardDirectory({
   const issuedTo = toApiDate(dateRange.endDate);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [cursorStack, setCursorStack] = useState<string[]>(['']);
+  const [pageIndex, setPageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadingMoreFailed, setLoadingMoreFailed] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [failedPageRequest, setFailedPageRequest] =
+    useState<CardPageRequest | null>(null);
+  const [filtersDirty, setFiltersDirty] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const requestVersion = useRef(0);
 
@@ -239,17 +253,24 @@ export function SupervisorIssuedCardDirectory({
   const invalidDateRange = Boolean(
     issuedFrom && issuedTo && issuedFrom > issuedTo,
   );
+  const searchDirty = searchQuery.trim() !== settledSearchQuery;
+  const pageControlsDisabled =
+    loading || pageLoading || filtersDirty || searchDirty || invalidDateRange;
+
   useEffect(() => {
     let active = true;
     requestVersion.current += 1;
-    setLoadingMore(false);
+    setPageLoading(false);
+    setFailedPageRequest(null);
     setFailed(false);
     setItems([]);
     setNextCursor(null);
     setHasMore(false);
-    setLoadingMoreFailed(false);
+    setCursorStack(['']);
+    setPageIndex(0);
     if (invalidDateRange) {
       setLoading(false);
+      setFiltersDirty(false);
       return () => {
         active = false;
       };
@@ -264,55 +285,71 @@ export function SupervisorIssuedCardDirectory({
         if (response.status !== 200) {
           setFailed(true);
           setLoading(false);
+          setFiltersDirty(false);
           return;
         }
         setItems(response.data.data.items);
         setNextCursor(response.data.data.nextCursor);
         setHasMore(response.data.data.hasMore);
         setLoading(false);
+        setFiltersDirty(false);
       })
       .catch(() => {
         if (!active) return;
         setFailed(true);
         setLoading(false);
+        setFiltersDirty(false);
       });
     return () => {
       active = false;
     };
   }, [filters, invalidDateRange, retryAttempt]);
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore || !hasMore) return;
+  async function loadPage(cursor: string, targetPageIndex: number) {
+    if (pageControlsDisabled || failed) return;
     const requestId = requestVersion.current;
-    setLoadingMore(true);
-    setLoadingMoreFailed(false);
+    setPageLoading(true);
+    setFailedPageRequest(null);
     try {
       const response = await cardsControllerListIssuedManagementCardsV1(
-        listParams(nextCursor, filters),
+        listParams(cursor, filters),
         createApiRequest({ csrf: true }),
       );
       if (requestId !== requestVersion.current) return;
-      if (response.status !== 200) {
-        setLoadingMoreFailed(true);
-        return;
-      }
-      setItems((current) => {
-        const existingNumbers = new Set(current.map((item) => item.cardNumber));
-        return [
-          ...current,
-          ...response.data.data.items.filter(
-            (item) => !existingNumbers.has(item.cardNumber),
-          ),
-        ];
-      });
-      setNextCursor(response.data.data.nextCursor);
-      setHasMore(response.data.data.hasMore);
+      if (response.status !== 200) throw new Error('card page unavailable');
+
+      const result = response.data.data;
+      setItems(result.items);
+      setNextCursor(result.nextCursor);
+      setHasMore(result.hasMore);
+      setCursorStack((current) => [
+        ...current.slice(0, targetPageIndex),
+        cursor,
+      ]);
+      setPageIndex(targetPageIndex);
     } catch {
-      setLoadingMoreFailed(true);
+      if (requestId !== requestVersion.current) return;
+      setFailedPageRequest({ cursor, pageIndex: targetPageIndex });
     } finally {
-      if (requestId === requestVersion.current) setLoadingMore(false);
+      if (requestId === requestVersion.current) setPageLoading(false);
     }
-  }, [filters, hasMore, loadingMore, nextCursor]);
+  }
+
+  function loadNextPage() {
+    if (!nextCursor || !hasMore || pageControlsDisabled || failed) return;
+    void loadPage(nextCursor, pageIndex + 1);
+  }
+
+  function loadPreviousPage() {
+    if (pageIndex <= 0 || pageControlsDisabled || failed) return;
+    const previousPageIndex = pageIndex - 1;
+    void loadPage(cursorStack[previousPageIndex] ?? '', previousPageIndex);
+  }
+
+  function retryFailedPage() {
+    if (!failedPageRequest) return;
+    void loadPage(failedPageRequest.cursor, failedPageRequest.pageIndex);
+  }
 
   return (
     <section
@@ -355,12 +392,19 @@ export function SupervisorIssuedCardDirectory({
               className="supervisor-customer-directory__search-input"
               placeholder="Search cards or owners"
               value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => {
+                const nextQuery = event.target.value;
+                setFiltersDirty(nextQuery.trim() !== settledSearchQuery);
+                setSearchQuery(nextQuery);
+              }}
             />
           </div>
           <SupervisorIssuedCardStatusFilter
             value={statusFilter}
-            onChange={setStatusFilter}
+            onChange={(nextStatus) => {
+              if (nextStatus !== statusFilter) setFiltersDirty(true);
+              setStatusFilter(nextStatus);
+            }}
           />
         </div>
         <div className="supervisor-issued-card-directory__toolbar-right">
@@ -369,7 +413,15 @@ export function SupervisorIssuedCardDirectory({
               className="supervisor-issued-card-directory__date-trigger"
               startDate={dateRange.startDate}
               endDate={dateRange.endDate}
-              onChange={setDateRange}
+              onChange={(nextDateRange) => {
+                if (
+                  nextDateRange.startDate !== dateRange.startDate ||
+                  nextDateRange.endDate !== dateRange.endDate
+                ) {
+                  setFiltersDirty(true);
+                }
+                setDateRange(nextDateRange);
+              }}
             />
           </div>
           <Button
@@ -465,34 +517,65 @@ export function SupervisorIssuedCardDirectory({
           </tbody>
         </table>
       </div>
-      {loadingMoreFailed ? (
+      {failedPageRequest ? (
         <div role="alert" className="mt-4 flex flex-wrap items-center gap-3">
           <p>
-            More issued cards could not be loaded. Your current rows remain.
+            The requested issued-card page could not be loaded. Your current
+            page remains.
           </p>
           <Button
             type="button"
             variant="secondary"
-            disabled={loadingMore}
-            onClick={() => void loadMore()}
+            disabled={pageLoading}
+            onClick={retryFailedPage}
           >
-            Retry loading more
+            Retry page
           </Button>
         </div>
       ) : null}
-      {hasMore && !loading ? (
-        <div className="mt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            loading={loadingMore}
-            disabled={loadingMore}
-            onClick={() => void loadMore()}
-          >
-            Load more cards
-          </Button>
-        </div>
-      ) : null}
+      <nav
+        className="supervisor-transaction-pagination"
+        aria-label="Issued card pages"
+        aria-busy={pageLoading}
+      >
+        <button
+          className="supervisor-transaction-pagination-button"
+          type="button"
+          aria-label="Previous page"
+          title="Previous page"
+          disabled={
+            pageControlsDisabled ||
+            failed ||
+            failedPageRequest !== null ||
+            pageIndex === 0
+          }
+          onClick={loadPreviousPage}
+        >
+          <ChevronLeft aria-hidden="true" size={16} />
+        </button>
+        <p
+          className="supervisor-transaction-pagination-status"
+          aria-live="polite"
+        >
+          Page {pageIndex + 1}
+        </p>
+        <button
+          className="supervisor-transaction-pagination-button"
+          type="button"
+          aria-label="Next page"
+          title="Next page"
+          disabled={
+            pageControlsDisabled ||
+            failed ||
+            failedPageRequest !== null ||
+            !hasMore ||
+            !nextCursor
+          }
+          onClick={loadNextPage}
+        >
+          <ChevronRight aria-hidden="true" size={16} />
+        </button>
+      </nav>
     </section>
   );
 }

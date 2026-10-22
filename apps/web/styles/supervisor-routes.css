@@ -2085,6 +2085,8 @@
 }
 
 .supervisor-transactions-dashboard
+  .supervisor-transaction-pagination-button:focus-visible,
+.supervisor-issued-card-directory
   .supervisor-transaction-pagination-button:focus-visible {
   outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
   outline-offset: 3px;
@@ -2133,6 +2135,14 @@
   font-size: 12px;
   text-align: center;
   white-space: nowrap;
+}
+
+.supervisor-issued-card-directory .supervisor-transaction-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 16px 0 0;
 }
 
 .supervisor-transaction-detail-modal {
