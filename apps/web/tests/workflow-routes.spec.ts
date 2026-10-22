@@ -1838,6 +1838,77 @@ test.describe('workflow route coverage', () => {
     ).toBeLessThanOrEqual(375);
   });
 
+  test('shows Supervisor transaction column dividers only on hover or focus', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.route('**/api/v1/transactions**', (route) =>
+      route.fulfill(
+        json({
+          success: true,
+          data: {
+            items: [
+              {
+                transactionId: 'ledger-1',
+                receiptNumber: 'R-001',
+                operation: 'EARN',
+                amountKobo: 500,
+                creditKobo: 500,
+                customerName: 'Michael Adeyemi',
+                purchaseAmountKobo: 10_000,
+                status: 'CONFIRMED',
+                occurredAt: '2030-01-01T10:00:00.000Z',
+              },
+            ],
+            staffOptions: [],
+            nextCursor: null,
+            hasMore: false,
+          },
+          meta: meta('/api/v1/transactions'),
+        }),
+      ),
+    );
+
+    await page.goto(`${baseUrl}/supervisor/transactions`);
+    const table = page.getByRole('table', {
+      name: 'Supervisor branch transactions',
+    });
+    await expect(table).toBeVisible();
+    await expect(table.getByText('R-001')).toBeVisible();
+
+    const firstColumnHeader = page.getByRole('columnheader', {
+      name: 'Receipt No.',
+    });
+    const firstColumnDivider = firstColumnHeader.locator(
+      '.supervisor-transaction-table__column-resizer',
+    );
+    const secondColumnDivider = page
+      .getByRole('columnheader', { name: 'Name' })
+      .locator('.supervisor-transaction-table__column-resizer');
+    const firstDividerOpacity = () =>
+      firstColumnDivider.evaluate(
+        (divider) => getComputedStyle(divider, '::before').opacity,
+      );
+    const secondDividerOpacity = () =>
+      secondColumnDivider.evaluate(
+        (divider) => getComputedStyle(divider, '::before').opacity,
+      );
+
+    await expect.poll(firstDividerOpacity).toBe('0');
+    await expect.poll(secondDividerOpacity).toBe('0');
+    await firstColumnHeader.hover();
+    await expect.poll(firstDividerOpacity).toBe('1');
+    await expect.poll(secondDividerOpacity).toBe('0');
+    await page.mouse.move(0, 0);
+    await expect.poll(firstDividerOpacity).toBe('0');
+    await page.keyboard.press('Tab');
+    await firstColumnDivider.focus();
+    await expect.poll(firstDividerOpacity).toBe('1');
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(firstColumnDivider).toBeHidden();
+  });
+
   test('keeps the cashier overview launcher and context compact', async ({
     page,
   }) => {

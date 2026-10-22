@@ -2009,10 +2009,17 @@
   height: calc(100% - 12px);
   border-radius: 2px;
   background: #d1cdce;
+  opacity: 0;
   content: '';
   transition:
     width 120ms ease,
-    background-color 120ms ease;
+    background-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.supervisor-transaction-table__resizable-header:hover
+  .supervisor-transaction-table__column-resizer::before {
+  opacity: 1;
 }
 
 .supervisor-transaction-table__column-resizer:hover::before,
@@ -2020,6 +2027,7 @@
 .supervisor-transaction-table__column-resizer:active::before {
   width: 2px;
   background: #9e1015;
+  opacity: 1;
 }
 
 .supervisor-transaction-table__column-resizer:focus-visible {
