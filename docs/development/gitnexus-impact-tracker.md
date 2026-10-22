@@ -11,6 +11,66 @@ Use this tracker when preparing a spec proposal. Run `npm run proposal:impact --
 
 ## Findings
 
+### 2026-10-22 — In-store marketing-consent withdrawal proposal (pre-draft impact)
+
+Ran proposal-time upstream impact after rebuilding the stale/corrupted GitNexus index to current HEAD `25218da`. The first rebuild attempt hit a corrupted FTS index; the generated `.gitnexus` index was safely recreated. GitNexus regenerated `AGENTS.md` and `CLAUDE.md`; their original dirty worktree contents were backed up and restored byte-for-byte. `CustomerConsent` is not indexed as a symbol, so its schema blast radius remains unknown and is covered by direct schema/migration review.
+
+| Symbol                          | Risk          | Impacted symbols | Direct dependants | Affected processes                                                                        |
+| ------------------------------- | ------------- | ---------------: | ----------------: | ----------------------------------------------------------------------------------------- |
+| `CustomersService`              | MEDIUM, exact |                8 |                 5 | 0 indexed; customer controller/module and service/integration tests are direct dependants |
+| `CustomersController`           | LOW, exact    |                4 |                 2 | 0                                                                                         |
+| `CashierCustomerProfileActions` | LOW, exact    |                1 |                 1 | `CashierCustomersPage`                                                                    |
+| `CustomerDetailsDialog`         | LOW, exact    |                7 |                 1 | `CashierCustomersPage`, `SupervisorCustomerProfilePage`                                   |
+
+No HIGH/CRITICAL findings. Planned scope: record an authenticated, tenant/customer/branch-scoped in-store request to withdraw optional direct-marketing consent as an append-only event; make the current effective marketing preference opted-out without mutating the registration snapshot; leave account deletion, purchase/wallet records, and transactional messages unchanged. No marketing delivery pipeline was found in the indexed repository search, so the spec must identify that future/external campaign senders must consult the effective preference before sending.
+
+```text
+npm run proposal:impact -- --file src/modules/customers/customers.service.ts CustomersService
+npm run proposal:impact -- --file src/modules/customers/customers.controller.ts CustomersController
+npm run proposal:impact -- --file apps/web/components/workflows/cashier-customer-profile-actions.tsx CashierCustomerProfileActions
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog
+```
+
+### 2026-10-22 — Responsive topbar action alignment (scope update)
+
+Before updating the active frontend-shell OpenSpec, upstream impact for `AppTopbar` was LOW/exact with 3 impacted symbols: 1 direct caller (`AppShellContent`), then `AppShell` and `ShellLayout`; no affected processes/modules or HIGH/CRITICAL results. The index is stale at `f99f79e` versus current HEAD `340c0ab`, so graph coverage may be incomplete. Planned change is presentation-only: prevent the notification/avatar action group from wrapping independently at tablet widths, preserve the existing mobile notification visibility rule, and verify responsive geometry without shell/auth behavior changes.
+
+```text
+npm run proposal:impact -- --file apps/web/components/app-topbar.tsx AppTopbar
+node .gitnexus/run.cjs context AppTopbar --repo shopcity_LP --file apps/web/components/app-topbar.tsx --content
+node .gitnexus/run.cjs impact AppTopbar --repo shopcity_LP --file apps/web/components/app-topbar.tsx --direction upstream
+```
+
+### 2026-10-21 — Supervisor profile lifetime counts (scope update)
+
+Before updating the active profile OpenSpec, upstream impact for `CustomersService.getCustomerProfileProjection` was LOW/exact with 1 impacted symbol (the direct `CustomersController.getCustomerProfileProjection` caller); the controller method had 0 upstream dependants. `CustomerDetailsDialog` was LOW/exact with 5 impacted symbols: 1 direct caller (`ManageCustomers`), 2 depth-2 profile components, and 2 depth-3 route pages. No affected processes/modules or HIGH/CRITICAL results were reported. The index is stale at `f99f79e` versus current HEAD `340c0ab`, so graph coverage may be incomplete. Planned change is additive, read-only, tenant/customer-scoped counts of persisted Receipt and Redemption rows, independently of bounded profile lists; no schema or financial behavior changes.
+
+```text
+npm run proposal:impact -- --file src/modules/customers/customers.service.ts getCustomerProfileProjection
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/modules/customers/customers.service.ts --kind Method getCustomerProfileProjection --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/modules/customers/customers.controller.ts --kind Method getCustomerProfileProjection --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file apps/web/components/workflows/customer-details-dialog.tsx CustomerDetailsDialog --direction upstream
+```
+
+### 2026-10-21 — Supervisor profile Redemptions table (scope update)
+
+Before updating `supervisor-customer-table-profile-workflow`, upstream GitNexus results were LOW/exact for `CustomerDetailsDialog` (5 impacted, 1 direct caller) and `ProfileTransactions` (4 impacted, 1 direct caller). `ProfileRows` was LOW/exact with 4 impacted symbols and 1 direct caller (`CustomerDetailsDialog`). No affected processes/modules or HIGH/CRITICAL findings were reported. The index is stale at `f99f79e` versus current HEAD `340c0ab`, so graph coverage may be incomplete. The requested table will use only existing profile-projection redemption records; no API, data, or financial behavior changes are planned.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/customer-details-dialog.tsx ProfileRows
+node .gitnexus/run.cjs impact 'CustomerDetailsDialog' --repo shopcity_LP
+node .gitnexus/run.cjs impact 'ProfileTransactions' --repo shopcity_LP
+```
+
+### 2026-10-21 — Reuse Capture Purchase card artwork in Redeem (scope update)
+
+Before updating the active cashier-layout spec, upstream impact for `RedeemTransactionForm` was LOW/exact with 4 impacted symbols (1 direct caller, `CashierWorkflowRoute`, plus 3 depth-2 route callers), and no affected processes/modules. `SupervisorVirtualCardPreview` was LOW/exact with 9 impacted symbols and 2 direct callers; its implementation will remain unchanged while Redeem becomes an additional consumer. The index is stale at `f99f79e` versus current HEAD `340c0ab`, so graph coverage may be incomplete. No HIGH/CRITICAL risk was reported. The change is presentation-only: use the existing branded virtual-card preview in Redeem with the same verified customer/card identity and status outside the artwork; transaction, approval, and financial behavior remain unchanged.
+
+```text
+npm run proposal:impact -- --file apps/web/components/workflows/redeem-transaction-form.tsx RedeemTransactionForm
+node .gitnexus/run.cjs impact 'SupervisorVirtualCardPreview' --repo shopcity_LP
+```
+
 ### 2026-10-21 — Cashier recent-redemptions table (pre-draft impact)
 
 Proposal-time impact ran with `npm run proposal:impact -- --file apps/web/components/workflows/cashier-transaction-route.tsx CashierWorkflowRoute`. GitNexus reports LOW risk with 3 impacted symbols, all 3 direct dependants, and no affected processes/modules; no HIGH/CRITICAL result. The result comes from an index at `f99f79e` while HEAD is `daf7b21`. Refresh was attempted, but analysis failed because the local `file_fts` index is inconsistent (`document for node offset 1933 is missing during delete`). Preserve the stale index and treat this result as limited until it can be repaired. Planned scope is a Redeem-only presentation component using the existing cashier-today report; no backend, schema, or financial-write changes.

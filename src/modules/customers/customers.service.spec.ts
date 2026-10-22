@@ -381,6 +381,296 @@ describe('CustomersService', () => {
     });
   });
 
+  it('records a branch-attributed marketing withdrawal as append-only evidence', async () => {
+    const eventAt = new Date('2026-10-22T12:00:00.000Z');
+    const eventCreate = jest.fn().mockResolvedValue({ capturedAt: eventAt });
+    const preferenceEventFind = jest.fn().mockResolvedValue(null);
+    const consentFind = jest.fn().mockResolvedValue({
+      marketingOptIn: true,
+      capturedAt: new Date('2026-10-20T12:00:00.000Z'),
+    });
+    const idempotencyUpdate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(undefined),
+        update: idempotencyUpdate,
+      },
+      branch: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'branch-id' }),
+      },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'customer-id' }),
+      },
+      customerConsent: { findFirst: consentFind },
+      customerMarketingPreferenceEvent: {
+        findFirst: preferenceEventFind,
+        create: eventCreate,
+      },
+      $transaction: jest.fn(),
+    };
+    prisma.$transaction.mockImplementation(
+      (callback: (client: unknown) => unknown) => callback(prisma),
+    );
+    const audit = auditStub();
+    const service = new CustomersService(
+      prisma as never,
+      audit as never,
+      activeBalanceStub() as never,
+    );
+
+    await expect(
+      service.withdrawCustomerMarketingPreference(
+        'tenant-id',
+        actorStub(UserRole.CASHIER),
+        'customer-id',
+        true,
+        'marketing-withdrawal-001',
+      ),
+    ).resolves.toEqual({
+      status: 'OPTED_OUT',
+      source: 'IN_STORE',
+      updatedAt: eventAt.toISOString(),
+      alreadyOptedOut: false,
+    });
+
+    expect(prisma.branch.findFirst).toHaveBeenCalledWith({
+      where: { id: 'branch-id', tenantId: 'tenant-id', status: 'ACTIVE' },
+      select: { id: true },
+    });
+    expect(preferenceEventFind).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-id', customerId: 'customer-id' },
+      orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+      select: { preference: true, source: true, capturedAt: true },
+    });
+    expect(eventCreate).toHaveBeenCalledWith({
+      data: {
+        tenantId: 'tenant-id',
+        customerId: 'customer-id',
+        capturedBy: 'user-id',
+        branchId: 'branch-id',
+        preference: 'OPTED_OUT',
+        source: 'IN_STORE',
+      },
+      select: { capturedAt: true },
+    });
+    expect(audit.recordWithClient).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        tenantId: 'tenant-id',
+        actorId: 'user-id',
+        action: 'customer.marketing_preference.withdrawn',
+        entityType: 'customer',
+        entityId: 'customer-id',
+        metadata: {
+          branchId: 'branch-id',
+          preference: 'OPTED_OUT',
+          source: 'IN_STORE',
+        },
+      }),
+    );
+    expect(idempotencyUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: 'COMPLETED',
+          responseJson: {
+            status: 'OPTED_OUT',
+            source: 'IN_STORE',
+            updatedAt: eventAt.toISOString(),
+            alreadyOptedOut: false,
+          },
+        },
+      }),
+    );
+    expect(prisma.customerConsent).not.toHaveProperty('update');
+    expect(consentFind).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a withdrawal without an active branch assignment', async () => {
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      branch: { findFirst: jest.fn().mockResolvedValue(null) },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'customer-id' }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+
+    await expect(
+      service.withdrawCustomerMarketingPreference(
+        'tenant-id',
+        actorStub(UserRole.CASHIER),
+        'customer-id',
+        true,
+        'marketing-withdrawal-branch-failure',
+      ),
+    ).rejects.toThrow('An assigned active branch is required');
+    expect(prisma.customer.findFirst).toHaveBeenCalledWith({
+      where: { id: 'customer-id', tenantId: 'tenant-id' },
+      select: { id: true },
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not reveal or record a customer outside the authenticated tenant', async () => {
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-id' }) },
+      customer: { findFirst: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(),
+    };
+    const service = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+
+    await expect(
+      service.withdrawCustomerMarketingPreference(
+        'tenant-id',
+        actorStub(UserRole.CASHIER),
+        'foreign-customer-id',
+        true,
+        'marketing-withdrawal-tenant-failure',
+      ),
+    ).rejects.toThrow('Customer not found');
+    expect(prisma.customer.findFirst).toHaveBeenCalledWith({
+      where: { id: 'foreign-customer-id', tenantId: 'tenant-id' },
+      select: { id: true },
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects reuse of a withdrawal idempotency key for a different payload', async () => {
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue({
+          requestHash: 'another-payload-hash',
+          responseJson: null,
+        }),
+      },
+    };
+    const service = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+
+    await expect(
+      service.withdrawCustomerMarketingPreference(
+        'tenant-id',
+        actorStub(UserRole.CASHIER),
+        'different-customer-id',
+        true,
+        'marketing-withdrawal-reused-key',
+      ),
+    ).rejects.toThrow('Idempotency key reused with different payload');
+  });
+
+  it('replays a completed withdrawal idempotently without another event or audit', async () => {
+    const branchId = 'branch-id';
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          tenantId: 'tenant-id',
+          actorId: 'user-id',
+          customerId: 'customer-id',
+          branchId,
+          source: 'IN_STORE',
+          confirmedInPersonRequest: true,
+        }),
+      )
+      .digest('hex');
+    const savedResponse = {
+      status: 'OPTED_OUT',
+      source: 'IN_STORE',
+      updatedAt: '2026-10-22T12:00:00.000Z',
+      alreadyOptedOut: false,
+    };
+    const prisma = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue({
+          requestHash,
+          responseJson: savedResponse,
+        }),
+      },
+    };
+    const audit = auditStub();
+    const service = new CustomersService(
+      prisma as never,
+      audit as never,
+      activeBalanceStub() as never,
+    );
+
+    await expect(
+      service.withdrawCustomerMarketingPreference(
+        'tenant-id',
+        actorStub(UserRole.CASHIER),
+        'customer-id',
+        true,
+        'marketing-withdrawal-001',
+      ),
+    ).resolves.toEqual(savedResponse);
+    expect(prisma.idempotencyRecord.findUnique).toHaveBeenCalledTimes(1);
+    expect(audit.recordWithClient).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the current marketing preference cannot be read', async () => {
+    const audit = auditStub();
+    const service = new CustomersService(
+      {
+        customer: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'customer-id' }),
+        },
+        customerConsent: {
+          findFirst: jest.fn().mockResolvedValue({
+            marketingOptIn: true,
+            capturedAt: new Date('2026-10-20T12:00:00.000Z'),
+          }),
+        },
+        customerMarketingPreferenceEvent: {
+          findFirst: jest
+            .fn()
+            .mockRejectedValue(new Error('preference read failed')),
+        },
+      } as never,
+      audit as never,
+      activeBalanceStub() as never,
+    );
+
+    await expect(
+      service.getCustomerMarketingPreference(
+        'tenant-id',
+        'customer-id',
+        actorStub(UserRole.CASHIER),
+      ),
+    ).resolves.toEqual({
+      status: 'UNAVAILABLE',
+      source: null,
+      updatedAt: null,
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'customer.marketing_preference.read',
+        entityId: 'customer-id',
+      }),
+    );
+  });
+
   it('returns tenant-scoped profile metrics, upcoming expiry, records, and sanitized activity', async () => {
     const future = new Date(Date.now() + 86_400_000);
     const cardIssuedAt = new Date('2025-01-01T00:00:00.000Z');
@@ -429,6 +719,9 @@ describe('CustomersService', () => {
           privacyNoticeVersion: 'v2',
           capturedAt: cardIssuedAt,
         }),
+      },
+      customerMarketingPreferenceEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       loyaltyLedgerEntry: {
         aggregate: jest

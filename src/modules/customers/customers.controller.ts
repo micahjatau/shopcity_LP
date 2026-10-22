@@ -24,6 +24,7 @@ import {
   CreateCustomerDto,
   UpdateCustomerDto,
   UpdateCustomerStatusDto,
+  WithdrawCustomerMarketingPreferenceDto,
 } from './customers.dto';
 import {
   apiErrorEnvelopeResponses,
@@ -140,6 +141,7 @@ export class CustomersController {
         'walletLedger',
         'approvals',
         'consent',
+        'marketingPreference',
         'card',
       ],
       properties: {
@@ -159,6 +161,7 @@ export class CustomersController {
               'redemptions',
               'approvals',
               'statusEvents',
+              'marketingPreference',
             ],
           },
         },
@@ -326,6 +329,26 @@ export class CustomersController {
             capturedAt: { type: 'string', format: 'date-time' },
           },
         },
+        marketingPreference: {
+          type: 'object',
+          required: ['status', 'source', 'updatedAt'],
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['OPTED_IN', 'OPTED_OUT', 'NOT_OPTED_IN', 'UNAVAILABLE'],
+            },
+            source: {
+              type: 'string',
+              nullable: true,
+              enum: ['IN_STORE', 'REGISTRATION', 'NOT_RECORDED'],
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              nullable: true,
+            },
+          },
+        },
         card: {
           type: 'object',
           nullable: true,
@@ -348,6 +371,75 @@ export class CustomersController {
       request.authContext!.user.tenantId,
       id,
       request.authContext!,
+    );
+  }
+
+  @Get(':id/marketing-preference')
+  @Version('1')
+  @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Read a customer marketing preference' })
+  @apiSuccessEnvelopeResponse({
+    dataSchema: {
+      type: 'object',
+      required: ['status', 'source', 'updatedAt'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['OPTED_IN', 'OPTED_OUT', 'NOT_OPTED_IN', 'UNAVAILABLE'],
+        },
+        source: {
+          type: 'string',
+          nullable: true,
+          enum: ['IN_STORE', 'REGISTRATION', 'NOT_RECORDED'],
+        },
+        updatedAt: { type: 'string', format: 'date-time', nullable: true },
+      },
+    },
+  })
+  getMarketingPreference(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.customersService.getCustomerMarketingPreference(
+      request.authContext!.user.tenantId,
+      id,
+      request.authContext!,
+    );
+  }
+
+  @Post(':id/marketing-preference/withdrawal')
+  @Version('1')
+  @Roles(UserRole.CASHIER, UserRole.SUPERVISOR, UserRole.ADMIN)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiOperation({
+    summary: 'Record an in-store marketing preference withdrawal',
+  })
+  @apiSuccessEnvelopeResponse({
+    description: 'Marketing preference is opted out',
+    status: 201,
+    dataSchema: {
+      type: 'object',
+      required: ['status', 'source', 'updatedAt', 'alreadyOptedOut'],
+      properties: {
+        status: { type: 'string', enum: ['OPTED_OUT'] },
+        source: { type: 'string', enum: ['IN_STORE'] },
+        updatedAt: { type: 'string', format: 'date-time' },
+        alreadyOptedOut: { type: 'boolean' },
+      },
+    },
+  })
+  withdrawMarketingPreference(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: WithdrawCustomerMarketingPreferenceDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+  ) {
+    return this.customersService.withdrawCustomerMarketingPreference(
+      request.authContext!.user.tenantId,
+      request.authContext!,
+      id,
+      dto.confirmedInPersonRequest,
+      idempotencyKey,
     );
   }
 

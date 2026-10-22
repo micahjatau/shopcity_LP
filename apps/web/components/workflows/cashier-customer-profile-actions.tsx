@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { CashierMarketingWithdrawal } from './cashier-marketing-withdrawal';
 
 export function CashierCustomerProfileActions() {
   const searchParams = useSearchParams();
@@ -14,7 +15,7 @@ export function CashierCustomerProfileActions() {
   return (
     <nav
       className="cashier-customer-profile-actions"
-      aria-label="Customer transaction actions"
+      aria-label="Customer actions"
     >
       <div>
         <h2>Customer actions</h2>
@@ -37,6 +38,7 @@ export function CashierCustomerProfileActions() {
           Redeem Credit
         </Link>
       </div>
+      <CashierMarketingWithdrawal customerId={customerId} />
     </nav>
   );
 }

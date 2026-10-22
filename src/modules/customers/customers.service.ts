@@ -8,6 +8,8 @@ import {
 import {
   CardStatus,
   Customer,
+  CustomerMarketingPreference,
+  CustomerMarketingPreferenceSource,
   CustomerStatus,
   IdempotencyRecordStatus,
   LedgerEntryDirection,
@@ -35,6 +37,20 @@ import {
 
 export const CUSTOMER_CONSENT_VERSION = 'v1.2';
 export const CUSTOMER_PRIVACY_NOTICE_VERSION = 'v2.0';
+
+type EffectiveMarketingPreference = {
+  status: 'OPTED_IN' | 'OPTED_OUT' | 'NOT_OPTED_IN' | 'UNAVAILABLE';
+  source:
+    CustomerMarketingPreferenceSource | 'REGISTRATION' | 'NOT_RECORDED' | null;
+  updatedAt: string | null;
+};
+
+type MarketingPreferenceWithdrawalResult = {
+  status: CustomerMarketingPreference;
+  source: CustomerMarketingPreferenceSource;
+  updatedAt: string;
+  alreadyOptedOut: boolean;
+};
 
 @Injectable()
 export class CustomersService {
@@ -255,37 +271,52 @@ export class CustomersService {
     if (!customer) throw new NotFoundException('Customer not found');
 
     const now = new Date();
-    const [cardsResult, consentResult] = await Promise.allSettled([
-      this.prismaService.card.findMany({
-        where: { tenantId, customerId },
-        orderBy: { issuedAt: 'desc' },
-        take: 100,
-        select: {
-          id: true,
-          barcodeValue: true,
-          status: true,
-          issuedAt: true,
-          blockedAt: true,
-        },
-      }),
-      this.prismaService.customerConsent.findFirst({
-        where: { tenantId, customerId },
-        select: {
-          loyaltyConsent: true,
-          marketingOptIn: true,
-          consentVersion: true,
-          privacyNoticeVersion: true,
-          capturedAt: true,
-        },
-      }),
-    ]);
+    const [cardsResult, consentResult, marketingPreferenceEventResult] =
+      await Promise.allSettled([
+        this.prismaService.card.findMany({
+          where: { tenantId, customerId },
+          orderBy: { issuedAt: 'desc' },
+          take: 100,
+          select: {
+            id: true,
+            barcodeValue: true,
+            status: true,
+            issuedAt: true,
+            blockedAt: true,
+          },
+        }),
+        this.prismaService.customerConsent.findFirst({
+          where: { tenantId, customerId },
+          select: {
+            loyaltyConsent: true,
+            marketingOptIn: true,
+            consentVersion: true,
+            privacyNoticeVersion: true,
+            capturedAt: true,
+          },
+        }),
+        this.prismaService.customerMarketingPreferenceEvent.findFirst({
+          where: { tenantId, customerId },
+          orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+          select: { preference: true, source: true, capturedAt: true },
+        }),
+      ]);
     const cards = cardsResult.status === 'fulfilled' ? cardsResult.value : [];
     const consent =
       consentResult.status === 'fulfilled' ? consentResult.value : null;
+    const marketingPreferenceEvent =
+      marketingPreferenceEventResult.status === 'fulfilled'
+        ? marketingPreferenceEventResult.value
+        : null;
+    const marketingPreferenceUnavailable =
+      marketingPreferenceEventResult.status === 'rejected' ||
+      (!marketingPreferenceEvent && consentResult.status === 'rejected');
     const cardIds = cards.map((card) => card.id);
     const sourceErrors: string[] = [];
     if (cardsResult.status === 'rejected') sourceErrors.push('card');
     if (consentResult.status === 'rejected') sourceErrors.push('consent');
+    if (marketingPreferenceUnavailable)
+      sourceErrors.push('marketingPreference');
 
     const [
       earnedResult,
@@ -617,6 +648,11 @@ export class CustomersService {
             capturedAt: consent.capturedAt.toISOString(),
           }
         : null,
+      marketingPreference: effectiveMarketingPreference(
+        consent,
+        marketingPreferenceEvent,
+        marketingPreferenceUnavailable,
+      ),
       card: cards[0]
         ? {
             identifier: cards[0].barcodeValue,
@@ -626,6 +662,208 @@ export class CustomersService {
           }
         : null,
     };
+  }
+
+  async getCustomerMarketingPreference(
+    tenantId: string,
+    customerId: string,
+    actor: AuthContext,
+  ): Promise<EffectiveMarketingPreference> {
+    const customer = await this.prismaService.customer.findFirst({
+      where: { tenantId, id: customerId },
+      select: { id: true },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const [consentResult, preferenceEventResult] = await Promise.allSettled([
+      this.prismaService.customerConsent.findFirst({
+        where: { tenantId, customerId },
+        select: { marketingOptIn: true, capturedAt: true },
+      }),
+      this.prismaService.customerMarketingPreferenceEvent.findFirst({
+        where: { tenantId, customerId },
+        orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+        select: { preference: true, source: true, capturedAt: true },
+      }),
+    ]);
+    const consent =
+      consentResult.status === 'fulfilled' ? consentResult.value : null;
+    const preferenceEvent =
+      preferenceEventResult.status === 'fulfilled'
+        ? preferenceEventResult.value
+        : null;
+    const preferenceUnavailable =
+      preferenceEventResult.status === 'rejected' ||
+      (!preferenceEvent && consentResult.status === 'rejected');
+
+    await this.auditService.record({
+      tenantId,
+      actorId: actor.user.id,
+      action: 'customer.marketing_preference.read',
+      entityType: 'customer',
+      entityId: customerId,
+    });
+
+    return effectiveMarketingPreference(
+      consent,
+      preferenceEvent,
+      preferenceUnavailable,
+    );
+  }
+
+  async withdrawCustomerMarketingPreference(
+    tenantId: string,
+    actor: AuthContext,
+    customerId: string,
+    confirmedInPersonRequest: boolean,
+    idempotencyKey: string | undefined,
+  ): Promise<MarketingPreferenceWithdrawalResult> {
+    if (
+      actor.user.role !== UserRole.CASHIER &&
+      actor.user.role !== UserRole.SUPERVISOR &&
+      actor.user.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('Store staff access is required');
+    }
+    if (confirmedInPersonRequest !== true) {
+      throw new BadRequestException(
+        'In-person customer request confirmation is required',
+      );
+    }
+    const branchId = actor.user.branchId;
+    if (!branchId) {
+      throw new ForbiddenException(
+        'An assigned active branch is required for this store request',
+      );
+    }
+
+    const normalizedKey = normalizeCustomerIdempotencyKey(idempotencyKey);
+    const endpoint = 'customers.marketingPreference.withdraw';
+    const requestHash = hashCustomerRequest({
+      tenantId,
+      actorId: actor.user.id,
+      customerId,
+      branchId,
+      source: CustomerMarketingPreferenceSource.IN_STORE,
+      confirmedInPersonRequest,
+    });
+    const existingIdempotency = await findCustomerIdempotency(
+      this.prismaService,
+      tenantId,
+      actor.user.id,
+      endpoint,
+      normalizedKey,
+      requestHash,
+    );
+    if (existingIdempotency?.responseJson) {
+      return existingIdempotency.responseJson as unknown as MarketingPreferenceWithdrawalResult;
+    }
+    if (existingIdempotency) {
+      throw new ConflictException('Idempotency key is still being processed');
+    }
+
+    const [branch, customer] = await Promise.all([
+      this.prismaService.branch.findFirst({
+        where: { id: branchId, tenantId, status: 'ACTIVE' },
+        select: { id: true },
+      }),
+      this.prismaService.customer.findFirst({
+        where: { id: customerId, tenantId },
+        select: { id: true },
+      }),
+    ]);
+    if (!branch) {
+      throw new ForbiddenException(
+        'An assigned active branch is required for this store request',
+      );
+    }
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    return this.prismaService.$transaction(async (prisma) => {
+      await prisma.idempotencyRecord.create({
+        data: {
+          tenantId,
+          actorId: actor.user.id,
+          endpoint,
+          idempotencyKey: normalizedKey,
+          requestHash,
+          status: IdempotencyRecordStatus.PENDING,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const latestEvent =
+        await prisma.customerMarketingPreferenceEvent.findFirst({
+          where: { tenantId, customerId },
+          orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+          select: { preference: true, source: true, capturedAt: true },
+        });
+      const registrationConsent = latestEvent
+        ? null
+        : await prisma.customerConsent.findFirst({
+            where: { tenantId, customerId },
+            select: { marketingOptIn: true, capturedAt: true },
+          });
+      const alreadyOptedOut =
+        latestEvent?.preference === CustomerMarketingPreference.OPTED_OUT;
+      const event = alreadyOptedOut
+        ? null
+        : await prisma.customerMarketingPreferenceEvent.create({
+            data: {
+              tenantId,
+              customerId,
+              capturedBy: actor.user.id,
+              branchId,
+              preference: CustomerMarketingPreference.OPTED_OUT,
+              source: CustomerMarketingPreferenceSource.IN_STORE,
+            },
+            select: { capturedAt: true },
+          });
+
+      if (event) {
+        await this.auditService.recordWithClient(prisma, {
+          tenantId,
+          actorId: actor.user.id,
+          action: 'customer.marketing_preference.withdrawn',
+          entityType: 'customer',
+          entityId: customerId,
+          metadata: {
+            branchId,
+            preference: CustomerMarketingPreference.OPTED_OUT,
+            source: CustomerMarketingPreferenceSource.IN_STORE,
+          },
+        });
+      }
+
+      const response = {
+        status: CustomerMarketingPreference.OPTED_OUT,
+        source: CustomerMarketingPreferenceSource.IN_STORE,
+        updatedAt: (
+          event?.capturedAt ??
+          latestEvent?.capturedAt ??
+          registrationConsent?.capturedAt ??
+          new Date()
+        ).toISOString(),
+        alreadyOptedOut,
+      };
+
+      await prisma.idempotencyRecord.update({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId,
+            actorId: actor.user.id,
+            endpoint,
+            idempotencyKey: normalizedKey,
+          },
+        },
+        data: {
+          status: IdempotencyRecordStatus.COMPLETED,
+          responseJson: response,
+        },
+      });
+
+      return response;
+    });
   }
 
   async createCustomer(
@@ -1036,6 +1274,32 @@ function normalizeCustomerIdempotencyKey(value: string | undefined): string {
 
 function hashCustomerRequest(value: Record<string, unknown>): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function effectiveMarketingPreference(
+  consent: { marketingOptIn: boolean; capturedAt: Date } | null,
+  event: {
+    preference: CustomerMarketingPreference;
+    source: CustomerMarketingPreferenceSource;
+    capturedAt: Date;
+  } | null,
+  unavailable = false,
+): EffectiveMarketingPreference {
+  if (unavailable) {
+    return { status: 'UNAVAILABLE', source: null, updatedAt: null };
+  }
+  if (event) {
+    return {
+      status: event.preference,
+      source: event.source,
+      updatedAt: event.capturedAt.toISOString(),
+    };
+  }
+  return {
+    status: consent?.marketingOptIn ? 'OPTED_IN' : 'NOT_OPTED_IN',
+    source: consent ? 'REGISTRATION' : 'NOT_RECORDED',
+    updatedAt: consent?.capturedAt.toISOString() ?? null,
+  };
 }
 
 async function findCustomerIdempotency(

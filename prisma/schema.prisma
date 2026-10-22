@@ -75,6 +75,15 @@ enum CustomerStatus {
   BLOCKED
 }
 
+enum CustomerMarketingPreference {
+  OPTED_IN
+  OPTED_OUT
+}
+
+enum CustomerMarketingPreferenceSource {
+  IN_STORE
+}
+
 enum CardStatus {
   ACTIVE
   BLOCKED
@@ -204,6 +213,7 @@ model Tenant {
   users                  User[]
   customers              Customer[]
   customerConsents       CustomerConsent[]
+  customerMarketingPreferenceEvents CustomerMarketingPreferenceEvent[]
   cards                  Card[]
   receipts               Receipt[]
   ledgerEntries          LoyaltyLedgerEntry[]
@@ -238,6 +248,7 @@ model Branch {
   devices             Device[]
   users               User[]
   customers           Customer[]
+  customerMarketingPreferenceEvents CustomerMarketingPreferenceEvent[]
   receipts            Receipt[]
   redemptions         Redemption[]
   policyConfiguration PolicyConfiguration?
@@ -295,6 +306,7 @@ model User {
   cashierLoginAttempts CashierLoginAttempt[]
   registeredCustomers  Customer[]                  @relation("CustomerRegisteredBy")
   customerConsents     CustomerConsent[]           @relation("CustomerConsentCapturedBy")
+  customerMarketingPreferenceEvents CustomerMarketingPreferenceEvent[] @relation("CustomerMarketingPreferenceCapturedBy")
   cardsIssued          Card[]                      @relation("CardIssuedBy")
   receiptsCaptured     Receipt[]                   @relation("ReceiptCapturedBy")
   receiptsReviewed     Receipt[]                   @relation("ReceiptReviewedBy")
@@ -466,6 +478,7 @@ model Customer {
   redemptions           Redemption[]
   adjustments           Adjustment[]
   consents              CustomerConsent[]
+  marketingPreferenceEvents CustomerMarketingPreferenceEvent[]
 
   @@unique([tenantId, phoneE164])
   @@unique([tenantId, email])
@@ -491,6 +504,25 @@ model CustomerConsent {
   @@unique([tenantId, customerId])
   @@index([tenantId, capturedAt])
   @@index([tenantId, capturedBy])
+}
+
+model CustomerMarketingPreferenceEvent {
+  id             String                            @id @default(uuid())
+  tenantId       String
+  customerId     String
+  capturedBy     String
+  branchId       String
+  preference     CustomerMarketingPreference
+  source         CustomerMarketingPreferenceSource
+  capturedAt     DateTime                          @default(now())
+  tenant         Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  customer       Customer                          @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  capturedByUser User                              @relation("CustomerMarketingPreferenceCapturedBy", fields: [tenantId, capturedBy], references: [tenantId, id], onDelete: Restrict)
+  branch         Branch                            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, customerId, capturedAt])
+  @@index([tenantId, branchId, capturedAt])
+  @@index([tenantId, capturedBy, capturedAt])
 }
 
 model Card {

@@ -1543,7 +1543,7 @@ export function CustomerDetailsDialog({
                             </dd>
                           </div>
                           <div>
-                            <dt>Marketing opt-in</dt>
+                            <dt>Marketing choice at registration</dt>
                             <dd>
                               {projection.consent.marketingOptIn
                                 ? 'Opted in'
@@ -1576,8 +1576,53 @@ export function CustomerDetailsDialog({
                           </div>
                         </dl>
                       ) : (
-                        <p>No consent record was returned.</p>
+                        <p>No registration consent record was returned.</p>
                       )}
+                      {projection?.marketingPreference ? (
+                        <dl
+                          className="supervisor-profile-consent-grid"
+                          aria-label="Current marketing preference"
+                        >
+                          <div>
+                            <dt>Current marketing preference</dt>
+                            <dd>
+                              {projection.marketingPreference.status ===
+                              'OPTED_IN'
+                                ? 'Opted in'
+                                : projection.marketingPreference.status ===
+                                    'OPTED_OUT'
+                                  ? 'Opted out'
+                                  : projection.marketingPreference.status ===
+                                      'NOT_OPTED_IN'
+                                    ? 'Not opted in'
+                                    : 'Unavailable'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Preference source</dt>
+                            <dd>
+                              {projection.marketingPreference.source ===
+                              'IN_STORE'
+                                ? 'In-store request'
+                                : projection.marketingPreference.source ===
+                                    'REGISTRATION'
+                                  ? 'Registration'
+                                  : projection.marketingPreference.source ===
+                                      'NOT_RECORDED'
+                                    ? 'No recorded opt-in'
+                                    : 'Unavailable'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Preference updated</dt>
+                            <dd>
+                              {profileDate(
+                                projection.marketingPreference.updatedAt,
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                      ) : null}
                     </section>
                   )}
                 </>

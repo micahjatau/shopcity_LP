@@ -71,6 +71,16 @@ export class UpdateCustomerDto {
   email?: string;
 }
 
+export class WithdrawCustomerMarketingPreferenceDto {
+  @ApiProperty({
+    description:
+      'Authenticated store staff confirms the customer requested this change in person',
+  })
+  @IsDefined()
+  @IsBoolean()
+  confirmedInPersonRequest!: boolean;
+}
+
 export class UpdateCustomerStatusDto {
   @ApiProperty({ enum: ['ACTIVE', 'BLOCKED'] })
   @IsIn(['ACTIVE', 'BLOCKED'])

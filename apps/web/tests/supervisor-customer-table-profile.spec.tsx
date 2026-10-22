@@ -1234,6 +1234,11 @@ describe('table-first customer workflow', () => {
               privacyNoticeVersion: 'v2.0',
               capturedAt: '2024-01-02T00:00:00.000Z',
             },
+            marketingPreference: {
+              status: 'OPTED_OUT',
+              source: 'IN_STORE',
+              updatedAt: '2026-10-22T12:00:00.000Z',
+            },
             card: {
               identifier: 'CARD-REAL-1',
               status: 'ACTIVE',
@@ -1451,6 +1456,10 @@ describe('table-first customer workflow', () => {
     ).toHaveAttribute('aria-current', 'page');
     fireEvent.click(screen.getByRole('button', { name: 'Consent' }));
     expect(screen.getByText('Granted')).toBeVisible();
+    expect(screen.getByText('Marketing choice at registration')).toBeVisible();
+    expect(screen.getByText('Current marketing preference')).toBeVisible();
+    expect(screen.getByText('Opted out')).toBeVisible();
+    expect(screen.getByText('In-store request')).toBeVisible();
     expect(
       document.querySelector('.sc-customer-details__form'),
     ).not.toBeInTheDocument();

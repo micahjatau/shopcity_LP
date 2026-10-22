@@ -109,6 +109,151 @@ describe('phase 1 service flows', () => {
     expect(customers).toHaveLength(1);
   });
 
+  it('records store marketing withdrawal without changing registration consent', async () => {
+    const seed = await seedFoundation(prisma, {
+      supabaseAdminClient: createSupabaseAdminStub(),
+    });
+    const service = new CustomersService(prisma as never, auditStub() as never);
+    const created = await service.createCustomer(
+      seed.tenant.id,
+      seed.actor,
+      {
+        fullName: 'Grace Hopper',
+        phone: '+2348012345670',
+        cardSerialNumber: 'SC-MARKETING-OPT-OUT-001',
+        loyaltyConsent: true,
+        marketingOptIn: true,
+      },
+      'phase-1-marketing-customer-create',
+    );
+
+    const withdrawal = await service.withdrawCustomerMarketingPreference(
+      seed.tenant.id,
+      seed.actor,
+      created.id,
+      true,
+      'phase-1-marketing-withdrawal',
+    );
+    const replay = await service.withdrawCustomerMarketingPreference(
+      seed.tenant.id,
+      seed.actor,
+      created.id,
+      true,
+      'phase-1-marketing-withdrawal',
+    );
+    const preference = await service.getCustomerMarketingPreference(
+      seed.tenant.id,
+      created.id,
+      seed.actor,
+    );
+    const events = await prisma.customerMarketingPreferenceEvent.findMany({
+      where: { tenantId: seed.tenant.id, customerId: created.id },
+    });
+    const originalConsent = await prisma.customerConsent.findFirstOrThrow({
+      where: { tenantId: seed.tenant.id, customerId: created.id },
+    });
+
+    expect(withdrawal).toMatchObject({
+      status: 'OPTED_OUT',
+      source: 'IN_STORE',
+      alreadyOptedOut: false,
+    });
+    expect(replay).toEqual(withdrawal);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      tenantId: seed.tenant.id,
+      customerId: created.id,
+      capturedBy: seed.user.id,
+      branchId: seed.branch.id,
+      preference: 'OPTED_OUT',
+      source: 'IN_STORE',
+    });
+    expect(preference).toMatchObject({
+      status: 'OPTED_OUT',
+      source: 'IN_STORE',
+    });
+    expect(originalConsent.marketingOptIn).toBe(true);
+    await expect(
+      prisma.customerMarketingPreferenceEvent.update({
+        where: { id: events[0].id },
+        data: { preference: 'OPTED_IN' },
+      }),
+    ).rejects.toThrow(
+      'CustomerMarketingPreferenceEvent records are append-only',
+    );
+    await expect(
+      prisma.customerMarketingPreferenceEvent.delete({
+        where: { id: events[0].id },
+      }),
+    ).rejects.toThrow(
+      'CustomerMarketingPreferenceEvent records are append-only',
+    );
+  });
+
+  it('rolls back withdrawal evidence and idempotency when audit recording fails', async () => {
+    const seed = await seedFoundation(prisma, {
+      supabaseAdminClient: createSupabaseAdminStub(),
+    });
+    const creatingService = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+    );
+    const created = await creatingService.createCustomer(
+      seed.tenant.id,
+      seed.actor,
+      {
+        fullName: 'Katherine Johnson',
+        phone: '+2348012345671',
+        cardSerialNumber: 'SC-MARKETING-OPT-OUT-002',
+        loyaltyConsent: true,
+        marketingOptIn: true,
+      },
+      'phase-1-marketing-customer-create-audit-failure',
+    );
+    const failingAudit = {
+      record: jest.fn().mockResolvedValue(undefined),
+      recordWithClient: jest.fn().mockRejectedValue(new Error('audit failed')),
+    };
+    const service = new CustomersService(
+      prisma as never,
+      failingAudit as never,
+    );
+    const idempotencyKey = 'phase-1-marketing-withdrawal-audit-failure';
+
+    await expect(
+      service.withdrawCustomerMarketingPreference(
+        seed.tenant.id,
+        seed.actor,
+        created.id,
+        true,
+        idempotencyKey,
+      ),
+    ).rejects.toThrow('audit failed');
+
+    await expect(
+      prisma.customerMarketingPreferenceEvent.count({
+        where: { tenantId: seed.tenant.id, customerId: created.id },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.idempotencyRecord.findUnique({
+        where: {
+          tenantId_actorId_endpoint_idempotencyKey: {
+            tenantId: seed.tenant.id,
+            actorId: seed.user.id,
+            endpoint: 'customers.marketingPreference.withdraw',
+            idempotencyKey,
+          },
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.customerConsent.findFirstOrThrow({
+        where: { tenantId: seed.tenant.id, customerId: created.id },
+      }),
+    ).resolves.toMatchObject({ marketingOptIn: true });
+  });
+
   it('preserves card replacement history', async () => {
     const seed = await seedFoundation(prisma, {
       supabaseAdminClient: createSupabaseAdminStub(),

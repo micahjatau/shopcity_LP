@@ -146,6 +146,11 @@ export interface CreateCustomerDto {
   branchId?: string;
 }
 
+export interface WithdrawCustomerMarketingPreferenceDto {
+  /** Authenticated store staff confirms the customer requested this change in person */
+  confirmedInPersonRequest: boolean;
+}
+
 export interface UpdateCustomerDto {
   fullName?: string;
   phone?: string;
@@ -7249,6 +7254,7 @@ export const CustomersControllerGetCustomerProfileProjectionV1200DataSourceError
     redemptions: 'redemptions',
     approvals: 'approvals',
     statusEvents: 'statusEvents',
+    marketingPreference: 'marketingPreference',
   } as const;
 
 export type CustomersControllerGetCustomerProfileProjectionV1200DataExpiryScheduleItem =
@@ -7363,6 +7369,40 @@ export type CustomersControllerGetCustomerProfileProjectionV1200DataConsent = {
   capturedAt: string;
 } | null;
 
+export type CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus =
+  (typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus];
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus =
+  {
+    OPTED_IN: 'OPTED_IN',
+    OPTED_OUT: 'OPTED_OUT',
+    NOT_OPTED_IN: 'NOT_OPTED_IN',
+    UNAVAILABLE: 'UNAVAILABLE',
+  } as const;
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource =
+  | (typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource)[keyof typeof CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource]
+  | null;
+
+export const CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource =
+  {
+    IN_STORE: 'IN_STORE',
+    REGISTRATION: 'REGISTRATION',
+    NOT_RECORDED: 'NOT_RECORDED',
+  } as const;
+
+export type CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreference =
+  {
+    status: CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceStatus;
+    /** @nullable */
+    source: CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreferenceSource;
+    /** @nullable */
+    updatedAt: string | null;
+  };
+
 /**
  * @nullable
  */
@@ -7394,6 +7434,7 @@ export type CustomersControllerGetCustomerProfileProjectionV1200Data = {
   approvals: CustomersControllerGetCustomerProfileProjectionV1200DataApprovalsItem[];
   /** @nullable */
   consent: CustomersControllerGetCustomerProfileProjectionV1200DataConsent;
+  marketingPreference: CustomersControllerGetCustomerProfileProjectionV1200DataMarketingPreference;
   /** @nullable */
   card: CustomersControllerGetCustomerProfileProjectionV1200DataCard;
 };
@@ -7624,6 +7665,514 @@ export type CustomersControllerGetCustomerProfileProjectionV1503 = {
   success: boolean;
   error: CustomersControllerGetCustomerProfileProjectionV1503Error;
   meta: CustomersControllerGetCustomerProfileProjectionV1503Meta;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1200DataStatus =
+  (typeof CustomersControllerGetMarketingPreferenceV1200DataStatus)[keyof typeof CustomersControllerGetMarketingPreferenceV1200DataStatus];
+
+export const CustomersControllerGetMarketingPreferenceV1200DataStatus = {
+  OPTED_IN: 'OPTED_IN',
+  OPTED_OUT: 'OPTED_OUT',
+  NOT_OPTED_IN: 'NOT_OPTED_IN',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1200DataSource =
+  | (typeof CustomersControllerGetMarketingPreferenceV1200DataSource)[keyof typeof CustomersControllerGetMarketingPreferenceV1200DataSource]
+  | null;
+
+export const CustomersControllerGetMarketingPreferenceV1200DataSource = {
+  IN_STORE: 'IN_STORE',
+  REGISTRATION: 'REGISTRATION',
+  NOT_RECORDED: 'NOT_RECORDED',
+} as const;
+
+export type CustomersControllerGetMarketingPreferenceV1200Data = {
+  status: CustomersControllerGetMarketingPreferenceV1200DataStatus;
+  /** @nullable */
+  source: CustomersControllerGetMarketingPreferenceV1200DataSource;
+  /** @nullable */
+  updatedAt: string | null;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1200Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1200 = {
+  success: boolean;
+  data: CustomersControllerGetMarketingPreferenceV1200Data;
+  meta: CustomersControllerGetMarketingPreferenceV1200Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1400ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1400 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1400Error;
+  meta: CustomersControllerGetMarketingPreferenceV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1401ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1401 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1401Error;
+  meta: CustomersControllerGetMarketingPreferenceV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1403ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1403 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1403Error;
+  meta: CustomersControllerGetMarketingPreferenceV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1404ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1404 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1404Error;
+  meta: CustomersControllerGetMarketingPreferenceV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1409ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1409 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1409Error;
+  meta: CustomersControllerGetMarketingPreferenceV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1422ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1422 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1422Error;
+  meta: CustomersControllerGetMarketingPreferenceV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1429ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1429 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1429Error;
+  meta: CustomersControllerGetMarketingPreferenceV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerGetMarketingPreferenceV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerGetMarketingPreferenceV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerGetMarketingPreferenceV1503ErrorDetails;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerGetMarketingPreferenceV1503 = {
+  success: boolean;
+  error: CustomersControllerGetMarketingPreferenceV1503Error;
+  meta: CustomersControllerGetMarketingPreferenceV1503Meta;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201DataStatus =
+  (typeof CustomersControllerWithdrawMarketingPreferenceV1201DataStatus)[keyof typeof CustomersControllerWithdrawMarketingPreferenceV1201DataStatus];
+
+export const CustomersControllerWithdrawMarketingPreferenceV1201DataStatus = {
+  OPTED_OUT: 'OPTED_OUT',
+} as const;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201DataSource =
+  (typeof CustomersControllerWithdrawMarketingPreferenceV1201DataSource)[keyof typeof CustomersControllerWithdrawMarketingPreferenceV1201DataSource];
+
+export const CustomersControllerWithdrawMarketingPreferenceV1201DataSource = {
+  IN_STORE: 'IN_STORE',
+} as const;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201Data = {
+  status: CustomersControllerWithdrawMarketingPreferenceV1201DataStatus;
+  source: CustomersControllerWithdrawMarketingPreferenceV1201DataSource;
+  updatedAt: string;
+  alreadyOptedOut: boolean;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1201 = {
+  success: boolean;
+  data: CustomersControllerWithdrawMarketingPreferenceV1201Data;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1201Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1400ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1400Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1400ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1400Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1400 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1400Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1400Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1401ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1401Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1401ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1401Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1401 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1401Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1401Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1403ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1403Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1403ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1403Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1403 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1403Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1403Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1404ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1404Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1404ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1404Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1404 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1404Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1404Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1409ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1409Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1409ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1409Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1409 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1409Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1409Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1422ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1422Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1422ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1422Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1422 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1422Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1422Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1429ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1429Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1429ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1429Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1429 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1429Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1429Meta;
+};
+
+/**
+ * @nullable
+ */
+export type CustomersControllerWithdrawMarketingPreferenceV1503ErrorDetails = {
+  [key: string]: unknown;
+} | null;
+
+export type CustomersControllerWithdrawMarketingPreferenceV1503Error = {
+  statusCode: number;
+  code: string;
+  message: string;
+  /** @nullable */
+  details?: CustomersControllerWithdrawMarketingPreferenceV1503ErrorDetails;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1503Meta = {
+  timestamp: string;
+  path: string;
+  requestId: string;
+};
+
+export type CustomersControllerWithdrawMarketingPreferenceV1503 = {
+  success: boolean;
+  error: CustomersControllerWithdrawMarketingPreferenceV1503Error;
+  meta: CustomersControllerWithdrawMarketingPreferenceV1503Meta;
 };
 
 export type CustomersControllerGetCustomerV1200Data = {
@@ -22186,6 +22735,219 @@ export const customersControllerGetCustomerProfileProjectionV1 = async (
     status: res.status,
     headers: res.headers,
   } as customersControllerGetCustomerProfileProjectionV1Response;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response200 = {
+  data: CustomersControllerGetMarketingPreferenceV1200;
+  status: 200;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response400 = {
+  data: CustomersControllerGetMarketingPreferenceV1400;
+  status: 400;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response401 = {
+  data: CustomersControllerGetMarketingPreferenceV1401;
+  status: 401;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response403 = {
+  data: CustomersControllerGetMarketingPreferenceV1403;
+  status: 403;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response404 = {
+  data: CustomersControllerGetMarketingPreferenceV1404;
+  status: 404;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response409 = {
+  data: CustomersControllerGetMarketingPreferenceV1409;
+  status: 409;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response422 = {
+  data: CustomersControllerGetMarketingPreferenceV1422;
+  status: 422;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response429 = {
+  data: CustomersControllerGetMarketingPreferenceV1429;
+  status: 429;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response503 = {
+  data: CustomersControllerGetMarketingPreferenceV1503;
+  status: 503;
+};
+
+export type customersControllerGetMarketingPreferenceV1ResponseSuccess =
+  customersControllerGetMarketingPreferenceV1Response200 & {
+    headers: Headers;
+  };
+export type customersControllerGetMarketingPreferenceV1ResponseError = (
+  | customersControllerGetMarketingPreferenceV1Response400
+  | customersControllerGetMarketingPreferenceV1Response401
+  | customersControllerGetMarketingPreferenceV1Response403
+  | customersControllerGetMarketingPreferenceV1Response404
+  | customersControllerGetMarketingPreferenceV1Response409
+  | customersControllerGetMarketingPreferenceV1Response422
+  | customersControllerGetMarketingPreferenceV1Response429
+  | customersControllerGetMarketingPreferenceV1Response503
+) & {
+  headers: Headers;
+};
+
+export type customersControllerGetMarketingPreferenceV1Response =
+  | customersControllerGetMarketingPreferenceV1ResponseSuccess
+  | customersControllerGetMarketingPreferenceV1ResponseError;
+
+export const getCustomersControllerGetMarketingPreferenceV1Url = (
+  id: string,
+) => {
+  return `/api/v1/customers/${id}/marketing-preference`;
+};
+
+/**
+ * Read a customer marketing preference
+ * @summary Read a customer marketing preference
+ */
+export const customersControllerGetMarketingPreferenceV1 = async (
+  id: string,
+  options?: RequestInit,
+): Promise<customersControllerGetMarketingPreferenceV1Response> => {
+  const res = await fetch(
+    getCustomersControllerGetMarketingPreferenceV1Url(id),
+    {
+      ...options,
+      method: 'GET',
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: customersControllerGetMarketingPreferenceV1Response['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as customersControllerGetMarketingPreferenceV1Response;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response201 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1201;
+  status: 201;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response400 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1400;
+  status: 400;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response401 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1401;
+  status: 401;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response403 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1403;
+  status: 403;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response404 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1404;
+  status: 404;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response409 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1409;
+  status: 409;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response422 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1422;
+  status: 422;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response429 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1429;
+  status: 429;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response503 = {
+  data: CustomersControllerWithdrawMarketingPreferenceV1503;
+  status: 503;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1ResponseSuccess =
+  customersControllerWithdrawMarketingPreferenceV1Response201 & {
+    headers: Headers;
+  };
+export type customersControllerWithdrawMarketingPreferenceV1ResponseError = (
+  | customersControllerWithdrawMarketingPreferenceV1Response400
+  | customersControllerWithdrawMarketingPreferenceV1Response401
+  | customersControllerWithdrawMarketingPreferenceV1Response403
+  | customersControllerWithdrawMarketingPreferenceV1Response404
+  | customersControllerWithdrawMarketingPreferenceV1Response409
+  | customersControllerWithdrawMarketingPreferenceV1Response422
+  | customersControllerWithdrawMarketingPreferenceV1Response429
+  | customersControllerWithdrawMarketingPreferenceV1Response503
+) & {
+  headers: Headers;
+};
+
+export type customersControllerWithdrawMarketingPreferenceV1Response =
+  | customersControllerWithdrawMarketingPreferenceV1ResponseSuccess
+  | customersControllerWithdrawMarketingPreferenceV1ResponseError;
+
+export const getCustomersControllerWithdrawMarketingPreferenceV1Url = (
+  id: string,
+) => {
+  return `/api/v1/customers/${id}/marketing-preference/withdrawal`;
+};
+
+/**
+ * Record an in-store marketing preference withdrawal
+ * @summary Record an in-store marketing preference withdrawal
+ */
+export const customersControllerWithdrawMarketingPreferenceV1 = async (
+  id: string,
+  withdrawCustomerMarketingPreferenceDto: WithdrawCustomerMarketingPreferenceDto,
+  options?: RequestInit,
+): Promise<customersControllerWithdrawMarketingPreferenceV1Response> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Array.isArray(h)) return Object.fromEntries(h);
+    return h;
+  };
+  const res = await fetch(
+    getCustomersControllerWithdrawMarketingPreferenceV1Url(id),
+    {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getHeaders(options?.headers),
+      },
+      body: JSON.stringify(withdrawCustomerMarketingPreferenceDto),
+    },
+  );
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: customersControllerWithdrawMarketingPreferenceV1Response['data'] =
+    body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as customersControllerWithdrawMarketingPreferenceV1Response;
 };
 
 export type customersControllerGetCustomerV1Response200 = {
