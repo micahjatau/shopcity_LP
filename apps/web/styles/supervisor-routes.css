@@ -1184,17 +1184,18 @@
 }
 
 .supervisor-transaction-refresh {
-  display: inline-flex;
+  display: inline-block;
   min-height: 40px;
-  align-items: center;
-  justify-content: center;
   padding: 0 12px;
+  text-align: center;
+  vertical-align: middle;
   border: 1px solid #ded9da;
   border-radius: 999px;
   background: #f6f4f5;
   color: #4a4a4a;
   font: inherit;
   font-size: 12px;
+  line-height: 38px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1202,6 +1203,8 @@
 .supervisor-page .supervisor-transaction-refresh-content {
   display: inline-flex !important;
   align-items: center;
+  line-height: normal;
+  vertical-align: middle;
   justify-content: center;
   gap: 7px;
   white-space: nowrap;

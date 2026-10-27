@@ -470,7 +470,7 @@
   min-width: 0;
 }
 
-@media (min-width: 621px) and (max-width: 920px) {
+@media (min-width: 621px) and (max-width: 1024px) {
   .global-shell-search .global-shell-search__row {
     display: grid;
     width: 100%;
