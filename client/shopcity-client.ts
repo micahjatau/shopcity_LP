@@ -7252,6 +7252,8 @@ export const CustomersControllerGetCustomerProfileProjectionV1200DataSourceError
     walletLedger: 'walletLedger',
     transactions: 'transactions',
     redemptions: 'redemptions',
+    transactionCount: 'transactionCount',
+    redemptionCount: 'redemptionCount',
     approvals: 'approvals',
     statusEvents: 'statusEvents',
     marketingPreference: 'marketingPreference',
@@ -7418,6 +7420,16 @@ export type CustomersControllerGetCustomerProfileProjectionV1200Data = {
   customerId: string;
   sourceErrors: CustomersControllerGetCustomerProfileProjectionV1200DataSourceErrorsItem[];
   memberSince: string;
+  /**
+   * Count of all persisted tenant/customer receipt records, regardless of status; null if its count query fails.
+   * @nullable
+   */
+  transactionCount: number | null;
+  /**
+   * Count of all persisted tenant/customer redemption records, regardless of status; null if its count query fails.
+   * @nullable
+   */
+  redemptionCount: number | null;
   /** @nullable */
   pendingApprovalsCount: number | null;
   /** @nullable */
@@ -13443,6 +13455,13 @@ export type ReversalsControllerReverseV1201DataRestorationsItem = {
 };
 
 export type ReversalsControllerReverseV1201Data = {
+  receiptId?: string;
+  originalRedemptionTransactionId?: string;
+  originalEarnTransactionId?: string;
+  redemptionReversalTransactionId?: string;
+  earnReversalTransactionId?: string;
+  earnRemovedAmountKobo?: number;
+  redeemedRestoredAmountKobo?: number;
   id: string;
   transactionId: string;
   originalTransactionId: string;

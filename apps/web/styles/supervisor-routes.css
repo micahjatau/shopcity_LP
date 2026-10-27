@@ -557,6 +557,25 @@
   overflow-y: auto;
 }
 
+.supervisor-customer-registration-consent__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-spacing-2);
+  cursor: pointer;
+}
+
+.supervisor-customer-registration-consent__option
+  .supervisor-customer-registration-consent__checkbox {
+  flex: 0 0 18px;
+  margin-top: 2px;
+}
+
+.supervisor-customer-registration-consent__option
+  .supervisor-customer-registration-consent__checkbox:focus-visible {
+  outline: 2px solid var(--sc-color-semantic-actionPrimary);
+  outline-offset: 2px;
+}
+
 .supervisor-registration-success__check {
   width: 64px;
   height: 64px;
@@ -1649,6 +1668,18 @@
 
 .device-management-page .device-management__list-panel {
   overflow: visible;
+}
+
+.device-management__list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-spacing-3);
+  margin-bottom: var(--sc-spacing-3);
+}
+
+.device-management__list-heading h2 {
+  margin: 0;
 }
 
 .device-management__selector-dropdown {
@@ -4777,6 +4808,10 @@
   text-align: left;
 }
 
+.supervisor-profile-redemptions__table {
+  min-width: 34rem;
+}
+
 .supervisor-profile-transactions__table th {
   padding: var(--sc-spacing-4) var(--sc-spacing-5);
   border-bottom: 1px solid var(--sc-color-semantic-border);
@@ -4805,6 +4840,30 @@
   color: var(--sc-color-neutral-900);
   font-weight: var(--sc-font-weight-medium);
   white-space: nowrap;
+}
+
+.supervisor-profile-redemptions__table td:nth-child(2) {
+  color: var(--sc-color-neutral-900);
+  font-weight: var(--sc-font-weight-medium);
+  white-space: nowrap;
+}
+
+.supervisor-profile-redemptions__table td:nth-child(3) {
+  color: var(--sc-color-neutral-600);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.supervisor-profile-redemptions__requested-amount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sc-spacing-2);
+}
+
+.supervisor-profile-redemptions__requested-amount > span {
+  color: var(--sc-color-neutral-600);
+  font-size: var(--sc-font-size-profile-caption);
+  font-weight: var(--sc-font-weight-medium);
 }
 
 .supervisor-profile-transactions__table

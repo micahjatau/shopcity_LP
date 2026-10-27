@@ -20,7 +20,7 @@
 ## 4. Notifications and reversal safety
 
 - [x] 4.1 Extend the redemption SMS payload/template to report redemption, Earn, and closing balance once while retaining legacy payload rendering; verify SMS template/provider tests. Worker-recovery integration remains covered by the blocked integration gate.
-- [x] 4.2 Reject single-leg reversal of a paired settlement with `REVERSAL_REVIEW_REQUIRED` before mutation; verify paired-settlement and ordinary single-effect reversal service tests.
+- [x] 4.2 Initially reject single-leg reversal of a paired settlement with `REVERSAL_REVIEW_REQUIRED` before mutation; verify paired-settlement and ordinary single-effect reversal service tests. This temporary guard is superseded after release by the approved grouped reversal tracked in `repo-review-closure`.
 
 ## 5. Cashier experience
 

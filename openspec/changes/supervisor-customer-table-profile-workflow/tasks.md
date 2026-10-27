@@ -24,9 +24,10 @@
 - [x] 3.4 Add the profile header, four summary cards, tabs, customer details, and responsive Overview composition from the supplied references; verify supported API-backed values are authoritative and SVG assets remain unchanged.
 - [x] 3.5 Connect recent earnings, redemptions, approval outcomes, customer/card blocks, card issuance, and the expiry schedule to existing API sources or a narrowly scoped read-only customer endpoint; add loading, error, and empty states without schema or ledger/card lifecycle writes.
 - [x] 3.6 Add Capture purchase and Redeem Credit actions that enter the existing protected workflows with stable customer context where supported; verify no profile-level write bypasses existing authorization, CSRF, idempotency, verification, or approval safeguards.
-- [x] 3.7 Render the reference customer-details fields read-only from verified data, label unsupported birthday/count values as Not provided, and open the existing editor in an accessible modal; verify explicit dirty-edit keep/discard handling and that only a verified save closes the editor while remaining on the profile.
+- [x] 3.7 Render the reference customer-details fields read-only from verified data, label unsupported birthday month as Not provided, and open the existing editor in an accessible modal; verify explicit dirty-edit keep/discard handling and that only a verified save closes the editor while remaining on the profile.
 - [x] 3.8 Replace the Next expiry summary card with Annual Purchases and show Not provided until an authoritative annual-purchases value is available; keep the expiry schedule separate.
 - [x] 3.9 Extend the authenticated Supervisor profile projection with each receipt's operation/status and confirmed earned/redeemed ledger movements; preserve combined settlement effects and keep pending requests distinct from confirmed movements.
+- [x] 3.10 Add tenant/customer-scoped lifetime counts of persisted receipts and redemptions to the authenticated profile projection, display them on the customer-details card, and verify zero values, independent query failures, and values beyond the bounded activity lists. Verified with customer service/controller Jest tests (14 passed), customer profile Jest tests (28 passed), root/web/client typechecks, backend build, OpenAPI lint, web lint (0 errors; one warning in an untouched file), OpenSpec validation (55 items), and `git diff --check`.
 
 ## 4. Complete visual, responsive, and accessibility acceptance
 
@@ -39,6 +40,7 @@
 - [x] 4.7 Move the verified ShopCity card preview from Manage cards to the customer profile Virtual Card tab; retain authoritative profile data, verified management details, and all protected management actions.
 - [x] 4.8 Use the supplied `IMG-20260802-WA0001.jpg` as the Virtual Card preview background, preserve the asset unchanged, and verify it loads in the profile workflow.
 - [x] 4.9 Open the protected card-management workflow from Virtual Card in an accessible in-profile dialog, prefill the assigned serial without skipping lookup/re-verification, and remain on the profile when closing.
+- [x] 4.10 Render the Supervisor Redemptions tab as a Transactions-styled table using only returned date, confirmed/requested amount, and status; distinguish requested amounts and preserve empty/error states. Verified with the focused Supervisor customer profile Jest suite (27 tests passed); no API or financial behavior changed.
 
 ## 5. Verify and close the change
 

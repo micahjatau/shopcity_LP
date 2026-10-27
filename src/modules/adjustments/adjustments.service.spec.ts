@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import {
   CustomerStatus,
   SessionStatus,
@@ -155,6 +156,168 @@ describe('AdjustmentsService', () => {
     expect(tx.idempotencyRecord.create).toHaveBeenCalledTimes(1);
   });
 
+  it('replays a completed matching idempotency record without financial writes', async () => {
+    const tx = transactionClient();
+    const storedResponse = {
+      id: 'adjustment-original',
+      transactionId: 'ledger-original',
+      adjustmentId: 'adjustment-original',
+      customerId: 'customer-1',
+      kind: 'CREDIT',
+      amountKobo: 1_000,
+      newActiveBalanceKobo: 21_000,
+      allocations: [],
+      creditLot: null,
+      smsStatus: 'QUEUED',
+      occurredAt: '2026-07-26T12:00:00.000Z',
+    };
+    const idempotencyRecord = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest.fn().mockResolvedValue({
+        requestHash: adjustmentRequestHash({
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 1_000,
+          reason: 'Service recovery',
+          effectiveAt: '2026-07-26T12:00:00.000Z',
+        }),
+        responseJson: storedResponse,
+      }),
+      create: jest.fn(),
+    };
+    const service = createService({
+      transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+      idempotencyRecord,
+    });
+
+    await expect(
+      service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-replay',
+        {
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 1_000,
+          reason: 'Service recovery',
+          effectiveAt: '2026-07-26T12:00:00.000Z',
+        },
+      ),
+    ).resolves.toEqual(storedResponse);
+
+    expect(tx.loyaltyLedgerEntry.create).not.toHaveBeenCalled();
+    expect(tx.adjustment.create).not.toHaveBeenCalled();
+    expect(tx.creditLot.create).not.toHaveBeenCalled();
+    expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.smsMessage.create).not.toHaveBeenCalled();
+    expect(idempotencyRecord.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a changed payload for a matching idempotency key', async () => {
+    const transaction = jest.fn();
+    const idempotencyRecord = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest.fn().mockResolvedValue({
+        requestHash: 'previous-request-hash',
+        responseJson: { id: 'adjustment-original' },
+      }),
+      create: jest.fn(),
+    };
+    const service = createService({ transaction, idempotencyRecord });
+
+    await expect(
+      service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-conflict',
+        {
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 1_001,
+          reason: 'Service recovery',
+          effectiveAt: '2026-07-26T12:00:00.000Z',
+        },
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'IDEMPOTENCY_CONFLICT' },
+      status: HttpStatus.CONFLICT,
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(idempotencyRecord.create).not.toHaveBeenCalled();
+  });
+
+  it('expires completed idempotency records at the seven-day boundary', async () => {
+    const startedAt = new Date('2026-07-26T12:00:00.000Z');
+    const expiresAt = new Date('2026-08-02T12:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(startedAt);
+    const idempotencyRecord = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({}),
+    };
+    const tx = transactionClient();
+    const service = createService({
+      transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+      idempotencyRecord,
+    });
+
+    try {
+      await service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-expiry',
+        {
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 1_000,
+          reason: 'Service recovery',
+          effectiveAt: startedAt.toISOString(),
+        },
+      );
+
+      const updateData = tx.idempotencyRecord.update.mock.calls[0]?.[0].data;
+      expect(updateData?.expiresAt).toEqual(expiresAt);
+      expect(idempotencyRecord.deleteMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: 'tenant-1',
+          actorId: 'user-1',
+          idempotencyKey: 'idem-expiry',
+          expiresAt: { lte: startedAt },
+        },
+      });
+
+      jest.setSystemTime(expiresAt);
+      await service.createAdjustment(
+        'tenant-1',
+        actor(UserRole.ADMIN),
+        'idem-expiry',
+        {
+          customerId: 'customer-1',
+          kind: 'CREDIT',
+          amountKobo: 1_000,
+          reason: 'Service recovery',
+          effectiveAt: startedAt.toISOString(),
+        },
+      );
+
+      expect(idempotencyRecord.deleteMany).toHaveBeenLastCalledWith({
+        where: {
+          tenantId: 'tenant-1',
+          actorId: 'user-1',
+          idempotencyKey: 'idem-expiry',
+          expiresAt: { lte: expiresAt },
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('rejects adjustments above the configured ceiling before writing', async () => {
     const transaction = jest.fn();
     const service = createService({
@@ -191,6 +354,11 @@ function createService(options?: {
   activeBalanceKobo?: bigint;
   lotAllocationService?: { allocateDebit: jest.Mock };
   config?: Record<string, number>;
+  idempotencyRecord?: {
+    deleteMany: jest.Mock;
+    findUnique: jest.Mock;
+    create: jest.Mock;
+  };
 }) {
   const tx = transactionClient();
   const transaction =
@@ -200,7 +368,7 @@ function createService(options?: {
   return new AdjustmentsService(
     {
       $transaction: transaction,
-      idempotencyRecord: {
+      idempotencyRecord: options?.idempotencyRecord ?? {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({}),
@@ -258,9 +426,29 @@ function transactionClient() {
     },
     idempotencyRecord: {
       create: jest.fn().mockResolvedValue({}),
-      update: jest.fn().mockResolvedValue({}),
+      update: jest
+        .fn<Promise<unknown>, [{ where: unknown; data: { expiresAt: Date } }]>()
+        .mockResolvedValue({}),
     },
   };
+}
+
+function adjustmentRequestHash(input: {
+  customerId: string;
+  kind: 'CREDIT' | 'DEBIT';
+  amountKobo: number;
+  reason: string;
+  effectiveAt: string;
+}): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        tenantId: 'tenant-1',
+        actorId: 'user-1',
+        ...input,
+      }),
+    )
+    .digest('hex');
 }
 
 function actor(role: UserRole): AuthContext {

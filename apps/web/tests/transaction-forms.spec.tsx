@@ -3,6 +3,12 @@ import { EarnTransactionForm } from '../components/workflows/earn-transaction-fo
 import { RedeemTransactionForm } from '../components/workflows/redeem-transaction-form';
 import { saveOfflineEarnRecord } from '../lib/browser/offline-earn-queue';
 import {
+  clearAdjustmentOperationIdentity,
+  getAdjustmentOperationIdentity,
+  type AdjustmentOperationPayload,
+  type AdjustmentOperationStorage,
+} from '../lib/adjustment-operation';
+import {
   loyaltyControllerEarnV1,
   redemptionsControllerRedeemV1,
 } from '../lib/api/generated-client';
@@ -24,6 +30,175 @@ jest.mock('../lib/api/generated-client', () => {
     loyaltyControllerEarnV1: jest.fn(),
     redemptionsControllerRedeemV1: jest.fn(),
   };
+});
+
+describe('adjustment operation identity', () => {
+  const payload: AdjustmentOperationPayload = {
+    customerId: 'customer-1',
+    amountKobo: 500_000,
+    reason: 'Correction',
+    kind: 'CREDIT',
+  };
+  const digest = async (value: string) => {
+    let hash = 2166136261;
+    for (const character of value)
+      hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+    return (hash >>> 0).toString(16).padStart(64, '0');
+  };
+  class MemoryStorage implements AdjustmentOperationStorage {
+    values = new Map<string, string>();
+    getItem(key: string) {
+      return this.values.get(key) ?? null;
+    }
+    setItem(key: string, value: string) {
+      this.values.set(key, value);
+    }
+  }
+  const identityOptions = (
+    storage: AdjustmentOperationStorage,
+    id = '00000000-0000-4000-8000-000000000001',
+    now = '2026-10-17T10:00:00.000Z',
+  ) => ({
+    storage,
+    digest,
+    createId: () => id,
+    now: () => now,
+  });
+
+  it('reuses the persisted identity after remount and changed-then-reverted drafts', async () => {
+    const storage = new MemoryStorage();
+    const first = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(storage),
+    );
+    await getAdjustmentOperationIdentity(
+      { ...payload, amountKobo: 600_000 },
+      identityOptions(storage, '00000000-0000-4000-8000-000000000002'),
+    );
+    const remounted = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(storage, '00000000-0000-4000-8000-000000000003'),
+    );
+    expect(remounted).toEqual(first);
+    const encoded = [...storage.values.values()].join('');
+    expect(encoded).not.toContain(payload.customerId);
+    expect(encoded).not.toContain(payload.reason);
+  });
+
+  it('fails closed for unavailable, corrupt, and expired storage identities', async () => {
+    await expect(
+      getAdjustmentOperationIdentity(payload, {
+        ...identityOptions(new MemoryStorage()),
+        digest: async () => {
+          throw Error('unavailable');
+        },
+      }),
+    ).rejects.toThrow(/uncertain/i);
+    const corrupt = new MemoryStorage();
+    corrupt.setItem('shopcity.adjustment-operation-identities', '{');
+    await expect(
+      getAdjustmentOperationIdentity(payload, identityOptions(corrupt)),
+    ).rejects.toThrow(/uncertain/i);
+    const unavailable: AdjustmentOperationStorage = {
+      getItem: () => {
+        throw new Error('storage disabled');
+      },
+      setItem: () => {
+        throw new Error('storage disabled');
+      },
+    };
+    await expect(
+      getAdjustmentOperationIdentity(payload, identityOptions(unavailable)),
+    ).rejects.toThrow(/uncertain/i);
+    const expired = new MemoryStorage();
+    await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(
+        expired,
+        '00000000-0000-4000-8000-000000000004',
+        '2026-10-01T00:00:00.000Z',
+      ),
+    );
+    await expect(
+      getAdjustmentOperationIdentity(
+        payload,
+        identityOptions(
+          expired,
+          '00000000-0000-4000-8000-000000000005',
+          '2026-10-09T00:00:00.000Z',
+        ),
+      ),
+    ).rejects.toThrow(/expired/i);
+  });
+
+  it('rejects semantically malformed JSON records and duplicate identities', async () => {
+    const valid = {
+      payloadDigest: 'a'.repeat(64),
+      idempotencyKey: '00000000-0000-4000-8000-000000000001',
+      effectiveAt: '2026-10-17T10:00:00.000Z',
+      createdAt: '2026-10-17T10:00:00.000Z',
+    };
+    const malformedRecords = [
+      { ...valid, payloadDigest: 'not-a-digest' },
+      { ...valid, idempotencyKey: '' },
+      { ...valid, idempotencyKey: 'not-a-uuid' },
+      { ...valid, effectiveAt: 'not-a-timestamp' },
+      { ...valid, createdAt: '2026-10-17' },
+      { ...valid, effectiveAt: '2026-10-17T10:00:01.000Z' },
+      [valid, valid],
+      [valid, { ...valid, payloadDigest: 'b'.repeat(64) }],
+    ];
+    for (const record of malformedRecords) {
+      const storage = new MemoryStorage();
+      storage.setItem(
+        'shopcity.adjustment-operation-identities',
+        JSON.stringify(record),
+      );
+      await expect(
+        getAdjustmentOperationIdentity(payload, identityOptions(storage)),
+      ).rejects.toThrow(/uncertain/i);
+    }
+  });
+
+  it('uses a fresh identity for new payloads and clears only a successfully resolved identity', async () => {
+    const storage = new MemoryStorage();
+    const first = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(storage, '00000000-0000-4000-8000-000000000006'),
+    );
+    const otherPayload = { ...payload, amountKobo: 600_000 };
+    const other = await getAdjustmentOperationIdentity(
+      otherPayload,
+      identityOptions(storage, '00000000-0000-4000-8000-000000000007'),
+    );
+    const fresh = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(
+        storage,
+        '00000000-0000-4000-8000-000000000008',
+        '2026-10-18T10:00:00.000Z',
+      ),
+    );
+    expect(fresh).toEqual(first);
+    await clearAdjustmentOperationIdentity(payload, first, { storage, digest });
+    const afterClear = await getAdjustmentOperationIdentity(
+      payload,
+      identityOptions(
+        storage,
+        '00000000-0000-4000-8000-000000000008',
+        '2026-10-18T10:00:00.000Z',
+      ),
+    );
+    expect(afterClear.idempotencyKey).toBe(
+      '00000000-0000-4000-8000-000000000008',
+    );
+    expect(
+      await getAdjustmentOperationIdentity(
+        otherPayload,
+        identityOptions(storage, '00000000-0000-4000-8000-000000000009'),
+      ),
+    ).toEqual(other);
+  });
 });
 
 const lookupContext = {
@@ -611,6 +786,14 @@ describe('cashier transaction forms', () => {
         policyContext={policyContext}
       />,
     );
+
+    const cardPreview = screen.getByRole('img', {
+      name: 'ShopCity card preview for Ada Shopper; card number CARD-001; status Not provided',
+    });
+    expect(cardPreview.querySelector('img')?.getAttribute('src')).toContain(
+      'IMG-20260802-WA0001.jpg',
+    );
+    expect(screen.getByText('Status: Not provided')).toBeInTheDocument();
 
     advanceRedeemToAmount();
     expect(

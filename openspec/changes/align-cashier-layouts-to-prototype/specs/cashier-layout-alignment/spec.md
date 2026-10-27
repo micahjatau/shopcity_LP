@@ -243,6 +243,9 @@ Redeem Credit SHALL use an approximately 720px flow-panel variant that reuses Ca
 - **WHEN** Redeem is rendered at the desktop reference viewport
 - **THEN** lookup, credit summary, basket amount, redemption amount, confirmation, and remaining balance use the intended narrower flow composition
 - **AND** the page does not duplicate the Capture Purchase component appearance owner
+- **AND** the Basket subtotal stage uses the same shared branded virtual-card preview artwork as Capture Purchase, with the verified customer name and authoritative card serial
+- **AND** the preview remains compact, displays card status outside the artwork, and introduces no placeholder or barcode content
+- **AND** the shared preview implementation, exact-card verification, financial behavior, and redemption transitions remain unchanged
 
 #### Scenario: Redeem responsive and protected behavior
 

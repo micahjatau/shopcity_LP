@@ -79,6 +79,22 @@ function profileValue(value: unknown): string {
     : 'Not provided';
 }
 
+function profileCount(
+  value: unknown,
+  sourceUnavailable: boolean,
+): { label: string; available: boolean } {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
+    return {
+      label: new Intl.NumberFormat('en-NG').format(value),
+      available: true,
+    };
+  }
+  return {
+    label: sourceUnavailable ? 'Unavailable' : 'Not provided',
+    available: false,
+  };
+}
+
 function profileCalendarDate(value: unknown): string {
   if (
     typeof value !== 'string' ||
@@ -209,65 +225,115 @@ function CustomerProfileEditorLayer({
 }
 
 function ProfileRows({
-  title,
   rows,
-  kind,
   failed,
   onRetry,
 }: {
-  title: string;
-  rows: Array<Record<string, unknown>>;
-  kind: 'transaction' | 'ledger' | 'redemption';
+  rows: CustomersControllerGetCustomerProfileProjectionV1200Data['redemptions'];
   failed: boolean;
   onRetry: () => void;
 }) {
   return (
-    <section className="supervisor-profile-activity" aria-label={title}>
-      <h3>{title}</h3>
+    <section
+      className="supervisor-profile-activity supervisor-profile-transactions"
+      aria-labelledby="profile-redemptions-title"
+    >
+      <header className="supervisor-profile-transactions__header">
+        <h3 id="profile-redemptions-title">Redemptions</h3>
+        <p id="profile-redemptions-description">
+          Redemption history for this customer.
+        </p>
+      </header>
       {failed ? (
-        <ProfileDataError
-          message={`${title} could not be loaded.`}
-          onRetry={onRetry}
-        />
-      ) : rows.length ? (
-        rows.map((row, index) => {
-          const amount =
-            kind === 'transaction'
-              ? row.purchaseAmountKobo
-              : kind === 'redemption'
-                ? (row.confirmedAmountKobo ?? row.requestedAmountKobo)
-                : row.amountKobo;
-          const date =
-            kind === 'ledger'
-              ? row.effectiveAt
-              : (row.occurredAt ?? row.requestedAt);
-          const status =
-            kind === 'transaction'
-              ? `${profileText(row.captureStatus, 'Capture status not provided')} / ${profileText(row.reviewStatus, 'Review status not provided')}`
-              : profileText(row.status ?? row.type, 'Status not provided');
-          return (
-            <div
-              key={profileText(row.id, `${kind}-${index}`)}
-              className="supervisor-profile-activity__row"
-            >
-              <span>
-                {profileText(
-                  row.type ?? row.targetType,
-                  kind === 'transaction' ? 'Receipt' : title,
-                )}
-              </span>
-              <span>{status}</span>
-              {typeof amount === 'number' ? (
-                <Money amountKobo={amount} />
-              ) : (
-                <span>Amount not provided</span>
-              )}
-              <time>{profileDate(date)}</time>
-            </div>
-          );
-        })
+        <div className="supervisor-profile-transactions__message supervisor-profile-transactions__message--error">
+          <ProfileDataError
+            message="Redemptions could not be loaded."
+            onRetry={onRetry}
+          />
+        </div>
       ) : (
-        <p>No {title.toLowerCase()} were returned.</p>
+        <div className="supervisor-profile-transactions__table-wrap">
+          <table
+            className="supervisor-profile-transactions__table supervisor-profile-redemptions__table"
+            aria-label="Customer redemptions"
+            aria-describedby="profile-redemptions-description"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Date &amp; Time</th>
+                <th scope="col">Redemption amount</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length ? (
+                rows.map((row) => {
+                  const confirmedAmountKobo = row.confirmedAmountKobo;
+                  const requestedAmountKobo = row.requestedAmountKobo;
+                  const validConfirmedAmountKobo =
+                    typeof confirmedAmountKobo === 'number' &&
+                    Number.isSafeInteger(confirmedAmountKobo) &&
+                    confirmedAmountKobo >= 0
+                      ? confirmedAmountKobo
+                      : null;
+                  const validRequestedAmountKobo =
+                    typeof requestedAmountKobo === 'number' &&
+                    Number.isSafeInteger(requestedAmountKobo) &&
+                    requestedAmountKobo >= 0
+                      ? requestedAmountKobo
+                      : null;
+                  const statusTone =
+                    row.status.toUpperCase() === 'PENDING_APPROVAL'
+                      ? 'pending'
+                      : profileStatusTone(row.status);
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <time
+                          dateTime={
+                            Number.isNaN(Date.parse(row.occurredAt))
+                              ? undefined
+                              : row.occurredAt
+                          }
+                        >
+                          {profileDateTime(row.occurredAt)}
+                        </time>
+                      </td>
+                      <td>
+                        {validConfirmedAmountKobo !== null ? (
+                          <Money amountKobo={validConfirmedAmountKobo} />
+                        ) : validRequestedAmountKobo !== null ? (
+                          <span className="supervisor-profile-redemptions__requested-amount">
+                            <span>Requested</span>
+                            <Money amountKobo={validRequestedAmountKobo} />
+                          </span>
+                        ) : (
+                          'Amount not provided'
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className={`supervisor-profile-recent-activity__status supervisor-profile-recent-activity__status--${statusTone}`}
+                        >
+                          {profileStatusLabel(row.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    className="supervisor-profile-transactions__empty"
+                    colSpan={3}
+                  >
+                    No redemptions were returned.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -917,6 +983,14 @@ export function CustomerDetailsDialog({
     (projection?.sourceErrors as readonly string[] | undefined)?.includes(
       source,
     ) ?? false;
+  const transactionCount = profileCount(
+    projection?.transactionCount,
+    sourceFailed('transactionCount'),
+  );
+  const redemptionCount = profileCount(
+    projection?.redemptionCount,
+    sourceFailed('redemptionCount'),
+  );
   const retryProfileProjection = () =>
     setProjectionAttempt((attempt) => attempt + 1);
   const tabNames = [
@@ -1448,9 +1522,7 @@ export function CustomerDetailsDialog({
                     )
                   ) : profileTab === 'Redemptions' ? (
                     <ProfileRows
-                      title="Redemptions"
                       rows={projection?.redemptions ?? []}
-                      kind="redemption"
                       failed={sourceFailed('redemptions')}
                       onRetry={retryProfileProjection}
                     />
@@ -1726,11 +1798,27 @@ export function CustomerDetailsDialog({
                         </div>
                         <div>
                           <dt>Transactions</dt>
-                          <dd className="is-not-provided">Not provided</dd>
+                          <dd
+                            className={
+                              transactionCount.available
+                                ? undefined
+                                : 'is-not-provided'
+                            }
+                          >
+                            {transactionCount.label}
+                          </dd>
                         </div>
                         <div>
                           <dt>Redemptions</dt>
-                          <dd className="is-not-provided">Not provided</dd>
+                          <dd
+                            className={
+                              redemptionCount.available
+                                ? undefined
+                                : 'is-not-provided'
+                            }
+                          >
+                            {redemptionCount.label}
+                          </dd>
                         </div>
                       </>
                     ) : null}

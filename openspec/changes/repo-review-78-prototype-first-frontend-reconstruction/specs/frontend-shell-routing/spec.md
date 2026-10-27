@@ -25,6 +25,24 @@ The frontend SHALL use one shared operational navbar whose visible hierarchy fol
 - **THEN** the category selector offers Customers, Cards, and Cashiers
 - **AND** unauthorized search results remain unavailable
 
+### Requirement: Topbar actions remain aligned through responsive reflow
+
+The shared topbar MUST keep the notification and signed-in initials controls in one non-wrapping, vertically centered action row at widths above the compact mobile breakpoint. Search and status content may compress or reflow to preserve the action row without causing page-level horizontal overflow. At the compact mobile breakpoint, notifications remain hidden as designed and the initials and mobile-menu controls remain aligned.
+
+#### Scenario: Tablet topbar action alignment
+
+- **GIVEN** an authenticated user at a tablet or narrow desktop viewport from 621px through 1024px
+- **WHEN** the topbar renders or the viewport is resized
+- **THEN** the notification control and signed-in initials share the same action row and vertical center
+- **AND** the topbar and document do not overflow horizontally.
+
+#### Scenario: Compact mobile topbar alignment
+
+- **GIVEN** an authenticated user at a viewport of 620px or narrower
+- **WHEN** the compact topbar renders
+- **THEN** the notification control remains hidden
+- **AND** the signed-in initials and mobile-menu controls remain on the same row and vertically aligned without page-level horizontal overflow.
+
 ### Requirement: Approved prototype markup governs route presentation structure
 
 The frontend SHALL translate approved prototype markup into React presentation hierarchy for the operational routes while retaining authoritative production controllers and truthful state handling.

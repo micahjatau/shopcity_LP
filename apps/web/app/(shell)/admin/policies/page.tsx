@@ -8,8 +8,16 @@ import {
   configurationControllerUpdatePolicyConfigurationV1,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
+import {
+  formatBasisPointsAsPercent,
+  parsePercentAsBasisPoints,
+} from '../../../../lib/policy-money';
 import { Alert, Button, Input } from '../../../../components/ui';
-import { StatusBadge } from '../../../../components/shopcity';
+import {
+  formatMoneyInputDraft,
+  parseNaira,
+  StatusBadge,
+} from '../../../../components/shopcity';
 
 type Branch = { id?: string; name?: string; status?: string };
 type Policy = {
@@ -33,18 +41,18 @@ const policyFields: Array<{
   >;
   label: string;
 }> = [
-  { key: 'defaultEarnRateBps', label: 'Default earn rate (basis points)' },
-  { key: 'minRedemptionKobo', label: 'Minimum redemption (kobo)' },
+  { key: 'defaultEarnRateBps', label: 'Default earn rate (%)' },
+  { key: 'minRedemptionKobo', label: 'Minimum redemption (₦)' },
   { key: 'maxRedemptionBasketPercent', label: 'Maximum basket percentage' },
-  { key: 'purchaseFlagThresholdKobo', label: 'Purchase flag threshold (kobo)' },
+  { key: 'purchaseFlagThresholdKobo', label: 'Purchase flag threshold (₦)' },
   {
     key: 'purchaseApprovalThresholdKobo',
-    label: 'Purchase approval threshold (kobo)',
+    label: 'Purchase approval threshold (₦)',
   },
-  { key: 'purchaseAmountCeilingKobo', label: 'Purchase amount ceiling (kobo)' },
+  { key: 'purchaseAmountCeilingKobo', label: 'Purchase amount ceiling (₦)' },
   {
     key: 'redemptionApprovalThresholdKobo',
-    label: 'Redemption approval threshold (kobo)',
+    label: 'Redemption approval threshold (₦)',
   },
 ];
 
@@ -52,6 +60,9 @@ export default function AdminPoliciesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
   const [policy, setPolicy] = useState<Policy | null>(null);
+  const [drafts, setDrafts] = useState<
+    Partial<Record<(typeof policyFields)[number]['key'], string>>
+  >({});
   const [message, setMessage] = useState('Loading branches…');
   const [saving, setSaving] = useState(false);
 
@@ -93,7 +104,16 @@ export default function AdminPoliciesPage() {
           createApiRequest({ csrf: true }),
         );
         if (response.status === 200 && response.data.data) {
-          setPolicy(response.data.data as unknown as Policy);
+          const loadedPolicy = response.data.data as unknown as Policy;
+          setPolicy(loadedPolicy);
+          setDrafts(
+            Object.fromEntries(
+              policyFields.map(({ key }) => [
+                key,
+                formatPolicyField(loadedPolicy, key),
+              ]),
+            ),
+          );
           setMessage('Authoritative policy loaded.');
         } else {
           setMessage(`Policy unavailable (${response.status}).`);
@@ -104,40 +124,67 @@ export default function AdminPoliciesPage() {
     })();
   }, [branchId]);
 
-  function updateField(key: keyof Policy, value: string | boolean) {
-    setPolicy((current) =>
-      current
-        ? {
-            ...current,
-            [key]: typeof value === 'boolean' ? value : Number(value),
-          }
-        : current,
-    );
+  function updateField(
+    key: (typeof policyFields)[number]['key'],
+    value: string,
+  ) {
+    setDrafts((current) => ({ ...current, [key]: value }));
+    const parsed = parsePolicyField(key, value);
+    if (parsed !== null) {
+      setPolicy((current) =>
+        current ? { ...current, [key]: parsed } : current,
+      );
+    }
   }
 
   async function save() {
     if (!policy) return;
+    const parsedDrafts = Object.fromEntries(
+      policyFields.map(({ key }) => [
+        key,
+        parsePolicyField(key, drafts[key] ?? formatPolicyField(policy, key)),
+      ]),
+    ) as Record<(typeof policyFields)[number]['key'], number | null>;
+    if (Object.values(parsedDrafts).some((value) => value === null)) {
+      setMessage('Enter valid policy values before saving.');
+      return;
+    }
+    const valueFor = (key: (typeof policyFields)[number]['key']) =>
+      parsePolicyField(key, drafts[key] ?? formatPolicyField(policy, key)) ??
+      policy[key];
     setSaving(true);
     setMessage('Saving policy…');
     try {
       const response = await configurationControllerUpdatePolicyConfigurationV1(
         {
           branchId: policy.branchId,
-          defaultEarnRateBps: policy.defaultEarnRateBps,
-          minRedemptionKobo: policy.minRedemptionKobo,
-          maxRedemptionBasketPercent: policy.maxRedemptionBasketPercent,
-          purchaseFlagThresholdKobo: policy.purchaseFlagThresholdKobo,
-          purchaseApprovalThresholdKobo: policy.purchaseApprovalThresholdKobo,
-          purchaseAmountCeilingKobo: policy.purchaseAmountCeilingKobo,
-          redemptionApprovalThresholdKobo:
-            policy.redemptionApprovalThresholdKobo,
+          defaultEarnRateBps: valueFor('defaultEarnRateBps'),
+          minRedemptionKobo: valueFor('minRedemptionKobo'),
+          maxRedemptionBasketPercent: valueFor('maxRedemptionBasketPercent'),
+          purchaseFlagThresholdKobo: valueFor('purchaseFlagThresholdKobo'),
+          purchaseApprovalThresholdKobo: valueFor(
+            'purchaseApprovalThresholdKobo',
+          ),
+          purchaseAmountCeilingKobo: valueFor('purchaseAmountCeilingKobo'),
+          redemptionApprovalThresholdKobo: valueFor(
+            'redemptionApprovalThresholdKobo',
+          ),
           offlineRedemptionDisabled: policy.offlineRedemptionDisabled,
           expectedVersion: policy.version,
         },
         createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
       );
       if (response.status === 200 && response.data.data) {
-        setPolicy(response.data.data as unknown as Policy);
+        const savedPolicy = response.data.data as unknown as Policy;
+        setPolicy(savedPolicy);
+        setDrafts(
+          Object.fromEntries(
+            policyFields.map(({ key }) => [
+              key,
+              formatPolicyField(savedPolicy, key),
+            ]),
+          ),
+        );
         setMessage('Policy saved and audited.');
       } else if (response.status === 409) {
         setMessage('Policy changed elsewhere. Reload before saving.');
@@ -204,8 +251,9 @@ export default function AdminPoliciesPage() {
                   <span>{label}</span>
                   <Input
                     id={`policy-${key}`}
-                    type="number"
-                    value={policy[key]}
+                    type="text"
+                    inputMode="decimal"
+                    value={drafts[key] ?? formatPolicyField(policy, key)}
                     onChange={(event) => updateField(key, event.target.value)}
                   />
                 </label>
@@ -216,7 +264,14 @@ export default function AdminPoliciesPage() {
                 type="checkbox"
                 checked={policy.offlineRedemptionDisabled}
                 onChange={(event) =>
-                  updateField('offlineRedemptionDisabled', event.target.checked)
+                  setPolicy((current) =>
+                    current
+                      ? {
+                          ...current,
+                          offlineRedemptionDisabled: event.target.checked,
+                        }
+                      : current,
+                  )
                 }
               />
               Disable offline redemption
@@ -229,6 +284,33 @@ export default function AdminPoliciesPage() {
       </section>
     </section>
   );
+}
+
+function formatPolicyField(
+  policy: Policy,
+  key: (typeof policyFields)[number]['key'],
+) {
+  if (key === 'defaultEarnRateBps') {
+    return formatBasisPointsAsPercent(policy.defaultEarnRateBps);
+  }
+  if (key === 'maxRedemptionBasketPercent') {
+    return String(policy.maxRedemptionBasketPercent);
+  }
+  return formatMoneyInputDraft(policy[key]);
+}
+
+function parsePolicyField(
+  key: (typeof policyFields)[number]['key'],
+  value: string,
+) {
+  if (key === 'defaultEarnRateBps') return parsePercentAsBasisPoints(value);
+  if (key === 'maxRedemptionBasketPercent') {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100
+      ? parsed
+      : null;
+  }
+  return parseNaira(value);
 }
 
 const layout = { display: 'grid', gap: 'var(--sc-spacing-6)' } as const;

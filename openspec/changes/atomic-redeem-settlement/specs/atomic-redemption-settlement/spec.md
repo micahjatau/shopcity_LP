@@ -118,12 +118,18 @@ The system MUST enqueue at most one customer SMS for a confirmed redemption sett
 - **WHEN** the worker processes it after deployment
 - **THEN** it is rendered using the legacy-compatible message path rather than failed as malformed
 
-### Requirement: Settlement reversals fail closed until grouped reversal exists
+### Requirement: Paired settlement reversals are grouped
 
-The system MUST NOT reverse only one ledger effect for a receipt that has both settlement effects. Until a grouped settlement reversal is available, a reversal request for either effect MUST return `REVERSAL_REVIEW_REQUIRED` without changing ledger, lots, allocations, or balances.
+The system MUST NOT reverse only one ledger effect for a receipt that has both settlement effects. The current approved grouped-reversal contract is defined by `openspec/changes/repo-review-closure/specs/pilot-closure/spec.md`; until that implementation is verified and released, requests for either leg MUST remain fail-closed. Once available, either original ID resolves to the full receipt pair, and both compensating effects and exact allocation restorations commit atomically.
 
-#### Scenario: One leg of a settlement is selected for reversal
+#### Scenario: Paired settlement is reversed after grouped support is available
 
-- **GIVEN** a receipt has both a REDEEM debit and an EARN credit
-- **WHEN** either ledger entry is submitted to the single-transaction reversal endpoint
+- **GIVEN** a receipt has exactly one confirmed REDEEM debit and its confirmed settlement-generated EARN credit
+- **WHEN** either original ledger entry is submitted to the reversal endpoint after grouped support is released
+- **THEN** both effects are compensated atomically under the approved grouped-reversal contract
+
+#### Scenario: Paired settlement remains blocked before grouped support is available
+
+- **GIVEN** a receipt has both confirmed settlement effects and grouped reversal support is not released
+- **WHEN** either ledger entry is submitted to the reversal endpoint
 - **THEN** the request fails with `REVERSAL_REVIEW_REQUIRED` and neither settlement effect is changed

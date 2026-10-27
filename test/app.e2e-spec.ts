@@ -29,6 +29,15 @@ describe('AppController (e2e)', () => {
       });
   });
 
+  it('/robots.txt disallows crawling (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/robots.txt')
+      .expect(200)
+      .expect('content-type', /text\/plain/)
+      .expect('cache-control', 'no-store, max-age=0')
+      .expect('User-agent: *\nDisallow: /\n');
+  });
+
   it('/health/live (GET)', () => {
     return request(app.getHttpServer())
       .get('/health/live')

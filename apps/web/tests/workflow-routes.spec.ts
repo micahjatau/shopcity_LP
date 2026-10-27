@@ -2900,9 +2900,15 @@ test.describe('workflow route coverage', () => {
     await expect(
       redeemStages.locator('.cashier-flow-step.is-active'),
     ).toHaveText('Basket Total');
-    await expect(
-      page.getByRole('img', { name: /ShopCity virtual card for Ada Shopper/ }),
-    ).toBeVisible();
+    const cardPreview = page.getByRole('img', {
+      name: /ShopCity card preview for Ada Shopper; card number .+; status ACTIVE/,
+    });
+    await expect(cardPreview).toBeVisible();
+    await expect(cardPreview.locator('img')).toHaveAttribute(
+      'src',
+      /IMG-20260802-WA0001.jpg/,
+    );
+    await expect(page.getByText('Status: ACTIVE')).toBeVisible();
 
     await page.getByLabel('POS receipt number').fill('REDEEM-001');
     const basket = page.getByLabel('Basket subtotal (₦)');
@@ -4269,6 +4275,86 @@ test.describe('workflow route coverage', () => {
     }
   });
 
+  test('keeps topbar action controls aligned at tablet and compact widths', async ({
+    page,
+  }) => {
+    await mockShell(page, 'SUPERVISOR');
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`${baseUrl}/supervisor`);
+    await expect(page.locator('.shell-loading-screen')).toBeHidden();
+
+    for (const width of [1024, 920, 768, 700, 621, 620, 390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      const geometry = await page.evaluate(() => {
+        const rect = (selector: string) => {
+          const element = document.querySelector<HTMLElement>(selector);
+          if (!element || getComputedStyle(element).display === 'none') {
+            return null;
+          }
+          const {
+            x,
+            y,
+            width: elementWidth,
+            height,
+          } = element.getBoundingClientRect();
+          return { x, y, width: elementWidth, height };
+        };
+        return {
+          search: rect('.global-shell-search'),
+          status: rect('.shell-system-status'),
+          notification: rect('.shell-notifications'),
+          avatar: rect('.shell-avatar'),
+          mobileMenu: rect('.shell-mobile-menu-button'),
+          actions: rect('.shell-topbar-actions'),
+          pageWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        };
+      });
+
+      expect(
+        geometry.pageWidth,
+        `document overflow at ${width}px: ${JSON.stringify(geometry)}`,
+      ).toBeLessThanOrEqual(geometry.viewportWidth);
+      expect(geometry.avatar).not.toBeNull();
+      if (width > 620) {
+        expect(geometry.notification).not.toBeNull();
+        expect(geometry.status).not.toBeNull();
+        expect(geometry.actions).not.toBeNull();
+        expect(
+          geometry.search!.x + geometry.search!.width,
+          `search/status overlap at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(geometry.status!.x + 1);
+        expect(
+          geometry.status!.x + geometry.status!.width,
+          `status/actions overlap at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(geometry.actions!.x + 1);
+        expect(
+          Math.abs(geometry.notification!.y - geometry.avatar!.y),
+          `notification/avatar row mismatch at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(1);
+        expect(
+          Math.abs(
+            geometry.notification!.y +
+              geometry.notification!.height / 2 -
+              (geometry.avatar!.y + geometry.avatar!.height / 2),
+          ),
+          `notification/avatar centers differ at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(1);
+      } else {
+        expect(geometry.notification).toBeNull();
+        expect(geometry.mobileMenu).not.toBeNull();
+        expect(
+          Math.abs(
+            geometry.mobileMenu!.y +
+              geometry.mobileMenu!.height / 2 -
+              (geometry.avatar!.y + geometry.avatar!.height / 2),
+          ),
+          `avatar/menu centers differ at ${width}px: ${JSON.stringify(geometry)}`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
   test('keeps Supervisor Help & Training visually contained and accessible at tablet width', async ({
     page,
   }) => {
@@ -4849,6 +4935,8 @@ test.describe('workflow route coverage', () => {
               customerId: 'customer-1',
               sourceErrors: [],
               memberSince: '2024-01-02T00:00:00.000Z',
+              transactionCount: 42,
+              redemptionCount: 27,
               pendingApprovalsCount: 0,
               lifetimeEarnedKobo: 9200,
               expirySchedule: [
@@ -4878,7 +4966,22 @@ test.describe('workflow route coverage', () => {
                 },
               ],
               walletLedger: [],
-              redemptions: [],
+              redemptions: [
+                {
+                  id: 'redemption-projection-1',
+                  occurredAt: '2025-04-23T10:45:00.000Z',
+                  requestedAmountKobo: 2000,
+                  confirmedAmountKobo: 1800,
+                  status: 'CONFIRMED',
+                },
+                {
+                  id: 'redemption-pending-1',
+                  occurredAt: '2025-04-22T10:45:00.000Z',
+                  requestedAmountKobo: 700,
+                  confirmedAmountKobo: null,
+                  status: 'PENDING_APPROVAL',
+                },
+              ],
               approvals: [],
               statusEvents: [],
               consent: null,
@@ -4931,6 +5034,8 @@ test.describe('workflow route coverage', () => {
     const detailsCard = page.locator('.supervisor-profile-details-card');
     await expect(detailsCard).toBeVisible();
     await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
+    await expect(detailsCard.getByText('42', { exact: true })).toBeVisible();
+    await expect(detailsCard.getByText('27', { exact: true })).toBeVisible();
     await expect(
       page.getByRole('img', { name: /ShopCity card preview/ }),
     ).toHaveCount(0);
@@ -5007,6 +5112,24 @@ test.describe('workflow route coverage', () => {
     );
     await expect(walletLedgerTable).not.toContainText('ledger-internal-1');
     await expect(walletLedgerTable).not.toContainText('receipt-internal-1');
+    await page.getByRole('button', { name: 'Redemptions' }).click();
+    const redemptionsTable = page.getByRole('table', {
+      name: 'Customer redemptions',
+    });
+    await expect(redemptionsTable).toBeVisible();
+    await expect(redemptionsTable.getByRole('row')).toHaveCount(3);
+    await expect(redemptionsTable.getByRole('columnheader')).toHaveText([
+      'Date & Time',
+      'Redemption amount',
+      'Status',
+    ]);
+    await expect(redemptionsTable.getByText('Confirmed')).toBeVisible();
+    await expect(redemptionsTable.getByText('Pending Approval')).toBeVisible();
+    await expect(redemptionsTable.getByText('Requested')).toBeVisible();
+    await expect(redemptionsTable).toContainText('18.00');
+    await expect(redemptionsTable).toContainText('7.00');
+    await expect(redemptionsTable).not.toContainText('redemption-projection-1');
+    await expect(redemptionsTable).not.toContainText('redemption-pending-1');
     await page.getByRole('button', { name: 'Virtual Card' }).click();
     const profileCardPreview = page.getByRole('img', {
       name: 'ShopCity card preview for Ada Shopper; card number SER-CUSTOMER-1; status ACTIVE',

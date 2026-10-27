@@ -16024,6 +16024,8 @@
                         "customerId",
                         "sourceErrors",
                         "memberSince",
+                        "transactionCount",
+                        "redemptionCount",
                         "pendingApprovalsCount",
                         "lifetimeEarnedKobo",
                         "expirySchedule",
@@ -16053,6 +16055,8 @@
                               "walletLedger",
                               "transactions",
                               "redemptions",
+                              "transactionCount",
+                              "redemptionCount",
                               "approvals",
                               "statusEvents",
                               "marketingPreference"
@@ -16062,6 +16066,16 @@
                         "memberSince": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "transactionCount": {
+                          "type": "integer",
+                          "nullable": true,
+                          "description": "Count of all persisted tenant/customer receipt records, regardless of status; null if its count query fails."
+                        },
+                        "redemptionCount": {
+                          "type": "integer",
+                          "nullable": true,
+                          "description": "Count of all persisted tenant/customer redemption records, regardless of status; null if its count query fails."
                         },
                         "pendingApprovalsCount": {
                           "type": "integer",
@@ -30577,6 +30591,32 @@
                         "requestedAt"
                       ],
                       "properties": {
+                        "receiptId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "originalRedemptionTransactionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "originalEarnTransactionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "redemptionReversalTransactionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "earnReversalTransactionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "earnRemovedAmountKobo": {
+                          "type": "integer"
+                        },
+                        "redeemedRestoredAmountKobo": {
+                          "type": "integer"
+                        },
                         "id": {
                           "type": "string",
                           "format": "uuid"

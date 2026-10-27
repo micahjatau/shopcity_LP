@@ -68,6 +68,13 @@ export class ReversalsController {
         'requestedAt',
       ],
       properties: {
+        receiptId: { type: 'string', format: 'uuid' },
+        originalRedemptionTransactionId: { type: 'string', format: 'uuid' },
+        originalEarnTransactionId: { type: 'string', format: 'uuid' },
+        redemptionReversalTransactionId: { type: 'string', format: 'uuid' },
+        earnReversalTransactionId: { type: 'string', format: 'uuid' },
+        earnRemovedAmountKobo: { type: 'integer' },
+        redeemedRestoredAmountKobo: { type: 'integer' },
         id: { type: 'string', format: 'uuid' },
         transactionId: { type: 'string', format: 'uuid' },
         originalTransactionId: { type: 'string', format: 'uuid' },

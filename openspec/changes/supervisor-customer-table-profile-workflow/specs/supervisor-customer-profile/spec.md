@@ -31,14 +31,28 @@ The fourth profile summary card MUST be labelled **Annual Purchases** instead of
 
 ### Requirement: Profile customer details are read-only until explicitly edited
 
-The Overview MUST present customer details as a read-only card matching the supplied customer-details reference, with an explicit Edit action that opens the existing verified customer editor in an accessible dialog. The card MUST show full name, phone, email, birthday month, registration date, transaction count, and redemption count using only verified customer/profile API values. Registration date MUST use the verified `memberSince` or customer `createdAt`; a missing or unsupported value MUST be labeled **Not provided**. The current profile API does not return birthday month or lifetime transaction/redemption counts, so the UI MUST NOT derive counts from bounded activity lists or copy sample values from the SVG. The edit dialog MUST preserve existing identity verification, CSRF/idempotency, save verification, status confirmation, and dirty-state safeguards. A verified profile save closes the editor but keeps the Supervisor on that profile.
+The Overview MUST present customer details as a read-only card matching the supplied customer-details reference, with an explicit Edit action that opens the existing verified customer editor in an accessible dialog. The card MUST show full name, phone, email, birthday month, registration date, lifetime transaction count, and lifetime redemption count using only verified customer/profile API values. Registration date MUST use the verified `memberSince` or customer `createdAt`; a missing or unsupported value MUST be labeled **Not provided**. The authenticated profile projection MUST return `transactionCount` as the tenant/customer-scoped count of persisted Receipt records and `redemptionCount` as the tenant/customer-scoped count of persisted Redemption records, across all statuses and the customer's full account history, independently of the 25-row activity windows. A count query failure MUST return `null` for that count and identify its source in `sourceErrors`; the UI MUST show **Unavailable** for that failed count and MUST display a valid zero as **0**. The UI MUST NOT derive counts from bounded activity lists or copy sample values from the SVG. Birthday month remains **Not provided** when absent. The edit dialog MUST preserve existing identity verification, CSRF/idempotency, save verification, status confirmation, and dirty-state safeguards. A verified profile save closes the editor but keeps the Supervisor on that profile.
 
 #### Scenario: Overview shows read-only customer details
 
 - **GIVEN** the Supervisor has opened a same-ID verified customer profile
 - **WHEN** the Overview is rendered
 - **THEN** the reference customer-details fields are displayed as read-only values with an Edit action
-- **AND** birthday month, transaction count, redemption count, or registration date are labeled **Not provided** when not returned by the API.
+- **AND** birthday month is labeled **Not provided** when not returned by the API.
+
+#### Scenario: Overview shows lifetime customer counts
+
+- **GIVEN** the Supervisor has opened a same-ID verified customer profile
+- **WHEN** the Overview is rendered
+- **THEN** the read-only details card shows transaction and redemption totals returned by the profile API, including **0** when there are no matching records
+- **AND** the totals cover all persisted records for that tenant/customer regardless of status, not only records in the bounded activity lists.
+
+#### Scenario: A lifetime count source is unavailable
+
+- **GIVEN** a profile count query fails
+- **WHEN** the Supervisor views the customer details card
+- **THEN** that count is shown as **Unavailable** and its profile source error is retained
+- **AND** the other count remains visible if its source succeeded; neither count is inferred from the displayed rows.
 
 #### Scenario: Edit opens the existing customer editor
 
@@ -84,6 +98,17 @@ The profile MUST provide Overview, Transactions, Wallet Ledger, Redemptions, Vir
 - **WHEN** the Supervisor switches among Overview, Transactions, Wallet Ledger, Redemptions, Virtual Card, and Consent
 - **THEN** each tab remains scoped to the same verified customer ID
 - **AND** changing tabs does not alter the customer, status, balance, card, ledger, or approval data.
+
+#### Scenario: Redemptions tab uses the Transactions table presentation
+
+- **GIVEN** the Supervisor opens Redemptions for the verified customer
+- **WHEN** the profile projection is rendered
+- **THEN** the returned redemption records appear in a responsive, read-only table card using the Transactions tab's table styling
+- **AND** the columns show Date & Time, Redemption amount, and Status from the projection's `occurredAt`, amount, and `status` fields
+- **AND** `confirmedAmountKobo` is shown when available; otherwise any `requestedAmountKobo` is explicitly labeled **Requested** and is not presented as a confirmed debit
+- **AND** internal redemption IDs and raw API fields are not rendered
+- **AND** column headers remain visible when there are no redemptions, with an honest full-width empty state
+- **AND** a source failure remains visible with the existing retry action and the tab makes no writes
 
 #### Scenario: Transactions tab uses the Overview card presentation
 

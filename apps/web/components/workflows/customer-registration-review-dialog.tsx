@@ -7,6 +7,8 @@ export type CustomerRegistrationPreview = Readonly<{
   phone: string;
   email?: string;
   cardSerialNumber: string;
+  loyaltyConsent: boolean;
+  marketingOptIn: boolean;
 }>;
 
 export function CustomerRegistrationReviewDialog({
@@ -61,6 +63,22 @@ export function CustomerRegistrationReviewDialog({
             <div className="sc-registration-review__email">
               <dt>Email</dt>
               <dd>{customer.email?.trim() || 'Not provided'}</dd>
+            </div>
+          </dl>
+        </section>
+        <section
+          className="sc-registration-review__section"
+          aria-labelledby="registration-review-consent-title"
+        >
+          <h3 id="registration-review-consent-title">Consent choices</h3>
+          <dl className="sc-registration-review__fields">
+            <div>
+              <dt>Loyalty consent</dt>
+              <dd>{customer.loyaltyConsent ? 'Granted' : 'Not granted'}</dd>
+            </div>
+            <div>
+              <dt>Marketing opt-in</dt>
+              <dd>{customer.marketingOptIn ? 'Opted in' : 'Not opted in'}</dd>
             </div>
           </dl>
         </section>

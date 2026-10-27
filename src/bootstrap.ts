@@ -193,7 +193,7 @@ function registerZapFriendlyUtilityRoutes(app: NestFastifyApplication): void {
     reply
       .type('text/plain')
       .header('cache-control', noStore)
-      .send('User-agent: *\nDisallow:\n');
+      .send('User-agent: *\nDisallow: /\n');
   });
 
   fastify.get('/sitemap.xml', (_request, reply) => {

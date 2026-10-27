@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { ConflictException } from '@nestjs/common';
 import { CardStatus, UserRole } from '@prisma/client';
 import { CustomersService } from './customers.service';
 
@@ -45,6 +46,7 @@ describe('CustomersService', () => {
       branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-id' }) },
       customer: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockResolvedValue(customer),
       },
       card: {
@@ -103,6 +105,62 @@ describe('CustomersService', () => {
     expect(auditService.recordWithClient).toHaveBeenCalledTimes(2);
   });
 
+  it('returns only the conflicting registration field names', async () => {
+    const customerFindMany = jest.fn().mockResolvedValue([
+      { phoneE164: '+2348012345678', email: null },
+      { phoneE164: '+2348098765432', email: 'ada@example.com' },
+    ]);
+    const prisma: any = {
+      idempotencyRecord: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-id' }) },
+      customer: { findMany: customerFindMany },
+      card: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'stored-card-id' }),
+      },
+    };
+    const service = new CustomersService(
+      prisma as never,
+      auditStub() as never,
+      activeBalanceStub() as never,
+    );
+
+    const error = await service
+      .createCustomer(
+        'tenant-id',
+        actorStub(UserRole.SUPERVISOR),
+        {
+          fullName: 'Ada Customer',
+          phone: '+2348012345678',
+          email: 'Ada@Example.com',
+          cardSerialNumber: 'CARD-001',
+          loyaltyConsent: true,
+          marketingOptIn: false,
+        },
+        'onboarding-conflict-001',
+      )
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).getResponse()).toEqual({
+      code: 'CUSTOMER_REGISTRATION_CONFLICT',
+      message: 'Active customer already exists',
+      fields: ['phone', 'email', 'cardSerialNumber'],
+    });
+    expect(
+      JSON.stringify((error as ConflictException).getResponse()),
+    ).not.toContain('stored-card-id');
+    expect(customerFindMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-id',
+        OR: [{ phoneE164: '+2348012345678' }, { email: 'ada@example.com' }],
+      },
+      select: { phoneE164: true, email: true },
+    });
+  });
+
   it('does not complete idempotency when initial card creation fails', async () => {
     const idempotencyUpdate = jest.fn().mockResolvedValue(undefined);
     const prisma = {
@@ -115,6 +173,7 @@ describe('CustomersService', () => {
       branch: { findFirst: jest.fn().mockResolvedValue({ id: 'branch-id' }) },
       customer: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockResolvedValue(customerRecord()),
       },
       customerConsent: { create: jest.fn().mockResolvedValue(undefined) },
@@ -785,6 +844,7 @@ describe('CustomersService', () => {
         ]),
       },
       receipt: {
+        count: jest.fn().mockResolvedValue(48),
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'receipt-1',
@@ -820,6 +880,7 @@ describe('CustomersService', () => {
         ]),
       },
       redemption: {
+        count: jest.fn().mockResolvedValue(27),
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'redemption-1',
@@ -878,6 +939,12 @@ describe('CustomersService', () => {
       }),
     );
     expect(prisma.creditLot.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.receipt.count).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-id', customerId: 'customer-id' },
+    });
+    expect(prisma.redemption.count).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-id', customerId: 'customer-id' },
+    });
     expect(prisma.approval.count).toHaveBeenCalledWith({
       where: {
         tenantId: 'tenant-id',
@@ -891,6 +958,8 @@ describe('CustomersService', () => {
     expect(result).toMatchObject({
       customerId: 'customer-id',
       sourceErrors: [],
+      transactionCount: 48,
+      redemptionCount: 27,
       pendingApprovalsCount: 2,
       lifetimeEarnedKobo: 9000,
       expirySchedule: [
@@ -902,6 +971,11 @@ describe('CustomersService', () => {
         issuedAt: cardIssuedAt.toISOString(),
       },
       consent: { loyaltyConsent: true, marketingOptIn: false },
+      marketingPreference: {
+        status: 'NOT_OPTED_IN',
+        source: 'REGISTRATION',
+        updatedAt: cardIssuedAt.toISOString(),
+      },
     });
     expect(result.transactions).toEqual([
       expect.objectContaining({
@@ -971,6 +1045,9 @@ describe('CustomersService', () => {
       },
       card: { findMany: jest.fn().mockResolvedValue([]) },
       customerConsent: { findFirst: jest.fn().mockResolvedValue(null) },
+      customerMarketingPreferenceEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       loyaltyLedgerEntry: {
         aggregate: jest
           .fn()
@@ -983,11 +1060,15 @@ describe('CustomersService', () => {
       },
       creditLot: { findMany: jest.fn().mockResolvedValue([]) },
       receipt: {
+        count: jest.fn().mockRejectedValue(new Error('receipt count failed')),
         findMany: jest
           .fn()
           .mockRejectedValue(new Error('receipt query failed')),
       },
-      redemption: { findMany: jest.fn().mockResolvedValue([]) },
+      redemption: {
+        count: jest.fn().mockResolvedValue(27),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       auditLog: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const service = new CustomersService(
@@ -1002,8 +1083,13 @@ describe('CustomersService', () => {
       actorStub(UserRole.ADMIN),
     );
 
-    expect(result.sourceErrors).toContain('transactions');
+    expect(result.sourceErrors).toEqual(
+      expect.arrayContaining(['transactions', 'transactionCount']),
+    );
+    expect(result.sourceErrors).not.toContain('redemptionCount');
     expect(result.transactions).toEqual([]);
+    expect(result.transactionCount).toBeNull();
+    expect(result.redemptionCount).toBe(27);
     expect(result.lifetimeEarnedKobo).toBe(4_000);
   });
 

@@ -71,6 +71,49 @@ const blank = {
   marketingOptIn: false,
 };
 
+type RegistrationConflictField = 'phone' | 'email' | 'cardSerialNumber';
+const registrationConflictFieldSet = new Set<RegistrationConflictField>([
+  'phone',
+  'email',
+  'cardSerialNumber',
+]);
+
+function registrationConflictFields(
+  response: unknown,
+): RegistrationConflictField[] {
+  const error = (
+    response as
+      | { data?: { error?: { code?: unknown; details?: unknown } } }
+      | null
+      | undefined
+  )?.data?.error;
+  if (
+    error?.code !== 'CUSTOMER_REGISTRATION_CONFLICT' ||
+    !error.details ||
+    typeof error.details !== 'object' ||
+    !('fields' in error.details) ||
+    !Array.isArray(error.details.fields)
+  ) {
+    return [];
+  }
+  return error.details.fields.filter(
+    (field: unknown): field is RegistrationConflictField =>
+      typeof field === 'string' &&
+      registrationConflictFieldSet.has(field as RegistrationConflictField),
+  );
+}
+
+function registrationConflictMessage(field: RegistrationConflictField): string {
+  switch (field) {
+    case 'phone':
+      return 'This phone number is already registered.';
+    case 'email':
+      return 'This email address is already registered.';
+    case 'cardSerialNumber':
+      return 'This card serial is already assigned.';
+  }
+}
+
 function dataOf<T>(response: unknown): T | undefined {
   return (response as { data?: { data?: T } }).data?.data;
 }
@@ -295,6 +338,9 @@ function RegisterCustomer({
   const [createdName, setCreatedName] = useState('');
   const [verifiedExistingId, setVerifiedExistingId] = useState('');
   const [duplicateSearchPhone, setDuplicateSearchPhone] = useState('');
+  const [conflictFields, setConflictFields] = useState<
+    RegistrationConflictField[]
+  >([]);
   const [key, setKey] = useState('');
   const fullNameInputRef = useRef<HTMLInputElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -390,9 +436,21 @@ function RegisterCustomer({
         );
         setStep('success');
       } else if (response.status === 409) {
-        setDuplicateSearchPhone(form.phone.trim());
-        setMessage('A customer or card serial may already exist.');
-        const submittedPhone = normalizedPhone(form.phone.trim());
+        const fields = registrationConflictFields(response);
+        const isTypedConflict = fields.length > 0;
+        setConflictFields(fields);
+        setDuplicateSearchPhone(
+          !isTypedConflict || fields.includes('phone') ? form.phone.trim() : '',
+        );
+        setMessage(
+          isTypedConflict
+            ? 'Some registration details are already in use. Update the highlighted fields.'
+            : 'A customer or card serial may already exist.',
+        );
+        const submittedPhone =
+          !isTypedConflict || fields.includes('phone')
+            ? normalizedPhone(form.phone.trim())
+            : null;
         if (submittedPhone) {
           try {
             const searchResponse = await customersControllerListCustomersV1(
@@ -456,6 +514,7 @@ function RegisterCustomer({
     setCreatedName('');
     setVerifiedExistingId('');
     setDuplicateSearchPhone('');
+    setConflictFields([]);
     setKey('');
     setMessage(
       'Enter customer details and the serial number for their first card.',
@@ -521,38 +580,69 @@ function RegisterCustomer({
                   ['cardSerialNumber', 'First card serial'],
                 ] as const
               ).map(([field, label]) => (
-                <label
-                  key={field}
-                  className="grid min-w-0 gap-1"
-                  htmlFor={`register-${field}`}
-                >
-                  {label}
-                  <Input
-                    id={`register-${field}`}
-                    ref={field === 'fullName' ? fullNameInputRef : undefined}
-                    type={field === 'email' ? 'email' : 'text'}
-                    required={field !== 'email'}
-                    value={form[field]}
-                    onChange={(event) => {
-                      setForm((current) => ({
-                        ...current,
-                        [field]: event.target.value,
-                      }));
-                      setVerifiedExistingId('');
-                      setDuplicateSearchPhone('');
-                      setKey('');
-                    }}
-                  />
-                </label>
+                <div key={field} className="grid min-w-0 gap-1">
+                  <label
+                    className="grid min-w-0 gap-1"
+                    htmlFor={`register-${field}`}
+                  >
+                    {label}
+                    <Input
+                      id={`register-${field}`}
+                      ref={field === 'fullName' ? fullNameInputRef : undefined}
+                      type={field === 'email' ? 'email' : 'text'}
+                      required={field !== 'email'}
+                      value={form[field]}
+                      aria-invalid={conflictFields.includes(
+                        field as RegistrationConflictField,
+                      )}
+                      aria-describedby={
+                        conflictFields.includes(
+                          field as RegistrationConflictField,
+                        )
+                          ? `register-${field}-conflict`
+                          : undefined
+                      }
+                      onChange={(event) => {
+                        setForm((current) => ({
+                          ...current,
+                          [field]: event.target.value,
+                        }));
+                        setConflictFields((current) =>
+                          current.filter(
+                            (conflictField) => conflictField !== field,
+                          ),
+                        );
+                        setMessage('Details updated. Review them again.');
+                        setVerifiedExistingId('');
+                        setDuplicateSearchPhone('');
+                        setKey('');
+                      }}
+                    />
+                  </label>
+                  {conflictFields.includes(
+                    field as RegistrationConflictField,
+                  ) ? (
+                    <span
+                      id={`register-${field}-conflict`}
+                      className="text-sm text-red-700"
+                      role="alert"
+                    >
+                      {registrationConflictMessage(
+                        field as RegistrationConflictField,
+                      )}
+                    </span>
+                  ) : null}
+                </div>
               ))}
-              <fieldset className="grid gap-3 sm:col-span-2">
+              <fieldset className="supervisor-customer-registration-consent grid gap-3 sm:col-span-2">
                 <legend>Customer consent · v1.2 · privacy v2.0</legend>
                 <label
-                  className="flex items-center gap-2"
+                  className="supervisor-customer-registration-consent__option"
                   htmlFor="supervisor-loyalty-consent"
                 >
                   <Checkbox
                     id="supervisor-loyalty-consent"
+                    className="supervisor-customer-registration-consent__checkbox"
                     aria-label="Loyalty service consent (required)"
                     checked={form.loyaltyConsent}
                     onChange={(event) => {
@@ -569,11 +659,12 @@ function RegisterCustomer({
                   records to operate ShopCity Credit.
                 </label>
                 <label
-                  className="flex items-center gap-2"
+                  className="supervisor-customer-registration-consent__option"
                   htmlFor="supervisor-marketing-opt-in"
                 >
                   <Checkbox
                     id="supervisor-marketing-opt-in"
+                    className="supervisor-customer-registration-consent__checkbox"
                     aria-label="Marketing opt-in (optional)"
                     checked={form.marketingOptIn}
                     onChange={(event) => {
@@ -634,6 +725,8 @@ function RegisterCustomer({
           phone: form.phone.trim(),
           email: form.email.trim() || undefined,
           cardSerialNumber: form.cardSerialNumber.trim(),
+          loyaltyConsent: form.loyaltyConsent,
+          marketingOptIn: form.marketingOptIn,
         }}
         onEdit={returnToDetails}
         onConfirm={confirmRegistration}

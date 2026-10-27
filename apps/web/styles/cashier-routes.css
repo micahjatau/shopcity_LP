@@ -132,10 +132,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .cashier-route-page--redeem .cashier-redeem-card-preview {
-    max-width: 100%;
-  }
-
   .cashier-route-page--redeem .cashier-redeem-amount-controls {
     grid-template-columns: minmax(0, 1fr);
   }

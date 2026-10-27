@@ -325,6 +325,8 @@ export class CustomersService {
       ledgerResult,
       receiptsResult,
       redemptionsResult,
+      transactionCountResult,
+      redemptionCountResult,
       approvalsResult,
       statusAuditResult,
     ] = await Promise.allSettled([
@@ -408,6 +410,8 @@ export class CustomersService {
           confirmedAt: true,
         },
       }),
+      this.prismaService.receipt.count({ where: { tenantId, customerId } }),
+      this.prismaService.redemption.count({ where: { tenantId, customerId } }),
       this.prismaService.approval.findMany({
         where: {
           tenantId,
@@ -473,6 +477,14 @@ export class CustomersService {
       receiptsResult.status === 'fulfilled' ? receiptsResult.value : [];
     const redemptions =
       redemptionsResult.status === 'fulfilled' ? redemptionsResult.value : [];
+    const transactionCount =
+      transactionCountResult.status === 'fulfilled'
+        ? transactionCountResult.value
+        : null;
+    const redemptionCount =
+      redemptionCountResult.status === 'fulfilled'
+        ? redemptionCountResult.value
+        : null;
     const approvals =
       approvalsResult.status === 'fulfilled' ? approvalsResult.value : [];
     const statusAudit =
@@ -486,6 +498,10 @@ export class CustomersService {
     if (receiptsResult.status === 'rejected') sourceErrors.push('transactions');
     if (redemptionsResult.status === 'rejected')
       sourceErrors.push('redemptions');
+    if (transactionCountResult.status === 'rejected')
+      sourceErrors.push('transactionCount');
+    if (redemptionCountResult.status === 'rejected')
+      sourceErrors.push('redemptionCount');
     if (approvalsResult.status === 'rejected') sourceErrors.push('approvals');
     if (statusAuditResult.status === 'rejected')
       sourceErrors.push('statusEvents');
@@ -559,6 +575,8 @@ export class CustomersService {
     return {
       customerId,
       memberSince: customer.createdAt.toISOString(),
+      transactionCount,
+      redemptionCount,
       pendingApprovalsCount,
       lifetimeEarnedKobo: earned
         ? safeKoboNumber(earned._sum.amountKobo ?? 0n)
@@ -928,22 +946,36 @@ export class CustomersService {
       throw new BadRequestException('Branch not found for tenant');
     }
 
-    const existing = await this.prismaService.customer.findFirst({
+    const existingCustomers = await this.prismaService.customer.findMany({
       where: {
         tenantId,
         OR: [{ phoneE164 }, ...(email ? [{ email }] : [])],
       },
+      select: { phoneE164: true, email: true },
     });
-    if (existing) {
-      throw new ConflictException('Active customer already exists');
-    }
-
     const existingCard = await this.prismaService.card.findFirst({
       where: { tenantId, barcodeValue: cardSerialNumber },
       select: { id: true },
     });
-    if (existingCard) {
-      throw new ConflictException('Card serial number is already assigned');
+    const conflictFields = [
+      ...(existingCustomers.some((customer) => customer.phoneE164 === phoneE164)
+        ? (['phone'] as const)
+        : []),
+      ...(email &&
+      existingCustomers.some((customer) => customer.email === email)
+        ? (['email'] as const)
+        : []),
+      ...(existingCard ? (['cardSerialNumber'] as const) : []),
+    ];
+    if (conflictFields.length > 0) {
+      throw new ConflictException({
+        code: 'CUSTOMER_REGISTRATION_CONFLICT',
+        message:
+          conflictFields.includes('phone') || conflictFields.includes('email')
+            ? 'Active customer already exists'
+            : 'Card serial number is already assigned',
+        fields: conflictFields,
+      });
     }
 
     return this.prismaService.$transaction(async (prisma) => {

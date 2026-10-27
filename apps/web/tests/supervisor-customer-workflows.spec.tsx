@@ -942,6 +942,27 @@ describe('SupervisorCustomerWorkflows', () => {
   it('reviews registration details locally and lets the supervisor edit or dismiss without creating', async () => {
     render(<SupervisorCustomerWorkflows />);
     await openRegistrationDialog();
+    const consentGroup = screen.getByRole('group', {
+      name: 'Customer consent · v1.2 · privacy v2.0',
+    });
+    expect(consentGroup).toHaveClass(
+      'supervisor-customer-registration-consent',
+    );
+    for (const label of [
+      'Loyalty service consent (required)',
+      'Marketing opt-in (optional)',
+    ]) {
+      const checkbox = within(consentGroup).getByLabelText(label);
+      expect(checkbox).toHaveClass('sc-checkbox');
+      expect(checkbox).toHaveClass(
+        'supervisor-customer-registration-consent__checkbox',
+      );
+      const option = checkbox.closest('label');
+      if (!option) throw new Error(`Missing consent label: ${label}`);
+      expect(option).toHaveClass(
+        'supervisor-customer-registration-consent__option',
+      );
+    }
     fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Test Customer' },
     });
@@ -964,6 +985,8 @@ describe('SupervisorCustomerWorkflows', () => {
     expect(reviewDialog).toHaveTextContent('Email');
     expect(reviewDialog).toHaveTextContent('Not provided');
     expect(reviewDialog).toHaveTextContent('TEST-SERIAL-001');
+    expect(reviewDialog).toHaveTextContent('Granted');
+    expect(reviewDialog).toHaveTextContent('Not opted in');
     expect(reviewDialog).not.toHaveTextContent(/customer status|card status/i);
     expect(reviewDialog).not.toHaveTextContent(
       /linked card|card tasks|active/i,
@@ -992,11 +1015,17 @@ describe('SupervisorCustomerWorkflows', () => {
     );
     expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
 
+    fireEvent.click(screen.getByLabelText('Marketing opt-in (optional)'));
+    expect(screen.getByLabelText('Marketing opt-in (optional)')).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Review details' }));
-    fireEvent.keyDown(
-      screen.getByRole('dialog', { name: 'Review customer details' }),
-      { key: 'Escape' },
-    );
+    const updatedReviewDialog = await screen.findByRole('dialog', {
+      name: 'Review customer details',
+    });
+    expect(updatedReviewDialog).toHaveTextContent('Granted');
+    expect(updatedReviewDialog).toHaveTextContent('Opted in');
+    expect(customersControllerCreateCustomerV1).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(updatedReviewDialog, { key: 'Escape' });
     expect(
       await screen.findByRole('heading', { name: 'Discard registration?' }),
     ).toBeInTheDocument();
@@ -1234,10 +1263,74 @@ describe('SupervisorCustomerWorkflows', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('highlights only the fields reported by a typed registration conflict', async () => {
+    jest.mocked(customersControllerCreateCustomerV1).mockResolvedValue({
+      status: 409,
+      data: {
+        success: false,
+        error: {
+          code: 'CUSTOMER_REGISTRATION_CONFLICT',
+          details: { fields: ['email', 'cardSerialNumber'] },
+        },
+      },
+    } as never);
+    render(<SupervisorCustomerWorkflows />);
+    await openRegistrationDialog();
+    fireEvent.change(screen.getByLabelText('Full name'), {
+      target: { value: 'Ada Customer' },
+    });
+    fireEvent.change(screen.getByLabelText('Phone number'), {
+      target: { value: '+234800000003' },
+    });
+    fireEvent.change(screen.getByLabelText('Email (optional)'), {
+      target: { value: 'ada@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('First card serial'), {
+      target: { value: 'DUP-003' },
+    });
+    fireEvent.click(
+      screen.getByLabelText('Loyalty service consent (required)'),
+    );
+
+    await confirmRegistrationInReview();
+
+    expect(
+      await screen.findByText('This email address is already registered.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('This card serial is already assigned.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Email (optional)')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(screen.getByLabelText('First card serial')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(screen.getByLabelText('Phone number')).toHaveAttribute(
+      'aria-invalid',
+      'false',
+    );
+    expect(customersControllerListCustomersV1).not.toHaveBeenCalledWith(
+      { q: '+234800000003', limit: '25', cursor: '' },
+      expect.any(Object),
+    );
+    expect(screen.getByLabelText('Email (optional)')).toHaveValue(
+      'ada@example.com',
+    );
+  });
+
   it('verifies an exact phone candidate by detail reload before handing off its ID', async () => {
     jest.mocked(customersControllerCreateCustomerV1).mockResolvedValue({
       status: 409,
-      data: { data: { id: 'untrusted-conflict-id' } },
+      data: {
+        success: false,
+        error: {
+          code: 'CUSTOMER_REGISTRATION_CONFLICT',
+          details: { fields: ['phone'] },
+        },
+      },
     } as never);
     jest.mocked(customersControllerListCustomersV1).mockResolvedValue({
       status: 200,

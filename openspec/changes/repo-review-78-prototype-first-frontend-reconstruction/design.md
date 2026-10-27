@@ -28,7 +28,7 @@ Responsive acceptance covers 1024, 920, 768, 767, 700, 620, 390, and 375px. At 9
 
 `AppTopbar` remains the one shared operational topbar. Its visible hierarchy is global search (with a bounded, readable role-authorized category pill), System Online state, notifications, avatar, and mobile menu as applicable. Keep category authorization: Cashier gets Customers/Cards; Supervisor/Admin additionally get Cashiers. Preserve query behavior, keyboard navigation, result masking, focus return, and route guards. Correct Admin card results to `/admin/cards` if the audited implementation still targets `/supervisor/cards`.
 
-The category control must remain adjacent to the search input while being visually composed as a bounded pill; it must not become a narrow set of ungrouped buttons or force mobile overflow. Verify the System Online visual state against the intended fixture; do not remove or fake operational status to achieve a screenshot.
+The category control must remain adjacent to the search input while being visually composed as a bounded pill; it must not become a narrow set of ungrouped buttons or force mobile overflow. At tablet widths, keep the notification and avatar controls together in a non-wrapping, vertically centered action group; allow the search area to yield space before wrapping those actions. Preserve the existing compact mobile variant, where notification is hidden and avatar/menu stay aligned. Verify the System Online visual state against the intended fixture; do not remove or fake operational status to achieve a screenshot.
 
 ## Route-by-route hierarchy contract
 

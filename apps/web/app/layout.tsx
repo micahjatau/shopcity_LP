@@ -4,7 +4,11 @@ import '../styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'ShopCity',
-  description: 'ShopCity frontend design-system implementation scaffold.',
+  description: 'ShopCity operations application.',
+  robots: {
+    index: false,
+    follow: false,
+  },
   icons: {
     icon: [{ url: '/brand/supervisor/icon.png', type: 'image/png' }],
   },

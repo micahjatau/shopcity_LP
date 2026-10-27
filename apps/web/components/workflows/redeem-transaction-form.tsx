@@ -11,6 +11,7 @@ import {
   type RedeemLookupContext,
   type RedeemPolicyContext,
 } from './use-redeem-transaction-controller';
+import { SupervisorVirtualCardPreview } from './supervisor-virtual-card-preview';
 
 type RedeemTransactionFormProps = {
   lookupContext?: RedeemLookupContext;
@@ -230,11 +231,17 @@ export function RedeemTransactionForm({
                     />
                   </div>
                 </dl>
-                <RedeemVirtualCardPreview
-                  customerName={lookupContext?.customerName || 'Customer'}
-                  serialNumber={authoritativeCardSerial || 'Not provided'}
-                  status={lookupContext?.cardStatus || 'Not provided'}
-                />
+                <div className="cashier-redeem-card-preview">
+                  <SupervisorVirtualCardPreview
+                    confirmation
+                    customerName={lookupContext?.customerName || 'Customer'}
+                    serialNumber={authoritativeCardSerial || 'Not provided'}
+                    status={lookupContext?.cardStatus || 'Not provided'}
+                  />
+                  <p className="cashier-capture-card-preview__status">
+                    Status: {lookupContext?.cardStatus || 'Not provided'}
+                  </p>
+                </div>
               </div>
               <p
                 className="cashier-redeem-copy-status"
@@ -469,62 +476,6 @@ function RedeemCustomerField({
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
-  );
-}
-
-function RedeemVirtualCardPreview({
-  customerName,
-  serialNumber,
-  status,
-}: Readonly<{ customerName: string; serialNumber: string; status: string }>) {
-  return (
-    <figure
-      className="cashier-redeem-card-preview"
-      role="img"
-      aria-label={`ShopCity virtual card for ${customerName}, card number ${serialNumber}, status ${status}`}
-    >
-      <Image
-        className="cashier-redeem-card-preview__texture"
-        src="/brand/cashier/redeem-card-texture.png"
-        alt=""
-        aria-hidden="true"
-        width={247}
-        height={165}
-        sizes="(max-width: 700px) 100vw, 247px"
-      />
-      <div className="cashier-redeem-card-preview__brand" aria-hidden="true">
-        <Image
-          src="/brand/cashier/redeem-card-brand.svg"
-          alt=""
-          width={15.1762}
-          height={15.4568}
-        />
-        <span>
-          <strong>SHOPCITY</strong>
-          <small>SUPERMARKET</small>
-        </span>
-      </div>
-      <span className="cashier-redeem-card-preview__name">{customerName}</span>
-      <span className="cashier-redeem-card-preview__serial">
-        {serialNumber}
-      </span>
-      <span className="cashier-redeem-card-preview__status">
-        <Image
-          src="/brand/cashier/redeem-card-status-dot.svg"
-          alt=""
-          width={4.52174}
-          height={4.52174}
-        />
-        {status}
-      </span>
-      <Image
-        className="cashier-redeem-card-preview__barcode"
-        src="/brand/cashier/redeem-card-barcode.svg"
-        alt=""
-        width={96}
-        height={37}
-      />
-    </figure>
   );
 }
 

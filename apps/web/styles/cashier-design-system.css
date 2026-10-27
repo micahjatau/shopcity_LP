@@ -1083,98 +1083,12 @@
 }
 
 .cashier-redeem-card-preview {
-  position: relative;
-  box-sizing: border-box;
-  width: 100%;
-  aspect-ratio: 1.5;
-  min-height: 150px;
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid #e5e5e5;
-  border-radius: 16px;
-  background: #f7f7f7;
-}
-
-.cashier-redeem-card-preview__texture {
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.36;
-}
-
-.cashier-redeem-card-preview__brand,
-.cashier-redeem-card-preview__name,
-.cashier-redeem-card-preview__serial,
-.cashier-redeem-card-preview__status,
-.cashier-redeem-card-preview__barcode {
-  position: absolute;
-  z-index: 1;
-}
-
-.cashier-redeem-card-preview__brand {
-  top: 10px;
-  left: 12px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: #be1313;
-}
-
-.cashier-redeem-card-preview__brand span {
   display: grid;
-  gap: 1px;
-  font-size: 7px;
-  line-height: 1;
-}
-
-.cashier-redeem-card-preview__brand small {
-  font-size: 4px;
-  font-weight: 500;
-}
-
-.cashier-redeem-card-preview__name,
-.cashier-redeem-card-preview__serial {
-  left: 16px;
-  max-width: 70%;
-  overflow: hidden;
-  color: #414141;
-  font-size: 8px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cashier-redeem-card-preview__name {
-  top: 56px;
-}
-
-.cashier-redeem-card-preview__serial {
-  top: 68px;
-  color: #be1313;
-  font-weight: 700;
-}
-
-.cashier-redeem-card-preview__status {
-  top: 42px;
-  right: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 5px;
-  border-radius: 16px;
-  background: #d1fae2;
-  color: #027a48;
-  font-size: 6px;
-  line-height: 1;
-}
-
-.cashier-redeem-card-preview__barcode {
-  bottom: 12px;
-  left: 14px;
-  display: block;
-  width: 96px;
-  height: 37px;
+  width: 100%;
+  max-width: 248px;
+  justify-self: center;
+  gap: 12px;
+  margin: 0 auto;
 }
 
 .cashier-redeem-copy-status {

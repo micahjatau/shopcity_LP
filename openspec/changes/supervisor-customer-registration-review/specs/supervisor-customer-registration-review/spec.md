@@ -26,6 +26,32 @@ The Supervisor Register customer form MUST validate locally and present a review
 - **THEN** the existing create endpoint is called once with the current customer/card/consent payload, CSRF protection, and the logical idempotency key
 - **AND** the backend's atomic customer, first-card, and consent behavior is unchanged.
 
+### Requirement: Registration conflicts identify conflicting fields
+
+When customer registration conflicts with tenant data because a phone number, email, or card serial is already in use, the create endpoint MUST return a 409 error with a stable code and only the conflicting form field identifiers (`phone`, `email`, and/or `cardSerialNumber`). It MUST NOT return the existing customer's identity or stored values. The Supervisor registration form MUST associate each reported conflict with its corresponding input and explain what the operator can change. It MUST preserve the authoritative existing-customer recovery only for a reported phone conflict. Unrecognized 409 responses MUST retain generic recovery and MUST NOT be presented as a specific field conflict.
+
+#### Scenario: Duplicate phone is identified safely
+
+- **GIVEN** a submitted phone number is already registered in the tenant
+- **WHEN** customer creation returns a conflict
+- **THEN** the response identifies `phone` as conflicting without exposing the existing customer's data
+- **AND** the registration form highlights the phone field and explains that it is already registered
+- **AND** existing-customer recovery verifies any candidate by authoritative detail before offering its profile.
+
+#### Scenario: Duplicate email and card serial are identified
+
+- **GIVEN** a submitted email and/or initial card serial is already in use
+- **WHEN** customer creation returns a conflict
+- **THEN** the response identifies only the corresponding field name(s)
+- **AND** the form highlights each conflicting input without displaying another customer's information.
+
+#### Scenario: Unrecognized conflict remains generic
+
+- **GIVEN** a 409 response is not a typed customer-registration data conflict
+- **WHEN** the Supervisor sees the registration result
+- **THEN** the form does not mark any input as a duplicate
+- **AND** the existing generic recovery remains available.
+
 ### Requirement: Registration success follows confirmed creation
 
 The Supervisor MUST show success only after a successful create response includes a usable customer ID. On success, the review dialog MUST close and the result MUST provide **Register another customer** and **View customer** actions; the latter MUST navigate by the confirmed stable customer ID. Failure, conflict, or uncertain outcomes MUST NOT be described as a new successful registration, and retry behavior MUST preserve the logical idempotency key when appropriate.

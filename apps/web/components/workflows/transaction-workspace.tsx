@@ -142,7 +142,12 @@ export function TransactionWorkspace({
           : null,
       );
       if (response.status === 201) {
-        setMessage('Reversal created. Reloading transaction detail…');
+        const result = response.data as Record<string, unknown>;
+        setMessage(
+          typeof result.receiptId === 'string'
+            ? `Receipt settlement reversed: Earn ${String(result.originalEarnTransactionId)} and redemption ${String(result.originalRedemptionTransactionId)} were compensated together.`
+            : 'Reversal created. Reloading transaction detail…',
+        );
         setReverseConfirmation('');
         await loadTransaction();
         return;

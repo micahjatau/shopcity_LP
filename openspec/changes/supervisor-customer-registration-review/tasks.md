@@ -6,3 +6,4 @@
 - [x] 4. Remove the shared existing-customer preview from Manage customers and Assign card; show verified details directly, add Manage linked card navigation, and preserve assignment serial review.
 - [x] 5. Add focused Jest coverage for review/no-submit, confirm payload, edit/dismiss, failure/retry, missing-ID response, success, direct selection, and assignment gates (49 tests passed across three suites).
 - [x] 6. Validate OpenSpec, lint, typecheck, token/design checks, `git diff --check`, and affected Playwright workflows (2 passed). A production build and Supervisor route smoke passed in an isolated copy to avoid disturbing the active Next dev server. Existing changes remain unstaged.
+- [ ] 7. Return safe field identifiers for phone/email/card-serial registration conflicts; display specific accessible inline errors, retain phone-only verified recovery, and test conflict and legacy 409 paths.

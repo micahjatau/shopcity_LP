@@ -14,7 +14,7 @@ See `proposal.md` and the delta specs for product requirements. Today `Redemptio
 
 - Backfill Earn entries for historic confirmed redemptions.
 - Change the standalone Earn endpoint or offline Earn behavior.
-- Implement grouped settlement reversal; single-leg reversal will fail closed until that contract exists.
+- Include grouped settlement reversal in the original settlement implementation. That original rollout keeps the single-leg guard; the later approved grouped-reversal contract is owned by `repo-review-closure`.
 - Push or apply a migration to a shared or remote database.
 
 ## Decisions
@@ -33,7 +33,7 @@ See `proposal.md` and the delta specs for product requirements. Today `Redemptio
 
 7. **Extend the existing redemption notification compatibly.** New confirmation paths build one redemption-settlement payload with redeemed, net-paid, earned, and closing-balance amounts. The renderer accepts legacy payloads already queued before deployment and retains the prior message for those records. Do not enqueue the separate Earn-confirmed template for a settlement.
 
-8. **Guard individual reversal of paired settlement effects.** Before creating any reversal rows, detect another EARN/REDEEM effect on the same receipt. Return `REVERSAL_REVIEW_REQUIRED` and roll back the request rather than reversing one leg and leaving the other silently active. Ordinary single-effect Earn and Redeem reversals keep their existing behavior.
+8. **Initially guard individual reversal of paired settlement effects.** The original settlement implementation detects another EARN/REDEEM effect on the same receipt and returns `REVERSAL_REVIEW_REQUIRED` rather than reversing one leg. On 2026-10-17, Product/Finance approved the follow-on grouped atomic reversal contract in `openspec/changes/repo-review-closure/specs/pilot-closure/spec.md`; that contract supersedes this temporary paired-receipt guard after its implementation and verification. Ordinary single-effect Earn and Redeem reversals keep their existing behavior.
 
 ## Risks / Trade-offs
 
@@ -52,4 +52,4 @@ See `proposal.md` and the delta specs for product requirements. Today `Redemptio
 
 ## Open Questions
 
-None. Grouped reversal is intentionally deferred and the fail-closed behavior is specified.
+The original change intentionally deferred grouped reversal. The follow-on decision and acceptance criteria are now tracked by `repo-review-closure`; until that implementation is verified and released, the existing fail-closed behavior remains in effect.

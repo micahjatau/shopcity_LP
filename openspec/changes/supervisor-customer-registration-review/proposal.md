@@ -15,12 +15,13 @@ This change supersedes the completed `supervisor-customer-selection-preview` int
 - Change the Supervisor registration form action to **Review details**; perform local required-field and loyalty-consent validation without an API request.
 - Show an accessible, compact `CustomerRegistrationReviewDialog` containing only customer name, phone, email (or “Not provided”), and initial card serial, with **Edit details** and **Register customer** actions.
 - Only **Register customer** in that dialog may call the existing create endpoint. Preserve the required loyalty consent, optional marketing choice, CSRF/idempotency behavior, and atomic customer + initial-card + consent transaction.
+- When a submitted phone, email, or first-card serial conflicts with existing tenant data, return safe field identifiers in the 409 response and show the specific field-level correction in the registration form without exposing existing customer data.
 - On a verified `201` response with customer ID, close the dialog and show a success card with **Register another customer** and **View customer** linking to the stable-ID Manage customers route.
 - Remove the old shared selection-preview dialog from Manage customers and Assign card. Both routes continue to require deliberate selection and authoritative ID-matched detail loading; show the selected details/eligibility inline immediately. Preserve the assignment serial review before card creation.
 
 ## Non-goals
 
-- No API/OpenAPI/generated-client, database, consent-copy/version, RBAC, tenant-scope, card lifecycle, or idempotency-contract changes.
+- No database, consent-copy/version, RBAC, tenant-scope, card lifecycle, or idempotency-contract changes. The create endpoint may add structured conflict-field details within its existing error envelope; no customer or card data is returned.
 - No change to the customer profile/status editing controls or card-assignment eligibility rules.
 - Do not report success or consent capture unless the create response is confirmed.
 - Do not show customer/card statuses, linked-card context, card-management links, or existing-customer actions in the pre-registration review dialog.

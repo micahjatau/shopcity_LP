@@ -132,6 +132,8 @@ export class CustomersController {
         'customerId',
         'sourceErrors',
         'memberSince',
+        'transactionCount',
+        'redemptionCount',
         'pendingApprovalsCount',
         'lifetimeEarnedKobo',
         'expirySchedule',
@@ -159,6 +161,8 @@ export class CustomersController {
               'walletLedger',
               'transactions',
               'redemptions',
+              'transactionCount',
+              'redemptionCount',
               'approvals',
               'statusEvents',
               'marketingPreference',
@@ -166,6 +170,18 @@ export class CustomersController {
           },
         },
         memberSince: { type: 'string', format: 'date-time' },
+        transactionCount: {
+          type: 'integer',
+          nullable: true,
+          description:
+            'Count of all persisted tenant/customer receipt records, regardless of status; null if its count query fails.',
+        },
+        redemptionCount: {
+          type: 'integer',
+          nullable: true,
+          description:
+            'Count of all persisted tenant/customer redemption records, regardless of status; null if its count query fails.',
+        },
         pendingApprovalsCount: { type: 'integer', nullable: true },
         lifetimeEarnedKobo: { type: 'integer', nullable: true },
         expirySchedule: {

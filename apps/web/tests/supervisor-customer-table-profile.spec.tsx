@@ -98,6 +98,8 @@ describe('table-first customer workflow', () => {
                 customerId: id,
                 sourceErrors: [],
                 memberSince: '2025-01-01T00:00:00.000Z',
+                transactionCount: 0,
+                redemptionCount: 0,
                 pendingApprovalsCount: 0,
                 lifetimeEarnedKobo: 0,
                 expirySchedule: [],
@@ -154,6 +156,8 @@ describe('table-first customer workflow', () => {
                 customerId: id,
                 sourceErrors: [],
                 memberSince: '2025-01-01T00:00:00.000Z',
+                transactionCount: 0,
+                redemptionCount: 0,
                 pendingApprovalsCount: 0,
                 lifetimeEarnedKobo: 0,
                 expirySchedule: [],
@@ -708,7 +712,20 @@ describe('table-first customer workflow', () => {
     expect(
       within(detailsCard).getByText('Phone').parentElement,
     ).toHaveTextContent('+2348000000000');
-    expect(within(detailsCard).getAllByText('Not provided')).toHaveLength(3);
+    await waitFor(() =>
+      expect(
+        within(detailsCard).getAllByText('0', { exact: true }),
+      ).toHaveLength(2),
+    );
+    expect(within(detailsCard).getAllByText('Not provided')).toHaveLength(1);
+    expect(
+      within(detailsCard).getByText('Transactions', { exact: true })
+        .parentElement,
+    ).toHaveTextContent('0');
+    expect(
+      within(detailsCard).getByText('Redemptions', { exact: true })
+        .parentElement,
+    ).toHaveTextContent('0');
     expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -753,6 +770,68 @@ describe('table-first customer workflow', () => {
       ).getByText('Edited Customer'),
     ).toBeVisible();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('shows lifetime counts and marks a failed count source unavailable', async () => {
+    jest.mocked(customersControllerGetCustomerV1).mockResolvedValue({
+      status: 200,
+      data: {
+        data: {
+          id: 'profile-customer',
+          fullName: 'Ada Customer',
+          phoneE164: '+2348000000000',
+          status: 'ACTIVE',
+        },
+      },
+    } as never);
+    jest
+      .mocked(customersControllerGetCustomerProfileProjectionV1)
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          data: {
+            customerId: 'profile-customer',
+            sourceErrors: ['redemptionCount'],
+            memberSince: '2025-01-01T00:00:00.000Z',
+            transactionCount: 42,
+            redemptionCount: null,
+            pendingApprovalsCount: 0,
+            lifetimeEarnedKobo: 0,
+            expirySchedule: [],
+            expiryScheduleIsUpcomingWindow: true,
+            expiryScheduleLimit: 12,
+            recentActivity: [],
+            transactions: [],
+            redemptions: [],
+            walletLedger: [],
+            approvals: [],
+            consent: null,
+            card: null,
+          },
+        },
+      } as never);
+
+    render(
+      <SupervisorCustomerProfile
+        customerId="profile-customer"
+        returnQuery="Ada Smith"
+      />,
+    );
+    await screen.findByRole('heading', { name: 'Customer details' });
+    const detailsCard = document.querySelector<HTMLElement>(
+      '.supervisor-profile-details-card',
+    );
+    if (!detailsCard) throw new Error('Missing read-only customer details');
+    await within(detailsCard).findByText('42', { exact: true });
+
+    expect(
+      within(detailsCard).getByText('Transactions', { exact: true })
+        .parentElement,
+    ).toHaveTextContent('42');
+    expect(
+      within(detailsCard).getByText('Redemptions', { exact: true })
+        .parentElement,
+    ).toHaveTextContent('Unavailable');
   });
 
   it('requires an explicit keep/discard decision before cancelling a dirty profile edit', async () => {
@@ -1215,6 +1294,13 @@ describe('table-first customer workflow', () => {
                 confirmedAmountKobo: 1800,
                 status: 'CONFIRMED',
               },
+              {
+                id: 'redemption-pending',
+                occurredAt: '2025-02-03T00:00:00.000Z',
+                requestedAmountKobo: 700,
+                confirmedAmountKobo: null,
+                status: 'PENDING_APPROVAL',
+              },
             ],
             walletLedger: [
               {
@@ -1377,7 +1463,24 @@ describe('table-first customer workflow', () => {
       expect.any(Object),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Redemptions' }));
-    expect(screen.getByText('CONFIRMED')).toBeVisible();
+    const redemptionsTable = screen.getByRole('table', {
+      name: 'Customer redemptions',
+    });
+    for (const heading of ['Date & Time', 'Redemption amount', 'Status']) {
+      expect(
+        within(redemptionsTable).getByRole('columnheader', { name: heading }),
+      ).toBeVisible();
+    }
+    const redemptionRows = within(redemptionsTable).getAllByRole('row');
+    expect(redemptionRows).toHaveLength(3);
+    expect(redemptionRows[1]).toHaveTextContent(/18\.00/);
+    expect(redemptionRows[1]).toHaveTextContent('Confirmed');
+    expect(redemptionRows[1]).not.toHaveTextContent(/20\.00/);
+    expect(redemptionRows[2]).toHaveTextContent('Requested');
+    expect(redemptionRows[2]).toHaveTextContent(/7\.00/);
+    expect(redemptionRows[2]).toHaveTextContent('Pending Approval');
+    expect(redemptionsTable).not.toHaveTextContent('redemption-real');
+    expect(redemptionsTable).not.toHaveTextContent('redemption-pending');
     expect(
       screen.queryByRole('img', { name: /ShopCity card preview/ }),
     ).not.toBeInTheDocument();
@@ -1527,6 +1630,21 @@ describe('table-first customer workflow', () => {
         name: 'No wallet ledger entries were returned.',
       }),
     ).toHaveAttribute('colspan', '7');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Redemptions' }));
+    const redemptionsTable = screen.getByRole('table', {
+      name: 'Customer redemptions',
+    });
+    for (const heading of ['Date & Time', 'Redemption amount', 'Status']) {
+      expect(
+        within(redemptionsTable).getByRole('columnheader', { name: heading }),
+      ).toBeVisible();
+    }
+    expect(
+      await within(redemptionsTable).findByRole('cell', {
+        name: 'No redemptions were returned.',
+      }),
+    ).toHaveAttribute('colspan', '3');
 
     fireEvent.click(screen.getByRole('button', { name: 'Virtual Card' }));
     expect(screen.getByText('No assigned card was provided.')).toBeVisible();

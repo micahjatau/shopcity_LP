@@ -630,7 +630,12 @@ export function SupervisorTransactionsDashboard() {
       setReversalSubmitted(true);
       setReason('');
       setConfirmation('');
-      setReversalMessage('Reversal confirmed by the transaction service.');
+      const reversalData = response.data.data as Record<string, unknown>;
+      setReversalMessage(
+        typeof reversalData.receiptId === 'string'
+          ? `Receipt settlement reversed together: Earn ${String(reversalData.originalEarnTransactionId)} and redemption ${String(reversalData.originalRedemptionTransactionId)}.`
+          : 'Reversal confirmed by the transaction service.',
+      );
       reversalKeyRef.current = null;
       const generation = detailGeneration.current;
       void loyaltyControllerGetTransactionV1(

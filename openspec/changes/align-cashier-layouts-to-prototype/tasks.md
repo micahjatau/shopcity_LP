@@ -83,6 +83,7 @@
 - [x] 6.7 Match Redeem Find customer and journey bar to Capture Purchase; remove the redundant customer-confirmation stage after exact card verification and make basket subtotal the next stage. Redeem now reuses `VerifiedCardLookupStep` with `captureLayout` and the Capture progress-step variant, then opens basket subtotal directly after active-card verification.
 - [x] 6.8 Recompose Redeem basket, redemption amount, confirmation, and success/approval states to the supplied Figma frames with responsive, accessible layout and server-confirmed values only. Redeem-local card preview, policy breakdown, review/submit, backend-driven success/pending receipt, and responsive styles are covered by five route snapshots and focused browser/Jest tests.
 - [x] 6.9 Preserve existing policy limits, integer-kobo handling, idempotency, approval, offline/error, and exact-card gating. Do not simulate Figma's OTP/demo/resend behavior without a backend OTP contract; record the intentional deviation and add regression tests. The current API has no OTP issuance/verification/resend contract; the UI uses an explicit authoritative review-and-confirm step and leaves pending approvals visibly pending.
+- [ ] 6.10 Reuse the Capture Purchase virtual-card preview artwork in the Redeem Basket subtotal stage with verified customer/card identity and status outside the artwork; keep the shared component and redemption behavior unchanged.
 
 ## 7. Adapt Transactions and detail dialog
 

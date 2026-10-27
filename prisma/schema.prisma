@@ -203,55 +203,55 @@ enum FraudSubjectType {
 }
 
 model Tenant {
-  id                     String                  @id @default(uuid())
-  name                   String
-  status                 TenantStatus            @default(ACTIVE)
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  branches               Branch[]
-  devices                Device[]
-  users                  User[]
-  customers              Customer[]
-  customerConsents       CustomerConsent[]
+  id                                String                             @id @default(uuid())
+  name                              String
+  status                            TenantStatus                       @default(ACTIVE)
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime                           @updatedAt
+  branches                          Branch[]
+  devices                           Device[]
+  users                             User[]
+  customers                         Customer[]
+  customerConsents                  CustomerConsent[]
   customerMarketingPreferenceEvents CustomerMarketingPreferenceEvent[]
-  cards                  Card[]
-  receipts               Receipt[]
-  ledgerEntries          LoyaltyLedgerEntry[]
-  creditLots             CreditLot[]
-  creditExpiries         CreditExpiry[]
-  creditExpiryReminders  CreditExpiryReminder[]
-  redemptions            Redemption[]
-  redemptionAllocations  RedemptionAllocation[]
-  allocationRestorations AllocationRestoration[]
-  adjustments            Adjustment[]
-  approvals              Approval[]
-  outboxEvents           OutboxEvent[]
-  smsMessages            SmsMessage[]
-  idempotencyRecords     IdempotencyRecord[]
-  auditLogs              AuditLog[]
-  deviceAttestations     DeviceAttestation[]
-  offlineSyncAttempts    OfflineSyncAttempt[]
-  fraudFlags             FraudFlag[]
-  policyConfigurations   PolicyConfiguration[]
+  cards                             Card[]
+  receipts                          Receipt[]
+  ledgerEntries                     LoyaltyLedgerEntry[]
+  creditLots                        CreditLot[]
+  creditExpiries                    CreditExpiry[]
+  creditExpiryReminders             CreditExpiryReminder[]
+  redemptions                       Redemption[]
+  redemptionAllocations             RedemptionAllocation[]
+  allocationRestorations            AllocationRestoration[]
+  adjustments                       Adjustment[]
+  approvals                         Approval[]
+  outboxEvents                      OutboxEvent[]
+  smsMessages                       SmsMessage[]
+  idempotencyRecords                IdempotencyRecord[]
+  auditLogs                         AuditLog[]
+  deviceAttestations                DeviceAttestation[]
+  offlineSyncAttempts               OfflineSyncAttempt[]
+  fraudFlags                        FraudFlag[]
+  policyConfigurations              PolicyConfiguration[]
 }
 
 model Branch {
-  id                  String               @id @default(uuid())
-  tenantId            String
-  name                String
-  timezone            String               @default("Africa/Lagos")
-  receiptWeekStartDay Int                  @default(1)
-  status              BranchStatus         @default(ACTIVE)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  devices             Device[]
-  users               User[]
-  customers           Customer[]
+  id                                String                             @id @default(uuid())
+  tenantId                          String
+  name                              String
+  timezone                          String                             @default("Africa/Lagos")
+  receiptWeekStartDay               Int                                @default(1)
+  status                            BranchStatus                       @default(ACTIVE)
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime                           @updatedAt
+  tenant                            Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  devices                           Device[]
+  users                             User[]
+  customers                         Customer[]
   customerMarketingPreferenceEvents CustomerMarketingPreferenceEvent[]
-  receipts            Receipt[]
-  redemptions         Redemption[]
-  policyConfiguration PolicyConfiguration?
+  receipts                          Receipt[]
+  redemptions                       Redemption[]
+  policyConfiguration               PolicyConfiguration?
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -289,34 +289,34 @@ model Device {
 }
 
 model User {
-  id                   String                      @id @default(uuid())
-  tenantId             String
-  branchId             String?
-  username             String
-  supabaseAuthId       String?                     @unique
-  role                 UserRole
-  status               UserStatus                  @default(ACTIVE)
-  lastLoginAt          DateTime?
-  createdAt            DateTime                    @default(now())
-  updatedAt            DateTime                    @updatedAt
-  tenant               Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch               Branch?                     @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  sessions             Session[]
-  enrollmentChallenges DeviceEnrollmentChallenge[]
-  cashierLoginAttempts CashierLoginAttempt[]
-  registeredCustomers  Customer[]                  @relation("CustomerRegisteredBy")
-  customerConsents     CustomerConsent[]           @relation("CustomerConsentCapturedBy")
+  id                                String                             @id @default(uuid())
+  tenantId                          String
+  branchId                          String?
+  username                          String
+  supabaseAuthId                    String?                            @unique
+  role                              UserRole
+  status                            UserStatus                         @default(ACTIVE)
+  lastLoginAt                       DateTime?
+  createdAt                         DateTime                           @default(now())
+  updatedAt                         DateTime                           @updatedAt
+  tenant                            Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                            Branch?                            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  sessions                          Session[]
+  enrollmentChallenges              DeviceEnrollmentChallenge[]
+  cashierLoginAttempts              CashierLoginAttempt[]
+  registeredCustomers               Customer[]                         @relation("CustomerRegisteredBy")
+  customerConsents                  CustomerConsent[]                  @relation("CustomerConsentCapturedBy")
   customerMarketingPreferenceEvents CustomerMarketingPreferenceEvent[] @relation("CustomerMarketingPreferenceCapturedBy")
-  cardsIssued          Card[]                      @relation("CardIssuedBy")
-  receiptsCaptured     Receipt[]                   @relation("ReceiptCapturedBy")
-  receiptsReviewed     Receipt[]                   @relation("ReceiptReviewedBy")
-  receiptsApproved     Receipt[]                   @relation("ReceiptApprovedBy")
-  approvalsRequested   Approval[]                  @relation("ApprovalRequestedBy")
-  approvalsDecided     Approval[]                  @relation("ApprovalDecisionBy")
-  ledgerEntriesCreated LoyaltyLedgerEntry[]        @relation("LoyaltyLedgerEntryCreatedBy")
-  redemptionsRequested Redemption[]                @relation("RedemptionRequestedBy")
-  adjustmentsCreated   Adjustment[]                @relation("AdjustmentCreatedBy")
-  auditLogs            AuditLog[]
+  cardsIssued                       Card[]                             @relation("CardIssuedBy")
+  receiptsCaptured                  Receipt[]                          @relation("ReceiptCapturedBy")
+  receiptsReviewed                  Receipt[]                          @relation("ReceiptReviewedBy")
+  receiptsApproved                  Receipt[]                          @relation("ReceiptApprovedBy")
+  approvalsRequested                Approval[]                         @relation("ApprovalRequestedBy")
+  approvalsDecided                  Approval[]                         @relation("ApprovalDecisionBy")
+  ledgerEntriesCreated              LoyaltyLedgerEntry[]               @relation("LoyaltyLedgerEntryCreatedBy")
+  redemptionsRequested              Redemption[]                       @relation("RedemptionRequestedBy")
+  adjustmentsCreated                Adjustment[]                       @relation("AdjustmentCreatedBy")
+  auditLogs                         AuditLog[]
 
   @@unique([tenantId, username])
   @@unique([tenantId, id])
@@ -453,31 +453,31 @@ model DeviceAttestation {
 }
 
 model Customer {
-  id                    String                 @id @default(uuid())
-  tenantId              String
-  branchId              String
-  fullName              String
-  email                 String?
-  phoneE164             String
-  isStaff               Boolean                @default(false)
-  status                CustomerStatus         @default(ACTIVE)
-  registeredBy          String?
-  registeredByTenantId  String?
-  blockedAt             DateTime?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  branch                Branch                 @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  registeredByUser      User?                  @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
-  cards                 Card[]
-  receipts              Receipt[]
-  ledgerEntries         LoyaltyLedgerEntry[]
-  creditLots            CreditLot[]
-  creditExpiries        CreditExpiry[]
-  creditExpiryReminders CreditExpiryReminder[]
-  redemptions           Redemption[]
-  adjustments           Adjustment[]
-  consents              CustomerConsent[]
+  id                        String                             @id @default(uuid())
+  tenantId                  String
+  branchId                  String
+  fullName                  String
+  email                     String?
+  phoneE164                 String
+  isStaff                   Boolean                            @default(false)
+  status                    CustomerStatus                     @default(ACTIVE)
+  registeredBy              String?
+  registeredByTenantId      String?
+  blockedAt                 DateTime?
+  createdAt                 DateTime                           @default(now())
+  updatedAt                 DateTime                           @updatedAt
+  tenant                    Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch                    Branch                             @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  registeredByUser          User?                              @relation("CustomerRegisteredBy", fields: [registeredByTenantId, registeredBy], references: [tenantId, id], onDelete: SetNull)
+  cards                     Card[]
+  receipts                  Receipt[]
+  ledgerEntries             LoyaltyLedgerEntry[]
+  creditLots                CreditLot[]
+  creditExpiries            CreditExpiry[]
+  creditExpiryReminders     CreditExpiryReminder[]
+  redemptions               Redemption[]
+  adjustments               Adjustment[]
+  consents                  CustomerConsent[]
   marketingPreferenceEvents CustomerMarketingPreferenceEvent[]
 
   @@unique([tenantId, phoneE164])

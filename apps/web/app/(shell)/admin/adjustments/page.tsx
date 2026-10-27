@@ -1,13 +1,18 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   adjustmentsControllerCreateV1,
   customersControllerGetCustomerV1,
 } from '../../../../lib/api/generated-client';
 import { createApiRequest } from '../../../../lib/api/request';
+import {
+  ADJUSTMENT_IDENTITY_FAILURE_MESSAGE,
+  clearAdjustmentOperationIdentity,
+  getAdjustmentOperationIdentity,
+} from '../../../../lib/adjustment-operation';
 import {
   Alert,
   Button,
@@ -16,7 +21,11 @@ import {
   Table,
   Textarea,
 } from '../../../../components/ui';
-import { Money, StatusBadge } from '../../../../components/shopcity';
+import {
+  Money,
+  MoneyInput,
+  StatusBadge,
+} from '../../../../components/shopcity';
 
 const routeLinks = [
   ['/admin/users', 'Users'],
@@ -28,10 +37,11 @@ const routeLinks = [
 
 export default function AdminAdjustmentsPage() {
   const [customerId, setCustomerId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amountKobo, setAmountKobo] = useState<number | null>(null);
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [kind, setKind] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
+  const submissionInFlight = useRef(false);
   const [customerRecord, setCustomerRecord] = useState<{
     fullName?: string;
     balanceKobo?: number;
@@ -45,8 +55,6 @@ export default function AdminAdjustmentsPage() {
     string,
     unknown
   > | null>(null);
-  const amountKobo = Number(amount);
-
   useEffect(() => {
     let ignore = false;
 
@@ -82,7 +90,7 @@ export default function AdminAdjustmentsPage() {
   }, [customerId]);
 
   const preview = useMemo(() => {
-    if (!Number.isFinite(amountKobo) || amountKobo <= 0) return null;
+    if (amountKobo === null || amountKobo <= 0) return null;
     const currentBalanceKobo =
       customerRecord?.balanceKobo ??
       customerRecord?.availableBalanceKobo ??
@@ -133,7 +141,8 @@ export default function AdminAdjustmentsPage() {
   );
 
   async function submit() {
-    if (!customerId.trim() || !Number.isFinite(amountKobo) || amountKobo <= 0) {
+    if (submissionInFlight.current) return;
+    if (!customerId.trim() || amountKobo === null || amountKobo <= 0) {
       setMessage('Enter a customer ID and positive amount first.');
       return;
     }
@@ -142,17 +151,22 @@ export default function AdminAdjustmentsPage() {
       return;
     }
 
+    const payload = {
+      customerId: customerId.trim(),
+      amountKobo,
+      reason: reason.trim(),
+      kind,
+    };
+    submissionInFlight.current = true;
     try {
       setActionMessage('Submitting adjustment…');
+      const identity = await getAdjustmentOperationIdentity(payload);
       const response = await adjustmentsControllerCreateV1(
-        {
-          customerId: customerId.trim(),
-          amountKobo: amountKobo,
-          reason: reason.trim(),
-          kind,
-          effectiveAt: new Date().toISOString(),
-        },
-        createApiRequest({ csrf: true, idempotencyKey: crypto.randomUUID() }),
+        { ...payload, effectiveAt: identity.effectiveAt },
+        createApiRequest({
+          csrf: true,
+          idempotencyKey: identity.idempotencyKey,
+        }),
       );
       setActionResponse(
         response.data && typeof response.data === 'object'
@@ -165,10 +179,19 @@ export default function AdminAdjustmentsPage() {
           : `Adjustment unavailable (${response.status}).`,
       );
       if (response.status === 201) {
+        await clearAdjustmentOperationIdentity(payload, identity);
         setConfirmation('');
       }
-    } catch {
-      setMessage('Adjustment unavailable.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error &&
+          error.message === ADJUSTMENT_IDENTITY_FAILURE_MESSAGE
+          ? ADJUSTMENT_IDENTITY_FAILURE_MESSAGE
+          : 'Adjustment outcome is uncertain. Retry the unchanged draft to avoid creating a second adjustment.',
+      );
+    } finally {
+      submissionInFlight.current = false;
+      setActionMessage('');
     }
   }
 
@@ -218,11 +241,11 @@ export default function AdminAdjustmentsPage() {
             value={customerId}
             onChange={(e) => setCustomerId(e.target.value)}
           />
-          <Input
+          <MoneyInput
             aria-label="Amount"
-            placeholder="Amount in kobo"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Amount in naira"
+            valueKobo={amountKobo}
+            onValueChange={setAmountKobo}
           />
         </div>
         <RadioGroup

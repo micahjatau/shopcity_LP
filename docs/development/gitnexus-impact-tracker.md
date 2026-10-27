@@ -89,6 +89,123 @@ gitnexus impact AppShellContent --file apps/web/components/app-shell.tsx --repo 
 gitnexus impact SupervisorOperationalReports --file apps/web/components/workflows/supervisor-operational-reports.tsx --repo shopcity_LP --direction upstream --include-tests
 ```
 
+### 2026-10-20 — POS pairing Preview-only origin allowlist
+
+GitNexus was refreshed at commit `29ceddc` before impact analysis. Upstream results were exact and LOW risk: `BranchesService.assertDeviceTokenBrowserOrigin` has 2 direct callers (pair and reset) in the Branches module; `BranchesController.pairDeviceToken` and `envValidationSchema` each have 0 upstream dependants. No affected processes, modules beyond Branches, or HIGH/CRITICAL findings were reported. Implementation adds a separate pair-only assertion and leaves the reset assertion and global CORS allowlist unchanged.
+
+```text
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/modules/branches/branches.service.ts --kind Method assertDeviceTokenBrowserOrigin --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/modules/branches/branches.controller.ts --kind Method pairDeviceToken --direction upstream
+node .gitnexus/run.cjs impact --repo shopcity_LP --file src/config/env.validation.ts envValidationSchema --direction upstream
+```
+
+### 2026-10-18 — Staff-authentication simplification proposal (pre-draft impact)
+
+GitNexus index status was up-to-date at HEAD `9ae97bc` (indexed 2026-10-17 16:12 UTC). Proposal-time upstream findings, including tests:
+
+| Symbol                                                         |   Risk | Impacted | Direct | Affected processes/modules                                               |
+| -------------------------------------------------------------- | -----: | -------: | -----: | ------------------------------------------------------------------------ |
+| `AuthController.login` (`src/modules/auth/auth.controller.ts`) |    LOW |        1 |      1 | none reported                                                            |
+| `AuthService.login` (`src/modules/auth/auth.service.ts`)       |    LOW |        4 |      4 | none reported                                                            |
+| `LoginForm` (`apps/web/components/auth/login-form.tsx`)        |    LOW |        1 |      1 | none reported                                                            |
+| `proxyRequest` (`apps/web/app/api/v1/[...path]/route.ts`)      | MEDIUM |        7 |      7 | none reported; direct callers are GET/POST/PUT/PATCH/DELETE/OPTIONS/HEAD |
+
+The `proxyRequest` MEDIUM result is the broadest surface because a BFF credential/forwarding change can affect every API method; the proposed change must preserve or explicitly test unaffected proxy behavior. No HIGH/CRITICAL symbol-level result was reported, but authentication/origin trust remains security-critical. These are graph results at indexed HEAD; the checkout is dirty and dirty-file changes may not be represented. No application implementation changes are authorized by this proposal alone.
+
+```text
+npm run proposal:impact -- --file src/modules/auth/auth.controller.ts login
+npm run proposal:impact -- --uid 'Method:src/modules/auth/auth.service.ts:AuthService.login#5'
+npm run proposal:impact -- --file apps/web/components/auth/login-form.tsx LoginForm
+npm run proposal:impact -- --file 'apps/web/app/api/v1/[...path]/route.ts' proxyRequest
+```
+
+### 2026-10-19 — Staff-auth deployment-validation lint follow-up
+
+Before narrowing deployment identity values in `envValidationSchema`, direct upstream impact returned `epistemic: exact`, LOW risk, 0 impacted symbols, callers, processes, or modules:
+
+```text
+node scripts/gitnexus.cjs impact envValidationSchema --file src/config/env.validation.ts --repo shopcity_LP --direction upstream --include-tests --summary-only
+```
+
+The follow-up uses string-only environment reads and reuses the normalized Vercel environment for preview-enrollment validation. This is a configuration-validation fix only; it is not deployment or runtime acceptance.
+
+### 2026-10-18 — PostgreSQL serialization retry and grouped-reversal acceptance
+
+Before changing `isTransactionConflict`, GitNexus returned an exact upstream impact of LOW risk, 4 impacted symbols, 1 direct caller (`runReverseTransaction`), 1 depth-2 dependant (`ReversalsService.reverse`), and 2 depth-3 dependants (`ReversalsService.reverse` spec file and `ReversalsController.reverse`). No affected process or module was reported. The fix is limited to recognizing Prisma raw-query SQLSTATE `40001` (including metadata) as a transaction conflict; retry count/transaction structure and ledger behavior are unchanged. `LotAllocationService` was not modified.
+
+The test-only helpers `expectSingleGroupedReversal` and `groupedSettlementSnapshot` were not found in the index (UNKNOWN, zero indexed impact); they are newly added local integration-spec helpers. The disposable Testcontainers reversal suite passed all 10 tests, including distinct-key concurrency with one `TRANSACTION_ALREADY_REVERSED` loser and exact grouped ledger/outbox assertions. Independent review found no remaining issues after one outbox-assertion coverage note was addressed.
+
+### 2026-10-18 — Grouped reversal review follow-up (pre-fix impact limitation)
+
+Independent review blocked acceptance on completed-history validation and missing grouped-reversal tests. `npm run gitnexus:analyze` was attempted after the first implementation but failed because the local FTS index is inconsistent (`document for node offset 2098 is missing during delete`); the index was not cleaned or rebuilt to preserve local artifacts. Existing-symbol impact queries still returned LOW for `ReversalsService.reverse` (3 impacted, 2 direct) and `runReverseTransaction` (4 impacted, 1 direct) against that index; the newly added `reversePairedSettlement` symbol returned UNKNOWN/not found. These are limited/stale results, not a full current blast-radius assessment. No HIGH/CRITICAL result was available. Record this limitation and re-run impact after the index is repaired with authorization.
+
+### 2026-10-17 — Approved grouped settlement reversal (pre-edit impact)
+
+Product/Finance approved atomic grouped reversal. Before editing, refreshed GitNexus impacts are LOW/exact for `ReversalsService.reverse` (3 impacted, 2 direct, Reversals module), `runReverseTransaction` (4 impacted, 1 direct, Reversals module), `ReversalsController.reverse` (1 direct), `reverseTransaction` (`AdminTransactionsPage` process; 3 impacted, 1 direct, Workflows module), and `submitReversal` (0). The existing `LotAllocationService` is MEDIUM with 52 impacted symbols/11 direct; the planned implementation reuses its existing allocation/restoration methods and must not edit this shared service without renewed impact review.
+
+GitNexus query found the existing reversal guard in `ReversalsService.reverse`, settlement source in `executeRedemptionSettlement`, and receipt-level reversal consumers. The change is limited to grouped reversal, API response, and the two existing reversal UI flows; no schema migration or general lot allocator change is planned. Re-run impact on any additional symbols discovered during implementation.
+
+### 2026-10-17 — Refreshed impact and full working-tree change detection
+
+The GitNexus index was refreshed with `npm run gitnexus:analyze` and then reported up-to-date at commit `9ae97bc`. Refreshed upstream impacts were LOW/exact for `AdminAdjustmentsPage` (0), `AdminPoliciesPage` (0), `LoginForm` (0), `CustomerRegistrationReviewDialog` (0), `SupervisorCustomerWorkflows` (0), `getAdjustmentOperationIdentity` (0), `clearAdjustmentOperationIdentity` (0), `formatBasisPointsAsPercent` (0), `parsePercentAsBasisPoints` (0), and `metadata` (0; exact UID `Const:apps/web/app/layout.tsx:metadata`). `registerZapFriendlyUtilityRoutes` is LOW/exact with 6 impacted symbols, 1 direct dependant, and 2 affected modules (`Api`, `Errors`). These are post-change graph checks, not pre-edit impact evidence.
+
+`node scripts/gitnexus.cjs detect-changes --scope all --repo shopcity_LP` reports **CRITICAL** for the complete unstaged tracked working tree: 20 files, 47 symbols, and 19 affected processes. The scope includes both the closure implementation and pre-existing dirty work; no files were staged or committed. This broad result is a final review gate, not a claim that an isolated closure slice has critical product risk. Preserve all unrelated work and do not treat this as a clean exact-candidate or staged-scope result.
+
+### 2026-10-17 — Registration consent-choice review preview
+
+| Symbol                             | Risk | Impacted | Direct | Processes | Notes                                                                                                      |
+| ---------------------------------- | ---: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------- |
+| `CustomerRegistrationReviewDialog` |  LOW |        3 |      1 |         1 | Exact pre-edit result supplied by scout; affected process: `SupervisorCustomersPage`, module: `Workflows`. |
+| `SupervisorCustomerWorkflows`      |  LOW |        1 |      1 |         1 | Exact pre-edit result supplied by scout; affected process/module: `Workflows`.                             |
+
+No HIGH/CRITICAL risk was reported. The GitNexus index is stale at `ed97bfd` versus HEAD `9ae97bc`; current callers may not be fully represented. The display-only preview passes through the existing form values and makes no changes to consent semantics, API payload, versions, or wording approval.
+
+### 2026-10-17 — Admin financial-unit presentation
+
+```text
+node .gitnexus/run.cjs impact AdminAdjustmentsPage --file 'apps/web/app/(shell)/admin/adjustments/page.tsx' --kind Function --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact AdminPoliciesPage --file 'apps/web/app/(shell)/admin/policies/page.tsx' --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+The index reports stale coverage (indexed revision `ed97bfd`, HEAD `9ae97bc`); results may miss current callers.
+
+| Symbol                 | Risk | Impacted | Direct | Processes | Notes                                                                             |
+| ---------------------- | ---: | -------: | -----: | --------: | --------------------------------------------------------------------------------- |
+| `AdminAdjustmentsPage` |  LOW |        0 |      0 |         0 | Exact upstream result from stale index; presentation-only update at amount input. |
+| `AdminPoliciesPage`    |  LOW |        0 |      0 |         0 | Exact upstream result from stale index; presentation-only policy inputs.          |
+
+No HIGH/CRITICAL risk was reported.
+
+### 2026-10-17 — Repo review closure: internal-app crawler hygiene
+
+```text
+node .gitnexus/run.cjs impact metadata --file apps/web/app/layout.tsx --kind Variable --repo shopcity_LP --direction upstream --summary-only
+node .gitnexus/run.cjs impact registerZapFriendlyUtilityRoutes --file src/bootstrap.ts --kind Function --repo shopcity_LP --direction upstream --summary-only
+```
+
+The index was stale at `ed97bfd` versus HEAD `9ae97bc`; these results reflect the existing index and are not proof of complete graph coverage.
+
+| Symbol                                                  | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                      |
+| ------------------------------------------------------- | ---: | -------: | -----: | --------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata` (`apps/web/app/layout.tsx`)                  |  LOW |        0 |      0 |         0 | Exact upstream result from stale index; adds root-level noindex/nofollow metadata.                                                                                         |
+| `registerZapFriendlyUtilityRoutes` (`src/bootstrap.ts`) |  LOW |        6 |      1 |         0 | Exact upstream result from stale index; affected modules: Api (3 indirect hits), Errors (1 direct hit). `/robots.txt` changes from empty Disallow to global `Disallow: /`. |
+
+No HIGH/CRITICAL risk was reported by these queries. The change is crawler hygiene only and is not an access-control boundary.
+
+### 2026-10-17 — Repo review closure: adjustment retry identity
+
+```text
+npm run proposal:impact -- --file 'apps/web/app/(shell)/admin/adjustments/page.tsx' AdminAdjustmentsPage
+```
+
+| Symbol                                           | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------ | ---: | -------: | -----: | --------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AdminAdjustmentsPage`                           |  LOW |        0 |      0 |         0 | Immediate pre-edit rerun: `node .gitnexus/run.cjs impact AdminAdjustmentsPage --file 'apps/web/app/(shell)/admin/adjustments/page.tsx' --kind Function --repo shopcity_LP --direction upstream --summary-only`; output `epistemic: exact`, `impactedCount: 0`, `direct: 0`, `processes_affected: 0`, `modules_affected: 0`. Index remains stale at indexed revision `ed97bfd` versus HEAD `9ae97bc`; graph completeness is limited. Change confined to the admin adjustment route, focused UI tests, and this task evidence. |
+| `createAdjustment` (`AdjustmentsService`)        |  LOW |        2 |      2 |         0 | Exact upstream result provided at handoff; affected module: Adjustments. Test-only service-spec coverage exercises existing replay, payload conflict, and expiration behavior; production service is unchanged.                                                                                                                                                                                                                                                                                                              |
+| `createService` (adjustment service-spec helper) |  LOW |        0 |      0 |         0 | Exact upstream result provided at handoff; test fixture-only change.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+No HIGH/CRITICAL risk was reported. The GitNexus index is stale at `ed97bfd` versus HEAD `9ae97bc`; impact results should be read with that caveat.
+
 ### 2026-10-13 — Keep Supervisor report snapshots current on quiet days
 
 | Symbol                                  | Risk | Impacted | Direct | Processes | Notes                                                                                                                                                                              |
@@ -1829,6 +1946,63 @@ npm run proposal:impact -- --file src/jobs/sms.provider.ts mapArkeselSmsResponse
 ```
 
 No HIGH/CRITICAL result was reported. The POS cookie/lifecycle changes remain scoped to DEVICE_TOKEN; fraud status/severity/branch filters use the existing scoped API and cursor pagination; Arkesel's uncertain accepted send is not automatically retried. Existing unrelated dirty/untracked checkout content is preserved.
+
+### 2026-10-17 — Login operational copy cleanup
+
+```text
+GitNexus impact: LoginForm, direction upstream
+```
+
+The index was stale at `ed97bfd` versus HEAD `9ae97bc`; results reflect the existing index and may miss current callers.
+
+| Symbol      | Risk | Impacted | Direct | Processes | Notes                                                                                                                                         |
+| ----------- | ---: | -------: | -----: | --------: | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LoginForm` |  LOW |        1 |      1 |         1 | Exact reported result: one direct caller (`LoginPage`), one affected process, one module. Copy-only change; login/auth behavior is unchanged. |
+
+No HIGH/CRITICAL risk was reported.
+
+### 2026-10-17 — Adjustment retry identity survives reload
+
+GitNexus was stale at `ed97bfd` versus HEAD `9ae97bc` when impact was checked before edits. Exact `AdminAdjustmentsPage` upstream impact was LOW with 0 upstream dependants; exact `getAdjustmentOperationIdentity` was not found and returned UNKNOWN. No HIGH/CRITICAL result was reported. The implementation and tests remain constrained to adjustment browser retry identity; backend service semantics are unchanged.
+
+### 2026-10-17 — Durable adjustment retry record validation
+
+| Symbol                        |    Risk | Impacted | Direct | Processes | Notes                                                                                             |
+| ----------------------------- | ------: | -------: | -----: | --------: | ------------------------------------------------------------------------------------------------- |
+| `isStoredAdjustmentOperation` | UNKNOWN |        — |      — |         — | Not indexed. Exact GitNexus impact was reported UNKNOWN/not indexed before edits; index is stale. |
+| `parseStoredOperations`       | UNKNOWN |        — |      — |         — | Not indexed. Exact GitNexus impact was reported UNKNOWN/not indexed before edits; index is stale. |
+
+The parser now rejects malformed digest/key/timestamp records and duplicate digests or keys before lookup. No other production symbols were modified.
+
+### 2026-10-18 — Apply approved staff-authentication and BFF changes
+
+| Symbol                                |          Risk | Impacted | Direct | Processes | Notes                                                                                                     |
+| ------------------------------------- | ------------: | -------: | -----: | --------: | --------------------------------------------------------------------------------------------------------- |
+| `AuthService.login`                   |    LOW, exact |        4 |      4 |         0 | Controller and focused/integration callers; role-neutral flow and token-only pilot gate.                  |
+| `AuthService.loginWithDeviceToken`    |    LOW, exact |        5 |      1 |         0 | Direct caller `login`; four additional test/integration dependants; derive device from token credential.  |
+| `AuthService.assertPublicLoginOrigin` |    LOW, exact |        2 |      2 |         0 | Auth controller and service spec; deployed BFF identity is required, local fallback remains exact-origin. |
+| `AuthService.completeCashierLogin`    |    LOW, exact |        3 |      2 |         0 | Controller and WebAuthn provisioning integration caller plus service spec; pilot policy rejects WebAuthn. |
+| `AuthController.completeCashierLogin` |    LOW, exact |        1 |      1 |         0 | Direct auth service spec; now validates origin/BFF identity before completion.                            |
+| `LoginForm`                           |    LOW, exact |        1 |      1 |         0 | Direct login-form spec; no role or device locator is sent by default.                                     |
+| `proxyRequest`                        | MEDIUM, exact |        7 |      7 |         0 | All HTTP-method handlers; auth-only origin gate and server-only BFF identity.                             |
+| `envValidationSchema`                 |    LOW, exact |        0 |      0 |         0 | Exact symbol had no indexed upstream callers; module consumers are not represented in the graph.          |
+
+```text
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/auth/auth.service.ts --include-tests login
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/auth/auth.service.ts --include-tests loginWithDeviceToken
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/auth/auth.service.ts --include-tests assertPublicLoginOrigin
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/auth/auth.service.ts --include-tests completeCashierLogin
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/modules/auth/auth.controller.ts --include-tests completeCashierLogin
+node scripts/gitnexus.cjs impact -r shopcity_LP --file apps/web/components/auth/login-form.tsx --include-tests LoginForm
+node scripts/gitnexus.cjs impact -r shopcity_LP --file 'apps/web/app/api/v1/[...path]/route.ts' --include-tests proxyRequest
+node scripts/gitnexus.cjs impact -r shopcity_LP --file src/config/env.validation.ts --include-tests envValidationSchema
+```
+
+No HIGH/CRITICAL result was reported. `proxyRequest` remains MEDIUM because the shared handler feeds seven HTTP methods; proxy-level tests cover cookie transport and client-supplied identity replacement. This is an auth/security-sensitive change despite LOW graph counts. The index is based on the recorded HEAD and does not include all dirty worktree changes; no staging or commit occurred.
+
+### 2026-10-20 — Registration conflict field feedback
+
+Before refining `supervisor-customer-registration-review`, `npm run proposal:impact -- --file src/modules/customers/customers.service.ts createCustomer` and direct GitNexus upstream analysis were run. `CustomersService.createCustomer` impact was LOW/exact, 3 direct dependants (the controller and two integration specs), and no indexed process/module. `confirmRegistration` was LOW/exact with no indexed upstream dependants. No HIGH/CRITICAL result was reported. The index may not include the current dirty working-tree changes. The change is limited to typed conflict metadata and the Supervisor registration form; it must not expose existing customer data.
 
 ### 2026-10-20 — Cashier primary-action gradient
 

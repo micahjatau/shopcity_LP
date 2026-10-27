@@ -346,14 +346,20 @@
   align-items: center;
   justify-content: flex-end;
   width: 100%;
+  min-width: 0;
 }
 
 .shell-topbar-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
+}
+
+.shell-topbar-actions > * {
+  flex: 0 0 auto;
 }
 
 .shell-system-status {
@@ -450,6 +456,8 @@
 
 .global-shell-search {
   position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
   width: min(calc(var(--sc-prototype-sharedSearchMaxWidth) + 220px), 58vw);
   z-index: 4;
 }

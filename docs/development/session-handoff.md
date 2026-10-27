@@ -1,8 +1,8 @@
 # ShopCity LP Session Handoff
 
-Updated: 2026-10-14
+Updated: 2026-10-21
 
-Latest session: [SMS Providers and WebAuthn / Device Attestation KEK handoff](session-handoff-2026-10-14-sms-webauthn-kek.md).
+Latest session: [Customer Profile Credit Movements](session-handoff-2026-10-21-customer-profile-credit-movements.md).
 
 ## Previous session — Cashier customer workflow (2026-10-13)
 
