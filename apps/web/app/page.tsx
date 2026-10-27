@@ -96,9 +96,9 @@ export default function HomePage() {
           <h2 id="about-title">Everyday shopping, with a little extra.</h2>
         </div>
         <p>
-          We are a supermarket serving customers in Jos, Plateau State.
-          Our in-store loyalty program is for people who shop with us,
-          not a software service sold to other retailers.
+          ShopCity Designers Global Supermarket Ltd serves shoppers in Jos,
+          Plateau State. Alongside everyday essentials, we offer an in-store
+          loyalty program for customers to earn and use rewards on eligible purchases.
         </p>
       </section>
 
