@@ -713,9 +713,13 @@ export function SupervisorTransactionsDashboard() {
             aria-label="Refresh transactions"
             title="Refresh transactions"
           >
-            <span className="supervisor-transaction-refresh-content">
-              <RefreshCw aria-hidden="true" size={14} />
-              <span>{listState === 'loading' ? 'Refreshing' : 'Refresh'}</span>
+            <span className="supervisor-transaction-refresh-content-shell">
+              <span className="supervisor-transaction-refresh-content">
+                <RefreshCw aria-hidden="true" size={14} />
+                <span>
+                  {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+                </span>
+              </span>
             </span>
           </button>
         }

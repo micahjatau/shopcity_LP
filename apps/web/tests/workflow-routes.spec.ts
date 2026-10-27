@@ -4265,10 +4265,9 @@ test.describe('workflow route coverage', () => {
           }),
         );
       for (const button of buttonRhythm) {
-        expect(
-          ['flex', 'inline-flex', 'inline-block', 'grid'],
-          button.className,
-        ).toContain(button.display);
+        expect(['flex', 'inline-flex', 'grid'], button.className).toContain(
+          button.display,
+        );
         if (button.hasIconAndLabel) {
           expect(button.whiteSpace, button.className).toBe('nowrap');
         }

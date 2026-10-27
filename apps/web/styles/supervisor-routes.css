@@ -1184,11 +1184,11 @@
 }
 
 .supervisor-transaction-refresh {
-  display: inline-block;
+  display: flex;
   min-height: 40px;
+  align-items: center;
+  justify-content: center;
   padding: 0 12px;
-  text-align: center;
-  vertical-align: middle;
   border: 1px solid #ded9da;
   border-radius: 999px;
   background: #f6f4f5;
@@ -1200,8 +1200,12 @@
   cursor: pointer;
 }
 
+.supervisor-transaction-refresh-content-shell {
+  display: block;
+}
+
 .supervisor-page .supervisor-transaction-refresh-content {
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   line-height: normal;
   vertical-align: middle;
