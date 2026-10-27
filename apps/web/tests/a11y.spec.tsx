@@ -280,19 +280,27 @@ describe('frontend accessibility gates', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps cashier, supervisor and admin shells accessible', async () => {
+  it('renders the public homepage and keeps operational shells accessible', async () => {
+    const { unmount } = render(<HomePage />);
+
+    expect(
+      screen.getByRole('heading', {
+        name: /reward loyal customers\. grow repeat sales\./i,
+        level: 1,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
+    expect(await runAxe(document.body)).toHaveLength(0);
+    unmount();
+
     render(
       <main>
-        <HomePage />
         <CashierPage />
         <SupervisorPage />
         <AdminPage />
       </main>,
     );
 
-    expect(
-      screen.getByRole('heading', { name: /cashier shell/i, level: 2 }),
-    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Hi, Supervisor!', level: 1 }),
     ).toBeInTheDocument();
