@@ -22,7 +22,8 @@ const features = [
   },
   {
     title: 'Easy redemption',
-    description: 'Make it simple for customers to use their rewards at checkout.',
+    description:
+      'Make it simple for customers to use their rewards at checkout.',
   },
   {
     title: 'Business dashboard',
@@ -35,12 +36,20 @@ export default function HomePage() {
     <main className="public-site">
       <header className="public-header">
         <Link href="/" className="public-brand" aria-label="ShopCity home">
-          <Image src="/brand/shopcity-lockup-on-red.svg" alt="ShopCity" width={150} height={42} priority />
+          <Image
+            src="/brand/shopcity-lockup-on-red.svg"
+            alt="ShopCity"
+            width={150}
+            height={42}
+            priority
+          />
         </Link>
         <nav aria-label="Main navigation" className="public-nav">
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
-          <Link href="/login" className="public-nav-cta">Sign in</Link>
+          <Link href="/login" className="public-nav-cta">
+            Sign in
+          </Link>
         </nav>
       </header>
 
@@ -49,28 +58,47 @@ export default function HomePage() {
           <p className="public-kicker">Customer loyalty for local businesses</p>
           <h1 id="hero-title">Reward loyal customers. Grow repeat sales.</h1>
           <p className="public-lede">
-            ShopCity helps businesses run digital loyalty programs so customers can earn and redeem rewards with ease.
+            ShopCity helps businesses run digital loyalty programs so customers
+            can earn and redeem rewards with ease.
           </p>
           <div className="public-actions">
-            <a className="public-button" href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}>
+            <a
+              className="public-button"
+              href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}
+            >
               Request a demo
             </a>
-            <a className="public-text-link" href={`mailto:${email}`}>Contact us</a>
+            <a className="public-text-link" href={`mailto:${email}`}>
+              Contact us
+            </a>
           </div>
         </div>
         <div className="public-hero-art" aria-hidden="true">
-          <Image src="/brand/shopcity-card.svg" alt="" width={380} height={300} priority />
-          <span className="public-art-note">Every purchase deserves a reward.</span>
+          <Image
+            src="/brand/shopcity-card.svg"
+            alt=""
+            width={380}
+            height={300}
+            priority
+          />
+          <span className="public-art-note">
+            Every purchase deserves a reward.
+          </span>
         </div>
       </section>
 
-      <section className="public-about" id="about" aria-labelledby="about-title">
+      <section
+        className="public-about"
+        id="about"
+        aria-labelledby="about-title"
+      >
         <div>
           <p className="public-kicker">For merchants</p>
           <h2 id="about-title">Build stronger customer relationships.</h2>
         </div>
         <p>
-          ShopCity makes it easier for retailers to reward loyal customers, manage redemptions, and encourage people to come back.
+          ShopCity makes it easier for retailers to reward loyal customers,
+          manage redemptions, and encourage people to come back.
         </p>
       </section>
 
@@ -84,11 +112,18 @@ export default function HomePage() {
         ))}
       </section>
 
-      <section className="public-contact" id="contact" aria-labelledby="contact-title">
+      <section
+        className="public-contact"
+        id="contact"
+        aria-labelledby="contact-title"
+      >
         <div>
           <p className="public-kicker">ShopCity</p>
           <h2 id="contact-title">Let’s talk about rewarding your customers.</h2>
-          <a className="public-button public-button-light" href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}>
+          <a
+            className="public-button public-button-light"
+            href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}
+          >
             Request a demo
           </a>
         </div>
@@ -104,7 +139,9 @@ export default function HomePage() {
         <span>{businessName}</span>
         <a href={`mailto:${email}`}>{email}</a>
         <span>{address}</span>
-        <small>© {new Date().getFullYear()} ShopCity. All rights reserved.</small>
+        <small>
+          © {new Date().getFullYear()} ShopCity. All rights reserved.
+        </small>
       </footer>
     </main>
   );
