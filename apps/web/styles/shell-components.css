@@ -472,15 +472,16 @@
 
 @media (min-width: 621px) and (max-width: 920px) {
   .global-shell-search .global-shell-search__row {
+    display: grid;
     width: 100%;
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .global-shell-search .global-shell-search__control,
   .global-shell-search .global-shell-search__categories {
     box-sizing: border-box;
-    flex: 0 1 100%;
     min-width: 0;
+    width: 100%;
   }
 }
 

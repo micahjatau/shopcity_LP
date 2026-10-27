@@ -1200,7 +1200,7 @@
 }
 
 .supervisor-page .supervisor-transaction-refresh-content {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
   gap: 7px;
