@@ -285,7 +285,7 @@ describe('frontend accessibility gates', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /reward loyal customers\. grow repeat sales\./i,
+        name: /shop your favourites\. get rewarded for coming back\./i,
         level: 1,
       }),
     ).toBeInTheDocument();

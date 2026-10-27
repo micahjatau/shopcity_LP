@@ -18,15 +18,18 @@ const phone = '08033255495';
 const features = [
   {
     title: 'Shop in-store',
-    description: 'Visit ShopCity for groceries, household goods and everyday essentials.',
+    description:
+      'Visit ShopCity for groceries, household goods and everyday essentials.',
   },
   {
     title: 'Earn loyalty rewards',
-    description: 'Eligible purchases can earn rewards for registered ShopCity customers.',
+    description:
+      'Eligible purchases can earn rewards for registered ShopCity customers.',
   },
   {
     title: 'Redeem at checkout',
-    description: 'Use available rewards when shopping with us, subject to program terms.',
+    description:
+      'Use available rewards when shopping with us, subject to program terms.',
   },
 ];
 
@@ -55,16 +58,15 @@ export default function HomePage() {
       <section className="public-hero" aria-labelledby="hero-title">
         <div className="public-hero-copy">
           <p className="public-kicker">Your local supermarket in Jos</p>
-          <h1 id="hero-title">Shop your favourites. Get rewarded for coming back.</h1>
+          <h1 id="hero-title">
+            Shop your favourites. Get rewarded for coming back.
+          </h1>
           <p className="public-lede">
             Welcome to ShopCity Supermarket in Jos. Shop for your everyday
             essentials and enjoy loyalty rewards on eligible in-store purchases.
           </p>
           <div className="public-actions">
-            <a
-              className="public-button"
-              href="#contact"
-            >
+            <a className="public-button" href="#contact">
               Find our store
             </a>
             <a className="public-text-link" href="#rewards">
@@ -80,9 +82,7 @@ export default function HomePage() {
             height={300}
             priority
           />
-          <span className="public-art-note">
-            Shop. Earn. Redeem.
-          </span>
+          <span className="public-art-note">Shop. Earn. Redeem.</span>
         </div>
       </section>
 
@@ -98,11 +98,16 @@ export default function HomePage() {
         <p>
           ShopCity Designers Global Supermarket Ltd serves shoppers in Jos,
           Plateau State. Alongside everyday essentials, we offer an in-store
-          loyalty program for customers to earn and use rewards on eligible purchases.
+          loyalty program for customers to earn and use rewards on eligible
+          purchases.
         </p>
       </section>
 
-      <section className="public-features" id="rewards" aria-label="Shopping and loyalty rewards">
+      <section
+        className="public-features"
+        id="rewards"
+        aria-label="Shopping and loyalty rewards"
+      >
         {features.map((feature, index) => (
           <article className="public-feature" key={feature.title}>
             <span className="public-feature-number">0{index + 1}</span>
