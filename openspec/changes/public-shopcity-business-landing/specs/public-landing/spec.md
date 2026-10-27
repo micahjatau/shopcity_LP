@@ -1,6 +1,6 @@
 # Public business landing page
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Present public ShopCity business information
 
