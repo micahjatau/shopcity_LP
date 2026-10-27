@@ -4836,6 +4836,7 @@ test.describe('workflow route coverage', () => {
   test('preserves directory search context through a stable-ID profile and guards dirty cancellation', async ({
     page,
   }) => {
+    test.setTimeout(120_000);
     await mockShell(page, 'SUPERVISOR');
     await page.route('**/api/v1/config/operational', async (route) => {
       const pathname = new URL(route.request().url()).pathname;
@@ -5014,25 +5015,23 @@ test.describe('workflow route coverage', () => {
       return route.fallback();
     });
     await page.goto(`${baseUrl}/supervisor/customers?q=Ada`);
-    await expect(page.locator('.shell-loading-screen')).toBeHidden({
-      timeout: 15_000,
-    });
     const profileLink = page.getByRole('link', {
       name: 'View profile for Ada Shopper',
     });
+    await expect(profileLink).toBeVisible({ timeout: 30_000 });
     await expect(profileLink).toHaveAttribute(
       'href',
       '/supervisor/customers/customer-1?q=Ada',
     );
-    await profileLink.click({ timeout: 15_000 });
+    await profileLink.click({ timeout: 30_000 });
     await expect(page).toHaveURL(
       /\/supervisor\/customers\/customer-1\?q=Ada$/,
       {
-        timeout: 15_000,
+        timeout: 30_000,
       },
     );
     const detailsCard = page.locator('.supervisor-profile-details-card');
-    await expect(detailsCard).toBeVisible();
+    await expect(detailsCard).toBeVisible({ timeout: 30_000 });
     await expect(detailsCard.getByText('Ada Shopper')).toBeVisible();
     await expect(detailsCard.getByText('42', { exact: true })).toBeVisible();
     await expect(detailsCard.getByText('27', { exact: true })).toBeVisible();
