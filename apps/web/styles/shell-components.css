@@ -472,7 +472,14 @@
 
 @media (min-width: 621px) and (max-width: 920px) {
   .global-shell-search__row {
+    width: 100%;
     flex-wrap: wrap;
+  }
+
+  .global-shell-search__control,
+  .global-shell-search__categories {
+    flex-basis: 100%;
+    min-width: 0;
   }
 }
 

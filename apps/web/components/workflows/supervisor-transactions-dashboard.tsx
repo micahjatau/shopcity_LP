@@ -701,7 +701,7 @@ export function SupervisorTransactionsDashboard() {
         description="Review branch transactions and filter by receipt number."
         actions={
           <button
-            className="supervisor-overview__refresh"
+            className="supervisor-transaction-refresh"
             type="button"
             onClick={refreshResults}
             disabled={
@@ -710,11 +710,13 @@ export function SupervisorTransactionsDashboard() {
               searching ||
               filtersDirty
             }
-            aria-label="Refresh"
-            title="Refresh"
+            aria-label="Refresh transactions"
+            title="Refresh transactions"
           >
-            <RefreshCw aria-hidden="true" size={14} />
-            {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+            <span className="supervisor-transaction-refresh-content">
+              <RefreshCw aria-hidden="true" size={14} />
+              {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+            </span>
           </button>
         }
       />

@@ -1118,6 +1118,7 @@
 .supervisor-overview__action:focus-visible,
 .supervisor-overview__review:focus-visible,
 .supervisor-overview__refresh:focus-visible,
+.supervisor-transaction-refresh:focus-visible,
 .supervisor-overview__pagination-button:focus-visible,
 .supervisor-overview__search:focus-within {
   outline: 3px solid color-mix(in srgb, #c9151c 35%, transparent);
@@ -1178,6 +1179,39 @@
 }
 
 .supervisor-overview__refresh:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.supervisor-transaction-refresh {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #ded9da;
+  border-radius: 999px;
+  background: #f6f4f5;
+  color: #4a4a4a;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.supervisor-transaction-refresh-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.supervisor-transaction-refresh:hover:not(:disabled) {
+  border-color: #c9151c;
+  color: #9e1015;
+}
+
+.supervisor-transaction-refresh:disabled {
   cursor: wait;
   opacity: 0.7;
 }

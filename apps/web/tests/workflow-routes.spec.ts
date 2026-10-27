@@ -797,7 +797,7 @@ test.describe('workflow route coverage', () => {
         ).toContainText('Available Credit');
         await expect(
           page.getByRole('img', {
-            name: /ShopCity virtual card for Ada Shopper/,
+            name: /ShopCity card preview for Ada Shopper/,
           }),
         ).toBeVisible();
         const backButton = page.getByRole('button', { name: 'Back' });
