@@ -1,132 +1,111 @@
+import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
-import { WorkflowSection } from '../components/workflows';
 
-type RouteHref = '/' | '/login' | '/cashier' | '/supervisor' | '/admin';
+export const metadata: Metadata = {
+  title: 'ShopCity | Customer loyalty for businesses',
+  description:
+    'ShopCity helps businesses reward loyal customers, manage redemptions, and grow repeat sales.',
+  robots: { index: true, follow: true },
+};
 
-const roleCards: Array<{
-  href: RouteHref;
-  label: string;
-  description: string;
-}> = [
+const businessName = 'ShopCity Designers Global Supermarket Ltd';
+const address =
+  'No. 35, Yakubu Gowon Way, Jos, Plateau State, opposite Obasanjo Model School, Nigeria.';
+const email = 'dcshopcity@gmail.com';
+const phone = '08033255495';
+
+const features = [
   {
-    href: '/cashier',
-    label: 'Cashier shell',
-    description: 'Fast lookup, earn, redeem and sync entry points.',
+    title: 'Loyalty rewards',
+    description: 'Reward customers when they shop at your business.',
   },
   {
-    href: '/supervisor',
-    label: 'Supervisor shell',
-    description: 'Review approvals, fraud, reports and customer operations.',
+    title: 'Easy redemption',
+    description: 'Make it simple for customers to use their rewards at checkout.',
   },
   {
-    href: '/admin',
-    label: 'Admin shell',
-    description: 'Audit, devices and operational control surfaces.',
+    title: 'Business dashboard',
+    description: 'Manage customer activity and store rewards in one place.',
   },
 ];
 
 export default function HomePage() {
   return (
-    <section style={{ display: 'grid', gap: 'var(--sc-spacing-6)' }}>
-      <WorkflowSection
-        title="Frontend design-system scaffold"
-        description="ShopCity tokens, brand assets and route shells are wired for the first implementation pass."
-      >
-        <div
-          style={{
-            display: 'grid',
-            gap: 'var(--sc-spacing-4)',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          }}
-        >
-          <article style={cardStyle}>
-            <strong>Cashier-first</strong>
-            <p style={muted}>Fast earn, redeem and sync flows.</p>
-          </article>
-          <article style={cardStyle}>
-            <strong>Supervisor-ready</strong>
-            <p style={muted}>Approvals, fraud and report surfaces.</p>
-          </article>
-          <article style={cardStyle}>
-            <strong>Admin operations</strong>
-            <p style={muted}>Audit, devices and pilot health.</p>
-          </article>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--sc-spacing-3)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Link href="/login" style={linkButton}>
-            Open login
-          </Link>
-          <Link href="/cashier" style={linkButtonSecondary}>
-            View cashier shell
-          </Link>
-        </div>
-      </WorkflowSection>
+    <main className="public-site">
+      <header className="public-header">
+        <Link href="/" className="public-brand" aria-label="ShopCity home">
+          <Image src="/brand/shopcity-lockup-on-red.svg" alt="ShopCity" width={150} height={42} priority />
+        </Link>
+        <nav aria-label="Main navigation" className="public-nav">
+          <a href="#about">About</a>
+          <a href="#contact">Contact</a>
+          <Link href="/login" className="public-nav-cta">Sign in</Link>
+        </nav>
+      </header>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--sc-spacing-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        }}
-      >
-        {roleCards.map((card) => (
-          <article key={card.href} style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>{card.label}</h2>
-            <p style={{ color: 'var(--sc-color-semantic-textSecondary)' }}>
-              {card.description}
-            </p>
-            <Link
-              href={card.href}
-              style={{ color: 'var(--sc-color-brand-600)', fontWeight: 600 }}
-            >
-              View route →
-            </Link>
+      <section className="public-hero" aria-labelledby="hero-title">
+        <div className="public-hero-copy">
+          <p className="public-kicker">Customer loyalty for local businesses</p>
+          <h1 id="hero-title">Reward loyal customers. Grow repeat sales.</h1>
+          <p className="public-lede">
+            ShopCity helps businesses run digital loyalty programs so customers can earn and redeem rewards with ease.
+          </p>
+          <div className="public-actions">
+            <a className="public-button" href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}>
+              Request a demo
+            </a>
+            <a className="public-text-link" href={`mailto:${email}`}>Contact us</a>
+          </div>
+        </div>
+        <div className="public-hero-art" aria-hidden="true">
+          <Image src="/brand/shopcity-card.svg" alt="" width={380} height={300} priority />
+          <span className="public-art-note">Every purchase deserves a reward.</span>
+        </div>
+      </section>
+
+      <section className="public-about" id="about" aria-labelledby="about-title">
+        <div>
+          <p className="public-kicker">For merchants</p>
+          <h2 id="about-title">Build stronger customer relationships.</h2>
+        </div>
+        <p>
+          ShopCity makes it easier for retailers to reward loyal customers, manage redemptions, and encourage people to come back.
+        </p>
+      </section>
+
+      <section className="public-features" aria-label="ShopCity features">
+        {features.map((feature, index) => (
+          <article className="public-feature" key={feature.title}>
+            <span className="public-feature-number">0{index + 1}</span>
+            <h3>{feature.title}</h3>
+            <p>{feature.description}</p>
           </article>
         ))}
-      </div>
-    </section>
+      </section>
+
+      <section className="public-contact" id="contact" aria-labelledby="contact-title">
+        <div>
+          <p className="public-kicker">ShopCity</p>
+          <h2 id="contact-title">Let’s talk about rewarding your customers.</h2>
+          <a className="public-button public-button-light" href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}>
+            Request a demo
+          </a>
+        </div>
+        <address>
+          <strong>{businessName}</strong>
+          <a href={`mailto:${email}`}>{email}</a>
+          <a href={`tel:${phone.replaceAll(' ', '')}`}>{phone}</a>
+          <span>{address}</span>
+        </address>
+      </section>
+
+      <footer className="public-footer">
+        <span>{businessName}</span>
+        <a href={`mailto:${email}`}>{email}</a>
+        <span>{address}</span>
+        <small>© {new Date().getFullYear()} ShopCity. All rights reserved.</small>
+      </footer>
+    </main>
   );
 }
-
-const cardStyle = {
-  borderRadius: 'var(--sc-radius-lg)',
-  padding: 'var(--sc-spacing-5)',
-  background: 'var(--sc-color-neutral-0)',
-  boxShadow: 'var(--sc-shadow-level1)',
-  border: '1px solid var(--sc-color-semantic-border)',
-};
-
-const muted = {
-  color: 'var(--sc-color-semantic-textSecondary)',
-};
-
-const linkButton = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 'var(--sc-size-controlPos)',
-  padding: '0 var(--sc-spacing-5)',
-  borderRadius: 'var(--sc-radius-full)',
-  background: 'var(--sc-color-semantic-actionPrimary)',
-  color: 'var(--sc-color-semantic-actionPrimaryText)',
-  fontWeight: 600,
-};
-
-const linkButtonSecondary = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 'var(--sc-size-controlPos)',
-  padding: '0 var(--sc-spacing-5)',
-  borderRadius: 'var(--sc-radius-full)',
-  background: 'var(--sc-color-neutral-0)',
-  color: 'var(--sc-color-semantic-textPrimary)',
-  border: '1px solid var(--sc-color-semantic-border)',
-  fontWeight: 600,
-};

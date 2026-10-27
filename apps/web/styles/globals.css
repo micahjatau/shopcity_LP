@@ -7,6 +7,7 @@
 @import './supervisor-routes.css';
 @import './supervisor-reports.css';
 @import './shell-components.css';
+@import './public-site.css';
 
 /* Keep semantic labels available to assistive technology without consuming layout space. */
 .sr-only {
