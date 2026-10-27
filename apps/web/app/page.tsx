@@ -3,9 +3,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'ShopCity | Customer loyalty for businesses',
+  title: 'ShopCity Supermarket | Shop and Earn Rewards',
   description:
-    'ShopCity helps businesses reward loyal customers, manage redemptions, and grow repeat sales.',
+    'Shop at ShopCity Supermarket in Jos, Plateau State, and enjoy loyalty rewards on eligible purchases.',
   robots: { index: true, follow: true },
 };
 
@@ -17,17 +17,19 @@ const phone = '08033255495';
 
 const features = [
   {
-    title: 'Loyalty rewards',
-    description: 'Reward customers when they shop at your business.',
-  },
-  {
-    title: 'Easy redemption',
+    title: 'Shop in-store',
     description:
-      'Make it simple for customers to use their rewards at checkout.',
+      'Visit ShopCity for groceries, household goods and everyday essentials.',
   },
   {
-    title: 'Business dashboard',
-    description: 'Manage customer activity and store rewards in one place.',
+    title: 'Earn loyalty rewards',
+    description:
+      'Eligible purchases can earn rewards for registered ShopCity customers.',
+  },
+  {
+    title: 'Redeem at checkout',
+    description:
+      'Use available rewards when shopping with us, subject to program terms.',
   },
 ];
 
@@ -37,10 +39,10 @@ export default function HomePage() {
       <header className="public-header">
         <Link href="/" className="public-brand" aria-label="ShopCity home">
           <Image
-            src="/brand/shopcity-lockup-on-red.svg"
-            alt="ShopCity"
-            width={150}
-            height={42}
+            src="/brand/Frame%202147224881.svg"
+            alt="ShopCity Supermarket logo"
+            width={177}
+            height={46}
             priority
           />
         </Link>
@@ -48,28 +50,27 @@ export default function HomePage() {
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
           <Link href="/login" className="public-nav-cta">
-            Sign in
+            Staff sign in
           </Link>
         </nav>
       </header>
 
       <section className="public-hero" aria-labelledby="hero-title">
         <div className="public-hero-copy">
-          <p className="public-kicker">Customer loyalty for local businesses</p>
-          <h1 id="hero-title">Reward loyal customers. Grow repeat sales.</h1>
+          <p className="public-kicker">Your local supermarket in Jos</p>
+          <h1 id="hero-title">
+            Shop your favourites. Get rewarded for coming back.
+          </h1>
           <p className="public-lede">
-            ShopCity helps businesses run digital loyalty programs so customers
-            can earn and redeem rewards with ease.
+            Welcome to ShopCity Supermarket in Jos. Shop for your everyday
+            essentials and enjoy loyalty rewards on eligible in-store purchases.
           </p>
           <div className="public-actions">
-            <a
-              className="public-button"
-              href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}
-            >
-              Request a demo
+            <a className="public-button" href="#contact">
+              Find our store
             </a>
-            <a className="public-text-link" href={`mailto:${email}`}>
-              Contact us
+            <a className="public-text-link" href="#rewards">
+              How rewards work
             </a>
           </div>
         </div>
@@ -81,9 +82,7 @@ export default function HomePage() {
             height={300}
             priority
           />
-          <span className="public-art-note">
-            Every purchase deserves a reward.
-          </span>
+          <span className="public-art-note">Shop. Earn. Redeem.</span>
         </div>
       </section>
 
@@ -93,16 +92,22 @@ export default function HomePage() {
         aria-labelledby="about-title"
       >
         <div>
-          <p className="public-kicker">For merchants</p>
-          <h2 id="about-title">Build stronger customer relationships.</h2>
+          <p className="public-kicker">Our supermarket</p>
+          <h2 id="about-title">Everyday shopping, with a little extra.</h2>
         </div>
         <p>
-          ShopCity makes it easier for retailers to reward loyal customers,
-          manage redemptions, and encourage people to come back.
+          ShopCity Designers Global Supermarket Ltd serves shoppers in Jos,
+          Plateau State. Alongside everyday essentials, we offer an in-store
+          loyalty program for customers to earn and use rewards on eligible
+          purchases.
         </p>
       </section>
 
-      <section className="public-features" aria-label="ShopCity features">
+      <section
+        className="public-features"
+        id="rewards"
+        aria-label="Shopping and loyalty rewards"
+      >
         {features.map((feature, index) => (
           <article className="public-feature" key={feature.title}>
             <span className="public-feature-number">0{index + 1}</span>
@@ -119,12 +124,12 @@ export default function HomePage() {
       >
         <div>
           <p className="public-kicker">ShopCity</p>
-          <h2 id="contact-title">Let’s talk about rewarding your customers.</h2>
+          <h2 id="contact-title">Come shop with us in Jos.</h2>
           <a
             className="public-button public-button-light"
-            href={`mailto:${email}?subject=${encodeURIComponent('ShopCity demo request')}`}
+            href={'tel:' + phone}
           >
-            Request a demo
+            Call the store
           </a>
         </div>
         <address>
