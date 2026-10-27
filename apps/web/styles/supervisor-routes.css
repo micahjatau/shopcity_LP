@@ -1195,10 +1195,11 @@
   color: #4a4a4a;
   font: inherit;
   font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.supervisor-transaction-refresh-content {
+.supervisor-page .supervisor-transaction-refresh-content {
   display: inline-flex;
   align-items: center;
   justify-content: center;
