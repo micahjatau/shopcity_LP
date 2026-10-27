@@ -58,7 +58,6 @@ export default function HomePage() {
 
       <section className="public-hero" aria-labelledby="hero-title">
         <div className="public-hero-copy">
-          <p className="public-kicker">Your local supermarket in Jos</p>
           <h1 id="hero-title">
             Shop your favourites. Get rewarded for coming back.
           </h1>
@@ -123,7 +122,13 @@ export default function HomePage() {
         aria-labelledby="contact-title"
       >
         <div>
-          <p className="public-kicker">ShopCity</p>
+          <Image
+            src="/brand/Frame%202147224881.svg"
+            alt="ShopCity Supermarket logo"
+            width={177}
+            height={46}
+            className="public-contact-logo"
+          />
           <h2 id="contact-title">Come shop with us in Jos.</h2>
           <a
             className="public-button public-button-light"

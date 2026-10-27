@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as axe from 'axe-core';
 import HomePage from '../app/page';
@@ -295,7 +295,13 @@ describe('frontend accessibility gates', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByAltText('ShopCity Supermarket logo'),
+      screen.queryByText(/Your local supermarket in Jos/i),
+    ).not.toBeInTheDocument();
+    const contactSection = screen.getByRole('region', {
+      name: /Come shop with us in Jos/i,
+    });
+    expect(
+      within(contactSection).getByAltText('ShopCity Supermarket logo'),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/No\. 35, Yakubu Gowon Way/)).toHaveLength(1);
     expect(screen.getByText(/All rights reserved/i)).toBeInTheDocument();

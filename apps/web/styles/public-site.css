@@ -206,8 +206,13 @@
   background: var(--public-navy);
   color: #fff;
 }
-.public-contact .public-kicker {
-  color: #f4a2a5;
+.public-contact-logo {
+  display: block;
+  width: 150px;
+  height: 42px;
+  margin-bottom: 22px;
+  object-fit: contain;
+  object-position: left center;
 }
 .public-contact h2 {
   margin-bottom: 25px;
